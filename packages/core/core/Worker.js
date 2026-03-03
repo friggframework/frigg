@@ -1,13 +1,26 @@
-const {
-    SQSClient,
-    GetQueueUrlCommand,
-    SendMessageCommand,
-} = require('@aws-sdk/client-sqs');
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
 
-const sqs = new SQSClient({ region: process.env.AWS_REGION });
+// AWS SQS SDK is lazy-loaded to avoid pulling in @aws-sdk/client-sqs
+// on non-AWS platforms. The singleton client is created on first use.
+let _sqsModule = null;
+let _sqs = null;
+
+function getSqsModule() {
+    if (!_sqsModule) {
+        _sqsModule = require('@aws-sdk/client-sqs');
+    }
+    return _sqsModule;
+}
+
+function getSqs() {
+    if (!_sqs) {
+        const { SQSClient } = getSqsModule();
+        _sqs = new SQSClient({ region: process.env.AWS_REGION });
+    }
+    return _sqs;
+}
 
 class Worker {
     async getQueueURL(params) {
@@ -15,8 +28,9 @@ class Worker {
         // let params = {
         //     QueueName:  process.env.QueueName
         // };
+        const { GetQueueUrlCommand } = getSqsModule();
         const command = new GetQueueUrlCommand(params);
-        const data = await sqs.send(command);
+        const data = await getSqs().send(command);
         return data.QueueUrl;
     }
 
@@ -51,8 +65,9 @@ class Worker {
     }
 
     async sendAsyncSQSMessage(params) {
+        const { SendMessageCommand } = getSqsModule();
         const command = new SendMessageCommand(params);
-        const data = await sqs.send(command);
+        const data = await getSqs().send(command);
         return data.MessageId;
     }
 

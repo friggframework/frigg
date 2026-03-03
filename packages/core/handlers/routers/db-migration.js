@@ -21,9 +21,10 @@
 const { Router } = require('express');
 const catchAsyncError = require('express-async-handler');
 const { validateAdminApiKey } = require('../middleware/admin-auth');
-const {
-    MigrationStatusRepositoryS3,
-} = require('../../database/repositories/migration-status-repository-s3');
+// Lazy-loaded from provider-aws to avoid pulling in @aws-sdk/client-s3 on non-AWS platforms
+function getMigrationStatusRepositoryS3() {
+    return require('@friggframework/provider-aws').MigrationStatusRepositoryS3;
+}
 const {
     TriggerDatabaseMigrationUseCase,
     ValidationError: TriggerValidationError,
@@ -33,39 +34,61 @@ const {
     ValidationError: GetValidationError,
     NotFoundError,
 } = require('../../database/use-cases/get-migration-status-use-case');
-const { LambdaInvoker } = require('../../database/adapters/lambda-invoker');
+// Lazy-loaded from provider-aws to avoid pulling in @aws-sdk/client-lambda on non-AWS platforms
+function getLambdaInvoker() {
+    return require('@friggframework/provider-aws').LambdaInvoker;
+}
 const {
     GetDatabaseStateViaWorkerUseCase,
 } = require('../../database/use-cases/get-database-state-via-worker-use-case');
 
 const router = Router();
 
-// Dependency injection
-// Use S3 repository to avoid User table dependency (chicken-and-egg problem)
-const bucketName =
-    process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
-const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
+// Dependency injection — lazy-initialized on first request to avoid
+// pulling in AWS SDKs at module load time on non-AWS platforms.
+let _migrationStatusRepository = null;
+let _triggerMigrationUseCase = null;
+let _getStatusUseCase = null;
+let _lambdaInvoker = null;
 
-const triggerMigrationUseCase = new TriggerDatabaseMigrationUseCase({
-    migrationStatusRepository,
-    // Note: QueuerUtil is used directly in the use case (static utility)
-});
-const getStatusUseCase = new GetMigrationStatusUseCase({
-    migrationStatusRepository,
-});
-
-// Lambda invocation for database state check (keeps router lightweight)
-const lambdaInvoker = new LambdaInvoker();
-const workerFunctionName =
-    process.env.WORKER_FUNCTION_NAME ||
-    `${process.env.SERVICE || 'unknown'}-${
-        process.env.STAGE || 'production'
-    }-dbMigrationWorker`;
-
-const getDatabaseStateUseCase = new GetDatabaseStateViaWorkerUseCase({
-    lambdaInvoker,
-    workerFunctionName,
-});
+function getMigrationDeps() {
+    if (!_migrationStatusRepository) {
+        const MigrationStatusRepositoryS3 = getMigrationStatusRepositoryS3();
+        const bucketName =
+            process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
+        _migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
+        _triggerMigrationUseCase = new TriggerDatabaseMigrationUseCase({
+            migrationStatusRepository: _migrationStatusRepository,
+        });
+        _getStatusUseCase = new GetMigrationStatusUseCase({
+            migrationStatusRepository: _migrationStatusRepository,
+        });
+        const LambdaInvoker = getLambdaInvoker();
+        _lambdaInvoker = new LambdaInvoker();
+    }
+    return {
+        migrationStatusRepository: _migrationStatusRepository,
+        triggerMigrationUseCase: _triggerMigrationUseCase,
+        getStatusUseCase: _getStatusUseCase,
+        lambdaInvoker: _lambdaInvoker,
+    };
+}
+let _getDatabaseStateUseCase = null;
+function getDatabaseStateUseCaseInstance() {
+    if (!_getDatabaseStateUseCase) {
+        const { lambdaInvoker } = getMigrationDeps();
+        const workerFunctionName =
+            process.env.WORKER_FUNCTION_NAME ||
+            `${process.env.SERVICE || 'unknown'}-${
+                process.env.STAGE || 'production'
+            }-dbMigrationWorker`;
+        _getDatabaseStateUseCase = new GetDatabaseStateViaWorkerUseCase({
+            lambdaInvoker,
+            workerFunctionName,
+        });
+    }
+    return _getDatabaseStateUseCase;
+}
 
 // Apply admin API key validation to all routes (shared middleware)
 router.use(validateAdminApiKey);
@@ -106,7 +129,7 @@ router.post(
         );
 
         try {
-            const result = await triggerMigrationUseCase.execute({
+            const result = await getMigrationDeps().triggerMigrationUseCase.execute({
                 userId,
                 dbType,
                 stage,
@@ -158,7 +181,7 @@ router.get(
 
         try {
             // Invoke worker Lambda to check database state
-            const status = await getDatabaseStateUseCase.execute(stage);
+            const status = await getDatabaseStateUseCaseInstance().execute(stage);
 
             res.status(200).json(status);
         } catch (error) {
@@ -210,7 +233,7 @@ router.get(
         );
 
         try {
-            const status = await getStatusUseCase.execute(migrationId, stage);
+            const status = await getMigrationDeps().getStatusUseCase.execute(migrationId, stage);
 
             res.status(200).json(status);
         } catch (error) {

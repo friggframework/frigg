@@ -10,7 +10,7 @@ const {
     SendMessageCommand,
     SendMessageBatchCommand,
 } = require('@aws-sdk/client-sqs');
-const { QueueProvider } = require('../queue-provider');
+const { QueueProvider } = require('@friggframework/core/queues/queue-provider');
 
 const awsConfigOptions = () => {
     const config = {};

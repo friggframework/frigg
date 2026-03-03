@@ -7,20 +7,10 @@
  */
 
 describe('scheduler barrel (index.js)', () => {
-    let originalModules;
-
     beforeEach(() => {
-        // Snapshot loaded modules before each test
-        originalModules = new Set(Object.keys(require.cache));
-    });
-
-    afterEach(() => {
-        // Clean up any modules loaded during the test
-        for (const key of Object.keys(require.cache)) {
-            if (!originalModules.has(key)) {
-                delete require.cache[key];
-            }
-        }
+        // Reset all module caches between tests to ensure full isolation.
+        // Manual require.cache cleanup is fragile with workspace symlinks.
+        jest.resetModules();
     });
 
     it('does not eagerly require @aws-sdk/client-scheduler', () => {

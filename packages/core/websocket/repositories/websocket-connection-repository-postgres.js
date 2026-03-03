@@ -1,8 +1,12 @@
 const { prisma } = require('../../database/prisma');
-const {
-    ApiGatewayManagementApiClient,
-    PostToConnectionCommand,
-} = require('@aws-sdk/client-apigatewaymanagementapi');
+// AWS API Gateway SDK is lazy-loaded to avoid pulling in the SDK on non-AWS platforms.
+let _apigwModule = null;
+function getApigwModule() {
+    if (!_apigwModule) {
+        _apigwModule = require('@aws-sdk/client-apigatewaymanagementapi');
+    }
+    return _apigwModule;
+}
 const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
@@ -112,12 +116,12 @@ class WebsocketConnectionRepositoryPostgres extends WebsocketConnectionRepositor
                 connectionId: conn.connectionId,
                 send: async (data) => {
                     const apigwManagementApi =
-                        new ApiGatewayManagementApiClient({
+                        new (getApigwModule().ApiGatewayManagementApiClient)({
                             endpoint: process.env.WEBSOCKET_API_ENDPOINT,
                         });
 
                     try {
-                        const command = new PostToConnectionCommand({
+                        const command = new (getApigwModule().PostToConnectionCommand)({
                             ConnectionId: conn.connectionId,
                             Data: JSON.stringify(data),
                         });

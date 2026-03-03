@@ -1,9 +1,16 @@
 const { v4: uuid } = require('uuid');
-const {
-    SQSClient,
-    SendMessageCommand,
-    SendMessageBatchCommand,
-} = require('@aws-sdk/client-sqs');
+
+// AWS SQS SDK is lazy-loaded to avoid pulling in @aws-sdk/client-sqs
+// on non-AWS platforms. The singleton client is created on first use.
+let _sqsModule = null;
+let _sqs = null;
+
+function getSqsModule() {
+    if (!_sqsModule) {
+        _sqsModule = require('@aws-sdk/client-sqs');
+    }
+    return _sqsModule;
+}
 
 const awsConfigOptions = () => {
     const config = {};
@@ -20,18 +27,26 @@ const awsConfigOptions = () => {
     return config;
 };
 
-const sqs = new SQSClient(awsConfigOptions());
+function getSqs() {
+    if (!_sqs) {
+        const { SQSClient } = getSqsModule();
+        _sqs = new SQSClient(awsConfigOptions());
+    }
+    return _sqs;
+}
 
 const QueuerUtil = {
     send: async (message, queueUrl) => {
+        const { SendMessageCommand } = getSqsModule();
         const command = new SendMessageCommand({
             MessageBody: JSON.stringify(message),
             QueueUrl: queueUrl,
         });
-        return sqs.send(command);
+        return getSqs().send(command);
     },
 
     batchSend: async (entries = [], queueUrl) => {
+        const { SendMessageBatchCommand } = getSqsModule();
         const buffer = [];
         const batchSize = 10;
 
@@ -46,7 +61,7 @@ const QueuerUtil = {
                     Entries: buffer,
                     QueueUrl: queueUrl,
                 });
-                await sqs.send(command);
+                await getSqs().send(command);
                 // Purge the buffer
                 buffer.splice(0, buffer.length);
             }
@@ -58,7 +73,7 @@ const QueuerUtil = {
                 Entries: buffer,
                 QueueUrl: queueUrl,
             });
-            return sqs.send(command);
+            return getSqs().send(command);
         }
 
         // If we're exact... just return an empty object for now

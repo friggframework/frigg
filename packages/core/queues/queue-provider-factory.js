@@ -14,11 +14,8 @@
  * - 'netlify-background' → Netlify Background Functions
  * - 'qstash' → Upstash QStash (platform-agnostic)
  */
-const { SqsQueueProvider } = require('./providers/sqs-queue-provider');
-const {
-    NetlifyBackgroundProvider,
-} = require('./providers/netlify-background-provider');
-const { QStashQueueProvider } = require('./providers/qstash-queue-provider');
+// Provider implementations are lazily required inside the switch cases
+// to avoid pulling in AWS SDK on non-AWS platforms.
 
 const QUEUE_PROVIDERS = {
     SQS: 'sqs',
@@ -64,12 +61,18 @@ function createQueueProvider(options = {}) {
     const providerOptions = options.providerOptions || {};
 
     switch (provider) {
-        case QUEUE_PROVIDERS.SQS:
+        case QUEUE_PROVIDERS.SQS: {
+            const { SqsQueueProvider } = require('@friggframework/provider-aws');
             return new SqsQueueProvider(providerOptions);
-        case QUEUE_PROVIDERS.NETLIFY_BACKGROUND:
+        }
+        case QUEUE_PROVIDERS.NETLIFY_BACKGROUND: {
+            const { NetlifyBackgroundProvider } = require('./providers/netlify-background-provider');
             return new NetlifyBackgroundProvider(providerOptions);
-        case QUEUE_PROVIDERS.QSTASH:
+        }
+        case QUEUE_PROVIDERS.QSTASH: {
+            const { QStashQueueProvider } = require('./providers/qstash-queue-provider');
             return new QStashQueueProvider(providerOptions);
+        }
         default:
             throw new Error(
                 `Unknown queue provider: '${provider}'. Supported: ${Object.values(QUEUE_PROVIDERS).join(', ')}`

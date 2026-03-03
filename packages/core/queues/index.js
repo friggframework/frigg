@@ -6,7 +6,6 @@ const {
     QUEUE_PROVIDERS,
 } = require('./queue-provider-factory');
 const {
-    SqsQueueProvider,
     NetlifyBackgroundProvider,
     QStashQueueProvider,
 } = require('./providers');
@@ -17,7 +16,10 @@ module.exports = {
     createQueueProvider,
     determineProvider,
     QUEUE_PROVIDERS,
-    SqsQueueProvider,
+    // SqsQueueProvider is lazy — avoids eagerly loading @aws-sdk/client-sqs
+    get SqsQueueProvider() {
+        return require('@friggframework/provider-aws').SqsQueueProvider;
+    },
     NetlifyBackgroundProvider,
     QStashQueueProvider,
 };

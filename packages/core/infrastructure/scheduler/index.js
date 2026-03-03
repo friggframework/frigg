@@ -28,7 +28,7 @@ module.exports = {
 
     // Adapters — lazy to avoid eager require of @aws-sdk/client-scheduler
     get EventBridgeSchedulerAdapter() {
-        return require('./eventbridge-scheduler-adapter').EventBridgeSchedulerAdapter;
+        return require('@friggframework/provider-aws').EventBridgeSchedulerAdapter;
     },
     get MockSchedulerAdapter() {
         return require('./mock-scheduler-adapter').MockSchedulerAdapter;

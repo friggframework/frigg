@@ -57,7 +57,7 @@ function createSchedulerService(options = {}) {
 
     switch (provider) {
         case SCHEDULER_PROVIDERS.EVENTBRIDGE: {
-            const { EventBridgeSchedulerAdapter } = require('./eventbridge-scheduler-adapter');
+            const { EventBridgeSchedulerAdapter } = require('@friggframework/provider-aws');
             return new EventBridgeSchedulerAdapter({
                 region: options.region,
             });

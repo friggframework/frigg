@@ -19,7 +19,7 @@ const {
     ResourceNotFoundException,
 } = require('@aws-sdk/client-scheduler');
 
-const { SchedulerServiceInterface } = require('./scheduler-service-interface');
+const { SchedulerServiceInterface } = require('@friggframework/core/infrastructure/scheduler/scheduler-service-interface');
 
 class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
     constructor({ region } = {}) {

@@ -17,12 +17,17 @@
  */
 
 const crypto = require('crypto');
-const {
-    KMSClient,
-    GenerateDataKeyCommand,
-    DecryptCommand,
-} = require('@aws-sdk/client-kms');
 const aes = require('./aes');
+
+// AWS KMS SDK is lazy-loaded only when shouldUseAws is true.
+// This avoids pulling in @aws-sdk/client-kms on non-AWS platforms.
+let _kmsModule = null;
+function getKmsModule() {
+    if (!_kmsModule) {
+        _kmsModule = require('@aws-sdk/client-kms');
+    }
+    return _kmsModule;
+}
 
 class Cryptor {
     constructor({ shouldUseAws }) {
@@ -31,6 +36,7 @@ class Cryptor {
 
     async generateDataKey() {
         if (this.shouldUseAws) {
+            const { KMSClient, GenerateDataKeyCommand } = getKmsModule();
             const kmsClient = new KMSClient({});
             const command = new GenerateDataKeyCommand({
                 KeyId: process.env.KMS_KEY_ARN,
@@ -75,6 +81,7 @@ class Cryptor {
 
     async decryptDataKey(keyId, encryptedKey) {
         if (this.shouldUseAws) {
+            const { KMSClient, DecryptCommand } = getKmsModule();
             const kmsClient = new KMSClient({});
             const command = new DecryptCommand({
                 KeyId: keyId,
