@@ -1,22 +1,30 @@
+/**
+ * WebsocketConnection Mongoose Model
+ *
+ * BREAKING CHANGE (v3): Call WebsocketConnection.setMessageSender() before
+ * using getActiveConnections(). For AWS API Gateway, pass
+ * `new ApiGatewayMessageSender()` from @friggframework/provider-aws.
+ * See docs/adr/001-decouple-aws-from-core.md for migration guide.
+ */
 const { mongoose } = require('../mongoose');
 const {
     StaleConnectionError,
 } = require('../../websocket/websocket-message-sender-interface');
 
-// Default message sender lazy-loaded to avoid pulling in AWS SDK on non-AWS platforms.
-let _defaultMessageSender = null;
-function getDefaultMessageSender() {
-    if (!_defaultMessageSender) {
-        const { ApiGatewayMessageSender } =
-            require('@friggframework/provider-aws');
-        _defaultMessageSender = new ApiGatewayMessageSender();
-    }
-    return _defaultMessageSender;
-}
+let _messageSender = null;
 
 const schema = new mongoose.Schema({
     connectionId: { type: mongoose.Schema.Types.String },
 });
+
+/**
+ * Set the message sender for WebSocket send functionality.
+ * Must be called before getActiveConnections().
+ * @param {WebSocketMessageSenderInterface} sender
+ */
+schema.statics.setMessageSender = function (sender) {
+    _messageSender = sender;
+};
 
 // Add a static method to get active connections
 schema.statics.getActiveConnections = async function () {
@@ -26,7 +34,16 @@ schema.statics.getActiveConnections = async function () {
             return [];
         }
 
-        const sender = getDefaultMessageSender();
+        if (!_messageSender) {
+            throw new Error(
+                'WebsocketConnection requires a message sender. Call WebsocketConnection.setMessageSender() first, e.g.:\n' +
+                '  const { ApiGatewayMessageSender } = require("@friggframework/provider-aws");\n' +
+                '  WebsocketConnection.setMessageSender(new ApiGatewayMessageSender());\n' +
+                'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+            );
+        }
+
+        const sender = _messageSender;
         const connections = await this.find({}, 'connectionId');
         return connections.map((conn) => ({
             connectionId: conn.connectionId,

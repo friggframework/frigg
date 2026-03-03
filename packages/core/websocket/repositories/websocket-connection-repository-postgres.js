@@ -6,17 +6,6 @@ const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
 
-// Default message sender lazy-loaded to avoid pulling in AWS SDK on non-AWS platforms.
-let _defaultMessageSender = null;
-function getDefaultMessageSender() {
-    if (!_defaultMessageSender) {
-        const { ApiGatewayMessageSender } =
-            require('@friggframework/provider-aws');
-        _defaultMessageSender = new ApiGatewayMessageSender();
-    }
-    return _defaultMessageSender;
-}
-
 /**
  * PostgreSQL WebSocket Connection Repository Adapter
  * Handles persistence of active WebSocket connections
@@ -25,7 +14,11 @@ function getDefaultMessageSender() {
  * - Uses Int IDs with autoincrement
  * - Requires ID conversion: String (app layer) ↔ Int (database)
  * - All returned IDs are converted to strings for application layer consistency
- * - Message sending via injected WebSocketMessageSenderInterface
+ *
+ * BREAKING CHANGE (v3): A messageSender must be explicitly provided for
+ * WebSocket send functionality. For AWS API Gateway, pass
+ * `new ApiGatewayMessageSender()` from @friggframework/provider-aws.
+ * See docs/adr/001-decouple-aws-from-core.md for migration guide.
  */
 class WebsocketConnectionRepositoryPostgres extends WebsocketConnectionRepositoryInterface {
     constructor(messageSender = null) {
@@ -120,7 +113,16 @@ class WebsocketConnectionRepositoryPostgres extends WebsocketConnectionRepositor
                 select: { connectionId: true },
             });
 
-            const sender = this._messageSender || getDefaultMessageSender();
+            if (!this._messageSender) {
+                throw new Error(
+                    'WebsocketConnectionRepositoryPostgres requires a messageSender for send functionality.\n' +
+                    'Pass one via constructor, e.g.:\n' +
+                    '  const { ApiGatewayMessageSender } = require("@friggframework/provider-aws");\n' +
+                    '  new WebsocketConnectionRepositoryPostgres(new ApiGatewayMessageSender())\n' +
+                    'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+                );
+            }
+            const sender = this._messageSender;
 
             return connections.map((conn) => ({
                 connectionId: conn.connectionId,

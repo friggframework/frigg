@@ -12,7 +12,10 @@
  * 3. Store encrypted DEK alongside ciphertext
  * 4. Return format: "keyId:encryptedText:encryptedKey"
  *
- * Backward compatible: accepts { shouldUseAws } or { keyProvider }.
+ * BREAKING CHANGE (v3): A keyProvider must be explicitly provided,
+ * or pass { shouldUseAws: false } to auto-create AesEncryptionKeyProvider.
+ * For AWS KMS, pass `new KmsEncryptionKeyProvider()` from @friggframework/provider-aws.
+ * See docs/adr/001-decouple-aws-from-core.md for migration guide.
  */
 
 const aes = require('./aes');
@@ -20,30 +23,32 @@ const aes = require('./aes');
 class Cryptor {
     /**
      * @param {Object} options
-     * @param {boolean} [options.shouldUseAws] - Legacy flag: true = KMS, false = AES
-     * @param {EncryptionKeyProviderInterface} [options.keyProvider] - Explicit key provider
+     * @param {boolean} [options.shouldUseAws] - true requires explicit keyProvider; false auto-creates AesEncryptionKeyProvider
+     * @param {EncryptionKeyProviderInterface} [options.keyProvider] - Explicit key provider (takes precedence)
      */
     constructor({ shouldUseAws, keyProvider } = {}) {
-        this._keyProvider = keyProvider || null;
+        if (keyProvider) {
+            this._keyProvider = keyProvider;
+        } else if (shouldUseAws) {
+            throw new Error(
+                'Cryptor with shouldUseAws=true requires an explicit keyProvider. Pass one via constructor options, e.g.:\n' +
+                '  const { KmsEncryptionKeyProvider } = require("@friggframework/provider-aws");\n' +
+                '  new Cryptor({ shouldUseAws: true, keyProvider: new KmsEncryptionKeyProvider() })\n' +
+                'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+            );
+        } else {
+            // AES mode — no AWS dependency needed
+            const { AesEncryptionKeyProvider } = require('./aes-encryption-key-provider');
+            this._keyProvider = new AesEncryptionKeyProvider();
+        }
         this._shouldUseAws = shouldUseAws;
     }
 
     /**
-     * Get the key provider, lazy-loading the appropriate default.
+     * Get the key provider.
      * @returns {EncryptionKeyProviderInterface}
      */
     _getKeyProvider() {
-        if (!this._keyProvider) {
-            if (this._shouldUseAws) {
-                const { KmsEncryptionKeyProvider } =
-                    require('@friggframework/provider-aws');
-                this._keyProvider = new KmsEncryptionKeyProvider();
-            } else {
-                const { AesEncryptionKeyProvider } =
-                    require('./aes-encryption-key-provider');
-                this._keyProvider = new AesEncryptionKeyProvider();
-            }
-        }
         return this._keyProvider;
     }
 

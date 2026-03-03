@@ -6,17 +6,6 @@ const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
 
-// Default message sender lazy-loaded to avoid pulling in AWS SDK on non-AWS platforms.
-let _defaultMessageSender = null;
-function getDefaultMessageSender() {
-    if (!_defaultMessageSender) {
-        const { ApiGatewayMessageSender } =
-            require('@friggframework/provider-aws');
-        _defaultMessageSender = new ApiGatewayMessageSender();
-    }
-    return _defaultMessageSender;
-}
-
 /**
  * MongoDB WebSocket Connection Repository Adapter
  * Handles persistence of active WebSocket connections
@@ -24,7 +13,11 @@ function getDefaultMessageSender() {
  * MongoDB-specific characteristics:
  * - Uses String IDs (ObjectId)
  * - No ID conversion needed (IDs are already strings)
- * - Message sending via injected WebSocketMessageSenderInterface
+ *
+ * BREAKING CHANGE (v3): A messageSender must be explicitly provided for
+ * WebSocket send functionality. For AWS API Gateway, pass
+ * `new ApiGatewayMessageSender()` from @friggframework/provider-aws.
+ * See docs/adr/001-decouple-aws-from-core.md for migration guide.
  */
 class WebsocketConnectionRepositoryMongo extends WebsocketConnectionRepositoryInterface {
     constructor(messageSender = null) {
@@ -85,7 +78,16 @@ class WebsocketConnectionRepositoryMongo extends WebsocketConnectionRepositoryIn
                 select: { connectionId: true },
             });
 
-            const sender = this._messageSender || getDefaultMessageSender();
+            if (!this._messageSender) {
+                throw new Error(
+                    'WebsocketConnectionRepositoryMongo requires a messageSender for send functionality.\n' +
+                    'Pass one via constructor, e.g.:\n' +
+                    '  const { ApiGatewayMessageSender } = require("@friggframework/provider-aws");\n' +
+                    '  new WebsocketConnectionRepositoryMongo(new ApiGatewayMessageSender())\n' +
+                    'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+                );
+            }
+            const sender = this._messageSender;
 
             return connections.map((conn) => ({
                 connectionId: conn.connectionId,

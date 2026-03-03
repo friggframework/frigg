@@ -6,17 +6,6 @@ const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
 
-// Default message sender lazy-loaded to avoid pulling in AWS SDK on non-AWS platforms.
-let _defaultMessageSender = null;
-function getDefaultMessageSender() {
-    if (!_defaultMessageSender) {
-        const { ApiGatewayMessageSender } =
-            require('@friggframework/provider-aws');
-        _defaultMessageSender = new ApiGatewayMessageSender();
-    }
-    return _defaultMessageSender;
-}
-
 /**
  * Prisma-based WebSocket Connection Repository
  * Handles persistence of active WebSocket connections
@@ -26,8 +15,10 @@ function getDefaultMessageSender() {
  * - PostgreSQL: Integer IDs with auto-increment
  * - Both use same query patterns (no many-to-many differences)
  *
- * Message sending is abstracted behind WebSocketMessageSenderInterface.
- * Defaults to API Gateway adapter; inject a custom sender for other platforms.
+ * BREAKING CHANGE (v3): A messageSender must be explicitly provided for
+ * WebSocket send functionality. For AWS API Gateway, pass
+ * `new ApiGatewayMessageSender()` from @friggframework/provider-aws.
+ * See docs/adr/001-decouple-aws-from-core.md for migration guide.
  */
 class WebsocketConnectionRepository extends WebsocketConnectionRepositoryInterface {
     constructor(prismaClient = prisma, messageSender = null) {
@@ -88,7 +79,16 @@ class WebsocketConnectionRepository extends WebsocketConnectionRepositoryInterfa
                 select: { connectionId: true },
             });
 
-            const sender = this._messageSender || getDefaultMessageSender();
+            if (!this._messageSender) {
+                throw new Error(
+                    'WebsocketConnectionRepository requires a messageSender for send functionality.\n' +
+                    'Pass one via constructor, e.g.:\n' +
+                    '  const { ApiGatewayMessageSender } = require("@friggframework/provider-aws");\n' +
+                    '  new WebsocketConnectionRepository(prisma, new ApiGatewayMessageSender())\n' +
+                    'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+                );
+            }
+            const sender = this._messageSender;
 
             return connections.map((conn) => ({
                 connectionId: conn.connectionId,

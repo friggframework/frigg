@@ -9,8 +9,9 @@ const { get } = require('../assertions');
  * The queue transport (SQS, Netlify, etc.) is abstracted behind
  * QueueClientInterface, injected via constructor options.
  *
- * Backward compatible: if no queueClient is provided, lazy-loads
- * SqsQueueClient from @friggframework/provider-aws.
+ * BREAKING CHANGE (v3): A queueClient must be explicitly provided.
+ * For AWS/SQS, pass `new SqsQueueClient()` from @friggframework/provider-aws.
+ * See docs/adr/001-decouple-aws-from-core.md for migration guide.
  */
 class Worker {
     constructor(options = {}) {
@@ -18,14 +19,17 @@ class Worker {
     }
 
     /**
-     * Get the queue client, lazy-loading SQS default for backward compat.
+     * Get the queue client. Throws if none was injected.
      * @returns {QueueClientInterface}
      */
     _getQueueClient() {
         if (!this._queueClient) {
-            const { SqsQueueClient } =
-                require('@friggframework/provider-aws');
-            this._queueClient = new SqsQueueClient();
+            throw new Error(
+                'Worker requires a queueClient. Pass one via constructor options, e.g.:\n' +
+                '  const { SqsQueueClient } = require("@friggframework/provider-aws");\n' +
+                '  new MyWorker({ queueClient: new SqsQueueClient() })\n' +
+                'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+            );
         }
         return this._queueClient;
     }

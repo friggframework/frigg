@@ -15,17 +15,14 @@ const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
 
-// Default message sender lazy-loaded to avoid pulling in AWS SDK on non-AWS platforms.
-let _defaultMessageSender = null;
-function getDefaultMessageSender() {
-    if (!_defaultMessageSender) {
-        const { ApiGatewayMessageSender } =
-            require('@friggframework/provider-aws');
-        _defaultMessageSender = new ApiGatewayMessageSender();
-    }
-    return _defaultMessageSender;
-}
-
+/**
+ * DocumentDB WebSocket Connection Repository Adapter
+ *
+ * BREAKING CHANGE (v3): A messageSender must be explicitly provided for
+ * WebSocket send functionality. For AWS API Gateway, pass
+ * `new ApiGatewayMessageSender()` from @friggframework/provider-aws.
+ * See docs/adr/001-decouple-aws-from-core.md for migration guide.
+ */
 class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionRepositoryInterface {
     constructor(messageSender = null) {
         super();
@@ -71,7 +68,16 @@ class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionReposit
             { projection: { connectionId: 1 } }
         );
 
-        const sender = this._messageSender || getDefaultMessageSender();
+        if (!this._messageSender) {
+            throw new Error(
+                'WebsocketConnectionRepositoryDocumentDB requires a messageSender for send functionality.\n' +
+                'Pass one via constructor, e.g.:\n' +
+                '  const { ApiGatewayMessageSender } = require("@friggframework/provider-aws");\n' +
+                '  new WebsocketConnectionRepositoryDocumentDB(new ApiGatewayMessageSender())\n' +
+                'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+            );
+        }
+        const sender = this._messageSender;
 
         return connections.map((conn) => ({
             connectionId: conn.connectionId,

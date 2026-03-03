@@ -1,134 +1,131 @@
 /**
- * Tests for Cryptor - AWS SDK v3 Migration
+ * Tests for Cryptor - Provider-Agnostic Encryption
  *
- * Tests KMS encryption/decryption operations using aws-sdk-client-mock
+ * Tests encryption/decryption using mock and real key providers.
+ * No AWS SDK dependency — key providers are injected via constructor.
  */
 
-const { mockClient } = require('aws-sdk-client-mock');
-const {
-    KMSClient,
-    GenerateDataKeyCommand,
-    DecryptCommand,
-} = require('@aws-sdk/client-kms');
 const { Cryptor } = require('./Cryptor');
 
-describe('Cryptor - AWS SDK v3', () => {
-    let kmsMock;
+describe('Cryptor', () => {
     const originalEnv = process.env;
 
     beforeEach(() => {
-        kmsMock = mockClient(KMSClient);
         jest.clearAllMocks();
         process.env = { ...originalEnv };
     });
 
     afterEach(() => {
-        kmsMock.reset();
         process.env = originalEnv;
     });
 
-    describe('KMS Mode (shouldUseAws: true)', () => {
-        beforeEach(() => {
-            process.env.KMS_KEY_ARN =
-                'arn:aws:kms:us-east-1:123456789:key/test-key-id';
+    describe('Constructor validation', () => {
+        it('should throw if shouldUseAws=true without keyProvider', () => {
+            expect(() => new Cryptor({ shouldUseAws: true })).toThrow(
+                'Cryptor with shouldUseAws=true requires an explicit keyProvider'
+            );
         });
 
-        describe('encrypt()', () => {
-            it('should encrypt text using KMS data key', async () => {
-                const mockPlaintext = Buffer.from(
-                    'mock-plaintext-key-32-bytes-long'
-                );
-                const mockCiphertextBlob = Buffer.from('mock-encrypted-key');
+        it('should accept explicit keyProvider with shouldUseAws=true', () => {
+            const mockProvider = {
+                generateDataKey: jest.fn(),
+                decryptDataKey: jest.fn(),
+            };
 
-                kmsMock.on(GenerateDataKeyCommand).resolves({
-                    KeyId: 'test-key-id',
-                    Plaintext: mockPlaintext,
-                    CiphertextBlob: mockCiphertextBlob,
-                });
-
-                const cryptor = new Cryptor({ shouldUseAws: true });
-                const result = await cryptor.encrypt('sensitive-data');
-
-                // Result should be in format: "keyId:encryptedText:encryptedKey"
-                expect(result).toBeDefined();
-                expect(result.split(':').length).toBe(4); // keyId:iv:ciphertext:encryptedKey format from aes
-
-                expect(kmsMock.calls()).toHaveLength(1);
-                const call = kmsMock.call(0);
-                expect(call.args[0].input).toMatchObject({
-                    KeyId: process.env.KMS_KEY_ARN,
-                    KeySpec: 'AES_256',
-                });
-            });
-
-            it('should handle KMS errors during encryption', async () => {
-                kmsMock
-                    .on(GenerateDataKeyCommand)
-                    .rejects(new Error('KMS unavailable'));
-
-                const cryptor = new Cryptor({ shouldUseAws: true });
-
-                await expect(cryptor.encrypt('sensitive-data')).rejects.toThrow(
-                    'KMS unavailable'
-                );
-            });
+            expect(
+                () =>
+                    new Cryptor({
+                        shouldUseAws: true,
+                        keyProvider: mockProvider,
+                    })
+            ).not.toThrow();
         });
 
-        describe('decrypt()', () => {
-            it('should decrypt text using KMS', async () => {
-                const mockPlaintext = Buffer.from('mock-plaintext-key');
+        it('should default to AES mode when shouldUseAws is false', () => {
+            process.env.AES_KEY = 'test-aes-key-exactly-32-bytes!!!';
+            process.env.AES_KEY_ID = 'local-key-id';
 
-                kmsMock.on(DecryptCommand).resolves({
-                    Plaintext: mockPlaintext,
-                });
+            expect(() => new Cryptor({ shouldUseAws: false })).not.toThrow();
+        });
 
-                const cryptor = new Cryptor({ shouldUseAws: true });
+        it('should default to AES mode when no options provided', () => {
+            process.env.AES_KEY = 'test-aes-key-exactly-32-bytes!!!';
+            process.env.AES_KEY_ID = 'local-key-id';
 
-                // First encrypt some data
-                const mockDataKey = Buffer.from(
-                    'test-key-32-bytes-long-exactly'
-                );
-                kmsMock.on(GenerateDataKeyCommand).resolves({
-                    KeyId: 'test-key-id',
-                    Plaintext: mockDataKey,
-                    CiphertextBlob: Buffer.from('encrypted-key'),
-                });
-
-                const encrypted = await cryptor.encrypt('test-data');
-
-                // Then decrypt
-                kmsMock.reset();
-                kmsMock.on(DecryptCommand).resolves({
-                    Plaintext: mockDataKey,
-                });
-
-                const decrypted = await cryptor.decrypt(encrypted);
-
-                expect(decrypted).toBe('test-data');
-                expect(kmsMock.calls()).toHaveLength(1);
-            });
-
-            it('should handle KMS errors during decryption', async () => {
-                kmsMock
-                    .on(DecryptCommand)
-                    .rejects(new Error('Invalid ciphertext'));
-
-                const cryptor = new Cryptor({ shouldUseAws: true });
-                const fakeEncrypted =
-                    Buffer.from('test-key-id').toString('base64') +
-                    ':fake:data:' +
-                    Buffer.from('fake-key').toString('base64');
-
-                await expect(cryptor.decrypt(fakeEncrypted)).rejects.toThrow(
-                    'Invalid ciphertext'
-                );
-            });
+            expect(() => new Cryptor()).not.toThrow();
         });
     });
 
-    describe('Local Mode (shouldUseAws: false)', () => {
+    describe('With mock keyProvider (simulating KMS)', () => {
+        let mockProvider;
+        let cryptor;
+
         beforeEach(() => {
-            process.env.AES_KEY = 'test-aes-key-32-bytes-long-123';
+            const mockDataKey = Buffer.from(
+                'mock-data-key-32-bytes-exactly!!'
+            );
+            const mockEncryptedKey = Buffer.from('mock-encrypted-key');
+
+            mockProvider = {
+                generateDataKey: jest.fn().mockResolvedValue({
+                    keyId: Buffer.from('test-key-id').toString('base64'),
+                    encryptedKey:
+                        Buffer.from(mockEncryptedKey).toString('base64'),
+                    plaintext: mockDataKey,
+                }),
+                decryptDataKey: jest.fn().mockResolvedValue(mockDataKey),
+            };
+
+            cryptor = new Cryptor({
+                shouldUseAws: true,
+                keyProvider: mockProvider,
+            });
+        });
+
+        it('should encrypt text using injected key provider', async () => {
+            const result = await cryptor.encrypt('sensitive-data');
+
+            expect(result).toBeDefined();
+            // Format: "keyId:iv:ciphertext:encryptedKey"
+            expect(result.split(':').length).toBe(4);
+            expect(mockProvider.generateDataKey).toHaveBeenCalledTimes(1);
+        });
+
+        it('should decrypt text using injected key provider', async () => {
+            const encrypted = await cryptor.encrypt('test-data');
+            const decrypted = await cryptor.decrypt(encrypted);
+
+            expect(decrypted).toBe('test-data');
+            expect(mockProvider.decryptDataKey).toHaveBeenCalledTimes(1);
+        });
+
+        it('should handle key provider errors during encryption', async () => {
+            mockProvider.generateDataKey.mockRejectedValue(
+                new Error('KMS unavailable')
+            );
+
+            await expect(cryptor.encrypt('sensitive-data')).rejects.toThrow(
+                'KMS unavailable'
+            );
+        });
+
+        it('should handle key provider errors during decryption', async () => {
+            const encrypted = await cryptor.encrypt('test-data');
+
+            mockProvider.decryptDataKey.mockRejectedValue(
+                new Error('Invalid ciphertext')
+            );
+
+            await expect(cryptor.decrypt(encrypted)).rejects.toThrow(
+                'Invalid ciphertext'
+            );
+        });
+    });
+
+    describe('AES Mode (shouldUseAws: false)', () => {
+        beforeEach(() => {
+            // AES-256-CTR requires exactly 32-byte key
+            process.env.AES_KEY = 'test-aes-key-exactly-32-bytes!!!';
             process.env.AES_KEY_ID = 'local-key-id';
         });
 
@@ -137,8 +134,7 @@ describe('Cryptor - AWS SDK v3', () => {
             const result = await cryptor.encrypt('sensitive-data');
 
             expect(result).toBeDefined();
-            expect(result.split(':').length).toBeGreaterThanOrEqual(3);
-            expect(kmsMock.calls()).toHaveLength(0); // Should not call KMS
+            expect(result.split(':').length).toBe(4);
         });
 
         it('should decrypt using local AES key', async () => {
@@ -148,16 +144,33 @@ describe('Cryptor - AWS SDK v3', () => {
             const decrypted = await cryptor.decrypt(encrypted);
 
             expect(decrypted).toBe('test-data');
-            expect(kmsMock.calls()).toHaveLength(0); // Should not call KMS
         });
 
-        it('should throw error if encryption key not found', async () => {
+        it('should handle round-trip with special characters', async () => {
+            const cryptor = new Cryptor({ shouldUseAws: false });
+
+            const testData =
+                'Hello, World! 🌍 Special chars: <>&"\' 日本語テスト';
+            const encrypted = await cryptor.encrypt(testData);
+            const decrypted = await cryptor.decrypt(encrypted);
+
+            expect(decrypted).toBe(testData);
+        });
+
+        it('should throw error if encryption key not found during decrypt', async () => {
+            const cryptor = new Cryptor({ shouldUseAws: false });
+
+            // Encrypt with current key
+            const encrypted = await cryptor.encrypt('test-data');
+
+            // Remove the key from env
+            delete process.env.AES_KEY;
             delete process.env.AES_KEY_ID;
 
-            const cryptor = new Cryptor({ shouldUseAws: false });
-            const fakeEncrypted = 'unknown-key:data:key';
+            // Create a new Cryptor that won't find the key
+            const cryptor2 = new Cryptor({ shouldUseAws: false });
 
-            await expect(cryptor.decrypt(fakeEncrypted)).rejects.toThrow(
+            await expect(cryptor2.decrypt(encrypted)).rejects.toThrow(
                 'Encryption key not found'
             );
         });

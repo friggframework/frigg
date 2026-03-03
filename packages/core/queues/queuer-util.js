@@ -1,19 +1,30 @@
 const { v4: uuid } = require('uuid');
 
-// Queue client is lazy-loaded to avoid pulling in AWS SDK on non-AWS platforms.
+/**
+ * QueuerUtil - Queue message utility.
+ *
+ * BREAKING CHANGE (v3): A queue client must be set via setQueueClient()
+ * before calling send() or batchSend().
+ * For AWS/SQS, pass `new SqsQueueClient()` from @friggframework/provider-aws.
+ * See docs/adr/001-decouple-aws-from-core.md for migration guide.
+ */
 let _queueClient = null;
 
 function getQueueClient() {
     if (!_queueClient) {
-        const { SqsQueueClient } = require('@friggframework/provider-aws');
-        _queueClient = new SqsQueueClient();
+        throw new Error(
+            'QueuerUtil requires a queue client. Call QueuerUtil.setQueueClient() first, e.g.:\n' +
+            '  const { SqsQueueClient } = require("@friggframework/provider-aws");\n' +
+            '  QueuerUtil.setQueueClient(new SqsQueueClient());\n' +
+            'See docs/adr/001-decouple-aws-from-core.md for migration guide.'
+        );
     }
     return _queueClient;
 }
 
 const QueuerUtil = {
     /**
-     * Override the queue client (useful for testing or non-AWS platforms).
+     * Set the queue client. Must be called before send() or batchSend().
      * @param {QueueClientInterface} client
      */
     setQueueClient(client) {
@@ -39,11 +50,10 @@ const QueuerUtil = {
             // Sends 10, then purges the buffer
             if (buffer.length === batchSize) {
                 await getQueueClient().sendMessageBatch({
-                    Entries: buffer,
+                    Entries: [...buffer],
                     QueueUrl: queueUrl,
                 });
-                // Purge the buffer
-                buffer.splice(0, buffer.length);
+                buffer.length = 0;
             }
         }
 
