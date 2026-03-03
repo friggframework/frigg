@@ -40,6 +40,7 @@ const { validateNetlifyDbConfig } = require('./lib/netlify-db');
 const {
     getFunctionEntryPoints,
     getFunctionEntryPointsDir,
+    getLibEntryPoints,
 } = require('./lib/get-function-entry-points');
 
 // ── Deploy ────────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ module.exports = {
     teardown,
     validate: validateNetlifyConfig,
     getFunctionEntryPoints,
+    getLibEntryPoints,
     detect,
 
     // ── Metadata ──────────────────────────────────────────────────

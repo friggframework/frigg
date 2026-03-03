@@ -87,6 +87,21 @@ async function buildWithProvider(appDefinition, providerName, backendDir) {
         console.log(`  Generated ${Object.keys(entryPoints).length} function entry points`);
     }
 
+    // 4. Generate lib entry points (re-export shims for runtime dependencies)
+    if (typeof provider.getLibEntryPoints === 'function') {
+        const libEntryPoints = provider.getLibEntryPoints(appDefinition);
+        const libDir = path.join(projectDir, 'netlify', 'lib');
+
+        fs.mkdirSync(libDir, { recursive: true });
+
+        for (const [filename, content] of Object.entries(libEntryPoints)) {
+            const filePath = path.join(libDir, filename);
+            fs.writeFileSync(filePath, content, 'utf-8');
+        }
+
+        console.log(`  Generated ${Object.keys(libEntryPoints).length} lib entry points`);
+    }
+
     console.log(`\nBuild complete for ${providerName}.`);
 
     // Return an empty serverless definition — osls will see no functions

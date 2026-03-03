@@ -138,7 +138,25 @@ async function buildWithProvider({ provider, appDefinition, providerName }, opti
         console.log(`  Generated ${Object.keys(entryPoints).length} function entry points`);
     }
 
-    // 4. Generate env template (informational)
+    // 4. Copy lib entry points (re-export shims for runtime dependencies)
+    if (typeof provider.getLibEntryPoints === 'function') {
+        const libEntryPoints = provider.getLibEntryPoints(appDefinition);
+        const libDir = path.join(projectDir, 'netlify', 'lib');
+
+        fs.mkdirSync(libDir, { recursive: true });
+
+        for (const [filename, content] of Object.entries(libEntryPoints)) {
+            const filePath = path.join(libDir, filename);
+            fs.writeFileSync(filePath, content, 'utf-8');
+            if (options.verbose) {
+                console.log(`  Written ${path.relative(projectDir, filePath)}`);
+            }
+        }
+
+        console.log(`  Generated ${Object.keys(libEntryPoints).length} lib entry points`);
+    }
+
+    // 5. Generate env template (informational)
     if (typeof provider.generateEnvTemplate === 'function') {
         const envTemplate = provider.generateEnvTemplate(appDefinition);
         const missingEnvVars = Object.entries(envTemplate)
