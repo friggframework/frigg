@@ -23,7 +23,7 @@
         "uuid": "^9.0.0"
     },
     "peerDependencies": {
-        "@friggframework/core": ">=2.0.0-next.0"
+        "@friggframework/core": "*"
     },
     "peerDependenciesMeta": {
         "@friggframework/core": {
