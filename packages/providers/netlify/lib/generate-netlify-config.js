@@ -50,7 +50,7 @@ function generateNetlifyToml(appDefinition, options = {}) {
     lines.push('  # Include Prisma client and backend deps in function bundles');
     lines.push('  included_files = ["node_modules/.prisma/**", "backend/**"]');
     lines.push('  # Exclude packages that esbuild cannot bundle (native/dynamic requires)');
-    lines.push('  external_node_modules = ["express", "body-parser", "cors", "serverless-http", "@prisma/client", "mongoose"]');
+    lines.push('  external_node_modules = ["express", "body-parser", "cors", "serverless-http", "@prisma/client", "mongoose", "@friggframework/core", "@friggframework/provider-netlify"]');
     lines.push('');
 
     // =========================================================================
