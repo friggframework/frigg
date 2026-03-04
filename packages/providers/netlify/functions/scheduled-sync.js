@@ -61,10 +61,8 @@ const handler = createNetlifyHandler({
             const name = IntegrationClass.Definition?.name;
             if (!name) continue;
 
-            // Check if this integration defines an ONGOING_SYNC event
-            const hasOngoingSync =
-                IntegrationClass.Definition?.events?.ONGOING_SYNC;
-            if (!hasOngoingSync) continue;
+            // Check if this integration defines an ONGOING_SYNC handler
+            if (typeof IntegrationClass.prototype.startOngoingSync !== 'function') continue;
 
             try {
                 await queueProvider.send(

@@ -23,16 +23,10 @@ const router = Router();
 const { integrations: integrationClasses } = loadAppDefinition();
 
 for (const IntegrationClass of integrationClasses) {
-    const webhookConfig = IntegrationClass.Definition.webhooks;
+    const name = IntegrationClass.Definition?.name;
+    if (!name) continue;
 
-    if (
-        !webhookConfig ||
-        (typeof webhookConfig === 'object' && !webhookConfig.enabled)
-    ) {
-        continue;
-    }
-
-    const basePath = `/api/${IntegrationClass.Definition.name}-integration/webhooks`;
+    const basePath = `/api/${name}-integration/webhooks`;
 
     // General webhook route (no integration ID)
     router.post(basePath, async (req, res, next) => {
