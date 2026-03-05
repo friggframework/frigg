@@ -7,25 +7,60 @@ jest.mock('../../database/config', () => ({
     PRISMA_QUERY_LOGGING: false,
 }));
 
-jest.mock('mongoose', () => ({
-    set: jest.fn(),
-    connection: {
-        readyState: 1,
-        db: {
-            admin: () => ({
-                ping: jest.fn().mockResolvedValue(true)
-            })
-        }
-    }
+const mockPrisma = {
+    $runCommandRaw: jest.fn().mockResolvedValue({ ok: 1 }),
+    credential: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        delete: jest.fn(),
+    },
+};
+
+jest.mock('../../database/prisma', () => ({
+    prisma: mockPrisma,
+    connectPrisma: jest.fn(),
+    disconnectPrisma: jest.fn(),
 }));
 
-jest.mock('./../backend-utils', () => ({
-    moduleFactory: {
-        moduleTypes: ['test-module', 'another-module']
-    },
-    integrationFactory: {
-        integrationTypes: ['test-integration', 'another-integration']
-    }
+const mockHealthCheckRepository = {
+    getDatabaseConnectionState: jest.fn().mockResolvedValue({
+        readyState: 1, stateName: 'connected', isConnected: true,
+    }),
+    pingDatabase: jest.fn().mockResolvedValue(1),
+    createCredential: jest.fn(),
+    findCredentialById: jest.fn(),
+    getRawCredentialById: jest.fn(),
+    deleteCredential: jest.fn(),
+};
+
+jest.mock('../../database/repositories/health-check-repository-factory', () => ({
+    createHealthCheckRepository: jest.fn(() => mockHealthCheckRepository),
+    HealthCheckRepositoryMongoDB: jest.fn(),
+    HealthCheckRepositoryPostgreSQL: jest.fn(),
+    HealthCheckRepositoryDocumentDB: jest.fn(),
+}));
+
+jest.mock('./../app-definition-loader', () => ({
+    loadAppDefinition: jest.fn(() => ({
+        integrations: [{ Definition: { name: 'test-integration' } }],
+    })),
+}));
+
+jest.mock('../../integrations/utils/map-integration-dto', () => ({
+    getModulesDefinitionFromIntegrationClasses: jest.fn(() => [
+        { moduleName: 'test-module' },
+        { moduleName: 'another-module' },
+    ]),
+}));
+
+jest.mock('../../modules/repositories/module-repository-factory', () => ({
+    createModuleRepository: jest.fn(() => ({})),
+}));
+
+jest.mock('../../modules/module-factory', () => ({
+    ModuleFactory: jest.fn().mockImplementation(({ moduleDefinitions }) => ({
+        moduleDefinitions,
+    })),
 }));
 
 jest.mock('./../app-handler-helpers', () => ({
@@ -33,7 +68,6 @@ jest.mock('./../app-handler-helpers', () => ({
 }));
 
 const { router } = require('./health');
-const mongoose = require('mongoose');
 
 const mockRequest = (path, headers = {}) => ({
     path,
@@ -49,7 +83,10 @@ const mockResponse = () => {
 
 describe('Health Check Endpoints', () => {
     beforeEach(() => {
-        mongoose.connection.readyState = 1;
+        mockHealthCheckRepository.getDatabaseConnectionState.mockResolvedValue({
+            readyState: 1, stateName: 'connected', isConnected: true,
+        });
+        mockHealthCheckRepository.pingDatabase.mockResolvedValue(1);
     });
 
     describe('Middleware - validateApiKey', () => {
@@ -122,7 +159,9 @@ describe('Health Check Endpoints', () => {
         });
 
         it('should return 503 when database is disconnected', async () => {
-            mongoose.connection.readyState = 0;
+            mockHealthCheckRepository.getDatabaseConnectionState.mockResolvedValue({
+                readyState: 0, stateName: 'disconnected', isConnected: false,
+            });
 
             const req = mockRequest('/health/detailed', { 'x-frigg-health-api-key': 'test-api-key' });
             const res = mockResponse();
@@ -190,7 +229,9 @@ describe('Health Check Endpoints', () => {
         });
 
         it('should return 503 when database is not connected', async () => {
-            mongoose.connection.readyState = 0;
+            mockHealthCheckRepository.getDatabaseConnectionState.mockResolvedValue({
+                readyState: 0, stateName: 'disconnected', isConnected: false,
+            });
 
             const req = mockRequest('/health/ready', { 'x-frigg-health-api-key': 'test-api-key' });
             const res = mockResponse();

@@ -1,20 +1,22 @@
 declare module "@friggframework/module-plugin" {
-  import { Model } from "mongoose";
   import { Delegate, IFriggDelegate } from "@friggframework/core";
 
-  export class Credential extends Model {
-    userId: string;
-    authIsValid: boolean;
-    externalId: string;
+  export interface Credential {
+    id?: string;
+    userId?: string;
+    authIsValid?: boolean;
+    externalId?: string;
+    data?: any;
   }
 
-  interface IFriggEntityManager { }
-
-  export class Entity extends Model {
-    credentialId: string;
-    userId: string;
-    name: string;
-    externalId: string;
+  export interface Entity {
+    id?: string;
+    credentialId?: string;
+    userId?: string;
+    name?: string;
+    moduleName?: string;
+    externalId?: string;
+    data?: any;
   }
 
   export type MappedEntity = Entity & { id: string; type: any };
