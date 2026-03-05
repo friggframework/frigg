@@ -1,5 +1,4 @@
 const {
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
@@ -91,7 +90,6 @@ const { QueuerUtil } = require('./queues');
 
 module.exports = {
     // assertions
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
