@@ -125,19 +125,19 @@ async function gatherDiscoveredResources(appDefinition) {
                 stackResources.privateSubnetId1 && stackResources.privateSubnetId2) {
 
                 console.log('  ⚠️  Route table has 0 subnet associations - self-healing...');
-                try {
-                    const { AssociateRouteTableCommand } = require('@aws-sdk/client-ec2');
-                    const ec2 = provider.getEC2Client();
+                const { AssociateRouteTableCommand } = require('@aws-sdk/client-ec2');
+                const ec2 = provider.getEC2Client();
 
-                    for (const subnetId of [stackResources.privateSubnetId1, stackResources.privateSubnetId2]) {
-                        await ec2.send(new AssociateRouteTableCommand({
+                for (const subnetId of [stackResources.privateSubnetId1, stackResources.privateSubnetId2]) {
+                    try {
+                        const response = await ec2.send(new AssociateRouteTableCommand({
                             RouteTableId: stackResources.routeTableId,
                             SubnetId: subnetId,
                         }));
-                        console.log(`  ✓ Self-healed: associated ${subnetId} with ${stackResources.routeTableId}`);
+                        console.log(`  ✓ Self-healed: associated ${subnetId} → ${stackResources.routeTableId} (${response.AssociationId})`);
+                    } catch (error) {
+                        console.warn(`  ⚠️  Self-heal failed for ${subnetId}: ${error.message}`);
                     }
-                } catch (error) {
-                    console.warn(`  ⚠️  Self-heal failed: ${error.message}`);
                 }
             }
 
