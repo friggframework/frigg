@@ -1,6 +1,6 @@
 const _ = require('lodash');
 const moment = require('moment');
-const { ObjectId } = require('mongodb');
+const { ObjectId } = require('bson');
 const SyncObject = require('./sync');
 const { debug } = require('packages/logs');
 const { get } = require('../assertions');
