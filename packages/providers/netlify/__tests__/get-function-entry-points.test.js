@@ -34,6 +34,27 @@ describe('getFunctionEntryPoints', () => {
         expect(entryPoints['auth.js']).toContain('auth');
         expect(entryPoints['auth.js']).toContain('handler');
     });
+
+    test('every entry point includes the app definition preamble', () => {
+        const entryPoints = getFunctionEntryPoints({ name: 'test' });
+
+        for (const content of Object.values(entryPoints)) {
+            expect(content).toContain('setAppDefinition');
+            expect(content).toContain("require('../../backend/index.js')");
+            expect(content).toContain('@friggframework/core/handlers/app-definition-loader');
+        }
+    });
+
+    test('preamble appears before the template content', () => {
+        const entryPoints = getFunctionEntryPoints({ name: 'test' });
+
+        // The preamble should be at the very start, before the JSDoc comment
+        for (const content of Object.values(entryPoints)) {
+            const preambleIdx = content.indexOf('setAppDefinition');
+            const firstJsdocIdx = content.indexOf('/**');
+            expect(preambleIdx).toBeLessThan(firstJsdocIdx);
+        }
+    });
 });
 
 describe('getLibEntryPoints', () => {

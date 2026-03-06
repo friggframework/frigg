@@ -34,10 +34,15 @@ describe('generateNetlifyToml', () => {
         expect(toml).toContain('node_bundler = "esbuild"');
         expect(toml).toContain('node_modules/.prisma/**');
         expect(toml).toContain('external_node_modules = ["express"');
-        expect(toml).toContain('backend/**');
         // Frigg packages must be external — they use dynamic requires that break esbuild
         expect(toml).toContain('@friggframework/core');
         expect(toml).toContain('@friggframework/provider-netlify');
+    });
+
+    test('does not include backend/** in included_files (nft traces it via static require)', () => {
+        const toml = generateNetlifyToml(baseAppDefinition);
+
+        expect(toml).not.toContain('backend/**');
     });
 
     test('generates redirect for v2 API routes', () => {

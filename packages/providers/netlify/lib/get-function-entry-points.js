@@ -29,10 +29,32 @@ const STANDARD_FUNCTIONS = [
 ];
 
 /**
+ * Preamble injected at the top of every generated function entry point.
+ *
+ * This makes the backend's app definition statically traceable by nft/esbuild:
+ * - require('../../backend/index.js') is a static path nft can follow
+ * - setAppDefinition() caches the definition so loadAppDefinition() in core
+ *   routers skips process.cwd() discovery (which fails on Netlify at runtime)
+ *
+ * The relative path ../../backend/index.js resolves from netlify/functions/
+ * up to the project root, then into backend/.
+ */
+const APP_DEFINITION_PREAMBLE = [
+    '// Pre-load app definition so nft can trace backend dependencies statically.',
+    '// This avoids process.cwd() discovery which fails in Netlify function runtime.',
+    "const { setAppDefinition } = require('@friggframework/core/handlers/app-definition-loader');",
+    "const { Definition: _friggAppDef } = require('../../backend/index.js');",
+    'setAppDefinition(_friggAppDef);',
+    '',
+].join('\n');
+
+/**
  * Get all function entry point files for a Netlify deployment.
  *
  * Returns a map of filename → file content that can be written to the
- * functions directory of a Netlify project.
+ * functions directory of a Netlify project. Each file is prefixed with
+ * a preamble that pre-loads the app definition via a static require,
+ * enabling nft to trace the backend dependencies into the function bundle.
  *
  * @param {Object} appDefinition - Frigg app definition
  * @returns {{ [filename: string]: string }}
@@ -43,7 +65,8 @@ function getFunctionEntryPoints(appDefinition) {
     for (const filename of STANDARD_FUNCTIONS) {
         const filePath = path.join(FUNCTIONS_DIR, filename);
         if (fs.existsSync(filePath)) {
-            entryPoints[filename] = fs.readFileSync(filePath, 'utf-8');
+            const templateContent = fs.readFileSync(filePath, 'utf-8');
+            entryPoints[filename] = APP_DEFINITION_PREAMBLE + templateContent;
         }
     }
 
