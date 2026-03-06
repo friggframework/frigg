@@ -931,6 +931,73 @@ describe('CloudFormationDiscovery', () => {
             expect(result.privateSubnetId2).toBe('subnet-bbb');
         });
 
+        it('should select only private subnets when route table has 0 associations and VPC has public + private subnets', async () => {
+            // Real-world drift scenario:
+            // - VPC has 3 subnets: 1 public (NAT/IGW) + 2 private (Lambda)
+            // - IGW route table has all 3 associated (default route table)
+            // - Frigg lambda route table has 0 associations (drift)
+            // Expected: select only the 2 private subnets (MapPublicIpOnLaunch=false)
+            const mockStack = {
+                StackName: 'test-stack',
+                Outputs: []
+            };
+
+            const mockResources = [
+                { LogicalResourceId: 'FriggLambdaRouteTable', PhysicalResourceId: 'rtb-lambda', ResourceType: 'AWS::EC2::RouteTable' },
+                { LogicalResourceId: 'FriggVPC', PhysicalResourceId: 'vpc-456', ResourceType: 'AWS::EC2::VPC' }
+            ];
+
+            const sendMock = jest.fn();
+            sendMock
+                // Path 1: DescribeRouteTablesCommand — route table with 0 subnet associations
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-lambda',
+                        VpcId: 'vpc-456',
+                        Associations: [
+                            { RouteTableAssociationId: 'rtbassoc-main', Main: true }
+                        ],
+                        Routes: [{ NatGatewayId: 'nat-789', DestinationCidrBlock: '0.0.0.0/0' }]
+                    }]
+                })
+                // DescribeSecurityGroupsCommand — default SG
+                .mockResolvedValueOnce({ SecurityGroups: [{ GroupId: 'sg-default' }] })
+                // Path 2: DescribeSubnetsCommand — 3 subnets (1 public, 2 private)
+                .mockResolvedValueOnce({
+                    Subnets: [
+                        { SubnetId: 'subnet-public', VpcId: 'vpc-456', MapPublicIpOnLaunch: true, AvailabilityZone: 'us-east-1a' },
+                        { SubnetId: 'subnet-priv-1', VpcId: 'vpc-456', MapPublicIpOnLaunch: false, AvailabilityZone: 'us-east-1b' },
+                        { SubnetId: 'subnet-priv-2', VpcId: 'vpc-456', MapPublicIpOnLaunch: false, AvailabilityZone: 'us-east-1c' },
+                    ]
+                })
+                // Path 2: DescribeRouteTablesCommand — lambda route table still has 0 subnet associations
+                .mockResolvedValueOnce({
+                    RouteTables: [{
+                        RouteTableId: 'rtb-lambda',
+                        Associations: [
+                            { RouteTableAssociationId: 'rtbassoc-main', Main: true }
+                        ]
+                    }]
+                });
+
+            mockProvider.describeStack.mockResolvedValue(mockStack);
+            mockProvider.listStackResources.mockResolvedValue(mockResources);
+            mockProvider.getEC2Client = jest.fn().mockReturnValue({ send: sendMock });
+
+            const result = await cfDiscovery.discoverFromStack('test-stack');
+
+            // Should select ONLY the 2 private subnets
+            expect(result.privateSubnetId1).toBe('subnet-priv-1');
+            expect(result.privateSubnetId2).toBe('subnet-priv-2');
+
+            // Should NOT select the public subnet
+            expect(result.privateSubnetId1).not.toBe('subnet-public');
+            expect(result.privateSubnetId2).not.toBe('subnet-public');
+
+            // Should record 0 associations for self-heal to detect
+            expect(result.routeTableAssociationCount).toBe(0);
+        });
+
         it('should handle VPC with only 1 associated subnet (use second as fallback)', async () => {
             const mockStack = {
                 StackName: 'test-stack',
