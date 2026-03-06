@@ -1,7 +1,4 @@
 const { ModuleRepositoryPostgres } = require('./module-repository-postgres');
-const {
-    ModuleRepositoryDocumentDB,
-} = require('./module-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -22,6 +19,7 @@ function createModuleRepository() {
             return new ModuleRepositoryPostgres();
 
         case 'documentdb':
+            const { ModuleRepositoryDocumentDB } = require('./module-repository-documentdb');
             return new ModuleRepositoryDocumentDB();
 
         default:
@@ -36,5 +34,5 @@ module.exports = {
     // Export adapters for direct testing
     get ModuleRepositoryMongo() { return require('./module-repository-mongo').ModuleRepositoryMongo; },
     ModuleRepositoryPostgres,
-    ModuleRepositoryDocumentDB,
+    get ModuleRepositoryDocumentDB() { return require('./module-repository-documentdb').ModuleRepositoryDocumentDB; },
 };

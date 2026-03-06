@@ -67,8 +67,6 @@ const {
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
-    Credential,
-    Entity,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
@@ -190,8 +188,7 @@ module.exports = {
     flushDebugLog,
 
     // module plugin
-    Credential,
-    Entity,
+    get Entity() { return require('./modules/entity').Entity; },
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,

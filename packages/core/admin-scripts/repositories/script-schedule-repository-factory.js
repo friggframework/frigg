@@ -1,7 +1,4 @@
 const { ScriptScheduleRepositoryPostgres } = require('./script-schedule-repository-postgres');
-const {
-    ScriptScheduleRepositoryDocumentDB,
-} = require('./script-schedule-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -33,6 +30,7 @@ function createScriptScheduleRepository() {
             return new ScriptScheduleRepositoryPostgres();
 
         case 'documentdb':
+            const { ScriptScheduleRepositoryDocumentDB } = require('./script-schedule-repository-documentdb');
             return new ScriptScheduleRepositoryDocumentDB();
 
         default:
@@ -47,5 +45,5 @@ module.exports = {
     // Export adapters for direct testing
     get ScriptScheduleRepositoryMongo() { return require('./script-schedule-repository-mongo').ScriptScheduleRepositoryMongo; },
     ScriptScheduleRepositoryPostgres,
-    ScriptScheduleRepositoryDocumentDB,
+    get ScriptScheduleRepositoryDocumentDB() { return require('./script-schedule-repository-documentdb').ScriptScheduleRepositoryDocumentDB; },
 };
