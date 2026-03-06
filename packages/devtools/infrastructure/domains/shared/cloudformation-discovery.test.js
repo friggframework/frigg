@@ -936,7 +936,8 @@ describe('CloudFormationDiscovery', () => {
             // - VPC has 3 subnets: 1 public (NAT/IGW) + 2 private (Lambda)
             // - IGW route table has all 3 associated (default route table)
             // - Frigg lambda route table has 0 associations (drift)
-            // Expected: select only the 2 private subnets (MapPublicIpOnLaunch=false)
+            // - Frigg-managed subnet query returns nothing useful
+            // Expected: the fallback path selects only the 2 private subnets (MapPublicIpOnLaunch=false)
             const mockStack = {
                 StackName: 'test-stack',
                 Outputs: []
@@ -949,7 +950,7 @@ describe('CloudFormationDiscovery', () => {
 
             const sendMock = jest.fn();
             sendMock
-                // Path 1: DescribeRouteTablesCommand — route table with 0 subnet associations
+                // External reference extraction: route table with 0 subnet associations
                 .mockResolvedValueOnce({
                     RouteTables: [{
                         RouteTableId: 'rtb-lambda',
@@ -962,7 +963,11 @@ describe('CloudFormationDiscovery', () => {
                 })
                 // DescribeSecurityGroupsCommand — default SG
                 .mockResolvedValueOnce({ SecurityGroups: [{ GroupId: 'sg-default' }] })
-                // Path 2: DescribeSubnetsCommand — 3 subnets (1 public, 2 private)
+                // Frigg-managed subnet query returns nothing, forcing the fallback path to run
+                .mockResolvedValueOnce({
+                    Subnets: []
+                })
+                // Fallback VPC-wide subnet query — 3 subnets (1 public, 2 private)
                 .mockResolvedValueOnce({
                     Subnets: [
                         { SubnetId: 'subnet-public', VpcId: 'vpc-456', MapPublicIpOnLaunch: true, AvailabilityZone: 'us-east-1a' },
@@ -970,7 +975,7 @@ describe('CloudFormationDiscovery', () => {
                         { SubnetId: 'subnet-priv-2', VpcId: 'vpc-456', MapPublicIpOnLaunch: false, AvailabilityZone: 'us-east-1c' },
                     ]
                 })
-                // Path 2: DescribeRouteTablesCommand — lambda route table still has 0 subnet associations
+                // Fallback route table query — lambda route table still has 0 subnet associations
                 .mockResolvedValueOnce({
                     RouteTables: [{
                         RouteTableId: 'rtb-lambda',
@@ -996,6 +1001,21 @@ describe('CloudFormationDiscovery', () => {
 
             // Should record 0 associations for self-heal to detect
             expect(result.routeTableAssociationCount).toBe(0);
+
+            // Verify the test actually exercised the fallback path:
+            // 1) route table query for external refs
+            // 2) default security group query
+            // 3) Frigg-managed subnet query (empty)
+            // 4) all-subnets-in-VPC fallback query
+            // 5) route table query for association extraction
+            expect(sendMock).toHaveBeenCalledTimes(5);
+            expect(sendMock.mock.calls[2][0].input.Filters).toEqual([
+                { Name: 'vpc-id', Values: ['vpc-456'] },
+                { Name: 'tag:ManagedBy', Values: ['Frigg'] },
+            ]);
+            expect(sendMock.mock.calls[3][0].input.Filters).toEqual([
+                { Name: 'vpc-id', Values: ['vpc-456'] },
+            ]);
         });
 
         it('should handle VPC with only 1 associated subnet (use second as fallback)', async () => {
