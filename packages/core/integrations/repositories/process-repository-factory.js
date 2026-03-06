@@ -1,4 +1,3 @@
-const { ProcessRepositoryMongo } = require('./process-repository-mongo');
 const { ProcessRepositoryPostgres } = require('./process-repository-postgres');
 const {
     ProcessRepositoryDocumentDB,
@@ -28,6 +27,7 @@ function createProcessRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { ProcessRepositoryMongo } = require('./process-repository-mongo');
             return new ProcessRepositoryMongo();
 
         case 'postgresql':
@@ -46,7 +46,7 @@ function createProcessRepository() {
 module.exports = {
     createProcessRepository,
     // Export adapters for direct testing
-    ProcessRepositoryMongo,
+    get ProcessRepositoryMongo() { return require('./process-repository-mongo').ProcessRepositoryMongo; },
     ProcessRepositoryPostgres,
     ProcessRepositoryDocumentDB,
 };

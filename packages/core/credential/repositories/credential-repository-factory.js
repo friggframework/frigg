@@ -1,4 +1,3 @@
-const { CredentialRepositoryMongo } = require('./credential-repository-mongo');
 const {
     CredentialRepositoryPostgres,
 } = require('./credential-repository-postgres');
@@ -30,6 +29,7 @@ function createCredentialRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { CredentialRepositoryMongo } = require('./credential-repository-mongo');
             return new CredentialRepositoryMongo();
 
         case 'postgresql':
@@ -48,7 +48,7 @@ function createCredentialRepository() {
 module.exports = {
     createCredentialRepository,
     // Export adapters for direct testing
-    CredentialRepositoryMongo,
+    get CredentialRepositoryMongo() { return require('./credential-repository-mongo').CredentialRepositoryMongo; },
     CredentialRepositoryPostgres,
     CredentialRepositoryDocumentDB,
 };

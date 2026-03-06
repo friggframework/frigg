@@ -1,4 +1,3 @@
-const { ModuleRepositoryMongo } = require('./module-repository-mongo');
 const { ModuleRepositoryPostgres } = require('./module-repository-postgres');
 const {
     ModuleRepositoryDocumentDB,
@@ -16,6 +15,7 @@ function createModuleRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { ModuleRepositoryMongo } = require('./module-repository-mongo');
             return new ModuleRepositoryMongo();
 
         case 'postgresql':
@@ -34,7 +34,7 @@ function createModuleRepository() {
 module.exports = {
     createModuleRepository,
     // Export adapters for direct testing
-    ModuleRepositoryMongo,
+    get ModuleRepositoryMongo() { return require('./module-repository-mongo').ModuleRepositoryMongo; },
     ModuleRepositoryPostgres,
     ModuleRepositoryDocumentDB,
 };

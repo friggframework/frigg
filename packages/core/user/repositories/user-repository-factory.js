@@ -1,6 +1,4 @@
-const { UserRepositoryMongo } = require('./user-repository-mongo');
 const { UserRepositoryPostgres } = require('./user-repository-postgres');
-const { UserRepositoryDocumentDB } = require('./user-repository-documentdb');
 const databaseConfig = require('../../database/config');
 
 /**
@@ -28,12 +26,14 @@ function createUserRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { UserRepositoryMongo } = require('./user-repository-mongo');
             return new UserRepositoryMongo();
 
         case 'postgresql':
             return new UserRepositoryPostgres();
 
         case 'documentdb':
+            const { UserRepositoryDocumentDB } = require('./user-repository-documentdb');
             return new UserRepositoryDocumentDB();
 
         default:
@@ -46,7 +46,7 @@ function createUserRepository() {
 module.exports = {
     createUserRepository,
     // Export adapters for direct testing
-    UserRepositoryMongo,
+    get UserRepositoryMongo() { return require('./user-repository-mongo').UserRepositoryMongo; },
     UserRepositoryPostgres,
-    UserRepositoryDocumentDB,
+    get UserRepositoryDocumentDB() { return require('./user-repository-documentdb').UserRepositoryDocumentDB; },
 };

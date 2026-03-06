@@ -1,7 +1,4 @@
 const {
-    AuthorizationSessionRepositoryMongo,
-} = require('./authorization-session-repository-mongo');
-const {
     AuthorizationSessionRepositoryPostgres,
 } = require('./authorization-session-repository-postgres');
 
@@ -35,6 +32,7 @@ function createAuthorizationSessionRepository(prismaClient) {
 
     switch (dbType) {
         case 'mongodb':
+            const { AuthorizationSessionRepositoryMongo } = require('./authorization-session-repository-mongo');
             return new AuthorizationSessionRepositoryMongo(prismaClient);
 
         case 'postgresql':
@@ -50,6 +48,6 @@ function createAuthorizationSessionRepository(prismaClient) {
 module.exports = {
     createAuthorizationSessionRepository,
     // Export adapters for direct testing
-    AuthorizationSessionRepositoryMongo,
+    get AuthorizationSessionRepositoryMongo() { return require('./authorization-session-repository-mongo').AuthorizationSessionRepositoryMongo; },
     AuthorizationSessionRepositoryPostgres,
 };

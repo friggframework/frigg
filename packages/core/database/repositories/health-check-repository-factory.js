@@ -1,12 +1,6 @@
 const {
-    HealthCheckRepositoryMongoDB,
-} = require('./health-check-repository-mongodb');
-const {
     HealthCheckRepositoryPostgreSQL,
 } = require('./health-check-repository-postgres');
-const {
-    HealthCheckRepositoryDocumentDB,
-} = require('./health-check-repository-documentdb');
 const config = require('../config');
 
 /**
@@ -31,12 +25,14 @@ function createHealthCheckRepository({ prismaClient } = {}) {
 
     switch (dbType) {
         case 'mongodb':
+            const { HealthCheckRepositoryMongoDB } = require('./health-check-repository-mongodb');
             return new HealthCheckRepositoryMongoDB({ prismaClient });
 
         case 'postgresql':
             return new HealthCheckRepositoryPostgreSQL({ prismaClient });
 
         case 'documentdb':
+            const { HealthCheckRepositoryDocumentDB } = require('./health-check-repository-documentdb');
             return new HealthCheckRepositoryDocumentDB({ prismaClient });
 
         default:
@@ -48,7 +44,7 @@ function createHealthCheckRepository({ prismaClient } = {}) {
 
 module.exports = {
     createHealthCheckRepository,
-    HealthCheckRepositoryMongoDB,
+    get HealthCheckRepositoryMongoDB() { return require('./health-check-repository-mongodb').HealthCheckRepositoryMongoDB; },
     HealthCheckRepositoryPostgreSQL,
-    HealthCheckRepositoryDocumentDB,
+    get HealthCheckRepositoryDocumentDB() { return require('./health-check-repository-documentdb').HealthCheckRepositoryDocumentDB; },
 };

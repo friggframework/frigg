@@ -14,23 +14,12 @@ const {
     createHandler,
 } = require('./core/index');
 const {
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
     prisma,
     TokenRepository,
     WebsocketConnectionRepository,
 } = require('./database/index');
 const {
     createUserRepository,
-    UserRepositoryMongo,
     UserRepositoryPostgres,
 } = require('./user/repositories/user-repository-factory');
 const {
@@ -134,22 +123,22 @@ module.exports = {
     loadInstalledModules,
     createHandler,
 
-    // database
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
+    // database (lazy-loaded: MongoDB/Mongoose symbols only resolve when accessed)
+    get mongoose() { return require('./database/index').mongoose; },
+    get connectToDatabase() { return require('./database/index').connectToDatabase; },
+    get disconnectFromDatabase() { return require('./database/index').disconnectFromDatabase; },
+    get createObjectId() { return require('./database/index').createObjectId; },
+    get IndividualUser() { return require('./database/index').IndividualUser; },
+    get OrganizationUser() { return require('./database/index').OrganizationUser; },
+    get State() { return require('./database/index').State; },
+    get Token() { return require('./database/index').Token; },
+    get UserModel() { return require('./database/index').UserModel; },
+    get WebsocketConnection() { return require('./database/index').WebsocketConnection; },
     prisma,
     TokenRepository,
     WebsocketConnectionRepository,
     createUserRepository,
-    UserRepositoryMongo,
+    get UserRepositoryMongo() { return require('./user/repositories/user-repository-factory').UserRepositoryMongo; },
     UserRepositoryPostgres,
     GetUserFromXFriggHeaders,
     GetUserFromAdopterJwt,

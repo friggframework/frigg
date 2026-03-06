@@ -1,4 +1,3 @@
-const { ScriptScheduleRepositoryMongo } = require('./script-schedule-repository-mongo');
 const { ScriptScheduleRepositoryPostgres } = require('./script-schedule-repository-postgres');
 const {
     ScriptScheduleRepositoryDocumentDB,
@@ -27,6 +26,7 @@ function createScriptScheduleRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { ScriptScheduleRepositoryMongo } = require('./script-schedule-repository-mongo');
             return new ScriptScheduleRepositoryMongo();
 
         case 'postgresql':
@@ -45,7 +45,7 @@ function createScriptScheduleRepository() {
 module.exports = {
     createScriptScheduleRepository,
     // Export adapters for direct testing
-    ScriptScheduleRepositoryMongo,
+    get ScriptScheduleRepositoryMongo() { return require('./script-schedule-repository-mongo').ScriptScheduleRepositoryMongo; },
     ScriptScheduleRepositoryPostgres,
     ScriptScheduleRepositoryDocumentDB,
 };
