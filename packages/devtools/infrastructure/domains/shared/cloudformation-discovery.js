@@ -562,7 +562,8 @@ class CloudFormationDiscovery {
                             .map(a => a.SubnetId);
                         
                         console.log(`  Route table has ${associatedSubnetIds.length} associated subnets: ${associatedSubnetIds.join(', ')}`);
-                        
+                        discovered.routeTableAssociationCount = associatedSubnetIds.length;
+
                         // Use the associated subnets if available
                         if (associatedSubnetIds.length >= 2) {
                             discovered.privateSubnetId1 = associatedSubnetIds[0];
