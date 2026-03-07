@@ -1,5 +1,4 @@
 const {
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
@@ -15,6 +14,8 @@ const {
 } = require('./core/index');
 const {
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
 } = require('./database/index');
@@ -77,8 +78,6 @@ const {
 const application = require('./application');
 const utils = require('./utils');
 
-// const {Sync } = require('./syncs/model');
-
 const {
     QueuerUtil,
     QueueProvider,
@@ -107,7 +106,6 @@ const {
 
 module.exports = {
     // assertions
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
@@ -121,18 +119,10 @@ module.exports = {
     loadInstalledModules,
     createHandler,
 
-    // database (lazy-loaded: MongoDB/Mongoose symbols only resolve when accessed)
-    get mongoose() { return require('./database/index').mongoose; },
-    get connectToDatabase() { return require('./database/index').connectToDatabase; },
-    get disconnectFromDatabase() { return require('./database/index').disconnectFromDatabase; },
-    get createObjectId() { return require('./database/index').createObjectId; },
-    get IndividualUser() { return require('./database/index').IndividualUser; },
-    get OrganizationUser() { return require('./database/index').OrganizationUser; },
-    get State() { return require('./database/index').State; },
-    get Token() { return require('./database/index').Token; },
-    get UserModel() { return require('./database/index').UserModel; },
-    get WebsocketConnection() { return require('./database/index').WebsocketConnection; },
+    // database
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
     createUserRepository,
@@ -188,7 +178,6 @@ module.exports = {
     flushDebugLog,
 
     // module plugin
-    get Entity() { return require('./modules/entity').Entity; },
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,

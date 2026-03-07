@@ -6,9 +6,6 @@ const { ModuleConstants } = require('./ModuleConstants');
 const { ModuleFactory } = require('./module-factory');
 
 module.exports = {
-    // Entity is a Mongoose model — lazy-load to avoid pulling in mongoose
-    // for PostgreSQL-only deployments
-    get Entity() { return require('./entity').Entity; },
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
