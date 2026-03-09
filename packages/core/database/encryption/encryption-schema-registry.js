@@ -205,20 +205,14 @@ function loadModuleEncryptionSchemas(integrations) {
  */
 function loadCustomEncryptionSchema() {
     try {
-        // Lazy require to avoid circular dependency issues
-        const path = require('node:path');
-        const { findNearestBackendPackageJson } = require('../../utils');
+        // Uses loadAppDefinition() which respects setAppDefinition() cache.
+        // This is critical for platforms like Netlify where process.cwd()-based
+        // discovery fails at runtime (process.cwd() is /var/task, not the project root).
+        const {
+            loadAppDefinition,
+        } = require('../../handlers/app-definition-loader');
 
-        const backendPackagePath = findNearestBackendPackageJson();
-        if (!backendPackagePath) {
-            return; // No backend found, skip custom schema
-        }
-
-        const backendDir = path.dirname(backendPackagePath);
-        const backendIndexPath = path.join(backendDir, 'index.js');
-
-        const backendModule = require(backendIndexPath);
-        const appDefinition = backendModule?.Definition;
+        const { appDefinition } = loadAppDefinition();
 
         if (!appDefinition) {
             return; // No app definition found
