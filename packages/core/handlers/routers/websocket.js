@@ -3,7 +3,15 @@ const {
     createWebsocketConnectionRepository,
 } = require('../../database/websocket-connection-repository-factory');
 
-const websocketConnectionRepository = createWebsocketConnectionRepository();
+let _websocketConnectionRepository;
+
+function getRepository() {
+    if (!_websocketConnectionRepository) {
+        _websocketConnectionRepository =
+            createWebsocketConnectionRepository();
+    }
+    return _websocketConnectionRepository;
+}
 
 const handleWebSocketConnection = async (event, context) => {
     // Handle different WebSocket events
@@ -12,7 +20,7 @@ const handleWebSocketConnection = async (event, context) => {
             // Handle new connection
             try {
                 const connectionId = event.requestContext.connectionId;
-                await websocketConnectionRepository.createConnection(
+                await getRepository().createConnection(
                     connectionId
                 );
                 console.log(`Stored new connection: ${connectionId}`);
@@ -26,7 +34,7 @@ const handleWebSocketConnection = async (event, context) => {
             // Handle disconnection
             try {
                 const connectionId = event.requestContext.connectionId;
-                await websocketConnectionRepository.deleteConnection(
+                await getRepository().deleteConnection(
                     connectionId
                 );
                 console.log(`Removed connection: ${connectionId}`);

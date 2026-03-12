@@ -5,73 +5,84 @@ const {
     IntegrationEventDispatcher,
 } = require('../integration-event-dispatcher');
 
-const handlers = {};
-const { integrations: integrationClasses } = loadAppDefinition();
+let _handlers;
 
-for (const IntegrationClass of integrationClasses) {
-    const webhookConfig = IntegrationClass.Definition.webhooks;
+function ensureHandlers() {
+    if (!_handlers) {
+        _handlers = {};
+        const { integrations: integrationClasses } = loadAppDefinition();
 
-    // Skip if webhooks not enabled
-    if (
-        !webhookConfig ||
-        (typeof webhookConfig === 'object' && !webhookConfig.enabled)
-    ) {
-        continue;
+        for (const IntegrationClass of integrationClasses) {
+            const webhookConfig = IntegrationClass.Definition.webhooks;
+
+            // Skip if webhooks not enabled
+            if (
+                !webhookConfig ||
+                (typeof webhookConfig === 'object' && !webhookConfig.enabled)
+            ) {
+                continue;
+            }
+
+            const router = Router();
+            const basePath = `/api/${IntegrationClass.Definition.name}-integration/webhooks`;
+
+            console.log(
+                `\n│ Configuring webhook routes for ${IntegrationClass.Definition.name}:`
+            );
+
+            // General webhook route (no integration ID)
+            router.post(basePath, async (req, res, next) => {
+                try {
+                    const integrationInstance = new IntegrationClass();
+                    const dispatcher = new IntegrationEventDispatcher(
+                        integrationInstance
+                    );
+                    await dispatcher.dispatchHttp({
+                        event: 'WEBHOOK_RECEIVED',
+                        req,
+                        res,
+                        next,
+                    });
+                } catch (error) {
+                    next(error);
+                }
+            });
+            console.log(`│ POST ${basePath}`);
+
+            // Integration-specific webhook route (with integration ID)
+            router.post(`${basePath}/:integrationId`, async (req, res, next) => {
+                try {
+                    const integrationInstance = new IntegrationClass();
+                    const dispatcher = new IntegrationEventDispatcher(
+                        integrationInstance
+                    );
+                    await dispatcher.dispatchHttp({
+                        event: 'WEBHOOK_RECEIVED',
+                        req,
+                        res,
+                        next,
+                    });
+                } catch (error) {
+                    next(error);
+                }
+            });
+            console.log(`│ POST ${basePath}/:integrationId`);
+            console.log('│');
+
+            _handlers[`${IntegrationClass.Definition.name}Webhook`] = {
+                handler: createAppHandler(
+                    `HTTP Event: ${IntegrationClass.Definition.name} Webhook`,
+                    router,
+                    false // shouldUseDatabase = false
+                ),
+            };
+        }
     }
-
-    const router = Router();
-    const basePath = `/api/${IntegrationClass.Definition.name}-integration/webhooks`;
-
-    console.log(
-        `\n│ Configuring webhook routes for ${IntegrationClass.Definition.name}:`
-    );
-
-    // General webhook route (no integration ID)
-    router.post(basePath, async (req, res, next) => {
-        try {
-            const integrationInstance = new IntegrationClass();
-            const dispatcher = new IntegrationEventDispatcher(
-                integrationInstance
-            );
-            await dispatcher.dispatchHttp({
-                event: 'WEBHOOK_RECEIVED',
-                req,
-                res,
-                next,
-            });
-        } catch (error) {
-            next(error);
-        }
-    });
-    console.log(`│ POST ${basePath}`);
-
-    // Integration-specific webhook route (with integration ID)
-    router.post(`${basePath}/:integrationId`, async (req, res, next) => {
-        try {
-            const integrationInstance = new IntegrationClass();
-            const dispatcher = new IntegrationEventDispatcher(
-                integrationInstance
-            );
-            await dispatcher.dispatchHttp({
-                event: 'WEBHOOK_RECEIVED',
-                req,
-                res,
-                next,
-            });
-        } catch (error) {
-            next(error);
-        }
-    });
-    console.log(`│ POST ${basePath}/:integrationId`);
-    console.log('│');
-
-    handlers[`${IntegrationClass.Definition.name}Webhook`] = {
-        handler: createAppHandler(
-            `HTTP Event: ${IntegrationClass.Definition.name} Webhook`,
-            router,
-            false // shouldUseDatabase = false
-        ),
-    };
+    return _handlers;
 }
 
-module.exports = { handlers };
+module.exports = {
+    get handlers() {
+        return ensureHandlers();
+    },
+};

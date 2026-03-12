@@ -29,49 +29,58 @@ const {
 } = require('../use-cases/check-integrations-health-use-case');
 
 const router = Router();
-const healthCheckRepository = createHealthCheckRepository({
-    prismaClient: prisma,
-});
 
-// Load integrations and create factories just like auth router does
-// This verifies the system can properly load integrations
-let moduleFactory, integrationClasses;
-try {
-    const appDef = loadAppDefinition();
-    integrationClasses = appDef.integrations || [];
+// Lazy-initialized use cases (deferred until first request)
+let _checkDatabaseHealthUseCase,
+    _checkEncryptionHealthUseCase,
+    _checkExternalApisHealthUseCase,
+    _checkIntegrationsHealthUseCase;
 
-    const moduleRepository = createModuleRepository();
-    const moduleDefinitions =
-        getModulesDefinitionFromIntegrationClasses(integrationClasses);
+function ensureInitialized() {
+    if (!_checkDatabaseHealthUseCase) {
+        const healthCheckRepository = createHealthCheckRepository({
+            prismaClient: prisma,
+        });
 
-    moduleFactory = new ModuleFactory({
-        moduleRepository,
-        moduleDefinitions,
-    });
-} catch (error) {
-    console.error(
-        'Failed to load integrations for health check:',
-        error.message
-    );
-    // Factories will be undefined, health check will report unhealthy
-    moduleFactory = undefined;
-    integrationClasses = [];
+        let moduleFactory, integrationClasses;
+        try {
+            const appDef = loadAppDefinition();
+            integrationClasses = appDef.integrations || [];
+
+            const moduleRepository = createModuleRepository();
+            const moduleDefinitions =
+                getModulesDefinitionFromIntegrationClasses(integrationClasses);
+
+            moduleFactory = new ModuleFactory({
+                moduleRepository,
+                moduleDefinitions,
+            });
+        } catch (error) {
+            console.error(
+                'Failed to load integrations for health check:',
+                error.message
+            );
+            moduleFactory = undefined;
+            integrationClasses = [];
+        }
+
+        const testEncryptionUseCase = new TestEncryptionUseCase({
+            healthCheckRepository,
+        });
+        _checkDatabaseHealthUseCase = new CheckDatabaseHealthUseCase({
+            healthCheckRepository,
+        });
+        _checkEncryptionHealthUseCase = new CheckEncryptionHealthUseCase({
+            testEncryptionUseCase,
+        });
+        _checkExternalApisHealthUseCase =
+            new CheckExternalApisHealthUseCase();
+        _checkIntegrationsHealthUseCase = new CheckIntegrationsHealthUseCase({
+            moduleFactory,
+            integrationClasses,
+        });
+    }
 }
-
-const testEncryptionUseCase = new TestEncryptionUseCase({
-    healthCheckRepository,
-});
-const checkDatabaseHealthUseCase = new CheckDatabaseHealthUseCase({
-    healthCheckRepository,
-});
-const checkEncryptionHealthUseCase = new CheckEncryptionHealthUseCase({
-    testEncryptionUseCase,
-});
-const checkExternalApisHealthUseCase = new CheckExternalApisHealthUseCase();
-const checkIntegrationsHealthUseCase = new CheckIntegrationsHealthUseCase({
-    moduleFactory,
-    integrationClasses,
-});
 
 const validateApiKey = (req, res, next) => {
     const apiKey = req.headers['x-frigg-health-api-key'];
@@ -132,6 +141,7 @@ router.get('/health', async (_req, res) => {
 });
 
 router.get('/health/detailed', async (_req, res) => {
+    ensureInitialized();
     console.log('Starting detailed health check');
     const startTime = Date.now();
 
@@ -197,7 +207,7 @@ router.get('/health/detailed', async (_req, res) => {
     }
 
     try {
-        response.checks.database = await checkDatabaseHealthUseCase.execute();
+        response.checks.database = await _checkDatabaseHealthUseCase.execute();
         if (response.checks.database.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
@@ -213,7 +223,7 @@ router.get('/health/detailed', async (_req, res) => {
 
     try {
         response.checks.encryption =
-            await checkEncryptionHealthUseCase.execute();
+            await _checkEncryptionHealthUseCase.execute();
         if (response.checks.encryption.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
@@ -229,7 +239,7 @@ router.get('/health/detailed', async (_req, res) => {
 
     try {
         const { apiStatuses, allReachable } =
-            await checkExternalApisHealthUseCase.execute();
+            await _checkExternalApisHealthUseCase.execute();
         response.checks.externalApis = apiStatuses;
         if (!allReachable) {
             response.status = 'unhealthy';
@@ -248,7 +258,7 @@ router.get('/health/detailed', async (_req, res) => {
     }
 
     try {
-        response.checks.integrations = checkIntegrationsHealthUseCase.execute();
+        response.checks.integrations = _checkIntegrationsHealthUseCase.execute();
         console.log(
             'Integrations check completed:',
             response.checks.integrations
@@ -283,10 +293,11 @@ router.get('/health/live', (_req, res) => {
 });
 
 router.get('/health/ready', async (_req, res) => {
-    const dbHealth = await checkDatabaseHealthUseCase.execute();
+    ensureInitialized();
+    const dbHealth = await _checkDatabaseHealthUseCase.execute();
     const isDbReady = dbHealth.status === 'healthy';
 
-    const integrationsHealth = checkIntegrationsHealthUseCase.execute();
+    const integrationsHealth = _checkIntegrationsHealthUseCase.execute();
     const areModulesReady = integrationsHealth.modules.count > 0;
 
     const isReady = isDbReady && areModulesReady;
