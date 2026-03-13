@@ -48,7 +48,7 @@ function generateNetlifyToml(appDefinition, options = {}) {
     lines.push('[functions]');
     lines.push('  node_bundler = "esbuild"');
     lines.push('  # Include Prisma client (binary, not traceable by nft)');
-    lines.push('  included_files = ["node_modules/.prisma/**"]');
+    lines.push('  included_files = ["node_modules/.prisma/**", "node_modules/@friggframework/core/generated/**"]');
     lines.push('  # Exclude packages that esbuild cannot bundle (native/dynamic requires)');
     lines.push('  external_node_modules = ["express", "body-parser", "cors", "serverless-http", "@prisma/client", "mongoose", "@friggframework/core", "@friggframework/provider-netlify"]');
     lines.push('');

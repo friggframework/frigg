@@ -33,6 +33,7 @@ describe('generateNetlifyToml', () => {
         expect(toml).toContain('[functions]');
         expect(toml).toContain('node_bundler = "esbuild"');
         expect(toml).toContain('node_modules/.prisma/**');
+        expect(toml).toContain('node_modules/@friggframework/core/generated/**');
         expect(toml).toContain('external_node_modules = ["express"');
         // Frigg packages must be external — they use dynamic requires that break esbuild
         expect(toml).toContain('@friggframework/core');
