@@ -5,8 +5,8 @@
 generator client {
   provider      = "prisma-client-js"
   output        = "../generated/prisma-mongodb"
-  binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"] // native for local dev, rhel for Lambda, debian for Netlify
-  engineType    = "library" // Node-API library (smaller than standalone binary engine)
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] // native for local/build platform, rhel for Lambda runtime (including Netlify functions)
+  engineType    = "library" // Node-API library (~2-5MB per platform vs ~18MB for binary engine)
 }
 
 datasource db {
