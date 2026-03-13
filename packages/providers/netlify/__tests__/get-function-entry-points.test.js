@@ -35,13 +35,38 @@ describe('getFunctionEntryPoints', () => {
         expect(entryPoints['auth.js']).toContain('handler');
     });
 
-    test('every entry point includes the app definition preamble', () => {
+    test('every entry point includes the app definition preamble with relative backend path', () => {
         const entryPoints = getFunctionEntryPoints({ name: 'test' });
 
         for (const content of Object.values(entryPoints)) {
             expect(content).toContain('setAppDefinition');
             expect(content).toContain("require('../../backend/index.js')");
-            expect(content).toContain('@friggframework/core/handlers/app-definition-loader');
+            // Preamble uses relative path through backend's node_modules
+            expect(content).toContain('../../backend/node_modules/@friggframework/core/handlers/app-definition-loader');
+        }
+    });
+
+    test('rewrites @friggframework/core requires to relative paths through backend', () => {
+        const entryPoints = getFunctionEntryPoints({ name: 'test' });
+
+        for (const content of Object.values(entryPoints)) {
+            // Should NOT contain bare @friggframework/core requires
+            const bareRequires = content.match(/require\(['"]@friggframework\/core/g) || [];
+            expect(bareRequires).toHaveLength(0);
+
+            // All @friggframework/core requires should go through backend/node_modules
+            const relativeRequires = content.match(/require\(['"]\.\.\/\.\.\/backend\/node_modules\/@friggframework\/core/g) || [];
+            // At least the preamble has one
+            expect(relativeRequires.length).toBeGreaterThanOrEqual(1);
+        }
+    });
+
+    test('accepts custom backendPath option', () => {
+        const entryPoints = getFunctionEntryPoints({ name: 'test' }, { backendPath: '../app' });
+
+        for (const content of Object.values(entryPoints)) {
+            expect(content).toContain("require('../app/index.js')");
+            expect(content).toContain('../app/node_modules/@friggframework/core');
         }
     });
 

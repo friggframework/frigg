@@ -12,6 +12,32 @@
  */
 
 /**
+ * Resolve the Prisma database type(s) from an app definition.
+ *
+ * Reads appDefinition.database to determine whether the app uses
+ * postgresql, mongodb, or both.  Returns an array of db type strings
+ * used to build targeted included_files globs so only the relevant
+ * Prisma generated client is bundled.
+ *
+ * @param {Object} appDefinition
+ * @returns {string[]} e.g. ['postgresql'] or ['mongodb'] or ['postgresql','mongodb']
+ */
+function resolveDbTypes(appDefinition) {
+    const db = appDefinition.database;
+    if (!db) {
+        // Fallback: include both so nothing breaks for apps that omit config
+        return ['postgresql', 'mongodb'];
+    }
+
+    const types = [];
+    if (db.postgres?.enable) types.push('postgresql');
+    if (db.mongoDB?.enable) types.push('mongodb');
+
+    // If nothing was explicitly enabled, fall back to both
+    return types.length > 0 ? types : ['postgresql', 'mongodb'];
+}
+
+/**
  * Generate netlify.toml content from a Frigg app definition
  *
  * @param {Object} appDefinition - Frigg app definition object
@@ -30,6 +56,7 @@ function generateNetlifyToml(appDefinition, options = {}) {
     } = options;
 
     const integrations = appDefinition.integrations || [];
+    const dbTypes = resolveDbTypes(appDefinition);
 
     const lines = [];
 
@@ -44,13 +71,20 @@ function generateNetlifyToml(appDefinition, options = {}) {
     lines.push(`  NODE_VERSION = "${nodeVersion}"`);
     lines.push('');
 
-    // Functions configuration
+    // Functions configuration — only include Prisma generated client for the
+    // database type(s) declared in appDefinition.database to reduce bundle size.
+    const prismaGlobs = dbTypes.map(
+        (t) => `"node_modules/@friggframework/core/generated/prisma-${t}/**"`
+    );
+    const includedFiles = ['"node_modules/.prisma/**"', ...prismaGlobs].join(', ');
+
     lines.push('[functions]');
     lines.push('  node_bundler = "esbuild"');
-    lines.push('  # Include Prisma client (binary, not traceable by nft)');
-    lines.push('  included_files = ["node_modules/.prisma/**", "node_modules/@friggframework/core/generated/**"]');
+    lines.push('  # Include Prisma engine + generated client for configured database');
+    lines.push(`  included_files = [${includedFiles}]`);
     lines.push('  # Exclude packages that esbuild cannot bundle (native/dynamic requires)');
-    lines.push('  external_node_modules = ["express", "body-parser", "cors", "serverless-http", "@prisma/client", "mongoose", "@friggframework/core", "@friggframework/provider-netlify"]');
+    lines.push('  # Also exclude AWS SDKs — they are only used by @friggframework/provider-aws, not needed on Netlify');
+    lines.push('  external_node_modules = ["express", "body-parser", "cors", "serverless-http", "@prisma/client", "mongoose", "@friggframework/core", "@friggframework/provider-netlify", "aws-sdk", "@aws-sdk/*"]');
     lines.push('');
 
     // =========================================================================
@@ -220,4 +254,4 @@ function generateNetlifyEnvTemplate(appDefinition) {
     return envVars;
 }
 
-module.exports = { generateNetlifyToml, generateNetlifyEnvTemplate };
+module.exports = { generateNetlifyToml, generateNetlifyEnvTemplate, resolveDbTypes };

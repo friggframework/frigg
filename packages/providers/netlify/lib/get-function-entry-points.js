@@ -28,25 +28,51 @@ const STANDARD_FUNCTIONS = [
     'scheduled-sync.js',
 ];
 
+/** Default relative path from netlify/functions/ to the backend directory. */
+const DEFAULT_BACKEND_PATH = '../../backend';
+
 /**
- * Preamble injected at the top of every generated function entry point.
+ * Build the preamble injected at the top of every generated function entry point.
  *
  * This makes the backend's app definition statically traceable by nft/esbuild:
- * - require('../../backend/index.js') is a static path nft can follow
+ * - require('<backendPath>/index.js') is a static path nft can follow
  * - setAppDefinition() caches the definition so loadAppDefinition() in core
  *   routers skips process.cwd() discovery (which fails on Netlify at runtime)
  *
- * The relative path ../../backend/index.js resolves from netlify/functions/
- * up to the project root, then into backend/.
+ * @param {string} backendPath - Relative path from functions dir to backend
+ * @returns {string}
  */
-const APP_DEFINITION_PREAMBLE = [
-    '// Pre-load app definition so nft can trace backend dependencies statically.',
-    '// This avoids process.cwd() discovery which fails in Netlify function runtime.',
-    "const { setAppDefinition } = require('@friggframework/core/handlers/app-definition-loader');",
-    "const { Definition: _friggAppDef } = require('../../backend/index.js');",
-    'setAppDefinition(_friggAppDef);',
-    '',
-].join('\n');
+function buildPreamble(backendPath) {
+    return [
+        '// Pre-load app definition so nft can trace backend dependencies statically.',
+        '// This avoids process.cwd() discovery which fails in Netlify function runtime.',
+        `const { setAppDefinition } = require('${backendPath}/node_modules/@friggframework/core/handlers/app-definition-loader');`,
+        `const { Definition: _friggAppDef } = require('${backendPath}/index.js');`,
+        'setAppDefinition(_friggAppDef);',
+        '',
+    ].join('\n');
+}
+
+/**
+ * Rewrite bare @friggframework/core requires to resolve through the backend's
+ * node_modules.  In a pnpm monorepo, bare requires resolve to the pnpm
+ * virtual store (a separate copy), causing nft to bundle two copies of
+ * @friggframework/core.  Relative paths ensure a single copy.
+ *
+ * @param {string} content - Function file content
+ * @param {string} backendPath - Relative path from functions dir to backend
+ * @returns {string}
+ */
+function rewriteCoreRequires(content, backendPath) {
+    // Match require('@friggframework/core') or require('@friggframework/core/...')
+    return content.replace(
+        /require\(['"]@friggframework\/core(\/[^'"]*)?['"]\)/g,
+        (match, subpath) => {
+            const modulePath = subpath || '';
+            return `require('${backendPath}/node_modules/@friggframework/core${modulePath}')`;
+        }
+    );
+}
 
 /**
  * Get all function entry point files for a Netlify deployment.
@@ -56,17 +82,26 @@ const APP_DEFINITION_PREAMBLE = [
  * a preamble that pre-loads the app definition via a static require,
  * enabling nft to trace the backend dependencies into the function bundle.
  *
+ * All bare `@friggframework/core` requires are rewritten to resolve through
+ * the backend's node_modules to avoid duplicate dependency trees in pnpm
+ * monorepos.
+ *
  * @param {Object} appDefinition - Frigg app definition
+ * @param {Object} [options]
+ * @param {string} [options.backendPath] - Relative path from functions dir to backend (default: '../../backend')
  * @returns {{ [filename: string]: string }}
  */
-function getFunctionEntryPoints(appDefinition) {
+function getFunctionEntryPoints(appDefinition, options = {}) {
+    const { backendPath = DEFAULT_BACKEND_PATH } = options;
+    const preamble = buildPreamble(backendPath);
     const entryPoints = {};
 
     for (const filename of STANDARD_FUNCTIONS) {
         const filePath = path.join(FUNCTIONS_DIR, filename);
         if (fs.existsSync(filePath)) {
             const templateContent = fs.readFileSync(filePath, 'utf-8');
-            entryPoints[filename] = APP_DEFINITION_PREAMBLE + templateContent;
+            const rewritten = rewriteCoreRequires(templateContent, backendPath);
+            entryPoints[filename] = preamble + rewritten;
         }
     }
 

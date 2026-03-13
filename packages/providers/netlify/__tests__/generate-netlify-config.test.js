@@ -1,6 +1,7 @@
 const {
     generateNetlifyToml,
     generateNetlifyEnvTemplate,
+    resolveDbTypes,
 } = require('../lib/generate-netlify-config');
 
 describe('generateNetlifyToml', () => {
@@ -33,11 +34,49 @@ describe('generateNetlifyToml', () => {
         expect(toml).toContain('[functions]');
         expect(toml).toContain('node_bundler = "esbuild"');
         expect(toml).toContain('node_modules/.prisma/**');
-        expect(toml).toContain('node_modules/@friggframework/core/generated/**');
+        // Without database config, both generated clients are included
+        expect(toml).toContain('prisma-postgresql/**');
+        expect(toml).toContain('prisma-mongodb/**');
         expect(toml).toContain('external_node_modules = ["express"');
         // Frigg packages must be external — they use dynamic requires that break esbuild
         expect(toml).toContain('@friggframework/core');
         expect(toml).toContain('@friggframework/provider-netlify');
+        // AWS SDKs must be external — they are only used by provider-aws
+        expect(toml).toContain('aws-sdk');
+        expect(toml).toContain('@aws-sdk/*');
+    });
+
+    test('includes only postgresql generated client when postgres is configured', () => {
+        const appDef = {
+            ...baseAppDefinition,
+            database: { postgres: { enable: true } },
+        };
+        const toml = generateNetlifyToml(appDef);
+
+        expect(toml).toContain('prisma-postgresql/**');
+        expect(toml).not.toContain('prisma-mongodb/**');
+    });
+
+    test('includes only mongodb generated client when mongoDB is configured', () => {
+        const appDef = {
+            ...baseAppDefinition,
+            database: { mongoDB: { enable: true } },
+        };
+        const toml = generateNetlifyToml(appDef);
+
+        expect(toml).toContain('prisma-mongodb/**');
+        expect(toml).not.toContain('prisma-postgresql/**');
+    });
+
+    test('includes both generated clients when both databases are configured', () => {
+        const appDef = {
+            ...baseAppDefinition,
+            database: { postgres: { enable: true }, mongoDB: { enable: true } },
+        };
+        const toml = generateNetlifyToml(appDef);
+
+        expect(toml).toContain('prisma-postgresql/**');
+        expect(toml).toContain('prisma-mongodb/**');
     });
 
     test('does not include backend/** in included_files (nft traces it via static require)', () => {
@@ -170,5 +209,29 @@ describe('generateNetlifyEnvTemplate', () => {
         });
 
         expect(envVars).toHaveProperty('MY_CUSTOM_VAR');
+    });
+});
+
+describe('resolveDbTypes', () => {
+    test('returns both types when no database config present', () => {
+        expect(resolveDbTypes({ name: 'test' })).toEqual(['postgresql', 'mongodb']);
+    });
+
+    test('returns postgresql when postgres is enabled', () => {
+        expect(resolveDbTypes({ database: { postgres: { enable: true } } })).toEqual(['postgresql']);
+    });
+
+    test('returns mongodb when mongoDB is enabled', () => {
+        expect(resolveDbTypes({ database: { mongoDB: { enable: true } } })).toEqual(['mongodb']);
+    });
+
+    test('returns both when both are enabled', () => {
+        expect(resolveDbTypes({
+            database: { postgres: { enable: true }, mongoDB: { enable: true } },
+        })).toEqual(['postgresql', 'mongodb']);
+    });
+
+    test('falls back to both when database config exists but nothing enabled', () => {
+        expect(resolveDbTypes({ database: {} })).toEqual(['postgresql', 'mongodb']);
     });
 });
