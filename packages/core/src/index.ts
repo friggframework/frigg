@@ -1,5 +1,66 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+
+// === Converted TypeScript modules ===
+
+// assertions
+export {
+    get,
+    getAll,
+    verifyType,
+    getParamAndVerifyParamType,
+    getArrayParamAndVerifyParamType,
+    getAndVerifyType,
+} from './assertions';
+export type { TypeOfType } from './assertions';
+export {
+    createApp,
+    createAppHandler,
+    loadAppDefinition,
+    IntegrationEventDispatcher,
+    loadRouterFromObject,
+    createQueueWorker,
+    databaseMigrationHandler,
+    CheckExternalApisHealthUseCase,
+    CheckIntegrationsHealthUseCase,
+} from './handlers';
+export type {
+    MiddlewareApplier,
+    IntegrationClass as HandlerIntegrationClass,
+    UserConfig,
+    AppDefinition,
+    IntegrationInstance,
+    DispatchHttpParams,
+    DispatchJobParams,
+    RouteDefinition,
+    MigrationEvent,
+    MigrationContext,
+    MigrationResult as HandlerMigrationResult,
+    ApiDefinition,
+    ApiCheckResult,
+    ExternalApisHealthResult,
+    IntegrationsHealthResult,
+    CheckIntegrationsHealthDeps,
+} from './handlers';
+
+// core
+export { Delegate, Worker, loadInstalledModules, createHandler, secretsToEnv } from './core';
+export type {
+    DelegateParams,
+    SQSRecord,
+    WorkerRunParams,
+    WorkerSendParams,
+    LambdaEvent,
+    LambdaContext,
+    LambdaResponse,
+    HandlerMethod,
+    CreateHandlerOptions,
+} from './core';
+
+// encrypt
 export { Cryptor } from './encrypt';
 export type { CryptorOptions } from './encrypt';
+
+// errors
 export {
     BaseError,
     ClientSafeError,
@@ -15,29 +76,237 @@ export type {
     RequiredPropertyErrorOptions,
     ParameterTypeErrorOptions,
 } from './errors';
+
+// lambda
 export { TimeoutCatcher } from './lambda';
 export type { TimeoutCatcherOptions } from './lambda';
+
+// logs
+export { debug, initDebugLog, flushDebugLog } from './logs';
+export type { LogEntry } from './logs';
+
+// utils
 export { findNearestBackendPackageJson, validateBackendPath } from './utils';
+
+// associations
 export { Association } from './associations';
 export type { AssociationConfig, AssociationConstructorParams } from './associations';
-export { Delegate, Worker, loadInstalledModules, createHandler, secretsToEnv } from './core';
-export type {
-    DelegateParams,
-    SQSRecord,
-    WorkerRunParams,
-    WorkerSendParams,
-    LambdaEvent,
-    LambdaContext,
-    LambdaResponse,
-    HandlerMethod,
-    CreateHandlerOptions,
-} from './core';
+
+// application - Command factories
+import * as application from './application';
 export {
-    get,
-    getAll,
-    verifyType,
-    getParamAndVerifyParamType,
-    getArrayParamAndVerifyParamType,
-    getAndVerifyType,
-} from './assertions';
-export type { TypeOfType } from './assertions';
+    createFriggCommands,
+    createIntegrationCommands,
+    createUserCommands,
+    createEntityCommands,
+    createCredentialCommands,
+    createSchedulerCommands,
+    findIntegrationContextByExternalEntityId,
+    integrationCommands,
+} from './application';
+export { application };
+export type {
+    FriggCommands,
+    IntegrationClass,
+    IntegrationCommands,
+    IntegrationContext,
+    IntegrationRecord,
+    CreateIntegrationParams,
+    UpdateIntegrationConfigParams,
+    DeleteIntegrationResult,
+    ErrorResponse,
+    UserCommands,
+    UserRecord,
+    OrganizationUserRecord,
+    CreateUserParams,
+    DeleteUserResult,
+    EntityCommands,
+    EntityRecord,
+    CreateEntityParams,
+    EntityFilter,
+    CredentialCommands,
+    CredentialRecord,
+    CreateCredentialParams,
+    CredentialFilter,
+    SchedulerCommands,
+    SchedulerService,
+    ScheduleJobParams,
+    ScheduleJobResult,
+    DeleteJobResult,
+    JobStatusResult,
+    CreateSchedulerCommandsParams,
+} from './application';
+
+// database
+export {
+    config as databaseConfig,
+    getDatabaseType,
+    getDbType,
+    prisma,
+    connectPrisma,
+    disconnectPrisma,
+    getEncryptionConfig,
+    ensureMongoDbUrl,
+    logger as encryptionLogger,
+    EncryptionLogger,
+    CORE_ENCRYPTION_SCHEMA,
+    getEncryptedFields,
+    hasEncryptedFields,
+    getEncryptedModels,
+    registerCustomSchema,
+    loadCustomEncryptionSchema,
+    loadModuleEncryptionSchemas,
+    extractCredentialFieldsFromModules,
+    validateCustomSchema,
+    resetCustomSchema,
+    FieldEncryptionService,
+    createEncryptionExtension,
+    HealthCheckRepositoryInterface,
+    HealthCheckRepositoryMongoDB,
+    HealthCheckRepositoryPostgreSQL,
+    HealthCheckRepositoryDocumentDB,
+    createHealthCheckRepository,
+    MigrationStatusRepositoryS3,
+    CheckDatabaseHealthUseCase,
+    CheckDatabaseStateUseCase,
+    CheckEncryptionHealthUseCase,
+    TestEncryptionUseCase,
+    GetDatabaseStateViaWorkerUseCase,
+    GetMigrationStatusUseCase,
+    RunDatabaseMigrationUseCase,
+    TriggerDatabaseMigrationUseCase,
+    MigrationError,
+    NotFoundError,
+    LambdaInvoker,
+    LambdaInvocationError,
+    DocumentDBEncryptionService,
+    toObjectId,
+    fromObjectId,
+    ensureCollectionExists,
+    ensureCollectionsExist,
+    initializeMongoDBSchema,
+    getPrismaSchemaPath,
+} from './database';
+export type {
+    DatabaseType,
+    PrismaClientLike,
+    EncryptionConfig,
+    EncryptionModelConfig,
+    EncryptionSchema,
+    EncryptionSchemaProvider,
+    DatabaseConnectionState,
+    CredentialData,
+    MigrationStatus,
+    CreateMigrationStatusData,
+    UpdateMigrationStatusData,
+    DatabaseHealthResult,
+    EncryptionHealthResult,
+    EncryptionTestResult,
+    MigrationResult,
+    TriggerMigrationResult,
+} from './database';
+
+// === Unconverted JS modules (re-exported via require) ===
+
+const database = require('../database/index');
+export const TokenRepository: unknown = database.TokenRepository;
+export const WebsocketConnectionRepository: unknown = database.WebsocketConnectionRepository;
+
+const userRepoFactory = require('../user/repositories/user-repository-factory');
+export const createUserRepository: (...args: unknown[]) => unknown = userRepoFactory.createUserRepository;
+export const UserRepositoryMongo: unknown = userRepoFactory.UserRepositoryMongo;
+export const UserRepositoryPostgres: unknown = userRepoFactory.UserRepositoryPostgres;
+
+const getUserFromXFriggHeaders = require('../user/use-cases/get-user-from-x-frigg-headers');
+export const GetUserFromXFriggHeaders: unknown = getUserFromXFriggHeaders.GetUserFromXFriggHeaders;
+
+const getUserFromAdopterJwt = require('../user/use-cases/get-user-from-adopter-jwt');
+export const GetUserFromAdopterJwt: unknown = getUserFromAdopterJwt.GetUserFromAdopterJwt;
+
+const authenticateUser = require('../user/use-cases/authenticate-user');
+export const AuthenticateUser: unknown = authenticateUser.AuthenticateUser;
+
+const credentialRepo = require('../credential/repositories/credential-repository');
+export const CredentialRepository: unknown = credentialRepo.CredentialRepository;
+
+const moduleRepo = require('../modules/repositories/module-repository');
+export const ModuleRepository: unknown = moduleRepo.ModuleRepository;
+
+// integrations (converted to TypeScript)
+export {
+    IntegrationBase,
+    Options,
+    createIntegrationRouter,
+    checkRequiredParams,
+    getModulesDefinitionFromIntegrationClasses,
+    mapIntegrationClassToIntegrationDTO,
+    LoadIntegrationContextUseCase,
+    FindIntegrationContextByExternalEntityIdUseCase,
+    CreateIntegration,
+    DeleteIntegrationForUser,
+    GetIntegrationsForUser,
+    GetIntegrationForUser,
+    GetIntegrationInstance,
+    GetIntegrationInstanceByDefinition,
+    UpdateIntegration,
+    UpdateIntegrationStatus,
+    UpdateIntegrationMessages,
+    GetPossibleIntegrations,
+    CreateProcess,
+    GetProcess,
+    UpdateProcessState,
+    UpdateProcessMetrics,
+    IntegrationRepositoryInterface,
+    IntegrationMappingRepositoryInterface,
+    ProcessRepositoryInterface,
+    createIntegrationRepository,
+    createIntegrationMappingRepository,
+    createProcessRepository,
+    IntegrationMappingRepository,
+    IntegrationMappingRepositoryMongo,
+    IntegrationMappingRepositoryPostgres,
+    IntegrationMappingRepositoryDocumentDB,
+    IntegrationRepositoryMongo,
+    IntegrationRepositoryPostgres,
+    IntegrationRepositoryDocumentDB,
+    ProcessRepositoryMongo,
+    ProcessRepositoryPostgres,
+    ProcessRepositoryDocumentDB,
+} from './integrations';
+export type {
+    IntegrationModuleDefinition,
+    IntegrationDisplay,
+    IntegrationDefinition,
+    IntegrationMessages,
+    IntegrationMessage,
+    IntegrationRecord as IntegrationRecordType,
+    IntegrationConfig,
+    IntegrationConstructorParams,
+    IntegrationModule,
+    IntegrationEventType,
+    IntegrationEventHandler,
+    IntegrationEvents,
+    SchemaOptions,
+    WebhookData,
+    IntegrationDTO,
+    OptionDetails,
+    IntegrationClass as IntegrationClassType,
+    DeletionResult,
+    IntegrationMappingRecord,
+    ProcessRecord,
+    ProcessData,
+    MetricsUpdate,
+} from './integrations';
+
+const modulesIndex = require('../modules/index');
+export const Credential: unknown = modulesIndex.Credential;
+export const Entity: unknown = modulesIndex.Entity;
+export const ApiKeyRequester: unknown = modulesIndex.ApiKeyRequester;
+export const BasicAuthRequester: unknown = modulesIndex.BasicAuthRequester;
+export const OAuth2Requester: unknown = modulesIndex.OAuth2Requester;
+export const Requester: unknown = modulesIndex.Requester;
+export const ModuleConstants: unknown = modulesIndex.ModuleConstants;
+export const ModuleFactory: unknown = modulesIndex.ModuleFactory;
+
+const queues = require('../queues');
+export const QueuerUtil: unknown = queues.QueuerUtil;
