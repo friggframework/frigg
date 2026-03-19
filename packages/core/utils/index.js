@@ -1,4 +1,4 @@
-const { findNearestBackendPackageJson, validateBackendPath } = require('./backend-path');
+const { findNearestBackendPackageJson, validateBackendPath } = require('../dist/utils');
 
 module.exports = {
     findNearestBackendPackageJson,
