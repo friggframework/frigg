@@ -1,11 +1,8 @@
-const { BaseError } = require('./base-error');
-const { FetchError } = require('./fetch-error');
-const { HaltError } = require('./halt-error');
-const {
-    RequiredPropertyError,
-    ParameterTypeError,
-} = require('./validation-errors');
-const { ClientSafeError } = require('./client-safe-error');
+const { BaseError } = require('../dist/errors/base-error');
+const { FetchError } = require('../dist/errors/fetch-error');
+const { HaltError } = require('../dist/errors/halt-error');
+const { RequiredPropertyError, ParameterTypeError } = require('../dist/errors/validation-errors');
+const { ClientSafeError } = require('../dist/errors/client-safe-error');
 
 module.exports = {
     BaseError,
