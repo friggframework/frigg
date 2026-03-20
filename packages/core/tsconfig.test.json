@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "rootDir": ".",
+        "strict": false,
+        "noImplicitAny": false,
+        "noEmit": true
+    },
+    "include": ["src", "**/*.test.ts", "**/*.test.tsx", "integrations/tests", "handlers", "__tests__", "application/commands", "workflows", "database/models", "jest-*.ts"]
+}

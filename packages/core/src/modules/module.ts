@@ -3,7 +3,7 @@ import { pick } from 'lodash';
 import { flushDebugLog } from '../logs';
 import { ModuleConstants } from './ModuleConstants';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { createCredentialRepository } = require('../../credential/repositories/credential-repository-factory') as { createCredentialRepository: () => CredentialRepositoryLike };
+const { createCredentialRepository } = require('../credential/repositories/credential-repository-factory') as { createCredentialRepository: () => CredentialRepositoryLike };
 import { createModuleRepository } from './repositories/module-repository-factory';
 import type { ModuleRepositoryInterface } from './repositories/module-repository-interface';
 import type { Requester } from './requester/requester';

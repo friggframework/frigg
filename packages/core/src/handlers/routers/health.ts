@@ -5,17 +5,14 @@ import { loadAppDefinition } from '../app-definition-loader';
 import { CheckExternalApisHealthUseCase } from '../use-cases/check-external-apis-health-use-case';
 import { CheckIntegrationsHealthUseCase } from '../use-cases/check-integrations-health-use-case';
 
-// JS modules not yet converted — use require
-/* eslint-disable @typescript-eslint/no-var-requires */
-const { ModuleFactory } = require('../../../modules/module-factory');
-const { getModulesDefinitionFromIntegrationClasses } = require('../../../integrations/utils/map-integration-dto');
-const { createModuleRepository } = require('../../../modules/repositories/module-repository-factory');
-const { createHealthCheckRepository } = require('../../../database/repositories/health-check-repository-factory');
-const { prisma } = require('../../../database/prisma');
-const { TestEncryptionUseCase } = require('../../../database/use-cases/test-encryption-use-case');
-const { CheckDatabaseHealthUseCase } = require('../../../database/use-cases/check-database-health-use-case');
-const { CheckEncryptionHealthUseCase } = require('../../../database/use-cases/check-encryption-health-use-case');
-/* eslint-enable @typescript-eslint/no-var-requires */
+import { ModuleFactory } from '../../modules/module-factory';
+import { getModulesDefinitionFromIntegrationClasses } from '../../integrations/utils/map-integration-dto';
+import { createModuleRepository } from '../../modules/repositories/module-repository-factory';
+import { createHealthCheckRepository } from '../../database/repositories/health-check-repository-factory';
+import { prisma } from '../../database/prisma';
+import { TestEncryptionUseCase } from '../../database/use-cases/test-encryption-use-case';
+import { CheckDatabaseHealthUseCase } from '../../database/use-cases/check-database-health-use-case';
+import { CheckEncryptionHealthUseCase } from '../../database/use-cases/check-encryption-health-use-case';
 
 const router = Router();
 const healthCheckRepository = createHealthCheckRepository({ prismaClient: prisma });
@@ -32,7 +29,7 @@ try {
 
     moduleFactory = new ModuleFactory({
         moduleRepository,
-        moduleDefinitions,
+        moduleDefinitions: moduleDefinitions as any,
     });
 } catch (error: unknown) {
     console.error('Failed to load integrations for health check:', (error as Error).message);

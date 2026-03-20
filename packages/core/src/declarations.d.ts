@@ -114,6 +114,13 @@ declare module '@aws-sdk/client-s3' {
     }
 }
 
+declare module '@friggframework/test' {
+    export function overrideEnvironment(overrideByKey: Record<string, string>): void;
+    export function restoreEnvironment(): void;
+    export function globalSetup(): Promise<void>;
+    export function globalTeardown(): Promise<void>;
+}
+
 declare module '@aws-sdk/client-scheduler' {
     export class SchedulerClient {
         constructor(config?: { region?: string });

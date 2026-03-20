@@ -1,26 +1,11 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-const {
-    createIntegrationRepository,
-} = require('../../../integrations/repositories/integration-repository-factory');
-const {
-    createModuleRepository,
-} = require('../../../modules/repositories/module-repository-factory');
-const { ModuleFactory } = require('../../../modules/module-factory');
-const {
-    LoadIntegrationContextUseCase,
-} = require('../../../integrations/use-cases/load-integration-context');
-const {
-    FindIntegrationContextByExternalEntityIdUseCase,
-} = require('../../../integrations/use-cases/find-integration-context-by-external-entity-id');
-const {
-    GetIntegrationsForUser,
-} = require('../../../integrations/use-cases/get-integrations-for-user');
-const {
-    CreateIntegration,
-} = require('../../../integrations/use-cases/create-integration');
-const {
-    getModulesDefinitionFromIntegrationClasses,
-} = require('../../../integrations/utils/map-integration-dto');
+import { createIntegrationRepository } from '../../integrations/repositories/integration-repository-factory';
+import { createModuleRepository } from '../../modules/repositories/module-repository-factory';
+import { ModuleFactory } from '../../modules/module-factory';
+import { LoadIntegrationContextUseCase } from '../../integrations/use-cases/load-integration-context';
+import { FindIntegrationContextByExternalEntityIdUseCase } from '../../integrations/use-cases/find-integration-context-by-external-entity-id';
+import { GetIntegrationsForUser } from '../../integrations/use-cases/get-integrations-for-user';
+import { CreateIntegration } from '../../integrations/use-cases/create-integration';
+import { getModulesDefinitionFromIntegrationClasses } from '../../integrations/utils/map-integration-dto';
 
 export interface IntegrationClass {
     name?: string;
@@ -84,7 +69,7 @@ function mapErrorToResponse(error: Error & { code?: string }): ErrorResponse {
     };
 }
 
-export function createIntegrationCommands({ integrationClass }: { integrationClass: IntegrationClass }): IntegrationCommands {
+export function createIntegrationCommands({ integrationClass }: { integrationClass: IntegrationClass }): any {
     if (!integrationClass) {
         throw new Error('integrationClass is required');
     }
@@ -94,41 +79,41 @@ export function createIntegrationCommands({ integrationClass }: { integrationCla
 
     const moduleDefinitions = getModulesDefinitionFromIntegrationClasses([
         integrationClass,
-    ]);
+    ] as any);
 
     const moduleFactory = new ModuleFactory({
-        moduleRepository,
-        moduleDefinitions,
+        moduleRepository: moduleRepository as any,
+        moduleDefinitions: moduleDefinitions as any,
     });
 
     const loadIntegrationContextUseCase = new LoadIntegrationContextUseCase({
         integrationRepository,
-        moduleRepository,
+        moduleRepository: moduleRepository as any,
         moduleFactory,
     });
 
     const findByExternalEntityIdUseCase =
         new FindIntegrationContextByExternalEntityIdUseCase({
             integrationRepository,
-            moduleRepository,
+            moduleRepository: moduleRepository as any,
             loadIntegrationContextUseCase: loadIntegrationContextUseCase,
         });
 
     const getIntegrationsForUserUseCase = new GetIntegrationsForUser({
         integrationRepository,
-        integrationClasses: [integrationClass],
+        integrationClasses: [integrationClass] as any,
         moduleFactory,
-        moduleRepository,
+        moduleRepository: moduleRepository as any,
     });
 
     const createIntegrationUseCase = new CreateIntegration({
         integrationRepository,
-        integrationClasses: [integrationClass],
+        integrationClasses: [integrationClass] as any,
         moduleFactory,
     });
 
     return {
-        async findIntegrationContextByExternalEntityId(externalEntityId: string) {
+        async findIntegrationContextByExternalEntityId(externalEntityId: string): Promise<any> {
             try {
                 const { context } = await findByExternalEntityIdUseCase.execute(
                     {
@@ -167,7 +152,7 @@ export function createIntegrationCommands({ integrationClass }: { integrationCla
                 const integration = await createIntegrationUseCase.execute(
                     entityIds,
                     userId,
-                    config
+                    config as any
                 );
                 return integration;
             } catch (error) {
@@ -177,7 +162,7 @@ export function createIntegrationCommands({ integrationClass }: { integrationCla
 
         async updateIntegrationConfig({ integrationId, config }: UpdateIntegrationConfigParams) {
             try {
-                const integration = await integrationRepository.updateIntegrationConfig(
+                const integration = await (integrationRepository as any).updateIntegrationConfig(
                     integrationId,
                     config
                 );

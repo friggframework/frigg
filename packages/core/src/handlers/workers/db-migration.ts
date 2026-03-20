@@ -4,24 +4,22 @@
  * Lambda function that runs Prisma database migrations from within the VPC.
  */
 
-/* eslint-disable @typescript-eslint/no-var-requires */
-const {
+import {
     RunDatabaseMigrationUseCase,
     MigrationError,
     ValidationError,
-} = require('../../../database/use-cases/run-database-migration-use-case');
-const {
+} from '../../database/use-cases/run-database-migration-use-case';
+import {
     CheckDatabaseStateUseCase,
-} = require('../../../database/use-cases/check-database-state-use-case');
-const {
+} from '../../database/use-cases/check-database-state-use-case';
+import {
     MigrationStatusRepositoryS3,
-} = require('../../../database/repositories/migration-status-repository-s3');
-/* eslint-enable @typescript-eslint/no-var-requires */
+} from '../../database/repositories/migration-status-repository-s3';
 
-const prismaRunner = require('../../../database/utils/prisma-runner');
+import * as prismaRunner from '../../database/utils/prisma-runner';
 
 const bucketName = process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
-const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
+const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName as any);
 
 function sanitizeError(errorMessage: string): string {
     if (!errorMessage) return 'Unknown error';
@@ -116,7 +114,7 @@ export const handler = async (
         if (migrationId) {
             await migrationStatusRepository.update({
                 migrationId, stage, state: 'RUNNING', progress: 10, startedAt: new Date().toISOString(),
-            });
+            } as any);
         }
 
         const runMigrationUseCase = new RunDatabaseMigrationUseCase({ prismaRunner });
@@ -126,7 +124,7 @@ export const handler = async (
             await migrationStatusRepository.update({
                 migrationId, stage, state: 'COMPLETED', progress: 100,
                 completedAt: new Date().toISOString(), migrationCommand: result.command,
-            });
+            } as any);
         }
 
         const responseBody: any = {
@@ -149,7 +147,7 @@ export const handler = async (
                 await migrationStatusRepository.update({
                     migrationId, stage, state: 'FAILED', progress: 0,
                     error: sanitizedError, failedAt: new Date().toISOString(),
-                });
+                } as any);
             } catch (updateError: any) {
                 console.error('Failed to update migration status:', updateError.message);
             }
