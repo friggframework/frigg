@@ -52,19 +52,19 @@ describe('FieldEncryptionService', () => {
     describe('constructor', () => {
         it('should throw if cryptor not provided', () => {
             expect(() => {
-                new FieldEncryptionService({ schema: mockSchema } as any);
+                const _instance = new FieldEncryptionService({ schema: mockSchema } as any);
             }).toThrow('Cryptor instance required');
         });
 
         it('should throw if schema not provided', () => {
             expect(() => {
-                new FieldEncryptionService({ cryptor: mockCryptor } as any);
+                const _instance = new FieldEncryptionService({ cryptor: mockCryptor } as any);
             }).toThrow('Schema with getEncryptedFields method required');
         });
 
         it('should throw if schema missing getEncryptedFields', () => {
             expect(() => {
-                new FieldEncryptionService({
+                const _instance = new FieldEncryptionService({
                     cryptor: mockCryptor,
                     schema: {},
                 } as any);

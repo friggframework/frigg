@@ -25,7 +25,7 @@ describe('GetMigrationStatusUseCase', () => {
     describe('constructor', () => {
         it('should throw error if migrationStatusRepository not provided', () => {
             expect(() => {
-                new GetMigrationStatusUseCase({} as any);
+                const _instance = new GetMigrationStatusUseCase({} as any);
             }).toThrow('migrationStatusRepository dependency is required');
         });
     });

@@ -50,7 +50,7 @@ describe('TriggerDatabaseMigrationUseCase', () => {
     describe('constructor', () => {
         it('should throw error if migrationStatusRepository not provided', () => {
             expect(() => {
-                new TriggerDatabaseMigrationUseCase({} as any);
+                const _instance = new TriggerDatabaseMigrationUseCase({} as any);
             }).toThrow('migrationStatusRepository dependency is required');
         });
 

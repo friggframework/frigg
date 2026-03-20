@@ -20,7 +20,7 @@ describe('CheckDatabaseStateUseCase', () => {
     describe('constructor', () => {
         it('should throw error if prismaRunner not provided', () => {
             expect(() => {
-                new CheckDatabaseStateUseCase({} as any);
+                const _instance = new CheckDatabaseStateUseCase({} as any);
             }).toThrow('prismaRunner dependency is required');
         });
     });
