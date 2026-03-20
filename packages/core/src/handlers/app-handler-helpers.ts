@@ -27,7 +27,7 @@ export const createApp = (applyMiddleware?: MiddlewareApplier): Application => {
 
     // Handle sending error response and logging server errors to console
     app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-        const boomError: Boom.Boom = err.isBoom ? err : Boom.badImplementation(err);
+        const boomError: Boom.Boom = err.isBoom ? err : Boom.boomify(err as Error);
         const {
             output: { statusCode = 500 },
         } = boomError;
@@ -38,7 +38,8 @@ export const createApp = (applyMiddleware?: MiddlewareApplier): Application => {
         } else {
             const safeMethod = String(req.method).replace(/[^\w]/g, '');
             const safePath = String(req.path).substring(0, 200).replace(/[\r\n]/g, '');
-            console.warn(`[Frigg] ${safeMethod} ${safePath} -> ${statusCode}`);
+            const safeMessage = String(err.message || '').substring(0, 500).replace(/[\r\n]/g, '');
+            console.warn(`[Frigg] ${safeMethod} ${safePath} -> ${statusCode}: ${safeMessage}`);
             res.status(statusCode).json({ error: err.message });
         }
     });
@@ -57,6 +58,7 @@ export function createAppHandler(
     return createHandler({
         eventName,
         method: serverlessHttp(app) as any,
+        shouldUseDatabase,
     });
 }
 

@@ -3,7 +3,7 @@ import { createAppHandler } from '../app-handler-helpers';
 
 // createIntegrationRouter is still JS — use require
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { createIntegrationRouter } = require('../../../integrations/integration-router');
+const { createIntegrationRouter } = require('../../integrations/integration-router');
 
 const router = createIntegrationRouter() as import('express').Router;
 

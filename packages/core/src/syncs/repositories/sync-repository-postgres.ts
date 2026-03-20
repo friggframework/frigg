@@ -4,7 +4,7 @@ import type { SyncData, SyncDataIdentifier, SyncFilter } from './sync-repository
 const { prisma } = require('../../database/prisma');
 
 export class SyncRepositoryPostgres extends SyncRepositoryInterface {
-    private readonly prisma: any;
+    private prisma: any;
 
     constructor() {
         super();

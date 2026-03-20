@@ -4,7 +4,7 @@ import type { IntegrationRecord, IntegrationConfig, DeletionResult } from '../ty
 const { prisma } = require('../../database/prisma');
 
 export class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
-    private readonly prisma: any;
+    private prisma: any;
 
     constructor() {
         super();

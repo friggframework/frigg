@@ -319,7 +319,7 @@ export type {
     CreateSchedulerServiceOptions,
 } from './infrastructure';
 
-const moduleRepo = require('../modules/repositories/module-repository');
+const moduleRepo = require('./modules/repositories/module-repository');
 export const ModuleRepository: unknown = moduleRepo.ModuleRepository;
 
 // integrations (converted to TypeScript)
@@ -388,7 +388,7 @@ export type {
     MetricsUpdate,
 } from './integrations';
 
-const modulesIndex = require('../modules/index');
+const modulesIndex = require('./modules/index');
 export const Credential: unknown = modulesIndex.Credential;
 export const Entity: unknown = modulesIndex.Entity;
 export const ApiKeyRequester: unknown = modulesIndex.ApiKeyRequester;

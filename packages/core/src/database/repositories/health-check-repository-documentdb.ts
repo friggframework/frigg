@@ -14,7 +14,7 @@ import { DocumentDBEncryptionService } from '../documentdb-encryption-service';
 import type { PrismaClientLike } from '../prisma';
 
 export class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
-    private readonly prisma: PrismaClientLike;
+    private prisma: PrismaClientLike;
     private readonly encryptionService: DocumentDBEncryptionService;
 
     constructor({ prismaClient }: { prismaClient: PrismaClientLike }) {

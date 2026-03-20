@@ -17,7 +17,7 @@ export function mapModuleClassToModuleDTO(moduleInstance: Module): ModuleDTO | n
         name: moduleInstance.name,
         userId: moduleInstance.userId,
         entity: moduleInstance.entity,
-        credentialId: moduleInstance.credential?.id?.toString(),
+        credentialId: (moduleInstance.credential as any)?._id?.toString(),
         type: moduleInstance.getName()
     };
 }

@@ -9,7 +9,7 @@ import { ClientSafeError } from '../../errors';
 import { DocumentDBEncryptionService } from '../../database/documentdb-encryption-service';
 
 export class UserRepositoryDocumentDB extends UserRepositoryInterface {
-    readonly prisma: any;
+    prisma: any;
     readonly tokenRepository: ReturnType<typeof createTokenRepository>;
     readonly encryptionService: DocumentDBEncryptionService;
 

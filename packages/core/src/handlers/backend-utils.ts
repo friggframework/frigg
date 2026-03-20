@@ -49,9 +49,9 @@ const initializeRepositories = (): {
 } => {
     // These are lazy-loaded to avoid circular deps in the TS source.
     // At runtime the JS shim files in the repo root still resolve correctly.
-    const { createProcessRepository } = require('../../integrations/repositories/process-repository-factory');
-    const { createIntegrationRepository } = require('../../integrations/repositories/integration-repository-factory');
-    const { createModuleRepository } = require('../../modules/repositories/module-repository-factory');
+    const { createProcessRepository } = require('../integrations/repositories/process-repository-factory');
+    const { createIntegrationRepository } = require('../integrations/repositories/integration-repository-factory');
+    const { createModuleRepository } = require('../modules/repositories/module-repository-factory');
 
     const processRepository = createProcessRepository();
     const integrationRepository = createIntegrationRepository();
@@ -64,8 +64,8 @@ const createModuleFactoryWithDefinitions = (
     moduleRepository: any,
     integrationClasses: IntegrationClass[]
 ): any => {
-    const { getModulesDefinitionFromIntegrationClasses } = require('../../integrations/utils/map-integration-dto');
-    const { ModuleFactory } = require('../../modules/module-factory');
+    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
+    const { ModuleFactory } = require('../modules/module-factory');
 
     const moduleDefinitions =
         getModulesDefinitionFromIntegrationClasses(integrationClasses);
@@ -79,7 +79,7 @@ const createModuleFactoryWithDefinitions = (
 const loadIntegrationForWebhook = async (integrationId: string): Promise<any> => {
     const { loadAppDefinition } = require('./app-definition-loader');
     const { integrations: integrationClasses } = loadAppDefinition();
-    const { GetIntegrationInstance } = require('../../integrations/use-cases/get-integration-instance');
+    const { GetIntegrationInstance } = require('../integrations/use-cases/get-integration-instance');
 
     const { integrationRepository, moduleRepository } =
         initializeRepositories();
@@ -113,7 +113,7 @@ const loadIntegrationForProcess = async (
     processId: string,
     integrationClass: IntegrationClass
 ): Promise<any> => {
-    const { GetIntegrationInstance } = require('../../integrations/use-cases/get-integration-instance');
+    const { GetIntegrationInstance } = require('../integrations/use-cases/get-integration-instance');
 
     const { processRepository, integrationRepository, moduleRepository } =
         initializeRepositories();

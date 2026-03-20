@@ -5,7 +5,7 @@ import type { CredentialData, CredentialUpsertParams, CredentialFilter, Mutation
 import { DocumentDBEncryptionService } from '../../database/documentdb-encryption-service';
 
 export class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
-    readonly prisma: any;
+    prisma: any;
     readonly encryptionService: DocumentDBEncryptionService;
 
     constructor() {

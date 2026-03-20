@@ -3,7 +3,7 @@ import { ErrorResponse, mapErrorToResponse as _mapError } from './command-utils'
 export type { ErrorResponse };
 const {
     createModuleRepository,
-} = require('../../../modules/repositories/module-repository-factory');
+} = require('../../modules/repositories/module-repository-factory');
 
 export interface EntityRecord {
     id: string;
@@ -229,7 +229,19 @@ export function createEntityCommands(): EntityCommands {
         },
 
         async deleteEntityById(entityId: string) {
-            return this.deleteEntity(entityId);
+            try {
+                if (!entityId) {
+                    const error = new Error('entityId is required') as Error & { code?: string };
+                    error.code = 'INVALID_ENTITY_DATA';
+                    throw error;
+                }
+
+                await moduleRepo.deleteEntity(entityId);
+
+                return { success: true };
+            } catch (error) {
+                return mapErrorToResponse(error as Error & { code?: string });
+            }
         },
 
         async unsetCredential(entityId: string) {

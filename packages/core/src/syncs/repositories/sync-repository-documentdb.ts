@@ -13,7 +13,7 @@ const {
 } = require('../../database/documentdb-utils');
 
 export class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
-    private readonly prisma: any;
+    private prisma: any;
 
     constructor() {
         super();

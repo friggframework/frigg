@@ -158,7 +158,7 @@ export function loadModuleEncryptionSchemas(integrations: IntegrationClass[]): v
     }
 
     if (!Array.isArray(integrations)) {
-        throw new TypeError('integrations must be an array');
+        throw new Error('integrations must be an array');
     }
 
     if (integrations.length === 0) {
@@ -170,13 +170,18 @@ export function loadModuleEncryptionSchemas(integrations: IntegrationClass[]): v
     const moduleDefinitions: ModuleDefinition[] = getModulesDefinitionFromIntegrationClasses(integrations);
     const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
 
-    if (credentialFields.length === 0) {
+    const coreCredentialFields = CORE_ENCRYPTION_SCHEMA.Credential?.fields || [];
+    const newFields = credentialFields.filter(
+        (field) => !coreCredentialFields.includes(field)
+    );
+
+    if (newFields.length === 0) {
         return;
     }
 
     const moduleSchema: EncryptionSchema = {
         Credential: {
-            fields: credentialFields,
+            fields: newFields,
         },
     };
 
@@ -190,7 +195,7 @@ export function loadModuleEncryptionSchemas(integrations: IntegrationClass[]): v
 export function loadCustomEncryptionSchema(): void {
     try {
         const path = require('node:path');
-        const { findNearestBackendPackageJson } = require('../../../utils');
+        const { findNearestBackendPackageJson } = require('../../utils');
 
         const backendPackagePath = findNearestBackendPackageJson();
         if (!backendPackagePath) {

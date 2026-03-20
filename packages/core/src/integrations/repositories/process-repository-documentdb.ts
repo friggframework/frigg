@@ -16,7 +16,7 @@ const {
 } = require('../../database/documentdb-encryption-service');
 
 export class ProcessRepositoryDocumentDB extends ProcessRepositoryInterface {
-    private readonly prisma: any;
+    private prisma: any;
     private readonly encryptionService: any;
 
     constructor() {

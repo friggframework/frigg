@@ -3,7 +3,7 @@ import { ErrorResponse, mapErrorToResponse as _mapError } from './command-utils'
 export type { ErrorResponse };
 const {
     createUserRepository,
-} = require('../../../user/repositories/user-repository-factory');
+} = require('../../user/repositories/user-repository-factory');
 
 export interface UserRecord {
     id: string;

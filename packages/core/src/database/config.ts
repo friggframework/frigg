@@ -70,7 +70,7 @@ export function getDatabaseType(): DatabaseType {
     try {
         const path = require('node:path');
         const fs = require('node:fs');
-        const { findNearestBackendPackageJson } = require('../../utils');
+        const { findNearestBackendPackageJson } = require('../utils');
 
         const backendPackagePath = findNearestBackendPackageJson();
         if (!backendPackagePath) {

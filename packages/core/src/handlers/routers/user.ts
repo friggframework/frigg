@@ -6,11 +6,11 @@ import catchAsyncError from 'express-async-handler';
 
 // JS modules not yet converted
 /* eslint-disable @typescript-eslint/no-var-requires */
-const { checkRequiredParams } = require('../../../integrations/integration-router');
-const { createUserRepository } = require('../../../user/repositories/user-repository-factory');
-const { CreateIndividualUser } = require('../../../user/use-cases/create-individual-user');
-const { LoginUser } = require('../../../user/use-cases/login-user');
-const { CreateTokenForUserId } = require('../../../user/use-cases/create-token-for-user-id');
+const { checkRequiredParams } = require('../../integrations/integration-router');
+const { createUserRepository } = require('../../user/repositories/user-repository-factory');
+const { CreateIndividualUser } = require('../../user/use-cases/create-individual-user');
+const { LoginUser } = require('../../user/use-cases/login-user');
+const { CreateTokenForUserId } = require('../../user/use-cases/create-token-for-user-id');
 /* eslint-enable @typescript-eslint/no-var-requires */
 
 const router = express();

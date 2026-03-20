@@ -6,7 +6,7 @@ import {
 import type { PrismaClientLike } from '../prisma';
 
 export class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
-    private readonly prisma: PrismaClientLike;
+    private prisma: PrismaClientLike;
 
     constructor({ prismaClient }: { prismaClient: PrismaClientLike }) {
         super();

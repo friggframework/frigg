@@ -42,7 +42,7 @@ export class TriggerDatabaseMigrationUseCase {
         }
         this.migrationStatusRepository = migrationStatusRepository;
         // Default QueuerUtil loaded at runtime to avoid import issues
-        this.queuerUtil = queuerUtil || require('../../../queues/queuer-util').QueuerUtil;
+        this.queuerUtil = queuerUtil || require('../../queues/queuer-util').QueuerUtil;
     }
 
     async execute({ userId, dbType, stage }: TriggerMigrationParams): Promise<TriggerMigrationResult> {

@@ -3,7 +3,7 @@ import { CredentialRepositoryInterface } from './credential-repository-interface
 import type { CredentialData, CredentialUpsertParams, CredentialFilter, MutationResult } from './credential-repository-interface';
 
 export class CredentialRepository extends CredentialRepositoryInterface {
-    readonly prisma: any;
+    prisma: any;
 
     constructor(prismaClient: typeof prisma = prisma) {
         super();

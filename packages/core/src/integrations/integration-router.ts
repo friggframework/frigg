@@ -15,25 +15,25 @@ const Boom = require('@hapi/boom');
 const catchAsyncError = require('express-async-handler');
 
 // Unconverted JS dependencies
-const { createCredentialRepository } = require('../../credential/repositories/credential-repository-factory');
-const { GetCredentialForUser } = require('../../credential/use-cases/get-credential-for-user');
-const { ModuleFactory } = require('../../modules/module-factory');
-const { createModuleRepository } = require('../../modules/repositories/module-repository-factory');
-const { GetEntitiesForUser } = require('../../modules/use-cases/get-entities-for-user');
-const { loadAppDefinition } = require('../../handlers/app-definition-loader');
-const { GetModuleInstanceFromType } = require('../../modules/use-cases/get-module-instance-from-type');
-const { GetEntityOptionsByType } = require('../../modules/use-cases/get-entity-options-by-type');
-const { TestModuleAuth } = require('../../modules/use-cases/test-module-auth');
-const { GetModule } = require('../../modules/use-cases/get-module');
-const { GetEntityOptionsById } = require('../../modules/use-cases/get-entity-options-by-id');
-const { RefreshEntityOptions } = require('../../modules/use-cases/refresh-entity-options');
-const { createUserRepository } = require('../../user/repositories/user-repository-factory');
-const { GetUserFromBearerToken } = require('../../user/use-cases/get-user-from-bearer-token');
-const { GetUserFromXFriggHeaders } = require('../../user/use-cases/get-user-from-x-frigg-headers');
-const { GetUserFromAdopterJwt } = require('../../user/use-cases/get-user-from-adopter-jwt');
-const { AuthenticateWithSharedSecret } = require('../../user/use-cases/authenticate-with-shared-secret');
-const { AuthenticateUser } = require('../../user/use-cases/authenticate-user');
-const { ProcessAuthorizationCallback } = require('../../modules/use-cases/process-authorization-callback');
+const { createCredentialRepository } = require('../credential/repositories/credential-repository-factory');
+const { GetCredentialForUser } = require('../credential/use-cases/get-credential-for-user');
+const { ModuleFactory } = require('../modules/module-factory');
+const { createModuleRepository } = require('../modules/repositories/module-repository-factory');
+const { GetEntitiesForUser } = require('../modules/use-cases/get-entities-for-user');
+const { loadAppDefinition } = require('../handlers/app-definition-loader');
+const { GetModuleInstanceFromType } = require('../modules/use-cases/get-module-instance-from-type');
+const { GetEntityOptionsByType } = require('../modules/use-cases/get-entity-options-by-type');
+const { TestModuleAuth } = require('../modules/use-cases/test-module-auth');
+const { GetModule } = require('../modules/use-cases/get-module');
+const { GetEntityOptionsById } = require('../modules/use-cases/get-entity-options-by-id');
+const { RefreshEntityOptions } = require('../modules/use-cases/refresh-entity-options');
+const { createUserRepository } = require('../user/repositories/user-repository-factory');
+const { GetUserFromBearerToken } = require('../user/use-cases/get-user-from-bearer-token');
+const { GetUserFromXFriggHeaders } = require('../user/use-cases/get-user-from-x-frigg-headers');
+const { GetUserFromAdopterJwt } = require('../user/use-cases/get-user-from-adopter-jwt');
+const { AuthenticateWithSharedSecret } = require('../user/use-cases/authenticate-with-shared-secret');
+const { AuthenticateUser } = require('../user/use-cases/authenticate-user');
+const { ProcessAuthorizationCallback } = require('../modules/use-cases/process-authorization-callback');
 
 interface User {
     getId(): string;

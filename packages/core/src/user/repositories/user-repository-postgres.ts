@@ -7,7 +7,7 @@ import type { UserData } from '../user';
 import { ClientSafeError } from '../../errors';
 
 export class UserRepositoryPostgres extends UserRepositoryInterface {
-    readonly prisma: any;
+    prisma: any;
     readonly tokenRepository: ReturnType<typeof createTokenRepository>;
 
     constructor() {

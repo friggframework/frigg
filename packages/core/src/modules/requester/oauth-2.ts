@@ -171,7 +171,7 @@ export class OAuth2Requester extends Requester {
     }
 
     async refreshAccessToken(refreshTokenObject: { refresh_token: string }): Promise<TokenResponse> {
-        this.access_token = undefined as unknown as string | null;
+        this.access_token = null;
         const params = new URLSearchParams();
         params.append('grant_type', 'refresh_token');
         params.append('client_id', this.client_id!);

@@ -8,7 +8,7 @@ import { ClientSafeError } from '../../errors';
 const BCRYPT_ROUNDS = 10;
 
 export class TokenRepositoryDocumentDB extends TokenRepositoryInterface {
-    readonly prisma: any;
+    prisma: any;
 
     constructor() {
         super();

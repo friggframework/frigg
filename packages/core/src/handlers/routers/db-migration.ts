@@ -9,18 +9,18 @@ import serverlessHttp from 'serverless-http';
 import cors from 'cors';
 
 /* eslint-disable @typescript-eslint/no-var-requires */
-const { MigrationStatusRepositoryS3 } = require('../../../database/repositories/migration-status-repository-s3');
+const { MigrationStatusRepositoryS3 } = require('../../database/repositories/migration-status-repository-s3');
 const {
     TriggerDatabaseMigrationUseCase,
     ValidationError: TriggerValidationError,
-} = require('../../../database/use-cases/trigger-database-migration-use-case');
+} = require('../../database/use-cases/trigger-database-migration-use-case');
 const {
     GetMigrationStatusUseCase,
     ValidationError: GetValidationError,
     NotFoundError,
-} = require('../../../database/use-cases/get-migration-status-use-case');
-const { LambdaInvoker } = require('../../../database/adapters/lambda-invoker');
-const { GetDatabaseStateViaWorkerUseCase } = require('../../../database/use-cases/get-database-state-via-worker-use-case');
+} = require('../../database/use-cases/get-migration-status-use-case');
+const { LambdaInvoker } = require('../../database/adapters/lambda-invoker');
+const { GetDatabaseStateViaWorkerUseCase } = require('../../database/use-cases/get-database-state-via-worker-use-case');
 /* eslint-enable @typescript-eslint/no-var-requires */
 
 const router = Router();
@@ -139,7 +139,7 @@ router.post(
         }
 
         try {
-            const prismaRunner = require('../../../database/utils/prisma-runner');
+            const prismaRunner = require('../../database/utils/prisma-runner');
             const result = await prismaRunner.runPrismaMigrateResolve(migrationName, action, true);
             if (!result.success) {
                 res.status(500).json({ success: false, error: `Failed to resolve migration: ${result.error}` });

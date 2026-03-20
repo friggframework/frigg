@@ -61,7 +61,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
             const entries = new Array(5).fill(null).map((_, i) => ({ data: `test-${i}` }));
             const queueUrl = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
-            await QueuerUtil.batchSend(queueUrl, entries);
+            await QueuerUtil.batchSend(entries, queueUrl);
 
             expect(sqsMock.calls()).toHaveLength(1);
 
@@ -79,7 +79,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
             const entries = new Array(25).fill(null).map((_, i) => ({ data: `test-${i}` }));
             const queueUrl = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
-            await QueuerUtil.batchSend(queueUrl, entries);
+            await QueuerUtil.batchSend(entries, queueUrl);
 
             // Should send 3 batches (10 + 10 + 5)
             expect(sqsMock.calls()).toHaveLength(3);
@@ -90,7 +90,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
         });
 
         it('should handle empty entries array', async () => {
-            const result = await QueuerUtil.batchSend('https://queue-url', []);
+            const result = await QueuerUtil.batchSend([], 'https://queue-url');
 
             expect(result).toEqual({});
             expect(sqsMock.calls()).toHaveLength(0);
@@ -105,7 +105,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
             const entries = new Array(10).fill(null).map((_, i) => ({ data: `test-${i}` }));
             const queueUrl = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
-            const result = await QueuerUtil.batchSend(queueUrl, entries);
+            const result = await QueuerUtil.batchSend(entries, queueUrl);
 
             expect(sqsMock.calls()).toHaveLength(1);
             expect(result).toEqual({});  // Returns empty object when exact batch
@@ -120,7 +120,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
             const entries = [{ data: 'test-1' }, { data: 'test-2' }];
             const queueUrl = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
-            await QueuerUtil.batchSend(queueUrl, entries);
+            await QueuerUtil.batchSend(entries, queueUrl);
 
             const sentEntries = (sqsMock.call(0).args[0].input as any).Entries;
             expect(sentEntries[0].Id).toBeDefined();

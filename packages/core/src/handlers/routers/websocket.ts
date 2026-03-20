@@ -3,7 +3,7 @@ import type { LambdaEvent, LambdaContext, LambdaResponse } from '../../core/crea
 
 // JS module not yet converted
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { createWebsocketConnectionRepository } = require('../../../database/websocket-connection-repository-factory');
+const { createWebsocketConnectionRepository } = require('../../database/websocket-connection-repository-factory');
 
 const websocketConnectionRepository = createWebsocketConnectionRepository();
 

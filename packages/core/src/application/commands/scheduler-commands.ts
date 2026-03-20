@@ -85,7 +85,7 @@ export function createSchedulerCommands({ integrationName, schedulerService }: C
     function getSchedulerService(): SchedulerService | null {
         if (!_schedulerService) {
             try {
-                const { createSchedulerService } = require('../../../infrastructure/scheduler');
+                const { createSchedulerService } = require('../../infrastructure/scheduler');
                 _schedulerService = createSchedulerService();
             } catch (error: unknown) {
                 const err = error as Error;

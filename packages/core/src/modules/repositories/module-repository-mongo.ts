@@ -15,7 +15,7 @@ interface PrismaEntity {
 
 export class ModuleRepositoryMongo extends ModuleRepositoryInterface {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly prisma: any;
+    prisma: any;
 
     constructor() {
         super();

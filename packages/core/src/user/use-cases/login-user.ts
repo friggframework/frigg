@@ -33,10 +33,10 @@ export class LoginUser {
 
     private async loginWithPassword(username?: string, password?: string): Promise<User> {
         if (!username) {
-            throw new RequiredPropertyError({ parent: { name: 'LoginUser' }, key: 'username' });
+            throw new RequiredPropertyError({ parent: this as any, key: 'username' });
         }
         if (!password) {
-            throw new RequiredPropertyError({ parent: { name: 'LoginUser' }, key: 'password' });
+            throw new RequiredPropertyError({ parent: this as any, key: 'password' });
         }
 
         const individualUserData = await this.userRepository.findIndividualUserByUsername(username);

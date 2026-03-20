@@ -4,7 +4,7 @@ import { WebsocketConnectionRepositoryInterface } from './websocket-connection-r
 import type { ConnectionData, ActiveConnection, ConnectionDeleteResult } from './websocket-connection-repository-interface';
 
 export class WebsocketConnectionRepositoryMongo extends WebsocketConnectionRepositoryInterface {
-    readonly prisma: any;
+    prisma: any;
 
     constructor() {
         super();

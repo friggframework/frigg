@@ -28,7 +28,7 @@ function mapEntity(e: PrismaEntity): Entity {
 
 export class ModuleRepository extends ModuleRepositoryInterface {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly prisma: any;
+    prisma: any;
 
     constructor(prismaClient: unknown = prisma) {
         super();

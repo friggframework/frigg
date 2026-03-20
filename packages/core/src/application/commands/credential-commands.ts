@@ -3,7 +3,7 @@ import { ErrorResponse, mapErrorToResponse as _mapError } from './command-utils'
 export type { ErrorResponse };
 const {
     createCredentialRepository,
-} = require('../../../credential/repositories/credential-repository-factory');
+} = require('../../credential/repositories/credential-repository-factory');
 
 export interface CredentialRecord {
     id: string;
@@ -206,7 +206,19 @@ export function createCredentialCommands(): CredentialCommands {
         },
 
         async deleteCredentialById(credentialId: string) {
-            return this.deleteCredential(credentialId);
+            try {
+                if (!credentialId) {
+                    const error = new Error('credentialId is required') as Error & { code?: string };
+                    error.code = 'INVALID_CREDENTIAL_DATA';
+                    throw error;
+                }
+
+                await credRepo.deleteCredentialById(credentialId);
+
+                return { success: true };
+            } catch (error) {
+                return mapErrorToResponse(error as Error & { code?: string });
+            }
         },
     };
 }

@@ -3,7 +3,7 @@ import { CredentialRepositoryInterface } from './credential-repository-interface
 import type { CredentialData, CredentialUpsertParams, CredentialFilter, MutationResult } from './credential-repository-interface';
 
 export class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
-    readonly prisma: any;
+    prisma: any;
 
     constructor() {
         super();

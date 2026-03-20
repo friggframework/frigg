@@ -17,7 +17,7 @@ const {
 } = require('../../database/documentdb-encryption-service');
 
 export class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositoryInterface {
-    private readonly prisma: any;
+    private prisma: any;
     private readonly encryptionService: any;
 
     constructor() {

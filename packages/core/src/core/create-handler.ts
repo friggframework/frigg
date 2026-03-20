@@ -27,6 +27,7 @@ export interface CreateHandlerOptions {
     eventName?: string;
     isUserFacingResponse?: boolean;
     method: HandlerMethod;
+    shouldUseDatabase?: boolean;
 }
 
 export const createHandler = (

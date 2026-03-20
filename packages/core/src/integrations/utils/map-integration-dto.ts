@@ -45,7 +45,7 @@ export function getModulesDefinitionFromIntegrationClasses(
         ...new Set(
             integrationClasses
                 .map((integration) =>
-                    Object.values(integration.Definition.modules).map(
+                    Object.values(integration.Definition.modules || {}).map(
                         (module: IntegrationModuleDefinition) => module.definition
                     )
                 )

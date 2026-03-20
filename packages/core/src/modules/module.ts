@@ -52,8 +52,8 @@ export interface ModuleDefinition {
     env?: Record<string, unknown>;
     Credential?: { schema: { paths: Record<string, unknown> } };
     getName?: () => string;
-    getEntityOptions?: () => unknown;
-    refreshEntityOptions?: (options: unknown) => Promise<void>;
+    getEntityOptions: () => unknown;
+    refreshEntityOptions: (options: unknown) => Promise<void>;
     [key: string]: unknown;
 }
 
@@ -118,11 +118,11 @@ export class Module extends Delegate {
     }
 
     getEntityOptions(): unknown {
-        return this.definition.getEntityOptions?.();
+        return this.definition.getEntityOptions();
     }
 
     async refreshEntityOptions(options: unknown): Promise<unknown> {
-        await this.definition.refreshEntityOptions?.(options);
+        await this.definition.refreshEntityOptions(options);
         return this.getEntityOptions();
     }
 
