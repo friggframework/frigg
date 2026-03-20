@@ -1,2 +1,1 @@
-import { globalTeardown } from '@friggframework/test';
-export default globalTeardown;
+export { globalTeardown as default } from '@friggframework/test';

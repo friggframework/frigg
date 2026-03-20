@@ -17,7 +17,7 @@ import { IntegrationBase } from '../integrations/integration-base';
 import { IntegrationEventDispatcher } from './integration-event-dispatcher';
 
 class WebhookTestIntegration extends IntegrationBase {
-    static Definition = {
+    static readonly Definition = {
         name: 'webhook-test',
         version: '1.0.0',
         modules: {},
@@ -215,7 +215,7 @@ describe('Webhook Flow Integration Test', () => {
     describe('Default Webhook Handlers', () => {
         it('should use default WEBHOOK_RECEIVED handler if not overridden', async () => {
             class DefaultWebhookIntegration extends IntegrationBase {
-                static Definition = {
+                static readonly Definition = {
                     name: 'default-webhook',
                     version: '1.0.0',
                     modules: {},
@@ -252,7 +252,7 @@ describe('Webhook Flow Integration Test', () => {
 
         it('should use default ON_WEBHOOK handler if not overridden', async () => {
             class DefaultWebhookIntegration extends IntegrationBase {
-                static Definition = {
+                static readonly Definition = {
                     name: 'default-webhook-worker',
                     version: '1.0.0',
                     modules: {},

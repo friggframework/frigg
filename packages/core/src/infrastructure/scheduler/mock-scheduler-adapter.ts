@@ -11,8 +11,8 @@ interface ScheduleData {
 }
 
 export class MockSchedulerAdapter extends SchedulerServiceInterface {
-    private verbose: boolean;
-    private schedules: Map<string, ScheduleData>;
+    private readonly verbose: boolean;
+    private readonly schedules: Map<string, ScheduleData>;
 
     constructor(options: { verbose?: boolean } = {}) {
         super();

@@ -16,8 +16,8 @@ interface GetUserFromXFriggHeadersDeps {
 }
 
 export class GetUserFromXFriggHeaders {
-    private userRepository: UserRepositoryInterface;
-    private userConfig: UserConfigForXFriggHeaders;
+    private readonly userRepository: UserRepositoryInterface;
+    private readonly userConfig: UserConfigForXFriggHeaders;
 
     constructor({ userRepository, userConfig }: GetUserFromXFriggHeadersDeps) {
         this.userRepository = userRepository;

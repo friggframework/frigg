@@ -25,7 +25,7 @@ export function mapIntegrationClassToIntegrationDTO(
     return {
         id: integration.id,
         userId: integration.userId,
-        entities: integration.entities as string[] | unknown[] | undefined,
+        entities: integration.entities,
         config: integration.config as IntegrationDTO['config'],
         status: integration.status,
         version: integration.version,
@@ -35,7 +35,7 @@ export function mapIntegrationClassToIntegrationDTO(
             (typeof integration.getOptionDetails === 'function'
                 ? integration.getOptionDetails()
                 : null),
-    } as IntegrationDTO;
+    };
 }
 
 export function getModulesDefinitionFromIntegrationClasses(

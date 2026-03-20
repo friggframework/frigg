@@ -15,9 +15,9 @@ interface IntegrationContext {
 }
 
 export class LoadIntegrationContextUseCase {
-    private integrationRepository: IntegrationRepositoryInterface;
-    private moduleRepository: ModuleRepository;
-    private moduleFactory: ModuleFactory;
+    private readonly integrationRepository: IntegrationRepositoryInterface;
+    private readonly moduleRepository: ModuleRepository;
+    private readonly moduleFactory: ModuleFactory;
 
     constructor({ integrationRepository, moduleRepository, moduleFactory }: {
         integrationRepository: IntegrationRepositoryInterface;

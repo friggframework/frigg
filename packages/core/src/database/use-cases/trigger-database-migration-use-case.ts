@@ -30,8 +30,8 @@ export interface TriggerMigrationResult {
 }
 
 export class TriggerDatabaseMigrationUseCase {
-    private migrationStatusRepository: MigrationStatusRepository;
-    private queuerUtil: QueuerUtilLike;
+    private readonly migrationStatusRepository: MigrationStatusRepository;
+    private readonly queuerUtil: QueuerUtilLike;
 
     constructor({ migrationStatusRepository, queuerUtil }: {
         migrationStatusRepository: MigrationStatusRepository;

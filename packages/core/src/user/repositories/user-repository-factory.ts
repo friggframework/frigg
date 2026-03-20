@@ -21,4 +21,6 @@ export function createUserRepository(): UserRepositoryInterface {
     }
 }
 
-export { UserRepositoryMongo, UserRepositoryPostgres, UserRepositoryDocumentDB };
+export { UserRepositoryMongo } from './user-repository-mongo';
+export { UserRepositoryPostgres } from './user-repository-postgres';
+export { UserRepositoryDocumentDB } from './user-repository-documentdb';

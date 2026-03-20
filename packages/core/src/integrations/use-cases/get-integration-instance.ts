@@ -6,9 +6,9 @@ interface ModuleFactory {
 }
 
 export class GetIntegrationInstance {
-    private integrationRepository: IntegrationRepositoryInterface;
-    private integrationClasses: IntegrationClass[];
-    private moduleFactory: ModuleFactory;
+    private readonly integrationRepository: IntegrationRepositoryInterface;
+    private readonly integrationClasses: IntegrationClass[];
+    private readonly moduleFactory: ModuleFactory;
 
     constructor({ integrationRepository, integrationClasses, moduleFactory }: {
         integrationRepository: IntegrationRepositoryInterface;

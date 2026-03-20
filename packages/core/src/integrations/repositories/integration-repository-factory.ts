@@ -22,8 +22,6 @@ export function createIntegrationRepository(): IntegrationRepositoryInterface {
     }
 }
 
-export {
-    IntegrationRepositoryMongo,
-    IntegrationRepositoryPostgres,
-    IntegrationRepositoryDocumentDB,
-};
+export { IntegrationRepositoryMongo } from './integration-repository-mongo';
+export { IntegrationRepositoryPostgres } from './integration-repository-postgres';
+export { IntegrationRepositoryDocumentDB } from './integration-repository-documentdb';

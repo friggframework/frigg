@@ -20,7 +20,7 @@ export interface SyncParams {
 }
 
 export class Sync {
-    static Config: SyncConfig = {
+    static readonly Config: SyncConfig = {
         name: 'Sync',
         keys: [],
         matchOn: [],
@@ -28,20 +28,20 @@ export class Sync {
         reverseModuleMap: {},
     };
 
-    data: Record<string, unknown>;
-    moduleName: string | undefined;
-    dataIdentifier: unknown;
-    useMapping: boolean;
-    dataIdentifierHash: string;
-    missingMatchData: boolean;
-    matchHash: string;
+    readonly data: Record<string, unknown>;
+    readonly moduleName: string | undefined;
+    readonly dataIdentifier: unknown;
+    readonly useMapping: boolean;
+    readonly dataIdentifierHash: string;
+    readonly missingMatchData: boolean;
+    readonly matchHash: string;
     syncId: string | null;
 
     constructor(params: SyncParams) {
         this.data = {};
 
-        const data = get(params, 'data') as unknown;
-        this.moduleName = get(params, 'moduleName') as string | undefined;
+        const data = get(params, 'data');
+        this.moduleName = get(params, 'moduleName');
         this.dataIdentifier = get(params, 'dataIdentifier');
         this.useMapping = get(params, 'useMapping', true) as boolean;
 

@@ -4,7 +4,7 @@ import type { SyncData, SyncDataIdentifier, SyncFilter } from './sync-repository
 const { prisma } = require('../../database/prisma');
 
 export class SyncRepositoryPostgres extends SyncRepositoryInterface {
-    private prisma: any;
+    private readonly prisma: any;
 
     constructor() {
         super();
@@ -13,8 +13,8 @@ export class SyncRepositoryPostgres extends SyncRepositoryInterface {
 
     private _convertId(id: string | number | null | undefined): number | null | undefined {
         if (id === null || id === undefined) return id;
-        const parsed = parseInt(String(id), 10);
-        if (isNaN(parsed)) {
+        const parsed = Number.parseInt(String(id), 10);
+        if (Number.isNaN(parsed)) {
             throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
         }
         return parsed;

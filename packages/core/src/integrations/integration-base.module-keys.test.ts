@@ -33,7 +33,7 @@ describe('IntegrationBase - Module Key Mapping', () => {
     describe('_appendModules() with custom module keys', () => {
         it('should attach modules using Definition.modules keys', () => {
             class TestIntegration extends IntegrationBase {
-                static Definition = {
+                static readonly Definition = {
                     name: 'test-integration',
                     version: '1.0.0',
                     modules: {
@@ -65,7 +65,7 @@ describe('IntegrationBase - Module Key Mapping', () => {
 
         it('should handle multiple integrations with same module but different keys', () => {
             class PipedriveIntegration extends IntegrationBase {
-                static Definition = {
+                static readonly Definition = {
                     name: 'pipedrive-integration',
                     version: '1.0.0',
                     modules: {
@@ -96,7 +96,7 @@ describe('IntegrationBase - Module Key Mapping', () => {
 
         it('should fallback to moduleName when key not found in Definition', () => {
             class LegacyIntegration extends IntegrationBase {
-                static Definition = {
+                static readonly Definition = {
                     name: 'legacy-integration',
                     version: '1.0.0',
                     modules: {
@@ -126,7 +126,7 @@ describe('IntegrationBase - Module Key Mapping', () => {
 
         it('should handle empty modules array', () => {
             class EmptyIntegration extends IntegrationBase {
-                static Definition = {
+                static readonly Definition = {
                     name: 'empty-integration',
                     version: '1.0.0',
                     modules: {},
@@ -149,7 +149,7 @@ describe('IntegrationBase - Module Key Mapping', () => {
 
         it('should handle Definition without modules property', () => {
             class NoModulesIntegration extends IntegrationBase {
-                static Definition = {
+                static readonly Definition = {
                     name: 'no-modules-integration',
                     version: '1.0.0',
                 };
@@ -173,7 +173,7 @@ describe('IntegrationBase - Module Key Mapping', () => {
 
         it('should preserve modules object with original module names', () => {
             class TestIntegration extends IntegrationBase {
-                static Definition = {
+                static readonly Definition = {
                     name: 'test',
                     version: '1.0.0',
                     modules: {

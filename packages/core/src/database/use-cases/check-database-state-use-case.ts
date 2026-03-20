@@ -23,7 +23,7 @@ export interface DatabaseStateResult {
 }
 
 export class CheckDatabaseStateUseCase {
-    private prismaRunner: PrismaRunner;
+    private readonly prismaRunner: PrismaRunner;
 
     constructor({ prismaRunner }: { prismaRunner: PrismaRunner }) {
         if (!prismaRunner) {

@@ -20,7 +20,7 @@ interface MigrationStatusRepository {
 }
 
 export class GetMigrationStatusUseCase {
-    private migrationStatusRepository: MigrationStatusRepository;
+    private readonly migrationStatusRepository: MigrationStatusRepository;
 
     constructor({ migrationStatusRepository }: { migrationStatusRepository: MigrationStatusRepository }) {
         if (!migrationStatusRepository) {

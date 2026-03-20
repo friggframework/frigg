@@ -1,5 +1,5 @@
 import { Module } from '../module';
-import type { ModuleDefinition, Entity } from '../module';
+import type { ModuleDefinition } from '../module';
 import type { ModuleRepositoryInterface } from '../repositories/module-repository-interface';
 
 interface UserLike {
@@ -17,8 +17,8 @@ export class GetModule {
     }
 
     async execute(entityId: string, userIdOrUser: string | UserLike): Promise<Record<string, unknown>> {
-        const userId = typeof userIdOrUser === 'object' && (userIdOrUser as UserLike)?.getId
-            ? (userIdOrUser as UserLike).getId()
+        const userId = typeof userIdOrUser === 'object' && userIdOrUser?.getId
+            ? userIdOrUser.getId()
             : userIdOrUser as string;
 
         const entity = await this.moduleRepository.findEntityById(
@@ -30,8 +30,8 @@ export class GetModule {
             throw new Error(`Entity ${entityId} not found`);
         }
 
-        const isOwned = typeof userIdOrUser === 'object' && (userIdOrUser as UserLike)?.ownsUserId
-            ? (userIdOrUser as UserLike).ownsUserId(entity.userId)
+        const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
+            ? userIdOrUser.ownsUserId(entity.userId)
             : entity.userId?.toString() === userId?.toString();
 
         if (!isOwned) {

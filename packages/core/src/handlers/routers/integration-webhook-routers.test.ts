@@ -9,7 +9,7 @@ jest.mock('../app-definition-loader', () => {
     const { IntegrationBase } = require('../../integrations/integration-base');
 
     class WebhookEnabledIntegration extends IntegrationBase {
-        static Definition = {
+        static readonly Definition = {
             name: 'webhook-enabled',
             version: '1.0.0',
             modules: {},
@@ -23,7 +23,7 @@ jest.mock('../app-definition-loader', () => {
     }
 
     class AdvancedWebhookIntegration extends IntegrationBase {
-        static Definition = {
+        static readonly Definition = {
             name: 'advanced-webhook',
             version: '1.0.0',
             modules: {},
@@ -51,7 +51,7 @@ jest.mock('../app-definition-loader', () => {
     }
 
     class NoWebhookIntegration extends IntegrationBase {
-        static Definition = {
+        static readonly Definition = {
             name: 'no-webhook',
             version: '1.0.0',
             modules: {},

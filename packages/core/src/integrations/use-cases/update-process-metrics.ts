@@ -6,8 +6,8 @@ interface WebsocketService {
 }
 
 export class UpdateProcessMetrics {
-    private processRepository: ProcessRepositoryInterface;
-    private websocketService?: WebsocketService;
+    private readonly processRepository: ProcessRepositoryInterface;
+    private readonly websocketService?: WebsocketService;
 
     constructor({ processRepository, websocketService }: {
         processRepository: ProcessRepositoryInterface;

@@ -25,4 +25,6 @@ export function createSyncRepository(): SyncRepositoryInterface {
     }
 }
 
-export { SyncRepositoryMongo, SyncRepositoryPostgres, SyncRepositoryDocumentDB };
+export { SyncRepositoryMongo } from './sync-repository-mongo';
+export { SyncRepositoryPostgres } from './sync-repository-postgres';
+export { SyncRepositoryDocumentDB } from './sync-repository-documentdb';

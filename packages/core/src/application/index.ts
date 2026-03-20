@@ -5,13 +5,11 @@ import {
 import { createUserCommands } from './commands/user-commands';
 import { createEntityCommands } from './commands/entity-commands';
 import { createCredentialCommands } from './commands/credential-commands';
-import { createSchedulerCommands } from './commands/scheduler-commands';
 
 import type { IntegrationClass, IntegrationCommands } from './commands/integration-commands';
 import type { UserCommands } from './commands/user-commands';
 import type { EntityCommands } from './commands/entity-commands';
 import type { CredentialCommands } from './commands/credential-commands';
-import type { SchedulerCommands } from './commands/scheduler-commands';
 
 export type FriggCommands = IntegrationCommands & UserCommands & EntityCommands & CredentialCommands;
 
@@ -29,14 +27,11 @@ export function createFriggCommands({ integrationClass }: { integrationClass: In
     };
 }
 
-export {
-    createIntegrationCommands,
-    createUserCommands,
-    createEntityCommands,
-    createCredentialCommands,
-    createSchedulerCommands,
-    findIntegrationContextByExternalEntityId,
-};
+export { createIntegrationCommands, findIntegrationContextByExternalEntityId } from './commands/integration-commands';
+export { createUserCommands } from './commands/user-commands';
+export { createEntityCommands } from './commands/entity-commands';
+export { createCredentialCommands } from './commands/credential-commands';
+export { createSchedulerCommands } from './commands/scheduler-commands';
 
 export const integrationCommands = {
     create: createIntegrationCommands,

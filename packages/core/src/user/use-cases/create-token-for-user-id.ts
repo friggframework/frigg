@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import type { UserRepositoryInterface } from '../repositories/user-repository-interface';
 
 interface CreateTokenForUserIdDeps {
@@ -6,7 +6,7 @@ interface CreateTokenForUserIdDeps {
 }
 
 export class CreateTokenForUserId {
-    private userRepository: UserRepositoryInterface;
+    private readonly userRepository: UserRepositoryInterface;
 
     constructor({ userRepository }: CreateTokenForUserIdDeps) {
         this.userRepository = userRepository;

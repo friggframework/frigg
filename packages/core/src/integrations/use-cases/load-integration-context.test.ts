@@ -1,7 +1,7 @@
 import { LoadIntegrationContextUseCase } from './load-integration-context';
 
 class FakeIntegration {
-    static Definition = {
+    static readonly Definition = {
         name: 'fake',
         modules: {},
     };

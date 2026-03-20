@@ -1,2 +1,1 @@
-import { globalSetup } from '@friggframework/test';
-export default globalSetup;
+export { globalSetup as default } from '@friggframework/test';

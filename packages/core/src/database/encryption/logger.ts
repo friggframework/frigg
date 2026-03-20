@@ -15,7 +15,7 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 };
 
 export class EncryptionLogger {
-    private minLevel: number;
+    private readonly minLevel: number;
 
     constructor() {
         this.minLevel = this._getMinLevel();

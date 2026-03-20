@@ -31,7 +31,7 @@ describe('Repository Fix Verification - PostgreSQL Decryption', () => {
     afterAll(async () => {
         if (testEntityId) {
             await prisma.entity.deleteMany({
-                where: { id: parseInt(testEntityId, 10) }
+                where: { id: Number.parseInt(testEntityId, 10) }
             }).catch(() => {});
         }
         if (testCredentialId) {
@@ -51,7 +51,7 @@ describe('Repository Fix Verification - PostgreSQL Decryption', () => {
     afterEach(async () => {
         if (testEntityId) {
             await prisma.entity.deleteMany({
-                where: { id: parseInt(testEntityId, 10) }
+                where: { id: Number.parseInt(testEntityId, 10) }
             }).catch(() => {});
             testEntityId = null;
         }

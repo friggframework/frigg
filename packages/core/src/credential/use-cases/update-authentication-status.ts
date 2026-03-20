@@ -5,7 +5,7 @@ interface UpdateAuthenticationStatusDeps {
 }
 
 export class UpdateAuthenticationStatus {
-    private credentialRepository: CredentialRepositoryInterface;
+    private readonly credentialRepository: CredentialRepositoryInterface;
 
     constructor({ credentialRepository }: UpdateAuthenticationStatusDeps) {
         this.credentialRepository = credentialRepository;

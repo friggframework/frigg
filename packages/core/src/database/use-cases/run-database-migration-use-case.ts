@@ -37,7 +37,7 @@ export interface MigrationResult {
 }
 
 export class RunDatabaseMigrationUseCase {
-    private prismaRunner: PrismaRunner;
+    private readonly prismaRunner: PrismaRunner;
 
     constructor({ prismaRunner }: { prismaRunner: PrismaRunner }) {
         if (!prismaRunner) {

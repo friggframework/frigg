@@ -13,7 +13,7 @@ export class LambdaInvocationError extends Error {
 }
 
 export class LambdaInvoker {
-    private client: LambdaClient;
+    private readonly client: LambdaClient;
 
     constructor(lambdaClient: LambdaClient = new LambdaClient({})) {
         this.client = lambdaClient;

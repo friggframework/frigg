@@ -9,7 +9,7 @@ import { IntegrationEventDispatcher } from './integration-event-dispatcher';
 import { IntegrationBase } from '../integrations/integration-base';
 
 class TestIntegration extends IntegrationBase {
-    static Definition = {
+    static readonly Definition = {
         name: 'test-integration',
         version: '1.0.0',
         modules: {},

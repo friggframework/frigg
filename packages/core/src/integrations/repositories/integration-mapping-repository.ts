@@ -4,7 +4,7 @@ import type { IntegrationMappingRecord, DeletionResult } from '../types';
 const { prisma: defaultPrisma } = require('../../database/prisma');
 
 export class IntegrationMappingRepository extends IntegrationMappingRepositoryInterface {
-    private prisma: any;
+    private readonly prisma: any;
 
     constructor(prismaClient: any = defaultPrisma) {
         super();

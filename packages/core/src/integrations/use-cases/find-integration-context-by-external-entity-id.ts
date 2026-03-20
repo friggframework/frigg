@@ -14,9 +14,9 @@ interface CodedError extends Error {
 }
 
 export class FindIntegrationContextByExternalEntityIdUseCase {
-    private integrationRepository: IntegrationRepositoryInterface;
-    private moduleRepository: ModuleRepository;
-    private loadIntegrationContextUseCase: LoadIntegrationContextUseCase;
+    private readonly integrationRepository: IntegrationRepositoryInterface;
+    private readonly moduleRepository: ModuleRepository;
+    private readonly loadIntegrationContextUseCase: LoadIntegrationContextUseCase;
 
     constructor({ integrationRepository, moduleRepository, loadIntegrationContextUseCase }: {
         integrationRepository: IntegrationRepositoryInterface;

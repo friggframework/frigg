@@ -1,7 +1,7 @@
 import type { IntegrationClass, OptionDetails } from '../types';
 
 export class GetPossibleIntegrations {
-    private integrationClasses: IntegrationClass[];
+    private readonly integrationClasses: IntegrationClass[];
 
     constructor({ integrationClasses }: { integrationClasses: IntegrationClass[] }) {
         this.integrationClasses = integrationClasses;

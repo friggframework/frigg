@@ -5,7 +5,7 @@ interface GetCredentialForUserDeps {
 }
 
 export class GetCredentialForUser {
-    private credentialRepository: CredentialRepositoryInterface;
+    private readonly credentialRepository: CredentialRepositoryInterface;
 
     constructor({ credentialRepository }: GetCredentialForUserDeps) {
         this.credentialRepository = credentialRepository;

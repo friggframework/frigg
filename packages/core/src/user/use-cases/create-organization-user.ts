@@ -15,8 +15,8 @@ interface CreateOrganizationUserDeps {
 }
 
 export class CreateOrganizationUser {
-    private userRepository: UserRepositoryInterface;
-    private userConfig: UserConfigForCreate;
+    private readonly userRepository: UserRepositoryInterface;
+    private readonly userConfig: UserConfigForCreate;
 
     constructor({ userRepository, userConfig }: CreateOrganizationUserDeps) {
         this.userRepository = userRepository;

@@ -22,8 +22,6 @@ export function createIntegrationMappingRepository(): IntegrationMappingReposito
     }
 }
 
-export {
-    IntegrationMappingRepositoryMongo,
-    IntegrationMappingRepositoryPostgres,
-    IntegrationMappingRepositoryDocumentDB,
-};
+export { IntegrationMappingRepositoryMongo } from './integration-mapping-repository-mongo';
+export { IntegrationMappingRepositoryPostgres } from './integration-mapping-repository-postgres';
+export { IntegrationMappingRepositoryDocumentDB } from './integration-mapping-repository-documentdb';

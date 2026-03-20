@@ -7,8 +7,8 @@ import type { UserData } from '../user';
 import { ClientSafeError } from '../../errors';
 
 export class UserRepositoryMongo extends UserRepositoryInterface {
-    prisma: any;
-    tokenRepository: ReturnType<typeof createTokenRepository>;
+    readonly prisma: any;
+    readonly tokenRepository: ReturnType<typeof createTokenRepository>;
 
     constructor() {
         super();

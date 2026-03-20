@@ -33,7 +33,7 @@ export class Worker {
     }
 
     async run(params: WorkerRunParams, context: Record<string, unknown> = {}): Promise<void> {
-        const records = get(params, 'Records') as SQSRecord[];
+        const records = get(params, 'Records');
 
         for (const record of records) {
             const runParams = JSON.parse(record.body) as Record<string, unknown>;

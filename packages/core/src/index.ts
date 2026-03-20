@@ -93,7 +93,7 @@ export { Association } from './associations';
 export type { AssociationConfig, AssociationConstructorParams } from './associations';
 
 // application - Command factories
-import * as application from './application';
+export * as application from './application';
 export {
     createFriggCommands,
     createIntegrationCommands,
@@ -104,7 +104,6 @@ export {
     findIntegrationContextByExternalEntityId,
     integrationCommands,
 } from './application';
-export { application };
 export type {
     FriggCommands,
     IntegrationClass,

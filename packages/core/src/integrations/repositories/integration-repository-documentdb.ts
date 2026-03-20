@@ -14,7 +14,7 @@ const {
 } = require('../../database/documentdb-utils');
 
 export class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
-    private prisma: any;
+    private readonly prisma: any;
 
     constructor() {
         super();

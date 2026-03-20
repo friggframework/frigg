@@ -16,8 +16,8 @@ interface CreateIndividualUserDeps {
 }
 
 export class CreateIndividualUser {
-    private userRepository: UserRepositoryInterface;
-    private userConfig: UserConfigForCreate;
+    private readonly userRepository: UserRepositoryInterface;
+    private readonly userConfig: UserConfigForCreate;
 
     constructor({ userRepository, userConfig }: CreateIndividualUserDeps) {
         this.userRepository = userRepository;

@@ -18,7 +18,7 @@ describe('GetPossibleIntegrations Use-Case', () => {
 
         it('returns multiple integration options', async () => {
             class AnotherDummyIntegration {
-                static Definition = {
+                static readonly Definition = {
                     name: 'another-dummy',
                     version: '2.0.0',
                     modules: { dummy: {} },
@@ -72,7 +72,7 @@ describe('GetPossibleIntegrations Use-Case', () => {
 
         it('handles integration class without getOptionDetails method', async () => {
             class InvalidIntegration {
-                static Definition = { name: 'invalid' };
+                static readonly Definition = { name: 'invalid' };
             }
 
             const useCase = new GetPossibleIntegrations({ integrationClasses: [InvalidIntegration] } as any);
@@ -82,7 +82,7 @@ describe('GetPossibleIntegrations Use-Case', () => {
 
         it('handles integration class with incomplete Definition', async () => {
             class IncompleteIntegration {
-                static Definition = {
+                static readonly Definition = {
                     name: 'incomplete',
                     modules: { dummy: {} }
                 };
@@ -130,7 +130,7 @@ describe('GetPossibleIntegrations Use-Case', () => {
 
         it('handles integration with complex display properties', async () => {
             class ComplexIntegration {
-                static Definition = {
+                static readonly Definition = {
                     name: 'complex',
                     version: '3.0.0',
                     modules: { dummy: {} },
@@ -163,15 +163,15 @@ describe('GetPossibleIntegrations Use-Case', () => {
 
         it('preserves integration class order', async () => {
             class FirstIntegration {
-                static Definition = { name: 'first', version: '1.0.0', modules: { dummy: {} }, display: { label: 'First' } };
+                static readonly Definition = { name: 'first', version: '1.0.0', modules: { dummy: {} }, display: { label: 'First' } };
                 static getOptionDetails() { return { name: this.Definition.name, version: this.Definition.version, display: this.Definition.display }; }
             }
             class SecondIntegration {
-                static Definition = { name: 'second', version: '1.0.0', modules: { dummy: {} }, display: { label: 'Second' } };
+                static readonly Definition = { name: 'second', version: '1.0.0', modules: { dummy: {} }, display: { label: 'Second' } };
                 static getOptionDetails() { return { name: this.Definition.name, version: this.Definition.version, display: this.Definition.display }; }
             }
             class ThirdIntegration {
-                static Definition = { name: 'third', version: '1.0.0', modules: { dummy: {} }, display: { label: 'Third' } };
+                static readonly Definition = { name: 'third', version: '1.0.0', modules: { dummy: {} }, display: { label: 'Third' } };
                 static getOptionDetails() { return { name: this.Definition.name, version: this.Definition.version, display: this.Definition.display }; }
             }
 

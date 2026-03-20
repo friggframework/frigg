@@ -36,15 +36,15 @@ export interface AuthorizationRequirements {
 }
 
 export class OAuth2Requester extends Requester {
-    static requesterType = ModuleConstants.authType.oauth2;
+    static readonly requesterType = ModuleConstants.authType.oauth2;
 
-    DLGT_TOKEN_UPDATE: string;
-    DLGT_TOKEN_DEAUTHORIZED: string;
-    grant_type: string;
-    client_id: string | null;
-    client_secret: string | null;
-    redirect_uri: string | null;
-    scope: string | null;
+    readonly DLGT_TOKEN_UPDATE: string;
+    readonly DLGT_TOKEN_DEAUTHORIZED: string;
+    readonly grant_type: string;
+    readonly client_id: string | null;
+    readonly client_secret: string | null;
+    readonly redirect_uri: string | null;
+    readonly scope: string | null;
     authorizationUri: string | null;
     tokenUri: string | null;
     baseURL: string | null;
@@ -52,10 +52,10 @@ export class OAuth2Requester extends Requester {
     refresh_token: string | null;
     accessTokenExpire: Date | null;
     refreshTokenExpire: Date | null;
-    audience: string | null;
-    username: string | null;
-    password: string | null;
-    state: string | null;
+    readonly audience: string | null;
+    readonly username: string | null;
+    readonly password: string | null;
+    readonly state: string | null;
 
     constructor(params: OAuth2RequesterParams) {
         super(params);

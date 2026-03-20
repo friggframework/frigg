@@ -17,8 +17,8 @@ export class TestModuleAuth {
     }
 
     async execute(entityId: string, userIdOrUser: string | UserLike): Promise<boolean> {
-        const userId = typeof userIdOrUser === 'object' && (userIdOrUser as UserLike)?.getId
-            ? (userIdOrUser as UserLike).getId()
+        const userId = typeof userIdOrUser === 'object' && userIdOrUser?.getId
+            ? userIdOrUser.getId()
             : userIdOrUser as string;
 
         const entity = await this.moduleRepository.findEntityById(
@@ -30,8 +30,8 @@ export class TestModuleAuth {
             throw new Error(`Entity ${entityId} not found`);
         }
 
-        const isOwned = typeof userIdOrUser === 'object' && (userIdOrUser as UserLike)?.ownsUserId
-            ? (userIdOrUser as UserLike).ownsUserId(entity.userId)
+        const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
+            ? userIdOrUser.ownsUserId(entity.userId)
             : entity.userId?.toString() === userId?.toString();
 
         if (!isOwned) {

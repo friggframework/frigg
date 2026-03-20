@@ -13,10 +13,10 @@ interface ModuleRepository {
 }
 
 export class GetIntegrationsForUser {
-    private integrationRepository: IntegrationRepositoryInterface;
-    private integrationClasses: IntegrationClass[];
-    private moduleFactory: ModuleFactory;
-    private moduleRepository: ModuleRepository;
+    private readonly integrationRepository: IntegrationRepositoryInterface;
+    private readonly integrationClasses: IntegrationClass[];
+    private readonly moduleFactory: ModuleFactory;
+    private readonly moduleRepository: ModuleRepository;
 
     constructor({ integrationRepository, integrationClasses, moduleFactory, moduleRepository }: {
         integrationRepository: IntegrationRepositoryInterface;

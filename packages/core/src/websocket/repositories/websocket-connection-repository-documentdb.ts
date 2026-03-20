@@ -5,7 +5,7 @@ import { WebsocketConnectionRepositoryInterface } from './websocket-connection-r
 import type { ConnectionData, ActiveConnection, ConnectionDeleteResult } from './websocket-connection-repository-interface';
 
 export class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionRepositoryInterface {
-    prisma: any;
+    readonly prisma: any;
 
     constructor() {
         super();

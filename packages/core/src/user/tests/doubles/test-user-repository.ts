@@ -1,5 +1,3 @@
-import { User } from '../../user';
-
 export class TestUserRepository {
     individualUsers: Map<string, any>;
     organizationUsers: Map<string, any>;

@@ -1,6 +1,6 @@
 import { GetUserFromAdopterJwt } from '../../use-cases/get-user-from-adopter-jwt';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 
 describe('GetUserFromAdopterJwt', () => {
     let getUserFromAdopterJwt: InstanceType<typeof GetUserFromAdopterJwt>;

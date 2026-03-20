@@ -17,7 +17,7 @@ class MockOAuth2Api {
     refresh_token: string;
     domain: string;
     delegate: any;
-    static requesterType = 'oauth2';
+    static readonly requesterType = 'oauth2';
 
     constructor(params: any) {
         this.client_id = params.client_id;

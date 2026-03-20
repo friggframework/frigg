@@ -3,7 +3,7 @@ import { CredentialRepositoryInterface } from './credential-repository-interface
 import type { CredentialData, CredentialUpsertParams, CredentialFilter, MutationResult } from './credential-repository-interface';
 
 export class CredentialRepositoryMongo extends CredentialRepositoryInterface {
-    prisma: any;
+    readonly prisma: any;
 
     constructor() {
         super();

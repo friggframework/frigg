@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 // Use require to avoid needing @aws-sdk/client-s3 type declarations at compile time
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -40,8 +40,8 @@ export interface UpdateMigrationStatusData {
 }
 
 export class MigrationStatusRepositoryS3 {
-    private bucketName: string;
-    private s3Client: S3ClientLike;
+    private readonly bucketName: string;
+    private readonly s3Client: S3ClientLike;
 
     constructor(bucketName: string, s3Client: S3ClientLike | null = null) {
         this.bucketName = bucketName;

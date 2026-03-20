@@ -4,7 +4,7 @@ import type { ProcessRecord, ProcessData } from '../types';
 const { prisma } = require('../../database/prisma');
 
 export class ProcessRepositoryMongo extends ProcessRepositoryInterface {
-    private prisma: any;
+    private readonly prisma: any;
 
     constructor() {
         super();

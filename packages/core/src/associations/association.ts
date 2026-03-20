@@ -21,7 +21,7 @@ export interface AssociationConstructorParams {
  * later...
  */
 export class Association {
-    static Config: AssociationConfig = {
+    static readonly Config: AssociationConfig = {
         name: 'Association',
         keys: [],
         matchOn: [],
@@ -29,11 +29,11 @@ export class Association {
         reverseModuleMap: {},
     };
 
-    data: Record<string, unknown>;
-    moduleName: string;
-    dataIdentifier: unknown;
-    dataIdentifierHash: string;
-    matchHash: string;
+    readonly data: Record<string, unknown>;
+    readonly moduleName: string;
+    readonly dataIdentifier: unknown;
+    readonly dataIdentifierHash: string;
+    readonly matchHash: string;
     syncId: string | null;
 
     constructor(params: AssociationConstructorParams) {

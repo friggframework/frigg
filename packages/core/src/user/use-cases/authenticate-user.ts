@@ -28,11 +28,11 @@ interface AuthRequest {
 }
 
 export class AuthenticateUser {
-    private getUserFromBearerToken: GetUserFromBearerToken;
-    private getUserFromXFriggHeaders: GetUserFromXFriggHeaders;
-    private getUserFromAdopterJwt: GetUserFromAdopterJwt;
-    private authenticateWithSharedSecret: AuthenticateWithSharedSecret;
-    private userConfig: UserConfigForAuth;
+    private readonly getUserFromBearerToken: GetUserFromBearerToken;
+    private readonly getUserFromXFriggHeaders: GetUserFromXFriggHeaders;
+    private readonly getUserFromAdopterJwt: GetUserFromAdopterJwt;
+    private readonly authenticateWithSharedSecret: AuthenticateWithSharedSecret;
+    private readonly userConfig: UserConfigForAuth;
 
     constructor({
         getUserFromBearerToken,

@@ -23,8 +23,8 @@ interface UserCredentials {
 }
 
 export class LoginUser {
-    private userRepository: UserRepositoryInterface;
-    private userConfig: UserConfigForLogin;
+    private readonly userRepository: UserRepositoryInterface;
+    private readonly userConfig: UserConfigForLogin;
 
     constructor({ userRepository, userConfig }: LoginUserDeps) {
         this.userRepository = userRepository;

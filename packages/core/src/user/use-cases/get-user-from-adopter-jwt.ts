@@ -21,8 +21,8 @@ interface GetUserFromAdopterJwtDeps {
 }
 
 export class GetUserFromAdopterJwt {
-    private userRepository: UserRepositoryInterface;
-    private userConfig: UserConfigForJwt;
+    private readonly userRepository: UserRepositoryInterface;
+    private readonly userConfig: UserConfigForJwt;
 
     constructor({ userRepository, userConfig }: GetUserFromAdopterJwtDeps) {
         this.userRepository = userRepository;

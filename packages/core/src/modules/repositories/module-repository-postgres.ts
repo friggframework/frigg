@@ -15,7 +15,7 @@ interface PrismaEntity {
 
 export class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    prisma: any;
+    readonly prisma: any;
 
     constructor() {
         super();
@@ -23,16 +23,16 @@ export class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
     }
 
     private _convertId(id: string | number | null | undefined): number | null | undefined {
-        if (id === null || id === undefined) return id as null | undefined;
-        const parsed = parseInt(String(id), 10);
-        if (isNaN(parsed)) {
+        if (id === null || id === undefined) return id;
+        const parsed = Number.parseInt(String(id), 10);
+        if (Number.isNaN(parsed)) {
             throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
         }
         return parsed;
     }
 
     private _toString(value: unknown): string | null | undefined {
-        if (value === null || value === undefined) return value as null | undefined;
+        if (value === null || value === undefined) return value;
         return String(value);
     }
 

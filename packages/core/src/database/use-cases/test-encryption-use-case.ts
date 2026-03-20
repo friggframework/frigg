@@ -23,7 +23,7 @@ interface EncryptionVerificationResults {
 }
 
 export class TestEncryptionUseCase {
-    private repository: HealthCheckRepositoryInterface;
+    private readonly repository: HealthCheckRepositoryInterface;
 
     constructor({ healthCheckRepository }: { healthCheckRepository: HealthCheckRepositoryInterface }) {
         this.repository = healthCheckRepository;
@@ -48,7 +48,7 @@ export class TestEncryptionUseCase {
 
         try {
             const retrievedCredential = await this._withTimeout(
-                this.repository.findCredentialById((credential as Record<string, unknown>).id as string),
+                this.repository.findCredentialById(credential.id as string),
                 5000,
                 'Find operation timed out'
             );
@@ -57,7 +57,7 @@ export class TestEncryptionUseCase {
             const decryptionWorks = this._verifyDecryption(retrievedTestData, testData);
 
             const rawCredential = await this._withTimeout(
-                this.repository.getRawCredentialById((credential as Record<string, unknown>).id as string),
+                this.repository.getRawCredentialById(credential.id as string),
                 5000,
                 'Database verification timed out'
             );
@@ -68,7 +68,7 @@ export class TestEncryptionUseCase {
             return this._evaluateEncryptionResults(decryptionWorks, encryptionResults);
         } finally {
             await this._withTimeout(
-                this.repository.deleteCredential((credential as Record<string, unknown>).id as string),
+                this.repository.deleteCredential(credential.id as string),
                 5000,
                 'Delete operation timed out'
             );

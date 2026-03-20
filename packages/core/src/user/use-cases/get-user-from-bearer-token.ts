@@ -15,8 +15,8 @@ interface GetUserFromBearerTokenDeps {
 }
 
 export class GetUserFromBearerToken {
-    private userRepository: UserRepositoryInterface;
-    private userConfig: UserConfigForBearerToken;
+    private readonly userRepository: UserRepositoryInterface;
+    private readonly userConfig: UserConfigForBearerToken;
 
     constructor({ userRepository, userConfig }: GetUserFromBearerTokenDeps) {
         this.userRepository = userRepository;

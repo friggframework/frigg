@@ -1,13 +1,13 @@
 import { IntegrationBase } from '../../integration-base';
 
 class DummyModule {
-    static definition = {
+    static readonly definition = {
         getName: () => 'dummy'
     };
 }
 
 export class DummyIntegration extends IntegrationBase {
-    static Definition: any = {
+    static readonly Definition: any = {
         name: 'dummy',
         version: '1.0.0',
         supportedVersions: ['1.0.0'],

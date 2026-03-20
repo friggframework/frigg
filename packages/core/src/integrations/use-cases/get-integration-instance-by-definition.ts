@@ -13,9 +13,9 @@ interface ModuleRepository {
 }
 
 export class GetIntegrationInstanceByDefinition {
-    private integrationRepository: IntegrationRepositoryInterface;
-    private moduleFactory: ModuleFactory;
-    private moduleRepository: ModuleRepository;
+    private readonly integrationRepository: IntegrationRepositoryInterface;
+    private readonly moduleFactory: ModuleFactory;
+    private readonly moduleRepository: ModuleRepository;
 
     constructor({ integrationRepository, moduleFactory, moduleRepository }: {
         integrationRepository: IntegrationRepositoryInterface;

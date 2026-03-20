@@ -4,7 +4,7 @@ import type { ProcessRecord, ProcessData } from '../types';
 const { prisma } = require('../../database/prisma');
 
 export class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
-    private prisma: any;
+    private readonly prisma: any;
 
     constructor() {
         super();
@@ -13,8 +13,8 @@ export class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
 
     private _convertId(id: unknown): number | null | undefined {
         if (id === null || id === undefined) return id as null | undefined;
-        const parsed = parseInt(String(id), 10);
-        if (isNaN(parsed)) {
+        const parsed = Number.parseInt(String(id), 10);
+        if (Number.isNaN(parsed)) {
             throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
         }
         return parsed;

@@ -5,7 +5,7 @@ import type { ConnectionData, ActiveConnection, ConnectionDeleteResult } from '.
 const { prisma } = require('../../database/prisma');
 
 export class WebsocketConnectionRepository extends WebsocketConnectionRepositoryInterface {
-    private prisma: any;
+    private readonly prisma: any;
 
     constructor(prismaClient?: any) {
         super();

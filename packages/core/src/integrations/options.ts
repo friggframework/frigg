@@ -24,7 +24,7 @@ export class Options {
     };
 
     constructor(params: OptionsParams) {
-        this.module = get(params, 'module') as IntegrationModuleDefinition;
+        this.module = get(params, 'module');
         this.isMany = Boolean(get(params, 'isMany', false));
         this.hasUserConfig = Boolean(get(params, 'hasUserConfig', false));
         this.requiresNewEntity = Boolean(

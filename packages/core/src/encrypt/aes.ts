@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 const algorithm = 'aes-256-ctr' as const;
 

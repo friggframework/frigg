@@ -21,4 +21,6 @@ export function createWebsocketConnectionRepository(): WebsocketConnectionReposi
     }
 }
 
-export { WebsocketConnectionRepositoryMongo, WebsocketConnectionRepositoryPostgres, WebsocketConnectionRepositoryDocumentDB };
+export { WebsocketConnectionRepositoryMongo } from './websocket-connection-repository-mongo';
+export { WebsocketConnectionRepositoryPostgres } from './websocket-connection-repository-postgres';
+export { WebsocketConnectionRepositoryDocumentDB } from './websocket-connection-repository-documentdb';

@@ -9,9 +9,9 @@ import { SchedulerServiceInterface } from './scheduler-service-interface';
 import type { ScheduleOneTimeParams, ScheduleOneTimeResult, ScheduleStatusResult } from './scheduler-service-interface';
 
 export class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
-    private client: SchedulerClient;
-    private scheduleGroupName: string;
-    private roleArn: string | undefined;
+    private readonly client: SchedulerClient;
+    private readonly scheduleGroupName: string;
+    private readonly roleArn: string | undefined;
 
     constructor({ region }: { region?: string } = {}) {
         super();

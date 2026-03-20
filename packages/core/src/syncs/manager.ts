@@ -26,13 +26,13 @@ export interface SyncManagerParams {
 }
 
 export class SyncManager {
-    SyncObjectClass: typeof Sync;
-    ignoreEmptyMatchValues: boolean;
-    isUnidirectionalSync: boolean;
-    useFirstMatchingDuplicate: boolean;
-    omitEmptyStringsFromData: boolean;
-    integration: unknown;
-    syncRepository: SyncRepositoryInterface;
+    readonly SyncObjectClass: typeof Sync;
+    readonly ignoreEmptyMatchValues: boolean;
+    readonly isUnidirectionalSync: boolean;
+    readonly useFirstMatchingDuplicate: boolean;
+    readonly omitEmptyStringsFromData: boolean;
+    readonly integration: unknown;
+    readonly syncRepository: SyncRepositoryInterface;
     primaryModule!: SyncModule;
     secondaryModule!: SyncModule;
 
@@ -64,7 +64,7 @@ export class SyncManager {
     }
 
     async initialSync(): Promise<void> {
-        const time0 = parseInt(moment().format('x'));
+        const time0 = Number.parseInt(moment().format('x'));
         const primaryEntityId = await this.primaryModule.entity.id;
         const secondaryEntityId = await this.secondaryModule.entity.id;
 
@@ -72,7 +72,7 @@ export class SyncManager {
             this.SyncObjectClass
         );
         const primaryArrayInitialCount = primaryArr.length;
-        const time1 = parseInt(moment().format('x'));
+        const time1 = Number.parseInt(moment().format('x'));
         debug(
             `${primaryArr.length} number of ${
                 this.SyncObjectClass.name
@@ -84,7 +84,7 @@ export class SyncManager {
             this.SyncObjectClass
         );
         const secondaryArrayInitialCount = secondaryArr.length;
-        const time2 = parseInt(moment().format('x'));
+        const time2 = Number.parseInt(moment().format('x'));
         debug(
             `${secondaryArr.length} number of ${
                 this.SyncObjectClass.name
@@ -208,7 +208,7 @@ export class SyncManager {
             } for creating in ${this.secondaryModule.constructor.getName()}`
         );
 
-        const time3 = parseInt(moment().format('x'));
+        const time3 = Number.parseInt(moment().format('x'));
         debug(`Sorting complete in ${time3 - time2} ms`);
 
         if (!this.isUnidirectionalSync) {
@@ -229,17 +229,17 @@ export class SyncManager {
             );
             primaryObj.setSyncId(createdObj.id!);
         }
-        const time4 = parseInt(moment().format('x'));
+        const time4 = Number.parseInt(moment().format('x'));
         debug(`Sync objects create in DB in ${time4 - time3} ms`);
 
-        let time5 = parseInt(moment().format('x'));
-        let time6 = parseInt(moment().format('x'));
+        let time5 = Number.parseInt(moment().format('x'));
+        let time6 = Number.parseInt(moment().format('x'));
         if (!this.isUnidirectionalSync) {
             await this.primaryModule.batchUpdateSyncObjects(
                 primaryUpdate,
                 this
             );
-            time5 = parseInt(moment().format('x'));
+            time5 = Number.parseInt(moment().format('x'));
             debug(
                 `Updated ${primaryUpdate.length} ${
                     this.SyncObjectClass.name
@@ -251,7 +251,7 @@ export class SyncManager {
                 primaryCreate,
                 this
             );
-            time6 = parseInt(moment().format('x'));
+            time6 = Number.parseInt(moment().format('x'));
             debug(
                 `Created ${primaryCreate.length} ${
                     this.SyncObjectClass.name
@@ -265,7 +265,7 @@ export class SyncManager {
             secondaryUpdate,
             this
         );
-        const time7 = parseInt(moment().format('x'));
+        const time7 = Number.parseInt(moment().format('x'));
         debug(
             `Updated ${secondaryUpdate.length} ${
                 this.SyncObjectClass.name
@@ -278,7 +278,7 @@ export class SyncManager {
             secondaryCreate,
             this
         );
-        const time8 = parseInt(moment().format('x'));
+        const time8 = Number.parseInt(moment().format('x'));
         debug(
             `${primaryArrayInitialCount} number of ${
                 this.SyncObjectClass.name
@@ -441,7 +441,7 @@ export class SyncManager {
                       this
                   )
                 : [];
-        return (updateRes as unknown[]).concat(createRes as unknown[]).concat(noChange);
+        return updateRes.concat(createRes).concat(noChange);
     }
 
     async confirmCreate(syncObj: Sync, createdId: unknown, moduleManager: SyncModule): Promise<unknown> {

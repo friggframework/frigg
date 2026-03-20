@@ -1,13 +1,13 @@
 import { IntegrationBase } from '../../integration-base';
 
 class ConfigCapturingModule {
-    static definition = {
+    static readonly definition = {
         getName: () => 'config-capturing-module'
     };
 }
 
 export class ConfigCapturingIntegration extends IntegrationBase {
-    static Definition: any = {
+    static readonly Definition: any = {
         name: 'config-capturing',
         version: '1.0.0',
         supportedVersions: ['1.0.0'],

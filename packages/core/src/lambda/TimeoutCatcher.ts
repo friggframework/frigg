@@ -15,8 +15,8 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 export class TimeoutCatcher {
     isFinished: boolean;
     waitTime: number;
-    private work: () => Promise<unknown>;
-    private cleanUp: () => void | Promise<void>;
+    private readonly work: () => Promise<unknown>;
+    private readonly cleanUp: () => void | Promise<void>;
 
     constructor({ work, timeout, cleanUp = () => {}, cleanUpTime = 2_000 }: TimeoutCatcherOptions) {
         this.isFinished = false;

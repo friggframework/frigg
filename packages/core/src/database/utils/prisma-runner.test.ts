@@ -1,15 +1,15 @@
-jest.mock('child_process', () => ({
+jest.mock('node:child_process', () => ({
     execSync: jest.fn(),
     spawn: jest.fn()
 }));
-jest.mock('fs', () => ({
+jest.mock('node:fs', () => ({
     existsSync: jest.fn(),
     readFileSync: jest.fn(),
     writeFileSync: jest.fn()
 }));
 
-const { execSync, spawn } = require('child_process');
-const fs = require('fs');
+const { execSync, spawn } = require('node:child_process');
+const fs = require('node:fs');
 const {
     getPrismaSchemaPath,
     runPrismaGenerate,

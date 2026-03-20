@@ -33,8 +33,6 @@ export function createHealthCheckRepository({ prismaClient }: CreateHealthCheckR
     }
 }
 
-export {
-    HealthCheckRepositoryMongoDB,
-    HealthCheckRepositoryPostgreSQL,
-    HealthCheckRepositoryDocumentDB,
-};
+export { HealthCheckRepositoryMongoDB } from './health-check-repository-mongodb';
+export { HealthCheckRepositoryPostgreSQL } from './health-check-repository-postgres';
+export { HealthCheckRepositoryDocumentDB } from './health-check-repository-documentdb';

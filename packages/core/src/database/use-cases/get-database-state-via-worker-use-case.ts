@@ -1,8 +1,8 @@
 import type { LambdaInvoker } from '../adapters/lambda-invoker';
 
 export class GetDatabaseStateViaWorkerUseCase {
-    private lambdaInvoker: LambdaInvoker;
-    private workerFunctionName: string;
+    private readonly lambdaInvoker: LambdaInvoker;
+    private readonly workerFunctionName: string;
 
     constructor({ lambdaInvoker, workerFunctionName }: { lambdaInvoker: LambdaInvoker; workerFunctionName: string }) {
         if (!lambdaInvoker) {

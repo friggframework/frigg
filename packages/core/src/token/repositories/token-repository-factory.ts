@@ -21,4 +21,6 @@ export function createTokenRepository(): TokenRepositoryInterface {
     }
 }
 
-export { TokenRepositoryMongo, TokenRepositoryPostgres, TokenRepositoryDocumentDB };
+export { TokenRepositoryMongo } from './token-repository-mongo';
+export { TokenRepositoryPostgres } from './token-repository-postgres';
+export { TokenRepositoryDocumentDB } from './token-repository-documentdb';

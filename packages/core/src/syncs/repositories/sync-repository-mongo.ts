@@ -4,7 +4,7 @@ import type { SyncData, SyncDataIdentifier, SyncFilter } from './sync-repository
 const { prisma } = require('../../database/prisma');
 
 export class SyncRepositoryMongo extends SyncRepositoryInterface {
-    private prisma: any;
+    private readonly prisma: any;
 
     constructor() {
         super();
@@ -141,7 +141,7 @@ export class SyncRepositoryMongo extends SyncRepositoryInterface {
 
         if (filter._id) {
             where.id = filter._id;
-            delete (filter as Record<string, unknown>)._id;
+            delete filter._id;
         }
 
         return { ...where, ...filter };

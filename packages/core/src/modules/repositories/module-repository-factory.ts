@@ -24,8 +24,6 @@ export function createModuleRepository(): ModuleRepositoryInterface {
     }
 }
 
-export {
-    ModuleRepositoryMongo,
-    ModuleRepositoryPostgres,
-    ModuleRepositoryDocumentDB,
-};
+export { ModuleRepositoryMongo } from './module-repository-mongo';
+export { ModuleRepositoryPostgres } from './module-repository-postgres';
+export { ModuleRepositoryDocumentDB } from './module-repository-documentdb';

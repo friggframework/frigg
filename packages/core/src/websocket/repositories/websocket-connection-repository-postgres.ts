@@ -4,7 +4,7 @@ import { WebsocketConnectionRepositoryInterface } from './websocket-connection-r
 import type { ConnectionData, ActiveConnection, ConnectionDeleteResult } from './websocket-connection-repository-interface';
 
 export class WebsocketConnectionRepositoryPostgres extends WebsocketConnectionRepositoryInterface {
-    prisma: any;
+    readonly prisma: any;
 
     constructor() {
         super();
@@ -13,8 +13,8 @@ export class WebsocketConnectionRepositoryPostgres extends WebsocketConnectionRe
 
     private _convertId(id: string | number | null | undefined): number | null | undefined {
         if (id === null || id === undefined) return id;
-        const parsed = parseInt(String(id), 10);
-        if (isNaN(parsed)) throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
+        const parsed = Number.parseInt(String(id), 10);
+        if (Number.isNaN(parsed)) throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
         return parsed;
     }
 

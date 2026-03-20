@@ -7,7 +7,7 @@ import { ClientSafeError } from '../../errors';
 const BCRYPT_ROUNDS = 10;
 
 export class TokenRepositoryPostgres extends TokenRepositoryInterface {
-    prisma: any;
+    readonly prisma: any;
 
     constructor() {
         super();
@@ -16,8 +16,8 @@ export class TokenRepositoryPostgres extends TokenRepositoryInterface {
 
     private _convertId(id: string | number | null | undefined): number | null | undefined {
         if (id === null || id === undefined) return id;
-        const parsed = parseInt(String(id), 10);
-        if (isNaN(parsed)) throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
+        const parsed = Number.parseInt(String(id), 10);
+        if (Number.isNaN(parsed)) throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
         return parsed;
     }
 

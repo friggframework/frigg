@@ -7,7 +7,7 @@ export interface DatabaseHealthResult {
 }
 
 export class CheckDatabaseHealthUseCase {
-    private repository: HealthCheckRepositoryInterface;
+    private readonly repository: HealthCheckRepositoryInterface;
 
     constructor({ healthCheckRepository }: { healthCheckRepository: HealthCheckRepositoryInterface }) {
         this.repository = healthCheckRepository;

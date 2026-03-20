@@ -11,9 +11,9 @@ export interface ApiKeyRequesterParams extends RequesterParams {
 }
 
 export class ApiKeyRequester extends Requester {
-    static requesterType = ModuleConstants.authType.apiKey;
+    static readonly requesterType = ModuleConstants.authType.apiKey;
 
-    requesterType: string;
+    readonly requesterType: string;
     api_key_name: string;
     api_key: string | null;
 

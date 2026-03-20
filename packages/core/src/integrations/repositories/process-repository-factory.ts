@@ -22,8 +22,6 @@ export function createProcessRepository(): ProcessRepositoryInterface {
     }
 }
 
-export {
-    ProcessRepositoryMongo,
-    ProcessRepositoryPostgres,
-    ProcessRepositoryDocumentDB,
-};
+export { ProcessRepositoryMongo } from './process-repository-mongo';
+export { ProcessRepositoryPostgres } from './process-repository-postgres';
+export { ProcessRepositoryDocumentDB } from './process-repository-documentdb';

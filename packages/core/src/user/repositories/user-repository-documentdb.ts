@@ -9,9 +9,9 @@ import { ClientSafeError } from '../../errors';
 import { DocumentDBEncryptionService } from '../../database/documentdb-encryption-service';
 
 export class UserRepositoryDocumentDB extends UserRepositoryInterface {
-    prisma: any;
-    tokenRepository: ReturnType<typeof createTokenRepository>;
-    encryptionService: DocumentDBEncryptionService;
+    readonly prisma: any;
+    readonly tokenRepository: ReturnType<typeof createTokenRepository>;
+    readonly encryptionService: DocumentDBEncryptionService;
 
     constructor() {
         super();
@@ -281,6 +281,6 @@ export class UserRepositoryDocumentDB extends UserRepositoryInterface {
     private _parseDate(value: any): Date | undefined {
         if (!value) return undefined;
         const date = new Date(value);
-        return isNaN(date.getTime()) ? undefined : date;
+        return Number.isNaN(date.getTime()) ? undefined : date;
     }
 }

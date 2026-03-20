@@ -26,8 +26,8 @@ interface RawDocument {
 
 export class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    prisma: any;
-    encryptionService: DocumentDBEncryptionService;
+    readonly prisma: any;
+    readonly encryptionService: DocumentDBEncryptionService;
 
     constructor() {
         super();

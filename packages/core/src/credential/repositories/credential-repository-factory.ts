@@ -21,4 +21,6 @@ export function createCredentialRepository(): CredentialRepositoryInterface {
     }
 }
 
-export { CredentialRepositoryMongo, CredentialRepositoryPostgres, CredentialRepositoryDocumentDB };
+export { CredentialRepositoryMongo } from './credential-repository-mongo';
+export { CredentialRepositoryPostgres } from './credential-repository-postgres';
+export { CredentialRepositoryDocumentDB } from './credential-repository-documentdb';

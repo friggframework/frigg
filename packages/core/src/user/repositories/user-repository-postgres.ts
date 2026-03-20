@@ -7,8 +7,8 @@ import type { UserData } from '../user';
 import { ClientSafeError } from '../../errors';
 
 export class UserRepositoryPostgres extends UserRepositoryInterface {
-    prisma: any;
-    tokenRepository: ReturnType<typeof createTokenRepository>;
+    readonly prisma: any;
+    readonly tokenRepository: ReturnType<typeof createTokenRepository>;
 
     constructor() {
         super();
@@ -18,8 +18,8 @@ export class UserRepositoryPostgres extends UserRepositoryInterface {
 
     private _convertId(id: string | number | null | undefined): number | null | undefined {
         if (id === null || id === undefined) return id;
-        const parsed = parseInt(String(id), 10);
-        if (isNaN(parsed)) {
+        const parsed = Number.parseInt(String(id), 10);
+        if (Number.isNaN(parsed)) {
             throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
         }
         return parsed;

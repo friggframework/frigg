@@ -52,7 +52,7 @@ class MockAsanaApi {
         return { type: 'oauth2', url: this.redirect_uri };
     }
 
-    static requesterType = 'oauth2';
+    static readonly requesterType = 'oauth2';
 }
 
 class MockFrontifyApi {
@@ -94,7 +94,7 @@ class MockFrontifyApi {
         return { type: 'oauth2', url: this.redirect_uri };
     }
 
-    static requesterType = 'oauth2';
+    static readonly requesterType = 'oauth2';
 }
 
 const asanaDefinition = {
@@ -142,7 +142,7 @@ const frontifyDefinition = {
 };
 
 class TestIntegration extends IntegrationBase {
-    static Definition = {
+    static readonly Definition = {
         name: 'test-integration',
         version: '1.0.0',
         modules: {

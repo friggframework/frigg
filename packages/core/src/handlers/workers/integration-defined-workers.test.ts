@@ -10,7 +10,7 @@ import { IntegrationBase } from '../../integrations/integration-base';
 import { IntegrationEventDispatcher } from '../integration-event-dispatcher';
 
 class TestWebhookIntegration extends IntegrationBase {
-    static Definition = {
+    static readonly Definition = {
         name: 'test-webhook',
         version: '1.0.0',
         modules: {},

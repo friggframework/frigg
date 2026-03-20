@@ -1,7 +1,7 @@
 import type { IntegrationRepositoryInterface } from '../repositories/integration-repository-interface';
 
 export class UpdateIntegrationStatus {
-    private integrationRepository: IntegrationRepositoryInterface;
+    private readonly integrationRepository: IntegrationRepositoryInterface;
 
     constructor({ integrationRepository }: { integrationRepository: IntegrationRepositoryInterface }) {
         this.integrationRepository = integrationRepository;

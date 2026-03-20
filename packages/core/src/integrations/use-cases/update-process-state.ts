@@ -2,7 +2,7 @@ import type { ProcessRepositoryInterface } from '../repositories/process-reposit
 import type { ProcessRecord } from '../types';
 
 export class UpdateProcessState {
-    private processRepository: ProcessRepositoryInterface;
+    private readonly processRepository: ProcessRepositoryInterface;
 
     constructor({ processRepository }: { processRepository: ProcessRepositoryInterface }) {
         if (!processRepository) {

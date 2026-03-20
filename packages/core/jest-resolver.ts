@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('node:path');
 
 interface ResolverOptions {
     defaultResolver: (request: string, options: ResolverOptions) => string;

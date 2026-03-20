@@ -1,5 +1,5 @@
-import { readFileSync } from 'fs';
-import { join as joinPathParts } from 'path';
+import { readFileSync } from 'node:fs';
+import { join as joinPathParts } from 'node:path';
 
 interface PackageJson {
     dependencies?: Record<string, string>;

@@ -7,7 +7,7 @@ const { prisma } = require('../../database/prisma');
 const BCRYPT_ROUNDS = 10;
 
 export class TokenRepository extends TokenRepositoryInterface {
-    private prisma: any;
+    private readonly prisma: any;
 
     constructor(prismaClient?: any) {
         super();
