@@ -145,6 +145,20 @@
  * @property {AdminConfig} [admin] - Admin configuration
  *
  * @property {Object} [environment] - Environment variables
+ *
+ * @property {ExtensionDefinition[]} [extensions] - Extensions that add custom Prisma models, encrypted fields, admin routes, and bootstrap lifecycle hooks
+ */
+
+/**
+ * Extension definition for extending Frigg Core with custom models, encryption, routes, and bootstrap
+ * @typedef {Object} ExtensionDefinition
+ * @property {string} name - Unique identifier for this extension
+ * @property {string} [schema] - Absolute path to a .prisma schema fragment
+ * @property {Object<string, {fields: string[]}>} [encryption] - Model name → encrypted fields mapping
+ * @property {Object} [routes] - Express router configuration
+ * @property {string} routes.path - Base URL path for the extension routes
+ * @property {Function|Object} routes.handler - Router factory (prisma, appDefinition) → Router, or { router } object
+ * @property {Function} [bootstrap] - Async function (prisma, appDefinition) → void, runs post-DB pre-router
  */
 
 /**
