@@ -2,5 +2,8 @@ node_modules
 # Keep environment variables out of version control
 .env
 
+# TypeScript build output
+dist/
+
 # Prisma generated clients
 generated/

@@ -1,0 +1,113 @@
+import { GetUserFromAdopterJwt } from '../../use-cases/get-user-from-adopter-jwt';
+import fs from 'node:fs';
+import path from 'node:path';
+
+describe('GetUserFromAdopterJwt', () => {
+    let getUserFromAdopterJwt: InstanceType<typeof GetUserFromAdopterJwt>;
+    let mockUserRepository: any;
+    let mockUserConfig: any;
+
+    beforeEach(() => {
+        mockUserRepository = {
+            findIndividualUserByAppUserId: jest.fn(),
+            findOrganizationUserByAppOrgId: jest.fn(),
+            createIndividualUser: jest.fn(),
+            createOrganizationUser: jest.fn(),
+        };
+
+        mockUserConfig = {
+            usePassword: false,
+            primary: 'individual',
+            individualUserRequired: true,
+            organizationUserRequired: false,
+            authModes: {
+                adopterJwt: true,
+            },
+            jwtConfig: {
+                secret: 'test-secret',
+                userIdClaim: 'sub',
+                orgIdClaim: 'org_id',
+                algorithm: 'HS256',
+            },
+        };
+
+        getUserFromAdopterJwt = new GetUserFromAdopterJwt({
+            userRepository: mockUserRepository,
+            userConfig: mockUserConfig,
+        });
+    });
+
+    describe('Stub Behavior', () => {
+        it('should throw 501 Not Implemented error', async () => {
+            const jwtToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwib3JnX2lkIjoib3JnNDU2In0.signature';
+
+            await expect(
+                getUserFromAdopterJwt.execute(jwtToken)
+            ).rejects.toThrow('not yet implemented');
+        });
+
+        it('should provide helpful error message about alternative auth modes', async () => {
+            const jwtToken = 'test.jwt.token';
+
+            try {
+                await getUserFromAdopterJwt.execute(jwtToken);
+                fail('Should have thrown error');
+            } catch (error: any) {
+                expect(error.message).toContain('not yet implemented');
+                expect(error.message).toContain('friggToken');
+                expect(error.message).toContain('xFriggHeaders');
+            }
+        });
+
+        it('should throw 501 error with any token format', async () => {
+            await expect(
+                getUserFromAdopterJwt.execute('simple-token')
+            ).rejects.toThrow('not yet implemented');
+
+            await expect(
+                getUserFromAdopterJwt.execute('part1.part2.part3')
+            ).rejects.toThrow('not yet implemented');
+
+            await expect(getUserFromAdopterJwt.execute('')).rejects.toThrow(
+                'not yet implemented'
+            );
+        });
+    });
+
+    describe('Initialization', () => {
+        it('should initialize successfully with valid configuration', () => {
+            expect(getUserFromAdopterJwt).toBeDefined();
+            expect((getUserFromAdopterJwt as any).userRepository).toBe(
+                mockUserRepository
+            );
+            expect((getUserFromAdopterJwt as any).userConfig).toBe(mockUserConfig);
+        });
+
+        it('should initialize without jwtConfig (will fail on execute)', () => {
+            const configWithoutJwt = {
+                usePassword: false,
+                primary: 'individual',
+            };
+
+            const instance = new GetUserFromAdopterJwt({
+                userRepository: mockUserRepository,
+                userConfig: configWithoutJwt as any,
+            });
+
+            expect(instance).toBeDefined();
+        });
+    });
+
+    describe('Future Implementation Notes', () => {
+        it('should have documented todos for JWT implementation', () => {
+            const useCaseFilePath = path.resolve(
+                __dirname,
+                '../../use-cases/get-user-from-adopter-jwt.ts'
+            );
+            const useCaseFileContent = fs.readFileSync(useCaseFilePath, 'utf-8');
+
+            expect(useCaseFileContent).toContain('not yet implemented');
+            expect(useCaseFileContent).toContain('future');
+        });
+    });
+});
