@@ -3,8 +3,8 @@
  *
  * Executes Prisma migrations in a Lambda environment.
  */
-import { execFile } from 'child_process';
-import path from 'path';
+import { execFile } from 'node:child_process';
+import path from 'node:path';
 
 export interface MigrationEvent {
     command?: string;
