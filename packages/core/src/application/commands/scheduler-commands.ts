@@ -1,10 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-
-export interface ErrorResponse {
-    error: number;
-    reason?: string;
-    code?: string;
-}
+import { ErrorResponse, mapErrorToResponse as _mapError } from './command-utils';
+export type { ErrorResponse };
 
 export interface SchedulerService {
     scheduleOneTime(params: {
@@ -76,12 +72,7 @@ const ERROR_CODE_MAP: Record<string, number> = {
 };
 
 function mapErrorToResponse(error: Error & { code?: string }): ErrorResponse {
-    const status = ERROR_CODE_MAP[error?.code ?? ''] || 500;
-    return {
-        error: status,
-        reason: error?.message,
-        code: error?.code,
-    };
+    return _mapError(ERROR_CODE_MAP, error);
 }
 
 export function createSchedulerCommands({ integrationName, schedulerService }: CreateSchedulerCommandsParams): SchedulerCommands {

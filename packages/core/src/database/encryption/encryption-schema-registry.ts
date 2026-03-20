@@ -58,6 +58,33 @@ export const CORE_ENCRYPTION_SCHEMA: EncryptionSchema = {
 
 let customSchema: EncryptionSchema = {};
 
+function validateModelConfig(modelName: string, config: EncryptionModelConfig, errors: string[]): void {
+    if (typeof modelName !== 'string' || !modelName) {
+        errors.push(`Invalid model name: ${modelName}`);
+        return;
+    }
+    if (!config || typeof config !== 'object') {
+        errors.push(`Model "${modelName}" must have a config object`);
+        return;
+    }
+    if (!Array.isArray(config.fields)) {
+        errors.push(`Model "${modelName}" must have a "fields" array`);
+        return;
+    }
+
+    const coreFields = CORE_ENCRYPTION_SCHEMA[modelName]?.fields || [];
+    for (const fieldPath of config.fields) {
+        if (typeof fieldPath !== 'string' || !fieldPath) {
+            errors.push(`Model "${modelName}" has invalid field path: ${fieldPath}`);
+        }
+        if (coreFields.includes(fieldPath)) {
+            errors.push(
+                `Cannot override core encrypted field "${fieldPath}" in model "${modelName}"`
+            );
+        }
+    }
+}
+
 export function validateCustomSchema(schema: unknown): ValidationResult {
     const errors: string[] = [];
 
@@ -67,33 +94,7 @@ export function validateCustomSchema(schema: unknown): ValidationResult {
     }
 
     for (const [modelName, config] of Object.entries(schema as EncryptionSchema)) {
-        if (typeof modelName !== 'string' || !modelName) {
-            errors.push(`Invalid model name: ${modelName}`);
-            continue;
-        }
-
-        if (!config || typeof config !== 'object') {
-            errors.push(`Model "${modelName}" must have a config object`);
-            continue;
-        }
-
-        if (!Array.isArray(config.fields)) {
-            errors.push(`Model "${modelName}" must have a "fields" array`);
-            continue;
-        }
-
-        for (const fieldPath of config.fields) {
-            if (typeof fieldPath !== 'string' || !fieldPath) {
-                errors.push(`Model "${modelName}" has invalid field path: ${fieldPath}`);
-            }
-
-            const coreFields = CORE_ENCRYPTION_SCHEMA[modelName]?.fields || [];
-            if (coreFields.includes(fieldPath)) {
-                errors.push(
-                    `Cannot override core encrypted field "${fieldPath}" in model "${modelName}"`
-                );
-            }
-        }
+        validateModelConfig(modelName, config, errors);
     }
 
     return {

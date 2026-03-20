@@ -12,11 +12,8 @@ export interface IntegrationClass {
     [key: string]: unknown;
 }
 
-export interface ErrorResponse {
-    error: number;
-    reason?: string;
-    code?: string;
-}
+import { ErrorResponse, mapErrorToResponse as _mapError } from './command-utils';
+export type { ErrorResponse };
 
 export interface IntegrationContext {
     [key: string]: unknown;
@@ -61,12 +58,7 @@ const ERROR_CODE_MAP: Record<string, number> = {
 };
 
 function mapErrorToResponse(error: Error & { code?: string }): ErrorResponse {
-    const status = ERROR_CODE_MAP[error?.code ?? ''] || 500;
-    return {
-        error: status,
-        reason: error?.message,
-        code: error?.code,
-    };
+    return _mapError(ERROR_CODE_MAP, error);
 }
 
 export function createIntegrationCommands({ integrationClass }: { integrationClass: IntegrationClass }): any {

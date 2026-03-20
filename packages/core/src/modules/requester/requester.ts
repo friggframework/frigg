@@ -60,17 +60,46 @@ export class Requester extends Delegate {
         return resp.text();
     };
 
-    async _request(url: string, options: FetchOptions, i = 0): Promise<unknown> {
+    private buildEncodedUrl(url: string, query?: Record<string, string>): string {
         let encodedUrl = encodeURI(url);
-        if (options.query) {
-            let queryBuild = '?';
-            for (const key in options.query) {
-                queryBuild += `${encodeURIComponent(key)}=${encodeURIComponent(
-                    options.query[key]
-                )}&`;
-            }
-            encodedUrl += queryBuild.slice(0, -1);
+        if (!query) return encodedUrl;
+
+        let queryBuild = '?';
+        for (const key in query) {
+            queryBuild += `${encodeURIComponent(key)}=${encodeURIComponent(query[key])}&`;
         }
+        return encodedUrl + queryBuild.slice(0, -1);
+    }
+
+    private async handleRetryableStatus(
+        status: number,
+        url: string,
+        options: FetchOptions,
+        i: number
+    ): Promise<unknown | null> {
+        if ((status === 429 || status >= 500) && i < this.backOff.length) {
+            const delay = this.backOff[i] * 1000;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return this._request(url, options, i + 1);
+        }
+        return null;
+    }
+
+    private async handleUnauthorized(url: string, options: FetchOptions, i: number): Promise<unknown | null> {
+        if (this.isRefreshable && this.refreshCount === 0) {
+            this.refreshCount++;
+            const refreshSucceeded = await this.refreshAuth();
+            if (refreshSucceeded) {
+                return this._request(url, options, i + 1);
+            }
+        } else {
+            await this.notify(this.DLGT_INVALID_AUTH);
+        }
+        return null;
+    }
+
+    async _request(url: string, options: FetchOptions, i = 0): Promise<unknown> {
+        const encodedUrl = this.buildEncodedUrl(url, options.query);
 
         options.headers = await this.addAuthHeaders(options.headers);
 
@@ -93,20 +122,12 @@ export class Requester extends Delegate {
         }
         const { status } = response;
 
-        if ((status === 429 || status >= 500) && i < this.backOff.length) {
-            const delay = this.backOff[i] * 1000;
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return this._request(url, options, i + 1);
-        } else if (status === 401) {
-            if (this.isRefreshable && this.refreshCount === 0) {
-                this.refreshCount++;
-                const refreshSucceeded = await this.refreshAuth();
-                if (refreshSucceeded) {
-                    return this._request(url, options, i + 1);
-                }
-            } else {
-                await this.notify(this.DLGT_INVALID_AUTH);
-            }
+        const retryResult = await this.handleRetryableStatus(status, url, options, i);
+        if (retryResult !== null) return retryResult;
+
+        if (status === 401) {
+            const authResult = await this.handleUnauthorized(url, options, i);
+            if (authResult !== null) return authResult;
         }
 
         if (status >= 400) {

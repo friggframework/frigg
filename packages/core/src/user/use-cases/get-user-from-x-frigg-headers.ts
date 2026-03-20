@@ -24,6 +24,57 @@ export class GetUserFromXFriggHeaders {
         this.userConfig = userConfig;
     }
 
+    private async validateOrgLinkage(
+        individualUserData: any,
+        organizationUserData: any
+    ): Promise<any> {
+        const individualOrgId = individualUserData.organizationUser?.toString();
+        const expectedOrgId = organizationUserData.id?.toString();
+
+        if (individualOrgId === expectedOrgId) return individualUserData;
+
+        if (this.userConfig.strictUserValidation) {
+            throw Boom.badRequest(
+                'User ID mismatch: x-frigg-appUserId and x-frigg-appOrgId refer to different users. ' +
+                'Provide only one identifier or ensure they belong to the same user.'
+            );
+        }
+
+        return this.userRepository.linkIndividualToOrganization(
+            individualUserData.id!,
+            organizationUserData.id!
+        );
+    }
+
+    private async ensureIndividualUser(appUserId: string, individualUserData: any): Promise<any> {
+        if (individualUserData) return individualUserData;
+
+        return this.userRepository.createIndividualUser({
+            appUserId,
+            username: `app-user-${appUserId}`,
+            email: `${appUserId}@app.local`,
+        });
+    }
+
+    private async ensureOrganizationUser(
+        appOrgId: string,
+        organizationUserData: any,
+        individualUserData: any
+    ): Promise<{ individualUserData: any; organizationUserData: any }> {
+        if (organizationUserData) return { individualUserData, organizationUserData };
+
+        organizationUserData = await this.userRepository.createOrganizationUser({ appOrgId });
+
+        if (individualUserData) {
+            individualUserData = await this.userRepository.linkIndividualToOrganization(
+                individualUserData.id!,
+                organizationUserData.id!
+            );
+        }
+
+        return { individualUserData, organizationUserData };
+    }
+
     async execute(appUserId?: string, appOrgId?: string): Promise<User> {
         if (!appUserId && !appOrgId) {
             throw Boom.badRequest(
@@ -43,43 +94,17 @@ export class GetUserFromXFriggHeaders {
         }
 
         if (appUserId && appOrgId && individualUserData && organizationUserData) {
-            const individualOrgId = individualUserData.organizationUser?.toString();
-            const expectedOrgId = organizationUserData.id?.toString();
-
-            if (individualOrgId !== expectedOrgId) {
-                if (this.userConfig.strictUserValidation) {
-                    throw Boom.badRequest(
-                        'User ID mismatch: x-frigg-appUserId and x-frigg-appOrgId refer to different users. ' +
-                        'Provide only one identifier or ensure they belong to the same user.'
-                    );
-                }
-
-                individualUserData = await this.userRepository.linkIndividualToOrganization(
-                    individualUserData.id!,
-                    organizationUserData.id!
-                );
-            }
+            individualUserData = await this.validateOrgLinkage(individualUserData, organizationUserData);
         }
 
-        if (!individualUserData && appUserId && this.userConfig.individualUserRequired !== false) {
-            individualUserData = await this.userRepository.createIndividualUser({
-                appUserId,
-                username: `app-user-${appUserId}`,
-                email: `${appUserId}@app.local`,
-            });
+        if (appUserId && this.userConfig.individualUserRequired !== false) {
+            individualUserData = await this.ensureIndividualUser(appUserId, individualUserData);
         }
 
-        if (!organizationUserData && appOrgId && this.userConfig.organizationUserRequired) {
-            organizationUserData = await this.userRepository.createOrganizationUser({
-                appOrgId,
-            });
-
-            if (individualUserData && organizationUserData) {
-                individualUserData = await this.userRepository.linkIndividualToOrganization(
-                    individualUserData.id!,
-                    organizationUserData.id!
-                );
-            }
+        if (appOrgId && this.userConfig.organizationUserRequired) {
+            const result = await this.ensureOrganizationUser(appOrgId, organizationUserData, individualUserData);
+            individualUserData = result.individualUserData;
+            organizationUserData = result.organizationUserData;
         }
 
         return new User(

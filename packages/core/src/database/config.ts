@@ -12,22 +12,67 @@ export type DatabaseType = 'mongodb' | 'postgresql' | 'documentdb';
  * 1. DB_TYPE environment variable (set for migration handlers)
  * 2. App definition (backend/index.js Definition.database configuration)
  */
+function extractErrorFile(stack: string): string {
+    const stackLines = stack.split('\n');
+    for (const line of stackLines) {
+        const match = /\(([^)]+\.js):\d+:\d+\)/.exec(line) || /at ([^(]+\.js):\d+:\d+/.exec(line);
+        if (match?.[1] && !match[1].includes('node:internal')) {
+            return match[1];
+        }
+    }
+    return 'unknown file';
+}
+
+function resolveEnabledDatabase(database: Record<string, { enable?: boolean }>): DatabaseType {
+    if (database.postgres?.enable === true) return 'postgresql';
+    if (database.mongoDB?.enable === true) return 'mongodb';
+    if (database.documentDB?.enable === true) return 'documentdb';
+
+    throw new Error(
+        '[Frigg] No database enabled in app definition. ' +
+        'Set one of: database.postgres.enable, database.mongoDB.enable, or database.documentDB.enable to true'
+    );
+}
+
+function loadAppDefinitionDatabase(backendIndexPath: string): Record<string, { enable?: boolean }> {
+    let backendModule: { Definition?: { database?: Record<string, { enable?: boolean }> } };
+    try {
+        backendModule = require(backendIndexPath);
+    } catch (requireError: unknown) {
+        const err = requireError as Error & { stack?: string };
+        const errorFile = extractErrorFile(err.stack || '');
+        throw new Error(
+            `[Frigg] Failed to load app definition from ${backendIndexPath}\n` +
+            `Error: ${err.message}\n` +
+            `File with error: ${errorFile}\n` +
+            `\nFull stack trace:\n${err.stack}\n\n` +
+            'This error occurred while loading your app definition or its dependencies. ' +
+            'Check the file listed above for syntax errors (trailing commas, missing brackets, etc.)'
+        );
+    }
+
+    const database = backendModule?.Definition?.database;
+    if (!database) {
+        throw new Error(
+            '[Frigg] App definition missing database configuration. ' +
+            `Add database: { postgres: { enable: true } } (or mongoDB/documentDB) to ${backendIndexPath}`
+        );
+    }
+
+    return database;
+}
+
 export function getDatabaseType(): DatabaseType {
-    // First, check DB_TYPE environment variable (migration handlers set this)
     if (process.env.DB_TYPE) {
         return process.env.DB_TYPE as DatabaseType;
     }
 
-    // Fallback: Load app definition
     try {
         const path = require('node:path');
         const fs = require('node:fs');
         const { findNearestBackendPackageJson } = require('../../utils');
 
-        let backendIndexPath: string;
-        let database: Record<string, { enable?: boolean }> | undefined;
         const backendPackagePath = findNearestBackendPackageJson();
-
         if (!backendPackagePath) {
             throw new Error(
                 '[Frigg] Cannot find backend package.json. ' +
@@ -36,7 +81,7 @@ export function getDatabaseType(): DatabaseType {
         }
 
         const backendDir = path.dirname(backendPackagePath);
-        backendIndexPath = path.join(backendDir, 'index.js');
+        const backendIndexPath = path.join(backendDir, 'index.js');
 
         if (!fs.existsSync(backendIndexPath)) {
             throw new Error(
@@ -45,55 +90,8 @@ export function getDatabaseType(): DatabaseType {
             );
         }
 
-        let backendModule: { Definition?: { database?: Record<string, { enable?: boolean }> } };
-        try {
-            backendModule = require(backendIndexPath);
-        } catch (requireError: unknown) {
-            const err = requireError as Error & { stack?: string; stdout?: Buffer; stderr?: Buffer };
-            let errorFile = 'unknown file';
-            const stackLines = err.stack?.split('\n') || [];
-
-            for (const line of stackLines) {
-                const match = /\(([^)]+\.js):\d+:\d+\)/.exec(line) || /at ([^(]+\.js):\d+:\d+/.exec(line);
-                if (match && match[1] && !match[1].includes('node:internal')) {
-                    errorFile = match[1];
-                    break;
-                }
-            }
-
-            throw new Error(
-                `[Frigg] Failed to load app definition from ${backendIndexPath}\n` +
-                `Error: ${err.message}\n` +
-                `File with error: ${errorFile}\n` +
-                `\nFull stack trace:\n${err.stack}\n\n` +
-                'This error occurred while loading your app definition or its dependencies. ' +
-                'Check the file listed above for syntax errors (trailing commas, missing brackets, etc.)'
-            );
-        }
-
-        database = backendModule?.Definition?.database;
-
-        if (!database) {
-            throw new Error(
-                '[Frigg] App definition missing database configuration. ' +
-                `Add database: { postgres: { enable: true } } (or mongoDB/documentDB) to ${backendIndexPath}`
-            );
-        }
-
-        if (database.postgres?.enable === true) {
-            return 'postgresql';
-        }
-        if (database.mongoDB?.enable === true) {
-            return 'mongodb';
-        }
-        if (database.documentDB?.enable === true) {
-            return 'documentdb';
-        }
-
-        throw new Error(
-            '[Frigg] No database enabled in app definition. ' +
-            'Set one of: database.postgres.enable, database.mongoDB.enable, or database.documentDB.enable to true'
-        );
+        const database = loadAppDefinitionDatabase(backendIndexPath);
+        return resolveEnabledDatabase(database);
     } catch (error: unknown) {
         const err = error as Error;
         if (err.message.includes('[Frigg]')) {

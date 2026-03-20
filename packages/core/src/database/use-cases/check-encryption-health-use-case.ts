@@ -91,7 +91,9 @@ export class CheckEncryptionHealthUseCase {
         const isBypassed = bypassStages.includes(STAGE!);
         const hasAES = !!AES_KEY_ID?.trim();
         const hasKMS = !!KMS_KEY_ARN?.trim();
-        const mode: 'kms' | 'aes' | 'none' = hasKMS ? 'kms' : hasAES ? 'aes' : 'none';
+        let mode: 'kms' | 'aes' | 'none' = 'none';
+        if (hasKMS) mode = 'kms';
+        else if (hasAES) mode = 'aes';
 
         return {
             stage: STAGE || null,

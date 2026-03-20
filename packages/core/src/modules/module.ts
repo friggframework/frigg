@@ -230,6 +230,41 @@ export class Module extends Delegate {
         return { modelName: definition.modelName || definition.moduleName };
     }
 
+    private validateRequiredAuthMethods(definition: ModuleDefinition): void {
+        const { requiredAuthMethods } = definition;
+
+        if (
+            definition.API.requesterType === ModuleConstants.authType.oauth2 &&
+            !requiredAuthMethods.getToken
+        ) {
+            throw new Error('Module definition requires requiredAuthMethods.getToken');
+        }
+        if (!requiredAuthMethods.getEntityDetails) {
+            throw new Error('Module definition requires requiredAuthMethods.getEntityDetails');
+        }
+        if (!requiredAuthMethods.getCredentialDetails) {
+            throw new Error('Module definition requires requiredAuthMethods.getCredentialDetails');
+        }
+        if (!requiredAuthMethods.apiPropertiesToPersist) {
+            throw new Error('Module definition requires requiredAuthMethods.apiPropertiesToPersist');
+        } else if (definition.Credential) {
+            this.validateCredentialSchemaProperties(definition);
+        }
+        if (!requiredAuthMethods.testAuthRequest) {
+            throw new Error('Module definition requires requiredAuthMethods.testAuth');
+        }
+    }
+
+    private validateCredentialSchemaProperties(definition: ModuleDefinition): void {
+        for (const prop of definition.requiredAuthMethods.apiPropertiesToPersist?.credential ?? []) {
+            if (!Object.hasOwn(definition.Credential!.schema.paths, prop)) {
+                throw new Error(
+                    `Module definition requires Credential schema to have property ${prop}`
+                );
+            }
+        }
+    }
+
     validateDefinition(definition: ModuleDefinition): void {
         if (!definition) {
             throw new Error('Module definition is required');
@@ -243,45 +278,6 @@ export class Module extends Delegate {
         if (!definition.requiredAuthMethods) {
             throw new Error('Module definition requires requiredAuthMethods');
         }
-        if (
-            definition.API.requesterType ===
-                ModuleConstants.authType.oauth2 &&
-            !definition.requiredAuthMethods.getToken
-        ) {
-            throw new Error(
-                'Module definition requires requiredAuthMethods.getToken'
-            );
-        }
-        if (!definition.requiredAuthMethods.getEntityDetails) {
-            throw new Error(
-                'Module definition requires requiredAuthMethods.getEntityDetails'
-            );
-        }
-        if (!definition.requiredAuthMethods.getCredentialDetails) {
-            throw new Error(
-                'Module definition requires requiredAuthMethods.getCredentialDetails'
-            );
-        }
-        if (!definition.requiredAuthMethods.apiPropertiesToPersist) {
-            throw new Error(
-                'Module definition requires requiredAuthMethods.apiPropertiesToPersist'
-            );
-        } else if (definition.Credential) {
-            for (const prop of definition.requiredAuthMethods
-                .apiPropertiesToPersist?.credential ?? []) {
-                if (
-                    !Object.hasOwn(definition.Credential.schema.paths, prop)
-                ) {
-                    throw new Error(
-                        `Module definition requires Credential schema to have property ${prop}`
-                    );
-                }
-            }
-        }
-        if (!definition.requiredAuthMethods.testAuthRequest) {
-            throw new Error(
-                'Module definition requires requiredAuthMethods.testAuth'
-            );
-        }
+        this.validateRequiredAuthMethods(definition);
     }
 }

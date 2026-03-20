@@ -36,7 +36,9 @@ export const createApp = (applyMiddleware?: MiddlewareApplier): Application => {
             flushDebugLog(boomError);
             res.status(statusCode).json({ error: 'Internal Server Error' });
         } else {
-            console.warn(`[Frigg] ${req.method} ${req.path} -> ${statusCode}: ${err.message}`);
+            const safeMethod = String(req.method).replace(/[^\w]/g, '');
+            const safePath = String(req.path).substring(0, 200).replace(/[\r\n]/g, '');
+            console.warn(`[Frigg] ${safeMethod} ${safePath} -> ${statusCode}`);
             res.status(statusCode).json({ error: err.message });
         }
     });

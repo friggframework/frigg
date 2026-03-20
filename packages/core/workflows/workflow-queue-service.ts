@@ -49,7 +49,7 @@ class WorkflowQueueService {
 
         try {
             const entries = [messageBody];
-            const result = await QueuerUtil.batchSend(entries, this.queueUrl);
+            const result = await QueuerUtil.batchSend(this.queueUrl, entries);
             
             this.logger.log(`Successfully queued step execution: ${stepExecutionData.data.stepId}`);
             return result;
@@ -87,7 +87,7 @@ class WorkflowQueueService {
 
         try {
             const entries = [messageBody];
-            const result = await QueuerUtil.batchSend(entries, this.queueUrl);
+            const result = await QueuerUtil.batchSend(this.queueUrl, entries);
             
             this.logger.log(`Successfully queued workflow execution: ${workflowExecutionData.workflowId}`);
             return result;
@@ -149,7 +149,7 @@ class WorkflowQueueService {
                 }];
             }
 
-            const result = await QueuerUtil.batchSend(entries, this.queueUrl);
+            const result = await QueuerUtil.batchSend(this.queueUrl, entries);
             
             this.logger.log(`Successfully queued ${entries.length} fan-out batch execution(s) for execution ${parentExecutionId}`);
             return result;
@@ -187,7 +187,7 @@ class WorkflowQueueService {
 
         try {
             const entries = [messageBody];
-            const result = await QueuerUtil.batchSend(entries, this.queueUrl);
+            const result = await QueuerUtil.batchSend(this.queueUrl, entries);
             
             this.logger.log(`Successfully queued workflow cancellation: ${cancellationData.executionId}`);
             return result;
@@ -222,7 +222,7 @@ class WorkflowQueueService {
 
         try {
             const entries = [messageBody];
-            const result = await QueuerUtil.batchSend(entries, this.queueUrl);
+            const result = await QueuerUtil.batchSend(this.queueUrl, entries);
             
             this.logger.log(`Successfully queued workflow resume: ${resumeData.executionId}`);
             return result;
@@ -257,7 +257,7 @@ class WorkflowQueueService {
                 version: message.version || '1.0.0'
             }));
 
-            const result = await QueuerUtil.batchSend(entries, this.queueUrl);
+            const result = await QueuerUtil.batchSend(this.queueUrl, entries);
             
             this.logger.log(`Successfully queued batch of ${entries.length} workflow messages`);
             return result;

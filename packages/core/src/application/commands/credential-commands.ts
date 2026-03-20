@@ -1,13 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { ErrorResponse, mapErrorToResponse as _mapError } from './command-utils';
+export type { ErrorResponse };
 const {
     createCredentialRepository,
 } = require('../../../credential/repositories/credential-repository-factory');
-
-export interface ErrorResponse {
-    error: number;
-    reason?: string;
-    code?: string;
-}
 
 export interface CredentialRecord {
     id: string;
@@ -49,12 +45,7 @@ const ERROR_CODE_MAP: Record<string, number> = {
 };
 
 function mapErrorToResponse(error: Error & { code?: string }): ErrorResponse {
-    const status = ERROR_CODE_MAP[error?.code ?? ''] || 500;
-    return {
-        error: status,
-        reason: error?.message,
-        code: error?.code,
-    };
+    return _mapError(ERROR_CODE_MAP, error);
 }
 
 export function createCredentialCommands(): CredentialCommands {
@@ -215,19 +206,7 @@ export function createCredentialCommands(): CredentialCommands {
         },
 
         async deleteCredentialById(credentialId: string) {
-            try {
-                if (!credentialId) {
-                    const error = new Error('credentialId is required') as Error & { code?: string };
-                    error.code = 'INVALID_CREDENTIAL_DATA';
-                    throw error;
-                }
-
-                await credRepo.deleteCredentialById(credentialId);
-
-                return { success: true };
-            } catch (error) {
-                return mapErrorToResponse(error as Error & { code?: string });
-            }
+            return this.deleteCredential(credentialId);
         },
     };
 }

@@ -61,7 +61,7 @@ export class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
         const existing = await findOne(this.prisma, 'Sync', query);
 
         const now = new Date();
-        const documentData = this._prepareSyncData(syncData, now);
+        const documentData = this._prepareSyncData(now, syncData);
 
         if (existing) {
             await updateOne(
@@ -87,7 +87,7 @@ export class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
     async updateSync(id: string | number, updates: Record<string, unknown>): Promise<SyncData | null> {
         const objectId = toObjectId(id);
         if (!objectId) return null;
-        const documentData = this._prepareSyncData(updates, new Date());
+        const documentData = this._prepareSyncData(new Date(), updates);
         await updateOne(
             this.prisma,
             'Sync',
@@ -187,7 +187,7 @@ export class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
         return query;
     }
 
-    private _prepareSyncData(data: Record<string, unknown> = {}, timestamp: Date): Record<string, unknown> {
+    private _prepareSyncData(timestamp: Date, data: Record<string, unknown> = {}): Record<string, unknown> {
         const prepared: Record<string, unknown> = {};
         if (data.integrationId !== undefined) {
             prepared.integrationId = toObjectId(data.integrationId);

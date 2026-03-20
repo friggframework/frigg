@@ -90,16 +90,14 @@ export class OAuth2Requester extends Requester {
         const newRefreshToken = get(params, 'refresh_token', null) as string | null;
         if (newRefreshToken !== null) {
             this.refresh_token = newRefreshToken;
+        } else if (this.refresh_token) {
+            console.log(
+                '[Frigg] No refresh_token in response, preserving existing'
+            );
         } else {
-            if (this.refresh_token) {
-                console.log(
-                    '[Frigg] No refresh_token in response, preserving existing'
-                );
-            } else {
-                console.log(
-                    '[Frigg] Current refresh_token is null and no new refresh_token in response'
-                );
-            }
+            console.log(
+                '[Frigg] Current refresh_token is null and no new refresh_token in response'
+            );
         }
         const accessExpiresIn = get(params, 'expires_in', null) as number | null;
         const refreshExpiresIn = get(

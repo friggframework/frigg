@@ -82,6 +82,31 @@ function extractMigrationParams(event: MigrationWorkerEvent): {
 
 
 
+async function handleCheckStatus(dbType: string, stage: string): Promise<{ statusCode: number; body: string }> {
+    try {
+        const checkDbStateUseCase = new CheckDatabaseStateUseCase({ prismaRunner });
+        const status = await checkDbStateUseCase.execute(dbType, stage);
+        return { statusCode: 200, body: JSON.stringify(status) };
+    } catch (error: any) {
+        return { statusCode: 500, body: JSON.stringify({ success: false, error: sanitizeError(error.message) }) };
+    }
+}
+
+async function reportMigrationFailure(
+    migrationId: string,
+    stage: string,
+    sanitizedError: string
+): Promise<void> {
+    try {
+        await migrationStatusRepository.update({
+            migrationId, stage, state: 'FAILED', progress: 0,
+            error: sanitizedError, failedAt: new Date().toISOString(),
+        } as any);
+    } catch (updateError: any) {
+        console.error('Failed to update migration status:', updateError.message);
+    }
+}
+
 export const handler = async (
     event: MigrationWorkerEvent,
     context: MigrationWorkerContext
@@ -94,13 +119,7 @@ export const handler = async (
     const action = event.action || 'migrate';
 
     if (action === 'checkStatus') {
-        try {
-            const checkDbStateUseCase = new CheckDatabaseStateUseCase({ prismaRunner });
-            const status = await checkDbStateUseCase.execute(dbType, stage);
-            return { statusCode: 200, body: JSON.stringify(status) };
-        } catch (error: any) {
-            return { statusCode: 500, body: JSON.stringify({ success: false, error: sanitizeError(error.message) }) };
-        }
+        return handleCheckStatus(dbType, stage);
     }
 
     const databaseUrl = process.env.DATABASE_URL;
@@ -136,20 +155,11 @@ export const handler = async (
     } catch (error: any) {
         console.error('Migration Failed:', error.name, error.message);
 
-        let statusCode = 500;
-        if (error instanceof ValidationError) statusCode = 400;
-
+        const statusCode = error instanceof ValidationError ? 400 : 500;
         const sanitizedError = sanitizeError(error.message);
 
         if (migrationId) {
-            try {
-                await migrationStatusRepository.update({
-                    migrationId, stage, state: 'FAILED', progress: 0,
-                    error: sanitizedError, failedAt: new Date().toISOString(),
-                } as any);
-            } catch (updateError: any) {
-                console.error('Failed to update migration status:', updateError.message);
-            }
+            await reportMigrationFailure(migrationId, stage, sanitizedError);
         }
 
         const errorBody: any = {

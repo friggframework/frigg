@@ -63,6 +63,60 @@ export class SyncManager {
         this.syncRepository = createSyncRepository();
     }
 
+    private filterEmptyMatchValues(arr: Sync[], moduleName: string): Sync[] {
+        const countBefore = arr.length;
+        const filtered = arr.filter((obj) => !obj.missingMatchData);
+        debug(
+            `Ignoring ${countBefore - filtered.length} ${
+                this.SyncObjectClass.name
+            } objects from ${moduleName}`
+        );
+        return filtered;
+    }
+
+    private deduplicateByMatchHash(arr: Sync[], label: string): Sync[] {
+        const deduped = _.uniqBy(arr, 'matchHash');
+        debug(`${deduped.length} Objects remaining after removing duplicates from ${label}`);
+        return deduped;
+    }
+
+    private valuesAreEquivalent(primaryVal: unknown, secondaryVal: unknown): boolean {
+        if (_.isEqual(primaryVal, secondaryVal)) return true;
+        if (typeof primaryVal === 'number' || typeof secondaryVal === 'number') {
+            return primaryVal === secondaryVal;
+        }
+        if (!primaryVal && !secondaryVal) return true;
+        return false;
+    }
+
+    private resolveIntersectionUpdates(
+        primaryObj: Sync,
+        secondaryObj: Sync
+    ): { primaryUpdated: boolean; secondaryUpdated: boolean } {
+        let primaryUpdated = false;
+        let secondaryUpdated = false;
+
+        for (const key in primaryObj.data) {
+            if (this.valuesAreEquivalent(primaryObj.data[key], secondaryObj.data[key])) {
+                continue;
+            }
+
+            if (
+                primaryObj.dataKeyIsReplaceable(key) &&
+                !secondaryObj.dataKeyIsReplaceable(key) &&
+                !this.isUnidirectionalSync
+            ) {
+                primaryObj.data[key] = secondaryObj.data[key];
+                primaryUpdated = true;
+            } else if (!primaryObj.dataKeyIsReplaceable(key)) {
+                secondaryObj.data[key] = primaryObj.data[key];
+                secondaryUpdated = true;
+            }
+        }
+
+        return { primaryUpdated, secondaryUpdated };
+    }
+
     async initialSync(): Promise<void> {
         const time0 = Number.parseInt(moment().format('x'));
         const primaryEntityId = await this.primaryModule.entity.id;
@@ -94,32 +148,12 @@ export class SyncManager {
         );
 
         if (this.ignoreEmptyMatchValues) {
-            const primaryCountBefore = primaryArr.length;
-            primaryArr = primaryArr.filter((obj) => !obj.missingMatchData);
-            const primaryCountAfter = primaryArr.length;
-            const secondaryCountBefore = secondaryArr.length;
-            secondaryArr = secondaryArr.filter((obj) => !obj.missingMatchData);
-            const secondaryCountAfter = secondaryArr.length;
-            debug(
-                `Ignoring ${primaryCountBefore - primaryCountAfter} ${
-                    this.SyncObjectClass.name
-                } objects from ${this.primaryModule.constructor.getName()}`
-            );
-            debug(
-                `Ignoring ${secondaryCountBefore - secondaryCountAfter} ${
-                    this.SyncObjectClass.name
-                } objects from ${this.secondaryModule.constructor.getName()}`
-            );
+            primaryArr = this.filterEmptyMatchValues(primaryArr, this.primaryModule.constructor.getName());
+            secondaryArr = this.filterEmptyMatchValues(secondaryArr, this.secondaryModule.constructor.getName());
         }
         if (this.useFirstMatchingDuplicate) {
-            primaryArr = _.uniqBy(primaryArr, 'matchHash');
-            debug(
-                `${primaryArr.length} Objects remaining after removing duplicates from Primary Array`
-            );
-            secondaryArr = _.uniqBy(secondaryArr, 'matchHash');
-            debug(
-                `${secondaryArr.length} Objects remaining after removing duplicates from Secondary Array`
-            );
+            primaryArr = this.deduplicateByMatchHash(primaryArr, 'Primary Array');
+            secondaryArr = this.deduplicateByMatchHash(secondaryArr, 'Secondary Array');
         }
         const primaryUpdate: Sync[] = [];
         const secondaryUpdate: Sync[] = [];
@@ -141,37 +175,9 @@ export class SyncManager {
                 e1.equals(primaryObj)
             )!;
 
-            let primaryUpdated = false;
-            let secondaryUpdated = false;
+            const { primaryUpdated, secondaryUpdated } =
+                this.resolveIntersectionUpdates(primaryObj, secondaryObj);
 
-            for (const key in primaryObj.data) {
-                let valuesAreNotEquivalent = true;
-                if (_.isEqual(primaryObj.data[key], secondaryObj.data[key])) {
-                    valuesAreNotEquivalent = false;
-                } else if (
-                    typeof primaryObj.data[key] === 'number' ||
-                    typeof secondaryObj.data[key] === 'number'
-                ) {
-                    valuesAreNotEquivalent =
-                        primaryObj.data[key] !== secondaryObj.data[key];
-                } else if (!primaryObj.data[key] && !secondaryObj.data[key]) {
-                    valuesAreNotEquivalent = false;
-                }
-
-                if (valuesAreNotEquivalent) {
-                    if (
-                        primaryObj.dataKeyIsReplaceable(key) &&
-                        !secondaryObj.dataKeyIsReplaceable(key) &&
-                        !this.isUnidirectionalSync
-                    ) {
-                        primaryObj.data[key] = secondaryObj.data[key];
-                        primaryUpdated = true;
-                    } else if (!primaryObj.dataKeyIsReplaceable(key)) {
-                        secondaryObj.data[key] = primaryObj.data[key];
-                        secondaryUpdated = true;
-                    }
-                }
-            }
             if (primaryUpdated && !this.isUnidirectionalSync) {
                 primaryUpdate.push(primaryObj);
             }

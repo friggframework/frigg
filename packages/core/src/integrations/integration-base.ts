@@ -228,24 +228,27 @@ export class IntegrationBase {
         }
     }
 
-    private _appendModules(integrationModules: IntegrationModule[]): Record<string, IntegrationModule> {
-        const modules: Record<string, IntegrationModule> = {};
-
+    private _buildModuleNameToKeyMap(): Record<string, string> {
         const moduleNameToKey: Record<string, string> = {};
         const ctor = this.constructor as typeof IntegrationBase;
-        if (ctor.Definition?.modules) {
-            for (const [key, moduleConfig] of Object.entries(ctor.Definition.modules)) {
-                const definition = moduleConfig.definition;
-                if (definition) {
-                    const definitionName = typeof definition.getName === 'function'
-                        ? definition.getName()
-                        : definition.moduleName;
-                    if (definitionName) {
-                        moduleNameToKey[definitionName] = key;
-                    }
-                }
+        if (!ctor.Definition?.modules) return moduleNameToKey;
+
+        for (const [key, moduleConfig] of Object.entries(ctor.Definition.modules)) {
+            const definition = moduleConfig.definition;
+            if (!definition) continue;
+            const definitionName = typeof definition.getName === 'function'
+                ? definition.getName()
+                : definition.moduleName;
+            if (definitionName) {
+                moduleNameToKey[definitionName] = key;
             }
         }
+        return moduleNameToKey;
+    }
+
+    private _appendModules(integrationModules: IntegrationModule[]): Record<string, IntegrationModule> {
+        const modules: Record<string, IntegrationModule> = {};
+        const moduleNameToKey = this._buildModuleNameToKeyMap();
 
         for (const module of integrationModules) {
             const moduleName =

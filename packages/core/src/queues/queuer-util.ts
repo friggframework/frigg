@@ -27,7 +27,7 @@ export const QueuerUtil = {
         return sqs.send(command);
     },
 
-    batchSend: async (entries: unknown[] = [], queueUrl: string): Promise<unknown> => {
+    batchSend: async (queueUrl: string, entries: unknown[] = []): Promise<unknown> => {
         const buffer: Array<{ Id: string; MessageBody: string }> = [];
         const batchSize = 10;
 

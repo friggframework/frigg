@@ -1,13 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { ErrorResponse, mapErrorToResponse as _mapError } from './command-utils';
+export type { ErrorResponse };
 const {
     createUserRepository,
 } = require('../../../user/repositories/user-repository-factory');
-
-export interface ErrorResponse {
-    error: number;
-    reason?: string;
-    code?: string;
-}
 
 export interface UserRecord {
     id: string;
@@ -52,12 +48,7 @@ const ERROR_CODE_MAP: Record<string, number> = {
 };
 
 function mapErrorToResponse(error: Error & { code?: string | number }): ErrorResponse {
-    const status = ERROR_CODE_MAP[error?.code as string ?? ''] || 500;
-    return {
-        error: status,
-        reason: error?.message,
-        code: error?.code as string | undefined,
-    };
+    return _mapError(ERROR_CODE_MAP, error);
 }
 
 export function createUserCommands(): UserCommands {

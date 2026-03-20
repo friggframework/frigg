@@ -1,13 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { ErrorResponse, mapErrorToResponse as _mapError } from './command-utils';
+export type { ErrorResponse };
 const {
     createModuleRepository,
 } = require('../../../modules/repositories/module-repository-factory');
-
-export interface ErrorResponse {
-    error: number;
-    reason?: string;
-    code?: string;
-}
 
 export interface EntityRecord {
     id: string;
@@ -50,12 +46,7 @@ const ERROR_CODE_MAP: Record<string, number> = {
 };
 
 function mapErrorToResponse(error: Error & { code?: string }): ErrorResponse {
-    const status = ERROR_CODE_MAP[error?.code ?? ''] || 500;
-    return {
-        error: status,
-        reason: error?.message,
-        code: error?.code,
-    };
+    return _mapError(ERROR_CODE_MAP, error);
 }
 
 function mapEntityRecord(entity: Record<string, unknown>): EntityRecord {
@@ -238,19 +229,7 @@ export function createEntityCommands(): EntityCommands {
         },
 
         async deleteEntityById(entityId: string) {
-            try {
-                if (!entityId) {
-                    const error = new Error('entityId is required') as Error & { code?: string };
-                    error.code = 'INVALID_ENTITY_DATA';
-                    throw error;
-                }
-
-                await moduleRepo.deleteEntity(entityId);
-
-                return { success: true };
-            } catch (error) {
-                return mapErrorToResponse(error as Error & { code?: string });
-            }
+            return this.deleteEntity(entityId);
         },
 
         async unsetCredential(entityId: string) {
