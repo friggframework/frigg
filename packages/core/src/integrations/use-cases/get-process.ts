@@ -13,7 +13,7 @@ export class GetProcess {
 
     async execute(processId: string): Promise<ProcessRecord | null> {
         if (!processId || typeof processId !== 'string') {
-            throw new Error('processId must be a non-empty string');
+            throw new TypeError('processId must be a non-empty string');
         }
 
         try {
@@ -37,7 +37,7 @@ export class GetProcess {
 
     async executeMany(processIds: string[]): Promise<ProcessRecord[]> {
         if (!Array.isArray(processIds)) {
-            throw new Error('processIds must be an array');
+            throw new TypeError('processIds must be an array');
         }
 
         const processes = await Promise.all(

@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 
 export async function parseCollectionsFromSchema(schemaPath: string): Promise<string[]> {
     try {
@@ -33,7 +33,7 @@ export function extractCollectionNames(schemaContent: string): string[] {
         const modelName = match[1];
         const modelBody = match[2];
 
-        const mapMatch = modelBody.match(/@@map\s*\(\s*["'](\w+)["']\s*\)/);
+        const mapMatch = /@@map\s*\(\s*["'](\w+)["']\s*\)/.exec(modelBody);
 
         if (mapMatch) {
             collections.push(mapMatch[1]);

@@ -1,6 +1,6 @@
-import { execSync, spawn } from 'child_process';
-import path from 'path';
-import fs from 'fs';
+import { execSync, spawn } from 'node:child_process';
+import path from 'node:path';
+import fs from 'node:fs';
 
 function normalizeMongoCompatible(dbType: string): string {
     return dbType === 'documentdb' ? 'mongodb' : dbType;
@@ -113,8 +113,8 @@ export async function checkDatabaseState(dbType: string): Promise<{ upToDate: bo
             return { upToDate: true };
         }
 
-        const pendingMatch = output.match(/(\d+) migration/);
-        const pendingMigrations = pendingMatch ? parseInt(pendingMatch[1]) : 0;
+        const pendingMatch = /(\d+) migration/.exec(output);
+        const pendingMigrations = pendingMatch ? Number.parseInt(pendingMatch[1]) : 0;
 
         return {
             upToDate: false,

@@ -82,7 +82,7 @@ const detectVpcConfiguration = async (): Promise<any> => {
         hasInternetAccess: false,
         canResolvePublicDns: false,
         canConnectToAws: false,
-        vpcEndpoints: [] as string[],
+        vpcEndpoints: [],
     };
 
     try {
@@ -101,7 +101,7 @@ const detectVpcConfiguration = async (): Promise<any> => {
         }
 
         try {
-            const httpsModule = require('https');
+            const httpsModule = require('node:https');
             await new Promise((resolve: any, reject: any) => {
                 const req = httpsModule.get(
                     'https://www.google.com',
@@ -135,7 +135,7 @@ const detectVpcConfiguration = async (): Promise<any> => {
                     );
                     if (isPrivateIp) results.vpcEndpoints.push(domain);
                 }
-            } catch (_e) { /* expected */ }
+            } catch { /* expected */ }
         }
 
         results.isInVpc = process.env.VPC_ENABLED === 'true' ||

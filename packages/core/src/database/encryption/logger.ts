@@ -32,7 +32,7 @@ export class EncryptionLogger {
 
     private _sanitize(message: string): string {
         if (typeof message === 'string') {
-            return message.replace(/([A-Za-z0-9+/=]{50,})/g, (match) =>
+            return message.replaceAll(/([A-Za-z0-9+/=]{50,})/g, (match) =>
                 `${match.substring(0, 10)}...[${match.length} chars]`
             );
         }

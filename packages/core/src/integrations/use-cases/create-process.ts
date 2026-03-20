@@ -46,32 +46,32 @@ export class CreateProcess {
         }
 
         if (typeof processData.userId !== 'string') {
-            throw new Error('userId must be a string');
+            throw new TypeError('userId must be a string');
         }
         if (typeof processData.integrationId !== 'string') {
-            throw new Error('integrationId must be a string');
+            throw new TypeError('integrationId must be a string');
         }
         if (typeof processData.name !== 'string') {
-            throw new Error('name must be a string');
+            throw new TypeError('name must be a string');
         }
         if (typeof processData.type !== 'string') {
-            throw new Error('type must be a string');
+            throw new TypeError('type must be a string');
         }
 
         if (processData.state && typeof processData.state !== 'string') {
-            throw new Error('state must be a string');
+            throw new TypeError('state must be a string');
         }
         if (processData.context && typeof processData.context !== 'object') {
-            throw new Error('context must be an object');
+            throw new TypeError('context must be an object');
         }
         if (processData.results && typeof processData.results !== 'object') {
-            throw new Error('results must be an object');
+            throw new TypeError('results must be an object');
         }
         if (processData.childProcesses && !Array.isArray(processData.childProcesses)) {
-            throw new Error('childProcesses must be an array');
+            throw new TypeError('childProcesses must be an array');
         }
         if (processData.parentProcessId && typeof processData.parentProcessId !== 'string') {
-            throw new Error('parentProcessId must be a string');
+            throw new TypeError('parentProcessId must be a string');
         }
     }
 }

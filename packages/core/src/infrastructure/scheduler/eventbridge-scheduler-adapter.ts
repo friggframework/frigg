@@ -28,7 +28,7 @@ export class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
             throw new Error('scheduleName is required');
         }
         if (!scheduleAt || !(scheduleAt instanceof Date)) {
-            throw new Error('scheduleAt must be a valid Date object');
+            throw new TypeError('scheduleAt must be a valid Date object');
         }
         if (!queueResourceId) {
             throw new Error('queueResourceId is required');
@@ -119,8 +119,8 @@ export class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
 
             let scheduledAt: string | null = null;
             if (response.ScheduleExpression) {
-                const match = response.ScheduleExpression.match(
-                    /^at\((.+)\)$/
+                const match = /^at\((.+)\)$/.exec(
+                    response.ScheduleExpression
                 );
                 if (match) {
                     scheduledAt = new Date(match[1] + 'Z').toISOString();

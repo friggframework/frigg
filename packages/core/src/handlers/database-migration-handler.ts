@@ -35,8 +35,7 @@ async function executePrismaMigration(command: string, schemaPath: string): Prom
         const args = ['migrate', command];
 
         if (command === 'reset') {
-            args.push('--force');
-            args.push('--skip-generate');
+            args.push('--force', '--skip-generate');
         }
 
         if (schemaPath) {

@@ -1,5 +1,4 @@
-import { Requester } from './requester';
-import type { RequesterParams } from './requester';
+import { Requester, type RequesterParams } from './requester';
 import { get } from '../../assertions';
 import { ModuleConstants } from '../ModuleConstants';
 
@@ -9,7 +8,7 @@ export interface BasicAuthRequesterParams extends RequesterParams {
 }
 
 export class BasicAuthRequester extends Requester {
-    static requesterType = ModuleConstants.authType.basic;
+    static readonly requesterType = ModuleConstants.authType.basic;
 
     username: string | null;
     password: string | null;

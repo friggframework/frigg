@@ -25,7 +25,7 @@ export class MockSchedulerAdapter extends SchedulerServiceInterface {
             throw new Error('scheduleName is required');
         }
         if (!scheduleAt || !(scheduleAt instanceof Date)) {
-            throw new Error('scheduleAt must be a valid Date object');
+            throw new TypeError('scheduleAt must be a valid Date object');
         }
         if (!queueResourceId) {
             throw new Error('queueResourceId is required');

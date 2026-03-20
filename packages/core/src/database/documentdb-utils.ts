@@ -19,7 +19,7 @@ export function toObjectId(value: unknown): ObjectId | undefined {
 
 export function toObjectIdArray(values: unknown[]): ObjectId[] {
     if (!Array.isArray(values)) return [];
-    return values.map(toObjectId).filter((v): v is ObjectId => v !== undefined);
+    return values.flatMap(v => { const id = toObjectId(v); return id !== undefined ? [id] : []; });
 }
 
 export function fromObjectId(value: unknown): string | null | undefined {
@@ -28,7 +28,7 @@ export function fromObjectId(value: unknown): string | null | undefined {
         return (value as Record<string, string>).$oid;
     }
     if (typeof value === 'string') return value;
-    return value === undefined || value === null ? (value as null | undefined) : String(value);
+    return value === undefined || value === null ? value : String(value);
 }
 
 export async function findMany(
@@ -106,7 +106,7 @@ export async function updateOne(
         u: update,
         upsert: Boolean(options.upsert),
     }];
-    if (options.arrayFilters) (updates[0] as Record<string, unknown>).arrayFilters = options.arrayFilters;
+    if (options.arrayFilters) updates[0].arrayFilters = options.arrayFilters;
     const result = await client.$runCommandRaw!({
         update: collection,
         updates,

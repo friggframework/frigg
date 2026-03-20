@@ -7,8 +7,6 @@ import type {
     IntegrationConfig,
     IntegrationModule,
     IntegrationEvents,
-    IntegrationEventHandler,
-    IntegrationModuleDefinition,
     SchemaOptions,
     WebhookData,
     OptionDetails,
@@ -66,7 +64,7 @@ export class IntegrationBase {
         integrationRepository: this.integrationRepository,
     });
 
-    static Definition: IntegrationDefinition = {
+    static readonly Definition: IntegrationDefinition = {
         name: 'Integration Name',
         version: '0.0.0',
         supportedVersions: [],
@@ -330,7 +328,7 @@ export class IntegrationBase {
 
     async upsertMapping(sourceId: string, mapping: unknown): Promise<unknown> {
         if (!sourceId) {
-            throw new Error('sourceId must be set');
+            throw new TypeError('sourceId must be set');
         }
         return await this.integrationMappingRepository.upsertMapping(
             this.id,
@@ -427,7 +425,7 @@ export class IntegrationBase {
 
         const queueName = `${ctor.Definition.name
             .toUpperCase()
-            .replace(/-/g, '_')}_QUEUE_URL`;
+            .replaceAll('-', '_')}_QUEUE_URL`;
         const queueUrl = process.env[queueName];
 
         if (!queueUrl) {

@@ -6,7 +6,7 @@ import {
 import type { PrismaClientLike } from '../prisma';
 
 export class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface {
-    private prisma: PrismaClientLike;
+    private readonly prisma: PrismaClientLike;
 
     constructor({ prismaClient }: { prismaClient: PrismaClientLike }) {
         super();
@@ -21,7 +21,7 @@ export class HealthCheckRepositoryMongoDB extends HealthCheckRepositoryInterface
             await this.prisma.$runCommandRaw!({ ping: 1 });
             isConnected = true;
             stateName = 'connected';
-        } catch (_error) {
+        } catch {
             stateName = 'disconnected';
         }
 

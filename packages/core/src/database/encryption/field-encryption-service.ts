@@ -187,7 +187,7 @@ export class FieldEncryptionService {
 
         const cloned: Record<string, unknown> = {};
         for (const key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            if (Object.hasOwn(obj, key)) {
                 cloned[key] = this._deepClone((obj as Record<string, unknown>)[key]);
             }
         }

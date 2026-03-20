@@ -157,7 +157,7 @@ export function loadModuleEncryptionSchemas(integrations: IntegrationClass[]): v
     }
 
     if (!Array.isArray(integrations)) {
-        throw new Error('integrations must be an array');
+        throw new TypeError('integrations must be an array');
     }
 
     if (integrations.length === 0) {

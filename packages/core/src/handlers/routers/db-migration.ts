@@ -3,11 +3,9 @@
  *
  * HTTP API for triggering and monitoring database migrations.
  */
-import { Router } from 'express';
-import type { Request, Response } from 'express';
+import express, { Router, type Request, type Response } from 'express';
 import catchAsyncError from 'express-async-handler';
 import serverlessHttp from 'serverless-http';
-import express from 'express';
 import cors from 'cors';
 
 /* eslint-disable @typescript-eslint/no-var-requires */

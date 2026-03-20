@@ -22,10 +22,10 @@ export class UpdateProcessMetrics {
 
     async execute(processId: string, metricsUpdate: MetricsUpdate): Promise<ProcessRecord> {
         if (!processId || typeof processId !== 'string') {
-            throw new Error('processId must be a non-empty string');
+            throw new TypeError('processId must be a non-empty string');
         }
         if (!metricsUpdate || typeof metricsUpdate !== 'object') {
-            throw new Error('metricsUpdate must be an object');
+            throw new TypeError('metricsUpdate must be an object');
         }
 
         const process = await this.processRepository.findById(processId);

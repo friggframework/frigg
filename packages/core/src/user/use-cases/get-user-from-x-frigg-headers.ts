@@ -5,7 +5,7 @@ import type { UserRepositoryInterface } from '../repositories/user-repository-in
 interface UserConfigForXFriggHeaders {
     usePassword?: boolean;
     primary: string;
-    individualUserRequired: boolean | false;
+    individualUserRequired: boolean;
     organizationUserRequired: boolean;
     strictUserValidation?: boolean;
 }
@@ -87,7 +87,7 @@ export class GetUserFromXFriggHeaders {
             organizationUserData,
             this.userConfig.usePassword,
             this.userConfig.primary,
-            this.userConfig.individualUserRequired as boolean,
+            this.userConfig.individualUserRequired,
             this.userConfig.organizationUserRequired
         );
     }

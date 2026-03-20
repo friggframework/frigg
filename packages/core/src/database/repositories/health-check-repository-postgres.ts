@@ -6,7 +6,7 @@ import {
 import type { PrismaClientLike } from '../prisma';
 
 export class HealthCheckRepositoryPostgreSQL extends HealthCheckRepositoryInterface {
-    private prisma: PrismaClientLike;
+    private readonly prisma: PrismaClientLike;
 
     constructor({ prismaClient }: { prismaClient: PrismaClientLike }) {
         super();
@@ -21,7 +21,7 @@ export class HealthCheckRepositoryPostgreSQL extends HealthCheckRepositoryInterf
             await (this.prisma as any).$queryRaw`SELECT 1`;
             isConnected = true;
             stateName = 'connected';
-        } catch (_error) {
+        } catch {
             stateName = 'disconnected';
         }
 

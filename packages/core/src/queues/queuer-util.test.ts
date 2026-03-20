@@ -58,7 +58,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
                 Failed: []
             } as any);
 
-            const entries = Array(5).fill(null).map((_, i) => ({ data: `test-${i}` }));
+            const entries = new Array(5).fill(null).map((_, i) => ({ data: `test-${i}` }));
             const queueUrl = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
             await QueuerUtil.batchSend(entries, queueUrl);
@@ -76,7 +76,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
                 Failed: []
             } as any);
 
-            const entries = Array(25).fill(null).map((_, i) => ({ data: `test-${i}` }));
+            const entries = new Array(25).fill(null).map((_, i) => ({ data: `test-${i}` }));
             const queueUrl = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
             await QueuerUtil.batchSend(entries, queueUrl);
@@ -102,7 +102,7 @@ describe('QueuerUtil - AWS SDK v3', () => {
                 Failed: []
             } as any);
 
-            const entries = Array(10).fill(null).map((_, i) => ({ data: `test-${i}` }));
+            const entries = new Array(10).fill(null).map((_, i) => ({ data: `test-${i}` }));
             const queueUrl = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
             const result = await QueuerUtil.batchSend(entries, queueUrl);

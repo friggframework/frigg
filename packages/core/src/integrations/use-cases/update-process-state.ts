@@ -17,13 +17,13 @@ export class UpdateProcessState {
         contextUpdates: Record<string, unknown> = {}
     ): Promise<ProcessRecord> {
         if (!processId || typeof processId !== 'string') {
-            throw new Error('processId must be a non-empty string');
+            throw new TypeError('processId must be a non-empty string');
         }
         if (!newState || typeof newState !== 'string') {
-            throw new Error('newState must be a non-empty string');
+            throw new TypeError('newState must be a non-empty string');
         }
         if (contextUpdates && typeof contextUpdates !== 'object') {
-            throw new Error('contextUpdates must be an object');
+            throw new TypeError('contextUpdates must be an object');
         }
 
         const process = await this.processRepository.findById(processId);

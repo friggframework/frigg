@@ -11,7 +11,7 @@ export async function initializeMongoDBSchema(): Promise<void> {
 
     try {
         await (prisma as any).$runCommandRaw({ ping: 1 });
-    } catch (_error) {
+    } catch {
         throw new Error(
             'Cannot initialize MongoDB schema - database not connected. ' +
             'Call connectPrisma() before initializeMongoDBSchema()'

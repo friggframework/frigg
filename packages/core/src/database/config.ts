@@ -54,7 +54,7 @@ export function getDatabaseType(): DatabaseType {
             const stackLines = err.stack?.split('\n') || [];
 
             for (const line of stackLines) {
-                const match = line.match(/\(([^)]+\.js):\d+:\d+\)/) || line.match(/at ([^(]+\.js):\d+:\d+/);
+                const match = /\(([^)]+\.js):\d+:\d+\)/.exec(line) || /at ([^(]+\.js):\d+:\d+/.exec(line);
                 if (match && match[1] && !match[1].includes('node:internal')) {
                     errorFile = match[1];
                     break;

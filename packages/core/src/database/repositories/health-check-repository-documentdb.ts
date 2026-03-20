@@ -14,8 +14,8 @@ import { DocumentDBEncryptionService } from '../documentdb-encryption-service';
 import type { PrismaClientLike } from '../prisma';
 
 export class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
-    private prisma: PrismaClientLike;
-    private encryptionService: DocumentDBEncryptionService;
+    private readonly prisma: PrismaClientLike;
+    private readonly encryptionService: DocumentDBEncryptionService;
 
     constructor({ prismaClient }: { prismaClient: PrismaClientLike }) {
         super();
@@ -31,7 +31,7 @@ export class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterf
             await this.prisma.$runCommandRaw!({ ping: 1 });
             isConnected = true;
             stateName = 'connected';
-        } catch (_error) {
+        } catch {
             stateName = 'disconnected';
         }
 
@@ -82,7 +82,7 @@ export class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterf
         );
 
         return {
-            id: fromObjectId((decrypted as Record<string, unknown>)._id),
+            id: fromObjectId(decrypted._id),
             ...decrypted,
         };
     }
@@ -97,7 +97,7 @@ export class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterf
         const decrypted = await this.encryptionService.decryptFields('Credential', doc);
 
         return {
-            id: fromObjectId((decrypted as Record<string, unknown>)._id),
+            id: fromObjectId(decrypted._id),
             ...decrypted,
         };
     }
@@ -121,7 +121,7 @@ export class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterf
         if (!objectId) return false;
 
         const result = await deleteOne(this.prisma, 'Credential', { _id: objectId });
-        const deleted = (result as Record<string, unknown>)?.n ?? 0;
+        const deleted = result?.n ?? 0;
         return (deleted as number) > 0;
     }
 }

@@ -270,7 +270,7 @@ export class Module extends Delegate {
             for (const prop of definition.requiredAuthMethods
                 .apiPropertiesToPersist?.credential ?? []) {
                 if (
-                    !Object.prototype.hasOwnProperty.call(definition.Credential.schema.paths, prop)
+                    !Object.hasOwn(definition.Credential.schema.paths, prop)
                 ) {
                     throw new Error(
                         `Module definition requires Credential schema to have property ${prop}`
