@@ -35,6 +35,8 @@ const {
     GetEntitiesForUser,
 } = require('../modules/use-cases/get-entities-for-user');
 const { loadAppDefinition } = require('../handlers/app-definition-loader');
+const { loadExtensions } = require('../extensions/extension-loader');
+const { mountExtensionRoutes } = require('../extensions/route-mounter');
 const {
     GetIntegrationInstance,
 } = require('./use-cases/get-integration-instance');
@@ -93,7 +95,7 @@ const {
 const { ExecuteProxyRequest } = require('./use-cases/execute-proxy-request');
 
 function createIntegrationRouter() {
-    const { integrations: integrationClasses, userConfig } =
+    const { integrations: integrationClasses, userConfig, appDefinition } =
         loadAppDefinition();
     const moduleRepository = createModuleRepository();
     const integrationRepository = createIntegrationRepository();
@@ -292,6 +294,21 @@ function createIntegrationRouter() {
         getAuthorizationRequirements,
         moduleDefinitions,
     });
+
+    // Mount extension routes (admin-protected by default)
+    try {
+        const extensions = loadExtensions(appDefinition);
+        if (extensions.length > 0) {
+            const { prisma } = require('../database/prisma');
+            mountExtensionRoutes(router, extensions, {
+                prisma,
+                appDefinition,
+            });
+        }
+    } catch (error) {
+        console.warn('Failed to load extensions:', error.message);
+    }
+
     return router;
 }
 

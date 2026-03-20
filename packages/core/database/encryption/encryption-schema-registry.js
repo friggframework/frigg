@@ -203,6 +203,38 @@ function loadModuleEncryptionSchemas(integrations) {
  *
  * Used by both Prisma (MongoDB/PostgreSQL) and DocumentDB encryption services.
  */
+/**
+ * Registers encryption schemas from extensions.
+ * Each extension can declare encrypted fields for its custom models.
+ *
+ * @param {Array<Object>} extensions - Normalized extensions array
+ */
+function loadExtensionEncryptionSchemas(extensions) {
+    if (!extensions || !Array.isArray(extensions) || extensions.length === 0) {
+        return;
+    }
+
+    for (const ext of extensions) {
+        if (!ext.encryption || typeof ext.encryption !== 'object') {
+            continue;
+        }
+
+        const schema = {};
+        for (const [modelName, config] of Object.entries(ext.encryption)) {
+            if (config && Array.isArray(config.fields) && config.fields.length > 0) {
+                schema[modelName] = { fields: config.fields };
+            }
+        }
+
+        if (Object.keys(schema).length > 0) {
+            logger.info(
+                `Registering encryption schema from extension "${ext.name}" for models: ${Object.keys(schema).join(', ')}`
+            );
+            registerCustomSchema(schema);
+        }
+    }
+}
+
 function loadCustomEncryptionSchema() {
     try {
         // Uses loadAppDefinition() which respects setAppDefinition() cache.
@@ -228,6 +260,13 @@ function loadCustomEncryptionSchema() {
         const integrations = appDefinition.integrations;
         if (integrations && Array.isArray(integrations)) {
             loadModuleEncryptionSchemas(integrations);
+        }
+
+        // Load extension-level encryption schemas
+        const { loadExtensions } = require('../../extensions/extension-loader');
+        const extensions = loadExtensions(appDefinition);
+        if (extensions.length > 0) {
+            loadExtensionEncryptionSchemas(extensions);
         }
     } catch (error) {
         // Silently ignore errors - custom schema is optional
@@ -268,6 +307,7 @@ module.exports = {
     registerCustomSchema,
     loadCustomEncryptionSchema,
     loadModuleEncryptionSchemas,
+    loadExtensionEncryptionSchemas,
     extractCredentialFieldsFromModules,
     validateCustomSchema,
     resetCustomSchema,

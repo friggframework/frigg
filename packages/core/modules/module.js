@@ -21,7 +21,7 @@ class Module extends Delegate {
      * @param {string} params.userId The user id
      * @param {Object} params.entity The entity record from the database
      */
-    constructor({ definition, userId = null, entity: entityObj = null }) {
+    constructor({ definition, userId = null, entity: entityObj = null, resolvedEnv = null }) {
         super({ definition, userId, entity: entityObj });
 
         this.validateDefinition(definition);
@@ -39,8 +39,12 @@ class Module extends Delegate {
 
         Object.assign(this, this.definition.requiredAuthMethods);
 
+        // Use pre-resolved env if provided (from Module.create()), otherwise
+        // fall back to static definition.env for backward compatibility.
+        const envValues = resolvedEnv !== null ? resolvedEnv : this.definition.env;
+
         const apiParams = {
-            ...this.definition.env,
+            ...envValues,
             delegate: this,
             ...(this.credential?.data
                 ? this.apiParamsFromCredential(this.credential.data)
@@ -48,6 +52,40 @@ class Module extends Delegate {
             ...this.apiParamsFromEntity(this.entity),
         };
         this.api = new this.apiClass(apiParams);
+    }
+
+    /**
+     * Resolves definition.env, supporting both static objects and async functions.
+     *
+     * When definition.env is a function, it is called and the result is awaited.
+     * This enables lazy/dynamic credential loading (e.g., from a database) without
+     * requiring changes to every integration class.
+     *
+     * @param {Object} definition - Module definition
+     * @returns {Promise<Object|undefined>} Resolved env values
+     */
+    static async resolveEnv(definition) {
+        if (typeof definition.env === 'function') {
+            return await definition.env();
+        }
+        return definition.env;
+    }
+
+    /**
+     * Async factory method that supports definition.env as a function.
+     *
+     * Use this instead of `new Module(...)` when the module's definition.env
+     * might be an async function (e.g., for database-backed credentials).
+     *
+     * @param {Object} params
+     * @param {Object} params.definition - Module definition
+     * @param {string} [params.userId] - User ID
+     * @param {Object} [params.entity] - Entity record
+     * @returns {Promise<Module>}
+     */
+    static async create({ definition, userId = null, entity = null }) {
+        const resolvedEnv = await Module.resolveEnv(definition);
+        return new Module({ definition, userId, entity, resolvedEnv });
     }
 
     getName() {

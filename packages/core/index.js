@@ -104,6 +104,8 @@ const {
     KNOWN_PROVIDERS,
 } = require('./providers');
 
+const extensions = require('./extensions');
+
 module.exports = {
     // assertions
     get,
@@ -204,6 +206,14 @@ module.exports = {
     determineProviderName,
     providerPackageName,
     KNOWN_PROVIDERS,
+
+    // extensions
+    extensions,
+    loadExtensions: extensions.loadExtensions,
+    composeSchemas: extensions.composeSchemas,
+    mountExtensionRoutes: extensions.mountExtensionRoutes,
+    runExtensionBootstraps: extensions.runExtensionBootstraps,
+    initializeApp: extensions.initializeApp,
 
     // utils
     ...utils,
