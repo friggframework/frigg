@@ -179,6 +179,51 @@ describe('Webhook Queue Worker', () => {
             // but it proves the code path is attempted
             await expect(worker.run(sqsEvent, {})).rejects.toThrow();
         });
+
+        it('should discard message gracefully when integration no longer exists', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+            let mockedCreateQueueWorker;
+            jest.isolateModules(() => {
+                jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
+                    createIntegrationRepository: () => ({
+                        findIntegrationById: jest.fn().mockRejectedValue(
+                            new Error('Integration with id 999 not found')
+                        ),
+                    }),
+                }));
+                jest.doMock('../../modules/repositories/module-repository-factory', () => ({
+                    createModuleRepository: () => ({}),
+                }));
+                jest.doMock('../app-definition-loader', () => ({
+                    loadAppDefinition: () => ({ integrations: [] }),
+                }));
+                mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
+            });
+
+            const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'ON_WEBHOOK',
+                data: {
+                    integrationId: '999',
+                    body: { webhookEvent: 'updated' },
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ body: JSON.stringify(params) }],
+            };
+
+            await expect(worker.run(sqsEvent, {})).resolves.not.toThrow();
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('Integration 999 no longer exists')
+            );
+
+            consoleSpy.mockRestore();
+        });
     });
 
     describe('Integration Hydration for ANY event with integrationId', () => {
