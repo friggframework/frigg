@@ -88,9 +88,16 @@ const loadIntegrationForWebhook = async (integrationId) => {
         moduleFactory,
     });
 
-    const integrationRecord = await integrationRepository.findIntegrationById(
-        integrationId
-    );
+    let integrationRecord;
+    try {
+        integrationRecord =
+            await integrationRepository.findIntegrationById(integrationId);
+    } catch (error) {
+        if (error.message?.includes('not found')) {
+            return null;
+        }
+        throw error;
+    }
 
     const instance = await getIntegrationInstance.execute(
         integrationId,
@@ -151,6 +158,12 @@ const createQueueWorker = (integrationClass) => {
                     integrationInstance = await loadIntegrationForWebhook(
                         params.data.integrationId
                     );
+                    if (!integrationInstance) {
+                        console.warn(
+                            `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} no longer exists. Discarding ${params.event} webhook.`
+                        );
+                        return;
+                    }
                 } else {
                     // Instantiates a DRY integration class without database records.
                     // There will be cases where we need to use helpers that the api modules can export.
