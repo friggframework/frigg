@@ -588,7 +588,9 @@ function setEntityRoutes(
                 user
             );
 
-            if (!testAuthResponse) {
+            if (testAuthResponse) {
+                res.json({ status: 'ok' });
+            } else {
                 res.status(400);
                 res.json({
                     errors: [
@@ -599,8 +601,6 @@ function setEntityRoutes(
                         },
                     ],
                 });
-            } else {
-                res.json({ status: 'ok' });
             }
         })
     );

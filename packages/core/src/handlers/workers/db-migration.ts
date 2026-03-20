@@ -6,7 +6,6 @@
 
 import {
     RunDatabaseMigrationUseCase,
-    MigrationError,
     ValidationError,
 } from '../../database/use-cases/run-database-migration-use-case';
 import {
@@ -24,13 +23,13 @@ const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName as 
 function sanitizeError(errorMessage: string): string {
     if (!errorMessage) return 'Unknown error';
     return String(errorMessage)
-        .replace(/postgresql:\/\/[^@\s]+@[^\s/]+/gi, 'postgresql://***:***@***')
-        .replace(/mongodb(\+srv)?:\/\/[^@\s]+@[^\s/]+/gi, 'mongodb$1://***:***@***')
-        .replace(/password[=:]\s*[^\s,;)]+/gi, 'password=***')
-        .replace(/apikey[=:]\s*[^\s,;)]+/gi, 'apikey=***')
-        .replace(/api[_-]?key[=:]\s*[^\s,;)]+/gi, 'api_key=***')
-        .replace(/token[=:]\s*[^\s,;)]+/gi, 'token=***')
-        .replace(/bearer\s+[^\s,;)]+/gi, 'bearer ***');
+        .replaceAll(/postgresql:\/\/[^@\s]+@[^\s/]+/gi, 'postgresql://***:***@***')
+        .replaceAll(/mongodb(\+srv)?:\/\/[^@\s]+@[^\s/]+/gi, 'mongodb$1://***:***@***')
+        .replaceAll(/password[=:]\s*[^\s,;)]+/gi, 'password=***')
+        .replaceAll(/apikey[=:]\s*[^\s,;)]+/gi, 'apikey=***')
+        .replaceAll(/api[_-]?key[=:]\s*[^\s,;)]+/gi, 'api_key=***')
+        .replaceAll(/token[=:]\s*[^\s,;)]+/gi, 'token=***')
+        .replaceAll(/bearer\s+[^\s,;)]+/gi, 'bearer ***');
 }
 
 function sanitizeDatabaseUrl(url: string): string {

@@ -33,9 +33,7 @@ export class CheckIntegrationsHealthUseCase {
     }
 
     execute(): IntegrationsHealthResult {
-        const moduleDefinitions = (this.moduleFactory && this.moduleFactory.moduleDefinitions)
-            ? this.moduleFactory.moduleDefinitions
-            : [];
+        const moduleDefinitions = this.moduleFactory?.moduleDefinitions ?? [];
 
         const integrationClasses = Array.isArray(this.integrationClasses)
             ? this.integrationClasses

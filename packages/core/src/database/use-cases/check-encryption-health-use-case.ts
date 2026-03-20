@@ -22,7 +22,7 @@ export interface EncryptionHealthResult {
 }
 
 export class CheckEncryptionHealthUseCase {
-    private testEncryptionUseCase: TestEncryptionUseCase;
+    private readonly testEncryptionUseCase: TestEncryptionUseCase;
 
     constructor({ testEncryptionUseCase }: { testEncryptionUseCase: TestEncryptionUseCase }) {
         this.testEncryptionUseCase = testEncryptionUseCase;
@@ -89,8 +89,8 @@ export class CheckEncryptionHealthUseCase {
             : defaultBypassStages;
 
         const isBypassed = bypassStages.includes(STAGE!);
-        const hasAES = !!(AES_KEY_ID && AES_KEY_ID.trim() !== '');
-        const hasKMS = !!(KMS_KEY_ARN && KMS_KEY_ARN.trim() !== '');
+        const hasAES = !!AES_KEY_ID?.trim();
+        const hasKMS = !!KMS_KEY_ARN?.trim();
         const mode: 'kms' | 'aes' | 'none' = hasKMS ? 'kms' : hasAES ? 'aes' : 'none';
 
         return {

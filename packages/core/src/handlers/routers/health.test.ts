@@ -101,7 +101,7 @@ describe('Health Check Endpoints', () => {
             const res = mockResponse();
 
             const routeHandler = router.stack.find((layer: any) =>
-                layer.route && layer.route.path === '/health'
+                layer.route?.path === '/health'
             ).route.stack[0].handle;
 
             await routeHandler(req, res);
@@ -127,7 +127,7 @@ describe('Health Check Endpoints', () => {
             ]);
 
             const routeHandler = router.stack.find((layer: any) =>
-                layer.route && layer.route.path === '/health/detailed'
+                layer.route?.path === '/health/detailed'
             ).route.stack[0].handle;
 
             await routeHandler(req, res);
@@ -173,7 +173,7 @@ describe('Health Check Endpoints', () => {
             ]);
 
             const routeHandler = router.stack.find((layer: any) =>
-                layer.route && layer.route.path === '/health/detailed'
+                layer.route?.path === '/health/detailed'
             ).route.stack[0].handle;
 
             await routeHandler(req, res);
@@ -193,7 +193,7 @@ describe('Health Check Endpoints', () => {
             const res = mockResponse();
 
             const routeHandler = router.stack.find((layer: any) =>
-                layer.route && layer.route.path === '/health/live'
+                layer.route?.path === '/health/live'
             ).route.stack[0].handle;
 
             routeHandler(req, res);
@@ -212,7 +212,7 @@ describe('Health Check Endpoints', () => {
             const res = mockResponse();
 
             const routeHandler = router.stack.find((layer: any) =>
-                layer.route && layer.route.path === '/health/ready'
+                layer.route?.path === '/health/ready'
             ).route.stack[0].handle;
 
             await routeHandler(req, res);
@@ -237,7 +237,7 @@ describe('Health Check Endpoints', () => {
             const res = mockResponse();
 
             const routeHandler = router.stack.find((layer: any) =>
-                layer.route && layer.route.path === '/health/ready'
+                layer.route?.path === '/health/ready'
             ).route.stack[0].handle;
 
             await routeHandler(req, res);

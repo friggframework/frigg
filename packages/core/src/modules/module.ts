@@ -242,47 +242,46 @@ export class Module extends Delegate {
         }
         if (!definition.requiredAuthMethods) {
             throw new Error('Module definition requires requiredAuthMethods');
-        } else {
-            if (
-                definition.API.requesterType ===
-                    ModuleConstants.authType.oauth2 &&
-                !definition.requiredAuthMethods.getToken
-            ) {
-                throw new Error(
-                    'Module definition requires requiredAuthMethods.getToken'
-                );
-            }
-            if (!definition.requiredAuthMethods.getEntityDetails) {
-                throw new Error(
-                    'Module definition requires requiredAuthMethods.getEntityDetails'
-                );
-            }
-            if (!definition.requiredAuthMethods.getCredentialDetails) {
-                throw new Error(
-                    'Module definition requires requiredAuthMethods.getCredentialDetails'
-                );
-            }
-            if (!definition.requiredAuthMethods.apiPropertiesToPersist) {
-                throw new Error(
-                    'Module definition requires requiredAuthMethods.apiPropertiesToPersist'
-                );
-            } else if (definition.Credential) {
-                for (const prop of definition.requiredAuthMethods
-                    .apiPropertiesToPersist?.credential ?? []) {
-                    if (
-                        !Object.prototype.hasOwnProperty.call(definition.Credential.schema.paths, prop)
-                    ) {
-                        throw new Error(
-                            `Module definition requires Credential schema to have property ${prop}`
-                        );
-                    }
+        }
+        if (
+            definition.API.requesterType ===
+                ModuleConstants.authType.oauth2 &&
+            !definition.requiredAuthMethods.getToken
+        ) {
+            throw new Error(
+                'Module definition requires requiredAuthMethods.getToken'
+            );
+        }
+        if (!definition.requiredAuthMethods.getEntityDetails) {
+            throw new Error(
+                'Module definition requires requiredAuthMethods.getEntityDetails'
+            );
+        }
+        if (!definition.requiredAuthMethods.getCredentialDetails) {
+            throw new Error(
+                'Module definition requires requiredAuthMethods.getCredentialDetails'
+            );
+        }
+        if (!definition.requiredAuthMethods.apiPropertiesToPersist) {
+            throw new Error(
+                'Module definition requires requiredAuthMethods.apiPropertiesToPersist'
+            );
+        } else if (definition.Credential) {
+            for (const prop of definition.requiredAuthMethods
+                .apiPropertiesToPersist?.credential ?? []) {
+                if (
+                    !Object.prototype.hasOwnProperty.call(definition.Credential.schema.paths, prop)
+                ) {
+                    throw new Error(
+                        `Module definition requires Credential schema to have property ${prop}`
+                    );
                 }
             }
-            if (!definition.requiredAuthMethods.testAuthRequest) {
-                throw new Error(
-                    'Module definition requires requiredAuthMethods.testAuth'
-                );
-            }
+        }
+        if (!definition.requiredAuthMethods.testAuthRequest) {
+            throw new Error(
+                'Module definition requires requiredAuthMethods.testAuth'
+            );
         }
     }
 }

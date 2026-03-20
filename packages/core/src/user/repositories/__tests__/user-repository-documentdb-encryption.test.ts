@@ -571,7 +571,7 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     insertCompleted = true;
                     return Promise.resolve({ insertedId, n: 1, ok: 1 });
                 }
-                if (command.find === 'User' && command.filter && command.filter._id) {
+                if (command.find === 'User' && command.filter?._id) {
                     return Promise.resolve({
                         cursor: {
                             firstBatch: [
@@ -1217,10 +1217,10 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             expect(user!.updatedAt).toBeUndefined();
 
             if (user!.createdAt !== undefined) {
-                expect(isNaN(user!.createdAt.getTime())).toBe(false);
+                expect(Number.isNaN(user!.createdAt.getTime())).toBe(false);
             }
             if (user!.updatedAt !== undefined) {
-                expect(isNaN(user!.updatedAt.getTime())).toBe(false);
+                expect(Number.isNaN(user!.updatedAt.getTime())).toBe(false);
             }
         });
 

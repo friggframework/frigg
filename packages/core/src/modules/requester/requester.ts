@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 import type { Response, RequestInit } from 'node-fetch';
-import type { Agent } from 'http';
+import type { Agent } from 'node:http';
 import { Delegate } from '../../core/Delegate';
 import type { DelegateParams } from '../../core/Delegate';
 import { FetchError } from '../../errors';
@@ -50,9 +50,9 @@ export class Requester extends Delegate {
         const contentType = resp.headers.get('Content-Type') || '';
 
         if (
-            contentType.match(/^application\/json/) ||
-            contentType.match(/^application\/vnd.api\+json/) ||
-            contentType.match(/^application\/hal\+json/)
+            /^application\/json/.exec(contentType) ||
+            /^application\/vnd.api\+json/.exec(contentType) ||
+            /^application\/hal\+json/.exec(contentType)
         ) {
             return resp.json();
         }
@@ -78,7 +78,7 @@ export class Requester extends Delegate {
 
         let response: Response;
         try {
-            response = await this.fetch(encodedUrl, options as RequestInit);
+            response = await this.fetch(encodedUrl, options);
         } catch (e: unknown) {
             if ((e as NodeJS.ErrnoException).code === 'ECONNRESET' && i < this.backOff.length) {
                 const delay = this.backOff[i] * 1000;
@@ -98,14 +98,14 @@ export class Requester extends Delegate {
             await new Promise((resolve) => setTimeout(resolve, delay));
             return this._request(url, options, i + 1);
         } else if (status === 401) {
-            if (!this.isRefreshable || this.refreshCount > 0) {
-                await this.notify(this.DLGT_INVALID_AUTH);
-            } else {
+            if (this.isRefreshable && this.refreshCount === 0) {
                 this.refreshCount++;
                 const refreshSucceeded = await this.refreshAuth();
                 if (refreshSucceeded) {
                     return this._request(url, options, i + 1);
                 }
+            } else {
+                await this.notify(this.DLGT_INVALID_AUTH);
             }
         }
 
@@ -126,8 +126,8 @@ export class Requester extends Delegate {
         const fetchOptions: FetchOptions = {
             method: 'GET',
             credentials: 'include',
-            headers: (options.headers || {}) as Record<string, string>,
-            query: (options.query || {}) as Record<string, string>,
+            headers: options.headers || {},
+            query: options.query || {},
             returnFullRes: options.returnFullRes || false,
         };
 
@@ -138,8 +138,8 @@ export class Requester extends Delegate {
         const fetchOptions: FetchOptions = {
             method: 'POST',
             credentials: 'include',
-            headers: (options.headers || {}) as Record<string, string>,
-            query: (options.query || {}) as Record<string, string>,
+            headers: options.headers || {},
+            query: options.query || {},
             body: stringify ? JSON.stringify(options.body) : options.body as string,
             returnFullRes: options.returnFullRes || false,
         };
@@ -150,8 +150,8 @@ export class Requester extends Delegate {
         const fetchOptions: FetchOptions = {
             method: 'PATCH',
             credentials: 'include',
-            headers: (options.headers || {}) as Record<string, string>,
-            query: (options.query || {}) as Record<string, string>,
+            headers: options.headers || {},
+            query: options.query || {},
             body: stringify ? JSON.stringify(options.body) : options.body as string,
             returnFullRes: options.returnFullRes || false,
         };
@@ -162,8 +162,8 @@ export class Requester extends Delegate {
         const fetchOptions: FetchOptions = {
             method: 'PUT',
             credentials: 'include',
-            headers: (options.headers || {}) as Record<string, string>,
-            query: (options.query || {}) as Record<string, string>,
+            headers: options.headers || {},
+            query: options.query || {},
             body: stringify ? JSON.stringify(options.body) : options.body as string,
             returnFullRes: options.returnFullRes || false,
         };
@@ -174,8 +174,8 @@ export class Requester extends Delegate {
         const fetchOptions: FetchOptions = {
             method: 'DELETE',
             credentials: 'include',
-            headers: (options.headers || {}) as Record<string, string>,
-            query: (options.query || {}) as Record<string, string>,
+            headers: options.headers || {},
+            query: options.query || {},
             returnFullRes: options.returnFullRes || true,
         };
         return this._request(options.url, fetchOptions);

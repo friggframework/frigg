@@ -32,8 +32,8 @@ export class DocumentDBEncryptionService {
             return;
         }
 
-        const hasKMS = !!(process.env.KMS_KEY_ARN && process.env.KMS_KEY_ARN.trim() !== '');
-        const hasAES = !!(process.env.AES_KEY_ID && process.env.AES_KEY_ID.trim() !== '');
+        const hasKMS = !!process.env.KMS_KEY_ARN?.trim();
+        const hasAES = !!process.env.AES_KEY_ID?.trim();
 
         if (!hasKMS && !hasAES) {
             console.warn('[DocumentDBEncryptionService] No encryption keys configured. Encryption disabled.');
@@ -104,7 +104,7 @@ export class DocumentDBEncryptionService {
             current = current[parts[i]] as Record<string, unknown>;
         }
 
-        const fieldName = parts[parts.length - 1];
+        const fieldName = parts.at(-1)!;
         const value = current[fieldName];
 
         if (!value || this._isEncryptedValue(value)) {
@@ -134,7 +134,7 @@ export class DocumentDBEncryptionService {
             current = current[parts[i]] as Record<string, unknown>;
         }
 
-        const fieldName = parts[parts.length - 1];
+        const fieldName = parts.at(-1)!;
         const encryptedValue = current[fieldName];
 
         if (!encryptedValue || !this._isEncryptedValue(encryptedValue)) {

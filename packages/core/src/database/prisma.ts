@@ -10,11 +10,11 @@ export interface EncryptionConfig {
 }
 
 export function ensureMongoDbUrl(): void {
-    if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) {
+    if (process.env.DATABASE_URL?.trim()) {
         return;
     }
 
-    if (process.env.MONGO_URI && process.env.MONGO_URI.trim()) {
+    if (process.env.MONGO_URI?.trim()) {
         process.env.DATABASE_URL = process.env.MONGO_URI;
         logger.debug('Using MONGO_URI as DATABASE_URL for Mongo-compatible connection');
         return;
@@ -33,10 +33,8 @@ export function getEncryptionConfig(): EncryptionConfig {
         return { enabled: false };
     }
 
-    const hasKMS =
-        process.env.KMS_KEY_ARN && process.env.KMS_KEY_ARN.trim() !== '';
-    const hasAES =
-        process.env.AES_KEY_ID && process.env.AES_KEY_ID.trim() !== '';
+    const hasKMS = !!process.env.KMS_KEY_ARN?.trim();
+    const hasAES = !!process.env.AES_KEY_ID?.trim();
 
     if (!hasKMS && !hasAES) {
         logger.warn(
@@ -73,7 +71,7 @@ const prismaClientSingleton = (): PrismaClientLike => {
         for (const modulePath of paths) {
             try {
                 return require(modulePath).PrismaClient;
-            } catch (_err) {
+            } catch {
                 // Continue to next path
             }
         }
@@ -135,7 +133,7 @@ const prismaClientSingleton = (): PrismaClientLike => {
     return client;
 };
 
-const globalForPrisma = global as typeof globalThis & {
+const globalForPrisma = globalThis as typeof globalThis & {
     _prismaInstance?: PrismaClientLike;
 };
 

@@ -64,11 +64,11 @@ export class IntegrationEventDispatcher {
         integration: IntegrationInstance,
         event: string
     ): ((...args: any[]) => any) | null {
-        if (integration.events && integration.events[event]) {
+        if (integration.events?.[event]) {
             return integration.events[event].handler;
         }
 
-        if (integration.defaultEvents && integration.defaultEvents[event]) {
+        if (integration.defaultEvents?.[event]) {
             return integration.defaultEvents[event].handler;
         }
 
