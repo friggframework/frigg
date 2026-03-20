@@ -160,7 +160,7 @@ const createQueueWorker = (integrationClass) => {
                     );
                     if (!integrationInstance) {
                         console.warn(
-                            `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} no longer exists. Discarding ${params.event} webhook.`
+                            `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} no longer exists. Discarding ${params.event} message.`
                         );
                         return;
                     }
