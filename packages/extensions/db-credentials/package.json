@@ -1,0 +1,26 @@
+{
+    "name": "@friggframework/extension-db-credentials",
+    "version": "0.1.0",
+    "description": "Frigg extension that stores OAuth app credentials (client ID/secret) in the database instead of environment variables",
+    "main": "index.js",
+    "keywords": [
+        "frigg",
+        "extension",
+        "oauth",
+        "credentials",
+        "database"
+    ],
+    "license": "MIT",
+    "dependencies": {
+        "express": "^4.19.2"
+    },
+    "peerDependencies": {
+        "@friggframework/core": ">=2.0.0"
+    },
+    "devDependencies": {
+        "jest": "^29.0.0"
+    },
+    "scripts": {
+        "test": "jest --passWithNoTests"
+    }
+}

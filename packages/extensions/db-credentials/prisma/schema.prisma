@@ -1,0 +1,17 @@
+// Frigg Extension: db-credentials
+// Stores OAuth app credentials (client_id, client_secret) in the database
+// so they can be managed via admin API instead of environment variables.
+
+model OAuthAppCredential {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  moduleName  String   @unique
+  clientId    String
+  clientSecret String
+  extra       Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([moduleName])
+  @@map("OAuthAppCredential")
+}
