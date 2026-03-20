@@ -28,7 +28,8 @@
   "license": "MIT",
   "workspaces": [
     "packages/*",
-    "packages/providers/*"
+    "packages/providers/*",
+    "packages/extensions/*"
   ],
   "devDependencies": {
     "@auto-it/all-contributors": "11.3.0",
