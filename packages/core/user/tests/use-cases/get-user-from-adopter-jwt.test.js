@@ -42,7 +42,7 @@ describe('GetUserFromAdopterJwt', () => {
 
             await expect(
                 getUserFromAdopterJwt.execute(jwtToken)
-            ).rejects.toThrow(Boom.notImplemented().message);
+            ).rejects.toThrow('not yet implemented');
         });
 
         it('should provide helpful error message about alternative auth modes', async () => {
@@ -61,14 +61,14 @@ describe('GetUserFromAdopterJwt', () => {
         it('should throw 501 error with any token format', async () => {
             await expect(
                 getUserFromAdopterJwt.execute('simple-token')
-            ).rejects.toThrow(Boom.notImplemented().message);
+            ).rejects.toThrow('not yet implemented');
 
             await expect(
                 getUserFromAdopterJwt.execute('part1.part2.part3')
-            ).rejects.toThrow(Boom.notImplemented().message);
+            ).rejects.toThrow('not yet implemented');
 
             await expect(getUserFromAdopterJwt.execute('')).rejects.toThrow(
-                Boom.notImplemented().message
+                'not yet implemented'
             );
         });
     });

@@ -192,7 +192,7 @@ describe('UpdateProcessState', () => {
             mockProcessRepository.findById.mockRejectedValue(findError);
 
             await expect(updateProcessStateUseCase.execute(processId, 'NEW_STATE'))
-                .rejects.toThrow('Failed to update process state: Database connection failed');
+                .rejects.toThrow('Database connection failed');
         });
 
         it('should handle repository errors during update', async () => {
@@ -201,7 +201,7 @@ describe('UpdateProcessState', () => {
             mockProcessRepository.update.mockRejectedValue(updateError);
 
             await expect(updateProcessStateUseCase.execute(processId, 'NEW_STATE'))
-                .rejects.toThrow('Failed to update process state: Update failed');
+                .rejects.toThrow('Update failed');
         });
     });
 

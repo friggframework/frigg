@@ -166,7 +166,6 @@ export {
     HealthCheckRepositoryPostgreSQL,
     HealthCheckRepositoryDocumentDB,
     createHealthCheckRepository,
-    MigrationStatusRepositoryS3,
     CheckDatabaseHealthUseCase,
     CheckDatabaseStateUseCase,
     CheckEncryptionHealthUseCase,
@@ -196,6 +195,7 @@ export type {
     EncryptionSchemaProvider,
     DatabaseConnectionState,
     CredentialData,
+    MigrationStatusRepositoryS3,
     MigrationStatus,
     CreateMigrationStatusData,
     UpdateMigrationStatusData,
@@ -206,28 +206,119 @@ export type {
     TriggerMigrationResult,
 } from './database';
 
-// === Unconverted JS modules (re-exported via require) ===
+// user
+export {
+    User,
+    UserRepositoryInterface,
+    UserRepositoryMongo,
+    UserRepositoryPostgres,
+    UserRepositoryDocumentDB,
+    createUserRepository,
+    AuthenticateUser,
+    AuthenticateWithSharedSecret,
+    CreateIndividualUser,
+    CreateOrganizationUser,
+    CreateTokenForUserId,
+    GetUserFromAdopterJwt,
+    GetUserFromBearerToken,
+    GetUserFromXFriggHeaders,
+    LoginUser,
+} from './user';
+export type {
+    UserData,
+    UserConfig as UserEntityConfig,
+    SessionToken,
+    CreateIndividualUserParams,
+    CreateOrganizationUserParams,
+} from './user';
 
-const database = require('../database/index');
-export const TokenRepository: unknown = database.TokenRepository;
-export const WebsocketConnectionRepository: unknown = database.WebsocketConnectionRepository;
+// credential
+export {
+    CredentialRepositoryInterface,
+    CredentialRepository,
+    CredentialRepositoryMongo,
+    CredentialRepositoryPostgres,
+    CredentialRepositoryDocumentDB,
+    createCredentialRepository,
+    GetCredentialForUser,
+    UpdateAuthenticationStatus,
+} from './credential';
+export type {
+    CredentialData as CredentialRepoData,
+    CredentialIdentifiers,
+    CredentialUpsertParams,
+    CredentialFilter as CredentialRepoFilter,
+    MutationResult,
+} from './credential';
 
-const userRepoFactory = require('../user/repositories/user-repository-factory');
-export const createUserRepository: (...args: unknown[]) => unknown = userRepoFactory.createUserRepository;
-export const UserRepositoryMongo: unknown = userRepoFactory.UserRepositoryMongo;
-export const UserRepositoryPostgres: unknown = userRepoFactory.UserRepositoryPostgres;
+// token
+export {
+    TokenRepositoryInterface,
+    TokenRepository,
+    TokenRepositoryMongo,
+    TokenRepositoryPostgres,
+    TokenRepositoryDocumentDB,
+    createTokenRepository,
+} from './token';
+export type {
+    TokenData,
+    TokenObj,
+    DeleteResult as TokenDeleteResult,
+} from './token';
 
-const getUserFromXFriggHeaders = require('../user/use-cases/get-user-from-x-frigg-headers');
-export const GetUserFromXFriggHeaders: unknown = getUserFromXFriggHeaders.GetUserFromXFriggHeaders;
+// websocket
+export {
+    WebsocketConnectionRepositoryInterface,
+    WebsocketConnectionRepository,
+    WebsocketConnectionRepositoryMongo,
+    WebsocketConnectionRepositoryPostgres,
+    WebsocketConnectionRepositoryDocumentDB,
+    createWebsocketConnectionRepository,
+} from './websocket';
+export type {
+    ConnectionData,
+    ActiveConnection,
+    ConnectionDeleteResult,
+} from './websocket';
 
-const getUserFromAdopterJwt = require('../user/use-cases/get-user-from-adopter-jwt');
-export const GetUserFromAdopterJwt: unknown = getUserFromAdopterJwt.GetUserFromAdopterJwt;
+// syncs
+export {
+    Sync,
+    SyncManager,
+    SyncRepositoryInterface,
+    SyncRepositoryMongo,
+    SyncRepositoryPostgres,
+    SyncRepositoryDocumentDB,
+    createSyncRepository,
+} from './syncs';
+export type {
+    SyncConfig,
+    SyncParams,
+    SyncManagerParams,
+    SyncData,
+    SyncDataIdentifier,
+    SyncFilter,
+} from './syncs';
 
-const authenticateUser = require('../user/use-cases/authenticate-user');
-export const AuthenticateUser: unknown = authenticateUser.AuthenticateUser;
+// queues
+export { QueuerUtil } from './queues';
 
-const credentialRepo = require('../credential/repositories/credential-repository');
-export const CredentialRepository: unknown = credentialRepo.CredentialRepository;
+// infrastructure
+// Note: EventBridgeSchedulerAdapter and MockSchedulerAdapter are NOT re-exported here
+// to avoid requiring @aws-sdk/client-scheduler at module load time.
+// Use createSchedulerService() factory instead.
+export {
+    SchedulerServiceInterface,
+    createSchedulerService,
+    SCHEDULER_PROVIDERS,
+    determineProvider,
+} from './infrastructure';
+export type {
+    ScheduleOneTimeParams,
+    ScheduleOneTimeResult,
+    ScheduleStatusResult,
+    CreateSchedulerServiceOptions,
+} from './infrastructure';
 
 const moduleRepo = require('../modules/repositories/module-repository');
 export const ModuleRepository: unknown = moduleRepo.ModuleRepository;
@@ -308,5 +399,3 @@ export const Requester: unknown = modulesIndex.Requester;
 export const ModuleConstants: unknown = modulesIndex.ModuleConstants;
 export const ModuleFactory: unknown = modulesIndex.ModuleFactory;
 
-const queues = require('../queues');
-export const QueuerUtil: unknown = queues.QueuerUtil;

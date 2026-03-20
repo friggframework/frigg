@@ -46,13 +46,11 @@ export {
     HealthCheckRepositoryPostgreSQL,
     HealthCheckRepositoryDocumentDB,
     createHealthCheckRepository,
-    MigrationStatusRepositoryS3,
 } from './repositories';
 export type {
+    MigrationStatusRepositoryS3,
     DatabaseConnectionState,
     CredentialData,
-} from './repositories';
-export type {
     MigrationStatus,
     CreateMigrationStatusData,
     UpdateMigrationStatusData,

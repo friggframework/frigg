@@ -54,6 +54,11 @@ describe('Encryption Schema Registry', () => {
                 'data.access_token',
                 'data.refresh_token',
                 'data.id_token',
+                'data.api_key',
+                'data.apiKey',
+                'data.API_KEY_VALUE',
+                'data.password',
+                'data.client_secret',
             ]);
         });
 

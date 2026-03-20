@@ -24,6 +24,7 @@ const getModulesDefinitionFromIntegrationClasses = (integrationClasses) => {
     return [
         ...new Set(
             integrationClasses
+                .filter((integration) => integration.Definition?.modules)
                 .map((integration) =>
                     Object.values(integration.Definition.modules).map(
                         (module) => module.definition

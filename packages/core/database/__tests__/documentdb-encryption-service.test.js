@@ -1,10 +1,16 @@
 const { DocumentDBEncryptionService } = require('../documentdb-encryption-service');
+const { registerCustomSchema, resetCustomSchema } = require('../encryption/encryption-schema-registry');
 
 describe('DocumentDBEncryptionService', () => {
     let service;
     let mockCryptor;
 
     beforeEach(() => {
+        resetCustomSchema();
+        registerCustomSchema({
+            User: { fields: ['username'] },
+        });
+
         // Create mock cryptor with predictable behavior
         mockCryptor = {
             encrypt: jest.fn(async (val) => {
@@ -21,6 +27,18 @@ describe('DocumentDBEncryptionService', () => {
 
         // Create service with mock cryptor
         service = new DocumentDBEncryptionService({ cryptor: mockCryptor });
+        // Override _isEncryptedValue to recognize mock "encrypted:" format
+        // and real 4-part base64 format
+        const origIsEncrypted = service._isEncryptedValue.bind(service);
+        service._isEncryptedValue = (value) => {
+            if (typeof value !== 'string') return false;
+            if (value.startsWith('encrypted:')) return true;
+            return origIsEncrypted(value);
+        };
+    });
+
+    afterEach(() => {
+        resetCustomSchema();
     });
 
     describe('encryptFields', () => {

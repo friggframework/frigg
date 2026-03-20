@@ -39,7 +39,7 @@ const QueuerUtil = {
             // Sends 10, then purges the buffer
             if (buffer.length === batchSize) {
                 const command = new SendMessageBatchCommand({
-                    Entries: buffer,
+                    Entries: [...buffer],
                     QueueUrl: queueUrl,
                 });
                 await sqs.send(command);

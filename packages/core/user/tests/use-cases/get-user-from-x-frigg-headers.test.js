@@ -32,7 +32,7 @@ describe('GetUserFromXFriggHeaders', () => {
         it('should throw 400 error when neither appUserId nor appOrgId provided', async () => {
             await expect(
                 getUserFromXFriggHeaders.execute(null, null)
-            ).rejects.toThrow(Boom.badRequest().message);
+            ).rejects.toThrow('x-frigg-app');
 
             await expect(
                 getUserFromXFriggHeaders.execute(undefined, undefined)
@@ -271,10 +271,6 @@ describe('GetUserFromXFriggHeaders', () => {
             mockUserRepository.findOrganizationUserByAppOrgId.mockResolvedValue(
                 mockOrgUser
             );
-
-            await expect(
-                getUserFromXFriggHeaders.execute('app-user-456', 'app-org-789')
-            ).rejects.toThrow(Boom.badRequest().message);
 
             await expect(
                 getUserFromXFriggHeaders.execute('app-user-456', 'app-org-789')

@@ -33,7 +33,7 @@ describe('integration commands', () => {
     });
 
     it('requires an integrationClass when creating commands', () => {
-        expect(() => createIntegrationCommands()).toThrow(
+        expect(() => createIntegrationCommands({})).toThrow(
             'integrationClass is required',
         );
     });

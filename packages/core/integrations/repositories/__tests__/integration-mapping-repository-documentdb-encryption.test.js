@@ -126,10 +126,15 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
             const encryptedMapping = 'keyId:iv:cipher:encKey';
 
             mockEncryptionService.encryptFields.mockResolvedValue({
+                integrationId: testIntegrationId,
+                sourceId: testSourceId,
                 mapping: encryptedMapping,
+                createdAt: expect.any(Date),
+                updatedAt: expect.any(Date),
             });
 
             const insertedId = new ObjectId();
+            let findCallCount = 0;
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
                     // Verify encrypted data goes to database
@@ -137,6 +142,15 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                     return Promise.resolve({ insertedId, n: 1, ok: 1 });
                 }
                 if (command.find) {
+                    findCallCount++;
+                    if (findCallCount === 1) {
+                        // First find: check for existing → none found
+                        return Promise.resolve({
+                            cursor: { firstBatch: [] },
+                            ok: 1,
+                        });
+                    }
+                    // Second find: read-back after insert
                     return Promise.resolve({
                         cursor: {
                             firstBatch: [
@@ -289,10 +303,11 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                     });
                 }
                 if (command.update) {
+                    const setFields = command.updates[0].u.$set;
                     // Verify createdAt is NOT in update
-                    expect(command.update.$set.createdAt).toBeUndefined();
+                    expect(setFields.createdAt).toBeUndefined();
                     // Verify updatedAt IS in update
-                    expect(command.update.$set.updatedAt).toBeDefined();
+                    expect(setFields.updatedAt).toBeDefined();
                     return Promise.resolve({ nModified: 1, n: 1, ok: 1 });
                 }
             });
@@ -797,7 +812,8 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
     });
 
     it('throws error when trying to decrypt corrupted ciphertext', async () => {
-        const corruptedCiphertext = 'keyId:invalid-iv:corrupted-cipher:bad-encKey';
+        // Must pass _isEncryptedValue: 4 base64 parts, total > 50 chars
+        const corruptedCiphertext = 'QUFBQUFBQUFBQUFB:QUJDREVGR0hJSktM:QUFBQUFBQUFBQUFBQUFBQUFBQQ==:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==';
 
         await expect(
             realEncryptionService.decryptFields('IntegrationMapping', {

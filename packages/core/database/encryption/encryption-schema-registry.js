@@ -160,23 +160,27 @@ function loadModuleEncryptionSchemas(integrations) {
         return;
     }
 
-    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
+    const { getModulesDefinitionFromIntegrationClasses } = require('../../integrations/utils/map-integration-dto');
 
     const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);
     const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
 
-    if (credentialFields.length === 0) {
+    // Filter out fields already in core schema to avoid validation errors
+    const coreCredentialFields = CORE_ENCRYPTION_SCHEMA.Credential?.fields || [];
+    const newFields = credentialFields.filter(f => !coreCredentialFields.includes(f));
+
+    if (newFields.length === 0) {
         return;
     }
 
     const moduleSchema = {
         Credential: {
-            fields: credentialFields
+            fields: newFields
         }
     };
 
     logger.info(
-        `Registering module-level encryption for ${credentialFields.length} credential fields`
+        `Registering module-level encryption for ${newFields.length} credential fields`
     );
 
     registerCustomSchema(moduleSchema);
