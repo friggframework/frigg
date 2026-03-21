@@ -1,6 +1,4 @@
-const { SyncRepositoryMongo } = require('./sync-repository-mongo');
 const { SyncRepositoryPostgres } = require('./sync-repository-postgres');
-const { SyncRepositoryDocumentDB } = require('./sync-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -19,12 +17,14 @@ function createSyncRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { SyncRepositoryMongo } = require('./sync-repository-mongo');
             return new SyncRepositoryMongo();
 
         case 'postgresql':
             return new SyncRepositoryPostgres();
 
         case 'documentdb':
+            const { SyncRepositoryDocumentDB } = require('./sync-repository-documentdb');
             return new SyncRepositoryDocumentDB();
 
         default:
@@ -37,7 +37,7 @@ function createSyncRepository() {
 module.exports = {
     createSyncRepository,
     // Export adapters for direct testing
-    SyncRepositoryMongo,
+    get SyncRepositoryMongo() { return require('./sync-repository-mongo').SyncRepositoryMongo; },
     SyncRepositoryPostgres,
-    SyncRepositoryDocumentDB,
+    get SyncRepositoryDocumentDB() { return require('./sync-repository-documentdb').SyncRepositoryDocumentDB; },
 };

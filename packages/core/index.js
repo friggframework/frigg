@@ -1,5 +1,4 @@
 const {
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
@@ -14,23 +13,14 @@ const {
     createHandler,
 } = require('./core/index');
 const {
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
 } = require('./database/index');
 const {
     createUserRepository,
-    UserRepositoryMongo,
     UserRepositoryPostgres,
 } = require('./user/repositories/user-repository-factory');
 const {
@@ -78,8 +68,6 @@ const {
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
-    Credential,
-    Entity,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
@@ -90,13 +78,36 @@ const {
 const application = require('./application');
 const utils = require('./utils');
 
-// const {Sync } = require('./syncs/model');
+const {
+    QueuerUtil,
+    QueueProvider,
+    QueueClientInterface,
+    createQueueProvider,
+    QUEUE_PROVIDERS,
+} = require('./queues');
 
-const { QueuerUtil } = require('./queues');
+const {
+    EncryptionKeyProviderInterface,
+} = require('./encrypt/encryption-key-provider-interface');
+const {
+    AesEncryptionKeyProvider,
+} = require('./encrypt/aes-encryption-key-provider');
+const {
+    WebSocketMessageSenderInterface,
+    StaleConnectionError,
+} = require('./websocket/websocket-message-sender-interface');
+
+const {
+    resolveProvider,
+    determineProviderName,
+    providerPackageName,
+    KNOWN_PROVIDERS,
+} = require('./providers');
+
+const extensions = require('./extensions');
 
 module.exports = {
     // assertions
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
@@ -111,21 +122,13 @@ module.exports = {
     createHandler,
 
     // database
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
     createUserRepository,
-    UserRepositoryMongo,
+    get UserRepositoryMongo() { return require('./user/repositories/user-repository-factory').UserRepositoryMongo; },
     UserRepositoryPostgres,
     GetUserFromXFriggHeaders,
     GetUserFromAdopterJwt,
@@ -177,8 +180,6 @@ module.exports = {
     flushDebugLog,
 
     // module plugin
-    Credential,
-    Entity,
     ApiKeyRequester,
     BasicAuthRequester,
     OAuth2Requester,
@@ -187,6 +188,32 @@ module.exports = {
     ModuleFactory,
     // queues
     QueuerUtil,
+    QueueProvider,
+    QueueClientInterface,
+    createQueueProvider,
+    QUEUE_PROVIDERS,
+
+    // encryption interfaces
+    EncryptionKeyProviderInterface,
+    AesEncryptionKeyProvider,
+
+    // websocket interfaces
+    WebSocketMessageSenderInterface,
+    StaleConnectionError,
+
+    // providers
+    resolveProvider,
+    determineProviderName,
+    providerPackageName,
+    KNOWN_PROVIDERS,
+
+    // extensions
+    extensions,
+    loadExtensions: extensions.loadExtensions,
+    composeSchemas: extensions.composeSchemas,
+    mountExtensionRoutes: extensions.mountExtensionRoutes,
+    runExtensionBootstraps: extensions.runExtensionBootstraps,
+    initializeApp: extensions.initializeApp,
 
     // utils
     ...utils,

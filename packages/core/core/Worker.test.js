@@ -1,41 +1,51 @@
 /**
- * Tests for Worker - AWS SDK v3 Migration
+ * Tests for Worker - Provider-Agnostic Queue Interface
  *
- * Tests SQS Worker operations using aws-sdk-client-mock
+ * Tests Worker operations using a mock QueueClientInterface.
+ * No AWS SDK dependency — the queue client is injected via constructor.
  */
 
-const { mockClient } = require('aws-sdk-client-mock');
-const {
-    SQSClient,
-    GetQueueUrlCommand,
-    SendMessageCommand,
-} = require('@aws-sdk/client-sqs');
 const { Worker } = require('./Worker');
 
-describe('Worker - AWS SDK v3', () => {
-    let sqsMock;
+describe('Worker', () => {
+    let mockQueueClient;
     let worker;
-    const originalEnv = process.env;
 
     beforeEach(() => {
-        sqsMock = mockClient(SQSClient);
-        worker = new Worker();
+        mockQueueClient = {
+            sendMessage: jest.fn().mockResolvedValue({
+                MessageId: 'message-123',
+            }),
+            sendMessageBatch: jest.fn().mockResolvedValue({
+                Successful: [],
+                Failed: [],
+            }),
+            getQueueUrl: jest.fn().mockResolvedValue(
+                'https://sqs.us-east-1.amazonaws.com/123456789/test-queue'
+            ),
+        };
+
+        worker = new Worker({ queueClient: mockQueueClient });
         jest.clearAllMocks();
-        process.env = { ...originalEnv, AWS_REGION: 'us-east-1' };
     });
 
-    afterEach(() => {
-        sqsMock.reset();
-        process.env = originalEnv;
+    describe('Constructor', () => {
+        it('should throw if no queueClient is provided when queue methods are used', async () => {
+            const workerNoClient = new Worker();
+
+            await expect(
+                workerNoClient.getQueueURL({ QueueName: 'test' })
+            ).rejects.toThrow('Worker requires a queueClient');
+        });
+
+        it('should accept a queueClient via options', () => {
+            const w = new Worker({ queueClient: mockQueueClient });
+            expect(w).toBeDefined();
+        });
     });
 
     describe('getQueueURL()', () => {
-        it('should get queue URL from SQS', async () => {
-            sqsMock.on(GetQueueUrlCommand).resolves({
-                QueueUrl:
-                    'https://sqs.us-east-1.amazonaws.com/123456789/test-queue',
-            });
-
+        it('should get queue URL via queue client', async () => {
             const result = await worker.getQueueURL({
                 QueueName: 'test-queue',
             });
@@ -43,18 +53,15 @@ describe('Worker - AWS SDK v3', () => {
             expect(result).toBe(
                 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue'
             );
-            expect(sqsMock.calls()).toHaveLength(1);
-
-            const call = sqsMock.call(0);
-            expect(call.args[0].input).toMatchObject({
+            expect(mockQueueClient.getQueueUrl).toHaveBeenCalledWith({
                 QueueName: 'test-queue',
             });
         });
 
         it('should handle queue not found error', async () => {
-            sqsMock
-                .on(GetQueueUrlCommand)
-                .rejects(new Error('Queue does not exist'));
+            mockQueueClient.getQueueUrl.mockRejectedValue(
+                new Error('Queue does not exist')
+            );
 
             await expect(
                 worker.getQueueURL({ QueueName: 'nonexistent-queue' })
@@ -64,10 +71,6 @@ describe('Worker - AWS SDK v3', () => {
 
     describe('sendAsyncSQSMessage()', () => {
         it('should send message and return MessageId', async () => {
-            sqsMock.on(SendMessageCommand).resolves({
-                MessageId: 'message-123',
-            });
-
             const params = {
                 QueueUrl: 'https://queue-url',
                 MessageBody: JSON.stringify({ test: 'data' }),
@@ -76,11 +79,13 @@ describe('Worker - AWS SDK v3', () => {
             const result = await worker.sendAsyncSQSMessage(params);
 
             expect(result).toBe('message-123');
-            expect(sqsMock.calls()).toHaveLength(1);
+            expect(mockQueueClient.sendMessage).toHaveBeenCalledWith(params);
         });
 
         it('should handle send errors', async () => {
-            sqsMock.on(SendMessageCommand).rejects(new Error('Send failed'));
+            mockQueueClient.sendMessage.mockRejectedValue(
+                new Error('Send failed')
+            );
 
             const params = {
                 QueueUrl: 'https://queue-url',
@@ -95,11 +100,7 @@ describe('Worker - AWS SDK v3', () => {
 
     describe('send()', () => {
         it('should validate params and send message with delay', async () => {
-            sqsMock.on(SendMessageCommand).resolves({
-                MessageId: 'delayed-message-id',
-            });
-
-            worker._validateParams = jest.fn(); // Mock validation
+            worker._validateParams = jest.fn();
 
             const params = {
                 QueueUrl: 'https://queue-url',
@@ -109,17 +110,16 @@ describe('Worker - AWS SDK v3', () => {
             const result = await worker.send(params, 5);
 
             expect(worker._validateParams).toHaveBeenCalledWith(params);
-            expect(result).toBe('delayed-message-id');
-
-            const call = sqsMock.call(0);
-            expect(call.args[0].input.DelaySeconds).toBe(5);
+            expect(result).toBe('message-123');
+            expect(mockQueueClient.sendMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    DelaySeconds: 5,
+                    QueueUrl: 'https://queue-url',
+                })
+            );
         });
 
         it('should send message with zero delay by default', async () => {
-            sqsMock.on(SendMessageCommand).resolves({
-                MessageId: 'message-id',
-            });
-
             worker._validateParams = jest.fn();
 
             const params = {
@@ -129,8 +129,11 @@ describe('Worker - AWS SDK v3', () => {
 
             await worker.send(params);
 
-            const call = sqsMock.call(0);
-            expect(call.args[0].input.DelaySeconds).toBe(0);
+            expect(mockQueueClient.sendMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    DelaySeconds: 0,
+                })
+            );
         });
     });
 

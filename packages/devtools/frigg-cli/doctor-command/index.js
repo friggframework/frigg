@@ -247,6 +247,13 @@ async function promptForStackSelection(region) {
  */
 async function doctorCommand(stackName, options = {}) {
     try {
+        // Guard: doctor only works with AWS (CloudFormation stacks)
+        if (isNonAwsProvider()) {
+            output.error('The doctor command is only available for AWS deployments.');
+            output.log('Your appDefinition uses a non-AWS provider.');
+            process.exit(1);
+        }
+
         // Extract options with defaults
         const region = options.region || process.env.AWS_REGION || 'us-east-1';
         const format = options.format || 'console';
@@ -330,6 +337,19 @@ async function doctorCommand(stackName, options = {}) {
         }
 
         process.exit(1);
+    }
+}
+
+/**
+ * Check if the current appDefinition uses a non-AWS provider.
+ */
+function isNonAwsProvider() {
+    try {
+        const { loadProviderForCli } = require('../utils/provider-helper');
+        const result = loadProviderForCli();
+        return result && result.providerName !== 'aws';
+    } catch {
+        return false;
     }
 }
 

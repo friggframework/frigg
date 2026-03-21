@@ -1,8 +1,4 @@
-const { AdminProcessRepositoryMongo } = require('./admin-process-repository-mongo');
 const { AdminProcessRepositoryPostgres } = require('./admin-process-repository-postgres');
-const {
-    AdminProcessRepositoryDocumentDB,
-} = require('./admin-process-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -27,12 +23,14 @@ function createAdminProcessRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { AdminProcessRepositoryMongo } = require('./admin-process-repository-mongo');
             return new AdminProcessRepositoryMongo();
 
         case 'postgresql':
             return new AdminProcessRepositoryPostgres();
 
         case 'documentdb':
+            const { AdminProcessRepositoryDocumentDB } = require('./admin-process-repository-documentdb');
             return new AdminProcessRepositoryDocumentDB();
 
         default:
@@ -45,7 +43,7 @@ function createAdminProcessRepository() {
 module.exports = {
     createAdminProcessRepository,
     // Export adapters for direct testing
-    AdminProcessRepositoryMongo,
+    get AdminProcessRepositoryMongo() { return require('./admin-process-repository-mongo').AdminProcessRepositoryMongo; },
     AdminProcessRepositoryPostgres,
-    AdminProcessRepositoryDocumentDB,
+    get AdminProcessRepositoryDocumentDB() { return require('./admin-process-repository-documentdb').AdminProcessRepositoryDocumentDB; },
 };

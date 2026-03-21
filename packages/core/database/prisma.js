@@ -6,6 +6,7 @@ const {
 } = require('./encryption/encryption-schema-registry');
 const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
+const path = require('path');
 const config = require('./config');
 
 /**
@@ -71,13 +72,15 @@ const prismaClientSingleton = () => {
         const paths = [
             // Lambda layer location (when using Prisma Lambda layer)
             `/opt/nodejs/node_modules/generated/prisma-${dbType}`,
+            // __dirname-based resolution (works on Netlify + any bundler)
+            path.resolve(__dirname, `../generated/prisma-${dbType}`),
             // Local development location (relative to core package)
             `../generated/prisma-${dbType}`,
         ];
 
-        for (const path of paths) {
+        for (const tryPath of paths) {
             try {
-                return require(path).PrismaClient;
+                return require(tryPath).PrismaClient;
             } catch (err) {
                 // Continue to next path
             }

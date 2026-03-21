@@ -51,6 +51,23 @@ class AppDefinitionValidator {
             });
         }
 
+        // Sanitize extensions — strip functions (bootstrap, routes.handler)
+        // that JSON Schema cannot validate
+        if (Array.isArray(definition.extensions)) {
+            sanitized.extensions = definition.extensions.map(ext => {
+                const sanitizedExt = { ...ext };
+                // Remove function properties
+                if (typeof sanitizedExt.bootstrap === 'function') {
+                    delete sanitizedExt.bootstrap;
+                }
+                if (sanitizedExt.routes && typeof sanitizedExt.routes.handler === 'function') {
+                    sanitizedExt.routes = { ...sanitizedExt.routes };
+                    delete sanitizedExt.routes.handler;
+                }
+                return sanitizedExt;
+            });
+        }
+
         return sanitized;
     }
 

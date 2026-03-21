@@ -27,7 +27,9 @@
   "author": "seanspeaks <sean.matthews@lefthook.co>",
   "license": "MIT",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/providers/*",
+    "packages/extensions/*"
   ],
   "devDependencies": {
     "@auto-it/all-contributors": "11.3.0",

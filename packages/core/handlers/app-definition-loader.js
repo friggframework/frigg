@@ -3,18 +3,60 @@ const path = require('node:path');
 const fs = require('fs-extra');
 
 /**
- * Loads the App definition from the nearest backend package
+ * Cached app definition, set via setAppDefinition().
+ * When set, loadAppDefinition() returns this instead of discovering
+ * the backend via process.cwd().
+ */
+let cachedAppDefinition = null;
+
+/**
+ * Pre-set the app definition so loadAppDefinition() can return it
+ * without needing process.cwd()-based discovery.
+ *
+ * This is critical for platforms like Netlify where:
+ * - nft/esbuild traces static require() calls to determine bundle contents
+ * - process.cwd() at runtime points to /var/task/, not the backend directory
+ * - The caller can use a static require('../../backend/index.js') to make
+ *   the backend traceable, then pass the definition here
+ *
+ * @param {Object} definition - The app definition object (backend's Definition export)
+ */
+function setAppDefinition(definition) {
+    cachedAppDefinition = definition;
+}
+
+/**
+ * Loads the App definition from the nearest backend package.
+ *
+ * If setAppDefinition() was called, returns the cached definition
+ * immediately (no filesystem discovery needed).
+ *
+ * Otherwise, discovers the backend via process.cwd() traversal.
+ *
+ * Returns the full appDefinition object plus convenience destructured fields
+ * for backward compatibility (integrations, userConfig).
+ *
  * @function loadAppDefinition
- * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
- * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null}} An object containing the application definition.
- * @throws {Error} Throws error if backend package.json cannot be found.
- * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
+ * @returns {{
+ *   integrations: Array<object>,
+ *   userConfig: object | null,
+ *   appDefinition: object
+ * }}
+ * @throws {Error} If backend package.json or index.js cannot be found.
  * @example
- * const { integrations, userConfig } = loadAppDefinition();
- * console.log(`Found ${integrations.length} integrations`);
+ *   // Existing callers still work:
+ *   const { integrations, userConfig } = loadAppDefinition();
+ *
+ *   // New callers can access the full definition:
+ *   const { appDefinition } = loadAppDefinition();
+ *   console.log(appDefinition.provider); // 'aws' | 'netlify'
  */
 function loadAppDefinition() {
+    if (cachedAppDefinition) {
+        const { integrations = [], user: userConfig = null } = cachedAppDefinition;
+        return { integrations, userConfig, appDefinition: cachedAppDefinition };
+    }
+
     const backendPath = findNearestBackendPackageJson();
     if (!backendPath) {
         throw new Error('Could not find backend package.json');
@@ -30,9 +72,10 @@ function loadAppDefinition() {
     const appDefinition = backendJsFile.Definition;
 
     const { integrations = [], user: userConfig = null } = appDefinition;
-    return { integrations, userConfig };
+    return { integrations, userConfig, appDefinition };
 }
 
 module.exports = {
     loadAppDefinition,
+    setAppDefinition,
 };

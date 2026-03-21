@@ -14,7 +14,7 @@ jest.mock('../../../token/repositories/token-repository-factory', () => ({
     })),
 }));
 
-const { ObjectId } = require('mongodb');
+const { ObjectId } = require('bson');
 const { prisma } = require('../../../database/prisma');
 const {
     toObjectId,

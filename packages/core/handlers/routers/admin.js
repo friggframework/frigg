@@ -25,17 +25,41 @@ const {
 } = require('../../user/use-cases/create-token-for-user-id');
 const { DeleteUser } = require('../../user/use-cases/delete-user');
 
-// Initialize repositories and use cases
-const { userConfig } = loadAppDefinition();
-const userRepository = createUserRepository({ userConfig });
-const moduleRepository = createModuleRepository();
+// Lazy-initialized repositories and use cases (deferred until first request)
+let _userRepository,
+    _moduleRepository,
+    _getModuleEntityById,
+    _updateModuleEntity,
+    _deleteModuleEntity,
+    _createTokenForUserId,
+    _deleteUser;
 
-// Use cases
-const getModuleEntityById = new GetModuleEntityById({ moduleRepository });
-const updateModuleEntity = new UpdateModuleEntity({ moduleRepository });
-const deleteModuleEntity = new DeleteModuleEntity({ moduleRepository });
-const createTokenForUserId = new CreateTokenForUserId({ userRepository });
-const deleteUser = new DeleteUser({ userRepository });
+function ensureInitialized() {
+    if (!_userRepository) {
+        const { userConfig } = loadAppDefinition();
+        _userRepository = createUserRepository({ userConfig });
+        _moduleRepository = createModuleRepository();
+        _getModuleEntityById = new GetModuleEntityById({
+            moduleRepository: _moduleRepository,
+        });
+        _updateModuleEntity = new UpdateModuleEntity({
+            moduleRepository: _moduleRepository,
+        });
+        _deleteModuleEntity = new DeleteModuleEntity({
+            moduleRepository: _moduleRepository,
+        });
+        _createTokenForUserId = new CreateTokenForUserId({
+            userRepository: _userRepository,
+        });
+        _deleteUser = new DeleteUser({ userRepository: _userRepository });
+    }
+}
+
+// Lazy initialization middleware — runs once on first request
+router.use((req, res, next) => {
+    ensureInitialized();
+    next();
+});
 
 // Debug logging
 router.use((req, res, next) => {
@@ -72,14 +96,14 @@ router.get(
         sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
         // Use repository to get users
-        const users = await userRepository.findAllUsers({
+        const users = await _userRepository.findAllUsers({
             skip,
             limit: parseInt(limit),
             sort,
             excludeFields: ['-hashword'], // Exclude password hash
         });
 
-        const totalCount = await userRepository.countUsers();
+        const totalCount = await _userRepository.countUsers();
 
         res.json({
             users,
@@ -122,7 +146,7 @@ router.get(
         sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
         // Use repository to search users
-        const users = await userRepository.searchUsers({
+        const users = await _userRepository.searchUsers({
             query: q,
             skip,
             limit: parseInt(limit),
@@ -130,7 +154,7 @@ router.get(
             excludeFields: ['-hashword'],
         });
 
-        const totalCount = await userRepository.countUsersBySearchQuery(q);
+        const totalCount = await _userRepository.countUsersBySearchQuery(q);
 
         res.json({
             users,
@@ -175,7 +199,7 @@ router.post(
         }
 
         // Check if user already exists
-        const existingUser = await userRepository.findIndividualUserByUsername(
+        const existingUser = await _userRepository.findIndividualUserByUsername(
             username
         );
         if (existingUser) {
@@ -185,7 +209,7 @@ router.post(
             });
         }
 
-        const existingEmail = await userRepository.findIndividualUserByEmail(
+        const existingEmail = await _userRepository.findIndividualUserByEmail(
             email
         );
         if (existingEmail) {
@@ -210,7 +234,7 @@ router.post(
         if (appUserId) userData.appUserId = appUserId;
         if (organizationId) userData.organizationId = organizationId;
 
-        const user = await userRepository.createIndividualUser(userData);
+        const user = await _userRepository.createIndividualUser(userData);
 
         // Remove sensitive fields
         const userObj = user.toObject ? user.toObject() : user;
@@ -232,7 +256,7 @@ router.get(
     catchAsyncError(async (req, res) => {
         const { userId } = req.params;
 
-        const user = await userRepository.findUserById(userId);
+        const user = await _userRepository.findUserById(userId);
 
         if (!user) {
             return res.status(404).json({
@@ -261,7 +285,7 @@ router.post(
         const { expiresInMinutes = 120 } = req.body;
 
         // Find the user
-        const user = await userRepository.findUserById(userId);
+        const user = await _userRepository.findUserById(userId);
 
         if (!user) {
             return res.status(404).json({
@@ -271,7 +295,7 @@ router.post(
         }
 
         // Generate token without password verification
-        const token = await createTokenForUserId.execute(
+        const token = await _createTokenForUserId.execute(
             userId,
             expiresInMinutes
         );
@@ -295,7 +319,7 @@ router.delete(
         const { userId } = req.params;
 
         // Execute delete user use case
-        await deleteUser.execute(userId);
+        await _deleteUser.execute(userId);
 
         res.status(204).send();
     })
@@ -318,7 +342,7 @@ router.get(
         if (type) query.type = type;
         if (status) query.status = status;
 
-        const entities = await moduleRepository.findEntitiesBy(query);
+        const entities = await _moduleRepository.findEntitiesBy(query);
 
         res.json({ entities });
     })
@@ -333,7 +357,7 @@ router.get(
     catchAsyncError(async (req, res) => {
         const { entityId } = req.params;
 
-        const entity = await getModuleEntityById.execute(entityId);
+        const entity = await _getModuleEntityById.execute(entityId);
 
         if (!entity || !entity.isGlobal) {
             return res.status(404).json({
@@ -363,7 +387,7 @@ router.post(
         }
 
         // Create entity with isGlobal flag
-        const entity = await moduleRepository.createEntity({
+        const entity = await _moduleRepository.createEntity({
             ...entityData,
             type,
             isGlobal: true,
@@ -383,7 +407,7 @@ router.put(
     catchAsyncError(async (req, res) => {
         const { entityId } = req.params;
 
-        const entity = await updateModuleEntity.execute(entityId, req.body);
+        const entity = await _updateModuleEntity.execute(entityId, req.body);
 
         if (!entity) {
             return res.status(404).json({
@@ -405,7 +429,7 @@ router.delete(
     catchAsyncError(async (req, res) => {
         const { entityId } = req.params;
 
-        await deleteModuleEntity.execute(entityId);
+        await _deleteModuleEntity.execute(entityId);
 
         res.status(204).send();
     })
@@ -420,7 +444,7 @@ router.post(
     catchAsyncError(async (req, res) => {
         const { entityId } = req.params;
 
-        const entity = await getModuleEntityById.execute(entityId);
+        const entity = await _getModuleEntityById.execute(entityId);
 
         if (!entity || !entity.isGlobal) {
             return res.status(404).json({

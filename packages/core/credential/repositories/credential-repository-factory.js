@@ -1,10 +1,6 @@
-const { CredentialRepositoryMongo } = require('./credential-repository-mongo');
 const {
     CredentialRepositoryPostgres,
 } = require('./credential-repository-postgres');
-const {
-    CredentialRepositoryDocumentDB,
-} = require('./credential-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -30,12 +26,14 @@ function createCredentialRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { CredentialRepositoryMongo } = require('./credential-repository-mongo');
             return new CredentialRepositoryMongo();
 
         case 'postgresql':
             return new CredentialRepositoryPostgres();
 
         case 'documentdb':
+            const { CredentialRepositoryDocumentDB } = require('./credential-repository-documentdb');
             return new CredentialRepositoryDocumentDB();
 
         default:
@@ -48,7 +46,7 @@ function createCredentialRepository() {
 module.exports = {
     createCredentialRepository,
     // Export adapters for direct testing
-    CredentialRepositoryMongo,
+    get CredentialRepositoryMongo() { return require('./credential-repository-mongo').CredentialRepositoryMongo; },
     CredentialRepositoryPostgres,
-    CredentialRepositoryDocumentDB,
+    get CredentialRepositoryDocumentDB() { return require('./credential-repository-documentdb').CredentialRepositoryDocumentDB; },
 };

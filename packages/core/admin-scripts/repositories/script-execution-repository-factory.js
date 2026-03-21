@@ -1,12 +1,6 @@
 const {
-    ScriptExecutionRepositoryMongo,
-} = require('./script-execution-repository-mongo');
-const {
     ScriptExecutionRepositoryPostgres,
 } = require('./script-execution-repository-postgres');
-const {
-    ScriptExecutionRepositoryDocumentDB,
-} = require('./script-execution-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -31,12 +25,14 @@ function createScriptExecutionRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { ScriptExecutionRepositoryMongo } = require('./script-execution-repository-mongo');
             return new ScriptExecutionRepositoryMongo();
 
         case 'postgresql':
             return new ScriptExecutionRepositoryPostgres();
 
         case 'documentdb':
+            const { ScriptExecutionRepositoryDocumentDB } = require('./script-execution-repository-documentdb');
             return new ScriptExecutionRepositoryDocumentDB();
 
         default:
@@ -49,7 +45,7 @@ function createScriptExecutionRepository() {
 module.exports = {
     createScriptExecutionRepository,
     // Export adapters for direct testing
-    ScriptExecutionRepositoryMongo,
+    get ScriptExecutionRepositoryMongo() { return require('./script-execution-repository-mongo').ScriptExecutionRepositoryMongo; },
     ScriptExecutionRepositoryPostgres,
-    ScriptExecutionRepositoryDocumentDB,
+    get ScriptExecutionRepositoryDocumentDB() { return require('./script-execution-repository-documentdb').ScriptExecutionRepositoryDocumentDB; },
 };

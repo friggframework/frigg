@@ -170,7 +170,7 @@ function loadModuleEncryptionSchemas(integrations) {
 
     const {
         getModulesDefinitionFromIntegrationClasses,
-    } = require('../integrations/utils/map-integration-dto');
+    } = require('../../integrations/utils/map-integration-dto');
 
     const moduleDefinitions =
         getModulesDefinitionFromIntegrationClasses(integrations);
@@ -203,22 +203,48 @@ function loadModuleEncryptionSchemas(integrations) {
  *
  * Used by both Prisma (MongoDB/PostgreSQL) and DocumentDB encryption services.
  */
-function loadCustomEncryptionSchema() {
-    try {
-        // Lazy require to avoid circular dependency issues
-        const path = require('node:path');
-        const { findNearestBackendPackageJson } = require('../../utils');
+/**
+ * Registers encryption schemas from extensions.
+ * Each extension can declare encrypted fields for its custom models.
+ *
+ * @param {Array<Object>} extensions - Normalized extensions array
+ */
+function loadExtensionEncryptionSchemas(extensions) {
+    if (!extensions || !Array.isArray(extensions) || extensions.length === 0) {
+        return;
+    }
 
-        const backendPackagePath = findNearestBackendPackageJson();
-        if (!backendPackagePath) {
-            return; // No backend found, skip custom schema
+    for (const ext of extensions) {
+        if (!ext.encryption || typeof ext.encryption !== 'object') {
+            continue;
         }
 
-        const backendDir = path.dirname(backendPackagePath);
-        const backendIndexPath = path.join(backendDir, 'index.js');
+        const schema = {};
+        for (const [modelName, config] of Object.entries(ext.encryption)) {
+            if (config && Array.isArray(config.fields) && config.fields.length > 0) {
+                schema[modelName] = { fields: config.fields };
+            }
+        }
 
-        const backendModule = require(backendIndexPath);
-        const appDefinition = backendModule?.Definition;
+        if (Object.keys(schema).length > 0) {
+            logger.info(
+                `Registering encryption schema from extension "${ext.name}" for models: ${Object.keys(schema).join(', ')}`
+            );
+            registerCustomSchema(schema);
+        }
+    }
+}
+
+function loadCustomEncryptionSchema() {
+    try {
+        // Uses loadAppDefinition() which respects setAppDefinition() cache.
+        // This is critical for platforms like Netlify where process.cwd()-based
+        // discovery fails at runtime (process.cwd() is /var/task, not the project root).
+        const {
+            loadAppDefinition,
+        } = require('../../handlers/app-definition-loader');
+
+        const { appDefinition } = loadAppDefinition();
 
         if (!appDefinition) {
             return; // No app definition found
@@ -234,6 +260,13 @@ function loadCustomEncryptionSchema() {
         const integrations = appDefinition.integrations;
         if (integrations && Array.isArray(integrations)) {
             loadModuleEncryptionSchemas(integrations);
+        }
+
+        // Load extension-level encryption schemas
+        const { loadExtensions } = require('../../extensions/extension-loader');
+        const extensions = loadExtensions(appDefinition);
+        if (extensions.length > 0) {
+            loadExtensionEncryptionSchemas(extensions);
         }
     } catch (error) {
         // Silently ignore errors - custom schema is optional
@@ -274,6 +307,7 @@ module.exports = {
     registerCustomSchema,
     loadCustomEncryptionSchema,
     loadModuleEncryptionSchemas,
+    loadExtensionEncryptionSchemas,
     extractCredentialFieldsFromModules,
     validateCustomSchema,
     resetCustomSchema,

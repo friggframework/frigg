@@ -45,7 +45,7 @@ class ModuleFactory {
             );
         }
 
-        return new Module({
+        return await Module.create({
             userId,
             entity,
             definition: moduleDefinition,

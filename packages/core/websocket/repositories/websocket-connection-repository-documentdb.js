@@ -1,8 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const {
-    ApiGatewayManagementApiClient,
-    PostToConnectionCommand,
-} = require('@aws-sdk/client-apigatewaymanagementapi');
+    StaleConnectionError,
+} = require('../websocket-message-sender-interface');
 const {
     toObjectId,
     fromObjectId,
@@ -16,10 +15,19 @@ const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
 
+/**
+ * DocumentDB WebSocket Connection Repository Adapter
+ *
+ * BREAKING CHANGE (v3): A messageSender must be explicitly provided for
+ * WebSocket send functionality. For AWS API Gateway, pass
+ * `new ApiGatewayMessageSender()` from @friggframework/provider-aws.
+ * See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.
+ */
 class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionRepositoryInterface {
-    constructor() {
+    constructor(messageSender = null) {
         super();
         this.prisma = prisma;
+        this._messageSender = messageSender;
     }
 
     async createConnection(connectionId) {
@@ -60,24 +68,28 @@ class WebsocketConnectionRepositoryDocumentDB extends WebsocketConnectionReposit
             { projection: { connectionId: 1 } }
         );
 
+        if (!this._messageSender) {
+            throw new Error(
+                'WebsocketConnectionRepositoryDocumentDB requires a messageSender for send functionality.\n' +
+                'Pass one via constructor, e.g.:\n' +
+                '  const { ApiGatewayMessageSender } = require("@friggframework/provider-aws");\n' +
+                '  new WebsocketConnectionRepositoryDocumentDB(new ApiGatewayMessageSender())\n' +
+                'See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.'
+            );
+        }
+        const sender = this._messageSender;
+
         return connections.map((conn) => ({
             connectionId: conn.connectionId,
             send: async (data) => {
-                const apigwManagementApi = new ApiGatewayManagementApiClient({
-                    endpoint: process.env.WEBSOCKET_API_ENDPOINT,
-                });
-
                 try {
-                    const command = new PostToConnectionCommand({
-                        ConnectionId: conn.connectionId,
-                        Data: JSON.stringify(data),
-                    });
-                    await apigwManagementApi.send(command);
+                    await sender.send(
+                        conn.connectionId,
+                        data,
+                        process.env.WEBSOCKET_API_ENDPOINT
+                    );
                 } catch (error) {
-                    if (
-                        error.statusCode === 410 ||
-                        error.$metadata?.httpStatusCode === 410
-                    ) {
+                    if (error instanceof StaleConnectionError) {
                         console.log(`Stale connection ${conn.connectionId}`);
                         await deleteMany(this.prisma, 'WebsocketConnection', {
                             connectionId: conn.connectionId,

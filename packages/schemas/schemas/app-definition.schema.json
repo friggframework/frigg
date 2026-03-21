@@ -16,8 +16,8 @@
     },
     "provider": {
       "type": "string",
-      "description": "Cloud provider for deployment",
-      "enum": ["aws"],
+      "description": "Deployment provider. Determines which @friggframework/provider-{name} package is loaded for runtime adapters, config generation, and deploy lifecycle. Built-in providers: 'aws' (default, serverless/Lambda), 'netlify' (Netlify Functions).",
+      "enum": ["aws", "netlify"],
       "default": "aws"
     },
     "label": {
@@ -631,6 +631,61 @@
         }
       },
       "additionalProperties": true
+    },
+    "extensions": {
+      "type": "array",
+      "description": "Extensions that add custom Prisma models, encrypted fields, admin routes, and bootstrap lifecycle hooks to a Frigg app. Each extension can declare a schema fragment, encryption config, route handler, and bootstrap function.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique identifier for this extension",
+            "minLength": 1,
+            "examples": ["db-credentials", "audit-log"]
+          },
+          "schema": {
+            "type": "string",
+            "description": "Absolute path to a .prisma schema fragment. Models/enums from this file are composed into the main Prisma schema at build time.",
+            "pattern": "\\.prisma$"
+          },
+          "encryption": {
+            "type": "object",
+            "description": "Encryption schema additions. Maps model names to arrays of field paths that should be encrypted at rest.",
+            "patternProperties": {
+              "^[A-Z][a-zA-Z0-9]*$": {
+                "type": "object",
+                "required": ["fields"],
+                "properties": {
+                  "fields": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "minItems": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "routes": {
+            "type": "object",
+            "description": "Express router to mount on the app. The handler factory receives (prisma, appDefinition) and returns an Express Router. Routes are protected by admin auth middleware.",
+            "required": ["path"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Base URL path for the extension routes",
+                "pattern": "^/",
+                "examples": ["/api/admin/oauth-credentials"]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
     }
   },
   "additionalProperties": false,

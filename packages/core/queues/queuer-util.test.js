@@ -1,35 +1,55 @@
 /**
- * Tests for QueuerUtil - AWS SDK v3 Migration
+ * Tests for QueuerUtil - Provider-Agnostic Queue Interface
  *
- * Tests SQS operations using aws-sdk-client-mock
+ * Tests queue operations using a mock QueueClientInterface.
+ * No AWS SDK dependency — the queue client is injected via setQueueClient().
  */
 
-const { mockClient } = require('aws-sdk-client-mock');
-const {
-    SQSClient,
-    SendMessageCommand,
-    SendMessageBatchCommand,
-} = require('@aws-sdk/client-sqs');
 const { QueuerUtil } = require('./queuer-util');
 
-describe('QueuerUtil - AWS SDK v3', () => {
-    let sqsMock;
+describe('QueuerUtil', () => {
+    let mockQueueClient;
+    let sendMessageCalls;
+    let sendMessageBatchCalls;
 
     beforeEach(() => {
-        sqsMock = mockClient(SQSClient);
-        jest.clearAllMocks();
+        sendMessageCalls = [];
+        sendMessageBatchCalls = [];
+
+        mockQueueClient = {
+            sendMessage: jest.fn(async (params) => {
+                sendMessageCalls.push(params);
+                return { MessageId: 'test-message-id-123' };
+            }),
+            sendMessageBatch: jest.fn(async (params) => {
+                sendMessageBatchCalls.push(params);
+                return { Successful: [], Failed: [] };
+            }),
+            getQueueUrl: jest.fn(async (params) => {
+                return `https://sqs.us-east-1.amazonaws.com/123456789/${params.QueueName}`;
+            }),
+        };
+
+        QueuerUtil.setQueueClient(mockQueueClient);
     });
 
     afterEach(() => {
-        sqsMock.reset();
+        // Reset the queue client to prevent leaking between test files
+        QueuerUtil.setQueueClient(null);
+    });
+
+    describe('setQueueClient()', () => {
+        it('should throw if no queue client is set', async () => {
+            QueuerUtil.setQueueClient(null);
+
+            await expect(
+                QueuerUtil.send({ test: 'data' }, 'https://queue-url')
+            ).rejects.toThrow('QueuerUtil requires a queue client');
+        });
     });
 
     describe('send()', () => {
-        it('should send single message to SQS', async () => {
-            sqsMock.on(SendMessageCommand).resolves({
-                MessageId: 'test-message-id-123',
-            });
-
+        it('should send single message via queue client', async () => {
             const message = { test: 'data', id: 1 };
             const queueUrl =
                 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
@@ -37,56 +57,46 @@ describe('QueuerUtil - AWS SDK v3', () => {
             const result = await QueuerUtil.send(message, queueUrl);
 
             expect(result.MessageId).toBe('test-message-id-123');
-            expect(sqsMock.calls()).toHaveLength(1);
-
-            const call = sqsMock.call(0);
-            expect(call.args[0].input).toMatchObject({
+            expect(mockQueueClient.sendMessage).toHaveBeenCalledTimes(1);
+            expect(mockQueueClient.sendMessage).toHaveBeenCalledWith({
                 MessageBody: JSON.stringify(message),
                 QueueUrl: queueUrl,
             });
         });
 
-        it('should handle SQS errors', async () => {
-            sqsMock.on(SendMessageCommand).rejects(new Error('SQS Error'));
+        it('should handle queue errors', async () => {
+            mockQueueClient.sendMessage.mockRejectedValue(
+                new Error('Queue Error')
+            );
 
             const message = { test: 'data' };
             const queueUrl =
                 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
             await expect(QueuerUtil.send(message, queueUrl)).rejects.toThrow(
-                'SQS Error'
+                'Queue Error'
             );
         });
     });
 
     describe('batchSend()', () => {
-        it('should send batch of messages to SQS', async () => {
-            sqsMock.on(SendMessageBatchCommand).resolves({
-                Successful: [{ MessageId: 'msg-1' }],
-                Failed: [],
-            });
-
+        it('should send batch of messages via queue client', async () => {
             const entries = Array(5)
                 .fill()
                 .map((_, i) => ({ data: `test-${i}` }));
             const queueUrl =
                 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
-            const result = await QueuerUtil.batchSend(entries, queueUrl);
+            await QueuerUtil.batchSend(entries, queueUrl);
 
-            expect(sqsMock.calls()).toHaveLength(1);
+            expect(mockQueueClient.sendMessageBatch).toHaveBeenCalledTimes(1);
 
-            const call = sqsMock.call(0);
-            expect(call.args[0].input.Entries).toHaveLength(5);
-            expect(call.args[0].input.QueueUrl).toBe(queueUrl);
+            const call = sendMessageBatchCalls[0];
+            expect(call.Entries).toHaveLength(5);
+            expect(call.QueueUrl).toBe(queueUrl);
         });
 
         it('should send multiple batches for large entry sets (10 per batch)', async () => {
-            sqsMock.on(SendMessageBatchCommand).resolves({
-                Successful: [],
-                Failed: [],
-            });
-
             const entries = Array(25)
                 .fill()
                 .map((_, i) => ({ data: `test-${i}` }));
@@ -96,26 +106,25 @@ describe('QueuerUtil - AWS SDK v3', () => {
             await QueuerUtil.batchSend(entries, queueUrl);
 
             // Should send 3 batches (10 + 10 + 5)
-            expect(sqsMock.calls()).toHaveLength(3);
+            expect(mockQueueClient.sendMessageBatch).toHaveBeenCalledTimes(3);
 
-            expect(sqsMock.call(0).args[0].input.Entries).toHaveLength(10);
-            expect(sqsMock.call(1).args[0].input.Entries).toHaveLength(10);
-            expect(sqsMock.call(2).args[0].input.Entries).toHaveLength(5);
+            expect(sendMessageBatchCalls[0].Entries).toHaveLength(10);
+            expect(sendMessageBatchCalls[1].Entries).toHaveLength(10);
+            expect(sendMessageBatchCalls[2].Entries).toHaveLength(5);
         });
 
         it('should handle empty entries array', async () => {
+            QueuerUtil.setQueueClient(null); // Should not need a client for empty
+            // Re-set because empty array returns early before calling client
+            QueuerUtil.setQueueClient(mockQueueClient);
+
             const result = await QueuerUtil.batchSend([], 'https://queue-url');
 
             expect(result).toEqual({});
-            expect(sqsMock.calls()).toHaveLength(0);
+            expect(mockQueueClient.sendMessageBatch).not.toHaveBeenCalled();
         });
 
         it('should send exact batch of 10 without remainder', async () => {
-            sqsMock.on(SendMessageBatchCommand).resolves({
-                Successful: [],
-                Failed: [],
-            });
-
             const entries = Array(10)
                 .fill()
                 .map((_, i) => ({ data: `test-${i}` }));
@@ -124,23 +133,18 @@ describe('QueuerUtil - AWS SDK v3', () => {
 
             const result = await QueuerUtil.batchSend(entries, queueUrl);
 
-            expect(sqsMock.calls()).toHaveLength(1);
+            expect(mockQueueClient.sendMessageBatch).toHaveBeenCalledTimes(1);
             expect(result).toEqual({}); // Returns empty object when exact batch
         });
 
         it('should generate unique IDs for each entry', async () => {
-            sqsMock.on(SendMessageBatchCommand).resolves({
-                Successful: [],
-                Failed: [],
-            });
-
             const entries = [{ data: 'test-1' }, { data: 'test-2' }];
             const queueUrl =
                 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
             await QueuerUtil.batchSend(entries, queueUrl);
 
-            const sentEntries = sqsMock.call(0).args[0].input.Entries;
+            const sentEntries = sendMessageBatchCalls[0].Entries;
             expect(sentEntries[0].Id).toBeDefined();
             expect(sentEntries[1].Id).toBeDefined();
             expect(sentEntries[0].Id).not.toBe(sentEntries[1].Id);

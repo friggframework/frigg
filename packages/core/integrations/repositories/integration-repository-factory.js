@@ -1,12 +1,6 @@
 const {
-    IntegrationRepositoryMongo,
-} = require('./integration-repository-mongo');
-const {
     IntegrationRepositoryPostgres,
 } = require('./integration-repository-postgres');
-const {
-    IntegrationRepositoryDocumentDB,
-} = require('./integration-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -31,12 +25,14 @@ function createIntegrationRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { IntegrationRepositoryMongo } = require('./integration-repository-mongo');
             return new IntegrationRepositoryMongo();
 
         case 'postgresql':
             return new IntegrationRepositoryPostgres();
 
         case 'documentdb':
+            const { IntegrationRepositoryDocumentDB } = require('./integration-repository-documentdb');
             return new IntegrationRepositoryDocumentDB();
 
         default:
@@ -49,7 +45,7 @@ function createIntegrationRepository() {
 module.exports = {
     createIntegrationRepository,
     // Export adapters for direct testing
-    IntegrationRepositoryMongo,
+    get IntegrationRepositoryMongo() { return require('./integration-repository-mongo').IntegrationRepositoryMongo; },
     IntegrationRepositoryPostgres,
-    IntegrationRepositoryDocumentDB,
+    get IntegrationRepositoryDocumentDB() { return require('./integration-repository-documentdb').IntegrationRepositoryDocumentDB; },
 };

@@ -1,17 +1,16 @@
 /**
- * Tests for WebSocket Connection Repository - AWS SDK v3 Migration
+ * Tests for WebSocket Connection Repository - Provider-Agnostic
  *
- * Tests API Gateway Management API operations using aws-sdk-client-mock
+ * Tests WebSocket operations using a mock WebSocketMessageSenderInterface.
+ * No AWS SDK dependency — the message sender is injected via constructor.
  */
 
-const { mockClient } = require('aws-sdk-client-mock');
-const {
-    ApiGatewayManagementApiClient,
-    PostToConnectionCommand,
-} = require('@aws-sdk/client-apigatewaymanagementapi');
 const {
     WebsocketConnectionRepository,
 } = require('./websocket-connection-repository');
+const {
+    StaleConnectionError,
+} = require('../websocket-message-sender-interface');
 
 // Mock Prisma
 jest.mock('../../database/prisma', () => ({
@@ -29,14 +28,19 @@ jest.mock('../../database/prisma', () => ({
 
 const { prisma } = require('../../database/prisma');
 
-describe('WebsocketConnectionRepository - AWS SDK v3', () => {
-    let apiGatewayMock;
+describe('WebsocketConnectionRepository', () => {
+    let mockMessageSender;
     let repository;
     const originalEnv = process.env;
 
     beforeEach(() => {
-        apiGatewayMock = mockClient(ApiGatewayManagementApiClient);
-        repository = new WebsocketConnectionRepository();
+        mockMessageSender = {
+            send: jest.fn().mockResolvedValue(undefined),
+        };
+        repository = new WebsocketConnectionRepository(
+            prisma,
+            mockMessageSender
+        );
         jest.clearAllMocks();
         process.env = {
             ...originalEnv,
@@ -46,7 +50,6 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
     });
 
     afterEach(() => {
-        apiGatewayMock.reset();
         process.env = originalEnv;
     });
 
@@ -104,13 +107,22 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
             expect(prisma.websocketConnection.findMany).not.toHaveBeenCalled();
         });
 
+        it('should throw if no messageSender is provided', async () => {
+            const repoNoSender = new WebsocketConnectionRepository(prisma);
+            prisma.websocketConnection.findMany.mockResolvedValue([
+                { connectionId: 'conn-1' },
+            ]);
+
+            await expect(
+                repoNoSender.getActiveConnections()
+            ).rejects.toThrow('requires a messageSender');
+        });
+
         it('should get active connections with send capability', async () => {
             prisma.websocketConnection.findMany.mockResolvedValue([
                 { connectionId: 'conn-1' },
                 { connectionId: 'conn-2' },
             ]);
-
-            apiGatewayMock.on(PostToConnectionCommand).resolves({});
 
             const connections = await repository.getActiveConnections();
 
@@ -120,55 +132,29 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
             expect(typeof connections[0].send).toBe('function');
         });
 
-        it('should send data through API Gateway Management API', async () => {
+        it('should send data through injected message sender', async () => {
             prisma.websocketConnection.findMany.mockResolvedValue([
                 { connectionId: 'conn-test' },
             ]);
 
-            apiGatewayMock.on(PostToConnectionCommand).resolves({});
-
             const connections = await repository.getActiveConnections();
             await connections[0].send({ message: 'hello' });
 
-            expect(apiGatewayMock.calls()).toHaveLength(1);
-
-            const call = apiGatewayMock.call(0);
-            expect(call.args[0].input).toMatchObject({
-                ConnectionId: 'conn-test',
-                Data: JSON.stringify({ message: 'hello' }),
-            });
+            expect(mockMessageSender.send).toHaveBeenCalledWith(
+                'conn-test',
+                { message: 'hello' },
+                'https://test.execute-api.us-east-1.amazonaws.com/dev'
+            );
         });
 
-        it('should delete stale connection on 410 error', async () => {
+        it('should delete stale connection on StaleConnectionError', async () => {
             prisma.websocketConnection.findMany.mockResolvedValue([
                 { connectionId: 'stale-conn' },
             ]);
 
-            const error = new Error('Gone');
-            error.statusCode = 410;
-            apiGatewayMock.on(PostToConnectionCommand).rejects(error);
-
-            prisma.websocketConnection.deleteMany.mockResolvedValue({
-                count: 1,
-            });
-
-            const connections = await repository.getActiveConnections();
-            await connections[0].send({ message: 'test' });
-
-            // Should have called deleteMany to remove stale connection
-            expect(prisma.websocketConnection.deleteMany).toHaveBeenCalledWith({
-                where: { connectionId: 'stale-conn' },
-            });
-        });
-
-        it('should delete stale connection on 410 error (v3 metadata format)', async () => {
-            prisma.websocketConnection.findMany.mockResolvedValue([
-                { connectionId: 'stale-conn' },
-            ]);
-
-            const error = new Error('Gone');
-            error.$metadata = { httpStatusCode: 410 };
-            apiGatewayMock.on(PostToConnectionCommand).rejects(error);
+            mockMessageSender.send.mockRejectedValue(
+                new StaleConnectionError('stale-conn')
+            );
 
             prisma.websocketConnection.deleteMany.mockResolvedValue({
                 count: 1,
@@ -182,14 +168,14 @@ describe('WebsocketConnectionRepository - AWS SDK v3', () => {
             });
         });
 
-        it('should throw non-410 errors', async () => {
+        it('should throw non-StaleConnectionError errors', async () => {
             prisma.websocketConnection.findMany.mockResolvedValue([
                 { connectionId: 'conn-1' },
             ]);
 
-            apiGatewayMock
-                .on(PostToConnectionCommand)
-                .rejects(new Error('Network error'));
+            mockMessageSender.send.mockRejectedValue(
+                new Error('Network error')
+            );
 
             const connections = await repository.getActiveConnections();
 

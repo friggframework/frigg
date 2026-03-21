@@ -1,23 +1,41 @@
-const {
-    SQSClient,
-    GetQueueUrlCommand,
-    SendMessageCommand,
-} = require('@aws-sdk/client-sqs');
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
 
-const sqs = new SQSClient({ region: process.env.AWS_REGION });
-
+/**
+ * Worker - Queue message producer/consumer base class.
+ *
+ * Subclass and override _run() to implement your worker logic.
+ * The queue transport (SQS, Netlify, etc.) is abstracted behind
+ * QueueClientInterface, injected via constructor options.
+ *
+ * BREAKING CHANGE (v3): A queueClient must be explicitly provided.
+ * For AWS/SQS, pass `new SqsQueueClient()` from @friggframework/provider-aws.
+ * See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.
+ */
 class Worker {
+    constructor(options = {}) {
+        this._queueClient = options.queueClient || null;
+    }
+
+    /**
+     * Get the queue client. Throws if none was injected.
+     * @returns {QueueClientInterface}
+     */
+    _getQueueClient() {
+        if (!this._queueClient) {
+            throw new Error(
+                'Worker requires a queueClient. Pass one via constructor options, e.g.:\n' +
+                '  const { SqsQueueClient } = require("@friggframework/provider-aws");\n' +
+                '  new MyWorker({ queueClient: new SqsQueueClient() })\n' +
+                'See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.'
+            );
+        }
+        return this._queueClient;
+    }
+
     async getQueueURL(params) {
-        // Passing params in because there will be multiple QueueNames
-        // let params = {
-        //     QueueName:  process.env.QueueName
-        // };
-        const command = new GetQueueUrlCommand(params);
-        const data = await sqs.send(command);
-        return data.QueueUrl;
+        return this._getQueueClient().getQueueUrl(params);
     }
 
     async run(params, context = {}) {
@@ -51,8 +69,7 @@ class Worker {
     }
 
     async sendAsyncSQSMessage(params) {
-        const command = new SendMessageCommand(params);
-        const data = await sqs.send(command);
+        const data = await this._getQueueClient().sendMessage(params);
         return data.MessageId;
     }
 

@@ -1,34 +1,41 @@
 const { v4: uuid } = require('uuid');
-const {
-    SQSClient,
-    SendMessageCommand,
-    SendMessageBatchCommand,
-} = require('@aws-sdk/client-sqs');
 
-const awsConfigOptions = () => {
-    const config = {};
-    if (process.env.IS_OFFLINE) {
-        config.credentials = {
-            accessKeyId: 'test-aws-key',
-            secretAccessKey: 'test-aws-secret',
-        };
-        config.region = 'us-east-1';
-    }
-    if (process.env.AWS_ENDPOINT) {
-        config.endpoint = process.env.AWS_ENDPOINT;
-    }
-    return config;
-};
+/**
+ * QueuerUtil - Queue message utility.
+ *
+ * BREAKING CHANGE (v3): A queue client must be set via setQueueClient()
+ * before calling send() or batchSend().
+ * For AWS/SQS, pass `new SqsQueueClient()` from @friggframework/provider-aws.
+ * See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.
+ */
+let _queueClient = null;
 
-const sqs = new SQSClient(awsConfigOptions());
+function getQueueClient() {
+    if (!_queueClient) {
+        throw new Error(
+            'QueuerUtil requires a queue client. Call QueuerUtil.setQueueClient() first, e.g.:\n' +
+            '  const { SqsQueueClient } = require("@friggframework/provider-aws");\n' +
+            '  QueuerUtil.setQueueClient(new SqsQueueClient());\n' +
+            'See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.'
+        );
+    }
+    return _queueClient;
+}
 
 const QueuerUtil = {
+    /**
+     * Set the queue client. Must be called before send() or batchSend().
+     * @param {QueueClientInterface} client
+     */
+    setQueueClient(client) {
+        _queueClient = client;
+    },
+
     send: async (message, queueUrl) => {
-        const command = new SendMessageCommand({
+        return getQueueClient().sendMessage({
             MessageBody: JSON.stringify(message),
             QueueUrl: queueUrl,
         });
-        return sqs.send(command);
     },
 
     batchSend: async (entries = [], queueUrl) => {
@@ -42,23 +49,20 @@ const QueuerUtil = {
             });
             // Sends 10, then purges the buffer
             if (buffer.length === batchSize) {
-                const command = new SendMessageBatchCommand({
-                    Entries: buffer,
+                await getQueueClient().sendMessageBatch({
+                    Entries: [...buffer],
                     QueueUrl: queueUrl,
                 });
-                await sqs.send(command);
-                // Purge the buffer
-                buffer.splice(0, buffer.length);
+                buffer.length = 0;
             }
         }
 
         // If any remaining entries under 10 are left in the buffer, send and return
         if (buffer.length > 0) {
-            const command = new SendMessageBatchCommand({
+            return getQueueClient().sendMessageBatch({
                 Entries: buffer,
                 QueueUrl: queueUrl,
             });
-            return sqs.send(command);
         }
 
         // If we're exact... just return an empty object for now

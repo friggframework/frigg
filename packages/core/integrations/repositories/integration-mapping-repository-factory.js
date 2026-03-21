@@ -1,12 +1,6 @@
 const {
-    IntegrationMappingRepositoryMongo,
-} = require('./integration-mapping-repository-mongo');
-const {
     IntegrationMappingRepositoryPostgres,
 } = require('./integration-mapping-repository-postgres');
-const {
-    IntegrationMappingRepositoryDocumentDB,
-} = require('./integration-mapping-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -33,12 +27,14 @@ function createIntegrationMappingRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { IntegrationMappingRepositoryMongo } = require('./integration-mapping-repository-mongo');
             return new IntegrationMappingRepositoryMongo();
 
         case 'postgresql':
             return new IntegrationMappingRepositoryPostgres();
 
         case 'documentdb':
+            const { IntegrationMappingRepositoryDocumentDB } = require('./integration-mapping-repository-documentdb');
             return new IntegrationMappingRepositoryDocumentDB();
 
         default:
@@ -51,7 +47,7 @@ function createIntegrationMappingRepository() {
 module.exports = {
     createIntegrationMappingRepository,
     // Export adapters for direct testing
-    IntegrationMappingRepositoryMongo,
+    get IntegrationMappingRepositoryMongo() { return require('./integration-mapping-repository-mongo').IntegrationMappingRepositoryMongo; },
     IntegrationMappingRepositoryPostgres,
-    IntegrationMappingRepositoryDocumentDB,
+    get IntegrationMappingRepositoryDocumentDB() { return require('./integration-mapping-repository-documentdb').IntegrationMappingRepositoryDocumentDB; },
 };

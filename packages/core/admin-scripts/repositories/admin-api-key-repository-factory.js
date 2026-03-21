@@ -1,12 +1,6 @@
 const {
-    AdminApiKeyRepositoryMongo,
-} = require('./admin-api-key-repository-mongo');
-const {
     AdminApiKeyRepositoryPostgres,
 } = require('./admin-api-key-repository-postgres');
-const {
-    AdminApiKeyRepositoryDocumentDB,
-} = require('./admin-api-key-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -31,12 +25,14 @@ function createAdminApiKeyRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { AdminApiKeyRepositoryMongo } = require('./admin-api-key-repository-mongo');
             return new AdminApiKeyRepositoryMongo();
 
         case 'postgresql':
             return new AdminApiKeyRepositoryPostgres();
 
         case 'documentdb':
+            const { AdminApiKeyRepositoryDocumentDB } = require('./admin-api-key-repository-documentdb');
             return new AdminApiKeyRepositoryDocumentDB();
 
         default:
@@ -49,7 +45,7 @@ function createAdminApiKeyRepository() {
 module.exports = {
     createAdminApiKeyRepository,
     // Export adapters for direct testing
-    AdminApiKeyRepositoryMongo,
+    get AdminApiKeyRepositoryMongo() { return require('./admin-api-key-repository-mongo').AdminApiKeyRepositoryMongo; },
     AdminApiKeyRepositoryPostgres,
-    AdminApiKeyRepositoryDocumentDB,
+    get AdminApiKeyRepositoryDocumentDB() { return require('./admin-api-key-repository-documentdb').AdminApiKeyRepositoryDocumentDB; },
 };

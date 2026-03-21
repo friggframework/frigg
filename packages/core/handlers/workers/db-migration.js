@@ -49,17 +49,28 @@ const {
 const {
     CheckDatabaseStateUseCase,
 } = require('../../database/use-cases/check-database-state-use-case');
-const {
-    MigrationStatusRepositoryS3,
-} = require('../../database/repositories/migration-status-repository-s3');
-
 // Inject prisma-runner as dependency
 const prismaRunner = require('../../database/utils/prisma-runner');
 
-// Use S3 repository for migration status tracking (no User table dependency)
-const bucketName =
-    process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
-const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
+// Migration status repository is loaded from the resolved provider.
+const { resolveProvider } = require('../../providers/resolve-provider');
+
+let _migrationStatusRepository = null;
+function getMigrationStatusRepository() {
+    if (!_migrationStatusRepository) {
+        const provider = resolveProvider();
+        const MigrationStatusRepository = provider.MigrationStatusRepositoryS3;
+        if (!MigrationStatusRepository) {
+            throw new Error(
+                `Provider '${provider.name}' does not export a MigrationStatusRepository`
+            );
+        }
+        const bucketName =
+            process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
+        _migrationStatusRepository = new MigrationStatusRepository(bucketName);
+    }
+    return _migrationStatusRepository;
+}
 
 /**
  * Sanitizes error messages to prevent credential leaks
@@ -238,7 +249,7 @@ exports.handler = async (event, context) => {
             console.log(
                 `\n✓ Updating migration status to RUNNING: ${migrationId}`
             );
-            await migrationStatusRepository.update({
+            await getMigrationStatusRepository().update({
                 migrationId,
                 stage,
                 state: 'RUNNING',
@@ -278,7 +289,7 @@ exports.handler = async (event, context) => {
             console.log(
                 `\n✓ Updating migration status to COMPLETED: ${migrationId}`
             );
-            await migrationStatusRepository.update({
+            await getMigrationStatusRepository().update({
                 migrationId,
                 stage,
                 state: 'COMPLETED',
@@ -341,7 +352,7 @@ exports.handler = async (event, context) => {
                 console.log(
                     `\n✓ Updating migration status to FAILED: ${migrationId}`
                 );
-                await migrationStatusRepository.update({
+                await getMigrationStatusRepository().update({
                     migrationId,
                     stage,
                     state: 'FAILED',

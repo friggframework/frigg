@@ -1,8 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const {
-    ApiGatewayManagementApiClient,
-    PostToConnectionCommand,
-} = require('@aws-sdk/client-apigatewaymanagementapi');
+    StaleConnectionError,
+} = require('../websocket-message-sender-interface');
 const {
     WebsocketConnectionRepositoryInterface,
 } = require('./websocket-connection-repository-interface');
@@ -16,15 +15,16 @@ const {
  * - PostgreSQL: Integer IDs with auto-increment
  * - Both use same query patterns (no many-to-many differences)
  *
- * Migration from Mongoose:
- * - Constructor injection of Prisma client
- * - Static method getActiveConnections() → Instance method
- * - AWS API Gateway Management API integration preserved
+ * BREAKING CHANGE (v3): A messageSender must be explicitly provided for
+ * WebSocket send functionality. For AWS API Gateway, pass
+ * `new ApiGatewayMessageSender()` from @friggframework/provider-aws.
+ * See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.
  */
 class WebsocketConnectionRepository extends WebsocketConnectionRepositoryInterface {
-    constructor(prismaClient = prisma) {
+    constructor(prismaClient = prisma, messageSender = null) {
         super();
-        this.prisma = prismaClient; // Allow injection for testing
+        this.prisma = prismaClient;
+        this._messageSender = messageSender;
     }
 
     /**
@@ -79,29 +79,31 @@ class WebsocketConnectionRepository extends WebsocketConnectionRepositoryInterfa
                 select: { connectionId: true },
             });
 
+            if (!this._messageSender) {
+                throw new Error(
+                    'WebsocketConnectionRepository requires a messageSender for send functionality.\n' +
+                    'Pass one via constructor, e.g.:\n' +
+                    '  const { ApiGatewayMessageSender } = require("@friggframework/provider-aws");\n' +
+                    '  new WebsocketConnectionRepository(prisma, new ApiGatewayMessageSender())\n' +
+                    'See docs/architecture-decisions/010-decouple-aws-from-core.md for migration guide.'
+                );
+            }
+            const sender = this._messageSender;
+
             return connections.map((conn) => ({
                 connectionId: conn.connectionId,
                 send: async (data) => {
-                    const apigwManagementApi =
-                        new ApiGatewayManagementApiClient({
-                            endpoint: process.env.WEBSOCKET_API_ENDPOINT,
-                        });
-
                     try {
-                        const command = new PostToConnectionCommand({
-                            ConnectionId: conn.connectionId,
-                            Data: JSON.stringify(data),
-                        });
-                        await apigwManagementApi.send(command);
+                        await sender.send(
+                            conn.connectionId,
+                            data,
+                            process.env.WEBSOCKET_API_ENDPOINT
+                        );
                     } catch (error) {
-                        if (
-                            error.statusCode === 410 ||
-                            error.$metadata?.httpStatusCode === 410
-                        ) {
+                        if (error instanceof StaleConnectionError) {
                             console.log(
                                 `Stale connection ${conn.connectionId}`
                             );
-                            // Delete stale connection
                             await this.prisma.websocketConnection.deleteMany({
                                 where: { connectionId: conn.connectionId },
                             });

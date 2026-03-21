@@ -1,6 +1,4 @@
-const { TokenRepositoryMongo } = require('./token-repository-mongo');
 const { TokenRepositoryPostgres } = require('./token-repository-postgres');
-const { TokenRepositoryDocumentDB } = require('./token-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -14,12 +12,14 @@ function createTokenRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { TokenRepositoryMongo } = require('./token-repository-mongo');
             return new TokenRepositoryMongo();
 
         case 'postgresql':
             return new TokenRepositoryPostgres();
 
         case 'documentdb':
+            const { TokenRepositoryDocumentDB } = require('./token-repository-documentdb');
             return new TokenRepositoryDocumentDB();
 
         default:
@@ -32,7 +32,7 @@ function createTokenRepository() {
 module.exports = {
     createTokenRepository,
     // Export adapters for direct testing
-    TokenRepositoryMongo,
+    get TokenRepositoryMongo() { return require('./token-repository-mongo').TokenRepositoryMongo; },
     TokenRepositoryPostgres,
-    TokenRepositoryDocumentDB,
+    get TokenRepositoryDocumentDB() { return require('./token-repository-documentdb').TokenRepositoryDocumentDB; },
 };

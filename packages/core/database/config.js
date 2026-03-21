@@ -20,69 +20,21 @@ function getDatabaseType() {
     }
 
     // Fallback: Load app definition
+    // Uses loadAppDefinition() which respects setAppDefinition() cache.
+    // This is critical for platforms like Netlify where process.cwd()-based
+    // discovery fails at runtime (process.cwd() is /var/task, not the project root).
     try {
-        const path = require('node:path');
-        const fs = require('node:fs');
-        const { findNearestBackendPackageJson } = require('../utils');
+        const {
+            loadAppDefinition,
+        } = require('../handlers/app-definition-loader');
 
-        let backendIndexPath;
-        let database;
-        const backendPackagePath = findNearestBackendPackageJson();
-
-        if (!backendPackagePath) {
-            throw new Error(
-                '[Frigg] Cannot find backend package.json. ' +
-                    'Ensure backend/package.json exists in your project.'
-            );
-        }
-
-        const backendDir = path.dirname(backendPackagePath);
-        backendIndexPath = path.join(backendDir, 'index.js');
-
-        if (!fs.existsSync(backendIndexPath)) {
-            throw new Error(
-                `[Frigg] Backend index.js not found at ${backendIndexPath}. ` +
-                    'Ensure backend/index.js exists with a Definition export.'
-            );
-        }
-
-        let backendModule;
-        try {
-            backendModule = require(backendIndexPath);
-        } catch (requireError) {
-            // Extract the actual file with the error from the stack trace
-            // Skip internal Node.js files (node:internal/*) and find first user file
-            let errorFile = 'unknown file';
-            const stackLines = requireError.stack?.split('\n') || [];
-
-            for (const line of stackLines) {
-                // Match file paths in stack trace, excluding node:internal
-                const match =
-                    line.match(/\(([^)]+\.js):\d+:\d+\)/) ||
-                    line.match(/at ([^(]+\.js):\d+:\d+/);
-                if (match && match[1] && !match[1].includes('node:internal')) {
-                    errorFile = match[1];
-                    break;
-                }
-            }
-
-            // Provide better error context for syntax/runtime errors
-            throw new Error(
-                `[Frigg] Failed to load app definition from ${backendIndexPath}\n` +
-                    `Error: ${requireError.message}\n` +
-                    `File with error: ${errorFile}\n` +
-                    `\nFull stack trace:\n${requireError.stack}\n\n` +
-                    'This error occurred while loading your app definition or its dependencies. ' +
-                    'Check the file listed above for syntax errors (trailing commas, missing brackets, etc.)'
-            );
-        }
-
-        database = backendModule?.Definition?.database;
+        const { appDefinition } = loadAppDefinition();
+        const database = appDefinition?.database;
 
         if (!database) {
             throw new Error(
                 '[Frigg] App definition missing database configuration. ' +
-                    `Add database: { postgres: { enable: true } } (or mongoDB/documentDB) to ${backendIndexPath}`
+                    'Add database: { postgres: { enable: true } } (or mongoDB/documentDB) to your backend/index.js'
             );
         }
 

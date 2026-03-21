@@ -15,17 +15,33 @@ const catchAsyncError = require('express-async-handler');
 const { loadAppDefinition } = require('../app-definition-loader');
 
 const router = express();
-const { userConfig } = loadAppDefinition();
-const userRepository = createUserRepository();
-const createIndividualUser = new CreateIndividualUser({
-    userRepository,
-    userConfig,
+
+// Lazy-initialized repositories and use cases (deferred until first request)
+let _userRepository, _createIndividualUser, _loginUser, _createTokenForUserId;
+
+function ensureInitialized() {
+    if (!_userRepository) {
+        const { userConfig } = loadAppDefinition();
+        _userRepository = createUserRepository();
+        _createIndividualUser = new CreateIndividualUser({
+            userRepository: _userRepository,
+            userConfig,
+        });
+        _loginUser = new LoginUser({
+            userRepository: _userRepository,
+            userConfig,
+        });
+        _createTokenForUserId = new CreateTokenForUserId({
+            userRepository: _userRepository,
+        });
+    }
+}
+
+// Lazy initialization middleware — runs once on first request
+router.use((req, res, next) => {
+    ensureInitialized();
+    next();
 });
-const loginUser = new LoginUser({
-    userRepository,
-    userConfig,
-});
-const createTokenForUserId = new CreateTokenForUserId({ userRepository });
 
 // define the login endpoint
 router.route('/user/login').post(
@@ -34,8 +50,8 @@ router.route('/user/login').post(
             'username',
             'password',
         ]);
-        const user = await loginUser.execute({ username, password });
-        const token = await createTokenForUserId.execute(user.getId(), 120);
+        const user = await _loginUser.execute({ username, password });
+        const token = await _createTokenForUserId.execute(user.getId(), 120);
         res.status(201);
         res.json({ token });
     })
@@ -48,11 +64,11 @@ router.route('/user/create').post(
             'password',
         ]);
 
-        const user = await createIndividualUser.execute({
+        const user = await _createIndividualUser.execute({
             username,
             password,
         });
-        const token = await createTokenForUserId.execute(user.getId(), 120);
+        const token = await _createTokenForUserId.execute(user.getId(), 120);
         res.status(201);
         res.json({ token });
     })

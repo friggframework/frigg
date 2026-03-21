@@ -1,0 +1,39 @@
+{
+    "name": "@friggframework/provider-aws",
+    "version": "0.1.0",
+    "description": "AWS provider adapters for the Frigg Framework (SQS, EventBridge, KMS, Lambda, S3)",
+    "main": "index.js",
+    "scripts": {
+        "test": "jest --passWithNoTests"
+    },
+    "keywords": [
+        "frigg",
+        "aws",
+        "serverless",
+        "adapter"
+    ],
+    "license": "MIT",
+    "dependencies": {
+        "@aws-sdk/client-apigatewaymanagementapi": "^3.588.0",
+        "@aws-sdk/client-kms": "^3.588.0",
+        "@aws-sdk/client-lambda": "^3.714.0",
+        "@aws-sdk/client-s3": "^3.588.0",
+        "@aws-sdk/client-scheduler": "^3.588.0",
+        "@aws-sdk/client-sqs": "^3.588.0",
+        "uuid": "^9.0.0"
+    },
+    "peerDependencies": {
+        "@friggframework/core": "*"
+    },
+    "peerDependenciesMeta": {
+        "@friggframework/core": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "jest": "^29.7.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

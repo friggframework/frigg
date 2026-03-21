@@ -1,8 +1,4 @@
-const { ProcessRepositoryMongo } = require('./process-repository-mongo');
 const { ProcessRepositoryPostgres } = require('./process-repository-postgres');
-const {
-    ProcessRepositoryDocumentDB,
-} = require('./process-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -28,12 +24,14 @@ function createProcessRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { ProcessRepositoryMongo } = require('./process-repository-mongo');
             return new ProcessRepositoryMongo();
 
         case 'postgresql':
             return new ProcessRepositoryPostgres();
 
         case 'documentdb':
+            const { ProcessRepositoryDocumentDB } = require('./process-repository-documentdb');
             return new ProcessRepositoryDocumentDB();
 
         default:
@@ -46,7 +44,7 @@ function createProcessRepository() {
 module.exports = {
     createProcessRepository,
     // Export adapters for direct testing
-    ProcessRepositoryMongo,
+    get ProcessRepositoryMongo() { return require('./process-repository-mongo').ProcessRepositoryMongo; },
     ProcessRepositoryPostgres,
-    ProcessRepositoryDocumentDB,
+    get ProcessRepositoryDocumentDB() { return require('./process-repository-documentdb').ProcessRepositoryDocumentDB; },
 };

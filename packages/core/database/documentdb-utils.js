@@ -1,4 +1,4 @@
-const { ObjectId } = require('mongodb');
+const { ObjectId } = require('bson');
 
 function toObjectId(value) {
     if (value === null || value === undefined || value === '') return undefined;

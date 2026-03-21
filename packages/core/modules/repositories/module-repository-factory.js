@@ -1,8 +1,4 @@
-const { ModuleRepositoryMongo } = require('./module-repository-mongo');
 const { ModuleRepositoryPostgres } = require('./module-repository-postgres');
-const {
-    ModuleRepositoryDocumentDB,
-} = require('./module-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -16,12 +12,14 @@ function createModuleRepository() {
 
     switch (dbType) {
         case 'mongodb':
+            const { ModuleRepositoryMongo } = require('./module-repository-mongo');
             return new ModuleRepositoryMongo();
 
         case 'postgresql':
             return new ModuleRepositoryPostgres();
 
         case 'documentdb':
+            const { ModuleRepositoryDocumentDB } = require('./module-repository-documentdb');
             return new ModuleRepositoryDocumentDB();
 
         default:
@@ -34,7 +32,7 @@ function createModuleRepository() {
 module.exports = {
     createModuleRepository,
     // Export adapters for direct testing
-    ModuleRepositoryMongo,
+    get ModuleRepositoryMongo() { return require('./module-repository-mongo').ModuleRepositoryMongo; },
     ModuleRepositoryPostgres,
-    ModuleRepositoryDocumentDB,
+    get ModuleRepositoryDocumentDB() { return require('./module-repository-documentdb').ModuleRepositoryDocumentDB; },
 };
