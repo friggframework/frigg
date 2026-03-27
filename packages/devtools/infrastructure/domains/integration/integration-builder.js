@@ -334,11 +334,49 @@ class IntegrationBuilder extends InfrastructureBuilder {
             Properties: {
                 QueueName: '${self:service}-${self:provider.stage}-InternalErrorQueue',
                 MessageRetentionPeriod: 1209600, // 14 days
-                VisibilityTimeout: 300, // 5 minutes for error processing
+                VisibilityTimeout: 60, // Must be >= DLQ processor Lambda timeout
             },
         };
 
+        // CloudWatch Alarm: fires when any message lands in the DLQ
+        result.resources.DLQMessageAlarm = {
+            Type: 'AWS::CloudWatch::Alarm',
+            Properties: {
+                AlarmDescription: 'Messages in dead-letter queue — integration queue processing failures',
+                Namespace: 'AWS/SQS',
+                MetricName: 'ApproximateNumberOfMessagesVisible',
+                Statistic: 'Maximum',
+                Threshold: 0,
+                ComparisonOperator: 'GreaterThanThreshold',
+                EvaluationPeriods: 1,
+                Period: 60,
+                Dimensions: [
+                    {
+                        Name: 'QueueName',
+                        Value: { 'Fn::GetAtt': ['InternalErrorQueue', 'QueueName'] },
+                    },
+                ],
+            },
+        };
+
+        // DLQ processor Lambda: logs failed messages with structured context
+        result.functions.dlqProcessor = {
+            handler: 'node_modules/@friggframework/core/handlers/workers/dlq-processor.dlqProcessor',
+            reservedConcurrency: 1,
+            timeout: 30,
+            events: [
+                {
+                    sqs: {
+                        arn: { 'Fn::GetAtt': ['InternalErrorQueue', 'Arn'] },
+                        batchSize: 10,
+                    },
+                },
+            ],
+        };
+
         console.log('  ✓ Created InternalErrorQueue resource');
+        console.log('  ✓ Created DLQ CloudWatch alarm');
+        console.log('  ✓ Created DLQ processor Lambda');
     }
 
     /**

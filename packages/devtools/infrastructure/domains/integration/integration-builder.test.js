@@ -397,6 +397,47 @@ describe('IntegrationBuilder', () => {
         });
     });
 
+    describe('DLQ Observability', () => {
+        it('should create a CloudWatch alarm for DLQ message depth', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.resources.DLQMessageAlarm).toBeDefined();
+            expect(result.resources.DLQMessageAlarm.Type).toBe('AWS::CloudWatch::Alarm');
+            expect(result.resources.DLQMessageAlarm.Properties.MetricName).toBe('ApproximateNumberOfMessagesVisible');
+            expect(result.resources.DLQMessageAlarm.Properties.ComparisonOperator).toBe('GreaterThanThreshold');
+            expect(result.resources.DLQMessageAlarm.Properties.Threshold).toBe(0);
+        });
+
+        it('should create a DLQ processor Lambda triggered by InternalErrorQueue', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.dlqProcessor).toBeDefined();
+            expect(result.functions.dlqProcessor.events[0].sqs).toBeDefined();
+            expect(result.functions.dlqProcessor.events[0].sqs.arn).toEqual({
+                'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
+            });
+        });
+
+        it('DLQ processor should have short timeout and low concurrency', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.dlqProcessor.timeout).toBeLessThanOrEqual(60);
+            expect(result.functions.dlqProcessor.reservedConcurrency).toBe(1);
+        });
+    });
+
     describe('getDependencies()', () => {
         it('should have no dependencies', () => {
             const deps = integrationBuilder.getDependencies();
@@ -555,8 +596,9 @@ describe('IntegrationBuilder', () => {
 
             const functionKeys = Object.keys(result.functions);
 
-            // Expected order: webhook, integration, queueWorker
+            // Expected order: dlqProcessor (from InternalErrorQueue), webhook, integration, queueWorker
             expect(functionKeys).toEqual([
+                'dlqProcessor',
                 'testWebhook',
                 'test',
                 'testQueueWorker',
