@@ -412,6 +412,18 @@ describe('IntegrationBuilder', () => {
             expect(result.resources.DLQMessageAlarm.Properties.Threshold).toBe(0);
         });
 
+        it('should wire alarm to InternalErrorBridgeTopic for notifications', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.resources.DLQMessageAlarm.Properties.AlarmActions).toEqual([
+                { Ref: 'InternalErrorBridgeTopic' },
+            ]);
+        });
+
         it('should create a DLQ processor Lambda triggered by InternalErrorQueue', async () => {
             const appDefinition = {
                 integrations: [{ Definition: { name: 'test' } }],
@@ -420,19 +432,21 @@ describe('IntegrationBuilder', () => {
             const result = await integrationBuilder.build(appDefinition, {});
 
             expect(result.functions.dlqProcessor).toBeDefined();
-            expect(result.functions.dlqProcessor.events[0].sqs).toBeDefined();
             expect(result.functions.dlqProcessor.events[0].sqs.arn).toEqual({
                 'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
             });
+            expect(result.functions.dlqProcessor.events[0].sqs.functionResponseType).toBe('ReportBatchItemFailures');
         });
 
-        it('DLQ processor should have short timeout and low concurrency', async () => {
+        it('DLQ processor should have skipEsbuild, short timeout, and low concurrency', async () => {
             const appDefinition = {
                 integrations: [{ Definition: { name: 'test' } }],
             };
 
             const result = await integrationBuilder.build(appDefinition, {});
 
+            expect(result.functions.dlqProcessor.skipEsbuild).toBe(true);
+            expect(result.functions.dlqProcessor.package).toBeDefined();
             expect(result.functions.dlqProcessor.timeout).toBeLessThanOrEqual(60);
             expect(result.functions.dlqProcessor.reservedConcurrency).toBe(1);
         });

@@ -32,6 +32,8 @@ function parseMessageBody(body) {
 }
 
 async function dlqProcessor(event) {
+    if (!event?.Records?.length) return;
+
     for (const record of event.Records) {
         try {
             const parsed = parseMessageBody(record.body);
@@ -42,6 +44,7 @@ async function dlqProcessor(event) {
                 integrationId: parsed.integrationId,
                 processId: parsed.processId,
                 receiveCount: record.attributes?.ApproximateReceiveCount,
+                sentTimestamp: record.attributes?.SentTimestamp,
                 sourceQueue: extractQueueName(record.eventSourceARN),
                 ...(parsed.rawBody !== undefined && { rawBody: parsed.rawBody }),
             });

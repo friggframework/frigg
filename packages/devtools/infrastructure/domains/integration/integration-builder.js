@@ -145,19 +145,19 @@ class IntegrationBuilder extends InfrastructureBuilder {
      * Build integration resources based on ownership decisions
      */
     async buildFromDecisions(decisions, appDefinition, result, usePrismaLayer = true) {
+        // Create package config first — needed by all Lambda functions including DLQ processor
+        const functionPackageConfig = this.createFunctionPackageConfig(usePrismaLayer);
+
         // Create InternalErrorQueue if ownership = STACK
         const shouldCreateInternalErrorQueue = decisions.internalErrorQueue.ownership === ResourceOwnership.STACK;
 
         if (shouldCreateInternalErrorQueue) {
             console.log('  → Creating InternalErrorQueue in stack');
-            this.createInternalErrorQueue(result);
+            this.createInternalErrorQueue(result, functionPackageConfig);
         } else {
             console.log('  → Using external InternalErrorQueue');
-            this.useExternalInternalErrorQueue(decisions.internalErrorQueue, result);
+            this.useExternalInternalErrorQueue(decisions.internalErrorQueue, result, functionPackageConfig);
         }
-
-        // Create Lambda function definitions and queue resources for each integration
-        const functionPackageConfig = this.createFunctionPackageConfig(usePrismaLayer);
 
         for (const integration of appDefinition.integrations) {
             const integrationName = integration.Definition.name;
@@ -328,16 +328,46 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Create InternalErrorQueue CloudFormation resource
      */
-    createInternalErrorQueue(result) {
+    createInternalErrorQueue(result, functionPackageConfig) {
         result.resources.InternalErrorQueue = {
             Type: 'AWS::SQS::Queue',
             Properties: {
                 QueueName: '${self:service}-${self:provider.stage}-InternalErrorQueue',
                 MessageRetentionPeriod: 1209600, // 14 days
-                VisibilityTimeout: 60, // Must be >= DLQ processor Lambda timeout
+                VisibilityTimeout: 60, // Must be >= DLQ processor Lambda timeout (30s)
             },
         };
 
+        this.createDLQObservability(result, functionPackageConfig, {
+            'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
+        }, {
+            'Fn::GetAtt': ['InternalErrorQueue', 'QueueName'],
+        });
+
+        console.log('  ✓ Created InternalErrorQueue resource');
+    }
+
+    /**
+     * Use external InternalErrorQueue
+     */
+    useExternalInternalErrorQueue(decision, result, functionPackageConfig) {
+        // Add ARN to environment for Lambda functions
+        result.environment.INTERNAL_ERROR_QUEUE_ARN = decision.physicalId;
+
+        // Extract queue name from ARN for CloudWatch dimensions
+        const arnParts = decision.physicalId.split(':');
+        const queueName = arnParts[arnParts.length - 1];
+
+        this.createDLQObservability(result, functionPackageConfig, decision.physicalId, queueName);
+
+        console.log(`  ✓ Using external InternalErrorQueue: ${decision.physicalId}`);
+    }
+
+    /**
+     * Create DLQ observability resources (alarm + processor Lambda).
+     * Called for both stack-owned and external InternalErrorQueues.
+     */
+    createDLQObservability(result, functionPackageConfig, queueArn, queueName) {
         // CloudWatch Alarm: fires when any message lands in the DLQ
         result.resources.DLQMessageAlarm = {
             Type: 'AWS::CloudWatch::Alarm',
@@ -350,11 +380,9 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 ComparisonOperator: 'GreaterThanThreshold',
                 EvaluationPeriods: 1,
                 Period: 60,
+                AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
                 Dimensions: [
-                    {
-                        Name: 'QueueName',
-                        Value: { 'Fn::GetAtt': ['InternalErrorQueue', 'QueueName'] },
-                    },
+                    { Name: 'QueueName', Value: queueName },
                 ],
             },
         };
@@ -362,31 +390,23 @@ class IntegrationBuilder extends InfrastructureBuilder {
         // DLQ processor Lambda: logs failed messages with structured context
         result.functions.dlqProcessor = {
             handler: 'node_modules/@friggframework/core/handlers/workers/dlq-processor.dlqProcessor',
+            skipEsbuild: true,
+            package: functionPackageConfig,
             reservedConcurrency: 1,
             timeout: 30,
             events: [
                 {
                     sqs: {
-                        arn: { 'Fn::GetAtt': ['InternalErrorQueue', 'Arn'] },
+                        arn: queueArn,
                         batchSize: 10,
+                        functionResponseType: 'ReportBatchItemFailures',
                     },
                 },
             ],
         };
 
-        console.log('  ✓ Created InternalErrorQueue resource');
         console.log('  ✓ Created DLQ CloudWatch alarm');
         console.log('  ✓ Created DLQ processor Lambda');
-    }
-
-    /**
-     * Use external InternalErrorQueue
-     */
-    useExternalInternalErrorQueue(decision, result) {
-        // Add ARN to environment for Lambda functions
-        result.environment.INTERNAL_ERROR_QUEUE_ARN = decision.physicalId;
-
-        console.log(`  ✓ Using external InternalErrorQueue: ${decision.physicalId}`);
     }
 
     /**

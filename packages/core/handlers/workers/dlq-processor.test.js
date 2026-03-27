@@ -97,4 +97,32 @@ describe('DLQ Processor', () => {
 
         await expect(dlqProcessor(event)).resolves.not.toThrow();
     });
+
+    it('should handle empty or missing Records gracefully', async () => {
+        await expect(dlqProcessor({ Records: [] })).resolves.not.toThrow();
+        await expect(dlqProcessor({})).resolves.not.toThrow();
+    });
+
+    it('should include sentTimestamp in structured log', async () => {
+        const event = {
+            Records: [{
+                messageId: 'msg-ts',
+                body: JSON.stringify({ event: 'TEST', data: {} }),
+                attributes: {
+                    ApproximateReceiveCount: '1',
+                    SentTimestamp: '1774564099000',
+                },
+                eventSourceARN: 'arn:aws:sqs:us-east-1:123:Queue',
+            }],
+        };
+
+        await dlqProcessor(event);
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            '[DLQ] Failed message',
+            expect.objectContaining({
+                sentTimestamp: '1774564099000',
+            })
+        );
+    });
 });
