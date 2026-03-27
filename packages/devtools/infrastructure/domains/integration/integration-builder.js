@@ -379,7 +379,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 Threshold: 500,
                 ComparisonOperator: 'GreaterThanThreshold',
                 EvaluationPeriods: 1,
-                Period: 60,
+                Period: 300,
                 AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
                 Dimensions: [
                     { Name: 'QueueName', Value: queueName },
