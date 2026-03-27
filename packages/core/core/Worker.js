@@ -18,12 +18,20 @@ class Worker {
 
     async run(params, context = {}) {
         const records = get(params, 'Records');
+        const batchItemFailures = [];
 
         for (const record of records) {
-            const runParams = JSON.parse(record.body);
-            this._validateParams(runParams);
-            await this._run(runParams, context);
+            try {
+                const runParams = JSON.parse(record.body);
+                this._validateParams(runParams);
+                await this._run(runParams, context);
+            } catch (error) {
+                console.error(`[Worker] Failed to process record ${record.messageId}:`, error);
+                batchItemFailures.push({ itemIdentifier: record.messageId });
+            }
         }
+
+        return { batchItemFailures };
     }
 
     async _run(params, context = {}) {

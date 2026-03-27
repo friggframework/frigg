@@ -316,6 +316,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
                     sqs: {
                         arn: { 'Fn::GetAtt': [`${this.capitalizeFirst(integrationName)}Queue`, 'Arn'] },
                         batchSize: 1,
+                        functionResponseType: 'ReportBatchItemFailures',
                     },
                 },
             ],
@@ -361,10 +362,10 @@ class IntegrationBuilder extends InfrastructureBuilder {
             Type: 'AWS::SQS::Queue',
             Properties: {
                 QueueName: `\${self:custom.${queueReference}}`,
-                MessageRetentionPeriod: 60,
+                MessageRetentionPeriod: 345600, // 4 days (SQS default)
                 VisibilityTimeout: 1800,
                 RedrivePolicy: {
-                    maxReceiveCount: 1,
+                    maxReceiveCount: 3,
                     deadLetterTargetArn: {
                         'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                     },

@@ -186,7 +186,7 @@ describe('IntegrationBuilder', () => {
 
             const result = await integrationBuilder.build(appDefinition, {});
 
-            expect(result.resources.TestQueue.Properties.MessageRetentionPeriod).toBe(60);
+            expect(result.resources.TestQueue.Properties.MessageRetentionPeriod).toBe(345600);
             expect(result.resources.TestQueue.Properties.VisibilityTimeout).toBe(1800);
         });
 
@@ -200,7 +200,7 @@ describe('IntegrationBuilder', () => {
             const result = await integrationBuilder.build(appDefinition, {});
 
             expect(result.resources.TestQueue.Properties.RedrivePolicy).toEqual({
-                maxReceiveCount: 1,
+                maxReceiveCount: 3,
                 deadLetterTargetArn: {
                     'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                 },
@@ -233,6 +233,7 @@ describe('IntegrationBuilder', () => {
                     sqs: {
                         arn: { 'Fn::GetAtt': ['TestQueue', 'Arn'] },
                         batchSize: 1,
+                        functionResponseType: 'ReportBatchItemFailures',
                     },
                 },
             ]);
@@ -342,6 +343,57 @@ describe('IntegrationBuilder', () => {
 
             expect(result.functions['my-integration']).toBeDefined();
             expect(result.functions['my-integrationQueueWorker']).toBeDefined();
+        });
+
+        // ============================================================
+        // Theory-proving tests: demonstrate current dangerous config
+        // These tests document the root cause of the Modern Midstay bug
+        // where POST_CREATE_SETUP messages were silently lost.
+        // ============================================================
+
+        it('THEORY: MessageRetentionPeriod is too short for delayed messages', async () => {
+            // POST_CREATE_SETUP uses DelaySeconds=35.
+            // With MessageRetentionPeriod=60, the message is only visible
+            // for 25 seconds before SQS silently deletes it.
+            // Messages that expire are NOT sent to DLQ — they vanish.
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const retention = result.resources.TestQueue.Properties.MessageRetentionPeriod;
+
+            // The max SQS DelaySeconds is 900. Retention must comfortably
+            // exceed this to ensure delayed messages are never silently lost.
+            // Current value (60) fails this check.
+            expect(retention).toBeGreaterThan(900);
+        });
+
+        it('THEORY: maxReceiveCount=1 means zero retries on transient failures', async () => {
+            // A single transient error (network blip, cold start timeout,
+            // rate limit) sends the message straight to DLQ with no retry.
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const maxReceiveCount = result.resources.TestQueue.Properties.RedrivePolicy.maxReceiveCount;
+
+            // Should allow at least 2 retries (maxReceiveCount >= 3)
+            expect(maxReceiveCount).toBeGreaterThanOrEqual(3);
+        });
+
+        it('THEORY: SQS event source should enable ReportBatchItemFailures', async () => {
+            // Without this, Lambda can't tell SQS which specific messages
+            // failed — it's all-or-nothing for the entire invocation.
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const sqsEvent = result.functions.testQueueWorker.events[0].sqs;
+
+            expect(sqsEvent.functionResponseType).toBe('ReportBatchItemFailures');
         });
     });
 

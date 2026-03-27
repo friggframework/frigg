@@ -154,6 +154,114 @@ describe('Worker - AWS SDK v3', () => {
 
             expect(worker._run).toHaveBeenCalledWith({ task: 'test' }, context);
         });
+
+        // ============================================================
+        // Theory-proving tests: demonstrate current broken behavior
+        // These tests document WHY the fix is needed.
+        // ============================================================
+
+        // ============================================================
+        // Partial batch failure reporting (ReportBatchItemFailures)
+        // ============================================================
+
+        it('should return empty batchItemFailures when all records succeed', async () => {
+            worker._validateParams = jest.fn();
+            worker._run = jest.fn().mockResolvedValue(undefined);
+
+            const params = {
+                Records: [
+                    { messageId: 'msg-1', body: JSON.stringify({ task: 'test' }) },
+                ],
+            };
+
+            const result = await worker.run(params);
+
+            expect(result).toEqual({ batchItemFailures: [] });
+        });
+
+        it('should report failed record in batchItemFailures instead of throwing', async () => {
+            // With ReportBatchItemFailures, Lambda tells SQS exactly which
+            // messages failed. SQS retries only those, not the whole batch.
+            worker._validateParams = jest.fn();
+            worker._run = jest.fn().mockRejectedValue(new Error('Handler failed'));
+
+            const params = {
+                Records: [
+                    { messageId: 'msg-1', body: JSON.stringify({ event: 'POST_CREATE_SETUP' }) },
+                ],
+            };
+
+            const result = await worker.run(params);
+
+            expect(result).toEqual({
+                batchItemFailures: [{ itemIdentifier: 'msg-1' }],
+            });
+        });
+
+        it('should isolate errors per record — one failure does not block others', async () => {
+            worker._validateParams = jest.fn();
+            worker._run = jest.fn()
+                .mockResolvedValueOnce(undefined)        // record 1: success
+                .mockRejectedValueOnce(new Error('fail')) // record 2: fails
+                .mockResolvedValueOnce(undefined);        // record 3: still processed
+
+            const params = {
+                Records: [
+                    { messageId: 'msg-1', body: JSON.stringify({ task: '1' }) },
+                    { messageId: 'msg-2', body: JSON.stringify({ task: '2' }) },
+                    { messageId: 'msg-3', body: JSON.stringify({ task: '3' }) },
+                ],
+            };
+
+            const result = await worker.run(params);
+
+            // All 3 records were processed
+            expect(worker._run).toHaveBeenCalledTimes(3);
+            // Only the failed record is reported
+            expect(result).toEqual({
+                batchItemFailures: [{ itemIdentifier: 'msg-2' }],
+            });
+        });
+
+        it('should report all failures when every record fails', async () => {
+            worker._validateParams = jest.fn();
+            worker._run = jest.fn().mockRejectedValue(new Error('fail'));
+
+            const params = {
+                Records: [
+                    { messageId: 'msg-1', body: JSON.stringify({ task: '1' }) },
+                    { messageId: 'msg-2', body: JSON.stringify({ task: '2' }) },
+                ],
+            };
+
+            const result = await worker.run(params);
+
+            expect(result).toEqual({
+                batchItemFailures: [
+                    { itemIdentifier: 'msg-1' },
+                    { itemIdentifier: 'msg-2' },
+                ],
+            });
+        });
+
+        it('should handle malformed JSON in record body gracefully', async () => {
+            worker._validateParams = jest.fn();
+            worker._run = jest.fn();
+
+            const params = {
+                Records: [
+                    { messageId: 'msg-1', body: 'not valid json' },
+                    { messageId: 'msg-2', body: JSON.stringify({ task: 'ok' }) },
+                ],
+            };
+
+            const result = await worker.run(params);
+
+            // Malformed record reported as failure, valid record still processed
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+            expect(worker._run).toHaveBeenCalledTimes(1);
+            expect(worker._run).toHaveBeenCalledWith({ task: 'ok' }, {});
+        });
     });
 });
 
