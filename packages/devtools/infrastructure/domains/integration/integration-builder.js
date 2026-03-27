@@ -334,7 +334,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
             Properties: {
                 QueueName: '${self:service}-${self:provider.stage}-InternalErrorQueue',
                 MessageRetentionPeriod: 1209600, // 14 days
-                VisibilityTimeout: 180, // Must be >= 6x DLQ processor Lambda timeout (30s × 6)
+                VisibilityTimeout: 300, // 5 minutes — must be >= 6x DLQ processor Lambda timeout (30s × 6 = 180s)
             },
         };
 
