@@ -198,6 +198,29 @@ describe('Worker - AWS SDK v3', () => {
             });
         });
 
+        it('should treat HaltError as success — message discarded, not retried', async () => {
+            // HaltError means "stop processing, don't retry".
+            // createHandler previously handled this, but Worker.run must
+            // preserve the semantics now that it catches errors per-record.
+            const haltError = new Error('Poison message');
+            haltError.isHaltError = true;
+
+            worker._validateParams = jest.fn();
+            worker._run = jest.fn().mockRejectedValue(haltError);
+
+            const params = {
+                Records: [
+                    { messageId: 'msg-halt', body: JSON.stringify({ event: 'BAD' }) },
+                ],
+            };
+
+            const result = await worker.run(params);
+
+            // HaltError should NOT appear in batchItemFailures
+            // SQS will delete the message (treat as success)
+            expect(result).toEqual({ batchItemFailures: [] });
+        });
+
         it('should isolate errors per record — one failure does not block others', async () => {
             worker._validateParams = jest.fn();
             worker._run = jest.fn()

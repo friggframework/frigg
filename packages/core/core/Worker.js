@@ -26,6 +26,11 @@ class Worker {
                 this._validateParams(runParams);
                 await this._run(runParams, context);
             } catch (error) {
+                if (error.isHaltError) {
+                    // HaltError means "discard this message, don't retry".
+                    // Treat as success so SQS deletes it from the queue.
+                    continue;
+                }
                 console.error(`[Worker] Failed to process record ${record.messageId}:`, error);
                 batchItemFailures.push({ itemIdentifier: record.messageId });
             }
