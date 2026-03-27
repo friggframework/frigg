@@ -409,7 +409,7 @@ describe('IntegrationBuilder', () => {
             expect(result.resources.DLQMessageAlarm.Type).toBe('AWS::CloudWatch::Alarm');
             expect(result.resources.DLQMessageAlarm.Properties.MetricName).toBe('ApproximateNumberOfMessagesVisible');
             expect(result.resources.DLQMessageAlarm.Properties.ComparisonOperator).toBe('GreaterThanThreshold');
-            expect(result.resources.DLQMessageAlarm.Properties.Threshold).toBe(0);
+            expect(result.resources.DLQMessageAlarm.Properties.Threshold).toBe(500);
         });
 
         it('should wire alarm to InternalErrorBridgeTopic for notifications', async () => {

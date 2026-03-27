@@ -376,7 +376,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 Namespace: 'AWS/SQS',
                 MetricName: 'ApproximateNumberOfMessagesVisible',
                 Statistic: 'Maximum',
-                Threshold: 0,
+                Threshold: 500,
                 ComparisonOperator: 'GreaterThanThreshold',
                 EvaluationPeriods: 1,
                 Period: 60,
