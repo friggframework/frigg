@@ -155,15 +155,6 @@ describe('Worker - AWS SDK v3', () => {
             expect(worker._run).toHaveBeenCalledWith({ task: 'test' }, context);
         });
 
-        // ============================================================
-        // Theory-proving tests: demonstrate current broken behavior
-        // These tests document WHY the fix is needed.
-        // ============================================================
-
-        // ============================================================
-        // Partial batch failure reporting (ReportBatchItemFailures)
-        // ============================================================
-
         it('should return empty batchItemFailures when all records succeed', async () => {
             worker._validateParams = jest.fn();
             worker._run = jest.fn().mockResolvedValue(undefined);

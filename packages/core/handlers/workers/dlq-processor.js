@@ -21,7 +21,8 @@ function parseMessageBody(body) {
             processId: parsed.data?.processId || null,
             data: parsed.data,
         };
-    } catch {
+    } catch (error) {
+        console.warn('[DLQ] Failed to parse message body', { error: error.message, body });
         return {
             event: 'UNKNOWN',
             integrationId: null,
