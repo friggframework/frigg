@@ -19,12 +19,13 @@ import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
  * @param {Function} props.refreshIntegrations - Function to refresh integrations
  * @param {string} props.friggBaseUrl - The base URL for the Frigg service
  * @param {string} props.authToken - JWT token for authenticated user in Frigg
+ * @param {Function} props.onInstallClick - Callback when install button is clicked (for non-installed integrations)
  * @returns {JSX.Element} The rendered component
  */
 function IntegrationVertical(props) {
   const { name, description, category, icon } = props.data.display;
   const { hasUserConfig, type } = props.data;
-  const { authToken, refreshIntegrations } = props;
+  const { authToken, refreshIntegrations, onInstallClick } = props;
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState("");
@@ -115,6 +116,7 @@ function IntegrationVertical(props) {
         </div>
         <div className="items-center pb-3">
           <div className="relative">
+            {/* Already installed - show disconnect */}
             {(status && status === "ENABLED") ||
               (status === "NEEDS_CONFIG" && (
                 <button
@@ -124,7 +126,16 @@ function IntegrationVertical(props) {
                   Disconnect
                 </button>
               ))}
-            {!status && (
+
+            {/* Not installed - show install button if handler provided, otherwise connect button */}
+            {!status && onInstallClick && (
+              <Button onClick={() => onInstallClick(props.data)}>
+                {isProcessing ? <LoadingSpinner /> : "Install"}
+              </Button>
+            )}
+
+            {/* Not installed and no install handler - show connect for OAuth */}
+            {!status && !onInstallClick && (
               <Button onClick={getAuthorizeRequirements}>
                 {isProcessing ? <LoadingSpinner /> : "Connect"}
               </Button>
