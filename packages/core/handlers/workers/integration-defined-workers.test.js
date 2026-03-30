@@ -159,6 +159,121 @@ describe('Webhook Queue Worker', () => {
         });
     });
 
+    describe('Non-retryable error classification (isHaltError for 4xx)', () => {
+        it('should mark 4xx FetchErrors as isHaltError so they are not retried', async () => {
+            const error = new Error('Bad Request');
+            error.statusCode = 400;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([]);
+        });
+
+        it('should mark 401 as isHaltError (token refresh already failed at requester level)', async () => {
+            const error = new Error('Unauthorized');
+            error.statusCode = 401;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([]);
+        });
+
+        it('should mark 402 as isHaltError (account suspended/trial expired)', async () => {
+            const error = new Error('Payment Required');
+            error.statusCode = 402;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([]);
+        });
+
+        it('should NOT mark 429 as isHaltError (rate limit may clear, worth retrying)', async () => {
+            const error = new Error('Too Many Requests');
+            error.statusCode = 429;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+
+        it('should NOT mark 500 as isHaltError (server may recover)', async () => {
+            const error = new Error('Internal Server Error');
+            error.statusCode = 500;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+
+        it('should NOT mark errors without statusCode as isHaltError (may be transient)', async () => {
+            const error = new Error('ECONNRESET');
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+    });
+
     describe('Integration Hydration for webhooks with integrationId', () => {
         it('should attempt to load integration when integrationId present', async () => {
             // This test verifies the logic path - full integration test
