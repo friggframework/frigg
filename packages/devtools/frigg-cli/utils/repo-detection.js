@@ -37,17 +37,70 @@ async function isFriggRepository(directory) {
             friggDependencies: []
         };
 
-        // Check for @friggframework dependencies
+        // Check for @friggframework/core v2.0+ specifically (REQUIRED for Frigg apps)
+        // Check both root package.json and backend/package.json for workspace projects
         const allDeps = {
             ...packageJson.dependencies,
-            ...packageJson.devDependencies,
-            ...packageJson.peerDependencies
+            ...packageJson.devDependencies
         };
 
+        // Check root package.json for core dependency
+        let coreVersion = allDeps['@friggframework/core'];
+        let hasFriggCore = coreVersion && (
+            coreVersion === 'next' ||
+            coreVersion.includes('2.0.0') ||
+            coreVersion.includes('next') ||
+            coreVersion.startsWith('^2.') ||
+            coreVersion.startsWith('~2.') ||
+            coreVersion.startsWith('2.')
+        );
+
+        // If not in root, check backend/package.json for workspace projects
+        if (!hasFriggCore) {
+            const backendPackagePath = path.join(directory, 'backend', 'package.json');
+            if (fs.existsSync(backendPackagePath)) {
+                try {
+                    const backendPackageJson = await fs.readJson(backendPackagePath);
+                    const backendDeps = {
+                        ...backendPackageJson.dependencies,
+                        ...backendPackageJson.devDependencies
+                    };
+                    coreVersion = backendDeps['@friggframework/core'];
+                    hasFriggCore = coreVersion && (
+                        coreVersion === 'next' ||
+                        coreVersion.includes('2.0.0') ||
+                        coreVersion.includes('next') ||
+                        coreVersion.startsWith('^2.') ||
+                        coreVersion.startsWith('~2.') ||
+                        coreVersion.startsWith('2.')
+                    );
+                } catch (error) {
+                    // Ignore errors reading backend package.json
+                }
+            }
+        }
+
+        if (hasFriggCore) {
+            indicators.hasFriggDependencies = true;
+            indicators.friggDependencies.push('@friggframework/core');
+        }
+
+        // Also track other Frigg dependencies for reference
         for (const dep in allDeps) {
-            if (dep.startsWith('@friggframework/')) {
-                indicators.hasFriggDependencies = true;
-                indicators.friggDependencies.push(dep);
+            if (dep.startsWith('@friggframework/') && dep !== '@friggframework/core') {
+                const version = allDeps[dep];
+                const isV2Plus = version && (
+                    version === 'next' ||
+                    version.includes('2.0.0') ||
+                    version.includes('next') ||
+                    version.startsWith('^2.') ||
+                    version.startsWith('~2.') ||
+                    version.startsWith('2.')
+                );
+
+                if (isV2Plus) {
+                    indicators.friggDependencies.push(dep);
+                }
             }
         }
 
@@ -136,42 +189,33 @@ async function isFriggRepository(directory) {
             }
         }
 
-        // A directory is considered a Frigg repo if it has:
-        // 1. Frigg dependencies (MANDATORY - most reliable indicator) OR
-        // 2. Frigg-specific configuration files OR
-        // 3. Frigg-specific directories OR
-        // 4. Frigg-specific scripts in package.json OR
-        // 5. Serverless config with explicit Frigg references AND proper structure
-        // 
-        // For Zapier apps, we require explicit Frigg indicators
-        const hasFriggIndicators = indicators.hasFriggDependencies || 
-                                  indicators.hasFriggConfig || 
-                                  indicators.hasFriggDirectories ||
-                                  indicators.hasFriggScripts ||
-                                  hasFriggServerlessIndicators;
+        // STRICT VALIDATION: A directory is considered a Frigg app repository ONLY if:
+        // 1. Has @friggframework/core v2.0+ as a direct dependency (MANDATORY)
+        // 2. Has actual Frigg app structure (index.js with Definition OR backend/serverless.yml)
+        // 3. Is NOT a framework package itself (no @friggframework/* package name)
 
-        // Determine if it's a Frigg repository
-        let isFriggRepo = false;
-        
-        if (isZapierApp) {
-            // For Zapier apps, require explicit Frigg dependencies or config
-            isFriggRepo = indicators.hasFriggDependencies || indicators.hasFriggConfig;
-        } else {
-            // For non-Zapier apps, any Frigg indicator is sufficient
-            isFriggRepo = hasFriggIndicators;
-        }
+        // Check for Frigg app structure indicators
+        const hasRootIndexJs = fs.existsSync(path.join(directory, 'index.js'));
+        const hasBackendIndexJs = fs.existsSync(path.join(directory, 'backend', 'index.js'));
+        const hasBackendServerless = fs.existsSync(path.join(directory, 'backend', 'serverless.yml'));
+        const hasAppStructure = hasRootIndexJs || hasBackendIndexJs || hasBackendServerless;
 
-        // Additional validation for edge cases
-        if (isZapierApp && !indicators.hasFriggDependencies && !indicators.hasFriggConfig) {
-            return { isFriggRepo: false, repoInfo: null };
-        }
+        // Determine if it's a Frigg repository with STRICT criteria
+        const isFriggRepo = indicators.hasFriggDependencies && hasAppStructure;
 
         if (isFriggRepo) {
+            // IMPORTANT: If backend/ has a Frigg app structure, use backend/ as the path
+            // This handles workspace projects where the actual app is in backend/
+            let actualPath = directory;
+            if (hasBackendIndexJs || hasBackendServerless) {
+                actualPath = path.join(directory, 'backend');
+            }
+
             return {
                 isFriggRepo: true,
                 repoInfo: {
                     name: packageJson.name || path.basename(directory),
-                    path: directory,
+                    path: actualPath,
                     version: packageJson.version,
                     framework: detectFramework(directory, existingFrontendDirs),
                     hasBackend: fs.existsSync(path.join(directory, 'backend')),
@@ -245,12 +289,16 @@ async function discoverFriggRepositories(options = {}) {
         searchPaths = [
             process.cwd(),
             path.join(os.homedir(), 'Documents'),
+            path.join(os.homedir(), 'Documents', 'GitHub'),  // Common GitHub Desktop location
             path.join(os.homedir(), 'Projects'),
             path.join(os.homedir(), 'Development'),
             path.join(os.homedir(), 'dev'),
-            path.join(os.homedir(), 'Code')
+            path.join(os.homedir(), 'Code'),
+            path.join(os.homedir(), 'GitHub'),  // Alternative GitHub location
+            path.join(os.homedir(), 'repos'),   // Common repos folder
+            path.join(os.homedir(), 'src')      // Common source folder
         ],
-        maxDepth = 3,
+        maxDepth = 4,  // Increased to handle deeper nested projects (e.g., org/apps/project)
         excludePatterns = ['node_modules', '.git', 'dist', 'build', '.next', 'coverage']
     } = options;
 

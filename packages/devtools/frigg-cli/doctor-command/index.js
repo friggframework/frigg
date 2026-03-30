@@ -12,8 +12,9 @@
  */
 
 const path = require('path');
+const output = require('../utils/output');
 const fs = require('fs');
-const { select } = require('@inquirer/prompts');
+// Using output.select from unified Output class (wraps @inquirer/prompts)
 const { CloudFormationClient, ListStacksCommand } = require('@aws-sdk/client-cloudformation');
 
 // Domain and Application Layer
@@ -160,9 +161,9 @@ function formatJsonOutput(report) {
 function writeOutputFile(content, filePath) {
     try {
         fs.writeFileSync(filePath, content, 'utf8');
-        console.log(`\n✓ Report saved to: ${filePath}`);
+        output.success(` Report saved to: ${filePath}`);
     } catch (error) {
-        console.error(`\n✗ Failed to write output file: ${error.message}`);
+        output.error(` Failed to write output file: ${error.message}`);
         process.exit(1);
     }
 }
@@ -204,17 +205,17 @@ async function listStacks(region) {
  * @returns {Promise<string>} Selected stack name
  */
 async function promptForStackSelection(region) {
-    console.log(`\n🔍 Fetching CloudFormation stacks in ${region}...`);
+    output.info(`🔍 Fetching CloudFormation stacks in ${region}...`);
 
     const stacks = await listStacks(region);
 
     if (stacks.length === 0) {
-        console.error(`\n✗ No CloudFormation stacks found in ${region}`);
-        console.log('  Make sure you have stacks deployed and the correct AWS credentials configured.');
+        output.error(` No CloudFormation stacks found in ${region}`);
+        output.log('  Make sure you have stacks deployed and the correct AWS credentials configured.');
         process.exit(1);
     }
 
-    console.log(`\n✓ Found ${stacks.length} stack(s)\n`);
+    output.success(` Found ${stacks.length} stack(s)\n`);
 
     // Create choices with stack name and metadata
     const choices = stacks.map(stack => {
@@ -230,7 +231,7 @@ async function promptForStackSelection(region) {
         };
     });
 
-    const selectedStack = await select({
+    const selectedStack = await output.select({
         message: 'Select a stack to run health check:',
         choices,
         pageSize: 15,
@@ -257,7 +258,7 @@ async function doctorCommand(stackName, options = {}) {
         }
 
         // Show progress to user (always, not just verbose mode)
-        console.log(`\n🏥 Running health check on stack: ${stackName} (${region})\n`);
+        output.info(`🏥 Running health check on stack: ${stackName} (${region})\n`);
 
         // 1. Create stack identifier
         const stackIdentifier = new StackIdentifier({ stackName, region });
@@ -281,9 +282,9 @@ async function doctorCommand(stackName, options = {}) {
         // Progress callback to show execution status
         const progressCallback = (step, message) => {
             if (verbose) {
-                console.log(`   ${message}`);
+                output.log(`   ${message}`);
             } else {
-                console.log(`${step} ${message}`);
+                output.log(`${step} ${message}`);
             }
         };
 
@@ -292,7 +293,7 @@ async function doctorCommand(stackName, options = {}) {
             onProgress: progressCallback
         });
 
-        console.log('✓ Health check complete!\n');
+        output.success(' Health check complete!\n');
 
         // 5. Format and output results
         if (format === 'json') {
@@ -301,11 +302,11 @@ async function doctorCommand(stackName, options = {}) {
             if (options.output) {
                 writeOutputFile(jsonOutput, options.output);
             } else {
-                console.log(jsonOutput);
+                output.log(jsonOutput);
             }
         } else {
             const consoleOutput = formatConsoleOutput(report, options);
-            console.log(consoleOutput);
+            output.log(consoleOutput);
 
             if (options.output) {
                 writeOutputFile(consoleOutput, options.output);
@@ -322,10 +323,10 @@ async function doctorCommand(stackName, options = {}) {
             process.exit(0);
         }
     } catch (error) {
-        console.error(`\n✗ Health check failed: ${error.message}`);
+        output.error(` Health check failed: ${error.message}`);
 
         if (options.verbose && error.stack) {
-            console.error(`\nStack trace:\n${error.stack}`);
+            output.error(`\nStack trace:\n${error.stack}`);
         }
 
         process.exit(1);

@@ -1,5 +1,8 @@
+const path = require('path');
+
 module.exports = {
   displayName: 'Frigg CLI Tests',
+  rootDir: __dirname,
   testMatch: [
     '<rootDir>/__tests__/**/*.test.js',
     '<rootDir>/__tests__/**/*.spec.js',
@@ -93,7 +96,7 @@ module.exports = {
     }
   },
   setupFilesAfterEnv: [
-    '<rootDir>/__tests__/utils/test-setup.js'
+    path.join(__dirname, '__tests__', 'utils', 'test-setup.js')
   ],
   testTimeout: 10000,
   maxWorkers: '50%',

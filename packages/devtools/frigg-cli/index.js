@@ -86,15 +86,23 @@ const { dbSetupCommand } = require('./db-setup-command');
 const { doctorCommand } = require('./doctor-command');
 const { repairCommand } = require('./repair-command');
 const { authCommand } = require('./auth-command');
+const { createValidateCommand } = require('./validate-command/adapters/cli/validate-command');
 
 const program = new Command();
 
+// Add version command using package.json version
+const packageJson = require('./package.json');
 program
-    .command('init [templateName]')
+    .version(packageJson.version, '-v, --version', 'output the current version');
+
+program
+    .command('init <projectName>')
     .description('Initialize a new Frigg application')
-    .option('-t, --template <template>', 'template to use', 'backend-only')
-    .option('-n, --name <name>', 'project name')
-    .option('-d, --directory <directory>', 'target directory')
+    .option('-m, --mode <mode>', 'deployment mode: standalone or embedded')
+    .option('-f, --force', 'overwrite existing files')
+    .option('--frontend <value>', 'include demo frontend (true/false)')
+    .option('-y, --yes', 'accept defaults without prompting')
+    .option('--verbose', 'enable verbose output')
     .action(initCommand);
 
 program
@@ -107,6 +115,8 @@ program
     .description('Run the backend and optional frontend')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .option('-v, --verbose', 'enable verbose output')
+    .option('--ipc', 'enable IPC mode for Management UI communication')
+    .option('--no-interactive', 'skip interactive pre-flight prompts')
     .action(startCommand);
 
 program
@@ -169,6 +179,8 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(repairCommand);
 
+createValidateCommand(program);
+
 // Auth command group for testing API module authentication
 const authProgram = program
     .command('auth')
@@ -203,6 +215,9 @@ authProgram
     .option('-y, --yes', 'Skip confirmation')
     .action(authCommand.delete);
 
-program.parse(process.argv);
+// Only parse arguments when run directly, not when imported by tests
+if (require.main === module) {
+    program.parse(process.argv);
+}
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand, createValidateCommand, program };

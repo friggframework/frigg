@@ -1,0 +1,10 @@
+# This directory is for custom API modules
+#
+# API modules define how to connect with external APIs.
+# Most integrations use published @friggframework/api-module-* packages.
+#
+# Only create custom API modules here if:
+# - You're integrating with a proprietary API
+# - No published module exists for your service
+#
+# Use 'frigg generate:api-module' to create new API modules

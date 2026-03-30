@@ -1,0 +1,7 @@
+# This directory contains utility functions and helpers
+#
+# Common utilities:
+# - Data transformation helpers
+# - Validation utilities
+# - Custom error classes
+# - Logging helpers
