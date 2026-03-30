@@ -12,7 +12,7 @@
  */
 
 const path = require('path');
-const readline = require('readline');
+const output = require('../utils/output');
 
 // Domain and Application Layer
 const StackIdentifier = require('../../infrastructure/domains/health/domain/value-objects/stack-identifier');
@@ -35,33 +35,6 @@ const { ImportTemplateGenerator } = require('../../infrastructure/domains/health
 const { ImportProgressMonitor } = require('../../infrastructure/domains/health/domain/services/import-progress-monitor');
 
 /**
- * Create readline interface for user prompts
- * @returns {readline.Interface}
- */
-function createReadlineInterface() {
-    return readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-    });
-}
-
-/**
- * Prompt user for confirmation
- * @param {string} question - Question to ask
- * @returns {Promise<boolean>} User confirmed
- */
-function confirm(question) {
-    const rl = createReadlineInterface();
-
-    return new Promise((resolve) => {
-        rl.question(`${question} (y/N): `, (answer) => {
-            rl.close();
-            resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
-        });
-    });
-}
-
-/**
  * Handle import repair operation using template comparison
  * @param {StackIdentifier} stackIdentifier - Stack identifier
  * @param {Object} report - Health check report
@@ -71,13 +44,13 @@ async function handleImportRepair(stackIdentifier, report, options) {
     const orphanedResources = report.getOrphanedResources();
 
     if (orphanedResources.length === 0) {
-        console.log('\n✓ No orphaned resources to import');
+        output.success(' No orphaned resources to import');
         return { imported: 0, failed: 0 };
     }
 
-    console.log(`\n📦 Found ${orphanedResources.length} orphaned resource(s) to import:`);
+    output.info(`📦 Found ${orphanedResources.length} orphaned resource(s) to import:`);
     orphanedResources.forEach((resource, idx) => {
-        console.log(`  ${idx + 1}. ${resource.resourceType} - ${resource.physicalId}`);
+        output.log(`  ${idx + 1}. ${resource.resourceType} - ${resource.physicalId}`);
     });
 
     // Check for build template
@@ -85,12 +58,12 @@ async function handleImportRepair(stackIdentifier, report, options) {
     const buildTemplateExists = TemplateParser.buildTemplateExists();
 
     if (!buildTemplateExists) {
-        console.log('\n⚠️  Build template not found. Generating sequential logical IDs (not recommended).');
-        console.log(`   Run one of the following to generate build template:`);
-        console.log(`     • serverless package`);
-        console.log(`     • frigg build`);
-        console.log(`     • frigg deploy --stage dev`);
-        console.log(`   Then run 'frigg repair --import ${stackIdentifier.stackName}' again for correct logical IDs.\n`);
+        output.warn('️  Build template not found. Generating sequential logical IDs (not recommended).');
+        output.log(`   Run one of the following to generate build template:`);
+        output.log(`     • serverless package`);
+        output.log(`     • frigg build`);
+        output.log(`     • frigg deploy --stage dev`);
+        output.log(`   Then run 'frigg repair --import ${stackIdentifier.stackName}' again for correct logical IDs.\n`);
 
         // Fallback to sequential IDs (old behavior)
         const resourcesToImport = orphanedResources.map((resource, idx) => ({
@@ -100,9 +73,9 @@ async function handleImportRepair(stackIdentifier, report, options) {
         }));
 
         if (!options.yes) {
-            const confirmed = await confirm(`\nImport ${orphanedResources.length} orphaned resource(s) with sequential IDs?`);
+            const confirmed = await output.confirm(`\nImport ${orphanedResources.length} orphaned resource(s) with sequential IDs?`);
             if (!confirmed) {
-                console.log('Import cancelled by user');
+                output.log('Import cancelled');
                 return { imported: 0, failed: 0, cancelled: true };
             }
         }
@@ -111,20 +84,20 @@ async function handleImportRepair(stackIdentifier, report, options) {
         const resourceImporter = new AWSResourceImporter({ region: stackIdentifier.region });
         const repairUseCase = new RepairViaImportUseCase({ resourceDetector, resourceImporter });
 
-        console.log('\n🔧 Importing resources with sequential IDs...');
+        output.info('🔧 Importing resources with sequential IDs...');
         const importResult = await repairUseCase.importMultipleResources({
             stackIdentifier,
             resources: resourcesToImport,
         });
 
         if (importResult.success) {
-            console.log(`\n✓ Successfully imported ${importResult.importedCount} resource(s)`);
+            output.success(` Successfully imported ${importResult.importedCount} resource(s)`);
         } else {
-            console.log(`\n✗ Import failed: ${importResult.message}`);
+            output.log(`\n✗ Import failed: ${importResult.message}`);
             if (importResult.validationErrors && importResult.validationErrors.length > 0) {
-                console.log('\nValidation errors:');
+                output.log('\nValidation errors:');
                 importResult.validationErrors.forEach((error) => {
-                    console.log(`  • ${error.logicalId}: ${error.reason}`);
+                    output.log(`  • ${error.logicalId}: ${error.reason}`);
                 });
             }
         }
@@ -137,9 +110,9 @@ async function handleImportRepair(stackIdentifier, report, options) {
     }
 
     // Use template comparison to find correct logical IDs
-    console.log(`\n🔍 Analyzing templates to map orphaned resources to correct logical IDs...`);
-    console.log(`   Build template: ${buildTemplatePath}`);
-    console.log(`   Deployed template: CloudFormation (via AWS API)`);
+    output.info(`🔍 Analyzing templates to map orphaned resources to correct logical IDs...`);
+    output.log(`   Build template: ${buildTemplatePath}`);
+    output.log(`   Deployed template: CloudFormation (via AWS API)`);
 
     // Wire up use case with template comparison
     const stackRepository = new AWSStackRepository({ region: stackIdentifier.region });
@@ -159,31 +132,31 @@ async function handleImportRepair(stackIdentifier, report, options) {
     });
 
     if (!mappingResult.success) {
-        console.log(`\n✗ Mapping failed: ${mappingResult.message}`);
+        output.log(`\n✗ Mapping failed: ${mappingResult.message}`);
         return { imported: 0, failed: 0, success: false };
     }
 
     // Display mapping results
-    console.log(`\n✅ Successfully mapped ${mappingResult.mappedCount} resource(s) to logical IDs:`);
+    output.success(` Successfully mapped ${mappingResult.mappedCount} resource(s) to logical IDs:`);
     mappingResult.mappings.forEach((mapping) => {
-        console.log(`  • ${mapping.logicalId} ← ${mapping.physicalId} (${mapping.matchMethod}, ${mapping.confidence} confidence)`);
+        output.log(`  • ${mapping.logicalId} ← ${mapping.physicalId} (${mapping.matchMethod}, ${mapping.confidence} confidence)`);
     });
 
     if (mappingResult.unmappedCount > 0) {
-        console.log(`\n⚠️  Could not map ${mappingResult.unmappedCount} resource(s):`);
+        output.warn(`️  Could not map ${mappingResult.unmappedCount} resource(s):`);
         mappingResult.unmappedResources.forEach((resource) => {
-            console.log(`  • ${resource.resourceType} - ${resource.physicalId}`);
+            output.log(`  • ${resource.resourceType} - ${resource.physicalId}`);
         });
     }
 
     // Display warnings for multiple resources of same type
     if (mappingResult.warnings && mappingResult.warnings.length > 0) {
-        console.log(`\n⚠️  Warnings:`);
+        output.warn(`️  Warnings:`);
         mappingResult.warnings.forEach((warning) => {
-            console.log(`  • ${warning.message}`);
+            output.log(`  • ${warning.message}`);
             if (warning.type === 'MULTIPLE_RESOURCES') {
                 warning.resources.forEach((res) => {
-                    console.log(`      - ${res.logicalId} ← ${res.physicalId} (${res.matchMethod}, ${res.confidence})`);
+                    output.log(`      - ${res.logicalId} ← ${res.physicalId} (${res.matchMethod}, ${res.confidence})`);
                 });
             }
         });
@@ -191,20 +164,20 @@ async function handleImportRepair(stackIdentifier, report, options) {
 
     // Confirm with user (unless --yes flag)
     if (!options.yes) {
-        console.log(`\n📋 The following will be imported into CloudFormation:`);
+        output.info(`📋 The following will be imported into CloudFormation:`);
         mappingResult.resourcesToImport.forEach((resource) => {
-            console.log(`  • ${resource.LogicalResourceId} (${resource.ResourceType})`);
+            output.log(`  • ${resource.LogicalResourceId} (${resource.ResourceType})`);
         });
 
-        const confirmed = await confirm(`\nProceed with import of ${mappingResult.mappedCount} resource(s)?`);
+        const confirmed = await output.confirm(`\nProceed with import of ${mappingResult.mappedCount} resource(s)?`);
         if (!confirmed) {
-            console.log('Import cancelled by user');
+            output.log('Import cancelled');
             return { imported: 0, failed: 0, cancelled: true };
         }
     }
 
     // Execute actual CloudFormation import operation
-    console.log(`\n🔧 Preparing CloudFormation import operation...`);
+    output.info(`🔧 Preparing CloudFormation import operation...`);
 
     // Wire up ExecuteResourceImportUseCase
     const templateParser = new TemplateParser();
@@ -237,38 +210,38 @@ async function handleImportRepair(stackIdentifier, report, options) {
         buildTemplatePath,
         onProgress: (progress) => {
             if (progress.step === 'generate_template' && progress.status === 'in_progress') {
-                console.log('  • Generating import template...');
+                output.log('  • Generating import template...');
             } else if (progress.step === 'generate_template' && progress.status === 'complete') {
-                console.log('  ✓ Template generated');
+                output.log('  ✓ Template generated');
             } else if (progress.step === 'create_change_set' && progress.status === 'in_progress') {
-                console.log('  • Creating CloudFormation change set...');
+                output.log('  • Creating CloudFormation change set...');
             } else if (progress.step === 'create_change_set' && progress.status === 'complete') {
-                console.log(`  ✓ Change set created: ${progress.changeSetName}`);
+                output.log(`  ✓ Change set created: ${progress.changeSetName}`);
             } else if (progress.step === 'wait_change_set' && progress.status === 'in_progress') {
-                console.log('  • Waiting for change set...');
+                output.log('  • Waiting for change set...');
             } else if (progress.step === 'wait_change_set' && progress.status === 'complete') {
-                console.log('  ✓ Change set ready');
+                output.log('  ✓ Change set ready');
             } else if (progress.step === 'execute_import' && progress.status === 'in_progress') {
                 if (progress.resourceProgress) {
                     const { logicalId, status, progress: resourceProgress, total } = progress.resourceProgress;
-                    console.log(`  • Importing resource ${resourceProgress}/${total}: ${logicalId} (${status})`);
+                    output.log(`  • Importing resource ${resourceProgress}/${total}: ${logicalId} (${status})`);
                 } else {
-                    console.log('  • Executing import operation...');
+                    output.log('  • Executing import operation...');
                 }
             } else if (progress.step === 'execute_import' && progress.status === 'complete') {
-                console.log('  ✓ Import operation complete');
+                output.log('  ✓ Import operation complete');
             } else if (progress.step === 'verify' && progress.status === 'in_progress') {
-                console.log('  • Verifying imported resources...');
+                output.log('  • Verifying imported resources...');
             } else if (progress.step === 'verify' && progress.status === 'complete') {
-                console.log('  ✓ Verification complete');
+                output.log('  ✓ Verification complete');
             }
         },
     });
 
     if (importResult.success) {
-        console.log(`\n✅ Successfully imported ${importResult.importedCount} resource(s) into CloudFormation!`);
-        console.log(`   Stack status: ${importResult.stackStatus}`);
-        console.log(`   Change set: ${importResult.changeSetName}`);
+        output.success(` Successfully imported ${importResult.importedCount} resource(s) into CloudFormation!`);
+        output.log(`   Stack status: ${importResult.stackStatus}`);
+        output.log(`   Change set: ${importResult.changeSetName}`);
 
         return {
             imported: importResult.importedCount,
@@ -276,8 +249,8 @@ async function handleImportRepair(stackIdentifier, report, options) {
             success: true,
         };
     } else {
-        console.error(`\n❌ Import operation failed: ${importResult.error}`);
-        console.error(`   Failed at step: ${importResult.step}`);
+        output.error(` Import operation failed: ${importResult.error}`);
+        output.error(`   Failed at step: ${importResult.step}`);
 
         return {
             imported: 0,
@@ -298,7 +271,7 @@ async function handleReconcileRepair(stackIdentifier, report, options) {
     const driftedResources = report.getDriftedResources();
 
     if (driftedResources.length === 0) {
-        console.log('\n✓ No property drift to reconcile');
+        output.success(' No property drift to reconcile');
         return { reconciled: 0, failed: 0 };
     }
 
@@ -311,12 +284,12 @@ async function handleReconcileRepair(stackIdentifier, report, options) {
         totalMismatches += issues.length;
     });
 
-    console.log(`\n🔧 Found ${driftedResources.length} drifted resource(s) with ${totalMismatches} property mismatch(es):`);
+    output.info(`🔧 Found ${driftedResources.length} drifted resource(s) with ${totalMismatches} property mismatch(es):`);
     driftedResources.forEach((resource) => {
         const issues = report.issues.filter(
             (issue) => issue.type === 'PROPERTY_MISMATCH' && issue.resourceId === resource.physicalId
         );
-        console.log(`  • ${resource.logicalId} (${resource.resourceType}): ${issues.length} mismatch(es)`);
+        output.log(`  • ${resource.logicalId} (${resource.resourceType}): ${issues.length} mismatch(es)`);
     });
 
     // Determine mode (template or resource)
@@ -325,14 +298,14 @@ async function handleReconcileRepair(stackIdentifier, report, options) {
         ? 'Update CloudFormation template to match actual resource state'
         : 'Update cloud resources to match CloudFormation template';
 
-    console.log(`\nReconciliation mode: ${mode}`);
-    console.log(`  ${modeDescription}`);
+    output.log(`\nReconciliation mode: ${mode}`);
+    output.log(`  ${modeDescription}`);
 
     // Confirm with user (unless --yes flag)
     if (!options.yes) {
-        const confirmed = await confirm(`\nReconcile ${totalMismatches} property mismatch(es) in ${mode} mode?`);
+        const confirmed = await output.confirm(`\nReconcile ${totalMismatches} property mismatch(es) in ${mode} mode?`);
         if (!confirmed) {
-            console.log('Reconciliation cancelled by user');
+            output.log('Reconciliation cancelled');
             return { reconciled: 0, failed: 0, cancelled: true };
         }
     }
@@ -346,7 +319,7 @@ async function handleReconcileRepair(stackIdentifier, report, options) {
     const reconcileUseCase = new ReconcilePropertiesUseCase({ propertyReconciler });
 
     // Execute reconciliation for each drifted resource
-    console.log('\n🔧 Reconciling property drift...');
+    output.info('🔧 Reconciling property drift...');
     let reconciledCount = 0;
     let failedCount = 0;
     let skippedImmutableCount = 0;
@@ -391,56 +364,56 @@ async function handleReconcileRepair(stackIdentifier, report, options) {
                 });
             }
 
-            console.log(`  ✓ ${resource.logicalId}: Reconciled ${result.reconciledCount} property(ies)`);
+            output.log(`  ✓ ${resource.logicalId}: Reconciled ${result.reconciledCount} property(ies)`);
             if (result.skippedCount > 0) {
-                console.log(`    ⚠ Skipped ${result.skippedCount} immutable property(ies) - requires manual intervention`);
+                output.log(`    ⚠ Skipped ${result.skippedCount} immutable property(ies) - requires manual intervention`);
             }
 
             // Debug: Log full result if reconciledCount is 0 but we expected properties
             if (process.env.DEBUG_RECONCILE && result.reconciledCount === 0 && mismatches.length > 0) {
-                console.log(`    [DEBUG] Expected ${mismatches.length} mismatches, got result:`, JSON.stringify(result, null, 2));
+                output.log(`    [DEBUG] Expected ${mismatches.length} mismatches, got result:`, JSON.stringify(result, null, 2));
             }
         } catch (error) {
             // Count failed properties, not just the resource
             failedCount += mismatches.length;
-            console.log(`  ✗ ${resource.logicalId}: ${error.message}`);
+            output.log(`  ✗ ${resource.logicalId}: ${error.message}`);
 
             // Debug: Log full error
             if (process.env.DEBUG_RECONCILE) {
-                console.log(`    [DEBUG] Error stack:`, error.stack);
+                output.log(`    [DEBUG] Error stack:`, error.stack);
             }
         }
     }
 
     // Report results
-    console.log(''); // Blank line before summary
+    output.log(''); // Blank line before summary
 
     if (reconciledCount > 0) {
-        console.log(`✅ Reconciled ${reconciledCount} property(ies)`);
+        output.log(`✅ Reconciled ${reconciledCount} property(ies)`);
     }
 
     if (skippedImmutableCount > 0) {
-        console.log(`\n⚠ ${skippedImmutableCount} immutable property(ies) require manual intervention:`);
+        output.warn(` ${skippedImmutableCount} immutable property(ies) require manual intervention:`);
         immutableProperties.forEach(prop => {
-            console.log(`  • ${prop.logicalId}.${prop.propertyPath}`);
-            console.log(`    Template: ${JSON.stringify(prop.expectedValue)}`);
-            console.log(`    Actual:   ${JSON.stringify(prop.actualValue)}`);
+            output.log(`  • ${prop.logicalId}.${prop.propertyPath}`);
+            output.log(`    Template: ${JSON.stringify(prop.expectedValue)}`);
+            output.log(`    Actual:   ${JSON.stringify(prop.actualValue)}`);
         });
 
-        console.log(`\n💡 To resolve immutable property drift:`);
-        console.log(`   1. These properties require resource replacement (cannot be updated in place)`);
-        console.log(`   2. Options:`);
-        console.log(`      a) Accept the drift - update your local template to match actual values`);
-        console.log(`      b) Replace the resource - delete and recreate via CloudFormation`);
-        console.log(`      c) Use import workflow - remove from stack, then re-import with correct values`);
-        console.log(`\n   For automated import workflow (coming soon):`);
-        console.log(`      frigg repair --import-drift ${stackIdentifier.stackName}`);
+        output.info(`💡 To resolve immutable property drift:`);
+        output.log(`   1. These properties require resource replacement (cannot be updated in place)`);
+        output.log(`   2. Options:`);
+        output.log(`      a) Accept the drift - update your local template to match actual values`);
+        output.log(`      b) Replace the resource - delete and recreate via CloudFormation`);
+        output.log(`      c) Use import workflow - remove from stack, then re-import with correct values`);
+        output.log(`\n   For automated import workflow (coming soon):`);
+        output.log(`      frigg repair --import-drift ${stackIdentifier.stackName}`);
     }
 
     if (failedCount === 0 && skippedImmutableCount === 0) {
-        console.log(`✓ Successfully reconciled all ${reconciledCount} property mismatch(es)`);
+        output.log(`✓ Successfully reconciled all ${reconciledCount} property mismatch(es)`);
     } else {
-        console.log(`\n⚠ Reconciled ${reconciledCount} property(ies), ${failedCount} failed`);
+        output.warn(` Reconciled ${reconciledCount} property(ies), ${failedCount} failed`);
     }
 
     return { reconciled: reconciledCount, failed: failedCount, success: failedCount === 0 };
@@ -455,19 +428,19 @@ async function repairCommand(stackName, options = {}) {
     try {
         // Validate required parameter
         if (!stackName) {
-            console.error('Error: Stack name is required');
-            console.log('Usage: frigg repair [options] <stack-name>');
-            console.log('Options:');
-            console.log('  --import      Import orphaned resources');
-            console.log('  --reconcile   Reconcile property drift');
-            console.log('  --yes         Skip confirmation prompts');
+            output.error('Error: Stack name is required');
+            output.log('Usage: frigg repair [options] <stack-name>');
+            output.log('Options:');
+            output.log('  --import      Import orphaned resources');
+            output.log('  --reconcile   Reconcile property drift');
+            output.log('  --yes         Skip confirmation prompts');
             process.exit(1);
         }
 
         // Validate at least one repair operation is selected
         if (!options.import && !options.reconcile) {
-            console.error('Error: At least one repair operation must be specified (--import or --reconcile)');
-            console.log('Usage: frigg repair [options] <stack-name>');
+            output.error('Error: At least one repair operation must be specified (--import or --reconcile)');
+            output.log('Usage: frigg repair [options] <stack-name>');
             process.exit(1);
         }
 
@@ -475,13 +448,13 @@ async function repairCommand(stackName, options = {}) {
         const region = options.region || process.env.AWS_REGION || 'us-east-1';
         const verbose = options.verbose || false;
 
-        console.log(`\n🏥 Running Frigg Repair on stack: ${stackName} (${region})`);
+        output.info(`🏥 Running Frigg Repair on stack: ${stackName} (${region})`);
 
         // 1. Create stack identifier
         const stackIdentifier = new StackIdentifier({ stackName, region });
 
         // 2. Run health check first to identify issues
-        console.log('\n🔍 Running health check to identify issues...');
+        output.info('🔍 Running health check to identify issues...');
 
         const stackRepository = new AWSStackRepository({ region });
         const resourceDetector = new AWSResourceDetector({ region });
@@ -497,8 +470,8 @@ async function repairCommand(stackName, options = {}) {
 
         const report = await runHealthCheckUseCase.execute({ stackIdentifier });
 
-        console.log(`\nHealth Score: ${report.healthScore.value}/100 (${report.healthScore.qualitativeAssessment()})`);
-        console.log(`Issues: ${report.getIssueCount()} total (${report.getCriticalIssueCount()} critical)`);
+        output.log(`\nHealth Score: ${report.healthScore.value}/100 (${report.healthScore.qualitativeAssessment()})`);
+        output.log(`Issues: ${report.getIssueCount()} total (${report.getCriticalIssueCount()} critical)`);
 
         // 3. Execute requested repair operations
         const results = {
@@ -524,24 +497,24 @@ async function repairCommand(stackName, options = {}) {
         }
 
         // 4. Final summary
-        console.log('\n' + '═'.repeat(80));
-        console.log('Repair Summary:');
+        output.log('\n' + '═'.repeat(80));
+        output.log('Repair Summary:');
         if (options.import) {
-            console.log(`  Imported:    ${results.imported} resource(s)`);
+            output.log(`  Imported:    ${results.imported} resource(s)`);
         }
         if (options.reconcile) {
-            console.log(`  Reconciled:  ${results.reconciled} property(ies)`);
+            output.log(`  Reconciled:  ${results.reconciled} property(ies)`);
         }
-        console.log(`  Failed:      ${results.failed}`);
-        console.log('═'.repeat(80));
+        output.log(`  Failed:      ${results.failed}`);
+        output.log('═'.repeat(80));
 
         // Run health check again to verify repairs
-        console.log('\n🔍 Running health check to verify repairs...');
+        output.info('🔍 Running health check to verify repairs...');
         const verifyReport = await runHealthCheckUseCase.execute({ stackIdentifier });
-        console.log(`\nNew Health Score: ${verifyReport.healthScore.value}/100 (${verifyReport.healthScore.qualitativeAssessment()})`);
+        output.log(`\nNew Health Score: ${verifyReport.healthScore.value}/100 (${verifyReport.healthScore.qualitativeAssessment()})`);
 
         if (verifyReport.healthScore.value > report.healthScore.value) {
-            console.log(`\n✓ Health improved by ${verifyReport.healthScore.value - report.healthScore.value} points!`);
+            output.success(` Health improved by ${verifyReport.healthScore.value - report.healthScore.value} points!`);
         }
 
         // 5. Exit with appropriate code
@@ -551,10 +524,10 @@ async function repairCommand(stackName, options = {}) {
             process.exit(0);
         }
     } catch (error) {
-        console.error(`\n✗ Repair failed: ${error.message}`);
+        output.error(` Repair failed: ${error.message}`);
 
         if (options.verbose && error.stack) {
-            console.error(`\nStack trace:\n${error.stack}`);
+            output.error(`\nStack trace:\n${error.stack}`);
         }
 
         process.exit(1);

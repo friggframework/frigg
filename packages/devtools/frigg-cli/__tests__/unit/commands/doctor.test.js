@@ -3,8 +3,6 @@
  * Tests stack listing, selection, and health check orchestration
  */
 
-const { describe, test, expect, jest, beforeEach } = require('@jest/globals');
-
 describe('Doctor Command - Stack Listing and Selection', () => {
     let mockCloudFormationClient;
     let mockSelect;

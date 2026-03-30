@@ -1,7 +1,6 @@
 const { execSync } = require('child_process');
 const axios = require('axios');
-const { logError } = require('./logger');
-const { checkbox } = require('@inquirer/prompts');
+const output = require('../utils/output');
 
 async function searchPackages(apiModuleName) {
     const searchCommand = `npm search @friggframework/api-module-${apiModuleName} --json`;
@@ -31,7 +30,7 @@ const searchAndSelectPackage = async (apiModuleName) => {
     const searchResults = await searchPackages(apiModuleName || '');
 
     if (searchResults.length === 0) {
-        logError(`No packages found matching ${apiModuleName}`);
+        output.error(`No packages found matching ${apiModuleName}`);
         process.exit(1);
     }
 
@@ -44,7 +43,7 @@ const searchAndSelectPackage = async (apiModuleName) => {
         const earlierVersions = searchResults
             .map((pkg) => `${pkg.name} (${pkg.version})`)
             .join(', ');
-        logError(
+        output.error(
             `No packages found with version 1.0.0 or above for ${apiModuleName}. Found earlier versions: ${earlierVersions}`
         );
         process.exit(1);
@@ -58,11 +57,8 @@ const searchAndSelectPackage = async (apiModuleName) => {
         };
     });
 
-    const selectedPackages = await checkbox({
-        message: 'Select the packages to install:',
-        choices,
-    });
-    console.log('Selected packages:', selectedPackages);
+    const selectedPackages = await output.checkbox('Select the packages to install:', choices);
+    output.info(`Selected packages: ${selectedPackages.join(', ')}`);
 
     return selectedPackages.map((choice) => choice.split(' ')[0]);
 };
