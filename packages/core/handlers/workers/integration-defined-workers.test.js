@@ -217,6 +217,25 @@ describe('Webhook Queue Worker', () => {
             expect(result.batchItemFailures).toEqual([]);
         });
 
+        it('should NOT mark 408 as isHaltError (request timeout is transient)', async () => {
+            const error = new Error('Request Timeout');
+            error.statusCode = 408;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+
         it('should NOT mark 429 as isHaltError (rate limit may clear, worth retrying)', async () => {
             const error = new Error('Too Many Requests');
             error.statusCode = 429;
