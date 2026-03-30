@@ -1500,10 +1500,9 @@ describe('VpcBuilder', () => {
                 }
             };
             
-            // Discovery results matching ACTUAL Frontify production stack
             const discoveredResources = {
                 fromCloudFormationStack: true,
-                stackName: 'create-frigg-app-production',
+                stackName: 'frigg-app-production',
                 existingLogicalIds: [
                     'FriggLambdaRouteTable',
                     'FriggNATRoute',  // OLD naming
@@ -1566,10 +1565,9 @@ describe('VpcBuilder', () => {
         });
 
         it('should convert OLD logical IDs to structured discovery stackManaged array', () => {
-            // TDD test: Verify that VPCEndpointS3 in existingLogicalIds gets added to stackManaged
             const flatDiscovery = {
                 fromCloudFormationStack: true,
-                stackName: 'create-frigg-app-production',
+                stackName: 'frigg-app-production',
                 existingLogicalIds: [
                     'VPCEndpointS3',        // OLD naming
                     'VPCEndpointDynamoDB',  // OLD naming

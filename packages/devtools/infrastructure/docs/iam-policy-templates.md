@@ -160,7 +160,7 @@ Consider separate policies for different environments:
 ### Validation
 Test your policy by deploying a simple Frigg app:
 ```bash
-npx create-frigg-app test-deployment
+frigg init test-deployment
 cd test-deployment
 frigg deploy
 ```

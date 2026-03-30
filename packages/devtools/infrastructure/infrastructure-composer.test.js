@@ -157,7 +157,7 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            expect(result.service).toBe('create-frigg-app');
+            expect(result.service).toBe('frigg-app');
         });
 
         it('should use custom provider when specified', async () => {
@@ -1859,7 +1859,7 @@ describe('composeServerlessDefinition', () => {
 
             await expect(composeServerlessDefinition(appDefinition)).resolves.not.toThrow();
             const result = await composeServerlessDefinition(appDefinition);
-            expect(result.service).toBe('create-frigg-app');
+            expect(result.service).toBe('frigg-app');
         });
 
         it('should handle null/undefined integrations', async () => {

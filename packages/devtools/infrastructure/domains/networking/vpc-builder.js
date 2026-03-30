@@ -977,7 +977,7 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         // Ensure subnet associations
-        this.ensureSubnetAssociations(appDefinition, discoveredResources, result);
+        this.ensureSubnetAssociations(appDefinition, {}, result);
 
         // Create endpoints
         if (endpointsToCreate.includes('s3')) {

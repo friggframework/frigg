@@ -165,7 +165,7 @@ function createBaseDefinition(
 
     return {
         frameworkVersion: '>=3.17.0',
-        service: AppDefinition.name || 'create-frigg-app',
+        service: AppDefinition.name || 'frigg-app',
         package: {
             individually: true,
         },
@@ -309,6 +309,15 @@ function createBaseDefinition(
                 events: [
                     { httpApi: { path: '/health', method: 'GET' } },
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
+                ],
+            },
+            docs: {
+                handler: 'node_modules/@friggframework/core/handlers/routers/docs.handler',
+                skipEsbuild: true,
+                package: skipEsbuildPackageConfig,
+                events: [
+                    { httpApi: { path: '/api/docs', method: 'GET' } },
+                    { httpApi: { path: '/api/openapi.json', method: 'GET' } },
                 ],
             },
             // Note: dbMigrate removed - MigrationBuilder now handles migration infrastructure
