@@ -20,6 +20,25 @@
       "enum": ["aws"],
       "default": "aws"
     },
+    "label": {
+      "type": "string",
+      "description": "Human-readable display name for the application",
+      "minLength": 1,
+      "maxLength": 200,
+      "examples": ["My Frigg Application", "Customer Portal Integrations"]
+    },
+    "managementMode": {
+      "type": "string",
+      "description": "Infrastructure management mode: 'managed' lets Frigg manage resources, 'discover' uses existing resources, 'custom' for manual configuration",
+      "enum": ["managed", "discover", "custom"],
+      "default": "managed"
+    },
+    "vpcIsolation": {
+      "type": "string",
+      "description": "VPC isolation strategy: 'isolated' creates separate VPC per stage, 'shared' reuses VPC across stages",
+      "enum": ["isolated", "shared"],
+      "default": "isolated"
+    },
     "environment": {
       "type": "object",
       "description": "Environment variable configuration (key: true/false flags)",

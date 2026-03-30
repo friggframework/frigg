@@ -37,6 +37,8 @@
   "files": [
     "schemas/",
     "validators/",
+    "mocks/",
+    "middleware/",
     "index.js"
   ]
 }
