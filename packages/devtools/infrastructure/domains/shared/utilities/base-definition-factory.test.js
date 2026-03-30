@@ -30,10 +30,10 @@ describe('Base Definition Factory', () => {
             expect(result.provider.stage).toBe('${opt:stage}');
         });
 
-        it('should default service name to create-frigg-app', () => {
+        it('should default service name to frigg-app', () => {
             const result = createBaseDefinition({}, {}, {});
 
-            expect(result.service).toBe('create-frigg-app');
+            expect(result.service).toBe('frigg-app');
         });
 
         it('should use custom provider if specified', () => {

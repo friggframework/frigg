@@ -162,8 +162,8 @@ class CloudFormationDiscovery {
                         // Extract subnet IDs from route table associations
                         const associations = routeTable.Associations || [];
                         const subnetAssociations = associations.filter(a => a.SubnetId);
-                        discovered.routeTableAssociationCount = subnetAssociations.length;
-
+                        
+                        
                         if (subnetAssociations.length >= 1 && !discovered.privateSubnetId1) {
                             discovered.privateSubnetId1 = subnetAssociations[0].SubnetId;
                             console.log(`  ✓ Extracted private subnet 1 from associations: ${subnetAssociations[0].SubnetId}`);
@@ -562,33 +562,24 @@ class CloudFormationDiscovery {
                             .map(a => a.SubnetId);
                         
                         console.log(`  Route table has ${associatedSubnetIds.length} associated subnets: ${associatedSubnetIds.join(', ')}`);
-                        discovered.routeTableAssociationCount = associatedSubnetIds.length;
-
+                        
                         // Use the associated subnets if available
                         if (associatedSubnetIds.length >= 2) {
                             discovered.privateSubnetId1 = associatedSubnetIds[0];
                             discovered.privateSubnetId2 = associatedSubnetIds[1];
                             console.log(`  ✓ Extracted subnets from route table associations: ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
                         } else if (associatedSubnetIds.length === 1) {
-                            // Only 1 associated subnet, use another private subnet from VPC as backup
+                            // Only 1 associated subnet, use another subnet from VPC as backup
                             discovered.privateSubnetId1 = associatedSubnetIds[0];
-                            const otherPrivateSubnet = subnetsResponse.Subnets.find(
-                                s => s.SubnetId !== associatedSubnetIds[0] && !s.MapPublicIpOnLaunch
-                            );
-                            discovered.privateSubnetId2 = otherPrivateSubnet?.SubnetId;
+                            discovered.privateSubnetId2 = subnetsResponse.Subnets.find(s => s.SubnetId !== associatedSubnetIds[0])?.SubnetId;
                             console.log(`  ✓ Extracted subnets (1 from route table, 1 fallback): ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
                         } else if (subnetsResponse.Subnets.length >= 2) {
-                            // Route table has 0 associations — pick private subnets from VPC
-                            const privateSubnets = subnetsResponse.Subnets.filter(s => !s.MapPublicIpOnLaunch);
-                            if (privateSubnets.length >= 2) {
-                                discovered.privateSubnetId1 = privateSubnets[0].SubnetId;
-                                discovered.privateSubnetId2 = privateSubnets[1].SubnetId;
-                                console.log(`  ✓ Using private subnets from VPC (route table Associations empty): ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
-                            } else {
-                                discovered.privateSubnetId1 = subnetsResponse.Subnets[0].SubnetId;
-                                discovered.privateSubnetId2 = subnetsResponse.Subnets[1].SubnetId;
-                                console.warn('  ⚠️  Could not identify private subnets by MapPublicIpOnLaunch, using first 2 VPC subnets');
-                            }
+                            // Edge case: route table Associations array is empty even when queried by ID
+                            // This can happen when associations exist in CloudFormation but AWS API doesn't return them
+                            // Fallback: Use first 2 subnets from VPC (all subnets in same VPC should work)
+                            discovered.privateSubnetId1 = subnetsResponse.Subnets[0].SubnetId;
+                            discovered.privateSubnetId2 = subnetsResponse.Subnets[1].SubnetId;
+                            console.log(`  ✓ Using first 2 subnets from VPC (route table Associations empty): ${discovered.privateSubnetId1}, ${discovered.privateSubnetId2}`);
                         }
                     }
                 }

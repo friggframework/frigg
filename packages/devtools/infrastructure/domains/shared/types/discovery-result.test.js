@@ -219,7 +219,7 @@ describe('Discovery Result Utilities', () => {
                 ],
                 external: [],
                 fromCloudFormation: true,
-                stackName: 'create-frigg-app-production'
+                stackName: 'frigg-app-production'
             };
 
             expect(discovery.fromCloudFormation).toBe(true);

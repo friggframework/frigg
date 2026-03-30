@@ -746,7 +746,7 @@ describe('VpcResourceResolver', () => {
                 ],
                 external: [],
                 fromCloudFormation: true,
-                stackName: 'create-frigg-app-production'
+                stackName: 'frigg-app-production'
             };
 
             const decisions = resolver.resolveAll(appDefinition, discovery);

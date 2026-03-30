@@ -12,18 +12,12 @@ jest.mock('../networking/vpc-discovery');
 jest.mock('../security/kms-discovery');
 jest.mock('../database/aurora-discovery');
 jest.mock('../parameters/ssm-discovery');
-jest.mock('./cloudformation-discovery');
-jest.mock('@aws-sdk/client-ec2', () => ({
-    AssociateRouteTableCommand: jest.fn().mockImplementation((params) => params),
-}));
 
 const { CloudProviderFactory } = require('./providers/provider-factory');
 const { VpcDiscovery } = require('../networking/vpc-discovery');
 const { KmsDiscovery } = require('../security/kms-discovery');
 const { AuroraDiscovery } = require('../database/aurora-discovery');
 const { SsmDiscovery } = require('../parameters/ssm-discovery');
-const { CloudFormationDiscovery } = require('./cloudformation-discovery');
-const { AssociateRouteTableCommand } = require('@aws-sdk/client-ec2');
 
 describe('Resource Discovery', () => {
     let mockProvider;
@@ -37,7 +31,6 @@ describe('Resource Discovery', () => {
         delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
         delete process.env.CLOUD_PROVIDER;
         delete process.env.AWS_REGION;
-        delete process.env.SLS_STAGE;
 
         // Create mock provider
         mockProvider = {
@@ -71,9 +64,6 @@ describe('Resource Discovery', () => {
         };
 
         // Mock factory and discovery constructors
-        CloudFormationDiscovery.mockImplementation(() => ({
-            discoverFromStack: jest.fn().mockResolvedValue(null),
-        }));
         CloudProviderFactory.create = jest.fn().mockReturnValue(mockProvider);
         VpcDiscovery.mockImplementation(() => mockVpcDiscovery);
         KmsDiscovery.mockImplementation(() => mockKmsDiscovery);
@@ -387,6 +377,8 @@ describe('Resource Discovery', () => {
         });
 
         it('should default stage to dev', async () => {
+            delete process.env.SLS_STAGE;
+
             const appDefinition = {
                 vpc: { enable: true },
             };
@@ -419,6 +411,8 @@ describe('Resource Discovery', () => {
                     stage: 'qa',
                 })
             );
+
+            delete process.env.SLS_STAGE;
         });
 
         it('should recognize routing infrastructure as useful data', async () => {
@@ -429,7 +423,8 @@ describe('Resource Discovery', () => {
 
             process.env.SLS_STAGE = 'production';
 
-            CloudFormationDiscovery.mockImplementation(() => ({
+            // Mock CloudFormation discovery to return routing infrastructure but no VPC resource
+            const mockCloudFormationDiscovery = {
                 discoverFromStack: jest.fn().mockResolvedValue({
                     fromCloudFormationStack: true,
                     routeTableId: 'rtb-123',
@@ -439,13 +434,20 @@ describe('Resource Discovery', () => {
                         dynamodb: 'vpce-ddb'
                     },
                     existingLogicalIds: ['FriggLambdaRouteTable', 'FriggNATRoute']
+                    // NO defaultVpcId, NO defaultKmsKeyId, NO auroraClusterId
                 })
-            }));
+            };
+
+            const { CloudFormationDiscovery } = require('./cloudformation-discovery');
+            CloudFormationDiscovery.mockImplementation(() => mockCloudFormationDiscovery);
 
             const result = await gatherDiscoveredResources(appDefinition);
 
+            // Should use CloudFormation data without falling back to AWS API
             expect(result.routeTableId).toBe('rtb-123');
             expect(result.vpcEndpoints.s3).toBe('vpce-s3');
+            
+            // Should NOT call AWS API discovery
             expect(mockVpcDiscovery.discover).not.toHaveBeenCalled();
         });
 
@@ -466,8 +468,11 @@ describe('Resource Discovery', () => {
 
     describe('Isolated Mode Discovery', () => {
         beforeEach(() => {
+            // Mock CloudFormation discovery
+            jest.mock('./cloudformation-discovery');
+            const { CloudFormationDiscovery } = require('./cloudformation-discovery');
             CloudFormationDiscovery.mockImplementation(() => ({
-                discoverFromStack: jest.fn().mockResolvedValue({}),
+                discoverFromStack: jest.fn().mockResolvedValue({}), // No stack found
             }));
         });
 
@@ -501,6 +506,12 @@ describe('Resource Discovery', () => {
         });
 
         it('should return empty if no KMS found in isolated mode (fresh infrastructure)', async () => {
+            const { CloudFormationDiscovery } = require('./cloudformation-discovery');
+
+            // Mock that CF stack exists but we still want fresh resources
+            CloudFormationDiscovery.mockImplementation(() => ({
+                discoverFromStack: jest.fn().mockResolvedValue({}), // Stack exists but empty
+            }));
 
             const appDefinition = {
                 name: 'test-app',
@@ -573,185 +584,5 @@ describe('Resource Discovery', () => {
             });
         });
     });
-
-    describe('VPC Self-Heal', () => {
-        let mockEc2Send;
-
-        beforeEach(() => {
-            AssociateRouteTableCommand.mockClear();
-            mockEc2Send = jest.fn().mockResolvedValue({ AssociationId: 'rtbassoc-new-123' });
-
-            CloudFormationDiscovery.mockImplementation(() => ({
-                discoverFromStack: jest.fn().mockResolvedValue({
-                    fromCloudFormationStack: true,
-                    routeTableId: 'rtb-123',
-                    routeTableAssociationCount: 0,
-                    privateSubnetId1: 'subnet-priv-1',
-                    privateSubnetId2: 'subnet-priv-2',
-                    defaultVpcId: 'vpc-123',
-                }),
-            }));
-
-            mockProvider.getEC2Client = jest.fn().mockReturnValue({
-                send: mockEc2Send,
-            });
-        });
-
-        it('should self-heal when route table has 0 associations and selfHeal is enabled', async () => {
-            const appDefinition = {
-                name: 'test-app',
-                vpc: { enable: true, selfHeal: true },
-            };
-
-            process.env.SLS_STAGE = 'production';
-
-            const result = await gatherDiscoveredResources(appDefinition);
-
-            expect(mockEc2Send).toHaveBeenCalledTimes(2);
-            expect(AssociateRouteTableCommand).toHaveBeenCalledWith({
-                RouteTableId: 'rtb-123',
-                SubnetId: 'subnet-priv-1',
-            });
-            expect(AssociateRouteTableCommand).toHaveBeenCalledWith({
-                RouteTableId: 'rtb-123',
-                SubnetId: 'subnet-priv-2',
-            });
-            expect(result.routeTableId).toBe('rtb-123');
-        });
-
-        it('should only associate private subnets with lambda route table (not public subnet)', async () => {
-            // Simulates CF discovery output for: 3 subnets in VPC (1 public, 2 private),
-            // IGW route table has all 3, Frigg lambda route table has 0 associations.
-            // CF discovery already filtered by !MapPublicIpOnLaunch, so only private IDs arrive here.
-            CloudFormationDiscovery.mockImplementation(() => ({
-                discoverFromStack: jest.fn().mockResolvedValue({
-                    fromCloudFormationStack: true,
-                    routeTableId: 'rtb-lambda',
-                    routeTableAssociationCount: 0,
-                    privateSubnetId1: 'subnet-priv-1',
-                    privateSubnetId2: 'subnet-priv-2',
-                    defaultVpcId: 'vpc-123',
-                }),
-            }));
-
-            const appDefinition = {
-                name: 'test-app',
-                vpc: { enable: true, selfHeal: true },
-            };
-
-            process.env.SLS_STAGE = 'production';
-
-            await gatherDiscoveredResources(appDefinition);
-
-            // Self-heal should associate ONLY the 2 private subnets
-            expect(mockEc2Send).toHaveBeenCalledTimes(2);
-            expect(AssociateRouteTableCommand).toHaveBeenCalledWith({
-                RouteTableId: 'rtb-lambda',
-                SubnetId: 'subnet-priv-1',
-            });
-            expect(AssociateRouteTableCommand).toHaveBeenCalledWith({
-                RouteTableId: 'rtb-lambda',
-                SubnetId: 'subnet-priv-2',
-            });
-
-            // Public subnet (subnet-public) should never appear in any AssociateRouteTableCommand call
-            const allCalls = AssociateRouteTableCommand.mock.calls.map(c => c[0].SubnetId);
-            expect(allCalls).not.toContain('subnet-public');
-        });
-
-        it('should not self-heal when selfHeal is disabled', async () => {
-            const appDefinition = {
-                name: 'test-app',
-                vpc: { enable: true, selfHeal: false },
-            };
-
-            process.env.SLS_STAGE = 'production';
-
-            await gatherDiscoveredResources(appDefinition);
-
-            expect(mockEc2Send).not.toHaveBeenCalled();
-        });
-
-        it('should not self-heal when routeTableAssociationCount is not 0', async () => {
-            CloudFormationDiscovery.mockImplementation(() => ({
-                discoverFromStack: jest.fn().mockResolvedValue({
-                    fromCloudFormationStack: true,
-                    routeTableId: 'rtb-123',
-                    routeTableAssociationCount: 2,
-                    privateSubnetId1: 'subnet-priv-1',
-                    privateSubnetId2: 'subnet-priv-2',
-                    defaultVpcId: 'vpc-123',
-                }),
-            }));
-
-            const appDefinition = {
-                name: 'test-app',
-                vpc: { enable: true, selfHeal: true },
-            };
-
-            process.env.SLS_STAGE = 'production';
-
-            await gatherDiscoveredResources(appDefinition);
-
-            expect(mockEc2Send).not.toHaveBeenCalled();
-        });
-
-        it('should continue associating subnet 2 if subnet 1 fails', async () => {
-            mockEc2Send
-                .mockRejectedValueOnce(new Error('Resource.AlreadyAssociated'))
-                .mockResolvedValueOnce({ AssociationId: 'rtbassoc-456' });
-
-            const appDefinition = {
-                name: 'test-app',
-                vpc: { enable: true, selfHeal: true },
-            };
-
-            process.env.SLS_STAGE = 'production';
-
-            const result = await gatherDiscoveredResources(appDefinition);
-
-            expect(mockEc2Send).toHaveBeenCalledTimes(2);
-            expect(result.routeTableId).toBe('rtb-123');
-        });
-
-        it('should handle both subnet associations failing gracefully', async () => {
-            mockEc2Send.mockRejectedValue(new Error('AccessDenied'));
-
-            const appDefinition = {
-                name: 'test-app',
-                vpc: { enable: true, selfHeal: true },
-            };
-
-            process.env.SLS_STAGE = 'production';
-
-            const result = await gatherDiscoveredResources(appDefinition);
-
-            expect(mockEc2Send).toHaveBeenCalledTimes(2);
-            expect(result.routeTableId).toBe('rtb-123');
-        });
-
-        it('should not self-heal when privateSubnetId2 is missing', async () => {
-            CloudFormationDiscovery.mockImplementation(() => ({
-                discoverFromStack: jest.fn().mockResolvedValue({
-                    fromCloudFormationStack: true,
-                    routeTableId: 'rtb-123',
-                    routeTableAssociationCount: 0,
-                    privateSubnetId1: 'subnet-priv-1',
-                    // privateSubnetId2 missing
-                    defaultVpcId: 'vpc-123',
-                }),
-            }));
-
-            const appDefinition = {
-                name: 'test-app',
-                vpc: { enable: true, selfHeal: true },
-            };
-
-            process.env.SLS_STAGE = 'production';
-
-            await gatherDiscoveredResources(appDefinition);
-
-            expect(mockEc2Send).not.toHaveBeenCalled();
-        });
-    });
 });
+
