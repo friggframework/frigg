@@ -14,11 +14,7 @@ integrationClasses.forEach((IntegrationClass) => {
             isUserFacingResponse: false,
             method: async (event, context) => {
                 const worker = new defaultQueueWorker();
-                await worker.run(event, context);
-                return {
-                    message: 'Successfully processed the Generic Queue Worker',
-                    input: event,
-                };
+                return await worker.run(event, context);
             },
         }),
     };

@@ -103,7 +103,7 @@ describe('Webhook Queue Worker', () => {
     });
 
     describe('Error Handling', () => {
-        it('should throw error if ON_WEBHOOK handler fails', async () => {
+        it('should report failed record in batchItemFailures instead of throwing', async () => {
             const FailingIntegration = class extends TestWebhookIntegration {
                 async onWebhook({ data }) {
                     throw new Error('Processing failed');
@@ -119,10 +119,11 @@ describe('Webhook Queue Worker', () => {
             };
 
             const sqsEvent = {
-                Records: [{ body: JSON.stringify(params) }],
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
             };
 
-            await expect(failingWorker.run(sqsEvent, {})).rejects.toThrow('Processing failed');
+            const result = await failingWorker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
         });
 
         it('should log errors with integration context', async () => {
@@ -143,10 +144,12 @@ describe('Webhook Queue Worker', () => {
             };
 
             const sqsEvent = {
-                Records: [{ body: JSON.stringify(params) }],
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
             };
 
-            await expect(failingWorker.run(sqsEvent, {})).rejects.toThrow();
+            const result = await failingWorker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
+            // Error is logged by createQueueWorker._run with integration context
             expect(consoleSpy).toHaveBeenCalledWith(
                 expect.stringContaining('Error in ON_WEBHOOK for test-webhook'),
                 expect.any(Error)
@@ -175,9 +178,9 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            // This will fail trying to load the integration from DB
-            // but it proves the code path is attempted
-            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+            // Will fail trying to load integration from DB — reported in batchItemFailures
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
         });
 
         it('should discard message gracefully when integration no longer exists', async () => {
@@ -243,9 +246,9 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            // Should attempt to load integration (will fail DB call in test env)
-            // This proves the hydration path is taken for non-webhook events
-            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+            // Will fail DB call — reported in batchItemFailures
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
         });
 
         it('should prioritize processId over integrationId for hydration', async () => {
@@ -264,8 +267,9 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            // Should use processId path (will fail trying to load process from DB)
-            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+            // Will fail processId path — reported in batchItemFailures
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
         });
 
         it('should hydrate for custom events with integrationId', async () => {
@@ -284,8 +288,9 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            // Should hydrate for ANY event type with integrationId
-            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+            // Will fail DB call — reported in batchItemFailures
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
         });
 
         it('should create unhydrated instance when no processId or integrationId', async () => {
