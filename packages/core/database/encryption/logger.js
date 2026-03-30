@@ -30,8 +30,9 @@ class EncryptionLogger {
         // Remove potential key material or encrypted data from logs
         if (typeof message === 'string') {
             // Truncate long base64 strings that might be keys or encrypted data
-            return message.replace(/([A-Za-z0-9+/=]{50,})/g, (match) =>
-                `${match.substring(0, 10)}...[${match.length} chars]`
+            return message.replace(
+                /([A-Za-z0-9+/=]{50,})/g,
+                (match) => `${match.substring(0, 10)}...[${match.length} chars]`
             );
         }
         return message;

@@ -2,9 +2,7 @@ const { Requester } = require('./requester');
 const { get } = require('../../assertions');
 const { ModuleConstants } = require('../ModuleConstants');
 
-
 class ApiKeyRequester extends Requester {
-
     static requesterType = ModuleConstants.authType.apiKey;
 
     constructor(params) {

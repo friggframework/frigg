@@ -7,15 +7,18 @@ jest.mock('../../database/config', () => ({
 
 const mockFindExecute = jest.fn();
 
-jest.mock('../../integrations/use-cases/find-integration-context-by-external-entity-id', () => {
-    return {
-        FindIntegrationContextByExternalEntityIdUseCase: jest
-            .fn()
-            .mockImplementation(() => ({
-                execute: mockFindExecute,
-            })),
-    };
-});
+jest.mock(
+    '../../integrations/use-cases/find-integration-context-by-external-entity-id',
+    () => {
+        return {
+            FindIntegrationContextByExternalEntityIdUseCase: jest
+                .fn()
+                .mockImplementation(() => ({
+                    execute: mockFindExecute,
+                })),
+        };
+    }
+);
 
 const {
     createIntegrationCommands,
@@ -24,7 +27,9 @@ const {
 const {
     FindIntegrationContextByExternalEntityIdUseCase,
 } = require('../../integrations/use-cases/find-integration-context-by-external-entity-id');
-const { DummyIntegration } = require('../../integrations/tests/doubles/dummy-integration-class');
+const {
+    DummyIntegration,
+} = require('../../integrations/tests/doubles/dummy-integration-class');
 
 describe('integration commands', () => {
     beforeEach(() => {
@@ -34,7 +39,7 @@ describe('integration commands', () => {
 
     it('requires an integrationClass when creating commands', () => {
         expect(() => createIntegrationCommands()).toThrow(
-            'integrationClass is required',
+            'integrationClass is required'
         );
     });
 
@@ -45,7 +50,7 @@ describe('integration commands', () => {
 
         // Verify that the use case is created with default repositories instantiated internally
         expect(
-            FindIntegrationContextByExternalEntityIdUseCase,
+            FindIntegrationContextByExternalEntityIdUseCase
         ).toHaveBeenCalledWith({
             integrationRepository: expect.any(Object),
             moduleRepository: expect.any(Object),
@@ -61,7 +66,7 @@ describe('integration commands', () => {
         });
 
         const result = await commands.findIntegrationContextByExternalEntityId(
-            'ext-1',
+            'ext-1'
         );
 
         expect(mockFindExecute).toHaveBeenCalledWith({
@@ -80,7 +85,7 @@ describe('integration commands', () => {
         });
 
         const result = await commands.findIntegrationContextByExternalEntityId(
-            'ext-1',
+            'ext-1'
         );
 
         expect(result).toEqual({
@@ -100,7 +105,9 @@ describe('integration commands', () => {
         // The actual use case will be called - this is more of an integration test
         // For unit testing, we'd need to refactor to allow DI of the use case
         // But since we've decided to always use default use cases, this is acceptable
-        const result = await commands.loadIntegrationContextById('integration-1');
+        const result = await commands.loadIntegrationContextById(
+            'integration-1'
+        );
 
         // Result will have error since we don't have a real database
         expect(result).toHaveProperty('error');
@@ -139,7 +146,9 @@ describe('integration commands', () => {
             });
 
             // Will fail since no real database, but verifies the method exists and is wired up
-            const result = await commands.deleteIntegrationById('integration-123');
+            const result = await commands.deleteIntegrationById(
+                'integration-123'
+            );
 
             // Expect error since no real DB connection
             expect(result).toHaveProperty('error');

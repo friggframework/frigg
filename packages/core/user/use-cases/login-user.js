@@ -1,7 +1,5 @@
 const Boom = require('@hapi/boom');
-const {
-    RequiredPropertyError,
-} = require('../../errors');
+const { RequiredPropertyError } = require('../../errors');
 const { User } = require('../user');
 
 /**
@@ -93,11 +91,11 @@ class LoginUser {
             }
         }
 
-
         if (this.userConfig.organizationUserRequired) {
-
             const organizationUserData =
-                await this.userRepository.findOrganizationUserByAppOrgId(appOrgId);
+                await this.userRepository.findOrganizationUserByAppOrgId(
+                    appOrgId
+                );
 
             if (!organizationUserData) {
                 throw Boom.unauthorized(`org user ${appOrgId} not found`);
@@ -115,8 +113,10 @@ class LoginUser {
             return organizationUser;
         }
 
-        throw new Error('User configuration must require either individualUserRequired or organizationUserRequired');
+        throw new Error(
+            'User configuration must require either individualUserRequired or organizationUserRequired'
+        );
     }
 }
 
-module.exports = { LoginUser }; 
+module.exports = { LoginUser };

@@ -27,4 +27,4 @@ class CreateTokenForUserId {
     }
 }
 
-module.exports = { CreateTokenForUserId }; 
+module.exports = { CreateTokenForUserId };

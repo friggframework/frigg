@@ -2,19 +2,39 @@
  * Tests for MongoDB Schema Initialization
  */
 
-const mockEnsureCollectionsExist = jest.fn().mockResolvedValue(undefined);
-const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
-    'User', 'Token', 'Credential', 'Entity', 'Integration',
-    'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
-    'Association', 'AssociationObject', 'State', 'WebsocketConnection'
-]);
+const {
+    initializeMongoDBSchema,
+    getPrismaCollections,
+} = require('./mongodb-schema-init');
 
-const mockConfig = {
-    DB_TYPE: 'mongodb',
+// Mock dependencies
+const mockMongoose = {
+    connection: {
+        readyState: 1, // connected
+    },
 };
 
-jest.mock('../prisma', () => ({
-    prisma: { $runCommandRaw: jest.fn().mockResolvedValue({ ok: 1 }) },
+const mockEnsureCollectionsExist = jest.fn().mockResolvedValue(undefined);
+const mockGetCollectionsFromSchemaSync = jest
+    .fn()
+    .mockReturnValue([
+        'User',
+        'Token',
+        'Credential',
+        'Entity',
+        'Integration',
+        'IntegrationMapping',
+        'Process',
+        'Sync',
+        'DataIdentifier',
+        'Association',
+        'AssociationObject',
+        'State',
+        'WebsocketConnection',
+    ]);
+
+jest.mock('../mongoose', () => ({
+    mongoose: mockMongoose,
 }));
 
 jest.mock('./mongodb-collection-utils', () => ({
@@ -25,28 +45,36 @@ jest.mock('./prisma-schema-parser', () => ({
     getCollectionsFromSchemaSync: mockGetCollectionsFromSchemaSync,
 }));
 
-jest.mock('../config', () => mockConfig);
+const mockConfig = {
+    DB_TYPE: 'mongodb',
+};
 
-const { prisma: mockPrisma } = require('../prisma');
-const {
-    initializeMongoDBSchema,
-    getPrismaCollections,
-} = require('./mongodb-schema-init');
+jest.mock('../config', () => mockConfig);
 
 describe('MongoDB Schema Initialization', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockConfig.DB_TYPE = 'mongodb';
-        mockPrisma.$runCommandRaw.mockResolvedValue({ ok: 1 });
+        mockMongoose.connection.readyState = 1;
         console.log = jest.fn();
         console.error = jest.fn();
         console.warn = jest.fn();
 
         // Reset mock to default return value
         mockGetCollectionsFromSchemaSync.mockReturnValue([
-            'User', 'Token', 'Credential', 'Entity', 'Integration',
-            'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
-            'Association', 'AssociationObject', 'State', 'WebsocketConnection'
+            'User',
+            'Token',
+            'Credential',
+            'Entity',
+            'Integration',
+            'IntegrationMapping',
+            'Process',
+            'Sync',
+            'DataIdentifier',
+            'Association',
+            'AssociationObject',
+            'State',
+            'WebsocketConnection',
         ]);
     });
 
@@ -56,12 +84,24 @@ describe('MongoDB Schema Initialization', () => {
 
             expect(mockGetCollectionsFromSchemaSync).toHaveBeenCalled();
             expect(mockEnsureCollectionsExist).toHaveBeenCalledWith([
-                'User', 'Token', 'Credential', 'Entity', 'Integration',
-                'IntegrationMapping', 'Process', 'Sync', 'DataIdentifier',
-                'Association', 'AssociationObject', 'State', 'WebsocketConnection'
+                'User',
+                'Token',
+                'Credential',
+                'Entity',
+                'Integration',
+                'IntegrationMapping',
+                'Process',
+                'Sync',
+                'DataIdentifier',
+                'Association',
+                'AssociationObject',
+                'State',
+                'WebsocketConnection',
             ]);
             expect(console.log).toHaveBeenCalledWith(
-                expect.stringContaining('MongoDB-compatible schema initialization complete')
+                expect.stringContaining(
+                    'MongoDB-compatible schema initialization complete'
+                )
             );
         });
 
@@ -76,16 +116,8 @@ describe('MongoDB Schema Initialization', () => {
             );
         });
 
-        it('should initialize for DocumentDB', async () => {
-            mockConfig.DB_TYPE = 'documentdb';
-
-            await initializeMongoDBSchema();
-
-            expect(mockEnsureCollectionsExist).toHaveBeenCalled();
-        });
-
         it('should throw error if database not connected', async () => {
-            mockPrisma.$runCommandRaw.mockRejectedValueOnce(new Error('Connection refused'));
+            mockMongoose.connection.readyState = 0; // disconnected
 
             await expect(initializeMongoDBSchema()).rejects.toThrow(
                 'Cannot initialize MongoDB schema - database not connected'
@@ -98,7 +130,9 @@ describe('MongoDB Schema Initialization', () => {
             const error = new Error('Connection lost');
             mockEnsureCollectionsExist.mockRejectedValueOnce(error);
 
-            await expect(initializeMongoDBSchema()).rejects.toThrow('Connection lost');
+            await expect(initializeMongoDBSchema()).rejects.toThrow(
+                'Connection lost'
+            );
             expect(console.error).toHaveBeenCalledWith(
                 'Failed to initialize MongoDB schema:',
                 'Connection lost'

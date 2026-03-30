@@ -18,7 +18,8 @@ describe('TriggerDatabaseMigrationUseCase', () => {
         originalEnv = process.env.DB_MIGRATION_QUEUE_URL;
 
         // Set test environment
-        process.env.DB_MIGRATION_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
+        process.env.DB_MIGRATION_QUEUE_URL =
+            'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 
         // Create mock repository
         mockMigrationStatusRepository = {
@@ -105,7 +106,7 @@ describe('TriggerDatabaseMigrationUseCase', () => {
                 success: true,
                 migrationId: 'migration-123',
                 state: 'INITIALIZING',
-                statusUrl: '/db-migrate/migration-123',
+                statusUrl: '/admin/db-migrate/migration-123',
                 s3Key: expect.stringContaining('migrations/'),
                 message: 'Database migration queued successfully',
             });
@@ -221,7 +222,9 @@ describe('TriggerDatabaseMigrationUseCase', () => {
                     dbType: 'postgresql',
                     stage: 'production',
                 })
-            ).rejects.toThrow('DB_MIGRATION_QUEUE_URL environment variable is not set');
+            ).rejects.toThrow(
+                'DB_MIGRATION_QUEUE_URL environment variable is not set'
+            );
         });
 
         it('should update process to FAILED if queue send fails', async () => {
@@ -246,7 +249,9 @@ describe('TriggerDatabaseMigrationUseCase', () => {
         });
 
         it('should handle migration status creation failure', async () => {
-            mockMigrationStatusRepository.create.mockRejectedValue(new Error('S3 error'));
+            mockMigrationStatusRepository.create.mockRejectedValue(
+                new Error('S3 error')
+            );
 
             await expect(
                 useCase.execute({
@@ -270,4 +275,3 @@ describe('TriggerDatabaseMigrationUseCase', () => {
         });
     });
 });
-

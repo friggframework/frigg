@@ -88,9 +88,9 @@ class TestEncryptionUseCase {
         return {
             externalId: 'test-encryption-entity',
             data: {
-                access_token: testData.testSecret,      // Encrypted field
+                access_token: testData.testSecret, // Encrypted field
                 refresh_token: testData.nestedSecret?.value, // Encrypted field
-                domain: testData.normalField,           // Not encrypted
+                domain: testData.normalField, // Not encrypted
             },
         };
     }
@@ -203,8 +203,7 @@ class TestEncryptionUseCase {
         ) {
             return {
                 status: 'enabled',
-                testResult:
-                    'Encryption and decryption verified successfully',
+                testResult: 'Encryption and decryption verified successfully',
                 encryptionWorks: true,
             };
         }

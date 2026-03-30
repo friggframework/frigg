@@ -9,15 +9,11 @@ describe('Prisma Encryption Extension', () => {
         mockCryptor = {
             encrypt: jest
                 .fn()
-                .mockImplementation(
-                    (value) => `encrypted:${value}:iv:enckey`
-                ),
-            decrypt: jest
-                .fn()
-                .mockImplementation((value) => {
-                    const parts = value.split(':');
-                    return parts[1]; // Extract original value
-                }),
+                .mockImplementation((value) => `encrypted:${value}:iv:enckey`),
+            decrypt: jest.fn().mockImplementation((value) => {
+                const parts = value.split(':');
+                return parts[1]; // Extract original value
+            }),
         };
 
         // Mock Prisma query function
@@ -230,7 +226,9 @@ describe('Prisma Encryption Extension', () => {
                     update: { data: { access_token: 'updatesecret' } },
                     mockResult: {
                         id: '1',
-                        data: { access_token: 'encrypted:createsecret:iv:enckey' },
+                        data: {
+                            access_token: 'encrypted:createsecret:iv:enckey',
+                        },
                     },
                 };
 
@@ -241,8 +239,12 @@ describe('Prisma Encryption Extension', () => {
                     query: mockQuery,
                 });
 
-                expect(mockCryptor.encrypt).toHaveBeenCalledWith('createsecret');
-                expect(mockCryptor.encrypt).toHaveBeenCalledWith('updatesecret');
+                expect(mockCryptor.encrypt).toHaveBeenCalledWith(
+                    'createsecret'
+                );
+                expect(mockCryptor.encrypt).toHaveBeenCalledWith(
+                    'updatesecret'
+                );
             });
         });
 
@@ -293,11 +295,15 @@ describe('Prisma Encryption Extension', () => {
                     mockResult: [
                         {
                             id: '1',
-                            data: { access_token: 'encrypted:secret1:iv:enckey' },
+                            data: {
+                                access_token: 'encrypted:secret1:iv:enckey',
+                            },
                         },
                         {
                             id: '2',
-                            data: { access_token: 'encrypted:secret2:iv:enckey' },
+                            data: {
+                                access_token: 'encrypted:secret2:iv:enckey',
+                            },
                         },
                     ],
                 };

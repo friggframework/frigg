@@ -1,241 +1,241 @@
-declare module "@friggframework/module-plugin" {
-  import { Delegate, IFriggDelegate } from "@friggframework/core";
+declare module '@friggframework/module-plugin' {
+    import { Model } from 'mongoose';
+    import { Delegate, IFriggDelegate } from '@friggframework/core';
 
-  export interface Credential {
-    id?: string;
-    userId?: string;
-    authIsValid?: boolean;
-    externalId?: string;
-    data?: any;
-  }
+    export class Credential extends Model {
+        userId: string;
+        authIsValid: boolean;
+        externalId: string;
+    }
 
-  export interface Entity {
-    id?: string;
-    credentialId?: string;
-    userId?: string;
-    name?: string;
-    moduleName?: string;
-    externalId?: string;
-    data?: any;
-  }
+    interface IFriggEntityManager {}
 
-  export type MappedEntity = Entity & { id: string; type: any };
+    export class Entity extends Model {
+        credentialId: string;
+        userId: string;
+        name: string;
+        externalId: string;
+    }
 
+    export type MappedEntity = Entity & { id: string; type: any };
 
-  export class Requester implements IFriggRequester {
-    DLGT_INVALID_AUTH: string;
-    backOff: number[];
-    fetch: any;
-    isRefreshable: boolean;
-    refreshCount: number;
+    export class Requester implements IFriggRequester {
+        DLGT_INVALID_AUTH: string;
+        backOff: number[];
+        fetch: any;
+        isRefreshable: boolean;
+        refreshCount: number;
 
-    _delete(options: RequestOptions): Promise<any>;
-    _get(options: RequestOptions): Promise<any>;
-    _patch(options: RequestOptions): Promise<any>;
-    _post(options: RequestOptions, stringify?: boolean): Promise<any>;
-    _put(options: RequestOptions): Promise<any>;
-    _request(
-      url: string,
-      options: Omit<RequestOptions, "url">,
-      i?: number
-    ): Promise<any>;
-    parseBody(response: any): Promise<any>;
-    refreshAuth(): Promise<any>;
+        _delete(options: RequestOptions): Promise<any>;
+        _get(options: RequestOptions): Promise<any>;
+        _patch(options: RequestOptions): Promise<any>;
+        _post(options: RequestOptions, stringify?: boolean): Promise<any>;
+        _put(options: RequestOptions): Promise<any>;
+        _request(
+            url: string,
+            options: Omit<RequestOptions, 'url'>,
+            i?: number
+        ): Promise<any>;
+        parseBody(response: any): Promise<any>;
+        refreshAuth(): Promise<any>;
 
-    delegate: any;
-    delegateTypes: any[];
+        delegate: any;
+        delegateTypes: any[];
 
-    notify(delegateString: string, object?: any): Promise<any>;
-    receiveNotification(
-      notifier: any,
-      delegateString: string,
-      object?: any
-    ): Promise<any>;
-  }
+        notify(delegateString: string, object?: any): Promise<any>;
+        receiveNotification(
+            notifier: any,
+            delegateString: string,
+            object?: any
+        ): Promise<any>;
+    }
 
-  interface IFriggRequester extends IFriggDelegate {
-    backOff: number[];
-    isRefreshable: boolean;
-    refreshCount: number;
-    DLGT_INVALID_AUTH: string;
-    fetch: any;
+    interface IFriggRequester extends IFriggDelegate {
+        backOff: number[];
+        isRefreshable: boolean;
+        refreshCount: number;
+        DLGT_INVALID_AUTH: string;
+        fetch: any;
 
-    parseBody(response: any): Promise<any>;
-    _request(
-      url: string,
-      options: Omit<RequestOptions, "url">,
-      i?: number
-    ): Promise<any>;
-    _get(options: RequestOptions): Promise<any>;
-    _post(options: RequestOptions, stringify?: boolean): Promise<any>;
-    _patch(options: RequestOptions): Promise<any>;
-    _put(options: RequestOptions): Promise<any>;
-    _delete(options: RequestOptions): Promise<any>;
-    refreshAuth(): Promise<any>;
-  }
+        parseBody(response: any): Promise<any>;
+        _request(
+            url: string,
+            options: Omit<RequestOptions, 'url'>,
+            i?: number
+        ): Promise<any>;
+        _get(options: RequestOptions): Promise<any>;
+        _post(options: RequestOptions, stringify?: boolean): Promise<any>;
+        _patch(options: RequestOptions): Promise<any>;
+        _put(options: RequestOptions): Promise<any>;
+        _delete(options: RequestOptions): Promise<any>;
+        refreshAuth(): Promise<any>;
+    }
 
-  type RequestOptions = {
-    url: string;
-    headers?: object;
-    query?: object;
-    returnFullRes?: boolean;
-    body?: any;
-  };
-
-  type RequesterConstructor = {
-    backOff?: number[];
-    fetch?: any;
-  };
-
-  export class ApiKeyRequester
-    extends Requester
-    implements IFriggApiKeyRequester {
-    API_KEY_NAME: string;
-    API_KEY_VALUE: any;
-
-    constructor(params: RequesterConstructor);
-    addAuthHeaders(headers: object): Promise<object>;
-    isAuthenticated(): boolean;
-    setApiKey(api_key: any): void;
-  }
-
-  interface IFriggApiKeyRequester extends IFriggRequester {
-    API_KEY_NAME: string;
-    API_KEY_VALUE: string;
-
-    addAuthHeaders(headers: object): Promise<object>;
-    isAuthenticated(): boolean;
-    setApiKey(api_key: string): void;
-  }
-
-  export class BasicAuthRequester
-    extends Requester
-    implements IFriggBasicAuthRequester {
-    password: string;
-    username: string;
-
-    constructor(params: BasicAuthRequesterConstructor);
-    addAuthHeaders(headers: object): Promise<object>;
-    isAuthenticated(): boolean;
-    setPassword(password: string): void;
-    setUsername(username: string): void;
-  }
-
-  interface IFriggBasicAuthRequester extends IFriggRequester {
-    username: string;
-    password: string;
-
-    addAuthHeaders(headers: object): Promise<object>;
-    isAuthenticated(): boolean;
-    setUsername(username: string): void;
-    setPassword(password: string): void;
-  }
-
-  type BasicAuthRequesterConstructor = RequesterConstructor & {
-    username?: string;
-    password?: string;
-  };
-
-  export class OAuth2Requester
-    extends Requester
-    implements IFriggOAuth2Requester {
-    DLGT_TOKEN_DEAUTHORIZED: string;
-    DLGT_TOKEN_UPDATE: string;
-    accessTokenExpire: any;
-    access_token: string;
-    audience: any;
-    authorizationUri: any;
-    baseURL: string;
-    client_id: string;
-    client_secret: string;
-    grant_type: string;
-    password: string;
-    redirect_uri: string;
-    refreshTokenExpire: any;
-    refresh_token: string;
-    scope: string;
-    state: any;
-    username: string;
-
-    constructor(params: OAuth2RequesterConstructor);
-
-    addAuthHeaders(headers: object): Promise<object>;
-    getAuthorizationUri(): string;
-    getTokenFromClientCredentials(): Promise<Token>;
-    getTokenFromCode(code: string): Promise<Token>;
-    getTokenFromCodeBasicAuthHeader(code: string): Promise<Token>;
-    getTokenFromUsernamePassword(): Promise<Token>;
-    isAuthenticated(): boolean;
-    refreshAccessToken(refreshTokenObject: {
-      refresh_token: string;
-    }): Promise<Token>;
-    setTokens(params: Token): Promise<void>;
-  }
-  interface IFriggOAuth2Requester extends IFriggRequester {
-    DLGT_TOKEN_UPDATE: string;
-    DLGT_TOKEN_DEAUTHORIZED: string;
-
-    grant_type?: string;
-    client_id?: string;
-    client_secret?: string;
-    redirect_uri?: string;
-    scope?: string;
-    authorizationUri?: any;
-    baseURL?: string;
-    access_token?: string;
-    refresh_token?: string;
-    accessTokenExpire?: any;
-    refreshTokenExpire?: any;
-    audience?: any;
-    username?: string;
-    password?: string;
-    state?: any;
-
-    setTokens(params: Token): Promise<void>;
-    getAuthorizationUri(): string;
-    getTokenFromCode(code: string): Promise<Token>;
-    getTokenFromCodeBasicAuthHeader(code: string): Promise<Token>;
-    refreshAccessToken(refreshTokenObject: {
-      refresh_token: string;
-    }): Promise<Token>;
-    addAuthHeaders(headers: object): Promise<object>;
-    isAuthenticated(): boolean;
-    refreshAuth(): Promise<void>;
-    getTokenFromUsernamePassword(): Promise<Token>;
-    getTokenFromClientCredentials(): Promise<Token>;
-  }
-
-  type Token = {
-    access_token?: string;
-    refresh_token?: string;
-    expires_in: any;
-    x_refresh_token_expires_in: any;
-  };
-
-  type OAuth2RequesterConstructor = {
-    grant_type?: string;
-    client_id?: string;
-    client_secret?: string;
-    redirect_uri?: string;
-    scope?: string;
-    authorizationUri?: any;
-    baseURL?: string;
-    access_token?: string;
-    refresh_token?: string;
-    accessTokenExpire?: any;
-    refreshTokenExpire?: any;
-    audience?: any;
-    username?: string;
-    password?: string;
-    state?: any;
-  };
-
-  export const ModuleConstants: {
-    authType: {
-      oauth2: "oauth2";
-      oauth1: "oauth1";
-      basic: "basic";
-      apiKey: "apiKey";
+    type RequestOptions = {
+        url: string;
+        headers?: object;
+        query?: object;
+        returnFullRes?: boolean;
+        body?: any;
     };
-  };
+
+    type RequesterConstructor = {
+        backOff?: number[];
+        fetch?: any;
+    };
+
+    export class ApiKeyRequester
+        extends Requester
+        implements IFriggApiKeyRequester
+    {
+        API_KEY_NAME: string;
+        API_KEY_VALUE: any;
+
+        constructor(params: RequesterConstructor);
+        addAuthHeaders(headers: object): Promise<object>;
+        isAuthenticated(): boolean;
+        setApiKey(api_key: any): void;
+    }
+
+    interface IFriggApiKeyRequester extends IFriggRequester {
+        API_KEY_NAME: string;
+        API_KEY_VALUE: string;
+
+        addAuthHeaders(headers: object): Promise<object>;
+        isAuthenticated(): boolean;
+        setApiKey(api_key: string): void;
+    }
+
+    export class BasicAuthRequester
+        extends Requester
+        implements IFriggBasicAuthRequester
+    {
+        password: string;
+        username: string;
+
+        constructor(params: BasicAuthRequesterConstructor);
+        addAuthHeaders(headers: object): Promise<object>;
+        isAuthenticated(): boolean;
+        setPassword(password: string): void;
+        setUsername(username: string): void;
+    }
+
+    interface IFriggBasicAuthRequester extends IFriggRequester {
+        username: string;
+        password: string;
+
+        addAuthHeaders(headers: object): Promise<object>;
+        isAuthenticated(): boolean;
+        setUsername(username: string): void;
+        setPassword(password: string): void;
+    }
+
+    type BasicAuthRequesterConstructor = RequesterConstructor & {
+        username?: string;
+        password?: string;
+    };
+
+    export class OAuth2Requester
+        extends Requester
+        implements IFriggOAuth2Requester
+    {
+        DLGT_TOKEN_DEAUTHORIZED: string;
+        DLGT_TOKEN_UPDATE: string;
+        accessTokenExpire: any;
+        access_token: string;
+        audience: any;
+        authorizationUri: any;
+        baseURL: string;
+        client_id: string;
+        client_secret: string;
+        grant_type: string;
+        password: string;
+        redirect_uri: string;
+        refreshTokenExpire: any;
+        refresh_token: string;
+        scope: string;
+        state: any;
+        username: string;
+
+        constructor(params: OAuth2RequesterConstructor);
+
+        addAuthHeaders(headers: object): Promise<object>;
+        getAuthorizationUri(): string;
+        getTokenFromClientCredentials(): Promise<Token>;
+        getTokenFromCode(code: string): Promise<Token>;
+        getTokenFromCodeBasicAuthHeader(code: string): Promise<Token>;
+        getTokenFromUsernamePassword(): Promise<Token>;
+        isAuthenticated(): boolean;
+        refreshAccessToken(refreshTokenObject: {
+            refresh_token: string;
+        }): Promise<Token>;
+        setTokens(params: Token): Promise<void>;
+    }
+    interface IFriggOAuth2Requester extends IFriggRequester {
+        DLGT_TOKEN_UPDATE: string;
+        DLGT_TOKEN_DEAUTHORIZED: string;
+
+        grant_type?: string;
+        client_id?: string;
+        client_secret?: string;
+        redirect_uri?: string;
+        scope?: string;
+        authorizationUri?: any;
+        baseURL?: string;
+        access_token?: string;
+        refresh_token?: string;
+        accessTokenExpire?: any;
+        refreshTokenExpire?: any;
+        audience?: any;
+        username?: string;
+        password?: string;
+        state?: any;
+
+        setTokens(params: Token): Promise<void>;
+        getAuthorizationUri(): string;
+        getTokenFromCode(code: string): Promise<Token>;
+        getTokenFromCodeBasicAuthHeader(code: string): Promise<Token>;
+        refreshAccessToken(refreshTokenObject: {
+            refresh_token: string;
+        }): Promise<Token>;
+        addAuthHeaders(headers: object): Promise<object>;
+        isAuthenticated(): boolean;
+        refreshAuth(): Promise<void>;
+        getTokenFromUsernamePassword(): Promise<Token>;
+        getTokenFromClientCredentials(): Promise<Token>;
+    }
+
+    type Token = {
+        access_token?: string;
+        refresh_token?: string;
+        expires_in: any;
+        x_refresh_token_expires_in: any;
+    };
+
+    type OAuth2RequesterConstructor = {
+        grant_type?: string;
+        client_id?: string;
+        client_secret?: string;
+        redirect_uri?: string;
+        scope?: string;
+        authorizationUri?: any;
+        baseURL?: string;
+        access_token?: string;
+        refresh_token?: string;
+        accessTokenExpire?: any;
+        refreshTokenExpire?: any;
+        audience?: any;
+        username?: string;
+        password?: string;
+        state?: any;
+    };
+
+    export const ModuleConstants: {
+        authType: {
+            oauth2: 'oauth2';
+            oauth1: 'oauth1';
+            basic: 'basic';
+            apiKey: 'apiKey';
+        };
+    };
 }

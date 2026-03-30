@@ -5,9 +5,10 @@ class CheckIntegrationsHealthUseCase {
     }
 
     execute() {
-        const moduleDefinitions = (this.moduleFactory && this.moduleFactory.moduleDefinitions)
-            ? this.moduleFactory.moduleDefinitions
-            : [];
+        const moduleDefinitions =
+            this.moduleFactory && this.moduleFactory.moduleDefinitions
+                ? this.moduleFactory.moduleDefinitions
+                : [];
 
         const integrationClasses = Array.isArray(this.integrationClasses)
             ? this.integrationClasses
@@ -15,13 +16,19 @@ class CheckIntegrationsHealthUseCase {
 
         // Extract module names from definitions
         const moduleTypes = Array.isArray(moduleDefinitions)
-            ? moduleDefinitions.map(def => def.moduleName || def.name || def.label || 'Unknown')
+            ? moduleDefinitions.map(
+                  (def) => def.moduleName || def.name || def.label || 'Unknown'
+              )
             : [];
 
         // Extract integration names from classes
-        const integrationNames = integrationClasses.map(IntegrationClass => {
+        const integrationNames = integrationClasses.map((IntegrationClass) => {
             try {
-                return IntegrationClass.Definition?.name || IntegrationClass.name || 'Unknown';
+                return (
+                    IntegrationClass.Definition?.name ||
+                    IntegrationClass.name ||
+                    'Unknown'
+                );
             } catch {
                 return 'Unknown';
             }

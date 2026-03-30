@@ -68,10 +68,16 @@ class CredentialRepositoryInterface {
     }
 
     /**
-     * Find a credential by filter criteria
+     * Find credential(s) by filter criteria
+     *
+     * When filter includes only userId, returns an array of all credentials for that user
+     * When filter includes credentialId or externalId, returns a single credential or null
      *
      * @param {Object} filter - Filter criteria
-     * @returns {Promise<Object|null>} Credential object or null if not found
+     * @param {string} [filter.userId] - User ID
+     * @param {string} [filter.externalId] - External ID
+     * @param {string} [filter.credentialId] - Credential ID
+     * @returns {Promise<Array|Object|null>} Credential array, single credential, or null
      * @abstract
      */
     async findCredential(filter) {

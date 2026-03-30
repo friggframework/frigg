@@ -1,4 +1,6 @@
-const { HealthCheckRepositoryPostgreSQL } = require('./health-check-repository-postgres');
+const {
+    HealthCheckRepositoryPostgreSQL,
+} = require('./health-check-repository-postgres');
 
 describe('HealthCheckRepositoryPostgreSQL', () => {
     let repository;
@@ -8,9 +10,9 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
         mockPrismaClient = {
             $queryRaw: jest.fn(),
         };
-        
-        repository = new HealthCheckRepositoryPostgreSQL({ 
-            prismaClient: mockPrismaClient 
+
+        repository = new HealthCheckRepositoryPostgreSQL({
+            prismaClient: mockPrismaClient,
         });
     });
 
@@ -29,7 +31,9 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
         });
 
         it('should return disconnected state when query fails', async () => {
-            mockPrismaClient.$queryRaw.mockRejectedValue(new Error('Connection failed'));
+            mockPrismaClient.$queryRaw.mockRejectedValue(
+                new Error('Connection failed')
+            );
 
             const result = await repository.getDatabaseConnectionState();
 
@@ -41,7 +45,9 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
         });
 
         it('should return disconnected state when database is unreachable', async () => {
-            mockPrismaClient.$queryRaw.mockRejectedValue(new Error('ECONNREFUSED'));
+            mockPrismaClient.$queryRaw.mockRejectedValue(
+                new Error('ECONNREFUSED')
+            );
 
             const result = await repository.getDatabaseConnectionState();
 
@@ -50,7 +56,9 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
         });
 
         it('should return disconnected state on authentication error', async () => {
-            mockPrismaClient.$queryRaw.mockRejectedValue(new Error('Authentication failed'));
+            mockPrismaClient.$queryRaw.mockRejectedValue(
+                new Error('Authentication failed')
+            );
 
             const result = await repository.getDatabaseConnectionState();
 
@@ -77,12 +85,17 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
             const error = new Error('Database unreachable');
             mockPrismaClient.$queryRaw.mockRejectedValue(error);
 
-            await expect(repository.pingDatabase(2000)).rejects.toThrow('Database unreachable');
+            await expect(repository.pingDatabase(2000)).rejects.toThrow(
+                'Database unreachable'
+            );
         });
 
         it('should measure actual response time', async () => {
-            mockPrismaClient.$queryRaw.mockImplementation(() => 
-                new Promise(resolve => setTimeout(() => resolve([{ '?column?': 1 }]), 30))
+            mockPrismaClient.$queryRaw.mockImplementation(
+                () =>
+                    new Promise((resolve) =>
+                        setTimeout(() => resolve([{ '?column?': 1 }]), 30)
+                    )
             );
 
             const responseTime = await repository.pingDatabase(2000);
@@ -92,4 +105,3 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
         });
     });
 });
-

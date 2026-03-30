@@ -21,12 +21,16 @@ describe('RunDatabaseMigrationUseCase', () => {
             getMigrationCommand: jest.fn(),
         };
 
-        useCase = new RunDatabaseMigrationUseCase({ prismaRunner: mockPrismaRunner });
+        useCase = new RunDatabaseMigrationUseCase({
+            prismaRunner: mockPrismaRunner,
+        });
     });
 
     describe('Constructor', () => {
         it('should throw error if prismaRunner is not provided', () => {
-            expect(() => new RunDatabaseMigrationUseCase({})).toThrow('prismaRunner dependency is required');
+            expect(() => new RunDatabaseMigrationUseCase({})).toThrow(
+                'prismaRunner dependency is required'
+            );
         });
 
         it('should create instance with valid dependencies', () => {
@@ -37,34 +41,50 @@ describe('RunDatabaseMigrationUseCase', () => {
 
     describe('Parameter Validation', () => {
         it('should throw ValidationError if dbType is missing', async () => {
-            await expect(useCase.execute({ stage: 'production' })).rejects.toThrow(ValidationError);
-            await expect(useCase.execute({ stage: 'production' })).rejects.toThrow('dbType is required');
+            await expect(
+                useCase.execute({ stage: 'production' })
+            ).rejects.toThrow(ValidationError);
+            await expect(
+                useCase.execute({ stage: 'production' })
+            ).rejects.toThrow('dbType is required');
         });
 
         it('should throw ValidationError if dbType is not a string', async () => {
-            await expect(useCase.execute({ dbType: 123, stage: 'production' })).rejects.toThrow(ValidationError);
-            await expect(useCase.execute({ dbType: 123, stage: 'production' })).rejects.toThrow(
-                'dbType must be a string'
-            );
+            await expect(
+                useCase.execute({ dbType: 123, stage: 'production' })
+            ).rejects.toThrow(ValidationError);
+            await expect(
+                useCase.execute({ dbType: 123, stage: 'production' })
+            ).rejects.toThrow('dbType must be a string');
         });
 
         it('should throw ValidationError if stage is missing', async () => {
-            await expect(useCase.execute({ dbType: 'postgresql' })).rejects.toThrow(ValidationError);
-            await expect(useCase.execute({ dbType: 'postgresql' })).rejects.toThrow('stage is required');
+            await expect(
+                useCase.execute({ dbType: 'postgresql' })
+            ).rejects.toThrow(ValidationError);
+            await expect(
+                useCase.execute({ dbType: 'postgresql' })
+            ).rejects.toThrow('stage is required');
         });
 
         it('should throw ValidationError if stage is not a string', async () => {
-            await expect(useCase.execute({ dbType: 'postgresql', stage: 123 })).rejects.toThrow(ValidationError);
-            await expect(useCase.execute({ dbType: 'postgresql', stage: 123 })).rejects.toThrow(
-                'stage must be a string'
-            );
+            await expect(
+                useCase.execute({ dbType: 'postgresql', stage: 123 })
+            ).rejects.toThrow(ValidationError);
+            await expect(
+                useCase.execute({ dbType: 'postgresql', stage: 123 })
+            ).rejects.toThrow('stage must be a string');
         });
     });
 
     describe('PostgreSQL Migrations', () => {
         beforeEach(() => {
-            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({ success: true });
-            mockPrismaRunner.runPrismaMigrate.mockResolvedValue({ success: true });
+            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({
+                success: true,
+            });
+            mockPrismaRunner.runPrismaMigrate.mockResolvedValue({
+                success: true,
+            });
         });
 
         it('should successfully run PostgreSQL production migration', async () => {
@@ -84,9 +104,17 @@ describe('RunDatabaseMigrationUseCase', () => {
                 message: 'Database migration completed successfully',
             });
 
-            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith('postgresql', true);
-            expect(mockPrismaRunner.getMigrationCommand).toHaveBeenCalledWith('production');
-            expect(mockPrismaRunner.runPrismaMigrate).toHaveBeenCalledWith('deploy', true);
+            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith(
+                'postgresql',
+                true
+            );
+            expect(mockPrismaRunner.getMigrationCommand).toHaveBeenCalledWith(
+                'production'
+            );
+            expect(mockPrismaRunner.runPrismaMigrate).toHaveBeenCalledWith(
+                'deploy',
+                true
+            );
             expect(mockPrismaRunner.runPrismaDbPush).not.toHaveBeenCalled();
         });
 
@@ -100,8 +128,13 @@ describe('RunDatabaseMigrationUseCase', () => {
 
             expect(result.success).toBe(true);
             expect(result.command).toBe('dev');
-            expect(mockPrismaRunner.getMigrationCommand).toHaveBeenCalledWith('dev');
-            expect(mockPrismaRunner.runPrismaMigrate).toHaveBeenCalledWith('dev', false);
+            expect(mockPrismaRunner.getMigrationCommand).toHaveBeenCalledWith(
+                'dev'
+            );
+            expect(mockPrismaRunner.runPrismaMigrate).toHaveBeenCalledWith(
+                'dev',
+                false
+            );
         });
 
         it('should throw MigrationError if Prisma generate fails', async () => {
@@ -117,7 +150,9 @@ describe('RunDatabaseMigrationUseCase', () => {
 
             await expect(
                 useCase.execute({ dbType: 'postgresql', stage: 'production' })
-            ).rejects.toThrow('Failed to generate Prisma client: Schema file not found');
+            ).rejects.toThrow(
+                'Failed to generate Prisma client: Schema file not found'
+            );
 
             expect(mockPrismaRunner.runPrismaMigrate).not.toHaveBeenCalled();
         });
@@ -136,7 +171,9 @@ describe('RunDatabaseMigrationUseCase', () => {
 
             await expect(
                 useCase.execute({ dbType: 'postgresql', stage: 'production' })
-            ).rejects.toThrow('PostgreSQL migration failed: Migration conflict detected');
+            ).rejects.toThrow(
+                'PostgreSQL migration failed: Migration conflict detected'
+            );
         });
 
         it('should include context in MigrationError', async () => {
@@ -148,7 +185,10 @@ describe('RunDatabaseMigrationUseCase', () => {
             });
 
             try {
-                await useCase.execute({ dbType: 'postgresql', stage: 'production' });
+                await useCase.execute({
+                    dbType: 'postgresql',
+                    stage: 'production',
+                });
                 fail('Should have thrown MigrationError');
             } catch (error) {
                 expect(error).toBeInstanceOf(MigrationError);
@@ -165,8 +205,12 @@ describe('RunDatabaseMigrationUseCase', () => {
 
     describe('MongoDB Migrations', () => {
         beforeEach(() => {
-            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({ success: true });
-            mockPrismaRunner.runPrismaDbPush.mockResolvedValue({ success: true });
+            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({
+                success: true,
+            });
+            mockPrismaRunner.runPrismaDbPush.mockResolvedValue({
+                success: true,
+            });
         });
 
         it('should successfully run MongoDB migration', async () => {
@@ -184,8 +228,14 @@ describe('RunDatabaseMigrationUseCase', () => {
                 message: 'Database migration completed successfully',
             });
 
-            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith('mongodb', true);
-            expect(mockPrismaRunner.runPrismaDbPush).toHaveBeenCalledWith(true, true); // verbose=true, nonInteractive=true
+            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith(
+                'mongodb',
+                true
+            );
+            expect(mockPrismaRunner.runPrismaDbPush).toHaveBeenCalledWith(
+                true,
+                true
+            ); // verbose=true, nonInteractive=true
             expect(mockPrismaRunner.runPrismaMigrate).not.toHaveBeenCalled();
         });
 
@@ -196,7 +246,10 @@ describe('RunDatabaseMigrationUseCase', () => {
             });
 
             // Second parameter should be true for non-interactive
-            expect(mockPrismaRunner.runPrismaDbPush).toHaveBeenCalledWith(false, true);
+            expect(mockPrismaRunner.runPrismaDbPush).toHaveBeenCalledWith(
+                false,
+                true
+            );
         });
 
         it('should throw MigrationError if Mongo-compatible push fails', async () => {
@@ -205,11 +258,13 @@ describe('RunDatabaseMigrationUseCase', () => {
                 error: 'Connection timeout',
             });
 
-            await expect(useCase.execute({ dbType: 'mongodb', stage: 'production' })).rejects.toThrow(
-                MigrationError
-            );
+            await expect(
+                useCase.execute({ dbType: 'mongodb', stage: 'production' })
+            ).rejects.toThrow(MigrationError);
 
-            await expect(useCase.execute({ dbType: 'mongodb', stage: 'production' })).rejects.toThrow(
+            await expect(
+                useCase.execute({ dbType: 'mongodb', stage: 'production' })
+            ).rejects.toThrow(
                 'Mongo-compatible push failed: Connection timeout'
             );
         });
@@ -220,10 +275,19 @@ describe('RunDatabaseMigrationUseCase', () => {
                 output: 'Database push completed successfully',
             });
 
-            const result = await useCase.execute({ dbType: 'documentdb', stage: 'production' });
+            const result = await useCase.execute({
+                dbType: 'documentdb',
+                stage: 'production',
+            });
 
-            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith('documentdb', false);
-            expect(mockPrismaRunner.runPrismaDbPush).toHaveBeenCalledWith(false, true);
+            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith(
+                'documentdb',
+                false
+            );
+            expect(mockPrismaRunner.runPrismaDbPush).toHaveBeenCalledWith(
+                false,
+                true
+            );
             expect(result).toEqual({
                 success: true,
                 dbType: 'documentdb',
@@ -239,11 +303,13 @@ describe('RunDatabaseMigrationUseCase', () => {
                 error: 'Connection timeout',
             });
 
-            await expect(useCase.execute({ dbType: 'documentdb', stage: 'production' })).rejects.toThrow(
-                MigrationError
-            );
+            await expect(
+                useCase.execute({ dbType: 'documentdb', stage: 'production' })
+            ).rejects.toThrow(MigrationError);
 
-            await expect(useCase.execute({ dbType: 'documentdb', stage: 'production' })).rejects.toThrow(
+            await expect(
+                useCase.execute({ dbType: 'documentdb', stage: 'production' })
+            ).rejects.toThrow(
                 'Mongo-compatible push failed: Connection timeout'
             );
         });
@@ -251,15 +317,19 @@ describe('RunDatabaseMigrationUseCase', () => {
 
     describe('Unsupported Database Types', () => {
         beforeEach(() => {
-            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({ success: true });
+            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({
+                success: true,
+            });
         });
 
         it('should throw ValidationError for unsupported database type', async () => {
-            await expect(useCase.execute({ dbType: 'mysql', stage: 'production' })).rejects.toThrow(
-                ValidationError
-            );
+            await expect(
+                useCase.execute({ dbType: 'mysql', stage: 'production' })
+            ).rejects.toThrow(ValidationError);
 
-            await expect(useCase.execute({ dbType: 'mysql', stage: 'production' })).rejects.toThrow(
+            await expect(
+                useCase.execute({ dbType: 'mysql', stage: 'production' })
+            ).rejects.toThrow(
                 "Unsupported database type: mysql. Must be 'postgresql', 'mongodb', or 'documentdb'."
             );
         });
@@ -271,7 +341,10 @@ describe('RunDatabaseMigrationUseCase', () => {
                 // Expected error
             }
 
-            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith('mysql', false);
+            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith(
+                'mysql',
+                false
+            );
         });
     });
 
@@ -282,53 +355,65 @@ describe('RunDatabaseMigrationUseCase', () => {
                 error: undefined,
             });
 
-            await expect(useCase.execute({ dbType: 'postgresql', stage: 'production' })).rejects.toThrow(
+            await expect(
+                useCase.execute({ dbType: 'postgresql', stage: 'production' })
+            ).rejects.toThrow(
                 'Failed to generate Prisma client: Unknown error'
             );
         });
 
         it('should handle undefined error from PostgreSQL migration', async () => {
-            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({ success: true });
+            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({
+                success: true,
+            });
             mockPrismaRunner.getMigrationCommand.mockReturnValue('deploy');
             mockPrismaRunner.runPrismaMigrate.mockResolvedValue({
                 success: false,
                 error: undefined,
             });
 
-            await expect(useCase.execute({ dbType: 'postgresql', stage: 'production' })).rejects.toThrow(
-                'PostgreSQL migration failed: Unknown error'
-            );
+            await expect(
+                useCase.execute({ dbType: 'postgresql', stage: 'production' })
+            ).rejects.toThrow('PostgreSQL migration failed: Unknown error');
         });
 
         it('should handle undefined error from Mongo-compatible push', async () => {
-            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({ success: true });
+            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({
+                success: true,
+            });
             mockPrismaRunner.runPrismaDbPush.mockResolvedValue({
                 success: false,
                 error: undefined,
             });
 
-            await expect(useCase.execute({ dbType: 'mongodb', stage: 'production' })).rejects.toThrow(
-                'Mongo-compatible push failed: Unknown error'
-            );
+            await expect(
+                useCase.execute({ dbType: 'mongodb', stage: 'production' })
+            ).rejects.toThrow('Mongo-compatible push failed: Unknown error');
         });
 
         it('should handle undefined error from DocumentDB push', async () => {
-            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({ success: true });
+            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({
+                success: true,
+            });
             mockPrismaRunner.runPrismaDbPush.mockResolvedValue({
                 success: false,
                 error: undefined,
             });
 
-            await expect(useCase.execute({ dbType: 'documentdb', stage: 'production' })).rejects.toThrow(
-                'Mongo-compatible push failed: Unknown error'
-            );
+            await expect(
+                useCase.execute({ dbType: 'documentdb', stage: 'production' })
+            ).rejects.toThrow('Mongo-compatible push failed: Unknown error');
         });
     });
 
     describe('Verbose Mode', () => {
         beforeEach(() => {
-            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({ success: true });
-            mockPrismaRunner.runPrismaMigrate.mockResolvedValue({ success: true });
+            mockPrismaRunner.runPrismaGenerate.mockResolvedValue({
+                success: true,
+            });
+            mockPrismaRunner.runPrismaMigrate.mockResolvedValue({
+                success: true,
+            });
             mockPrismaRunner.getMigrationCommand.mockReturnValue('deploy');
         });
 
@@ -339,8 +424,14 @@ describe('RunDatabaseMigrationUseCase', () => {
                 verbose: true,
             });
 
-            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith('postgresql', true);
-            expect(mockPrismaRunner.runPrismaMigrate).toHaveBeenCalledWith('deploy', true);
+            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith(
+                'postgresql',
+                true
+            );
+            expect(mockPrismaRunner.runPrismaMigrate).toHaveBeenCalledWith(
+                'deploy',
+                true
+            );
         });
 
         it('should default verbose to false', async () => {
@@ -349,8 +440,14 @@ describe('RunDatabaseMigrationUseCase', () => {
                 stage: 'production',
             });
 
-            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith('postgresql', false);
-            expect(mockPrismaRunner.runPrismaMigrate).toHaveBeenCalledWith('deploy', false);
+            expect(mockPrismaRunner.runPrismaGenerate).toHaveBeenCalledWith(
+                'postgresql',
+                false
+            );
+            expect(mockPrismaRunner.runPrismaMigrate).toHaveBeenCalledWith(
+                'deploy',
+                false
+            );
         });
     });
 });

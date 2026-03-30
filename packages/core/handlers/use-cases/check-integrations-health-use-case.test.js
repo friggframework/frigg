@@ -1,10 +1,12 @@
 /**
  * Tests for CheckIntegrationsHealthUseCase
- * 
+ *
  * Tests integration and module factory health checking
  */
 
-const { CheckIntegrationsHealthUseCase } = require('./check-integrations-health-use-case');
+const {
+    CheckIntegrationsHealthUseCase,
+} = require('./check-integrations-health-use-case');
 
 describe('CheckIntegrationsHealthUseCase', () => {
     describe('execute()', () => {
@@ -31,9 +33,16 @@ describe('CheckIntegrationsHealthUseCase', () => {
 
             expect(result.status).toBe('healthy');
             expect(result.modules.count).toBe(3);
-            expect(result.modules.available).toEqual(['HubSpot', 'Salesforce', 'Slack']);
+            expect(result.modules.available).toEqual([
+                'HubSpot',
+                'Salesforce',
+                'Slack',
+            ]);
             expect(result.integrations.count).toBe(2);
-            expect(result.integrations.available).toEqual(['HubSpot-to-Salesforce', 'Slack-Notifications']);
+            expect(result.integrations.available).toEqual([
+                'HubSpot-to-Salesforce',
+                'Slack-Notifications',
+            ]);
         });
 
         it('should handle undefined moduleFactory gracefully', () => {
@@ -122,4 +131,3 @@ describe('CheckIntegrationsHealthUseCase', () => {
         });
     });
 });
-

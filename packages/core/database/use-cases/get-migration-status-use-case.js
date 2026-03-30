@@ -39,7 +39,10 @@ class GetMigrationStatusUseCase {
 
         // Get migration status from S3
         try {
-            const migrationStatus = await this.migrationStatusRepository.get(migrationId, effectiveStage);
+            const migrationStatus = await this.migrationStatusRepository.get(
+                migrationId,
+                effectiveStage
+            );
             return migrationStatus;
         } catch (error) {
             if (error.message.includes('not found')) {
@@ -90,4 +93,3 @@ module.exports = {
     ValidationError,
     NotFoundError,
 };
-

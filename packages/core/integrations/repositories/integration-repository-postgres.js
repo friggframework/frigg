@@ -49,12 +49,12 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
             ...integration,
             id: integration.id?.toString(),
             userId: integration.userId?.toString(),
-            entities: integration.entities?.map(e => ({
+            entities: integration.entities?.map((e) => ({
                 ...e,
                 id: e.id?.toString(),
                 userId: e.userId?.toString(),
-                credentialId: e.credentialId?.toString()
-            }))
+                credentialId: e.credentialId?.toString(),
+            })),
         };
     }
 

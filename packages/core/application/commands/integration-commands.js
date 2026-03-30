@@ -152,10 +152,11 @@ function createIntegrationCommands({ integrationClass }) {
          */
         async updateIntegrationConfig({ integrationId, config }) {
             try {
-                const integration = await integrationRepository.updateIntegrationConfig(
-                    integrationId,
-                    config
-                );
+                const integration =
+                    await integrationRepository.updateIntegrationConfig(
+                        integrationId,
+                        config
+                    );
                 return integration;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -175,10 +176,15 @@ function createIntegrationCommands({ integrationClass }) {
                     throw error;
                 }
 
-                const deleted = await integrationRepository.deleteIntegrationById(integrationId);
+                const deleted =
+                    await integrationRepository.deleteIntegrationById(
+                        integrationId
+                    );
 
                 if (!deleted) {
-                    const error = new Error(`Integration ${integrationId} not found`);
+                    const error = new Error(
+                        `Integration ${integrationId} not found`
+                    );
                     error.code = 'INTEGRATION_NOT_FOUND';
                     return mapErrorToResponse(error);
                 }

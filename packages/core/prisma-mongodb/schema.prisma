@@ -360,3 +360,72 @@ model WebsocketConnection {
   @@index([connectionId])
   @@map("WebsocketConnection")
 }
+
+// ============================================================================
+// ADMIN PROCESS MODELS
+// ============================================================================
+
+/// Admin process state machine
+enum AdminProcessState {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// Admin trigger types
+enum AdminTrigger {
+  MANUAL
+  SCHEDULED
+  QUEUE
+  WEBHOOK
+}
+
+/// Admin process tracking (like Process but without user/integration FK)
+/// Used for: admin scripts, db migrations, system maintenance tasks
+model AdminProcess {
+  id   String @id @default(auto()) @map("_id") @db.ObjectId
+  name String // e.g., "oauth-token-refresh", "db-migration-xyz"
+  type String // e.g., "ADMIN_SCRIPT", "DB_MIGRATION"
+
+  // State machine
+  state AdminProcessState @default(PENDING)
+
+  // Flexible storage (mirrors Process model pattern)
+  context Json @default("{}") // input, trigger, audit info, script version
+  results Json @default("{}") // output, logs, metrics, errors
+
+  // Hierarchy support
+  childProcesses  String[] @db.ObjectId
+  parentProcessId String?  @db.ObjectId
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name, createdAt(sort: Desc)])
+  @@index([state])
+  @@index([type])
+  @@map("AdminProcess")
+}
+
+/// Script scheduling configuration for hybrid scheduling (SQS + EventBridge)
+model ScriptSchedule {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  scriptName      String    @unique
+  enabled         Boolean   @default(false)
+  cronExpression  String?
+  timezone        String    @default("UTC")
+  lastTriggeredAt DateTime?
+  nextTriggerAt   DateTime?
+
+  // External Scheduler (e.g., AWS EventBridge Scheduler)
+  externalScheduleId   String?
+  externalScheduleName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled])
+  @@map("ScriptSchedule")
+}

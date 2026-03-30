@@ -1,9 +1,5 @@
 class LoadIntegrationContextUseCase {
-    constructor({
-        integrationRepository,
-        moduleRepository,
-        moduleFactory,
-    }) {
+    constructor({ integrationRepository, moduleRepository, moduleFactory }) {
         if (!integrationRepository) {
             throw new Error('integrationRepository is required');
         }

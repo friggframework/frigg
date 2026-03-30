@@ -1,11 +1,11 @@
 /**
  * Adapter Layer Tests - Database Migration Worker
- * 
+ *
  * CRITICAL TEST: Verify handler loads without app definition
- * 
+ *
  * Business logic is tested in:
  * - database/use-cases/run-database-migration-use-case.test.js (22 tests)
- * 
+ *
  * Following hexagonal architecture principles:
  * - Handlers are thin adapters (SQS → Use Case → Response)
  * - Use cases contain all business logic (fully tested)
@@ -16,13 +16,16 @@ process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
 process.env.STAGE = 'test';
 
 // Mock infrastructure dependencies to prevent app definition loading
-jest.mock('../../integrations/repositories/process-repository-postgres', () => ({
-    ProcessRepositoryPostgres: jest.fn(() => ({
-        create: jest.fn(),
-        findById: jest.fn(),
-        updateState: jest.fn(),
-    })),
-}));
+jest.mock(
+    '../../integrations/repositories/process-repository-postgres',
+    () => ({
+        ProcessRepositoryPostgres: jest.fn(() => ({
+            create: jest.fn(),
+            findById: jest.fn(),
+            updateState: jest.fn(),
+        })),
+    })
+);
 
 jest.mock('../../integrations/use-cases/update-process-state', () => ({
     UpdateProcessState: jest.fn(() => ({ execute: jest.fn() })),
@@ -63,7 +66,10 @@ describe('Database Migration Worker - Adapter Layer', () => {
                 deployMigration: jest.fn(),
                 checkDatabaseState: jest.fn(),
             };
-            jest.mock('../../database/utils/prisma-runner', () => mockPrismaRunner);
+            jest.mock(
+                '../../database/utils/prisma-runner',
+                () => mockPrismaRunner
+            );
 
             // Re-require handler
             const module = require('./db-migration');
@@ -167,7 +173,9 @@ describe('Database Migration Worker - Adapter Layer', () => {
             const result = await handler(event, context);
 
             expect(result.body.dbType).toBe('documentdb');
-            expect(mockPrismaRunner.checkDatabaseState).toHaveBeenCalledWith('documentdb');
+            expect(mockPrismaRunner.checkDatabaseState).toHaveBeenCalledWith(
+                'documentdb'
+            );
         });
     });
 });

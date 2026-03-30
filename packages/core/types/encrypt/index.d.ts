@@ -1,7 +1,5 @@
-declare module "@friggframework/encrypt" {
-  export class Cryptor {
-    constructor(params: { shouldUseAws?: boolean });
-    encrypt(plaintext: string): Promise<string>;
-    decrypt(ciphertext: string): Promise<string>;
-  }
+declare module '@friggframework/encrypt' {
+    import { Schema } from 'mongoose';
+
+    export function Encrypt(schema: Schema, options: any): void;
 }

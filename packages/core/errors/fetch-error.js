@@ -19,7 +19,7 @@ class FetchError extends BaseError {
                       return JSON.stringify({ init }, null, 2);
                   })()
                 : JSON.stringify({ init }, null, 2)
-            : '';        
+            : '';
 
         let responseBodyText = '<response body is unavailable>';
         if (typeof responseBody === 'string') {

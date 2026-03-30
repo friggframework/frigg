@@ -1,5 +1,8 @@
 const { Cryptor } = require('../encrypt/Cryptor');
-const { getEncryptedFields, loadCustomEncryptionSchema } = require('./encryption/encryption-schema-registry');
+const {
+    getEncryptedFields,
+    loadCustomEncryptionSchema,
+} = require('./encryption/encryption-schema-registry');
 
 /**
  * Encryption service specifically for DocumentDB repositories
@@ -51,8 +54,11 @@ class DocumentDBEncryptionService {
         loadCustomEncryptionSchema();
 
         // Match logic from packages/core/database/prisma.js
-        const stage = process.env.STAGE || process.env.NODE_ENV || 'development';
-        const bypassEncryption = ['dev', 'test', 'local'].includes(stage.toLowerCase());
+        const stage =
+            process.env.STAGE || process.env.NODE_ENV || 'development';
+        const bypassEncryption = ['dev', 'test', 'local'].includes(
+            stage.toLowerCase()
+        );
 
         if (bypassEncryption) {
             this.cryptor = null;
@@ -61,11 +67,17 @@ class DocumentDBEncryptionService {
         }
 
         // Determine encryption method (ensure boolean values)
-        const hasKMS = !!(process.env.KMS_KEY_ARN && process.env.KMS_KEY_ARN.trim() !== '');
-        const hasAES = !!(process.env.AES_KEY_ID && process.env.AES_KEY_ID.trim() !== '');
+        const hasKMS = !!(
+            process.env.KMS_KEY_ARN && process.env.KMS_KEY_ARN.trim() !== ''
+        );
+        const hasAES = !!(
+            process.env.AES_KEY_ID && process.env.AES_KEY_ID.trim() !== ''
+        );
 
         if (!hasKMS && !hasAES) {
-            console.warn('[DocumentDBEncryptionService] No encryption keys configured. Encryption disabled.');
+            console.warn(
+                '[DocumentDBEncryptionService] No encryption keys configured. Encryption disabled.'
+            );
             this.cryptor = null;
             this.enabled = false;
             return;
@@ -202,14 +214,16 @@ class DocumentDBEncryptionService {
 
         try {
             // Convert to string if needed
-            const stringValue = typeof value === 'string'
-                ? value
-                : JSON.stringify(value);
+            const stringValue =
+                typeof value === 'string' ? value : JSON.stringify(value);
 
             // Encrypt using Cryptor
             current[fieldName] = await this.cryptor.encrypt(stringValue);
         } catch (error) {
-            console.error(`[DocumentDBEncryptionService] Failed to encrypt ${modelName}.${fieldPath}:`, error.message);
+            console.error(
+                `[DocumentDBEncryptionService] Failed to encrypt ${modelName}.${fieldPath}:`,
+                error.message
+            );
             throw error;
         }
     }
@@ -261,7 +275,7 @@ class DocumentDBEncryptionService {
                 modelName,
                 fieldPath,
                 encryptedValuePrefix: encryptedValue.substring(0, 20),
-                errorMessage: error.message
+                errorMessage: error.message,
             };
 
             console.error(
@@ -270,7 +284,9 @@ class DocumentDBEncryptionService {
             );
 
             // Throw error to fail fast - don't silently corrupt data
-            throw new Error(`Decryption failed for ${modelName}.${fieldPath}: ${error.message}`);
+            throw new Error(
+                `Decryption failed for ${modelName}.${fieldPath}: ${error.message}`
+            );
         }
     }
 
@@ -307,7 +323,7 @@ class DocumentDBEncryptionService {
         const base64Pattern = /^[A-Za-z0-9+/=]+$/;
 
         // All parts should be base64-encoded
-        if (!parts.every(part => base64Pattern.test(part))) {
+        if (!parts.every((part) => base64Pattern.test(part))) {
             return false;
         }
 

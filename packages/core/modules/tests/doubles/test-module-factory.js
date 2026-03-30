@@ -1,10 +1,16 @@
 class TestModuleFactory {
-    constructor() { }
+    constructor() {
+        this.moduleRepository = {
+            findEntity: jest.fn().mockResolvedValue(null),
+            findEntitiesBy: jest.fn().mockResolvedValue([]),
+        };
+    }
 
     async getModuleInstance(entityId, userId) {
-        // return minimal stub module with getName and api property
         return {
-            getName() { return 'stubModule'; },
+            getName() {
+                return 'stubModule';
+            },
             api: {},
             entityId,
             userId,
@@ -13,4 +19,4 @@ class TestModuleFactory {
     }
 }
 
-module.exports = { TestModuleFactory }; 
+module.exports = { TestModuleFactory };

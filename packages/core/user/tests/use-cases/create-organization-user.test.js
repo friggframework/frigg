@@ -25,4 +25,4 @@ describe('CreateOrganizationUser Use Case', () => {
         expect(user).toBeDefined();
         expect(user.getOrganizationUser().name).toBe(params.name);
     });
-}); 
+});

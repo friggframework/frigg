@@ -56,7 +56,9 @@ class SyncRepositoryInterface {
      * @abstract
      */
     async addDataIdentifier(syncId, dataIdentifier) {
-        throw new Error('Method addDataIdentifier must be implemented by subclass');
+        throw new Error(
+            'Method addDataIdentifier must be implemented by subclass'
+        );
     }
 
     /**
@@ -69,7 +71,9 @@ class SyncRepositoryInterface {
      * @abstract
      */
     getEntityObjIdForEntityIdFromObject(syncObj, entityId) {
-        throw new Error('Method getEntityObjIdForEntityIdFromObject must be implemented by subclass');
+        throw new Error(
+            'Method getEntityObjIdForEntityIdFromObject must be implemented by subclass'
+        );
     }
 
     /**

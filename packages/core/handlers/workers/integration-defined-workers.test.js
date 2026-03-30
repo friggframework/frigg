@@ -7,7 +7,9 @@ jest.mock('../../database/config', () => ({
 
 const { createQueueWorker } = require('../backend-utils');
 const { IntegrationBase } = require('../../integrations/integration-base');
-const { IntegrationEventDispatcher } = require('../integration-event-dispatcher');
+const {
+    IntegrationEventDispatcher,
+} = require('../integration-event-dispatcher');
 
 class TestWebhookIntegration extends IntegrationBase {
     static Definition = {
@@ -122,11 +124,15 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            await expect(failingWorker.run(sqsEvent, {})).rejects.toThrow('Processing failed');
+            await expect(failingWorker.run(sqsEvent, {})).rejects.toThrow(
+                'Processing failed'
+            );
         });
 
         it('should log errors with integration context', async () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+            const consoleSpy = jest
+                .spyOn(console, 'error')
+                .mockImplementation();
 
             const FailingIntegration = class extends TestWebhookIntegration {
                 async onWebhook({ data }) {
@@ -178,51 +184,6 @@ describe('Webhook Queue Worker', () => {
             // This will fail trying to load the integration from DB
             // but it proves the code path is attempted
             await expect(worker.run(sqsEvent, {})).rejects.toThrow();
-        });
-
-        it('should discard message gracefully when integration no longer exists', async () => {
-            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-
-            let mockedCreateQueueWorker;
-            jest.isolateModules(() => {
-                jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
-                    createIntegrationRepository: () => ({
-                        findIntegrationById: jest.fn().mockRejectedValue(
-                            new Error('Integration with id 999 not found')
-                        ),
-                    }),
-                }));
-                jest.doMock('../../modules/repositories/module-repository-factory', () => ({
-                    createModuleRepository: () => ({}),
-                }));
-                jest.doMock('../app-definition-loader', () => ({
-                    loadAppDefinition: () => ({ integrations: [] }),
-                }));
-                mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
-            });
-
-            const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
-            const worker = new QueueWorker();
-
-            const params = {
-                event: 'ON_WEBHOOK',
-                data: {
-                    integrationId: '999',
-                    body: { webhookEvent: 'updated' },
-                },
-            };
-
-            const sqsEvent = {
-                Records: [{ body: JSON.stringify(params) }],
-            };
-
-            await expect(worker.run(sqsEvent, {})).resolves.not.toThrow();
-
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Integration 999 no longer exists')
-            );
-
-            consoleSpy.mockRestore();
         });
     });
 
@@ -309,4 +270,3 @@ describe('Webhook Queue Worker', () => {
         });
     });
 });
-

@@ -199,8 +199,8 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
             results: process.results,
             childProcesses: Array.isArray(process.childProcesses)
                 ? process.childProcesses.length > 0 &&
-                    typeof process.childProcesses[0] === 'object' &&
-                    process.childProcesses[0] !== null
+                  typeof process.childProcesses[0] === 'object' &&
+                  process.childProcesses[0] !== null
                     ? process.childProcesses.map((child) => String(child.id))
                     : process.childProcesses
                 : [],

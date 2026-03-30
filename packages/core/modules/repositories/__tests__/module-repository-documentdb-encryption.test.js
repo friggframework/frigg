@@ -6,14 +6,18 @@ jest.mock('../../../database/prisma', () => ({
 }));
 jest.mock('../../../database/documentdb-encryption-service');
 
-const { ObjectId } = require('bson');
+const { ObjectId } = require('mongodb');
 const { prisma } = require('../../../database/prisma');
 const {
     toObjectId,
     fromObjectId,
 } = require('../../../database/documentdb-utils');
-const { ModuleRepositoryDocumentDB } = require('../module-repository-documentdb');
-const { DocumentDBEncryptionService } = require('../../../database/documentdb-encryption-service');
+const {
+    ModuleRepositoryDocumentDB,
+} = require('../module-repository-documentdb');
+const {
+    DocumentDBEncryptionService,
+} = require('../../../database/documentdb-encryption-service');
 
 describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
     let repository;
@@ -30,7 +34,9 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
         };
 
         // Mock the constructor to return our mock
-        DocumentDBEncryptionService.mockImplementation(() => mockEncryptionService);
+        DocumentDBEncryptionService.mockImplementation(
+            () => mockEncryptionService
+        );
 
         // Create repository instance
         repository = new ModuleRepositoryDocumentDB();
@@ -80,7 +86,9 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                 data: plainData,
             });
 
-            const credential = await repository._fetchCredential(testCredentialId);
+            const credential = await repository._fetchCredential(
+                testCredentialId
+            );
 
             // Verify decryption was called
             expect(mockEncryptionService.decryptFields).toHaveBeenCalledWith(
@@ -121,7 +129,9 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                 data: plainNested,
             });
 
-            const credential = await repository._fetchCredential(testCredentialId);
+            const credential = await repository._fetchCredential(
+                testCredentialId
+            );
 
             expect(credential.data.access_token).toBe('plain_token');
         });
@@ -156,7 +166,9 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                 data: plainMultiple,
             });
 
-            const credential = await repository._fetchCredential(testCredentialId);
+            const credential = await repository._fetchCredential(
+                testCredentialId
+            );
 
             expect(credential.data.access_token).toBe('plain_access');
             expect(credential.data.refresh_token).toBe('plain_refresh');
@@ -196,13 +208,22 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                     data: { access_token: 'plain_token_2' },
                 });
 
-            const credentialMap = await repository._fetchCredentialsBulk([credId1, credId2]);
+            const credentialMap = await repository._fetchCredentialsBulk([
+                credId1,
+                credId2,
+            ]);
 
             // Verify both credentials decrypted
-            expect(mockEncryptionService.decryptFields).toHaveBeenCalledTimes(2);
+            expect(mockEncryptionService.decryptFields).toHaveBeenCalledTimes(
+                2
+            );
             expect(credentialMap.size).toBe(2);
-            expect(credentialMap.get(fromObjectId(credId1)).data.access_token).toBe('plain_token_1');
-            expect(credentialMap.get(fromObjectId(credId2)).data.access_token).toBe('plain_token_2');
+            expect(
+                credentialMap.get(fromObjectId(credId1)).data.access_token
+            ).toBe('plain_token_1');
+            expect(
+                credentialMap.get(fromObjectId(credId2)).data.access_token
+            ).toBe('plain_token_2');
         });
 
         it('performs parallel decryption (not sequential)', async () => {
@@ -210,7 +231,7 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
 
             prisma.$runCommandRaw.mockResolvedValue({
                 cursor: {
-                    firstBatch: credIds.map(id => ({
+                    firstBatch: credIds.map((id) => ({
                         _id: id,
                         data: { access_token: 'encrypted' },
                     })),
@@ -218,10 +239,12 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                 ok: 1,
             });
 
-            mockEncryptionService.decryptFields.mockImplementation(async () => ({
-                _id: new ObjectId(),
-                data: { access_token: 'plain' },
-            }));
+            mockEncryptionService.decryptFields.mockImplementation(
+                async () => ({
+                    _id: new ObjectId(),
+                    data: { access_token: 'plain' },
+                })
+            );
 
             const startTime = Date.now();
             await repository._fetchCredentialsBulk(credIds);
@@ -279,7 +302,9 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                 data: plainData,
             });
 
-            const entity = await repository.findEntityById(fromObjectId(testEntityId));
+            const entity = await repository.findEntityById(
+                fromObjectId(testEntityId)
+            );
 
             expect(entity.credential).toBeDefined();
             expect(entity.credential.data.access_token).toBe('plain_token');
@@ -340,7 +365,9 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                     data: { access_token: 'plain2' },
                 });
 
-            const entities = await repository.findEntitiesByUserId(fromObjectId(testUserId));
+            const entities = await repository.findEntitiesByUserId(
+                fromObjectId(testUserId)
+            );
 
             expect(entities).toHaveLength(2);
             expect(entities[0].credential.data.access_token).toBe('plain1');
@@ -349,7 +376,11 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
 
         it('findEntitiesByUserIdAndModuleName decrypts credentials', async () => {
             prisma.$runCommandRaw.mockImplementation((command) => {
-                if (command.find && command.filter.userId && command.filter.moduleName) {
+                if (
+                    command.find &&
+                    command.filter.userId &&
+                    command.filter.moduleName
+                ) {
                     return Promise.resolve({
                         cursor: {
                             firstBatch: [
@@ -409,7 +440,9 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
             const error = new Error('Decryption failed: invalid format');
             mockEncryptionService.decryptFields.mockRejectedValue(error);
 
-            const credential = await repository._fetchCredential(testCredentialId);
+            const credential = await repository._fetchCredential(
+                testCredentialId
+            );
 
             // Should return null on error
             expect(credential).toBeNull();
@@ -421,7 +454,9 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                 ok: 1,
             });
 
-            const credential = await repository._fetchCredential(testCredentialId);
+            const credential = await repository._fetchCredential(
+                testCredentialId
+            );
 
             expect(credential).toBeNull();
         });
@@ -454,7 +489,10 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                 })
                 .mockRejectedValueOnce(new Error('Decryption failed'));
 
-            const credentialMap = await repository._fetchCredentialsBulk([credId1, credId2]);
+            const credentialMap = await repository._fetchCredentialsBulk([
+                credId1,
+                credId2,
+            ]);
 
             // Should have only the successful one
             expect(credentialMap.size).toBe(1);
@@ -469,7 +507,7 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
 
             prisma.$runCommandRaw.mockResolvedValue({
                 cursor: {
-                    firstBatch: credIds.map(id => ({
+                    firstBatch: credIds.map((id) => ({
                         _id: id,
                         data: { access_token: 'encrypted' },
                     })),
@@ -477,17 +515,23 @@ describe('ModuleRepositoryDocumentDB - Encryption Integration', () => {
                 ok: 1,
             });
 
-            mockEncryptionService.decryptFields.mockImplementation(async (modelName, doc) => ({
-                ...doc,
-                data: { access_token: 'plain' },
-            }));
+            mockEncryptionService.decryptFields.mockImplementation(
+                async (modelName, doc) => ({
+                    ...doc,
+                    data: { access_token: 'plain' },
+                })
+            );
 
             const startTime = Date.now();
-            const credentialMap = await repository._fetchCredentialsBulk(credIds);
+            const credentialMap = await repository._fetchCredentialsBulk(
+                credIds
+            );
             const duration = Date.now() - startTime;
 
             expect(credentialMap.size).toBe(10);
-            expect(mockEncryptionService.decryptFields).toHaveBeenCalledTimes(10);
+            expect(mockEncryptionService.decryptFields).toHaveBeenCalledTimes(
+                10
+            );
 
             // Should complete in reasonable time (parallel execution)
             expect(duration).toBeLessThan(200);

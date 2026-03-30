@@ -15,9 +15,10 @@ class GetModule {
      */
     async execute(entityId, userIdOrUser) {
         // Support both userId (backward compatible) and User object (new pattern)
-        const userId = typeof userIdOrUser === 'object' && userIdOrUser?.getId
-            ? userIdOrUser.getId()
-            : userIdOrUser;
+        const userId =
+            typeof userIdOrUser === 'object' && userIdOrUser?.getId
+                ? userIdOrUser.getId()
+                : userIdOrUser;
 
         const entity = await this.moduleRepository.findEntityById(
             entityId,
@@ -31,9 +32,10 @@ class GetModule {
         // Validate entity ownership
         // If User object provided, use ownsUserId to check linked users
         // Otherwise fall back to simple equality check
-        const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
-            ? userIdOrUser.ownsUserId(entity.userId)
-            : entity.userId?.toString() === userId?.toString();
+        const isOwned =
+            typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
+                ? userIdOrUser.ownsUserId(entity.userId)
+                : entity.userId?.toString() === userId?.toString();
 
         if (!isOwned) {
             throw new Error(
@@ -43,7 +45,8 @@ class GetModule {
 
         const entityType = entity.moduleName;
         const moduleDefinition = this.moduleDefinitions.find((def) => {
-            const modelName = Module.getEntityModelFromDefinition(def).modelName;
+            const modelName =
+                Module.getEntityModelFromDefinition(def).modelName;
             return entityType === modelName;
         });
 
@@ -67,7 +70,7 @@ class GetModule {
             credential: module.credential,
             externalId: module.entity.externalId,
             userId: module.entity.user.toString(),
-        }
+        };
     }
 }
 

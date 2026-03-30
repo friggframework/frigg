@@ -243,7 +243,9 @@ class CredentialRepository extends CredentialRepositoryInterface {
                 externalId:
                     externalId !== undefined ? externalId : existing.externalId,
                 authIsValid:
-                    authIsValid !== undefined ? authIsValid : existing.authIsValid,
+                    authIsValid !== undefined
+                        ? authIsValid
+                        : existing.authIsValid,
                 data: mergedData,
             },
         });

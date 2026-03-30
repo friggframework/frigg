@@ -1,6 +1,6 @@
 /**
  * Tests for IntegrationBase module key mapping
- * 
+ *
  * Tests that modules are attached using keys from Definition.modules,
  * not the moduleName from the database.
  */
@@ -21,7 +21,7 @@ class MockModule {
         this.name = moduleName;
         this.api = { mock: true };
     }
-    
+
     getName() {
         return this.name;
     }
@@ -36,7 +36,7 @@ describe('IntegrationBase - Module Key Mapping', () => {
                     version: '1.0.0',
                     modules: {
                         attio: { definition: { moduleName: 'attio' } },
-                        quo: { definition: { moduleName: 'quo-attio' } },  // Custom moduleName
+                        quo: { definition: { moduleName: 'quo-attio' } }, // Custom moduleName
                     },
                 };
             }
@@ -57,8 +57,8 @@ describe('IntegrationBase - Module Key Mapping', () => {
 
             // Should attach using keys from Definition.modules
             expect(integration.attio).toBe(attioModule);
-            expect(integration.quo).toBe(quoModule);  // Not integration['quo-attio']
-            
+            expect(integration.quo).toBe(quoModule); // Not integration['quo-attio']
+
             // Should NOT attach with moduleName
             expect(integration['quo-attio']).toBeUndefined();
         });
@@ -107,7 +107,7 @@ describe('IntegrationBase - Module Key Mapping', () => {
 
             const integration = new LegacyIntegration();
             const hubspotModule = new MockModule('hubspot');
-            const unknownModule = new MockModule('unknown-module');  // Not in Definition
+            const unknownModule = new MockModule('unknown-module'); // Not in Definition
 
             integration.setIntegrationRecord({
                 record: {
@@ -121,7 +121,7 @@ describe('IntegrationBase - Module Key Mapping', () => {
 
             // Known module uses Definition key
             expect(integration.hubspot).toBe(hubspotModule);
-            
+
             // Unknown module falls back to moduleName
             expect(integration['unknown-module']).toBe(unknownModule);
         });
@@ -201,11 +201,10 @@ describe('IntegrationBase - Module Key Mapping', () => {
 
             // this.crm should exist (using Definition key)
             expect(integration.crm).toBe(crmModule);
-            
+
             // this.modules should also use the Definition key
             expect(integration.modules.crm).toBe(crmModule);
             expect(integration.modules['crm-module']).toBeUndefined();
         });
     });
 });
-

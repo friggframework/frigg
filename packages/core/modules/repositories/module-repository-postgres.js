@@ -87,7 +87,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             return new Map();
         }
 
-        const validIds = credentialIds.filter(id => id !== null && id !== undefined);
+        const validIds = credentialIds.filter(
+            (id) => id !== null && id !== undefined
+        );
 
         if (validIds.length === 0) {
             return new Map();
@@ -154,7 +156,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             where: { userId: intUserId },
         });
 
-        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
@@ -182,7 +186,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             where: { id: { in: intIds } },
         });
 
-        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
@@ -214,7 +220,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             },
         });
 
-        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
         return entities.map((e) => ({
@@ -273,6 +281,33 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             moduleName: entity.moduleName,
             ...(entity.data || {}),
         };
+    }
+
+    /**
+     * Find entities matching filter criteria
+     * Replaces: Entity.find(filter).populate('credential')
+     *
+     * @param {Object} filter - Filter criteria (e.g., { isGlobal: true, type: 'someType', status: 'connected' })
+     * @returns {Promise<Array>} Array of entity objects with string IDs
+     */
+    async findEntitiesBy(filter) {
+        const where = this._convertFilterToWhere(filter);
+        const entities = await this.prisma.entity.findMany({
+            where,
+            include: { credential: true },
+        });
+
+        return entities.map((e) => ({
+            id: e.id.toString(),
+            accountId: e.accountId,
+            credential: this._convertCredentialIds(e.credential),
+            userId: e.userId?.toString(),
+            name: e.name,
+            externalId: e.externalId,
+            type: e.subType,
+            moduleName: e.moduleName,
+            isGlobal: e.isGlobal,
+        }));
     }
 
     /**
@@ -444,7 +479,9 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
             where.credentialId = this._convertId(filter.credentialId);
         if (filter.name) where.name = filter.name;
         if (filter.moduleName) where.moduleName = filter.moduleName;
-        if (filter.externalId) where.externalId = this._toString(filter.externalId);
+        if (filter.externalId)
+            where.externalId = this._toString(filter.externalId);
+        if (filter.isGlobal !== undefined) where.isGlobal = filter.isGlobal;
 
         return where;
     }

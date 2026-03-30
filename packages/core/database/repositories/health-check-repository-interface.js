@@ -19,7 +19,9 @@ class HealthCheckRepositoryInterface {
      * @abstract
      */
     async getDatabaseConnectionState() {
-        throw new Error('Method getDatabaseConnectionState must be implemented by subclass');
+        throw new Error(
+            'Method getDatabaseConnectionState must be implemented by subclass'
+        );
     }
 
     /**
@@ -42,7 +44,9 @@ class HealthCheckRepositoryInterface {
      * @abstract
      */
     async createCredential(credentialData) {
-        throw new Error('Method createCredential must be implemented by subclass');
+        throw new Error(
+            'Method createCredential must be implemented by subclass'
+        );
     }
 
     /**
@@ -53,7 +57,9 @@ class HealthCheckRepositoryInterface {
      * @abstract
      */
     async findCredentialById(id) {
-        throw new Error('Method findCredentialById must be implemented by subclass');
+        throw new Error(
+            'Method findCredentialById must be implemented by subclass'
+        );
     }
 
     /**
@@ -64,7 +70,9 @@ class HealthCheckRepositoryInterface {
      * @abstract
      */
     async getRawCredentialById(id) {
-        throw new Error('Method getRawCredentialById must be implemented by subclass');
+        throw new Error(
+            'Method getRawCredentialById must be implemented by subclass'
+        );
     }
 
     /**
@@ -75,7 +83,9 @@ class HealthCheckRepositoryInterface {
      * @abstract
      */
     async deleteCredential(id) {
-        throw new Error('Method deleteCredential must be implemented by subclass');
+        throw new Error(
+            'Method deleteCredential must be implemented by subclass'
+        );
     }
 }
 

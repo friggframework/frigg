@@ -173,6 +173,33 @@ class ModuleRepository extends ModuleRepositoryInterface {
     }
 
     /**
+     * Find entities matching filter criteria
+     * Replaces: Entity.find(filter).populate('credential')
+     *
+     * @param {Object} filter - Filter criteria
+     * @returns {Promise<Array>} Array of entity objects
+     */
+    async findEntitiesBy(filter) {
+        const where = this._convertFilterToWhere(filter);
+        const entities = await this.prisma.entity.findMany({
+            where,
+            include: { credential: true },
+        });
+
+        return entities.map((e) => ({
+            id: e.id,
+            accountId: e.accountId,
+            credential: e.credential,
+            userId: e.userId,
+            name: e.name,
+            externalId: e.externalId,
+            type: e.subType,
+            moduleName: e.moduleName,
+            isGlobal: e.isGlobal,
+        }));
+    }
+
+    /**
      * Create a new entity
      * Replaces: Entity.create(entityData)
      *
@@ -337,6 +364,7 @@ class ModuleRepository extends ModuleRepositoryInterface {
         if (filter.name) where.name = filter.name;
         if (filter.moduleName) where.moduleName = filter.moduleName;
         if (filter.externalId) where.externalId = filter.externalId;
+        if (filter.isGlobal !== undefined) where.isGlobal = filter.isGlobal;
 
         return where;
     }

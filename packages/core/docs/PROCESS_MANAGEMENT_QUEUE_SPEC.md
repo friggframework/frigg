@@ -5,7 +5,7 @@
 The current BaseCRMIntegration implementation has a **race condition** in process record updates:
 
 1. Multiple queue workers process batches concurrently
-2. Each worker calls `processManager.updateMetrics()` 
+2. Each worker calls `processManager.updateMetrics()`
 3. Multiple workers read-modify-write the same process record simultaneously
 4. **Result**: Lost updates, inconsistent metrics, potential data corruption
 
@@ -13,7 +13,7 @@ The current BaseCRMIntegration implementation has a **race condition** in proces
 
 ```
 Time 1: Worker A reads process.results.aggregateData.totalSynced = 100
-Time 2: Worker B reads process.results.aggregateData.totalSynced = 100  
+Time 2: Worker B reads process.results.aggregateData.totalSynced = 100
 Time 3: Worker A adds 50 → writes totalSynced = 150
 Time 4: Worker B adds 30 → writes totalSynced = 130 (overwrites Worker A's update!)
 ```
@@ -24,10 +24,10 @@ Time 4: Worker B adds 30 → writes totalSynced = 130 (overwrites Worker A's upd
 
 Create a dedicated FIFO SQS queue in **Frigg Core** for all process management operations:
 
-- **Queue Type**: FIFO (First-In-First-Out)
-- **Message Group ID**: `process-{processId}` (ensures ordered processing per process)
-- **Message Deduplication**: Enabled (prevents duplicate updates)
-- **Dead Letter Queue**: Enabled (captures failed updates)
+-   **Queue Type**: FIFO (First-In-First-Out)
+-   **Message Group ID**: `process-{processId}` (ensures ordered processing per process)
+-   **Message Deduplication**: Enabled (prevents duplicate updates)
+-   **Dead Letter Queue**: Enabled (captures failed updates)
 
 ### Architecture
 
@@ -80,7 +80,7 @@ class ProcessManagementQueueFactory {
      */
     async createProcessManagementQueue(integrationName) {
         const queueName = `${integrationName}-process-management.fifo`;
-        
+
         const params = {
             QueueName: queueName,
             Attributes: {
@@ -92,7 +92,7 @@ class ProcessManagementQueueFactory {
                 ReceiveMessageWaitTimeSeconds: '20', // Long polling
                 DeadLetterTargetArn: `${queueName}-dlq.fifo`, // DLQ
                 MaxReceiveCount: '3', // Retry failed messages 3 times
-            }
+            },
         };
 
         const result = await this.sqs.createQueue(params).promise();
@@ -114,7 +114,7 @@ class ProcessManagementQueueFactory {
                 processId,
                 operation,
                 data,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
             }),
             MessageGroupId: `process-${processId}`,
             MessageDeduplicationId: `${processId}-${operation}-${Date.now()}`,
@@ -137,7 +137,9 @@ const {
     UpdateProcessMetrics,
     GetProcess,
 } = require('../use-cases');
-const { createProcessRepository } = require('../repositories/process-repository-factory');
+const {
+    createProcessRepository,
+} = require('../repositories/process-repository-factory');
 
 /**
  * Handler for process management FIFO queue messages
@@ -146,8 +148,12 @@ const { createProcessRepository } = require('../repositories/process-repository-
 class ProcessUpdateHandler {
     constructor() {
         const processRepository = createProcessRepository();
-        this.updateProcessStateUseCase = new UpdateProcessState({ processRepository });
-        this.updateProcessMetricsUseCase = new UpdateProcessMetrics({ processRepository });
+        this.updateProcessStateUseCase = new UpdateProcessState({
+            processRepository,
+        });
+        this.updateProcessMetricsUseCase = new UpdateProcessMetrics({
+            processRepository,
+        });
         this.getProcessUseCase = new GetProcess({ processRepository });
     }
 
@@ -164,35 +170,35 @@ class ProcessUpdateHandler {
             switch (operation) {
                 case 'UPDATE_STATE':
                     await this.updateProcessStateUseCase.execute(
-                        processId, 
-                        data.state, 
+                        processId,
+                        data.state,
                         data.contextUpdates
                     );
                     break;
 
                 case 'UPDATE_METRICS':
                     await this.updateProcessMetricsUseCase.execute(
-                        processId, 
+                        processId,
                         data.metricsUpdate
                     );
                     break;
 
                 case 'COMPLETE_PROCESS':
                     await this.updateProcessStateUseCase.execute(
-                        processId, 
-                        'COMPLETED', 
+                        processId,
+                        'COMPLETED',
                         { endTime: new Date().toISOString() }
                     );
                     break;
 
                 case 'HANDLE_ERROR':
                     await this.updateProcessStateUseCase.execute(
-                        processId, 
-                        'ERROR', 
+                        processId,
+                        'ERROR',
                         {
                             error: data.error.message,
                             errorStack: data.error.stack,
-                            errorTimestamp: new Date().toISOString()
+                            errorTimestamp: new Date().toISOString(),
                         }
                     );
                     break;
@@ -201,7 +207,9 @@ class ProcessUpdateHandler {
                     throw new Error(`Unknown process operation: ${operation}`);
             }
 
-            console.log(`Process update completed: ${operation} for process ${processId}`);
+            console.log(
+                `Process update completed: ${operation} for process ${processId}`
+            );
         } catch (error) {
             console.error('Process update failed:', error);
             throw error; // Will trigger SQS retry/DLQ
@@ -217,7 +225,9 @@ module.exports = { ProcessUpdateHandler };
 **File**: `/packages/core/integrations/queues/process-queue-manager.js`
 
 ```javascript
-const { ProcessManagementQueueFactory } = require('./process-management-queue-factory');
+const {
+    ProcessManagementQueueFactory,
+} = require('./process-management-queue-factory');
 
 /**
  * Manages process update operations via FIFO queue
@@ -236,7 +246,9 @@ class ProcessQueueManager {
      */
     async getProcessQueueUrl(integrationName) {
         if (!this.queueUrls.has(integrationName)) {
-            const queueUrl = await this.factory.createProcessManagementQueue(integrationName);
+            const queueUrl = await this.factory.createProcessManagementQueue(
+                integrationName
+            );
             this.queueUrls.set(integrationName, queueUrl);
         }
         return this.queueUrls.get(integrationName);
@@ -250,12 +262,22 @@ class ProcessQueueManager {
      * @param {Object} contextUpdates - Context updates
      * @returns {Promise<void>}
      */
-    async queueStateUpdate(integrationName, processId, state, contextUpdates = {}) {
+    async queueStateUpdate(
+        integrationName,
+        processId,
+        state,
+        contextUpdates = {}
+    ) {
         const queueUrl = await this.getProcessQueueUrl(integrationName);
-        await this.factory.sendProcessUpdate(queueUrl, processId, 'UPDATE_STATE', {
-            state,
-            contextUpdates
-        });
+        await this.factory.sendProcessUpdate(
+            queueUrl,
+            processId,
+            'UPDATE_STATE',
+            {
+                state,
+                contextUpdates,
+            }
+        );
     }
 
     /**
@@ -267,9 +289,14 @@ class ProcessQueueManager {
      */
     async queueMetricsUpdate(integrationName, processId, metricsUpdate) {
         const queueUrl = await this.getProcessQueueUrl(integrationName);
-        await this.factory.sendProcessUpdate(queueUrl, processId, 'UPDATE_METRICS', {
-            metricsUpdate
-        });
+        await this.factory.sendProcessUpdate(
+            queueUrl,
+            processId,
+            'UPDATE_METRICS',
+            {
+                metricsUpdate,
+            }
+        );
     }
 
     /**
@@ -280,7 +307,12 @@ class ProcessQueueManager {
      */
     async queueProcessCompletion(integrationName, processId) {
         const queueUrl = await this.getProcessQueueUrl(integrationName);
-        await this.factory.sendProcessUpdate(queueUrl, processId, 'COMPLETE_PROCESS', {});
+        await this.factory.sendProcessUpdate(
+            queueUrl,
+            processId,
+            'COMPLETE_PROCESS',
+            {}
+        );
     }
 
     /**
@@ -292,12 +324,17 @@ class ProcessQueueManager {
      */
     async queueErrorHandling(integrationName, processId, error) {
         const queueUrl = await this.getProcessQueueUrl(integrationName);
-        await this.factory.sendProcessUpdate(queueUrl, processId, 'HANDLE_ERROR', {
-            error: {
-                message: error.message,
-                stack: error.stack
+        await this.factory.sendProcessUpdate(
+            queueUrl,
+            processId,
+            'HANDLE_ERROR',
+            {
+                error: {
+                    message: error.message,
+                    stack: error.stack,
+                },
             }
-        });
+        );
     }
 }
 
@@ -311,7 +348,9 @@ module.exports = { ProcessQueueManager };
 **File**: `/Users/sean/Documents/GitHub/quo--frigg/backend/src/base/services/ProcessManager.js`
 
 ```javascript
-const { ProcessQueueManager } = require('@friggframework/core/integrations/queues/process-queue-manager');
+const {
+    ProcessQueueManager,
+} = require('@friggframework/core/integrations/queues/process-queue-manager');
 
 class ProcessManager {
     constructor({
@@ -394,11 +433,11 @@ class ProcessManager {
 const attachProcessManagementQueues = (definition, AppDefinition) => {
     for (const integration of AppDefinition.integrations) {
         const integrationName = integration.Definition.name;
-        
+
         // Create FIFO queue for process management
         const processQueueName = `${integrationName}ProcessManagementQueue`;
         const processDLQName = `${integrationName}ProcessManagementDLQ`;
-        
+
         // FIFO Queue
         definition.resources.Resources[processQueueName] = {
             Type: 'AWS::SQS::Queue',
@@ -411,7 +450,9 @@ const attachProcessManagementQueues = (definition, AppDefinition) => {
                 DelaySeconds: 0,
                 ReceiveMessageWaitTimeSeconds: 20, // Long polling
                 RedrivePolicy: {
-                    deadLetterTargetArn: { 'Fn::GetAtt': [processDLQName, 'Arn'] },
+                    deadLetterTargetArn: {
+                        'Fn::GetAtt': [processDLQName, 'Arn'],
+                    },
                     maxReceiveCount: 3,
                 },
             },
@@ -430,15 +471,18 @@ const attachProcessManagementQueues = (definition, AppDefinition) => {
         // Process Update Handler Function
         const processHandlerName = `${integrationName}ProcessUpdateHandler`;
         definition.functions[processHandlerName] = {
-            handler: 'node_modules/@friggframework/core/handlers/process-update-handler.handler',
+            handler:
+                'node_modules/@friggframework/core/handlers/process-update-handler.handler',
             reservedConcurrency: 1, // Process updates sequentially per integration
-            events: [{
-                sqs: {
-                    arn: { 'Fn::GetAtt': [processQueueName, 'Arn'] },
-                    batchSize: 1, // Process one update at a time
-                    maximumBatchingWindowInSeconds: 5,
+            events: [
+                {
+                    sqs: {
+                        arn: { 'Fn::GetAtt': [processQueueName, 'Arn'] },
+                        batchSize: 1, // Process one update at a time
+                        maximumBatchingWindowInSeconds: 5,
+                    },
                 },
-            }],
+            ],
             timeout: 30,
             environment: {
                 INTEGRATION_NAME: integrationName,
@@ -451,64 +495,75 @@ const attachProcessManagementQueues = (definition, AppDefinition) => {
 ## Benefits
 
 ### ✅ Race Condition Prevention
-- FIFO queue ensures ordered processing per process ID
-- MessageGroupId = `process-{processId}` guarantees sequential updates
-- No more lost updates or inconsistent metrics
+
+-   FIFO queue ensures ordered processing per process ID
+-   MessageGroupId = `process-{processId}` guarantees sequential updates
+-   No more lost updates or inconsistent metrics
 
 ### ✅ Cost Optimization
-- Only one FIFO queue per integration (not per process)
-- MessageGroupId provides ordering without expensive per-process queues
-- Long polling reduces API calls
+
+-   Only one FIFO queue per integration (not per process)
+-   MessageGroupId provides ordering without expensive per-process queues
+-   Long polling reduces API calls
 
 ### ✅ Reliability
-- Dead Letter Queue captures failed updates
-- Retry mechanism with exponential backoff
-- Content-based deduplication prevents duplicate processing
+
+-   Dead Letter Queue captures failed updates
+-   Retry mechanism with exponential backoff
+-   Content-based deduplication prevents duplicate processing
 
 ### ✅ Scalability
-- Each integration has its own process management queue
-- Process updates don't block data processing
-- Can scale process update handlers independently
+
+-   Each integration has its own process management queue
+-   Process updates don't block data processing
+-   Can scale process update handlers independently
 
 ## Migration Strategy
 
 ### Phase 1: Current Implementation (Native Queue)
-- Use existing integration queue for process updates
-- Accept potential race conditions for now
-- Focus on core functionality
+
+-   Use existing integration queue for process updates
+-   Accept potential race conditions for now
+-   Focus on core functionality
 
 ### Phase 2: FIFO Queue Implementation
-- Implement FIFO queue infrastructure in Frigg Core
-- Update ProcessManager to use FIFO queue
-- Deploy with feature flag
+
+-   Implement FIFO queue infrastructure in Frigg Core
+-   Update ProcessManager to use FIFO queue
+-   Deploy with feature flag
 
 ### Phase 3: Full Migration
-- Switch all integrations to FIFO queue
-- Remove native queue process update code
-- Monitor for race condition elimination
+
+-   Switch all integrations to FIFO queue
+-   Remove native queue process update code
+-   Monitor for race condition elimination
 
 ## Cost Analysis
 
 ### FIFO Queue Costs (per integration)
-- **Queue Creation**: Free
-- **Message Storage**: $0.40 per million messages
-- **Message Processing**: $0.40 per million requests
-- **Example**: 10 integrations, 1000 process updates/day = ~$2.40/month
+
+-   **Queue Creation**: Free
+-   **Message Storage**: $0.40 per million messages
+-   **Message Processing**: $0.40 per million requests
+-   **Example**: 10 integrations, 1000 process updates/day = ~$2.40/month
 
 ### Benefits vs Costs
-- **Cost**: ~$2.40/month for 10 integrations
-- **Benefit**: Eliminates race conditions, ensures data consistency
-- **ROI**: High - prevents data corruption and debugging time
+
+-   **Cost**: ~$2.40/month for 10 integrations
+-   **Benefit**: Eliminates race conditions, ensures data consistency
+-   **ROI**: High - prevents data corruption and debugging time
 
 ## Implementation Priority
 
 **High Priority** - Race conditions in process updates can cause:
-- Lost sync progress
-- Inconsistent metrics
-- Difficult debugging
-- Data integrity issues
+
+-   Lost sync progress
+-   Inconsistent metrics
+-   Difficult debugging
+-   Data integrity issues
 
 **Recommended Timeline**:
+
 1. **Week 1**: Implement FIFO queue infrastructure in Frigg Core
 2. **Week 2**: Update ProcessManager to use FIFO queue
 3. **Week 3**: Deploy and test with one integration

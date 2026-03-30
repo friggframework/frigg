@@ -4,7 +4,7 @@ const PACKAGE_JSON = 'package.json';
 
 function findNearestBackendPackageJson() {
     let currentDir = process.cwd();
-    
+
     // First check if we're in production by looking for package.json in the current directory
     const rootPackageJson = path.join(currentDir, PACKAGE_JSON);
     if (fs.existsSync(rootPackageJson)) {
@@ -35,4 +35,4 @@ function validateBackendPath(backendPath) {
 module.exports = {
     findNearestBackendPackageJson,
     validateBackendPath,
-}; 
+};

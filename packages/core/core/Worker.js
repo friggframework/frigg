@@ -1,4 +1,8 @@
-const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require('@aws-sdk/client-sqs');
+const {
+    SQSClient,
+    GetQueueUrlCommand,
+    SendMessageCommand,
+} = require('@aws-sdk/client-sqs');
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');

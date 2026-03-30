@@ -29,4 +29,4 @@ class GetEntitiesForUser {
     }
 }
 
-module.exports = { GetEntitiesForUser }; 
+module.exports = { GetEntitiesForUser };
