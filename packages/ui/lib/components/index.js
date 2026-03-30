@@ -5,6 +5,7 @@ import * as input from "./input";
 import * as loadingSpinner from "./LoadingSpinner.jsx";
 import * as switchToggle from "./switch.jsx";
 import * as table from "./table.jsx";
+import * as tabs from "./tabs.jsx";
 import * as toast from "./toast.jsx";
 import * as toaster from "./toaster.jsx";
 import * as useToast from "./use-toast.js";
@@ -17,6 +18,7 @@ export {
   dropdownMenu,
   switchToggle,
   table,
+  tabs,
   toast,
   toaster,
   useToast,
