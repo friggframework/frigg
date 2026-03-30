@@ -33,7 +33,7 @@ function parseMessageBody(body) {
 }
 
 async function dlqProcessor(event) {
-    if (!event?.Records?.length) return;
+    if (!event?.Records?.length) return { batchItemFailures: [] };
 
     for (const record of event.Records) {
         try {
@@ -56,6 +56,8 @@ async function dlqProcessor(event) {
             });
         }
     }
+
+    return { batchItemFailures: [] };
 }
 
 module.exports = { dlqProcessor };

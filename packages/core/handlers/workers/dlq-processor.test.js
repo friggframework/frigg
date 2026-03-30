@@ -85,7 +85,7 @@ describe('DLQ Processor', () => {
         expect(consoleSpy).toHaveBeenCalledTimes(2);
     });
 
-    it('should not throw — DLQ processor must always succeed', async () => {
+    it('should return empty batchItemFailures (all messages acknowledged)', async () => {
         const event = {
             Records: [{
                 messageId: 'msg-789',
@@ -95,12 +95,16 @@ describe('DLQ Processor', () => {
             }],
         };
 
-        await expect(dlqProcessor(event)).resolves.not.toThrow();
+        const result = await dlqProcessor(event);
+        expect(result).toEqual({ batchItemFailures: [] });
     });
 
     it('should handle empty or missing Records gracefully', async () => {
-        await expect(dlqProcessor({ Records: [] })).resolves.not.toThrow();
-        await expect(dlqProcessor({})).resolves.not.toThrow();
+        const result1 = await dlqProcessor({ Records: [] });
+        expect(result1).toEqual({ batchItemFailures: [] });
+
+        const result2 = await dlqProcessor({});
+        expect(result2).toEqual({ batchItemFailures: [] });
     });
 
     it('should include sentTimestamp in structured log', async () => {
