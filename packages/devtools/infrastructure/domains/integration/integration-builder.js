@@ -310,7 +310,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
             skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),  // Queue workers need Prisma for database operations
-            reservedConcurrency: 5,
+            reservedConcurrency: 20,
             events: [
                 {
                     sqs: {

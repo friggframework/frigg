@@ -260,7 +260,7 @@ describe('IntegrationBuilder', () => {
 
             const result = await integrationBuilder.build(appDefinition, {});
 
-            expect(result.functions.testQueueWorker.reservedConcurrency).toBe(5);
+            expect(result.functions.testQueueWorker.reservedConcurrency).toBe(20);
         });
 
         it('should add queue URL to environment variables', async () => {

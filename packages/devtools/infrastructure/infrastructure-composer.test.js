@@ -1162,7 +1162,7 @@ describe('composeServerlessDefinition', () => {
             // Check Queue Worker
             expect(result.functions.testIntegrationQueueWorker).toEqual({
                 handler: 'node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.testIntegration.queueWorker',
-                reservedConcurrency: 5,
+                reservedConcurrency: 20,
                 events: [{
                     sqs: {
                         arn: {
