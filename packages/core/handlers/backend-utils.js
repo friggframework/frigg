@@ -186,6 +186,15 @@ const createQueueWorker = (integrationClass) => {
                     `Error in ${params.event} for ${integrationClass.Definition.name}:`,
                     error
                 );
+
+                // 4xx HTTP errors are permanent — the requester already
+                // attempted token refresh (401) and backoff (429/5xx).
+                // By the time a 4xx reaches here, retrying won't help.
+                const status = error.statusCode;
+                if (status && status >= 400 && status < 500 && status !== 429) {
+                    error.isHaltError = true;
+                }
+
                 throw error;
             }
         }
