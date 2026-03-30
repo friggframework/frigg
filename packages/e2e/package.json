@@ -1,0 +1,26 @@
+{
+  "name": "@friggframework/e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end test suite for Frigg Framework",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --ci --coverage",
+    "test:management-api": "jest --testPathPattern=management-api",
+    "test:cli": "jest --testPathPattern=cli",
+    "test:lifecycle": "jest --testPathPattern=lifecycle"
+  },
+  "dependencies": {
+    "@friggframework/core": "*"
+  },
+  "devDependencies": {
+    "@friggframework/test": "*",
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^8.9.0",
+    "supertest": "^6.3.3"
+  },
+  "author": "",
+  "license": "MIT"
+}
