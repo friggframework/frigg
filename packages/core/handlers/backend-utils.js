@@ -154,6 +154,12 @@ const createQueueWorker = (integrationClass) => {
                         params.data.processId,
                         integrationClass
                     );
+                    if (integrationInstance?.status === 'DISABLED') {
+                        console.warn(
+                            `[${integrationClass.Definition.name}] Integration for process ${params.data.processId} is DISABLED. Discarding ${params.event} message.`
+                        );
+                        return;
+                    }
                 } else if (params.data?.integrationId) {
                     integrationInstance = await loadIntegrationForWebhook(
                         params.data.integrationId
@@ -161,6 +167,12 @@ const createQueueWorker = (integrationClass) => {
                     if (!integrationInstance) {
                         console.warn(
                             `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} no longer exists. Discarding ${params.event} message.`
+                        );
+                        return;
+                    }
+                    if (integrationInstance.status === 'DISABLED') {
+                        console.warn(
+                            `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} is DISABLED. Discarding ${params.event} message.`
                         );
                         return;
                     }
@@ -186,6 +198,19 @@ const createQueueWorker = (integrationClass) => {
                     `Error in ${params.event} for ${integrationClass.Definition.name}:`,
                     error
                 );
+
+                // 4xx HTTP errors are permanent — the requester already
+                // attempted token refresh (401) and backoff (429/5xx).
+                // By the time a 4xx reaches here, retrying won't help.
+                // 408 (timeout) and 429 (rate limit) are excluded — both are transient.
+                const status = error.statusCode;
+                if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+                    error.isHaltError = true;
+                    console.warn(
+                        `[${integrationClass.Definition.name}] Permanent ${status} error for ${params.event} — message will be discarded (no retry)`
+                    );
+                }
+
                 throw error;
             }
         }
