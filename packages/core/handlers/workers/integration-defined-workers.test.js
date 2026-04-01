@@ -363,6 +363,91 @@ describe('Webhook Queue Worker', () => {
         });
     });
 
+    describe('Integration status checks', () => {
+        it('should discard message when integration is DISABLED', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+            let mockedCreateQueueWorker;
+            jest.isolateModules(() => {
+                const mockIntegrationRecord = {
+                    id: '123',
+                    userId: 'user-1',
+                    entities: [],
+                    config: {},
+                    status: 'DISABLED',
+                    version: '1.0.0',
+                    messages: { errors: [], warnings: [] },
+                };
+
+                jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
+                    createIntegrationRepository: () => ({
+                        findIntegrationById: jest.fn().mockResolvedValue(mockIntegrationRecord),
+                    }),
+                }));
+                jest.doMock('../../modules/repositories/module-repository-factory', () => ({
+                    createModuleRepository: () => ({}),
+                }));
+                jest.doMock('../app-definition-loader', () => ({
+                    loadAppDefinition: () => ({ integrations: [TestWebhookIntegration] }),
+                }));
+                jest.doMock('../../integrations/use-cases/get-integration-instance', () => ({
+                    GetIntegrationInstance: class {
+                        async execute() {
+                            const instance = new TestWebhookIntegration();
+                            instance.id = '123';
+                            instance.status = 'DISABLED';
+                            return instance;
+                        }
+                    },
+                }));
+                mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
+            });
+
+            const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'ON_WEBHOOK',
+                data: {
+                    integrationId: '123',
+                    body: { webhookEvent: 'updated' },
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+
+            // Message should be discarded (not processed, not retried)
+            expect(result.batchItemFailures).toEqual([]);
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('DISABLED')
+            );
+
+            consoleSpy.mockRestore();
+        });
+
+        it('should process message normally when integration is ENABLED', async () => {
+            const QueueWorker = createQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'ON_WEBHOOK',
+                data: { body: { someData: 'value' } },
+            };
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
+            };
+
+            // Unhydrated instance (no integrationId) — should process normally
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([]);
+        });
+    });
+
     describe('Integration Hydration for ANY event with integrationId', () => {
         it('should hydrate integration for POST_CREATE_SETUP event with integrationId', async () => {
             const QueueWorker = createQueueWorker(TestWebhookIntegration);

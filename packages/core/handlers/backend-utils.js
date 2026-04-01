@@ -154,6 +154,12 @@ const createQueueWorker = (integrationClass) => {
                         params.data.processId,
                         integrationClass
                     );
+                    if (integrationInstance?.status === 'DISABLED') {
+                        console.warn(
+                            `[${integrationClass.Definition.name}] Integration for process ${params.data.processId} is DISABLED. Discarding ${params.event} message.`
+                        );
+                        return;
+                    }
                 } else if (params.data?.integrationId) {
                     integrationInstance = await loadIntegrationForWebhook(
                         params.data.integrationId
@@ -161,6 +167,12 @@ const createQueueWorker = (integrationClass) => {
                     if (!integrationInstance) {
                         console.warn(
                             `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} no longer exists. Discarding ${params.event} message.`
+                        );
+                        return;
+                    }
+                    if (integrationInstance.status === 'DISABLED') {
+                        console.warn(
+                            `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} is DISABLED. Discarding ${params.event} message.`
                         );
                         return;
                     }
