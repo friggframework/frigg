@@ -1,4 +1,5 @@
 const { prisma } = require('../../database/prisma');
+const config = require('../../database/config');
 const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
@@ -280,11 +281,17 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
             timestamp: messageTimestamp,
         });
 
+        // Serialize message array for database
+        // SQLite uses String fields, so we need to serialize the array to JSON
+        // PostgreSQL uses Json fields which accept arrays directly
+        const isSqlite = config.DB_TYPE === 'sqlite';
+        const serializedValue = isSqlite ? JSON.stringify(messageArray) : messageArray;
+
         // Update the specific message field
         await this.prisma.integration.update({
             where: { id: intId },
             data: {
-                [messageType]: messageArray,
+                [messageType]: serializedValue,
             },
         });
 

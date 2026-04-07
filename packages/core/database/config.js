@@ -10,12 +10,12 @@
 
 /**
  * Determines database type from environment or app definition
- * 
+ *
  * Detection order:
  * 1. DB_TYPE environment variable (set for migration handlers)
  * 2. App definition (backend/index.js Definition.database configuration)
  *
- * @returns {'mongodb'|'postgresql'|'documentdb'} Database type
+ * @returns {'mongodb'|'postgresql'|'documentdb'|'sqlite'} Database type
  * @throws {Error} If database type cannot be determined or app definition missing
  */
 function getDatabaseType() {
