@@ -1,6 +1,11 @@
 /**
  * Database Configuration
  * Manages configuration for Prisma ORM operations
+ *
+ * SQLite Support:
+ * - Falls back to SQLite when no database is configured
+ * - Useful for local development and AI agent testing
+ * - Data persisted to .frigg/frigg.db in working directory
  */
 
 /**
@@ -77,15 +82,13 @@ function getDatabaseType() {
 
         database = backendModule?.Definition?.database;
 
+        // If no database configuration, fallback to SQLite for local development
         if (!database) {
-            throw new Error(
-                '[Frigg] App definition missing database configuration. ' +
-                `Add database: { postgres: { enable: true } } (or mongoDB/documentDB) to ${backendIndexPath}`
-            );
+            return 'sqlite';
         }
 
         // Determine database type from enabled database
-        // Priority order: postgres > mongoDB > documentDB
+        // Priority order: postgres > mongoDB > documentDB > sqlite
         if (database.postgres?.enable === true) {
             return 'postgresql';
         }
@@ -96,10 +99,13 @@ function getDatabaseType() {
             return 'documentdb';
         }
 
-        throw new Error(
-            '[Frigg] No database enabled in app definition. ' +
-            'Set one of: database.postgres.enable, database.mongoDB.enable, or database.documentDB.enable to true'
-        );
+        // SQLite - for local development and AI agent testing
+        if (database.sqlite?.enable === true) {
+            return 'sqlite';
+        }
+
+        // No database enabled - fallback to SQLite for local dev
+        return 'sqlite';
     } catch (error) {
         // Re-throw with context if it's our error
         if (error.message.includes('[Frigg]')) {
