@@ -33,7 +33,7 @@ class AuthenticateWithSharedSecret {
         if (!expectedSecret) {
             throw Boom.badImplementation(
                 'FRIGG_API_KEY environment variable is not configured. ' +
-                'Set FRIGG_API_KEY to enable shared secret authentication.'
+                    'Set FRIGG_API_KEY to enable shared secret authentication.'
             );
         }
 

@@ -15,10 +15,13 @@ function mapIntegrationClassToIntegrationDTO(integration) {
         version: integration.version,
         messages: integration.messages,
         userActions: integration.userActions,
-        options: integration.options || (typeof integration.getOptionDetails === 'function' ? integration.getOptionDetails() : null),
+        options:
+            integration.options ||
+            (typeof integration.getOptionDetails === 'function'
+                ? integration.getOptionDetails()
+                : null),
     };
 }
-
 
 const getModulesDefinitionFromIntegrationClasses = (integrationClasses) => {
     return [
@@ -34,4 +37,7 @@ const getModulesDefinitionFromIntegrationClasses = (integrationClasses) => {
     ];
 };
 
-module.exports = { mapIntegrationClassToIntegrationDTO, getModulesDefinitionFromIntegrationClasses }; 
+module.exports = {
+    mapIntegrationClassToIntegrationDTO,
+    getModulesDefinitionFromIntegrationClasses,
+};

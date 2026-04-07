@@ -1,5 +1,9 @@
 const { v4: uuid } = require('uuid');
-const { SQSClient, SendMessageCommand, SendMessageBatchCommand } = require('@aws-sdk/client-sqs');
+const {
+    SQSClient,
+    SendMessageCommand,
+    SendMessageBatchCommand,
+} = require('@aws-sdk/client-sqs');
 
 const awsConfigOptions = () => {
     const config = {};

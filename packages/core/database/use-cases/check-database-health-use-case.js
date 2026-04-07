@@ -11,7 +11,8 @@ class CheckDatabaseHealthUseCase {
      * @returns {Promise<{status: string, state: string, responseTime?: number}>}
      */
     async execute() {
-        const { stateName, isConnected } = await this.repository.getDatabaseConnectionState();
+        const { stateName, isConnected } =
+            await this.repository.getDatabaseConnectionState();
 
         const result = {
             status: isConnected ? 'healthy' : 'unhealthy',

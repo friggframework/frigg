@@ -1,15 +1,15 @@
 /**
  * CreateProcess Use Case
- * 
+ *
  * Creates a new process record for tracking long-running operations.
  * Validates required fields and delegates persistence to the repository.
- * 
+ *
  * Design Philosophy:
  * - Use cases encapsulate business logic
  * - Validation happens at the use case layer
  * - Repositories handle only data access
  * - Process model is generic and reusable
- * 
+ *
  * @example
  * const createProcess = new CreateProcess({ processRepository });
  * const process = await createProcess.execute({
@@ -68,7 +68,9 @@ class CreateProcess {
 
         // Delegate to repository
         try {
-            const createdProcess = await this.processRepository.create(processToCreate);
+            const createdProcess = await this.processRepository.create(
+                processToCreate
+            );
             return createdProcess;
         } catch (error) {
             throw new Error(`Failed to create process: ${error.message}`);
@@ -83,11 +85,15 @@ class CreateProcess {
      */
     _validateProcessData(processData) {
         const requiredFields = ['userId', 'integrationId', 'name', 'type'];
-        const missingFields = requiredFields.filter(field => !processData[field]);
+        const missingFields = requiredFields.filter(
+            (field) => !processData[field]
+        );
 
         if (missingFields.length > 0) {
             throw new Error(
-                `Missing required fields for process creation: ${missingFields.join(', ')}`
+                `Missing required fields for process creation: ${missingFields.join(
+                    ', '
+                )}`
             );
         }
 
@@ -115,14 +121,19 @@ class CreateProcess {
         if (processData.results && typeof processData.results !== 'object') {
             throw new Error('results must be an object');
         }
-        if (processData.childProcesses && !Array.isArray(processData.childProcesses)) {
+        if (
+            processData.childProcesses &&
+            !Array.isArray(processData.childProcesses)
+        ) {
             throw new Error('childProcesses must be an array');
         }
-        if (processData.parentProcessId && typeof processData.parentProcessId !== 'string') {
+        if (
+            processData.parentProcessId &&
+            typeof processData.parentProcessId !== 'string'
+        ) {
             throw new Error('parentProcessId must be a string');
         }
     }
 }
 
 module.exports = { CreateProcess };
-

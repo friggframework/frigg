@@ -14,14 +14,16 @@ jest.mock('../../../token/repositories/token-repository-factory', () => ({
     })),
 }));
 
-const { ObjectId } = require('bson');
+const { ObjectId } = require('mongodb');
 const { prisma } = require('../../../database/prisma');
 const {
     toObjectId,
     fromObjectId,
 } = require('../../../database/documentdb-utils');
 const { UserRepositoryDocumentDB } = require('../user-repository-documentdb');
-const { DocumentDBEncryptionService } = require('../../../database/documentdb-encryption-service');
+const {
+    DocumentDBEncryptionService,
+} = require('../../../database/documentdb-encryption-service');
 
 describe('UserRepositoryDocumentDB - Encryption Integration', () => {
     let repository;
@@ -36,7 +38,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
         };
 
         // Mock the constructor to return our mock
-        DocumentDBEncryptionService.mockImplementation(() => mockEncryptionService);
+        DocumentDBEncryptionService.mockImplementation(
+            () => mockEncryptionService
+        );
 
         // Create repository instance
         repository = new UserRepositoryDocumentDB();
@@ -67,7 +71,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             // Mock insert and read-back
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
-                    return Promise.resolve({ insertedId: testUserId, n: 1, ok: 1 });
+                    return Promise.resolve({
+                        insertedId: testUserId,
+                        n: 1,
+                        ok: 1,
+                    });
                 }
                 if (command.find) {
                     return Promise.resolve({
@@ -192,7 +200,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
 
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
-                    return Promise.resolve({ insertedId: testUserId, n: 1, ok: 1 });
+                    return Promise.resolve({
+                        insertedId: testUserId,
+                        n: 1,
+                        ok: 1,
+                    });
                 }
                 return Promise.resolve({
                     cursor: {
@@ -220,7 +232,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             // Verify plain password never passed to encryption
-            expect(mockEncryptionService.encryptFields).not.toHaveBeenCalledWith(
+            expect(
+                mockEncryptionService.encryptFields
+            ).not.toHaveBeenCalledWith(
                 'User',
                 expect.objectContaining({
                     hashword: plainPassword,
@@ -263,7 +277,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 hashword: bcryptHash,
             });
 
-            const user = await repository.findIndividualUserById(fromObjectId(testUserId));
+            const user = await repository.findIndividualUserById(
+                fromObjectId(testUserId)
+            );
 
             expect(mockEncryptionService.decryptFields).toHaveBeenCalledWith(
                 'User',
@@ -300,7 +316,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 hashword: bcryptHash,
             });
 
-            const user = await repository.findIndividualUserByUsername('testuser');
+            const user = await repository.findIndividualUserByUsername(
+                'testuser'
+            );
 
             expect(mockEncryptionService.decryptFields).toHaveBeenCalled();
             expect(user.hashword).toBe(bcryptHash);
@@ -331,7 +349,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 hashword: bcryptHash,
             });
 
-            const user = await repository.findIndividualUserByEmail('test@example.com');
+            const user = await repository.findIndividualUserByEmail(
+                'test@example.com'
+            );
 
             expect(mockEncryptionService.decryptFields).toHaveBeenCalled();
             expect(user.hashword).toBe(bcryptHash);
@@ -361,7 +381,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
 
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
-                    return Promise.resolve({ insertedId: testUserId, n: 1, ok: 1 });
+                    return Promise.resolve({
+                        insertedId: testUserId,
+                        n: 1,
+                        ok: 1,
+                    });
                 }
                 return Promise.resolve({
                     cursor: {
@@ -408,7 +432,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
 
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
-                    return Promise.resolve({ insertedId: testUserId, n: 1, ok: 1 });
+                    return Promise.resolve({
+                        insertedId: testUserId,
+                        n: 1,
+                        ok: 1,
+                    });
                 }
                 return Promise.resolve({
                     cursor: {
@@ -447,7 +475,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
 
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
-                    return Promise.resolve({ insertedId: testUserId, n: 1, ok: 1 });
+                    return Promise.resolve({
+                        insertedId: testUserId,
+                        n: 1,
+                        ok: 1,
+                    });
                 }
                 return Promise.resolve({
                     cursor: {
@@ -481,7 +513,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
 
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
-                    return Promise.resolve({ insertedId: testUserId, n: 1, ok: 1 });
+                    return Promise.resolve({
+                        insertedId: testUserId,
+                        n: 1,
+                        ok: 1,
+                    });
                 }
                 return Promise.resolve({
                     cursor: {
@@ -528,7 +564,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
 
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
-                    return Promise.resolve({ insertedId: testUserId, n: 1, ok: 1 });
+                    return Promise.resolve({
+                        insertedId: testUserId,
+                        n: 1,
+                        ok: 1,
+                    });
                 }
                 return Promise.resolve({
                     cursor: { firstBatch: [] },
@@ -575,7 +615,8 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             // This critical test verifies password hashes are encrypted at rest
             const plainPassword = 'mySecurePassword123';
             const bcryptHash = '$2b$10$hashedPasswordValue';
-            const encryptedHash = 'aes-key-1:1234567890abcdef:a1b2c3d4e5f6:9876543210fedcba';
+            const encryptedHash =
+                'aes-key-1:1234567890abcdef:a1b2c3d4e5f6:9876543210fedcba';
             const insertedId = new ObjectId();
 
             // Track what gets stored in database
@@ -593,7 +634,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     insertCompleted = true;
                     return Promise.resolve({ insertedId, n: 1, ok: 1 });
                 }
-                if (command.find === 'User' && command.filter && command.filter._id) {
+                if (
+                    command.find === 'User' &&
+                    command.filter &&
+                    command.filter._id
+                ) {
                     // Read-back after insert (repository's normal flow)
                     return Promise.resolve({
                         cursor: {
@@ -612,7 +657,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                         ok: 1,
                     });
                 }
-                if (command.find === 'User' && command.filter && !command.filter._id) {
+                if (
+                    command.find === 'User' &&
+                    command.filter &&
+                    !command.filter._id
+                ) {
                     // Non-_id queries
                     if (!insertCompleted) {
                         // Before insert: createIndividualUser checking if user exists
@@ -720,7 +769,11 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert && command.documents) {
                     storedDocument = command.documents[0];
-                    return Promise.resolve({ insertedId: testUserId, n: 1, ok: 1 });
+                    return Promise.resolve({
+                        insertedId: testUserId,
+                        n: 1,
+                        ok: 1,
+                    });
                 }
                 return Promise.resolve({
                     cursor: {
@@ -767,16 +820,21 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             // Use real implementation instead of mock
             jest.unmock('../../../database/documentdb-encryption-service');
             const { Cryptor } = require('../../../encrypt/Cryptor');
-            const { DocumentDBEncryptionService } = jest.requireActual('../../../database/documentdb-encryption-service');
+            const { DocumentDBEncryptionService } = jest.requireActual(
+                '../../../database/documentdb-encryption-service'
+            );
 
             process.env.AES_KEY_ID = 'test-key-id-for-unit-tests';
             process.env.AES_KEY = '12345678901234567890123456789012';
 
             realCryptor = new Cryptor({ shouldUseAws: false });
-            realEncryptionService = new DocumentDBEncryptionService({ cryptor: realCryptor });
+            realEncryptionService = new DocumentDBEncryptionService({
+                cryptor: realCryptor,
+            });
 
             repositoryWithRealEncryption = new UserRepositoryDocumentDB();
-            repositoryWithRealEncryption.encryptionService = realEncryptionService;
+            repositoryWithRealEncryption.encryptionService =
+                realEncryptionService;
             repositoryWithRealEncryption.prisma = prisma;
         });
 
@@ -825,11 +883,15 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
         });
 
         it('decrypts hashword with real AES after reading from database', async () => {
-            const bcryptHash = '$2b$10$exampleHashValue1234567890123456789012345678';
+            const bcryptHash =
+                '$2b$10$exampleHashValue1234567890123456789012345678';
 
-            const encryptedDoc = await realEncryptionService.encryptFields('User', {
-                hashword: bcryptHash,
-            });
+            const encryptedDoc = await realEncryptionService.encryptFields(
+                'User',
+                {
+                    hashword: bcryptHash,
+                }
+            );
 
             expect(encryptedDoc.hashword).not.toBe(bcryptHash);
             expect(encryptedDoc.hashword.split(':').length).toBe(4);
@@ -848,7 +910,10 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 ok: 1,
             });
 
-            const user = await repositoryWithRealEncryption.findIndividualUserById('some-id');
+            const user =
+                await repositoryWithRealEncryption.findIndividualUserById(
+                    'some-id'
+                );
 
             expect(user.hashword).toBe(bcryptHash);
         });
@@ -856,15 +921,21 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
         it('uses different IV for each encryption (proves randomness)', async () => {
             const bcryptHash = '$2b$10$testHashValue1234567890';
 
-            const encrypted1 = await realEncryptionService.encryptFields('User', {
-                hashword: bcryptHash,
-            });
+            const encrypted1 = await realEncryptionService.encryptFields(
+                'User',
+                {
+                    hashword: bcryptHash,
+                }
+            );
             expect(encrypted1).toBeDefined();
             expect(encrypted1.hashword).toBeDefined();
 
-            const encrypted2 = await realEncryptionService.encryptFields('User', {
-                hashword: bcryptHash,
-            });
+            const encrypted2 = await realEncryptionService.encryptFields(
+                'User',
+                {
+                    hashword: bcryptHash,
+                }
+            );
             expect(encrypted2).toBeDefined();
             expect(encrypted2.hashword).toBeDefined();
 
@@ -872,8 +943,14 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             expect(encrypted1.hashword.split(':').length).toBe(4);
             expect(encrypted2.hashword.split(':').length).toBe(4);
 
-            const decrypted1 = await realEncryptionService.decryptFields('User', encrypted1);
-            const decrypted2 = await realEncryptionService.decryptFields('User', encrypted2);
+            const decrypted1 = await realEncryptionService.decryptFields(
+                'User',
+                encrypted1
+            );
+            const decrypted2 = await realEncryptionService.decryptFields(
+                'User',
+                encrypted2
+            );
 
             expect(decrypted1.hashword).toBe(bcryptHash);
             expect(decrypted2.hashword).toBe(bcryptHash);
@@ -886,13 +963,19 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 email: undefined,
             };
 
-            const encrypted = await realEncryptionService.encryptFields('User', doc);
+            const encrypted = await realEncryptionService.encryptFields(
+                'User',
+                doc
+            );
 
             expect(encrypted.username).toBe('test');
             expect(encrypted.hashword).toBeNull();
             expect(encrypted.email).toBeUndefined();
 
-            const decrypted = await realEncryptionService.decryptFields('User', encrypted);
+            const decrypted = await realEncryptionService.decryptFields(
+                'User',
+                encrypted
+            );
             expect(decrypted.hashword).toBeNull();
             expect(decrypted.email).toBeUndefined();
         });
@@ -904,14 +987,20 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 email: '',
             };
 
-            const encrypted = await realEncryptionService.encryptFields('User', doc);
+            const encrypted = await realEncryptionService.encryptFields(
+                'User',
+                doc
+            );
 
             expect(encrypted.username).toBe('');
             expect(encrypted.email).toBe('');
             expect(encrypted.hashword).not.toBe('real-password');
             expect(encrypted.hashword.split(':').length).toBe(4);
 
-            const decrypted = await realEncryptionService.decryptFields('User', encrypted);
+            const decrypted = await realEncryptionService.decryptFields(
+                'User',
+                encrypted
+            );
             expect(decrypted.username).toBe('');
             expect(decrypted.hashword).toBe('real-password');
             expect(decrypted.email).toBe('');
@@ -924,14 +1013,20 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 email: 'test@example.com',
             };
 
-            const encrypted = await realEncryptionService.encryptFields('User', original);
+            const encrypted = await realEncryptionService.encryptFields(
+                'User',
+                original
+            );
 
             expect(encrypted.hashword).not.toBe(original.hashword);
             expect(encrypted.hashword.split(':').length).toBe(4);
             expect(encrypted.username).toBe(original.username);
             expect(encrypted.email).toBe(original.email);
 
-            const decrypted = await realEncryptionService.decryptFields('User', encrypted);
+            const decrypted = await realEncryptionService.decryptFields(
+                'User',
+                encrypted
+            );
 
             expect(decrypted.hashword).toBe(original.hashword);
             expect(decrypted.username).toBe(original.username);
@@ -939,9 +1034,12 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
         });
 
         it('throws error when decrypting corrupted ciphertext', async () => {
-            const validEncrypted = await realEncryptionService.encryptFields('User', {
-                hashword: 'original-data',
-            });
+            const validEncrypted = await realEncryptionService.encryptFields(
+                'User',
+                {
+                    hashword: 'original-data',
+                }
+            );
 
             const parts = validEncrypted.hashword.split(':');
             parts[2] = parts[2].substring(0, 10) + 'XXXCORRUPTEDXXX';
@@ -949,9 +1047,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 hashword: parts.join(':'),
             };
 
-            await expect(realEncryptionService.decryptFields('User', corruptedDoc))
-                .rejects
-                .toThrow(/decrypt|corrupt|invalid|error/i);
+            await expect(
+                realEncryptionService.decryptFields('User', corruptedDoc)
+            ).rejects.toThrow(/decrypt|corrupt|invalid|error/i);
         });
 
         it('encrypts nested fields like data.access_token', async () => {
@@ -964,17 +1062,25 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 },
             };
 
-            const encrypted = await realEncryptionService.encryptFields('Credential', doc);
+            const encrypted = await realEncryptionService.encryptFields(
+                'Credential',
+                doc
+            );
 
             expect(encrypted.data.access_token).not.toBe('secret-token-value');
             expect(encrypted.data.access_token.split(':').length).toBe(4);
 
-            expect(encrypted.data.refresh_token).not.toBe('refresh-secret-value');
+            expect(encrypted.data.refresh_token).not.toBe(
+                'refresh-secret-value'
+            );
             expect(encrypted.data.refresh_token.split(':').length).toBe(4);
 
             expect(encrypted.data.publicField).toBe('not-secret');
 
-            const decrypted = await realEncryptionService.decryptFields('Credential', encrypted);
+            const decrypted = await realEncryptionService.decryptFields(
+                'Credential',
+                encrypted
+            );
             expect(decrypted.data.access_token).toBe('secret-token-value');
             expect(decrypted.data.refresh_token).toBe('refresh-secret-value');
             expect(decrypted.data.publicField).toBe('not-secret');
@@ -986,7 +1092,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             const bcrypt = require('bcryptjs');
             jest.spyOn(bcrypt, 'hash').mockResolvedValue('$2b$10$hash');
 
-            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            const consoleErrorSpy = jest
+                .spyOn(console, 'error')
+                .mockImplementation();
 
             const insertedId = new ObjectId();
 
@@ -1003,7 +1111,7 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 }
                 if (command.find) {
                     return Promise.resolve({
-                        cursor: { firstBatch: [] },  // Document not found!
+                        cursor: { firstBatch: [] }, // Document not found!
                         ok: 1,
                     });
                 }
@@ -1014,15 +1122,17 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     username: 'testuser',
                     hashword: 'password',
                 })
-            ).rejects.toThrow(/Failed to create individual user: Document not found after insert/);
+            ).rejects.toThrow(
+                /Failed to create individual user: Document not found after insert/
+            );
 
             expect(consoleErrorSpy).toHaveBeenCalledWith(
                 '[UserRepositoryDocumentDB] User not found after insert',
                 expect.objectContaining({
                     insertedId: expect.any(String),
                     params: expect.objectContaining({
-                        username: 'testuser'
-                    })
+                        username: 'testuser',
+                    }),
                 })
             );
 
@@ -1030,7 +1140,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
         });
 
         it('throws when organization user not found after insert', async () => {
-            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            const consoleErrorSpy = jest
+                .spyOn(console, 'error')
+                .mockImplementation();
 
             const insertedId = new ObjectId();
 
@@ -1046,7 +1158,7 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 }
                 if (command.find) {
                     return Promise.resolve({
-                        cursor: { firstBatch: [] },  // Document not found!
+                        cursor: { firstBatch: [] }, // Document not found!
                         ok: 1,
                     });
                 }
@@ -1056,15 +1168,17 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 repository.createOrganizationUser({
                     appOrgId: 'org-123',
                 })
-            ).rejects.toThrow(/Failed to create organization user: Document not found after insert/);
+            ).rejects.toThrow(
+                /Failed to create organization user: Document not found after insert/
+            );
 
             expect(consoleErrorSpy).toHaveBeenCalledWith(
                 '[UserRepositoryDocumentDB] Organization user not found after insert',
                 expect.objectContaining({
                     insertedId: expect.any(String),
                     params: expect.objectContaining({
-                        appOrgId: 'org-123'
-                    })
+                        appOrgId: 'org-123',
+                    }),
                 })
             );
 
@@ -1072,7 +1186,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
         });
 
         it('throws when individual user not found after update', async () => {
-            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            const consoleErrorSpy = jest
+                .spyOn(console, 'error')
+                .mockImplementation();
 
             mockEncryptionService.encryptFields.mockResolvedValue({
                 name: 'Updated',
@@ -1085,7 +1201,7 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 }
                 if (command.find) {
                     return Promise.resolve({
-                        cursor: { firstBatch: [] },  // Document not found!
+                        cursor: { firstBatch: [] }, // Document not found!
                         ok: 1,
                     });
                 }
@@ -1095,15 +1211,17 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 repository.updateIndividualUser(fromObjectId(testUserId), {
                     email: 'new@example.com',
                 })
-            ).rejects.toThrow(/Failed to update individual user: Document not found after update/);
+            ).rejects.toThrow(
+                /Failed to update individual user: Document not found after update/
+            );
 
             expect(consoleErrorSpy).toHaveBeenCalledWith(
                 '[UserRepositoryDocumentDB] Individual user not found after update',
                 expect.objectContaining({
                     userId: expect.any(String),
                     updates: expect.objectContaining({
-                        email: 'new@example.com'
-                    })
+                        email: 'new@example.com',
+                    }),
                 })
             );
 
@@ -1111,7 +1229,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
         });
 
         it('throws when organization user not found after update', async () => {
-            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            const consoleErrorSpy = jest
+                .spyOn(console, 'error')
+                .mockImplementation();
 
             mockEncryptionService.encryptFields.mockResolvedValue({
                 name: 'Updated',
@@ -1124,7 +1244,7 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 }
                 if (command.find) {
                     return Promise.resolve({
-                        cursor: { firstBatch: [] },  // Document not found!
+                        cursor: { firstBatch: [] }, // Document not found!
                         ok: 1,
                     });
                 }
@@ -1134,15 +1254,17 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 repository.updateOrganizationUser(fromObjectId(testUserId), {
                     name: 'Updated Name',
                 })
-            ).rejects.toThrow(/Failed to update organization user: Document not found after update/);
+            ).rejects.toThrow(
+                /Failed to update organization user: Document not found after update/
+            );
 
             expect(consoleErrorSpy).toHaveBeenCalledWith(
                 '[UserRepositoryDocumentDB] Organization user not found after update',
                 expect.objectContaining({
                     userId: expect.any(String),
                     updates: expect.objectContaining({
-                        name: 'Updated Name'
-                    })
+                        name: 'Updated Name',
+                    }),
                 })
             );
 
@@ -1155,8 +1277,12 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             const insertedId = new ObjectId();
             const beforeCreate = Date.now();
 
-            mockEncryptionService.encryptFields.mockImplementation(async (modelName, doc) => doc);
-            mockEncryptionService.decryptFields.mockImplementation(async (modelName, doc) => doc);
+            mockEncryptionService.encryptFields.mockImplementation(
+                async (modelName, doc) => doc
+            );
+            mockEncryptionService.decryptFields.mockImplementation(
+                async (modelName, doc) => doc
+            );
 
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
@@ -1164,8 +1290,12 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     const doc = command.documents[0];
                     expect(doc.createdAt).toBeInstanceOf(Date);
                     expect(doc.updatedAt).toBeInstanceOf(Date);
-                    expect(doc.createdAt.getTime()).toBeGreaterThanOrEqual(beforeCreate);
-                    expect(doc.updatedAt.getTime()).toBe(doc.createdAt.getTime());
+                    expect(doc.createdAt.getTime()).toBeGreaterThanOrEqual(
+                        beforeCreate
+                    );
+                    expect(doc.updatedAt.getTime()).toBe(
+                        doc.createdAt.getTime()
+                    );
 
                     return Promise.resolve({ insertedId, n: 1, ok: 1 });
                 }
@@ -1173,13 +1303,15 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     const now = new Date();
                     return Promise.resolve({
                         cursor: {
-                            firstBatch: [{
-                                _id: insertedId,
-                                type: 'INDIVIDUAL',
-                                username: 'testuser',
-                                createdAt: now,
-                                updatedAt: now,
-                            }],
+                            firstBatch: [
+                                {
+                                    _id: insertedId,
+                                    type: 'INDIVIDUAL',
+                                    username: 'testuser',
+                                    createdAt: now,
+                                    updatedAt: now,
+                                },
+                            ],
                         },
                         ok: 1,
                     });
@@ -1193,67 +1325,90 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
 
             expect(user.createdAt).toBeInstanceOf(Date);
             expect(user.updatedAt).toBeInstanceOf(Date);
-            expect(user.createdAt.getTime()).toBeGreaterThanOrEqual(beforeCreate);
+            expect(user.createdAt.getTime()).toBeGreaterThanOrEqual(
+                beforeCreate
+            );
         });
 
         it('updates updatedAt timestamp on user update', async () => {
             const initialDate = new Date('2024-01-01');
             const updateDate = new Date();
 
-            mockEncryptionService.encryptFields.mockImplementation(async (modelName, payload) => payload);
-            mockEncryptionService.decryptFields.mockImplementation(async (modelName, doc) => doc);
+            mockEncryptionService.encryptFields.mockImplementation(
+                async (modelName, payload) => payload
+            );
+            mockEncryptionService.decryptFields.mockImplementation(
+                async (modelName, doc) => doc
+            );
 
             let capturedUpdatePayload = null;
 
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.update) {
                     capturedUpdatePayload = command.updates[0].u.$set;
-                    expect(capturedUpdatePayload.updatedAt).toBeInstanceOf(Date);
-                    expect(capturedUpdatePayload.updatedAt.getTime()).toBeGreaterThan(initialDate.getTime());
+                    expect(capturedUpdatePayload.updatedAt).toBeInstanceOf(
+                        Date
+                    );
+                    expect(
+                        capturedUpdatePayload.updatedAt.getTime()
+                    ).toBeGreaterThan(initialDate.getTime());
                     return Promise.resolve({ nModified: 1, n: 1, ok: 1 });
                 }
                 if (command.find) {
                     return Promise.resolve({
                         cursor: {
-                            firstBatch: [{
-                                _id: testUserId,
-                                type: 'INDIVIDUAL',
-                                username: 'testuser',
-                                email: 'updated@example.com',
-                                createdAt: initialDate,
-                                updatedAt: updateDate,
-                            }],
+                            firstBatch: [
+                                {
+                                    _id: testUserId,
+                                    type: 'INDIVIDUAL',
+                                    username: 'testuser',
+                                    email: 'updated@example.com',
+                                    createdAt: initialDate,
+                                    updatedAt: updateDate,
+                                },
+                            ],
                         },
                         ok: 1,
                     });
                 }
             });
 
-            const user = await repository.updateIndividualUser(fromObjectId(testUserId), {
-                email: 'updated@example.com',
-            });
+            const user = await repository.updateIndividualUser(
+                fromObjectId(testUserId),
+                {
+                    email: 'updated@example.com',
+                }
+            );
 
             expect(user.updatedAt).toBeInstanceOf(Date);
-            expect(user.updatedAt.getTime()).toBeGreaterThan(initialDate.getTime());
+            expect(user.updatedAt.getTime()).toBeGreaterThan(
+                initialDate.getTime()
+            );
         });
 
         it('returns undefined for invalid dates from database without crashing', async () => {
-            mockEncryptionService.decryptFields.mockImplementation(async (modelName, doc) => doc);
+            mockEncryptionService.decryptFields.mockImplementation(
+                async (modelName, doc) => doc
+            );
 
             prisma.$runCommandRaw.mockResolvedValue({
                 cursor: {
-                    firstBatch: [{
-                        _id: testUserId,
-                        type: 'INDIVIDUAL',
-                        username: 'testuser',
-                        createdAt: 'corrupted-date-value',
-                        updatedAt: NaN,
-                    }],
+                    firstBatch: [
+                        {
+                            _id: testUserId,
+                            type: 'INDIVIDUAL',
+                            username: 'testuser',
+                            createdAt: 'corrupted-date-value',
+                            updatedAt: NaN,
+                        },
+                    ],
                 },
                 ok: 1,
             });
 
-            const user = await repository.findIndividualUserById(fromObjectId(testUserId));
+            const user = await repository.findIndividualUserById(
+                fromObjectId(testUserId)
+            );
 
             // Should not crash and should return undefined for invalid dates
             expect(user).toBeDefined();
@@ -1271,7 +1426,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
         });
 
         it('handles various date formats when reading from database (public API)', async () => {
-            mockEncryptionService.decryptFields.mockImplementation((modelName, doc) => doc);
+            mockEncryptionService.decryptFields.mockImplementation(
+                (modelName, doc) => doc
+            );
 
             // Test with mix of valid and invalid dates from database
             const validDate = new Date('2024-01-15T10:30:00Z');
@@ -1291,7 +1448,9 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             });
 
             // Use PUBLIC API (not private _mapUser method)
-            const user = await repository.findIndividualUserById(fromObjectId(testUserId));
+            const user = await repository.findIndividualUserById(
+                fromObjectId(testUserId)
+            );
 
             // Valid date preserved
             expect(user.createdAt).toBeInstanceOf(Date);

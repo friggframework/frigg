@@ -82,9 +82,10 @@ class WebsocketConnectionRepository extends WebsocketConnectionRepositoryInterfa
             return connections.map((conn) => ({
                 connectionId: conn.connectionId,
                 send: async (data) => {
-                    const apigwManagementApi = new ApiGatewayManagementApiClient({
-                        endpoint: process.env.WEBSOCKET_API_ENDPOINT,
-                    });
+                    const apigwManagementApi =
+                        new ApiGatewayManagementApiClient({
+                            endpoint: process.env.WEBSOCKET_API_ENDPOINT,
+                        });
 
                     try {
                         const command = new PostToConnectionCommand({
@@ -93,7 +94,10 @@ class WebsocketConnectionRepository extends WebsocketConnectionRepositoryInterfa
                         });
                         await apigwManagementApi.send(command);
                     } catch (error) {
-                        if (error.statusCode === 410 || error.$metadata?.httpStatusCode === 410) {
+                        if (
+                            error.statusCode === 410 ||
+                            error.$metadata?.httpStatusCode === 410
+                        ) {
                             console.log(
                                 `Stale connection ${conn.connectionId}`
                             );

@@ -1,4 +1,6 @@
-const { DocumentDBEncryptionService } = require('../documentdb-encryption-service');
+const {
+    DocumentDBEncryptionService,
+} = require('../documentdb-encryption-service');
 
 describe('DocumentDBEncryptionService', () => {
     let service;
@@ -8,7 +10,8 @@ describe('DocumentDBEncryptionService', () => {
         // Create mock cryptor with predictable behavior
         mockCryptor = {
             encrypt: jest.fn(async (val) => {
-                const stringVal = typeof val === 'string' ? val : JSON.stringify(val);
+                const stringVal =
+                    typeof val === 'string' ? val : JSON.stringify(val);
                 return `encrypted:${stringVal}`;
             }),
             decrypt: jest.fn(async (val) => {
@@ -16,7 +19,7 @@ describe('DocumentDBEncryptionService', () => {
                     throw new Error('Invalid encrypted format');
                 }
                 return val.replace('encrypted:', '');
-            })
+            }),
         };
 
         // Create service with mock cryptor
@@ -46,7 +49,7 @@ describe('DocumentDBEncryptionService', () => {
             const doc = {
                 username: 'test@example.com',
                 hashword: 'hashed',
-                type: 'INDIVIDUAL'
+                type: 'INDIVIDUAL',
             };
 
             const encrypted = await service.encryptFields('User', doc);
@@ -83,14 +86,16 @@ describe('DocumentDBEncryptionService', () => {
                 data: {
                     access_token: 'secret_token',
                     refresh_token: 'refresh_secret',
-                    other_field: 'not_encrypted'
-                }
+                    other_field: 'not_encrypted',
+                },
             };
 
             const encrypted = await service.encryptFields('Credential', doc);
 
             expect(encrypted.data.access_token).toBe('encrypted:secret_token');
-            expect(encrypted.data.refresh_token).toBe('encrypted:refresh_secret');
+            expect(encrypted.data.refresh_token).toBe(
+                'encrypted:refresh_secret'
+            );
             expect(encrypted.data.other_field).toBe('not_encrypted');
             expect(encrypted.userId).toBe('12345');
         });
@@ -107,7 +112,9 @@ describe('DocumentDBEncryptionService', () => {
 
         it('handles null/undefined document gracefully', async () => {
             expect(await service.encryptFields('User', null)).toBeNull();
-            expect(await service.encryptFields('User', undefined)).toBeUndefined();
+            expect(
+                await service.encryptFields('User', undefined)
+            ).toBeUndefined();
         });
 
         it('handles empty object', async () => {
@@ -117,14 +124,17 @@ describe('DocumentDBEncryptionService', () => {
 
         it('skips fields that are already encrypted', async () => {
             const doc = {
-                username: 'YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVk', // Already encrypted format
-                hashword: 'plain_text'
+                username:
+                    'YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVk', // Already encrypted format
+                hashword: 'plain_text',
             };
 
             const encrypted = await service.encryptFields('User', doc);
 
             // Already encrypted field should not be re-encrypted
-            expect(encrypted.username).toBe('YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVk');
+            expect(encrypted.username).toBe(
+                'YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVk'
+            );
             // Plain field should be encrypted
             expect(encrypted.hashword).toBe('encrypted:plain_text');
         });
@@ -132,7 +142,10 @@ describe('DocumentDBEncryptionService', () => {
 
     describe('decryptFields', () => {
         it('decrypts User.username (custom field)', async () => {
-            const doc = { username: 'encrypted:test@example.com', type: 'INDIVIDUAL' };
+            const doc = {
+                username: 'encrypted:test@example.com',
+                type: 'INDIVIDUAL',
+            };
 
             const decrypted = await service.decryptFields('User', doc);
 
@@ -152,7 +165,7 @@ describe('DocumentDBEncryptionService', () => {
             const original = {
                 username: 'test@example.com',
                 hashword: 'hashed',
-                type: 'INDIVIDUAL'
+                type: 'INDIVIDUAL',
             };
 
             const encrypted = await service.encryptFields('User', original);
@@ -166,8 +179,8 @@ describe('DocumentDBEncryptionService', () => {
                 userId: '12345',
                 data: {
                     access_token: 'encrypted:secret_token',
-                    refresh_token: 'encrypted:refresh_token'
-                }
+                    refresh_token: 'encrypted:refresh_token',
+                },
             };
 
             const decrypted = await service.decryptFields('Credential', doc);
@@ -187,7 +200,9 @@ describe('DocumentDBEncryptionService', () => {
 
         it('handles null/undefined document gracefully', async () => {
             expect(await service.decryptFields('User', null)).toBeNull();
-            expect(await service.decryptFields('User', undefined)).toBeUndefined();
+            expect(
+                await service.decryptFields('User', undefined)
+            ).toBeUndefined();
         });
 
         it('returns document unchanged if encryption disabled', async () => {
@@ -205,7 +220,7 @@ describe('DocumentDBEncryptionService', () => {
         it('skips non-encrypted values', async () => {
             const doc = {
                 username: 'plain_text', // Not in encrypted format
-                hashword: 'encrypted:hashed'
+                hashword: 'encrypted:hashed',
             };
 
             const decrypted = await service.decryptFields('User', doc);
@@ -217,7 +232,8 @@ describe('DocumentDBEncryptionService', () => {
 
     describe('_isEncryptedValue', () => {
         it('identifies encrypted format (4 colon-separated base64 parts)', () => {
-            const encrypted = 'YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVkS2V5SGVyZVdpdGhMb25nQmFzZTY0U3RyaW5n';
+            const encrypted =
+                'YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVkS2V5SGVyZVdpdGhMb25nQmFzZTY0U3RyaW5n';
             expect(service._isEncryptedValue(encrypted)).toBe(true);
         });
 
@@ -227,16 +243,24 @@ describe('DocumentDBEncryptionService', () => {
 
         it('rejects values with wrong number of colons', () => {
             expect(service._isEncryptedValue('part1:part2:part3')).toBe(false); // Only 3 parts
-            expect(service._isEncryptedValue('part1:part2:part3:part4:part5')).toBe(false); // 5 parts
+            expect(
+                service._isEncryptedValue('part1:part2:part3:part4:part5')
+            ).toBe(false); // 5 parts
         });
 
         it('rejects short values (< 50 chars)', () => {
             expect(service._isEncryptedValue('a:b:c:d')).toBe(false); // Only 7 chars
-            expect(service._isEncryptedValue('YWE=:YmI=:Y2M=:ZGQ=')).toBe(false); // 23 chars, too short
+            expect(service._isEncryptedValue('YWE=:YmI=:Y2M=:ZGQ=')).toBe(
+                false
+            ); // 23 chars, too short
         });
 
         it('rejects non-base64 characters', () => {
-            expect(service._isEncryptedValue('inv@lid:ch@rs:in:b@se64characterstomakeitlongenough')).toBe(false);
+            expect(
+                service._isEncryptedValue(
+                    'inv@lid:ch@rs:in:b@se64characterstomakeitlongenough'
+                )
+            ).toBe(false);
         });
 
         it('rejects empty strings', () => {
@@ -253,7 +277,8 @@ describe('DocumentDBEncryptionService', () => {
 
         it('accepts valid encrypted value with minimum length', () => {
             // Minimum valid: 4 parts, all base64, total > 50 chars
-            const valid = 'YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVkS2V5';
+            const valid =
+                'YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVkS2V5';
             expect(valid.length).toBeGreaterThan(50);
             expect(service._isEncryptedValue(valid)).toBe(true);
         });
@@ -275,10 +300,10 @@ describe('DocumentDBEncryptionService', () => {
                 data: {
                     level1: {
                         level2: {
-                            access_token: 'secret'
-                        }
-                    }
-                }
+                            access_token: 'secret',
+                        },
+                    },
+                },
             };
 
             // Note: Current implementation only handles 'data.access_token', not deeper nesting
@@ -290,7 +315,10 @@ describe('DocumentDBEncryptionService', () => {
         });
 
         it('handles array values in document', async () => {
-            const doc = { username: 'test@example.com', tags: ['tag1', 'tag2'] };
+            const doc = {
+                username: 'test@example.com',
+                tags: ['tag1', 'tag2'],
+            };
 
             const encrypted = await service.encryptFields('User', doc);
 
@@ -301,19 +329,27 @@ describe('DocumentDBEncryptionService', () => {
 
     describe('error handling', () => {
         it('throws on encryption failure', async () => {
-            mockCryptor.encrypt.mockRejectedValueOnce(new Error('Encryption failed'));
+            mockCryptor.encrypt.mockRejectedValueOnce(
+                new Error('Encryption failed')
+            );
 
             const doc = { username: 'test@example.com' };
 
-            await expect(service.encryptFields('User', doc)).rejects.toThrow('Encryption failed');
+            await expect(service.encryptFields('User', doc)).rejects.toThrow(
+                'Encryption failed'
+            );
         });
 
         it('throws on decryption failure', async () => {
-            mockCryptor.decrypt.mockRejectedValueOnce(new Error('Decryption failed'));
+            mockCryptor.decrypt.mockRejectedValueOnce(
+                new Error('Decryption failed')
+            );
 
             const doc = { username: 'encrypted:test@example.com' };
 
-            await expect(service.decryptFields('User', doc)).rejects.toThrow('Decryption failed');
+            await expect(service.decryptFields('User', doc)).rejects.toThrow(
+                'Decryption failed'
+            );
         });
     });
 });

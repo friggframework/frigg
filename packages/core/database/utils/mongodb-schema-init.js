@@ -16,7 +16,7 @@
  * @see https://www.mongodb.com/docs/manual/core/transactions/#transactions-and-operations
  */
 
-const { prisma } = require('../prisma');
+const { mongoose } = require('../mongoose');
 const { ensureCollectionsExist } = require('./mongodb-collection-utils');
 const { getCollectionsFromSchemaSync } = require('./prisma-schema-parser');
 const config = require('../config');
@@ -49,21 +49,23 @@ const config = require('../config');
 async function initializeMongoDBSchema() {
     // Only run for MongoDB-compatible databases
     if (config.DB_TYPE !== 'mongodb' && config.DB_TYPE !== 'documentdb') {
-        console.log('Schema initialization skipped - not using MongoDB-compatible database');
+        console.log(
+            'Schema initialization skipped - not using MongoDB-compatible database'
+        );
         return;
     }
 
-    // Verify database connectivity via Prisma ping
-    try {
-        await prisma.$runCommandRaw({ ping: 1 });
-    } catch (error) {
+    // Check if database is connected
+    if (mongoose.connection.readyState !== 1) {
         throw new Error(
             'Cannot initialize MongoDB schema - database not connected. ' +
-            'Call connectPrisma() before initializeMongoDBSchema()'
+                'Call connectPrisma() before initializeMongoDBSchema()'
         );
     }
 
-    console.log('Initializing MongoDB-compatible schema - ensuring all collections exist...');
+    console.log(
+        'Initializing MongoDB-compatible schema - ensuring all collections exist...'
+    );
     const startTime = Date.now();
 
     try {
@@ -71,7 +73,9 @@ async function initializeMongoDBSchema() {
         const collections = getCollectionsFromSchemaSync();
 
         if (collections.length === 0) {
-            console.warn('No collections found in Prisma schema - skipping initialization');
+            console.warn(
+                'No collections found in Prisma schema - skipping initialization'
+            );
             return;
         }
 

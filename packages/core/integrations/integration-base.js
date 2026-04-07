@@ -204,11 +204,11 @@ class IntegrationBase {
     /**
      * Returns the modules as object with keys as module names.
      * Uses the keys from Definition.modules to attach modules correctly.
-     * 
+     *
      * Example:
      *   Definition.modules = { attio: {...}, quo: { definition: { getName: () => 'quo-attio' } } }
      *   Module with getName()='quo-attio' gets attached as this.quo (not this['quo-attio'])
-     * 
+     *
      * @private
      * @param {Array} integrationModules - Array of module instances
      * @returns {Object} The modules object
@@ -220,13 +220,16 @@ class IntegrationBase {
         // e.g., 'quo-attio' → 'quo', 'attio' → 'attio'
         const moduleNameToKey = {};
         if (this.constructor.Definition?.modules) {
-            for (const [key, moduleConfig] of Object.entries(this.constructor.Definition.modules)) {
+            for (const [key, moduleConfig] of Object.entries(
+                this.constructor.Definition.modules
+            )) {
                 const definition = moduleConfig.definition;
                 if (definition) {
                     // Use getName() if available, fallback to moduleName
-                    const definitionName = typeof definition.getName === 'function'
-                        ? definition.getName()
-                        : definition.moduleName;
+                    const definitionName =
+                        typeof definition.getName === 'function'
+                            ? definition.getName()
+                            : definition.moduleName;
                     if (definitionName) {
                         moduleNameToKey[definitionName] = key;
                     }

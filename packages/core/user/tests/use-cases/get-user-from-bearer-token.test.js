@@ -18,7 +18,7 @@ describe('GetUserFromBearerToken Use Case', () => {
         userRepository = new TestUserRepository({ userConfig });
         getUserFromBearerToken = new GetUserFromBearerToken({
             userRepository,
-            userConfig
+            userConfig,
         });
     });
 
@@ -61,4 +61,4 @@ describe('GetUserFromBearerToken Use Case', () => {
             getUserFromBearerToken.execute(`Bearer ${token}`)
         ).rejects.toThrow('Session Token Not Found');
     });
-}); 
+});

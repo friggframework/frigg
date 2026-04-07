@@ -2,7 +2,7 @@ const { IntegrationBase } = require('../../integration-base');
 
 class ConfigCapturingModule {
     static definition = {
-        getName: () => 'config-capturing-module'
+        getName: () => 'config-capturing-module',
     };
 }
 
@@ -11,14 +11,15 @@ class ConfigCapturingIntegration extends IntegrationBase {
         name: 'config-capturing',
         version: '1.0.0',
         modules: {
-            primary: ConfigCapturingModule
+            primary: ConfigCapturingModule,
         },
         display: {
             label: 'Config Capturing Integration',
-            description: 'Test double for capturing config state during updates',
+            description:
+                'Test double for capturing config state during updates',
             detailsUrl: 'https://example.com',
-            icon: 'test-icon'
-        }
+            icon: 'test-icon',
+        },
     };
 
     static _capturedOnUpdateState = null;
@@ -38,10 +39,10 @@ class ConfigCapturingIntegration extends IntegrationBase {
             findIntegrationById: jest.fn().mockResolvedValue({}),
         };
         this.updateIntegrationStatus = {
-            execute: jest.fn().mockResolvedValue({})
+            execute: jest.fn().mockResolvedValue({}),
         };
         this.updateIntegrationMessages = {
-            execute: jest.fn().mockResolvedValue({})
+            execute: jest.fn().mockResolvedValue({}),
         };
     }
 
@@ -52,7 +53,7 @@ class ConfigCapturingIntegration extends IntegrationBase {
     async onUpdate(params) {
         ConfigCapturingIntegration._capturedOnUpdateState = {
             thisConfig: JSON.parse(JSON.stringify(this.config)),
-            paramsConfig: params.config
+            paramsConfig: params.config,
         };
 
         this.config = this._deepMerge(this.config, params.config);

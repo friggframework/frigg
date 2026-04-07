@@ -39,13 +39,14 @@ class CreateIndividualUser {
         const appUserId = get(params, 'appUserId', null);
         const organizationUserId = get(params, 'organizationUserId', null);
 
-        const individualUserData = await this.userRepository.createIndividualUser({
-            email,
-            username,
-            hashword,
-            appUserId,
-            organizationUser: organizationUserId,
-        });
+        const individualUserData =
+            await this.userRepository.createIndividualUser({
+                email,
+                username,
+                hashword,
+                appUserId,
+                organizationUser: organizationUserId,
+            });
 
         return new User(
             individualUserData,

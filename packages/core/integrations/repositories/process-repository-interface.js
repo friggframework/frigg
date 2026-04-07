@@ -1,9 +1,9 @@
 /**
  * ProcessRepository Interface
- * 
+ *
  * Defines the contract for Process data access operations.
  * Implementations must provide concrete methods for all operations.
- * 
+ *
  * This interface supports the Hexagonal Architecture pattern by:
  * - Defining clear boundaries between domain logic and data access
  * - Allowing multiple implementations (MongoDB, PostgreSQL, in-memory)
@@ -54,7 +54,9 @@ class ProcessRepositoryInterface {
      * @returns {Promise<Array>} Array of process records
      */
     async findByIntegrationAndType(integrationId, type) {
-        throw new Error('Method findByIntegrationAndType() must be implemented');
+        throw new Error(
+            'Method findByIntegrationAndType() must be implemented'
+        );
     }
 
     /**
@@ -63,7 +65,10 @@ class ProcessRepositoryInterface {
      * @param {string[]} [excludeStates=['COMPLETED', 'ERROR']] - States to exclude
      * @returns {Promise<Array>} Array of active process records
      */
-    async findActiveProcesses(integrationId, excludeStates = ['COMPLETED', 'ERROR']) {
+    async findActiveProcesses(
+        integrationId,
+        excludeStates = ['COMPLETED', 'ERROR']
+    ) {
         throw new Error('Method findActiveProcesses() must be implemented');
     }
 
@@ -87,4 +92,3 @@ class ProcessRepositoryInterface {
 }
 
 module.exports = { ProcessRepositoryInterface };
-

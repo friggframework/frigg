@@ -10,6 +10,9 @@ const {
 const {
     LoadIntegrationContextUseCase,
 } = require('./use-cases/load-integration-context');
+const {
+    createProcessRepository,
+} = require('./repositories/process-repository-factory');
 
 module.exports = {
     IntegrationBase,
@@ -18,4 +21,5 @@ module.exports = {
     checkRequiredParams,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
+    createProcessRepository,
 };

@@ -8,7 +8,10 @@ class UpdateAuthenticationStatus {
      * @param {boolean} authIsValid
      */
     async execute(credentialId, authIsValid) {
-        await this.credentialRepository.updateAuthenticationStatus(credentialId, authIsValid);
+        await this.credentialRepository.updateAuthenticationStatus(
+            credentialId,
+            authIsValid
+        );
     }
 }
 

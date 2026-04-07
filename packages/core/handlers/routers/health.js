@@ -29,7 +29,9 @@ const {
 } = require('../use-cases/check-integrations-health-use-case');
 
 const router = Router();
-const healthCheckRepository = createHealthCheckRepository({ prismaClient: prisma });
+const healthCheckRepository = createHealthCheckRepository({
+    prismaClient: prisma,
+});
 
 // Load integrations and create factories just like auth router does
 // This verifies the system can properly load integrations
@@ -39,14 +41,18 @@ try {
     integrationClasses = appDef.integrations || [];
 
     const moduleRepository = createModuleRepository();
-    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrationClasses);
+    const moduleDefinitions =
+        getModulesDefinitionFromIntegrationClasses(integrationClasses);
 
     moduleFactory = new ModuleFactory({
         moduleRepository,
         moduleDefinitions,
     });
 } catch (error) {
-    console.error('Failed to load integrations for health check:', error.message);
+    console.error(
+        'Failed to load integrations for health check:',
+        error.message
+    );
     // Factories will be undefined, health check will report unhealthy
     moduleFactory = undefined;
     integrationClasses = [];
@@ -172,7 +178,8 @@ const detectVpcConfiguration = async () => {
         }
 
         // Check if Lambda is in VPC using VPC_ENABLED env var set by infrastructure
-        results.isInVpc = process.env.VPC_ENABLED === 'true' ||
+        results.isInVpc =
+            process.env.VPC_ENABLED === 'true' ||
             (!results.hasInternetAccess && results.canResolvePublicDns) ||
             results.vpcEndpoints.length > 0;
 
@@ -430,7 +437,8 @@ router.get('/health/detailed', async (_req, res) => {
     }
 
     try {
-        response.checks.encryption = await checkEncryptionHealthUseCase.execute();
+        response.checks.encryption =
+            await checkEncryptionHealthUseCase.execute();
         if (response.checks.encryption.status === 'unhealthy') {
             response.status = 'unhealthy';
         }
@@ -445,12 +453,16 @@ router.get('/health/detailed', async (_req, res) => {
     }
 
     try {
-        const { apiStatuses, allReachable } = await checkExternalApisHealthUseCase.execute();
+        const { apiStatuses, allReachable } =
+            await checkExternalApisHealthUseCase.execute();
         response.checks.externalApis = apiStatuses;
         if (!allReachable) {
             response.status = 'unhealthy';
         }
-        console.log('External APIs check completed:', response.checks.externalApis);
+        console.log(
+            'External APIs check completed:',
+            response.checks.externalApis
+        );
     } catch (error) {
         response.checks.externalApis = {
             status: 'unhealthy',
@@ -462,7 +474,10 @@ router.get('/health/detailed', async (_req, res) => {
 
     try {
         response.checks.integrations = checkIntegrationsHealthUseCase.execute();
-        console.log('Integrations check completed:', response.checks.integrations);
+        console.log(
+            'Integrations check completed:',
+            response.checks.integrations
+        );
     } catch (error) {
         response.checks.integrations = {
             status: 'unhealthy',

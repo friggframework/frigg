@@ -146,7 +146,7 @@ async function getCollectionsFromSchema() {
     if (!schemaPath) {
         throw new Error(
             'Could not find Prisma MongoDB schema file. ' +
-            'Searched: prisma-mongodb/schema.prisma, prisma/schema.prisma, schema.prisma'
+                'Searched: prisma-mongodb/schema.prisma, prisma/schema.prisma, schema.prisma'
         );
     }
 
@@ -165,7 +165,7 @@ function getCollectionsFromSchemaSync() {
     if (!schemaPath) {
         throw new Error(
             'Could not find Prisma MongoDB schema file. ' +
-            'Searched: prisma-mongodb/schema.prisma, prisma/schema.prisma, schema.prisma'
+                'Searched: prisma-mongodb/schema.prisma, prisma/schema.prisma, schema.prisma'
         );
     }
 

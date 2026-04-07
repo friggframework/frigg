@@ -29,7 +29,7 @@ const createHandler = (optionByName = {}) => {
             // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.
             await secretsToEnv();
 
-            // Helps reuse the database connection.  Lowers response times.
+            // Helps mongoose reuse the connection.  Lowers response times.
             context.callbackWaitsForEmptyEventLoop = false;
 
             // Run the Lambda

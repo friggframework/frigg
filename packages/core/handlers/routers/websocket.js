@@ -1,5 +1,7 @@
 const { createHandler } = require('@friggframework/core');
-const { createWebsocketConnectionRepository } = require('../../database/websocket-connection-repository-factory');
+const {
+    createWebsocketConnectionRepository,
+} = require('../../database/websocket-connection-repository-factory');
 
 const websocketConnectionRepository = createWebsocketConnectionRepository();
 
@@ -10,7 +12,9 @@ const handleWebSocketConnection = async (event, context) => {
             // Handle new connection
             try {
                 const connectionId = event.requestContext.connectionId;
-                await websocketConnectionRepository.createConnection(connectionId);
+                await websocketConnectionRepository.createConnection(
+                    connectionId
+                );
                 console.log(`Stored new connection: ${connectionId}`);
                 return { statusCode: 200, body: 'Connected.' };
             } catch (error) {
@@ -22,7 +26,9 @@ const handleWebSocketConnection = async (event, context) => {
             // Handle disconnection
             try {
                 const connectionId = event.requestContext.connectionId;
-                await websocketConnectionRepository.deleteConnection(connectionId);
+                await websocketConnectionRepository.deleteConnection(
+                    connectionId
+                );
                 console.log(`Removed connection: ${connectionId}`);
                 return { statusCode: 200, body: 'Disconnected.' };
             } catch (error) {

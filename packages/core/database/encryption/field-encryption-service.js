@@ -35,7 +35,9 @@ class FieldEncryptionService {
 
             if (this._shouldEncrypt(value)) {
                 const serializedValue = this._serializeForEncryption(value);
-                const encryptedValue = await this.cryptor.encrypt(serializedValue);
+                const encryptedValue = await this.cryptor.encrypt(
+                    serializedValue
+                );
                 return { fieldPath, encryptedValue };
             }
             return null;
@@ -46,7 +48,11 @@ class FieldEncryptionService {
         // Apply encrypted values
         for (const result of results) {
             if (result) {
-                this._setNestedValue(encrypted, result.fieldPath, result.encryptedValue);
+                this._setNestedValue(
+                    encrypted,
+                    result.fieldPath,
+                    result.encryptedValue
+                );
             }
         }
 
@@ -71,7 +77,8 @@ class FieldEncryptionService {
 
             if (this._isEncrypted(value)) {
                 const decryptedValue = await this.cryptor.decrypt(value);
-                const deserializedValue = this._deserializeAfterDecryption(decryptedValue);
+                const deserializedValue =
+                    this._deserializeAfterDecryption(decryptedValue);
                 return { fieldPath, decryptedValue: deserializedValue };
             }
             return null;
@@ -82,7 +89,11 @@ class FieldEncryptionService {
         // Apply decrypted values
         for (const result of results) {
             if (result) {
-                this._setNestedValue(decrypted, result.fieldPath, result.decryptedValue);
+                this._setNestedValue(
+                    decrypted,
+                    result.fieldPath,
+                    result.decryptedValue
+                );
             }
         }
 

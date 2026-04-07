@@ -1,6 +1,6 @@
 /**
  * GetProcess Use Case Tests
- * 
+ *
  * Tests process retrieval with error handling.
  */
 
@@ -21,11 +21,15 @@ describe('GetProcess', () => {
 
     describe('constructor', () => {
         it('should require processRepository', () => {
-            expect(() => new GetProcess({})).toThrow('processRepository is required');
+            expect(() => new GetProcess({})).toThrow(
+                'processRepository is required'
+            );
         });
 
         it('should initialize with processRepository', () => {
-            expect(getProcessUseCase.processRepository).toBe(mockProcessRepository);
+            expect(getProcessUseCase.processRepository).toBe(
+                mockProcessRepository
+            );
         });
     });
 
@@ -60,7 +64,9 @@ describe('GetProcess', () => {
 
             const result = await getProcessUseCase.execute(processId);
 
-            expect(mockProcessRepository.findById).toHaveBeenCalledWith(processId);
+            expect(mockProcessRepository.findById).toHaveBeenCalledWith(
+                processId
+            );
             expect(result).toEqual(mockProcess);
         });
 
@@ -69,26 +75,31 @@ describe('GetProcess', () => {
 
             const result = await getProcessUseCase.execute(processId);
 
-            expect(mockProcessRepository.findById).toHaveBeenCalledWith(processId);
+            expect(mockProcessRepository.findById).toHaveBeenCalledWith(
+                processId
+            );
             expect(result).toBeNull();
         });
 
         it('should throw error if processId is missing', async () => {
-            await expect(getProcessUseCase.execute(''))
-                .rejects.toThrow('processId must be a non-empty string');
+            await expect(getProcessUseCase.execute('')).rejects.toThrow(
+                'processId must be a non-empty string'
+            );
         });
 
         it('should throw error if processId is not a string', async () => {
-            await expect(getProcessUseCase.execute(123))
-                .rejects.toThrow('processId must be a non-empty string');
+            await expect(getProcessUseCase.execute(123)).rejects.toThrow(
+                'processId must be a non-empty string'
+            );
         });
 
         it('should handle repository errors', async () => {
             const repositoryError = new Error('Database connection failed');
             mockProcessRepository.findById.mockRejectedValue(repositoryError);
 
-            await expect(getProcessUseCase.execute(processId))
-                .rejects.toThrow('Failed to retrieve process: Database connection failed');
+            await expect(getProcessUseCase.execute(processId)).rejects.toThrow(
+                'Failed to retrieve process: Database connection failed'
+            );
         });
     });
 
@@ -114,16 +125,20 @@ describe('GetProcess', () => {
         it('should throw error if process not found', async () => {
             mockProcessRepository.findById.mockResolvedValue(null);
 
-            await expect(getProcessUseCase.executeOrThrow(processId))
-                .rejects.toThrow('Process not found: process-123');
+            await expect(
+                getProcessUseCase.executeOrThrow(processId)
+            ).rejects.toThrow('Process not found: process-123');
         });
 
         it('should propagate repository errors', async () => {
             const repositoryError = new Error('Database connection failed');
             mockProcessRepository.findById.mockRejectedValue(repositoryError);
 
-            await expect(getProcessUseCase.executeOrThrow(processId))
-                .rejects.toThrow('Failed to retrieve process: Database connection failed');
+            await expect(
+                getProcessUseCase.executeOrThrow(processId)
+            ).rejects.toThrow(
+                'Failed to retrieve process: Database connection failed'
+            );
         });
     });
 
@@ -137,17 +152,23 @@ describe('GetProcess', () => {
 
         it('should retrieve multiple processes', async () => {
             mockProcessRepository.findById
-                .mockResolvedValueOnce(mockProcesses[0])  // process-1 found
-                .mockResolvedValueOnce(mockProcesses[1])  // process-2 found
-                .mockResolvedValueOnce(null);             // process-3 not found
+                .mockResolvedValueOnce(mockProcesses[0]) // process-1 found
+                .mockResolvedValueOnce(mockProcesses[1]) // process-2 found
+                .mockResolvedValueOnce(null); // process-3 not found
 
             const result = await getProcessUseCase.executeMany(processIds);
 
             expect(mockProcessRepository.findById).toHaveBeenCalledTimes(3);
-            expect(mockProcessRepository.findById).toHaveBeenCalledWith('process-1');
-            expect(mockProcessRepository.findById).toHaveBeenCalledWith('process-2');
-            expect(mockProcessRepository.findById).toHaveBeenCalledWith('process-3');
-            
+            expect(mockProcessRepository.findById).toHaveBeenCalledWith(
+                'process-1'
+            );
+            expect(mockProcessRepository.findById).toHaveBeenCalledWith(
+                'process-2'
+            );
+            expect(mockProcessRepository.findById).toHaveBeenCalledWith(
+                'process-3'
+            );
+
             // Should return only found processes
             expect(result).toEqual([mockProcesses[0], mockProcesses[1]]);
         });
@@ -164,20 +185,22 @@ describe('GetProcess', () => {
         });
 
         it('should throw error if processIds is not an array', async () => {
-            await expect(getProcessUseCase.executeMany('not-an-array'))
-                .rejects.toThrow('processIds must be an array');
+            await expect(
+                getProcessUseCase.executeMany('not-an-array')
+            ).rejects.toThrow('processIds must be an array');
         });
 
         it('should handle mixed success and failure', async () => {
             const repositoryError = new Error('Database error');
             mockProcessRepository.findById
-                .mockResolvedValueOnce(mockProcesses[0])  // process-1 found
-                .mockRejectedValueOnce(repositoryError)   // process-2 error
-                .mockResolvedValueOnce(null);             // process-3 not found
+                .mockResolvedValueOnce(mockProcesses[0]) // process-1 found
+                .mockRejectedValueOnce(repositoryError) // process-2 error
+                .mockResolvedValueOnce(null); // process-3 not found
 
             // Should propagate the repository error
-            await expect(getProcessUseCase.executeMany(processIds))
-                .rejects.toThrow('Failed to retrieve process: Database error');
+            await expect(
+                getProcessUseCase.executeMany(processIds)
+            ).rejects.toThrow('Failed to retrieve process: Database error');
         });
 
         it('should handle empty array', async () => {

@@ -46,24 +46,26 @@ class SyncRepositoryPostgres extends SyncRepositoryInterface {
             ...sync,
             id: sync.id?.toString(),
             integrationId: sync.integrationId?.toString(),
-            entities: sync.entities?.map(e => ({
+            entities: sync.entities?.map((e) => ({
                 ...e,
                 id: e.id?.toString(),
                 userId: e.userId?.toString(),
-                credentialId: e.credentialId?.toString()
+                credentialId: e.credentialId?.toString(),
             })),
-            dataIdentifiers: sync.dataIdentifiers?.map(di => ({
+            dataIdentifiers: sync.dataIdentifiers?.map((di) => ({
                 ...di,
                 id: di.id?.toString(),
                 syncId: di.syncId?.toString(),
                 entityId: di.entityId?.toString(),
-                entity: di.entity ? {
-                    ...di.entity,
-                    id: di.entity.id?.toString(),
-                    userId: di.entity.userId?.toString(),
-                    credentialId: di.entity.credentialId?.toString()
-                } : di.entity
-            }))
+                entity: di.entity
+                    ? {
+                          ...di.entity,
+                          id: di.entity.id?.toString(),
+                          userId: di.entity.userId?.toString(),
+                          credentialId: di.entity.credentialId?.toString(),
+                      }
+                    : di.entity,
+            })),
         };
     }
 
@@ -123,7 +125,9 @@ class SyncRepositoryPostgres extends SyncRepositoryInterface {
         // Convert IDs in syncData if present
         const convertedData = { ...syncData };
         if (convertedData.integrationId) {
-            convertedData.integrationId = this._convertId(convertedData.integrationId);
+            convertedData.integrationId = this._convertId(
+                convertedData.integrationId
+            );
         }
 
         if (existing) {
@@ -155,7 +159,9 @@ class SyncRepositoryPostgres extends SyncRepositoryInterface {
         // Convert IDs in updates if present
         const convertedUpdates = { ...updates };
         if (convertedUpdates.integrationId) {
-            convertedUpdates.integrationId = this._convertId(convertedUpdates.integrationId);
+            convertedUpdates.integrationId = this._convertId(
+                convertedUpdates.integrationId
+            );
         }
 
         const updated = await this.prisma.sync.update({
@@ -241,7 +247,7 @@ class SyncRepositoryPostgres extends SyncRepositoryInterface {
                 },
             },
         });
-        return syncs.map(sync => this._convertSyncIds(sync));
+        return syncs.map((sync) => this._convertSyncIds(sync));
     }
 
     /**

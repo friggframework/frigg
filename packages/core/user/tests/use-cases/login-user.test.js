@@ -12,7 +12,11 @@ describe('LoginUser Use Case', () => {
     let userConfig;
 
     beforeEach(() => {
-        userConfig = { usePassword: true, individualUserRequired: true, organizationUserRequired: false };
+        userConfig = {
+            usePassword: true,
+            individualUserRequired: true,
+            organizationUserRequired: false,
+        };
         userRepository = new TestUserRepository({ userConfig });
         loginUser = new LoginUser({ userRepository, userConfig });
 
@@ -67,7 +71,11 @@ describe('LoginUser Use Case', () => {
 
     describe('Without Password (appUserId)', () => {
         beforeEach(() => {
-            userConfig = { usePassword: false, individualUserRequired: true, organizationUserRequired: false };
+            userConfig = {
+                usePassword: false,
+                individualUserRequired: true,
+                organizationUserRequired: false,
+            };
             userRepository = new TestUserRepository({ userConfig });
             loginUser = new LoginUser({
                 userRepository,
@@ -102,10 +110,12 @@ describe('LoginUser Use Case', () => {
 
         it('should successfully retrieve an organization user by appOrgId', async () => {
             const appOrgId = 'app-org-123';
-            const createdUserData = await userRepository.createOrganizationUser({
-                name: 'Test Org',
-                appOrgId,
-            });
+            const createdUserData = await userRepository.createOrganizationUser(
+                {
+                    name: 'Test Org',
+                    appOrgId,
+                }
+            );
 
             const result = await loginUser.execute({ appOrgId });
             expect(result.getId()).toBe(createdUserData.id);
@@ -140,7 +150,11 @@ describe('LoginUser Use Case', () => {
 
     describe('Bcrypt Hash Verification', () => {
         beforeEach(() => {
-            userConfig = { usePassword: true, individualUserRequired: true, organizationUserRequired: false };
+            userConfig = {
+                usePassword: true,
+                individualUserRequired: true,
+                organizationUserRequired: false,
+            };
             userRepository = new TestUserRepository({ userConfig });
             loginUser = new LoginUser({ userRepository, userConfig });
         });
@@ -160,7 +174,10 @@ describe('LoginUser Use Case', () => {
             await loginUser.execute({ username, password: plainPassword });
 
             expect(bcrypt.compare).toHaveBeenCalledTimes(1);
-            expect(bcrypt.compare).toHaveBeenCalledWith(plainPassword, bcryptHash);
+            expect(bcrypt.compare).toHaveBeenCalledWith(
+                plainPassword,
+                bcryptHash
+            );
 
             const [firstArg, secondArg] = bcrypt.compare.mock.calls[0];
             expect(firstArg).toBe(plainPassword);
@@ -169,14 +186,17 @@ describe('LoginUser Use Case', () => {
 
         it('should verify stored password has bcrypt hash format', async () => {
             const username = 'format-test-user';
-            const bcryptHash = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+            const bcryptHash =
+                '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
 
             await userRepository.createIndividualUser({
                 username,
                 hashword: bcryptHash,
             });
 
-            const user = await userRepository.findIndividualUserByUsername(username);
+            const user = await userRepository.findIndividualUserByUsername(
+                username
+            );
 
             expect(user.hashword).toMatch(/^\$2[ab]\$/);
             expect(user.hashword.length).toBeGreaterThan(50);
@@ -214,7 +234,10 @@ describe('LoginUser Use Case', () => {
                 loginUser.execute({ username, password: 'wrong-password' })
             ).rejects.toThrow('Incorrect username or password');
 
-            expect(bcrypt.compare).toHaveBeenCalledWith('wrong-password', correctHash);
+            expect(bcrypt.compare).toHaveBeenCalledWith(
+                'wrong-password',
+                correctHash
+            );
         });
     });
-}); 
+});

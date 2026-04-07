@@ -17,7 +17,11 @@
  */
 
 const crypto = require('crypto');
-const { KMSClient, GenerateDataKeyCommand, DecryptCommand } = require('@aws-sdk/client-kms');
+const {
+    KMSClient,
+    GenerateDataKeyCommand,
+    DecryptCommand,
+} = require('@aws-sdk/client-kms');
 const aes = require('./aes');
 
 class Cryptor {
@@ -35,7 +39,9 @@ class Cryptor {
             const dataKey = await kmsClient.send(command);
 
             const keyId = Buffer.from(dataKey.KeyId).toString('base64');
-            const encryptedKey = Buffer.from(dataKey.CiphertextBlob).toString('base64');
+            const encryptedKey = Buffer.from(dataKey.CiphertextBlob).toString(
+                'base64'
+            );
             const plaintext = dataKey.Plaintext;
             return { keyId, encryptedKey, plaintext };
         }

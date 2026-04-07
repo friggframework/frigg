@@ -57,7 +57,8 @@ const {
 const prismaRunner = require('../../database/utils/prisma-runner');
 
 // Use S3 repository for migration status tracking (no User table dependency)
-const bucketName = process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
+const bucketName =
+    process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
 const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
 
 /**
@@ -68,19 +69,27 @@ const migrationStatusRepository = new MigrationStatusRepositoryS3(bucketName);
 function sanitizeError(errorMessage) {
     if (!errorMessage) return 'Unknown error';
 
-    return String(errorMessage)
-        // Remove PostgreSQL connection strings
-        .replace(/postgresql:\/\/[^@\s]+@[^\s/]+/gi, 'postgresql://***:***@***')
-        // Remove MongoDB connection strings
-        .replace(/mongodb(\+srv)?:\/\/[^@\s]+@[^\s/]+/gi, 'mongodb$1://***:***@***')
-        // Remove password parameters
-        .replace(/password[=:]\s*[^\s,;)]+/gi, 'password=***')
-        // Remove API keys
-        .replace(/apikey[=:]\s*[^\s,;)]+/gi, 'apikey=***')
-        .replace(/api[_-]?key[=:]\s*[^\s,;)]+/gi, 'api_key=***')
-        // Remove tokens
-        .replace(/token[=:]\s*[^\s,;)]+/gi, 'token=***')
-        .replace(/bearer\s+[^\s,;)]+/gi, 'bearer ***');
+    return (
+        String(errorMessage)
+            // Remove PostgreSQL connection strings
+            .replace(
+                /postgresql:\/\/[^@\s]+@[^\s/]+/gi,
+                'postgresql://***:***@***'
+            )
+            // Remove MongoDB connection strings
+            .replace(
+                /mongodb(\+srv)?:\/\/[^@\s]+@[^\s/]+/gi,
+                'mongodb$1://***:***@***'
+            )
+            // Remove password parameters
+            .replace(/password[=:]\s*[^\s,;)]+/gi, 'password=***')
+            // Remove API keys
+            .replace(/apikey[=:]\s*[^\s,;)]+/gi, 'apikey=***')
+            .replace(/api[_-]?key[=:]\s*[^\s,;)]+/gi, 'api_key=***')
+            // Remove tokens
+            .replace(/token[=:]\s*[^\s,;)]+/gi, 'token=***')
+            .replace(/bearer\s+[^\s,;)]+/gi, 'bearer ***')
+    );
 }
 
 /**
@@ -145,11 +154,18 @@ exports.handler = async (event, context) => {
     console.log('Database Migration Lambda Started');
     console.log('========================================');
     console.log('Event:', JSON.stringify(event, null, 2));
-    console.log('Context:', JSON.stringify({
-        requestId: context.requestId,
-        functionName: context.functionName,
-        remainingTimeInMillis: context.getRemainingTimeInMillis(),
-    }, null, 2));
+    console.log(
+        'Context:',
+        JSON.stringify(
+            {
+                requestId: context.requestId,
+                functionName: context.functionName,
+                remainingTimeInMillis: context.getRemainingTimeInMillis(),
+            },
+            null,
+            2
+        )
+    );
 
     // Extract migration parameters from event
     const { migrationId, dbType, stage } = extractMigrationParams(event);
@@ -164,7 +180,9 @@ exports.handler = async (event, context) => {
         console.log(`========================================`);
 
         try {
-            const checkDbStateUseCase = new CheckDatabaseStateUseCase({ prismaRunner });
+            const checkDbStateUseCase = new CheckDatabaseStateUseCase({
+                prismaRunner,
+            });
             const status = await checkDbStateUseCase.execute(dbType, stage);
 
             console.log('✓ Database state check completed');
@@ -217,7 +235,9 @@ exports.handler = async (event, context) => {
 
         // Update migration status to RUNNING (if migrationId provided)
         if (migrationId) {
-            console.log(`\n✓ Updating migration status to RUNNING: ${migrationId}`);
+            console.log(
+                `\n✓ Updating migration status to RUNNING: ${migrationId}`
+            );
             await migrationStatusRepository.update({
                 migrationId,
                 stage,
@@ -255,7 +275,9 @@ exports.handler = async (event, context) => {
 
         // Update migration status to COMPLETED (if migrationId provided)
         if (migrationId) {
-            console.log(`\n✓ Updating migration status to COMPLETED: ${migrationId}`);
+            console.log(
+                `\n✓ Updating migration status to COMPLETED: ${migrationId}`
+            );
             await migrationStatusRepository.update({
                 migrationId,
                 stage,
@@ -284,7 +306,6 @@ exports.handler = async (event, context) => {
             statusCode: 200,
             body: JSON.stringify(responseBody),
         };
-
     } catch (error) {
         console.error('\n========================================');
         console.error('Migration Failed');
@@ -317,7 +338,9 @@ exports.handler = async (event, context) => {
         // Update migration status to FAILED (if migrationId provided)
         if (migrationId) {
             try {
-                console.log(`\n✓ Updating migration status to FAILED: ${migrationId}`);
+                console.log(
+                    `\n✓ Updating migration status to FAILED: ${migrationId}`
+                );
                 await migrationStatusRepository.update({
                     migrationId,
                     stage,
@@ -327,7 +350,10 @@ exports.handler = async (event, context) => {
                     failedAt: new Date().toISOString(),
                 });
             } catch (updateError) {
-                console.error('Failed to update migration status:', updateError.message);
+                console.error(
+                    'Failed to update migration status:',
+                    updateError.message
+                );
                 // Continue - don't let status update failure block error response
             }
         }
@@ -337,7 +363,9 @@ exports.handler = async (event, context) => {
             error: sanitizedError,
             errorType: error.name || 'Error',
             // Only include stack traces in development environments
-            ...(stage === 'dev' || stage === 'local' || stage === 'test' ? { stack: error.stack } : {}),
+            ...(stage === 'dev' || stage === 'local' || stage === 'test'
+                ? { stack: error.stack }
+                : {}),
         };
 
         if (migrationId) {

@@ -44,4 +44,4 @@ class CreateOrganizationUser {
     }
 }
 
-module.exports = { CreateOrganizationUser }; 
+module.exports = { CreateOrganizationUser };

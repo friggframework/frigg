@@ -1,8 +1,16 @@
 const { AuthenticateUser } = require('../../user/use-cases/authenticate-user');
-const { GetUserFromBearerToken } = require('../../user/use-cases/get-user-from-bearer-token');
-const { GetUserFromXFriggHeaders } = require('../../user/use-cases/get-user-from-x-frigg-headers');
-const { GetUserFromAdopterJwt } = require('../../user/use-cases/get-user-from-adopter-jwt');
-const { AuthenticateWithSharedSecret } = require('../../user/use-cases/authenticate-with-shared-secret');
+const {
+    GetUserFromBearerToken,
+} = require('../../user/use-cases/get-user-from-bearer-token');
+const {
+    GetUserFromXFriggHeaders,
+} = require('../../user/use-cases/get-user-from-x-frigg-headers');
+const {
+    GetUserFromAdopterJwt,
+} = require('../../user/use-cases/get-user-from-adopter-jwt');
+const {
+    AuthenticateWithSharedSecret,
+} = require('../../user/use-cases/authenticate-with-shared-secret');
 const { User } = require('../../user/user');
 const Boom = require('@hapi/boom');
 
@@ -74,7 +82,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             const result = await authenticateUser.execute(mockReq);
 
             expect(result).toBe(mockUser);
-            expect(mockAuthenticateWithSharedSecret.execute).toHaveBeenCalledWith('secret-key');
+            expect(
+                mockAuthenticateWithSharedSecret.execute
+            ).toHaveBeenCalledWith('secret-key');
             expect(mockGetUserFromXFriggHeaders.execute).toHaveBeenCalledWith(
                 'app-user-123',
                 undefined
@@ -93,7 +103,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             const result = await authenticateUser.execute(mockReq);
 
             expect(result).toBe(mockUser);
-            expect(mockAuthenticateWithSharedSecret.execute).toHaveBeenCalledWith('secret-key');
+            expect(
+                mockAuthenticateWithSharedSecret.execute
+            ).toHaveBeenCalledWith('secret-key');
             expect(mockGetUserFromXFriggHeaders.execute).toHaveBeenCalledWith(
                 undefined,
                 'app-org-456'
@@ -112,7 +124,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             const result = await authenticateUser.execute(mockReq);
 
             expect(result).toBe(mockUser);
-            expect(mockAuthenticateWithSharedSecret.execute).toHaveBeenCalledWith('secret-key');
+            expect(
+                mockAuthenticateWithSharedSecret.execute
+            ).toHaveBeenCalledWith('secret-key');
             expect(mockGetUserFromXFriggHeaders.execute).toHaveBeenCalledWith(
                 'app-user-123',
                 'app-org-456'
@@ -132,7 +146,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
 
             await authenticateUser.execute(mockReq);
 
-            expect(mockAuthenticateWithSharedSecret.execute).not.toHaveBeenCalled();
+            expect(
+                mockAuthenticateWithSharedSecret.execute
+            ).not.toHaveBeenCalled();
             expect(mockGetUserFromBearerToken.execute).toHaveBeenCalled();
         });
 
@@ -215,7 +231,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             };
 
             await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
-                Boom.forbidden('x-frigg-appuserid header does not match authenticated user')
+                Boom.forbidden(
+                    'x-frigg-appuserid header does not match authenticated user'
+                )
             );
         });
 
@@ -228,7 +246,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             };
 
             await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
-                Boom.forbidden('x-frigg-apporgid header does not match authenticated user')
+                Boom.forbidden(
+                    'x-frigg-apporgid header does not match authenticated user'
+                )
             );
         });
 
@@ -264,7 +284,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             expect(mockGetUserFromBearerToken.execute).toHaveBeenCalledWith(
                 'Bearer frigg-token-123'
             );
-            expect(mockAuthenticateWithSharedSecret.execute).not.toHaveBeenCalled();
+            expect(
+                mockAuthenticateWithSharedSecret.execute
+            ).not.toHaveBeenCalled();
         });
 
         it('should validate x-frigg headers match Frigg token user when both present', async () => {
@@ -292,7 +314,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             };
 
             await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
-                Boom.forbidden('x-frigg-appuserid header does not match authenticated user')
+                Boom.forbidden(
+                    'x-frigg-appuserid header does not match authenticated user'
+                )
             );
         });
 
@@ -305,7 +329,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             };
 
             await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
-                Boom.forbidden('x-frigg-apporgid header does not match authenticated user')
+                Boom.forbidden(
+                    'x-frigg-apporgid header does not match authenticated user'
+                )
             );
         });
 
@@ -374,7 +400,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
 
             await authenticateUser.execute(mockReq);
 
-            expect(mockAuthenticateWithSharedSecret.execute).not.toHaveBeenCalled();
+            expect(
+                mockAuthenticateWithSharedSecret.execute
+            ).not.toHaveBeenCalled();
             expect(mockGetUserFromBearerToken.execute).toHaveBeenCalled();
         });
     });
@@ -491,7 +519,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
             };
 
             const customError = Boom.unauthorized('Invalid API key');
-            mockAuthenticateWithSharedSecret.execute.mockRejectedValue(customError);
+            mockAuthenticateWithSharedSecret.execute.mockRejectedValue(
+                customError
+            );
 
             await expect(authenticateUser.execute(mockReq)).rejects.toThrow(
                 customError
@@ -522,7 +552,9 @@ describe('AuthenticateUser - Multi-Mode Authentication', () => {
                 },
             };
 
-            const notImplementedError = Boom.notImplemented('JWT not implemented');
+            const notImplementedError = Boom.notImplemented(
+                'JWT not implemented'
+            );
             mockGetUserFromAdopterJwt.execute.mockRejectedValue(
                 notImplementedError
             );

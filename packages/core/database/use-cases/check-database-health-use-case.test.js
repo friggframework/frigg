@@ -1,4 +1,6 @@
-const { CheckDatabaseHealthUseCase } = require('./check-database-health-use-case');
+const {
+    CheckDatabaseHealthUseCase,
+} = require('./check-database-health-use-case');
 
 describe('CheckDatabaseHealthUseCase', () => {
     let useCase;
@@ -9,8 +11,8 @@ describe('CheckDatabaseHealthUseCase', () => {
             getDatabaseConnectionState: jest.fn(),
             pingDatabase: jest.fn(),
         };
-        useCase = new CheckDatabaseHealthUseCase({ 
-            healthCheckRepository: mockRepository 
+        useCase = new CheckDatabaseHealthUseCase({
+            healthCheckRepository: mockRepository,
         });
     });
 
@@ -30,7 +32,9 @@ describe('CheckDatabaseHealthUseCase', () => {
                 state: 'connected',
                 responseTime: 5,
             });
-            expect(mockRepository.getDatabaseConnectionState).toHaveBeenCalled();
+            expect(
+                mockRepository.getDatabaseConnectionState
+            ).toHaveBeenCalled();
             expect(mockRepository.pingDatabase).toHaveBeenCalledWith(2000);
         });
 
@@ -47,7 +51,9 @@ describe('CheckDatabaseHealthUseCase', () => {
                 status: 'unhealthy',
                 state: 'disconnected',
             });
-            expect(mockRepository.getDatabaseConnectionState).toHaveBeenCalled();
+            expect(
+                mockRepository.getDatabaseConnectionState
+            ).toHaveBeenCalled();
             expect(mockRepository.pingDatabase).not.toHaveBeenCalled();
         });
 
@@ -99,7 +105,9 @@ describe('CheckDatabaseHealthUseCase', () => {
                 new Error('Failed to check connection')
             );
 
-            await expect(useCase.execute()).rejects.toThrow('Failed to check connection');
+            await expect(useCase.execute()).rejects.toThrow(
+                'Failed to check connection'
+            );
         });
 
         it('should handle ping errors when database appears connected', async () => {
@@ -129,4 +137,3 @@ describe('CheckDatabaseHealthUseCase', () => {
         });
     });
 });
-

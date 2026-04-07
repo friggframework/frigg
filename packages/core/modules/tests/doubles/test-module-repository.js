@@ -36,4 +36,4 @@ class TestModuleRepository {
     }
 }
 
-module.exports = { TestModuleRepository }; 
+module.exports = { TestModuleRepository };

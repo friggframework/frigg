@@ -2,12 +2,12 @@ const Boom = require('@hapi/boom');
 
 /**
  * Use case for authenticating a user using multiple authentication strategies.
- * 
+ *
  * Supports three authentication modes in priority order:
  * 1. Shared Secret (backend-to-backend with x-frigg-api-key + x-frigg headers)
  * 2. Adopter JWT (custom JWT authentication)
  * 3. Frigg Native Token (bearer token from /user/login)
- * 
+ *
  * x-frigg-appUserId and x-frigg-appOrgId headers are automatically supported
  * for user identification with any auth mode. When present with JWT or Frigg
  * tokens, they are validated to match the authenticated user.
@@ -123,5 +123,3 @@ class AuthenticateUser {
 }
 
 module.exports = { AuthenticateUser };
-
-

@@ -1,10 +1,12 @@
-const { ObjectId } = require('bson');
+const { ObjectId } = require('mongodb');
 
 function toObjectId(value) {
     if (value === null || value === undefined || value === '') return undefined;
     if (value instanceof ObjectId) return value;
-    if (typeof value === 'object' && value.$oid) return new ObjectId(value.$oid);
-    if (typeof value === 'string') return ObjectId.isValid(value) ? new ObjectId(value) : undefined;
+    if (typeof value === 'object' && value.$oid)
+        return new ObjectId(value.$oid);
+    if (typeof value === 'string')
+        return ObjectId.isValid(value) ? new ObjectId(value) : undefined;
     return undefined;
 }
 
@@ -15,7 +17,8 @@ function toObjectIdArray(values) {
 
 function fromObjectId(value) {
     if (value instanceof ObjectId) return value.toHexString();
-    if (typeof value === 'object' && value !== null && value.$oid) return value.$oid;
+    if (typeof value === 'object' && value !== null && value.$oid)
+        return value.$oid;
     if (typeof value === 'string') return value;
     return value === undefined || value === null ? value : String(value);
 }
@@ -30,7 +33,10 @@ async function findMany(client, collection, filter = {}, options = {}) {
 }
 
 async function findOne(client, collection, filter = {}, options = {}) {
-    const docs = await findMany(client, collection, filter, { ...options, limit: 1 });
+    const docs = await findMany(client, collection, filter, {
+        ...options,
+        limit: 1,
+    });
     return docs[0] || null;
 }
 
@@ -47,7 +53,9 @@ async function insertOne(client, collection, document) {
     // Validate insert succeeded
     if (result.ok !== 1) {
         throw new Error(
-            `Insert command failed for collection '${collection}': ${JSON.stringify(result)}`
+            `Insert command failed for collection '${collection}': ${JSON.stringify(
+                result
+            )}`
         );
     }
 
@@ -67,7 +75,7 @@ async function insertOne(client, collection, document) {
     if (result.n !== 1) {
         throw new Error(
             `Expected to insert 1 document into '${collection}', but inserted ${result.n}. ` +
-            `Result: ${JSON.stringify(result)}`
+                `Result: ${JSON.stringify(result)}`
         );
     }
 
@@ -75,11 +83,13 @@ async function insertOne(client, collection, document) {
 }
 
 async function updateOne(client, collection, filter, update, options = {}) {
-    const updates = [{
-        q: filter,
-        u: update,
-        upsert: Boolean(options.upsert),
-    }];
+    const updates = [
+        {
+            q: filter,
+            u: update,
+            upsert: Boolean(options.upsert),
+        },
+    ];
     if (options.arrayFilters) updates[0].arrayFilters = options.arrayFilters;
     const result = await client.$runCommandRaw({
         update: collection,
@@ -133,4 +143,3 @@ module.exports = {
     deleteMany,
     aggregate,
 };
-

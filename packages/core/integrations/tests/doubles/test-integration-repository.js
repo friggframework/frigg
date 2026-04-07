@@ -31,13 +31,21 @@ class TestIntegrationRepository {
     }
 
     async findIntegrationsByUserId(userId) {
-        const results = Array.from(this.store.values()).filter(r => r.userId === userId);
-        this.operationHistory.push({ operation: 'findByUserId', userId, count: results.length });
+        const results = Array.from(this.store.values()).filter(
+            (r) => r.userId === userId
+        );
+        this.operationHistory.push({
+            operation: 'findByUserId',
+            userId,
+            count: results.length,
+        });
         return results;
     }
 
     async findIntegrationByUserId(userId) {
-        const record = Array.from(this.store.values()).find((r) => r.userId === userId);
+        const record = Array.from(this.store.values()).find(
+            (r) => r.userId === userId
+        );
         this.operationHistory.push({
             operation: 'findSingleByUserId',
             userId,
@@ -49,30 +57,52 @@ class TestIntegrationRepository {
     async updateIntegrationMessages(id, type, title, body, timestamp) {
         const rec = this.store.get(id);
         if (!rec) {
-            this.operationHistory.push({ operation: 'updateMessages', id, success: false });
+            this.operationHistory.push({
+                operation: 'updateMessages',
+                id,
+                success: false,
+            });
             return false;
         }
         if (!rec.messages[type]) rec.messages[type] = [];
         rec.messages[type].push({ title, message: body, timestamp });
-        this.operationHistory.push({ operation: 'updateMessages', id, type, success: true });
+        this.operationHistory.push({
+            operation: 'updateMessages',
+            id,
+            type,
+            success: true,
+        });
         return true;
     }
 
     async updateIntegrationConfig(id, config) {
         const rec = this.store.get(id);
         if (!rec) {
-            this.operationHistory.push({ operation: 'updateConfig', id, success: false });
+            this.operationHistory.push({
+                operation: 'updateConfig',
+                id,
+                success: false,
+            });
             throw new Error(`Integration with id ${id} not found`);
         }
         rec.config = config;
-        this.operationHistory.push({ operation: 'updateConfig', id, success: true });
+        this.operationHistory.push({
+            operation: 'updateConfig',
+            id,
+            success: true,
+        });
         return rec;
     }
 
     async deleteIntegrationById(id) {
         const existed = this.store.has(id);
         const result = this.store.delete(id);
-        this.operationHistory.push({ operation: 'delete', id, existed, success: result });
+        this.operationHistory.push({
+            operation: 'delete',
+            id,
+            existed,
+            success: result,
+        });
         return result;
     }
 
@@ -80,9 +110,19 @@ class TestIntegrationRepository {
         const rec = this.store.get(id);
         if (rec) {
             rec.status = status;
-            this.operationHistory.push({ operation: 'updateStatus', id, status, success: true });
+            this.operationHistory.push({
+                operation: 'updateStatus',
+                id,
+                status,
+                success: true,
+            });
         } else {
-            this.operationHistory.push({ operation: 'updateStatus', id, status, success: false });
+            this.operationHistory.push({
+                operation: 'updateStatus',
+                id,
+                status,
+                success: false,
+            });
         }
         return !!rec;
     }
@@ -96,4 +136,4 @@ class TestIntegrationRepository {
     }
 }
 
-module.exports = { TestIntegrationRepository }; 
+module.exports = { TestIntegrationRepository };

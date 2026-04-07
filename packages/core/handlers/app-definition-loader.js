@@ -35,4 +35,4 @@ function loadAppDefinition() {
 
 module.exports = {
     loadAppDefinition,
-}; 
+};

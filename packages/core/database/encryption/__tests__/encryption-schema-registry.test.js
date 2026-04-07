@@ -20,17 +20,33 @@ describe('encryption-schema-registry', () => {
         it('defines encrypted fields for Credential model', () => {
             expect(CORE_ENCRYPTION_SCHEMA.Credential).toBeDefined();
             // OAuth tokens
-            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.access_token');
-            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.refresh_token');
-            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.id_token');
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain(
+                'data.access_token'
+            );
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain(
+                'data.refresh_token'
+            );
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain(
+                'data.id_token'
+            );
             // API key authentication (multiple naming conventions)
-            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.api_key');
-            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.apiKey');
-            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.API_KEY_VALUE');
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain(
+                'data.api_key'
+            );
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain(
+                'data.apiKey'
+            );
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain(
+                'data.API_KEY_VALUE'
+            );
             // Basic authentication
-            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.password');
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain(
+                'data.password'
+            );
             // OAuth client credentials
-            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain('data.client_secret');
+            expect(CORE_ENCRYPTION_SCHEMA.Credential.fields).toContain(
+                'data.client_secret'
+            );
         });
 
         it('defines encrypted fields for User model', () => {
@@ -40,7 +56,9 @@ describe('encryption-schema-registry', () => {
 
         it('defines encrypted fields for IntegrationMapping model', () => {
             expect(CORE_ENCRYPTION_SCHEMA.IntegrationMapping).toBeDefined();
-            expect(CORE_ENCRYPTION_SCHEMA.IntegrationMapping.fields).toContain('mapping');
+            expect(CORE_ENCRYPTION_SCHEMA.IntegrationMapping.fields).toContain(
+                'mapping'
+            );
         });
 
         it('defines encrypted fields for Token model', () => {
@@ -64,7 +82,7 @@ describe('encryption-schema-registry', () => {
 
         it('returns custom fields after registration', () => {
             registerCustomSchema({
-                User: { fields: ['username'] }
+                User: { fields: ['username'] },
             });
 
             const fields = getEncryptedFields('User');
@@ -73,11 +91,13 @@ describe('encryption-schema-registry', () => {
 
         it('merges core and custom fields without duplicates', () => {
             registerCustomSchema({
-                User: { fields: ['username'] }
+                User: { fields: ['username'] },
             });
 
             const fields = getEncryptedFields('User');
-            expect(fields).toEqual(expect.arrayContaining(['hashword', 'username']));
+            expect(fields).toEqual(
+                expect.arrayContaining(['hashword', 'username'])
+            );
 
             // Check no duplicates
             const uniqueFields = [...new Set(fields)];
@@ -111,7 +131,7 @@ describe('encryption-schema-registry', () => {
 
         it('returns true after custom field registered', () => {
             registerCustomSchema({
-                CustomModel: { fields: ['customField'] }
+                CustomModel: { fields: ['customField'] },
             });
 
             expect(hasEncryptedFields('CustomModel')).toBe(true);
@@ -129,7 +149,7 @@ describe('encryption-schema-registry', () => {
 
         it('includes custom models after registration', () => {
             registerCustomSchema({
-                CustomModel: { fields: ['customField'] }
+                CustomModel: { fields: ['customField'] },
             });
 
             const models = getEncryptedModels();
@@ -138,7 +158,7 @@ describe('encryption-schema-registry', () => {
 
         it('returns unique models (no duplicates)', () => {
             registerCustomSchema({
-                User: { fields: ['username'] } // Adds to existing User model
+                User: { fields: ['username'] }, // Adds to existing User model
             });
 
             const models = getEncryptedModels();
@@ -150,7 +170,7 @@ describe('encryption-schema-registry', () => {
     describe('validateCustomSchema', () => {
         it('accepts valid schema', () => {
             const schema = {
-                User: { fields: ['customField'] }
+                User: { fields: ['customField'] },
             };
 
             const result = validateCustomSchema(schema);
@@ -161,7 +181,7 @@ describe('encryption-schema-registry', () => {
         it('accepts schema with multiple models', () => {
             const schema = {
                 User: { fields: ['username'] },
-                CustomModel: { fields: ['field1', 'field2'] }
+                CustomModel: { fields: ['field1', 'field2'] },
             };
 
             const result = validateCustomSchema(schema);
@@ -171,7 +191,7 @@ describe('encryption-schema-registry', () => {
 
         it('accepts schema with nested field paths', () => {
             const schema = {
-                CustomModel: { fields: ['data.nestedField', 'topLevelField'] }
+                CustomModel: { fields: ['data.nestedField', 'topLevelField'] },
             };
 
             const result = validateCustomSchema(schema);
@@ -181,44 +201,66 @@ describe('encryption-schema-registry', () => {
 
         it('rejects schema without fields array', () => {
             const schema = {
-                User: { notFields: ['field'] }
+                User: { notFields: ['field'] },
             };
 
             const result = validateCustomSchema(schema);
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain('Model "User" must have a "fields" array');
+            expect(result.errors).toContain(
+                'Model "User" must have a "fields" array'
+            );
         });
 
         it('rejects schema with non-array fields', () => {
             const schema = {
-                User: { fields: 'not-an-array' }
+                User: { fields: 'not-an-array' },
             };
 
             const result = validateCustomSchema(schema);
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain('Model "User" must have a "fields" array');
+            expect(result.errors).toContain(
+                'Model "User" must have a "fields" array'
+            );
         });
 
         it('rejects attempt to override core field', () => {
             const schema = {
-                User: { fields: ['hashword'] } // Core field
+                User: { fields: ['hashword'] }, // Core field
             };
 
             const result = validateCustomSchema(schema);
             expect(result.valid).toBe(false);
-            expect(result.errors.some(e => e.includes('Cannot override core encrypted field "hashword"'))).toBe(true);
+            expect(
+                result.errors.some((e) =>
+                    e.includes(
+                        'Cannot override core encrypted field "hashword"'
+                    )
+                )
+            ).toBe(true);
         });
 
         it('rejects attempt to override multiple core fields', () => {
             const schema = {
-                Credential: { fields: ['data.access_token', 'data.refresh_token', 'data.api_key'] }
+                Credential: {
+                    fields: [
+                        'data.access_token',
+                        'data.refresh_token',
+                        'data.api_key',
+                    ],
+                },
             };
 
             const result = validateCustomSchema(schema);
             expect(result.valid).toBe(false);
-            expect(result.errors.some(e => e.includes('data.access_token'))).toBe(true);
-            expect(result.errors.some(e => e.includes('data.refresh_token'))).toBe(true);
-            expect(result.errors.some(e => e.includes('data.api_key'))).toBe(true);
+            expect(
+                result.errors.some((e) => e.includes('data.access_token'))
+            ).toBe(true);
+            expect(
+                result.errors.some((e) => e.includes('data.refresh_token'))
+            ).toBe(true);
+            expect(result.errors.some((e) => e.includes('data.api_key'))).toBe(
+                true
+            );
         });
 
         it('rejects schema that is not an object', () => {
@@ -229,29 +271,33 @@ describe('encryption-schema-registry', () => {
 
         it('rejects schema with invalid model name', () => {
             const schema = {
-                '': { fields: ['field'] }
+                '': { fields: ['field'] },
             };
 
             const result = validateCustomSchema(schema);
             expect(result.valid).toBe(false);
-            expect(result.errors.some(e => e.includes('Invalid model name'))).toBe(true);
+            expect(
+                result.errors.some((e) => e.includes('Invalid model name'))
+            ).toBe(true);
         });
 
         it('rejects schema with invalid field path', () => {
             const schema = {
-                User: { fields: ['validField', '', 'anotherValid'] }
+                User: { fields: ['validField', '', 'anotherValid'] },
             };
 
             const result = validateCustomSchema(schema);
             expect(result.valid).toBe(false);
-            expect(result.errors.some(e => e.includes('invalid field path'))).toBe(true);
+            expect(
+                result.errors.some((e) => e.includes('invalid field path'))
+            ).toBe(true);
         });
     });
 
     describe('registerCustomSchema', () => {
         it('registers valid custom schema', () => {
             registerCustomSchema({
-                User: { fields: ['username'] }
+                User: { fields: ['username'] },
             });
 
             const fields = getEncryptedFields('User');
@@ -260,7 +306,7 @@ describe('encryption-schema-registry', () => {
 
         it('merges with existing core schema', () => {
             registerCustomSchema({
-                User: { fields: ['username'] }
+                User: { fields: ['username'] },
             });
 
             const fields = getEncryptedFields('User');
@@ -271,7 +317,7 @@ describe('encryption-schema-registry', () => {
         it('throws on invalid schema', () => {
             expect(() => {
                 registerCustomSchema({
-                    User: { notFields: ['field'] }
+                    User: { notFields: ['field'] },
                 });
             }).toThrow('Invalid custom encryption schema');
         });
@@ -279,7 +325,7 @@ describe('encryption-schema-registry', () => {
         it('throws when attempting to override core field', () => {
             expect(() => {
                 registerCustomSchema({
-                    User: { fields: ['hashword'] }
+                    User: { fields: ['hashword'] },
                 });
             }).toThrow('Cannot override core encrypted field');
         });
@@ -318,7 +364,7 @@ describe('encryption-schema-registry', () => {
     describe('resetCustomSchema', () => {
         it('clears custom schema', () => {
             registerCustomSchema({
-                CustomModel: { fields: ['customField'] }
+                CustomModel: { fields: ['customField'] },
             });
 
             expect(hasEncryptedFields('CustomModel')).toBe(true);
@@ -330,7 +376,7 @@ describe('encryption-schema-registry', () => {
 
         it('preserves core schema', () => {
             registerCustomSchema({
-                User: { fields: ['username'] }
+                User: { fields: ['username'] },
             });
 
             resetCustomSchema();
@@ -355,13 +401,16 @@ describe('encryption-schema-registry', () => {
                                 definition: {
                                     moduleName: 'testModule',
                                     encryption: {
-                                        credentialFields: ['api_key', 'custom_token']
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        credentialFields: [
+                                            'api_key',
+                                            'custom_token',
+                                        ],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             ];
 
             loadModuleEncryptionSchemas(integrations);
@@ -379,13 +428,13 @@ describe('encryption-schema-registry', () => {
                             testModule: {
                                 definition: {
                                     encryption: {
-                                        credentialFields: ['webhook_secret']
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        credentialFields: ['webhook_secret'],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             ];
 
             loadModuleEncryptionSchemas(integrations);
@@ -402,13 +451,15 @@ describe('encryption-schema-registry', () => {
                             testModule: {
                                 definition: {
                                     encryption: {
-                                        credentialFields: ['data.already_prefixed']
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        credentialFields: [
+                                            'data.already_prefixed',
+                                        ],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             ];
 
             loadModuleEncryptionSchemas(integrations);
@@ -416,7 +467,9 @@ describe('encryption-schema-registry', () => {
             const credentialFields = getEncryptedFields('Credential');
             expect(credentialFields).toContain('data.already_prefixed');
             // Should not double-prefix
-            expect(credentialFields).not.toContain('data.data.already_prefixed');
+            expect(credentialFields).not.toContain(
+                'data.data.already_prefixed'
+            );
         });
 
         it('merges fields from multiple modules', () => {
@@ -427,20 +480,20 @@ describe('encryption-schema-registry', () => {
                             module1: {
                                 definition: {
                                     encryption: {
-                                        credentialFields: ['api_key']
-                                    }
-                                }
+                                        credentialFields: ['api_key'],
+                                    },
+                                },
                             },
                             module2: {
                                 definition: {
                                     encryption: {
-                                        credentialFields: ['signing_key']
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        credentialFields: ['signing_key'],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             ];
 
             loadModuleEncryptionSchemas(integrations);
@@ -458,26 +511,28 @@ describe('encryption-schema-registry', () => {
                             module1: {
                                 definition: {
                                     encryption: {
-                                        credentialFields: ['api_key']
-                                    }
-                                }
+                                        credentialFields: ['api_key'],
+                                    },
+                                },
                             },
                             module2: {
                                 definition: {
                                     encryption: {
-                                        credentialFields: ['api_key'] // Duplicate
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        credentialFields: ['api_key'], // Duplicate
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             ];
 
             loadModuleEncryptionSchemas(integrations);
 
             const credentialFields = getEncryptedFields('Credential');
-            const apiKeyCount = credentialFields.filter(f => f === 'data.api_key').length;
+            const apiKeyCount = credentialFields.filter(
+                (f) => f === 'data.api_key'
+            ).length;
             expect(apiKeyCount).toBe(1); // Should only appear once
         });
 
@@ -488,51 +543,65 @@ describe('encryption-schema-registry', () => {
                         modules: {
                             testModule: {
                                 definition: {
-                                    moduleName: 'testModule'
+                                    moduleName: 'testModule',
                                     // No encryption field
-                                }
-                            }
-                        }
-                    }
-                }
+                                },
+                            },
+                        },
+                    },
+                },
             ];
 
-            expect(() => loadModuleEncryptionSchemas(integrations)).not.toThrow();
+            expect(() =>
+                loadModuleEncryptionSchemas(integrations)
+            ).not.toThrow();
         });
 
         it('handles integrations without modules', () => {
             const integrations = [
                 {
                     Definition: {
-                        name: 'test-integration'
+                        name: 'test-integration',
                         // No modules
-                    }
-                }
+                    },
+                },
             ];
 
-            expect(() => loadModuleEncryptionSchemas(integrations)).not.toThrow();
+            expect(() =>
+                loadModuleEncryptionSchemas(integrations)
+            ).not.toThrow();
         });
 
         it('handles empty integrations array', () => {
             const integrations = [];
 
-            expect(() => loadModuleEncryptionSchemas(integrations)).not.toThrow();
+            expect(() =>
+                loadModuleEncryptionSchemas(integrations)
+            ).not.toThrow();
         });
 
         it('throws error for null/undefined integrations', () => {
-            expect(() => loadModuleEncryptionSchemas(null)).toThrow('integrations parameter is required');
-            expect(() => loadModuleEncryptionSchemas(undefined)).toThrow('integrations parameter is required');
+            expect(() => loadModuleEncryptionSchemas(null)).toThrow(
+                'integrations parameter is required'
+            );
+            expect(() => loadModuleEncryptionSchemas(undefined)).toThrow(
+                'integrations parameter is required'
+            );
         });
 
         it('throws error for non-array integrations', () => {
-            expect(() => loadModuleEncryptionSchemas('not-an-array')).toThrow('integrations must be an array');
-            expect(() => loadModuleEncryptionSchemas({})).toThrow('integrations must be an array');
+            expect(() => loadModuleEncryptionSchemas('not-an-array')).toThrow(
+                'integrations must be an array'
+            );
+            expect(() => loadModuleEncryptionSchemas({})).toThrow(
+                'integrations must be an array'
+            );
         });
 
         it('merges module schemas with existing custom schemas', () => {
             // First register a custom schema
             registerCustomSchema({
-                Credential: { fields: ['data.custom_field'] }
+                Credential: { fields: ['data.custom_field'] },
             });
 
             // Then load module schemas
@@ -543,13 +612,13 @@ describe('encryption-schema-registry', () => {
                             testModule: {
                                 definition: {
                                     encryption: {
-                                        credentialFields: ['api_key']
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                                        credentialFields: ['api_key'],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             ];
 
             loadModuleEncryptionSchemas(integrations);

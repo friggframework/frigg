@@ -40,7 +40,9 @@ jest.mock('../app-definition-loader', () => {
                         // Custom signature verification
                         const signature = req.headers['x-webhook-signature'];
                         if (signature !== 'valid-signature') {
-                            return res.status(401).json({ error: 'Invalid signature' });
+                            return res
+                                .status(401)
+                                .json({ error: 'Invalid signature' });
                         }
                         await this.queueWebhook({ body: req.body });
                         res.status(200).json({ verified: true });
@@ -123,4 +125,3 @@ describe('Integration Webhook Routers', () => {
         });
     });
 });
-

@@ -117,16 +117,6 @@ class OAuth2Requester extends Requester {
         const newRefreshToken = get(params, 'refresh_token', null);
         if (newRefreshToken !== null) {
             this.refresh_token = newRefreshToken;
-        } else {
-            if (this.refresh_token) {
-                console.log(
-                    '[Frigg] No refresh_token in response, preserving existing'
-                );
-            } else {
-                console.log(
-                    '[Frigg] Current refresh_token is null and no new refresh_token in response'
-                );
-            }
         }
         const accessExpiresIn = get(params, 'expires_in', null);
         const refreshExpiresIn = get(
@@ -248,7 +238,6 @@ class OAuth2Requester extends Requester {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
         };
-        console.log('[Frigg] Refreshing access token with options');
         const response = await this._post(options, false);
         await this.setTokens(response);
         return response;
@@ -296,7 +285,7 @@ class OAuth2Requester extends Requester {
      */
     async refreshAuth() {
         try {
-            console.log('[Frigg] Starting token refresh', {
+            console.log('[OAuth2Requester.refreshAuth] Starting token refresh', {
                 grant_type: this.grant_type,
                 has_refresh_token: !!this.refresh_token,
                 has_client_id: !!this.client_id,
@@ -312,10 +301,10 @@ class OAuth2Requester extends Requester {
             } else {
                 await this.getTokenFromClientCredentials();
             }
-            console.log('[Frigg] Token refresh succeeded');
+            console.log('[OAuth2Requester.refreshAuth] Token refresh succeeded');
             return true;
         } catch (error) {
-            console.error('[Frigg] Token refresh failed', {
+            console.error('[OAuth2Requester.refreshAuth] Token refresh failed', {
                 error_message: error?.message,
                 error_name: error?.name,
                 response_status: error?.response?.status,

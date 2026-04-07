@@ -69,7 +69,9 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
                     $set: documentData,
                 }
             );
-            const updated = await findOne(this.prisma, 'Sync', { _id: existing._id });
+            const updated = await findOne(this.prisma, 'Sync', {
+                _id: existing._id,
+            });
             return this._mapSync(updated);
         }
 
@@ -103,7 +105,9 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
         const doc = await findOne(this.prisma, 'Sync', { _id: syncObjectId });
         if (!doc) return null;
 
-        const identifiers = Array.isArray(doc.dataIdentifiers) ? [...doc.dataIdentifiers] : [];
+        const identifiers = Array.isArray(doc.dataIdentifiers)
+            ? [...doc.dataIdentifiers]
+            : [];
         identifiers.push({
             syncId: syncObjectId,
             entityId: toObjectId(dataIdentifier.entity),
@@ -124,7 +128,9 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
             }
         );
 
-        const updated = await findOne(this.prisma, 'Sync', { _id: syncObjectId });
+        const updated = await findOne(this.prisma, 'Sync', {
+            _id: syncObjectId,
+        });
         return updated ? this._mapSync(updated) : null;
     }
 
@@ -134,7 +140,8 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
         }
 
         const entry = syncObj.dataIdentifiers.find(
-            (identifier) => fromObjectId(identifier.entityId) === String(entityId)
+            (identifier) =>
+                fromObjectId(identifier.entityId) === String(entityId)
         );
 
         if (entry) {
@@ -178,7 +185,9 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
             query.integrationId = toObjectId(filter.integrationId);
         }
         if (filter.entities) {
-            query.entityIds = (filter.entities || []).map((id) => toObjectId(id)).filter(Boolean);
+            query.entityIds = (filter.entities || [])
+                .map((id) => toObjectId(id))
+                .filter(Boolean);
             delete query.entities;
         }
         return query;
@@ -190,8 +199,11 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
             prepared.integrationId = toObjectId(data.integrationId);
         }
         if (data.entities !== undefined || data.entityIds !== undefined) {
-            const list = data.entities !== undefined ? data.entities : data.entityIds;
-            prepared.entityIds = (list || []).map((id) => toObjectId(id)).filter(Boolean);
+            const list =
+                data.entities !== undefined ? data.entities : data.entityIds;
+            prepared.entityIds = (list || [])
+                .map((id) => toObjectId(id))
+                .filter(Boolean);
         }
         if (data.hash !== undefined) prepared.hash = data.hash;
         if (data.name !== undefined) prepared.name = data.name;
@@ -199,13 +211,17 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
         if (data.results !== undefined) prepared.results = data.results;
         if (timestamp) prepared.updatedAt = timestamp;
         if (data.dataIdentifiers !== undefined) {
-            prepared.dataIdentifiers = (data.dataIdentifiers || []).map((identifier) => ({
-                syncId: toObjectId(identifier.syncId),
-                entityId: toObjectId(identifier.entityId),
-                idData: identifier.idData,
-                hash: identifier.hash,
-                createdAt: identifier.createdAt ? new Date(identifier.createdAt) : new Date(),
-            }));
+            prepared.dataIdentifiers = (data.dataIdentifiers || []).map(
+                (identifier) => ({
+                    syncId: toObjectId(identifier.syncId),
+                    entityId: toObjectId(identifier.entityId),
+                    idData: identifier.idData,
+                    hash: identifier.hash,
+                    createdAt: identifier.createdAt
+                        ? new Date(identifier.createdAt)
+                        : new Date(),
+                })
+            );
         }
         return prepared;
     }
@@ -214,7 +230,9 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
         if (!doc) return null;
         return {
             id: fromObjectId(doc._id),
-            integrationId: doc.integrationId ? fromObjectId(doc.integrationId) : null,
+            integrationId: doc.integrationId
+                ? fromObjectId(doc.integrationId)
+                : null,
             entities: Array.isArray(doc.entityIds)
                 ? doc.entityIds.map((id) => fromObjectId(id))
                 : [],
@@ -225,8 +243,12 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
             name: doc.name ?? null,
             dataIdentifiers: Array.isArray(doc.dataIdentifiers)
                 ? doc.dataIdentifiers.map((identifier) => ({
-                      syncId: identifier.syncId ? fromObjectId(identifier.syncId) : null,
-                      entityId: identifier.entityId ? fromObjectId(identifier.entityId) : null,
+                      syncId: identifier.syncId
+                          ? fromObjectId(identifier.syncId)
+                          : null,
+                      entityId: identifier.entityId
+                          ? fromObjectId(identifier.entityId)
+                          : null,
                       idData: identifier.idData,
                       hash: identifier.hash,
                   }))
@@ -236,5 +258,3 @@ class SyncRepositoryDocumentDB extends SyncRepositoryInterface {
 }
 
 module.exports = { SyncRepositoryDocumentDB };
-
-
