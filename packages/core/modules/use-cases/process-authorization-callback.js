@@ -15,6 +15,8 @@ class ProcessAuthorizationCallback {
     }
 
     async execute(userId, entityType, params) {
+        console.log(`[Frigg][OAuth] Starting callback for entityType=${entityType}, userId=${userId}`);
+
         const moduleDefinition = this.moduleDefinitions.find((def) => {
             return entityType === def.moduleName;
         });
@@ -34,26 +36,37 @@ class ProcessAuthorizationCallback {
             definition: moduleDefinition,
         });
 
+        const authType = module.apiClass.requesterType;
+        console.log(`[Frigg][OAuth] Module created: name=${module.getName()}, authType=${authType}`);
+
         let tokenResponse;
-        if (module.apiClass.requesterType === ModuleConstants.authType.oauth2) {
+        if (authType === ModuleConstants.authType.oauth2) {
+            console.log(`[Frigg][OAuth] Exchanging authorization code for token...`);
             tokenResponse = await moduleDefinition.requiredAuthMethods.getToken(
                 module.api,
                 params
             );
+            console.log(`[Frigg][OAuth] Token exchange successful, keys: ${Object.keys(tokenResponse || {}).join(', ')}`);
         } else {
+            console.log(`[Frigg][OAuth] Setting auth params (non-OAuth2)...`);
             tokenResponse =
                 await moduleDefinition.requiredAuthMethods.setAuthParams(
                     module.api,
                     params
                 );
             await this.onTokenUpdate(module, moduleDefinition, userId);
+            console.log(`[Frigg][OAuth] Auth params set and credential persisted`);
         }
 
+        console.log(`[Frigg][OAuth] Testing auth...`);
         const authRes = await module.testAuth();
         if (!authRes) {
+            console.error(`[Frigg][OAuth] testAuth() returned false — authorization failed`);
             throw new Error('Authorization failed');
         }
+        console.log(`[Frigg][OAuth] Auth test passed`);
 
+        console.log(`[Frigg][OAuth] Fetching entity details...`);
         const entityDetails =
             await moduleDefinition.requiredAuthMethods.getEntityDetails(
                 module.api,
@@ -61,17 +74,20 @@ class ProcessAuthorizationCallback {
                 tokenResponse,
                 userId
             );
+        console.log(`[Frigg][OAuth] Entity details received: identifiers=${JSON.stringify(entityDetails.identifiers)}`);
 
         Object.assign(
             entityDetails.details,
             module.apiParamsFromEntity(module.api)
         );
 
+        console.log(`[Frigg][OAuth] Finding or creating entity...`);
         const persistedEntity = await this.findOrCreateEntity(
             entityDetails,
             entityType,
             module.credential.id
         );
+        console.log(`[Frigg][OAuth] Done — entity_id=${persistedEntity.id}, credential_id=${module.credential.id}`);
 
         return {
             credential_id: module.credential.id,

@@ -19,6 +19,11 @@ const createApp = (applyMiddleware) => {
         })
     );
 
+    app.use((req, res, next) => {
+        console.log(`[Frigg] ${req.method} ${req.path}`);
+        next();
+    });
+
     if (applyMiddleware) applyMiddleware(app);
 
     // Handle sending error response and logging server errors to console
@@ -29,6 +34,8 @@ const createApp = (applyMiddleware) => {
         } = boomError;
 
         if (statusCode >= 500) {
+            console.error(`[Frigg] ${req.method} ${req.path} -> ${statusCode}: ${err.message}`);
+            console.error(err.stack);
             flushDebugLog(boomError);
             res.status(statusCode).json({ error: 'Internal Server Error' });
         } else {

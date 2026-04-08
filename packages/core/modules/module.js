@@ -92,6 +92,7 @@ class Module extends Delegate {
         try {
             if (await this.testAuthRequest(this.api)) validAuth = true;
         } catch (e) {
+            console.error(`[Frigg][testAuth] Failed for module ${this.name}: ${e.message}`);
             flushDebugLog(e);
         }
         return validAuth;
