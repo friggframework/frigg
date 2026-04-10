@@ -8,7 +8,7 @@
     "@babel/traverse": "^7.25.3",
     "@friggframework/core": "^1.2.2",
     "@friggframework/test": "^1.2.2",
-    "axios": "^1.7.2",
+    "axios": "^1.15.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "eslint": "^8.22.0",
