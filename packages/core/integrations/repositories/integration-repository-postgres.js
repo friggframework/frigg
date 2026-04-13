@@ -347,6 +347,58 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
             messages: converted.messages,
         };
     }
+
+    /**
+     * Find an existing integration for this user whose config.type matches
+     * and whose entity set is exactly equal to entityIds (order-insensitive).
+     *
+     * @param {string} userId - User ID (string from application layer)
+     * @param {string} type - Integration type (config.type)
+     * @param {Array<string>} entityIds - Entity IDs to match exactly
+     * @returns {Promise<Object|null>} Existing integration or null
+     */
+    async findIntegrationByUserIdTypeAndEntities(userId, type, entityIds) {
+        const intUserId = this._convertId(userId);
+        const targetIds = [...(entityIds || [])]
+            .map((id) => this._convertId(id))
+            .sort((a, b) => a - b);
+
+        const candidates = await this.prisma.integration.findMany({
+            where: {
+                userId: intUserId,
+                config: {
+                    path: ['type'],
+                    equals: type,
+                },
+            },
+            include: {
+                entities: true,
+            },
+        });
+
+        const match = candidates.find((integration) => {
+            const current = (integration.entities || [])
+                .map((e) => e.id)
+                .sort((a, b) => a - b);
+            if (current.length !== targetIds.length) return false;
+            return current.every((id, idx) => id === targetIds[idx]);
+        });
+
+        if (!match) {
+            return null;
+        }
+
+        const converted = this._convertIntegrationIds(match);
+        return {
+            id: converted.id,
+            entitiesIds: converted.entities.map((e) => e.id),
+            userId: converted.userId,
+            config: converted.config,
+            version: converted.version,
+            status: converted.status,
+            messages: converted.messages,
+        };
+    }
 }
 
 module.exports = { IntegrationRepositoryPostgres };

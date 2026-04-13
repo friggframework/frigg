@@ -122,6 +122,25 @@ class IntegrationRepositoryInterface {
     async updateIntegrationConfig(integrationId, config) {
         throw new Error('Method updateIntegrationConfig must be implemented by subclass');
     }
+
+    /**
+     * Find an integration for a user whose config.type matches and whose entity
+     * set is exactly equal to the provided entityIds (order-insensitive).
+     *
+     * Used to dedupe integration creation when the same user re-authorizes the
+     * same integration type against the same external account — entity identity
+     * already encodes the external account, since entities are deduped by
+     * (userId, moduleName, externalId) during the authorization callback.
+     *
+     * @param {string|number} userId - User ID
+     * @param {string} type - Integration type (config.type)
+     * @param {Array<string|number>} entityIds - Entity IDs that must match the integration's entity set exactly
+     * @returns {Promise<Object|null>} Existing integration or null
+     * @abstract
+     */
+    async findIntegrationByUserIdTypeAndEntities(userId, type, entityIds) {
+        throw new Error('Method findIntegrationByUserIdTypeAndEntities must be implemented by subclass');
+    }
 }
 
 module.exports = { IntegrationRepositoryInterface };

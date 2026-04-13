@@ -148,6 +148,30 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         return doc ? this._mapIntegration(doc) : null;
     }
 
+    async findIntegrationByUserIdTypeAndEntities(userId, type, entityIds) {
+        const userObjectId = toObjectId(userId);
+        if (!userObjectId) return null;
+
+        const targetIds = toObjectIdArray(entityIds || [])
+            .map((value) => fromObjectId(value))
+            .sort();
+
+        const candidates = await findMany(this.prisma, 'Integration', {
+            userId: userObjectId,
+            'config.type': type,
+        });
+
+        const match = candidates.find((doc) => {
+            const current = (doc?.entityIds || [])
+                .map((value) => fromObjectId(value))
+                .sort();
+            if (current.length !== targetIds.length) return false;
+            return current.every((id, idx) => id === targetIds[idx]);
+        });
+
+        return match ? this._mapIntegration(match) : null;
+    }
+
     async updateIntegrationConfig(integrationId, config) {
         if (config === null || config === undefined) {
             throw new Error('Config parameter is required');

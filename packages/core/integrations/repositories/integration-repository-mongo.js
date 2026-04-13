@@ -298,6 +298,54 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             messages: integration.messages,
         };
     }
+
+    /**
+     * Find an existing integration for this user whose config.type matches
+     * and whose entity set is exactly equal to entityIds (order-insensitive).
+     *
+     * @param {string} userId - User ID (MongoDB ObjectId as string)
+     * @param {string} type - Integration type (config.type)
+     * @param {Array<string>} entityIds - Entity IDs to match exactly
+     * @returns {Promise<Object|null>} Existing integration or null
+     */
+    async findIntegrationByUserIdTypeAndEntities(userId, type, entityIds) {
+        const targetIds = [...(entityIds || [])].map(String).sort();
+
+        const candidates = await this.prisma.integration.findMany({
+            where: {
+                userId,
+                config: {
+                    path: ['type'],
+                    equals: type,
+                },
+            },
+            include: {
+                entities: true,
+            },
+        });
+
+        const match = candidates.find((integration) => {
+            const current = (integration.entities || [])
+                .map((e) => String(e.id))
+                .sort();
+            if (current.length !== targetIds.length) return false;
+            return current.every((id, idx) => id === targetIds[idx]);
+        });
+
+        if (!match) {
+            return null;
+        }
+
+        return {
+            id: match.id,
+            entitiesIds: match.entities.map((e) => e.id),
+            userId: match.userId,
+            config: match.config,
+            version: match.version,
+            status: match.status,
+            messages: match.messages,
+        };
+    }
 }
 
 module.exports = { IntegrationRepositoryMongo };

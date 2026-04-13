@@ -128,4 +128,102 @@ describe('CreateIntegration Use-Case', () => {
             expect(dto.config).toEqual(config);
         });
     });
+
+    describe('deduplication on re-authorize', () => {
+        it('reuses an existing integration when userId, type, and entity set all match', async () => {
+            const entities = ['entity-1', 'entity-2'];
+            const userId = 'user-1';
+            const config = { type: 'dummy', foo: 'bar' };
+
+            const first = await useCase.execute(entities, userId, config);
+            integrationRepository.clearHistory();
+
+            const second = await useCase.execute(entities, userId, config);
+
+            expect(second.id).toBe(first.id);
+
+            const history = integrationRepository.getOperationHistory();
+            expect(history.some((op) => op.operation === 'create')).toBe(false);
+            expect(
+                history.find((op) => op.operation === 'findByUserIdTypeAndEntities'),
+            ).toMatchObject({ userId, type: 'dummy', found: true });
+        });
+
+        it('runs testAuth on the reused integration so stale credentials surface', async () => {
+            const entities = ['entity-1'];
+            const userId = 'user-1';
+            const config = { type: 'dummy' };
+
+            const testAuthSpy = jest.fn();
+            const integrationClass = class extends DummyIntegration {
+                async testAuth() {
+                    testAuthSpy();
+                }
+            };
+            Object.defineProperty(integrationClass, 'Definition', {
+                value: DummyIntegration.Definition,
+            });
+
+            const localUseCase = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [integrationClass],
+                moduleFactory,
+            });
+
+            await localUseCase.execute(entities, userId, config);
+            await localUseCase.execute(entities, userId, config);
+
+            expect(testAuthSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('ignores entity order when checking for duplicates', async () => {
+            const userId = 'user-1';
+            const config = { type: 'dummy' };
+
+            const first = await useCase.execute(['entity-1', 'entity-2'], userId, config);
+            const second = await useCase.execute(['entity-2', 'entity-1'], userId, config);
+
+            expect(second.id).toBe(first.id);
+        });
+
+        it('creates a new integration when the type differs', async () => {
+            const entities = ['entity-1'];
+            const userId = 'user-1';
+
+            const dummyTwoClass = class extends DummyIntegration {};
+            Object.defineProperty(dummyTwoClass, 'Definition', {
+                value: { ...DummyIntegration.Definition, name: 'dummy-two' },
+            });
+            const localUseCase = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [DummyIntegration, dummyTwoClass],
+                moduleFactory,
+            });
+
+            const first = await localUseCase.execute(entities, userId, { type: 'dummy' });
+            const second = await localUseCase.execute(entities, userId, { type: 'dummy-two' });
+
+            expect(second.id).not.toBe(first.id);
+        });
+
+        it('creates a new integration when the entity set differs', async () => {
+            const userId = 'user-1';
+            const config = { type: 'dummy' };
+
+            const first = await useCase.execute(['entity-1'], userId, config);
+            const second = await useCase.execute(['entity-1', 'entity-2'], userId, config);
+
+            expect(second.id).not.toBe(first.id);
+        });
+
+        it('creates a new integration when the userId differs', async () => {
+            const entities = ['entity-1'];
+            const config = { type: 'dummy' };
+
+            const first = await useCase.execute(entities, 'user-1', config);
+            const second = await useCase.execute(entities, 'user-2', config);
+
+            expect(second.id).not.toBe(first.id);
+        });
+    });
 }); 
