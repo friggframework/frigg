@@ -4,8 +4,7 @@ const { ModuleConstants } = require('../ModuleConstants');
 // Statuses considered "broken" for an integration whose credentials have just
 // been successfully re-authorized. Both ERROR (system-driven auth failure) and
 // DISABLED (user paused the integration) are flipped back to ENABLED when the
-// user completes a new authorization flow. See the Gap C fix in the RCA for the
-// reasoning.
+// user completes a new authorization flow.
 const STATUSES_RESET_ON_REAUTH = ['ERROR', 'DISABLED'];
 
 class ProcessAuthorizationCallback {
