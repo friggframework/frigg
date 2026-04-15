@@ -99,6 +99,15 @@ class OAuth2Requester extends Requester {
 
         /** @type {boolean} Whether this requester supports token refresh */
         this.isRefreshable = true;
+        // Narrow the default when refresh is structurally impossible — e.g.,
+        // OAuth providers that only support the authorization_code flow and
+        // never issue refresh tokens (Attio). Subclasses can still set
+        // `isRefreshable = false` explicitly after `super(params)` for
+        // declarative intent. We only narrow, never widen, so explicit
+        // overrides to `false` always win.
+        if (this.grant_type !== 'client_credentials' && !this.refresh_token) {
+            this.isRefreshable = false;
+        }
     }
 
     /**
@@ -140,6 +149,15 @@ class OAuth2Requester extends Requester {
             this.refreshTokenExpire = new Date(
                 Date.now() + refreshExpiresIn * 1000
             );
+        }
+
+        // Re-derive isRefreshable from current state. Non-client_credentials
+        // grants can refresh iff a refresh_token is present. This widens the
+        // capability when a provider first issues a refresh_token (e.g.
+        // Pipedrive/Zoho first-time auth) and keeps it narrowed when none is
+        // ever issued (e.g. Attio). Safely idempotent on subsequent refreshes.
+        if (this.grant_type !== 'client_credentials') {
+            this.isRefreshable = !!this.refresh_token;
         }
 
         await this.notify(this.DLGT_TOKEN_UPDATE);
@@ -295,6 +313,22 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<boolean>} True if refresh succeeded, false if failed
      */
     async refreshAuth() {
+        // Defense in depth — the normal 401 retry path at requester.js:74
+        // already short-circuits when isRefreshable is false, but guard
+        // direct callers (custom subclasses, tests, future code paths).
+        // Consistent with using isRefreshable as the single source of truth
+        // for "can I refresh?" — avoids doomed POSTs to providers that don't
+        // support refresh (e.g. Attio) or credentials whose refresh_token is
+        // absent/null.
+        if (!this.isRefreshable) {
+            console.warn(
+                '[Frigg] refreshAuth called but isRefreshable is false — marking credentials invalid',
+                { grant_type: this.grant_type }
+            );
+            await this.notify(this.DLGT_INVALID_AUTH);
+            return false;
+        }
+
         try {
             console.log('[Frigg] Starting token refresh', {
                 grant_type: this.grant_type,

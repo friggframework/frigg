@@ -12,9 +12,59 @@ describe('OAuth2Requester', () => {
             expect(requester.grant_type).toBe('client_credentials');
         });
 
-        it('should set isRefreshable to true', () => {
-            const requester = new OAuth2Requester({});
+        it('should set isRefreshable to true when a refresh_token is provided', () => {
+            const requester = new OAuth2Requester({
+                refresh_token: 'test-refresh-token',
+            });
             expect(requester.isRefreshable).toBe(true);
+        });
+    });
+
+    describe('constructor — isRefreshable narrowing', () => {
+        it('narrows to false when grant_type is authorization_code and no refresh_token is provided', () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'authorization_code',
+            });
+            expect(requester.isRefreshable).toBe(false);
+        });
+
+        it('stays true when grant_type is authorization_code and a refresh_token is provided', () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'authorization_code',
+                refresh_token: 'test-refresh-token',
+            });
+            expect(requester.isRefreshable).toBe(true);
+        });
+
+        it('narrows to false when grant_type is password and no refresh_token is provided', () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'password',
+            });
+            expect(requester.isRefreshable).toBe(false);
+        });
+
+        it('stays true when grant_type is client_credentials even without a refresh_token', () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'client_credentials',
+            });
+            expect(requester.isRefreshable).toBe(true);
+        });
+
+        it('preserves an explicit isRefreshable=false set by a subclass after super(params)', () => {
+            class ProviderWithNoRefresh extends OAuth2Requester {
+                constructor(params) {
+                    super(params);
+                    this.isRefreshable = false;
+                }
+            }
+            // Even when a refresh_token IS present, the subclass's explicit
+            // opt-out must win — "narrow but never widen" applies across
+            // constructor and setTokens.
+            const requester = new ProviderWithNoRefresh({
+                grant_type: 'authorization_code',
+                refresh_token: 'test-refresh-token',
+            });
+            expect(requester.isRefreshable).toBe(false);
         });
     });
 
@@ -95,6 +145,27 @@ describe('OAuth2Requester', () => {
             expect(result).toBe(false);
             expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
         });
+
+        it('short-circuits to DLGT_INVALID_AUTH without calling the token endpoint when isRefreshable is false', async () => {
+            // Attio scenario: no refresh_token was ever issued, so the
+            // constructor narrowed isRefreshable to false. refreshAuth must
+            // refuse to make the doomed grant_type=refresh_token POST.
+            const requester = new OAuth2Requester({
+                grant_type: 'authorization_code',
+            });
+            expect(requester.isRefreshable).toBe(false);
+            requester.refreshAccessToken = jest.fn();
+            requester.getTokenFromClientCredentials = jest.fn();
+            requester.notify = jest.fn();
+
+            const result = await requester.refreshAuth();
+
+            expect(result).toBe(false);
+            expect(requester.refreshAccessToken).not.toHaveBeenCalled();
+            expect(requester.getTokenFromClientCredentials).not.toHaveBeenCalled();
+            expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+            expect(requester.notify).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('setTokens', () => {
@@ -111,6 +182,76 @@ describe('OAuth2Requester', () => {
             expect(requester.access_token).toBe('test-access-token');
             expect(requester.refresh_token).toBe('test-refresh-token');
             expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_TOKEN_UPDATE);
+        });
+
+        describe('isRefreshable re-derivation', () => {
+            it('widens isRefreshable to true when response includes a refresh_token (first-time auth)', async () => {
+                // Attio/Pipedrive shape: Module constructed with no refresh_token
+                // (fresh credential) — constructor narrows isRefreshable to false.
+                // If the initial auth-code response includes a refresh_token
+                // (Pipedrive, Zoho), we must unlock refresh capability so subsequent
+                // 401s can actually refresh.
+                const requester = new OAuth2Requester({
+                    grant_type: 'authorization_code',
+                });
+                expect(requester.isRefreshable).toBe(false);
+                requester.notify = jest.fn();
+
+                await requester.setTokens({
+                    access_token: 'new-access-token',
+                    refresh_token: 'freshly-issued-refresh-token',
+                    expires_in: 3600,
+                });
+
+                expect(requester.isRefreshable).toBe(true);
+            });
+
+            it('keeps isRefreshable false when response has no refresh_token and none existed (Attio)', async () => {
+                const requester = new OAuth2Requester({
+                    grant_type: 'authorization_code',
+                });
+                expect(requester.isRefreshable).toBe(false);
+                requester.notify = jest.fn();
+
+                await requester.setTokens({
+                    access_token: 'new-access-token',
+                    expires_in: 3600,
+                });
+
+                expect(requester.isRefreshable).toBe(false);
+            });
+
+            it('keeps isRefreshable true when existing refresh_token is preserved (no refresh_token in response)', async () => {
+                const requester = new OAuth2Requester({
+                    grant_type: 'authorization_code',
+                    refresh_token: 'existing-refresh-token',
+                });
+                expect(requester.isRefreshable).toBe(true);
+                requester.notify = jest.fn();
+
+                await requester.setTokens({
+                    access_token: 'new-access-token',
+                    expires_in: 3600,
+                });
+
+                expect(requester.refresh_token).toBe('existing-refresh-token');
+                expect(requester.isRefreshable).toBe(true);
+            });
+
+            it('leaves isRefreshable true for client_credentials even when no refresh_token is involved', async () => {
+                const requester = new OAuth2Requester({
+                    grant_type: 'client_credentials',
+                });
+                expect(requester.isRefreshable).toBe(true);
+                requester.notify = jest.fn();
+
+                await requester.setTokens({
+                    access_token: 'new-access-token',
+                    expires_in: 3600,
+                });
+
+                expect(requester.isRefreshable).toBe(true);
+            });
         });
     });
 
@@ -422,6 +563,45 @@ describe('OAuth2Requester', () => {
             expect(requester.refreshAccessToken).not.toHaveBeenCalled();
             expect(capturedHeaders[0].Authorization).toBe('Bearer old-cc-token');
             expect(capturedHeaders[1].Authorization).toBe('Bearer new-cc-token');
+        });
+
+        it('does NOT attempt refresh on 401 when isRefreshable is false (Attio-shape)', async () => {
+            // End-to-end guarantee: for a provider that never issues refresh
+            // tokens (Attio), a 401 must go straight to DLGT_INVALID_AUTH
+            // without POSTing to the token endpoint. Proves the
+            // constructor-narrowed isRefreshable gates requester.js:74
+            // correctly.
+            const mockFetch = jest.fn().mockResolvedValue({
+                status: 401,
+                headers: { get: () => 'application/json' },
+                json: async () => ({ error: 'Unauthorized' }),
+            });
+
+            const requester = new OAuth2Requester({
+                access_token: 'dead-access-token',
+                grant_type: 'authorization_code',
+                fetch: mockFetch,
+            });
+            expect(requester.isRefreshable).toBe(false);
+
+            const refreshAuthSpy = jest.spyOn(requester, 'refreshAuth');
+            requester.refreshAccessToken = jest.fn();
+            requester.notify = jest.fn();
+
+            await expect(
+                requester._get({ url: 'https://api.example.com/data' })
+            ).rejects.toThrow();
+
+            // Single fetch call — no retry attempted.
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            // refreshAuth and refreshAccessToken never invoked.
+            expect(refreshAuthSpy).not.toHaveBeenCalled();
+            expect(requester.refreshAccessToken).not.toHaveBeenCalled();
+            // DLGT_INVALID_AUTH fired exactly once.
+            expect(requester.notify).toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH
+            );
+            expect(requester.notify).toHaveBeenCalledTimes(1);
         });
     });
 });
