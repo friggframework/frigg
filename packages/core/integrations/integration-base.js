@@ -253,7 +253,7 @@ class IntegrationBase {
             // of events it cannot handle itself (e.g. credential invalidation
             // needing an Integration.status flip). Without this, Module.notify
             // silently no-ops and Integration.status never updates on auth
-            // failure — see the Attio dead-token loop.
+            // failure.
             if (module && typeof module === 'object') {
                 module.delegate = this;
             }
