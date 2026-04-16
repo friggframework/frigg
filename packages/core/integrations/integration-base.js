@@ -563,10 +563,10 @@ class IntegrationBase {
         if (delegateString !== 'CREDENTIAL_INVALIDATED') return;
         if (!this.id) return;
         console.log(
-            `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking DISABLED`
+            `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
         );
-        await this.updateIntegrationStatus.execute(this.id, 'DISABLED');
-        this.status = 'DISABLED';
+        await this.updateIntegrationStatus.execute(this.id, 'ERROR');
+        this.status = 'ERROR';
     }
 }
 

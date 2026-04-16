@@ -42,7 +42,7 @@ describe('IntegrationBase.receiveNotification', () => {
         expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
     });
 
-    it('flips the integration to DISABLED when a module reports CREDENTIAL_INVALIDATED', async () => {
+    it('flips the integration to ERROR when a module reports CREDENTIAL_INVALIDATED', async () => {
         const mockNotifier = { name: 'testmodule' };
 
         await integration.receiveNotification(
@@ -54,8 +54,8 @@ describe('IntegrationBase.receiveNotification', () => {
         expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledTimes(1);
         expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
             'int-1',
-            'DISABLED'
+            'ERROR'
         );
-        expect(integration.status).toBe('DISABLED');
+        expect(integration.status).toBe('ERROR');
     });
 });

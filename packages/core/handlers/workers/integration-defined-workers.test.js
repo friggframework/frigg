@@ -429,6 +429,70 @@ describe('Webhook Queue Worker', () => {
             consoleSpy.mockRestore();
         });
 
+        it('should discard message when integration is ERROR', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+            let mockedCreateQueueWorker;
+            jest.isolateModules(() => {
+                const mockIntegrationRecord = {
+                    id: '123',
+                    userId: 'user-1',
+                    entities: [],
+                    config: {},
+                    status: 'ERROR',
+                    version: '1.0.0',
+                    messages: { errors: [], warnings: [] },
+                };
+
+                jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
+                    createIntegrationRepository: () => ({
+                        findIntegrationById: jest.fn().mockResolvedValue(mockIntegrationRecord),
+                    }),
+                }));
+                jest.doMock('../../modules/repositories/module-repository-factory', () => ({
+                    createModuleRepository: () => ({}),
+                }));
+                jest.doMock('../app-definition-loader', () => ({
+                    loadAppDefinition: () => ({ integrations: [TestWebhookIntegration] }),
+                }));
+                jest.doMock('../../integrations/use-cases/get-integration-instance', () => ({
+                    GetIntegrationInstance: class {
+                        async execute() {
+                            const instance = new TestWebhookIntegration();
+                            instance.id = '123';
+                            instance.status = 'ERROR';
+                            return instance;
+                        }
+                    },
+                }));
+                mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
+            });
+
+            const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'ON_WEBHOOK',
+                data: {
+                    integrationId: '123',
+                    body: { webhookEvent: 'updated' },
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('ERROR')
+            );
+
+            consoleSpy.mockRestore();
+        });
+
         it('should process message normally when integration is ENABLED', async () => {
             const QueueWorker = createQueueWorker(TestWebhookIntegration);
             const worker = new QueueWorker();
