@@ -34,7 +34,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
-          npm install -g npm@latest
           npm ci
           cd packages/ui
           npm run build
