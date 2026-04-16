@@ -154,9 +154,9 @@ const createQueueWorker = (integrationClass) => {
                         params.data.processId,
                         integrationClass
                     );
-                    if (integrationInstance?.status === 'DISABLED') {
+                    if (['DISABLED', 'ERROR'].includes(integrationInstance?.status)) {
                         console.warn(
-                            `[${integrationClass.Definition.name}] Integration for process ${params.data.processId} is DISABLED. Discarding ${params.event} message.`
+                            `[${integrationClass.Definition.name}] Integration for process ${params.data.processId} is ${integrationInstance.status}. Discarding ${params.event} message.`
                         );
                         return;
                     }
@@ -170,9 +170,9 @@ const createQueueWorker = (integrationClass) => {
                         );
                         return;
                     }
-                    if (integrationInstance.status === 'DISABLED') {
+                    if (['DISABLED', 'ERROR'].includes(integrationInstance.status)) {
                         console.warn(
-                            `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} is DISABLED. Discarding ${params.event} message.`
+                            `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} is ${integrationInstance.status}. Discarding ${params.event} message.`
                         );
                         return;
                     }

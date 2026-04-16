@@ -37,6 +37,10 @@ class Module extends Delegate {
         this.credentialRepository = createCredentialRepository();
         this.moduleRepository = createModuleRepository();
 
+        // Module → parent delegate (typically IntegrationBase) events
+        this.DLGT_CREDENTIAL_INVALIDATED = 'CREDENTIAL_INVALIDATED';
+        this.delegateTypes.push(this.DLGT_CREDENTIAL_INVALIDATED);
+
         Object.assign(this, this.definition.requiredAuthMethods);
 
         const apiParams = {
@@ -142,6 +146,30 @@ class Module extends Delegate {
         // Keep the in-memory snapshot consistent so that callers can read the
         // updated state without another fetch.
         this.credential.authIsValid = false;
+
+        // Propagate upward so a parent delegate (e.g. IntegrationBase) can
+        // react — for instance by flipping Integration.status to DISABLED.
+        // Delegate.notify is a silent no-op when this.delegate is null, so
+        // Module instances constructed outside of an Integration context
+        // (e.g. during ProcessAuthorizationCallback) remain unaffected.
+        //
+        // Best-effort: this method is invoked from the OAuth2Requester 401
+        // refresh catch block, which depends on us NOT throwing. A DB hiccup
+        // in the downstream status flip must not alter refreshAuth's
+        // documented `return false` contract. The credential has already
+        // been persisted as invalid; integrations left un-flipped can be
+        // recovered by the next retry or by operator intervention.
+        try {
+            await this.notify(this.DLGT_CREDENTIAL_INVALIDATED, {
+                credentialId: this.credential.id,
+                moduleName: this.name,
+            });
+        } catch (err) {
+            console.error(
+                `[Frigg] Failed to propagate CREDENTIAL_INVALIDATED for module ${this.name}:`,
+                err?.message || err
+            );
+        }
     }
 
     async deauthorize() {
