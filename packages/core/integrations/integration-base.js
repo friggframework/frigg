@@ -248,6 +248,15 @@ class IntegrationBase {
                 modules[key] = module;
                 this[key] = module;
             }
+
+            // Wire the Delegate pattern so Module can notify this integration
+            // of events it cannot handle itself (e.g. credential invalidation
+            // needing an Integration.status flip). Without this, Module.notify
+            // silently no-ops and Integration.status never updates on auth
+            // failure — see the Attio dead-token loop.
+            if (module && typeof module === 'object') {
+                module.delegate = this;
+            }
         }
 
         return modules;
@@ -529,6 +538,35 @@ class IntegrationBase {
         // In the new architecture, modules are injected via constructor
         // For backward compatibility, this is a no-op
         return;
+    }
+
+    /**
+     * Receives notifications from modules (the Delegate pattern) when
+     * something integration-level needs attention. Today this catches the
+     * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
+     * and flips this integration's status to DISABLED so the queue worker
+     * stops processing further webhooks until the user re-authorizes.
+     *
+     * Modules are wired to this delegate in `_appendModules()`, which runs
+     * during `setIntegrationRecord()` — this covers every construction path
+     * (HTTP read, queue worker, create/update/delete flows, etc.).
+     *
+     * The delegate string below must match `Module.DLGT_CREDENTIAL_INVALIDATED`
+     * in `packages/core/modules/module.js`.
+     *
+     * @param {Object} notifier - The module that fired the event
+     * @param {string} delegateString - Event type string
+     * @param {Object} [object] - Optional event payload
+     * @returns {Promise<void>}
+     */
+    async receiveNotification(notifier, delegateString, object = null) {
+        if (delegateString !== 'CREDENTIAL_INVALIDATED') return;
+        if (!this.id) return;
+        console.log(
+            `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking DISABLED`
+        );
+        await this.updateIntegrationStatus.execute(this.id, 'DISABLED');
+        this.status = 'DISABLED';
     }
 }
 
