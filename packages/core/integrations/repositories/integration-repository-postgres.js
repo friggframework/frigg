@@ -347,6 +347,39 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
             messages: converted.messages,
         };
     }
+
+    /**
+     * Find all integrations whose entity set includes the given entity ID.
+     *
+     * @param {string|number} entityId - Entity ID (string from application layer)
+     * @returns {Promise<Array>} Array of integration objects with string IDs (possibly empty)
+     */
+    async findIntegrationsByEntityId(entityId) {
+        const intEntityId = this._convertId(entityId);
+        const integrations = await this.prisma.integration.findMany({
+            where: {
+                entities: {
+                    some: { id: intEntityId },
+                },
+            },
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => {
+            const converted = this._convertIntegrationIds(integration);
+            return {
+                id: converted.id,
+                entitiesIds: converted.entities.map((e) => e.id),
+                userId: converted.userId,
+                config: converted.config,
+                version: converted.version,
+                status: converted.status,
+                messages: converted.messages,
+            };
+        });
+    }
 }
 
 module.exports = { IntegrationRepositoryPostgres };

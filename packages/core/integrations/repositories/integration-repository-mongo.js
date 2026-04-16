@@ -201,6 +201,33 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
     }
 
     /**
+     * Find all integrations whose entity set includes the given entity ID.
+     *
+     * @param {string} entityId - Entity ID (MongoDB ObjectId as string)
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     */
+    async findIntegrationsByEntityId(entityId) {
+        const integrations = await this.prisma.integration.findMany({
+            where: {
+                entityIds: { has: entityId },
+            },
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => ({
+            id: integration.id,
+            entitiesIds: integration.entities.map((e) => e.id),
+            userId: integration.userId,
+            config: integration.config,
+            version: integration.version,
+            status: integration.status,
+            messages: integration.messages,
+        }));
+    }
+
+    /**
      * Create a new integration
      * Replaces: IntegrationModel.create({ entities, user, config })
      *

@@ -122,6 +122,23 @@ class IntegrationRepositoryInterface {
     async updateIntegrationConfig(integrationId, config) {
         throw new Error('Method updateIntegrationConfig must be implemented by subclass');
     }
+
+    /**
+     * Find all integrations whose entity set includes the given entity ID.
+     *
+     * Used by the authorization callback flow to walk up from a re-authorized
+     * entity to its parent integrations so that any in a broken state (ERROR,
+     * DISABLED) can be restored to ENABLED.
+     *
+     * @param {string|number} entityId - Entity ID
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     * @abstract
+     */
+    async findIntegrationsByEntityId(entityId) {
+        throw new Error(
+            'Method findIntegrationsByEntityId must be implemented by subclass'
+        );
+    }
 }
 
 module.exports = { IntegrationRepositoryInterface };

@@ -190,6 +190,7 @@ function createIntegrationRouter() {
     const processAuthorizationCallback = new ProcessAuthorizationCallback({
         moduleRepository,
         credentialRepository,
+        integrationRepository,
         moduleDefinitions:
             getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });

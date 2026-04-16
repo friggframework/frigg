@@ -46,6 +46,19 @@ class TestIntegrationRepository {
         return record || null;
     }
 
+    async findIntegrationsByEntityId(entityId) {
+        const target = String(entityId);
+        const results = Array.from(this.store.values()).filter((r) =>
+            (r.entitiesIds || []).map(String).includes(target)
+        );
+        this.operationHistory.push({
+            operation: 'findByEntityId',
+            entityId: target,
+            count: results.length,
+        });
+        return results;
+    }
+
     async updateIntegrationMessages(id, type, title, body, timestamp) {
         const rec = this.store.get(id);
         if (!rec) {
