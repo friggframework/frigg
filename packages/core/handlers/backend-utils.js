@@ -141,8 +141,17 @@ const loadIntegrationForProcess = async (processId, integrationClass) => {
 };
 
 const createQueueWorker = (integrationClass) => {
+    const integrationName = integrationClass.Definition.name;
+
     class QueueWorker extends Worker {
         async _run(params, context) {
+            const logCtx = {
+                integration: integrationName,
+                event: params.event,
+                processId: params.data?.processId,
+                integrationId: params.data?.integrationId,
+            };
+
             try {
                 let integrationInstance;
 
@@ -150,29 +159,46 @@ const createQueueWorker = (integrationClass) => {
                 // then integrationId (for ANY event type that needs hydration),
                 // fallback to unhydrated instance
                 if (params.data?.processId) {
+                    console.log(
+                        `[QueueWorker] hydrating by processId`,
+                        logCtx
+                    );
                     integrationInstance = await loadIntegrationForProcess(
                         params.data.processId,
                         integrationClass
                     );
+                    console.log(`[QueueWorker] hydrated`, {
+                        ...logCtx,
+                        integrationStatus: integrationInstance?.status,
+                        hydratedIntegrationId: integrationInstance?.id,
+                    });
                     if (['DISABLED', 'ERROR'].includes(integrationInstance?.status)) {
                         console.warn(
-                            `[${integrationClass.Definition.name}] Integration for process ${params.data.processId} is ${integrationInstance.status}. Discarding ${params.event} message.`
+                            `[${integrationName}] Integration for process ${params.data.processId} is ${integrationInstance.status}. Discarding ${params.event} message.`
                         );
                         return;
                     }
                 } else if (params.data?.integrationId) {
+                    console.log(
+                        `[QueueWorker] hydrating by integrationId`,
+                        logCtx
+                    );
                     integrationInstance = await loadIntegrationForWebhook(
                         params.data.integrationId
                     );
                     if (!integrationInstance) {
                         console.warn(
-                            `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} no longer exists. Discarding ${params.event} message.`
+                            `[${integrationName}] Integration ${params.data.integrationId} no longer exists. Discarding ${params.event} message.`
                         );
                         return;
                     }
+                    console.log(`[QueueWorker] hydrated`, {
+                        ...logCtx,
+                        integrationStatus: integrationInstance?.status,
+                    });
                     if (['DISABLED', 'ERROR'].includes(integrationInstance.status)) {
                         console.warn(
-                            `[${integrationClass.Definition.name}] Integration ${params.data.integrationId} is ${integrationInstance.status}. Discarding ${params.event} message.`
+                            `[${integrationName}] Integration ${params.data.integrationId} is ${integrationInstance.status}. Discarding ${params.event} message.`
                         );
                         return;
                     }
@@ -181,6 +207,10 @@ const createQueueWorker = (integrationClass) => {
                     // There will be cases where we need to use helpers that the api modules can export.
                     // Like for HubSpot, the answer is to do a reverse lookup for the integration by the entity external ID (HubSpot Portal ID),
                     // and then you'll have the integration ID available to hydrate from.
+                    console.log(
+                        `[QueueWorker] no processId/integrationId — running dry instance`,
+                        logCtx
+                    );
                     integrationInstance = new integrationClass();
                 }
 
@@ -188,14 +218,17 @@ const createQueueWorker = (integrationClass) => {
                     integrationInstance
                 );
 
-                return await dispatcher.dispatchJob({
+                console.log(`[QueueWorker] dispatching ${params.event}`, logCtx);
+                const result = await dispatcher.dispatchJob({
                     event: params.event,
                     data: params.data,
                     context: context,
                 });
+                console.log(`[QueueWorker] ${params.event} dispatched ok`, logCtx);
+                return result;
             } catch (error) {
                 console.error(
-                    `Error in ${params.event} for ${integrationClass.Definition.name}:`,
+                    `Error in ${params.event} for ${integrationName}:`,
                     error
                 );
 
@@ -207,7 +240,12 @@ const createQueueWorker = (integrationClass) => {
                 if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) {
                     error.isHaltError = true;
                     console.warn(
-                        `[${integrationClass.Definition.name}] Permanent ${status} error for ${params.event} — message will be discarded (no retry)`
+                        `[${integrationName}] Permanent ${status} error for ${params.event} — message will be discarded (no retry)`,
+                        {
+                            ...logCtx,
+                            errorName: error.name,
+                            errorMessage: error.message,
+                        }
                     );
                 }
 

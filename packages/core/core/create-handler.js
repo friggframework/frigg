@@ -62,7 +62,18 @@ const createHandler = (optionByName = {}) => {
             // Handle server-to-server responses.
 
             // Halt errors are logged but suceed and won't be retried.
+            // Log explicitly — silent suppression here previously made stuck
+            // messages invisible to observability tooling.
             if (error.isHaltError === true) {
+                console.warn(
+                    `[createHandler] ${eventName}: halt error suppressed (no retry)`,
+                    {
+                        eventName,
+                        errorName: error.name,
+                        errorMessage: error.message,
+                        statusCode: error.statusCode,
+                    }
+                );
                 return;
             }
 
