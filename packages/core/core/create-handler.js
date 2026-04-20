@@ -5,6 +5,45 @@
 const { initDebugLog, flushDebugLog } = require('../logs');
 const { secretsToEnv } = require('./secrets-to-env');
 
+// Best-effort extraction of correlation identifiers from a Lambda event.
+// For SQS: pulls messageIds + parsed event/processId/integrationId from each
+// record body. For HTTP: pulls method+path. Never throws.
+const summarizeLambdaEvent = (event) => {
+    if (!event) return {};
+    if (Array.isArray(event.Records)) {
+        return {
+            source: 'sqs',
+            records: event.Records.map((r) => {
+                let parsed = {};
+                try {
+                    const body = JSON.parse(r.body);
+                    parsed = {
+                        event: body?.event,
+                        processId: body?.data?.processId,
+                        integrationId: body?.data?.integrationId,
+                    };
+                } catch {
+                    // ignore unparseable bodies
+                }
+                return {
+                    messageId: r.messageId,
+                    receiveCount: r.attributes?.ApproximateReceiveCount,
+                    ...parsed,
+                };
+            }),
+        };
+    }
+    if (event.httpMethod || event.requestContext?.http) {
+        return {
+            source: 'http',
+            method:
+                event.httpMethod || event.requestContext?.http?.method,
+            path: event.path || event.rawPath,
+        };
+    }
+    return { source: 'other' };
+};
+
 const createHandler = (optionByName = {}) => {
     const {
         eventName = 'Event',
@@ -17,6 +56,8 @@ const createHandler = (optionByName = {}) => {
     }
 
     return async (event, context) => {
+        const eventSummary = summarizeLambdaEvent(event);
+
         try {
             initDebugLog(eventName, event);
 
@@ -63,7 +104,9 @@ const createHandler = (optionByName = {}) => {
 
             // Halt errors are logged but suceed and won't be retried.
             // Log explicitly — silent suppression here previously made stuck
-            // messages invisible to observability tooling.
+            // messages invisible to observability tooling. Include
+            // eventSummary so operators can correlate across concurrent
+            // invocations (processId / messageIds / HTTP path).
             if (error.isHaltError === true) {
                 console.warn(
                     `[createHandler] ${eventName}: halt error suppressed (no retry)`,
@@ -72,6 +115,7 @@ const createHandler = (optionByName = {}) => {
                         errorName: error.name,
                         errorMessage: error.message,
                         statusCode: error.statusCode,
+                        ...eventSummary,
                     }
                 );
                 return;

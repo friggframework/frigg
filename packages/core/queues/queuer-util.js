@@ -18,14 +18,34 @@ const awsConfigOptions = () => {
 
 const sqs = new SQSClient(awsConfigOptions());
 
+// Best-effort extraction of the logical event/processId/integrationId from a
+// JSON message body. Used only for log correlation — never throws.
+const summarizeMessageBody = (bodyStr) => {
+    try {
+        const parsed = JSON.parse(bodyStr);
+        return {
+            event: parsed?.event,
+            processId: parsed?.data?.processId,
+            integrationId: parsed?.data?.integrationId,
+        };
+    } catch {
+        return {};
+    }
+};
+
 // Inspect SendMessageBatchResult for partial failures and log them.
 // AWS SendMessageBatch can succeed at the HTTP level while individual entries
 // are rejected (KMS errors, per-entry throttling, service errors). Callers that
 // don't inspect result.Failed silently lose those messages. This logs the
-// details so the loss is visible in CloudWatch.
-const inspectBatchResult = (result, queueUrl, bufferSize) => {
+// details — including the logical event/processId of the failed entry — so
+// the loss is visible and correlatable in CloudWatch.
+const inspectBatchResult = (result, queueUrl, buffer) => {
+    const bufferSize = buffer.length;
     const failedCount = result?.Failed?.length ?? 0;
     const successCount = result?.Successful?.length ?? 0;
+
+    // Index buffer by Id so we can attach event/processId to failures.
+    const bufferById = new Map(buffer.map((b) => [b.Id, b]));
 
     if (failedCount > 0) {
         console.error(
@@ -35,17 +55,34 @@ const inspectBatchResult = (result, queueUrl, bufferSize) => {
                 bufferSize,
                 successCount,
                 failedCount,
-                failed: result.Failed.map((f) => ({
-                    Id: f.Id,
-                    Code: f.Code,
-                    SenderFault: f.SenderFault,
-                    Message: f.Message,
-                })),
+                failed: result.Failed.map((f) => {
+                    const bufEntry = bufferById.get(f.Id);
+                    const summary = bufEntry
+                        ? summarizeMessageBody(bufEntry.MessageBody)
+                        : {};
+                    return {
+                        Id: f.Id,
+                        Code: f.Code,
+                        SenderFault: f.SenderFault,
+                        Message: f.Message,
+                        ...summary,
+                    };
+                }),
             }
         );
     } else if (successCount > 0) {
+        // Include a compact per-entry summary so operators can correlate
+        // "which send contained which logical message" during incident triage.
+        const entries = result.Successful.map((s) => {
+            const bufEntry = bufferById.get(s.Id);
+            const summary = bufEntry
+                ? summarizeMessageBody(bufEntry.MessageBody)
+                : {};
+            return { MessageId: s.MessageId, ...summary };
+        });
         console.log(
-            `[QueuerUtil] SendMessageBatch ok: ${successCount}/${bufferSize} to ${queueUrl}`
+            `[QueuerUtil] SendMessageBatch ok: ${successCount}/${bufferSize} to ${queueUrl}`,
+            { entries }
         );
     }
 
@@ -81,7 +118,7 @@ const QueuerUtil = {
                     QueueUrl: queueUrl,
                 });
                 const result = await sqs.send(command);
-                inspectBatchResult(result, queueUrl, buffer.length);
+                inspectBatchResult(result, queueUrl, buffer);
                 // Purge the buffer
                 buffer.splice(0, buffer.length);
             }
@@ -94,7 +131,7 @@ const QueuerUtil = {
                 QueueUrl: queueUrl,
             });
             const result = await sqs.send(command);
-            return inspectBatchResult(result, queueUrl, buffer.length);
+            return inspectBatchResult(result, queueUrl, buffer);
         }
 
         // If we're exact... just return an empty object for now
