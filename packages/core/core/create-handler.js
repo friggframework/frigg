@@ -59,6 +59,15 @@ const createHandler = (optionByName = {}) => {
         const eventSummary = summarizeLambdaEvent(event);
 
         try {
+            console.info(
+                `[createHandler] ${eventName}: handler entry`,
+                {
+                    eventName,
+                    awsRequestId: context?.awsRequestId,
+                    ...eventSummary,
+                }
+            );
+
             initDebugLog(eventName, event);
 
             const requestMethod = event.httpMethod;
