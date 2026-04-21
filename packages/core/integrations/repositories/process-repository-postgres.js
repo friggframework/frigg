@@ -2,6 +2,7 @@ const { prisma } = require('../../database/prisma');
 const {
     ProcessRepositoryInterface,
 } = require('./process-repository-interface');
+const { validateOps, splitPath } = require('./process-update-ops-shared');
 
 /**
  * PostgreSQL Process Repository Adapter
@@ -106,6 +107,139 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
         });
 
         return this._toPlainObject(process);
+    }
+
+    /**
+     * Atomic process update — race-safe counterpart to `update()`.
+     *
+     * Compiles the `ProcessUpdateOps` into ONE `UPDATE "Process" ...
+     * RETURNING *` statement with nested `jsonb_set` calls for every
+     * context/results mutation. Postgres applies row-level locking
+     * during UPDATE, so concurrent callers on the same row serialize at
+     * the DB without any read-modify-write in Node.
+     *
+     * Path segments have been regex-validated upstream (see
+     * process-update-ops-shared.js); they are embedded directly into
+     * the SQL string. All values go through positional parameters.
+     *
+     * @param {string} processId
+     * @param {ProcessUpdateOps} ops
+     * @returns {Promise<Object|null>}
+     */
+    async applyProcessUpdate(processId, ops) {
+        const normalized = validateOps(ops);
+        const id = this._convertId(processId);
+
+        // Build the SQL expression for each JSON column. We start each
+        // column's expression from the column itself and wrap it in
+        // jsonb_set(...) calls — one wrap per operation targeting that
+        // column. If no op targets a column, we omit that SET clause so
+        // we don't issue a pointless self-assignment.
+        const params = [];
+        /** @type {(v:unknown)=>string} positional placeholder, 1-indexed */
+        const bind = (v) => {
+            params.push(v);
+            return `$${params.length}`;
+        };
+
+        const columnExpressions = this._buildColumnExpressions(
+            normalized,
+            bind
+        );
+        const setClauses = [];
+        for (const [column, expr] of Object.entries(columnExpressions)) {
+            setClauses.push(`"${column}" = ${expr}`);
+        }
+        if (normalized.newState !== null) {
+            setClauses.push(`"state" = ${bind(normalized.newState)}`);
+        }
+        setClauses.push(`"updatedAt" = NOW()`);
+
+        const idPlaceholder = bind(id);
+        const sql = `
+            UPDATE "Process"
+            SET ${setClauses.join(', ')}
+            WHERE "id" = ${idPlaceholder}
+            RETURNING *
+        `;
+
+        const rows = await this.prisma.$queryRawUnsafe(sql, ...params);
+        if (!rows || rows.length === 0) return null;
+        return this._toPlainObject(rows[0]);
+    }
+
+    /**
+     * Returns a map of column → SQL expression with all jsonb_set wraps
+     * applied. Used only by applyProcessUpdate.
+     * @private
+     */
+    _buildColumnExpressions(ops, bind) {
+        const byColumn = { context: null, results: null };
+
+        // Seed with the column itself (wrapped with COALESCE so that
+        // a NULL column doesn't break jsonb_set).
+        const seed = (col) =>
+            byColumn[col] ??
+            (byColumn[col] = `COALESCE("${col}", '{}'::jsonb)`);
+
+        const wrapIncrement = (col, segments, delta) => {
+            // Build the text path for #>> (text accessor).
+            const textPath = `'{${segments.join(',')}}'`;
+            // Build the jsonb path for jsonb_set (text[] type).
+            const jsonbPath = `'{${segments.join(',')}}'`;
+            const prev = seed(col);
+            const nextValue = `to_jsonb(COALESCE((${prev} #>> ${textPath})::numeric, 0) + ${bind(delta)})`;
+            byColumn[col] = `jsonb_set(${prev}, ${jsonbPath}, ${nextValue}, true)`;
+        };
+
+        const wrapSet = (col, segments, value) => {
+            const jsonbPath = `'{${segments.join(',')}}'`;
+            const prev = seed(col);
+            // $n::jsonb — values are serialized to JSON by Prisma when
+            // passed as a parameter, then cast back into jsonb.
+            byColumn[col] = `jsonb_set(${prev}, ${jsonbPath}, ${bind(JSON.stringify(value))}::jsonb, true)`;
+        };
+
+        const wrapPushSlice = (col, segments, spec) => {
+            const jsonbPath = `'{${segments.join(',')}}'`;
+            const textPath = `'{${segments.join(',')}}'`;
+            const prev = seed(col);
+            // Read existing array (COALESCE to empty), concat new values,
+            // slice to last keepLast via jsonb_array_elements + offset.
+            // Simpler: build as jsonb with jsonb_path_query_array.
+            const existingArr = `COALESCE((${prev} #> ${jsonbPath}), '[]'::jsonb)`;
+            const newArr = `${existingArr} || ${bind(JSON.stringify(spec.values))}::jsonb`;
+            // Keep last N: jsonb_array has no native slice, so use
+            // jsonb_agg over a windowed subquery. We construct via
+            // array slicing on the combined array.
+            const len = `jsonb_array_length(${newArr})`;
+            const startIdx = `GREATEST(0, ${len} - ${bind(spec.keepLast)})`;
+            const sliced = `(
+                SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                FROM jsonb_array_elements(${newArr}) WITH ORDINALITY AS t(elem, idx)
+                WHERE idx > ${startIdx}
+            )`;
+            byColumn[col] = `jsonb_set(${prev}, ${jsonbPath}, ${sliced}, true)`;
+        };
+
+        for (const [path, delta] of Object.entries(ops.increment)) {
+            const { column, segments } = splitPath(path);
+            wrapIncrement(column, segments, delta);
+        }
+        for (const [path, value] of Object.entries(ops.set)) {
+            const { column, segments } = splitPath(path);
+            wrapSet(column, segments, value);
+        }
+        for (const [path, spec] of Object.entries(ops.pushSlice)) {
+            const { column, segments } = splitPath(path);
+            wrapPushSlice(column, segments, spec);
+        }
+
+        const result = {};
+        for (const [col, expr] of Object.entries(byColumn)) {
+            if (expr !== null) result[col] = expr;
+        }
+        return result;
     }
 
     /**
