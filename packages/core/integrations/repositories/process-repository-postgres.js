@@ -182,44 +182,73 @@ class ProcessRepositoryPostgres extends ProcessRepositoryInterface {
             byColumn[col] ??
             (byColumn[col] = `COALESCE("${col}", '{}'::jsonb)`);
 
+        /**
+         * Postgres `jsonb_set(target, path, value, create_missing=true)`
+         * only creates the LEAF segment if missing — intermediate segments
+         * that don't exist as objects cause the call to return `target`
+         * unchanged (silent no-op). For a path like `context.a.b.c` on a
+         * doc where `context.a` is missing, we'd bail on the write.
+         *
+         * This helper wraps `prev` in a chain of `jsonb_set` calls that
+         * ensure each intermediate prefix path is an object, preserving
+         * its contents if it's already present:
+         *
+         *   ensureParents(prev, ['a','b','c'])
+         *     ⇒ jsonb_set(
+         *          jsonb_set(prev,  '{a}',   COALESCE(prev#>'{a}',   '{}'::jsonb), true),
+         *          '{a,b}', COALESCE(${that}#>'{a,b}', '{}'::jsonb), true)
+         *
+         * The caller then wraps this result with its own `jsonb_set` for
+         * the leaf segment. Depth-1 paths skip this entirely (no parents
+         * to synthesize).
+         */
+        const ensureParents = (prevExpr, segments) => {
+            let cur = prevExpr;
+            for (let i = 1; i < segments.length; i++) {
+                const parentPath = `'{${segments.slice(0, i).join(',')}}'`;
+                cur = `jsonb_set(${cur}, ${parentPath}, COALESCE(${cur} #> ${parentPath}, '{}'::jsonb), true)`;
+            }
+            return cur;
+        };
+
         const wrapIncrement = (col, segments, delta) => {
-            // Build the text path for #>> (text accessor).
             const textPath = `'{${segments.join(',')}}'`;
-            // Build the jsonb path for jsonb_set (text[] type).
             const jsonbPath = `'{${segments.join(',')}}'`;
             const prev = seed(col);
-            const nextValue = `to_jsonb(COALESCE((${prev} #>> ${textPath})::numeric, 0) + ${bind(delta)})`;
-            byColumn[col] = `jsonb_set(${prev}, ${jsonbPath}, ${nextValue}, true)`;
+            const guarded = ensureParents(prev, segments);
+            const nextValue = `to_jsonb(COALESCE((${guarded} #>> ${textPath})::numeric, 0) + ${bind(delta)})`;
+            byColumn[col] = `jsonb_set(${guarded}, ${jsonbPath}, ${nextValue}, true)`;
         };
 
         const wrapSet = (col, segments, value) => {
             const jsonbPath = `'{${segments.join(',')}}'`;
             const prev = seed(col);
+            const guarded = ensureParents(prev, segments);
             // $n::jsonb — values are serialized to JSON by Prisma when
             // passed as a parameter, then cast back into jsonb.
-            byColumn[col] = `jsonb_set(${prev}, ${jsonbPath}, ${bind(JSON.stringify(value))}::jsonb, true)`;
+            byColumn[col] = `jsonb_set(${guarded}, ${jsonbPath}, ${bind(JSON.stringify(value))}::jsonb, true)`;
         };
 
         const wrapPushSlice = (col, segments, spec) => {
             const jsonbPath = `'{${segments.join(',')}}'`;
-            const textPath = `'{${segments.join(',')}}'`;
             const prev = seed(col);
-            // Read existing array (COALESCE to empty), concat new values,
-            // slice to last keepLast via jsonb_array_elements + offset.
-            // Simpler: build as jsonb with jsonb_path_query_array.
-            const existingArr = `COALESCE((${prev} #> ${jsonbPath}), '[]'::jsonb)`;
-            const newArr = `${existingArr} || ${bind(JSON.stringify(spec.values))}::jsonb`;
-            // Keep last N: jsonb_array has no native slice, so use
-            // jsonb_agg over a windowed subquery. We construct via
-            // array slicing on the combined array.
-            const len = `jsonb_array_length(${newArr})`;
-            const startIdx = `GREATEST(0, ${len} - ${bind(spec.keepLast)})`;
+            const guarded = ensureParents(prev, segments);
+            // Construct the sliced array in a CTE to evaluate `${newArr}`
+            // exactly ONCE (vs. the inline form that Postgres would still
+            // execute correctly but expand three times). Order is
+            // explicitly preserved by `jsonb_agg(... ORDER BY idx)`;
+            // without the ORDER BY, aggregate order is implementation-
+            // defined even with WITH ORDINALITY.
             const sliced = `(
-                SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
-                FROM jsonb_array_elements(${newArr}) WITH ORDINALITY AS t(elem, idx)
-                WHERE idx > ${startIdx}
+                WITH combined AS (
+                    SELECT COALESCE((${guarded} #> ${jsonbPath}), '[]'::jsonb) || ${bind(JSON.stringify(spec.values))}::jsonb AS arr
+                )
+                SELECT COALESCE(jsonb_agg(elem ORDER BY idx), '[]'::jsonb)
+                FROM combined,
+                     jsonb_array_elements((SELECT arr FROM combined)) WITH ORDINALITY AS t(elem, idx)
+                WHERE idx > GREATEST(0, jsonb_array_length((SELECT arr FROM combined)) - ${bind(spec.keepLast)})
             )`;
-            byColumn[col] = `jsonb_set(${prev}, ${jsonbPath}, ${sliced}, true)`;
+            byColumn[col] = `jsonb_set(${guarded}, ${jsonbPath}, ${sliced}, true)`;
         };
 
         for (const [path, delta] of Object.entries(ops.increment)) {
