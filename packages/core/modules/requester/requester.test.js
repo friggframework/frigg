@@ -11,6 +11,33 @@ class TestRequester extends Requester {
     }
 }
 
+/**
+ * Fetch double that honors the AbortSignal: rejects with an AbortError when
+ * the signal fires, otherwise never resolves (simulating a hung upstream).
+ * Lets jest's fake-timer machinery drive the abort.
+ */
+function hangingFetch() {
+    return jest.fn((_url, options) => {
+        return new Promise((_resolve, reject) => {
+            if (!options?.signal) return; // disabled-timeout path
+            options.signal.addEventListener('abort', () => {
+                const err = new Error('The user aborted a request.');
+                err.name = 'AbortError';
+                reject(err);
+            });
+        });
+    });
+}
+
+function okFetch(body) {
+    const resolvedBody = body === undefined ? { ok: true } : body;
+    return jest.fn().mockResolvedValue({
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => resolvedBody,
+    });
+}
+
 describe('Requester', () => {
     describe('429 and 5xx testing', () => {
         let backOffArray = [1, 1, 1];
@@ -81,32 +108,6 @@ describe('Requester', () => {
     });
 
     describe('AbortController timeout behavior', () => {
-        /**
-         * Fetch that honors the AbortSignal: rejects with an AbortError when
-         * the signal fires, otherwise never resolves (simulating a hung
-         * upstream). Lets jest's fake-timer machinery drive the abort.
-         */
-        function hangingFetch() {
-            return jest.fn((_url, options) => {
-                return new Promise((_resolve, reject) => {
-                    if (!options?.signal) return; // disabled timeout path
-                    options.signal.addEventListener('abort', () => {
-                        const err = new Error('The user aborted a request.');
-                        err.name = 'AbortError';
-                        reject(err);
-                    });
-                });
-            });
-        }
-
-        function okFetch(body = { ok: true }) {
-            return jest.fn().mockResolvedValue({
-                status: 200,
-                headers: { get: () => 'application/json' },
-                json: async () => body,
-            });
-        }
-
         it('aborts and throws a FetchError when fetch never resolves', async () => {
             jest.useFakeTimers();
             try {
