@@ -43,6 +43,19 @@ class LocalStackQueueService {
    * Serialize a CloudFormation `Properties` object into the
    * `Attributes` shape the SQS `CreateQueue` API accepts (string
    * values only; object values like `RedrivePolicy` get JSON-encoded).
+   *
+   * Attributes whose value still contains an unresolved CloudFormation
+   * intrinsic (`Fn::GetAtt`, `Ref`, `Fn::Sub`, …) are DROPPED rather
+   * than stringified. Example: integration-builder.js emits
+   * `RedrivePolicy.deadLetterTargetArn: {'Fn::GetAtt': [...]}`, which
+   * CloudFormation resolves to a real ARN in AWS but is still a raw
+   * intrinsic object at local plugin-time. Forwarding that JSON blob
+   * to SQS `CreateQueue` would fail (`deadLetterTargetArn` must be a
+   * valid ARN string) or produce malformed config. Dropping the
+   * attribute gives local parity on every other queue property
+   * (notably `VisibilityTimeout`, which is the main reason this code
+   * exists) while leaving the DLQ association intentionally un-wired
+   * locally — matching the pre-PR behavior for that one attribute.
    * @private
    */
   _propertiesToAttributes(properties = {}) {
@@ -50,10 +63,44 @@ class LocalStackQueueService {
     for (const key of LocalStackQueueService.PROPERTY_ATTRIBUTE_KEYS) {
       const value = properties[key];
       if (value === undefined || value === null) continue;
+      if (LocalStackQueueService._containsUnresolvedIntrinsic(value)) {
+        console.warn(
+          `[frigg-plugin] Skipping queue attribute "${key}" because it contains an unresolved CloudFormation intrinsic. ` +
+            `Deployed AWS will apply it via CloudFormation; local emulation will fall back to the AWS default for this attribute.`
+        );
+        continue;
+      }
       attributes[key] =
         typeof value === 'object' ? JSON.stringify(value) : String(value);
     }
     return attributes;
+  }
+
+  /**
+   * Recursively checks whether a value still contains a CloudFormation
+   * intrinsic function key (`Fn::*` or `Ref`). Such values are unsafe
+   * to pass through to SQS `CreateQueue` — AWS's runtime API doesn't
+   * understand CloudFormation intrinsics; they're only valid inside
+   * serverless.yml / CloudFormation templates.
+   * @private
+   */
+  static _containsUnresolvedIntrinsic(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value !== 'object') return false;
+    if (Array.isArray(value)) {
+      return value.some((v) =>
+        LocalStackQueueService._containsUnresolvedIntrinsic(v)
+      );
+    }
+    for (const key of Object.keys(value)) {
+      if (key === 'Ref' || key.startsWith('Fn::')) return true;
+      if (
+        LocalStackQueueService._containsUnresolvedIntrinsic(value[key])
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

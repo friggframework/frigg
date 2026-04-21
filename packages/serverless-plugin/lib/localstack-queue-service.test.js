@@ -109,6 +109,68 @@ describe('LocalStackQueueService', () => {
     it('returns an empty object when properties are missing', () => {
       expect(service._propertiesToAttributes()).toEqual({});
     });
+
+    it('drops attributes containing unresolved CloudFormation intrinsics', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const attrs = service._propertiesToAttributes({
+        VisibilityTimeout: 1800,
+        RedrivePolicy: {
+          maxReceiveCount: 3,
+          deadLetterTargetArn: {
+            'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
+          },
+        },
+      });
+
+      // VisibilityTimeout survives; RedrivePolicy is dropped because
+      // deadLetterTargetArn is still an unresolved Fn::GetAtt intrinsic
+      // (real AWS resolves it via CloudFormation; LocalStack cannot).
+      expect(attrs).toEqual({ VisibilityTimeout: '1800' });
+      expect(attrs).not.toHaveProperty('RedrivePolicy');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Skipping queue attribute "RedrivePolicy"')
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('drops attributes with Ref intrinsics', () => {
+      jest.spyOn(console, 'warn').mockImplementation();
+      const attrs = service._propertiesToAttributes({
+        VisibilityTimeout: 60,
+        KmsMasterKeyId: { Ref: 'MyKmsKey' },
+      });
+      expect(attrs).toEqual({ VisibilityTimeout: '60' });
+    });
+
+    it('detects intrinsics nested deep inside objects and arrays', () => {
+      expect(
+        LocalStackQueueService._containsUnresolvedIntrinsic({
+          a: { b: [{ c: { 'Fn::Sub': '${AWS::Region}' } }] },
+        })
+      ).toBe(true);
+      expect(
+        LocalStackQueueService._containsUnresolvedIntrinsic({
+          a: { b: [{ c: 'hello' }] },
+        })
+      ).toBe(false);
+      expect(LocalStackQueueService._containsUnresolvedIntrinsic(null)).toBe(false);
+      expect(LocalStackQueueService._containsUnresolvedIntrinsic('str')).toBe(false);
+    });
+
+    it('retains resolved RedrivePolicy (ARN already a string)', () => {
+      const attrs = service._propertiesToAttributes({
+        RedrivePolicy: {
+          maxReceiveCount: 3,
+          deadLetterTargetArn: 'arn:aws:sqs:us-east-1:x:dlq',
+        },
+      });
+      expect(attrs.RedrivePolicy).toBe(
+        JSON.stringify({
+          maxReceiveCount: 3,
+          deadLetterTargetArn: 'arn:aws:sqs:us-east-1:x:dlq',
+        })
+      );
+    });
   });
 
   describe('createQueues', () => {
