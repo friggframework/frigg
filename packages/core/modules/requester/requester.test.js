@@ -223,6 +223,51 @@ describe('Requester', () => {
             expect(result).toEqual({ data: 'fresh' });
         });
 
+        it('aborts when the server sends headers but stalls the body', async () => {
+            // node-fetch v2 resolves fetch() on headers received; body
+            // reads happen later via parsedBody / response.text(). The
+            // timer must stay active until the body is fully consumed.
+            jest.useFakeTimers();
+            try {
+                let capturedSignal;
+                const fetchMock = jest.fn(async (_url, options) => {
+                    capturedSignal = options.signal;
+                    return {
+                        status: 200,
+                        headers: { get: () => 'application/json' },
+                        json: () =>
+                            new Promise((_resolve, reject) => {
+                                capturedSignal.addEventListener(
+                                    'abort',
+                                    () => {
+                                        const err = new Error(
+                                            'aborted mid-body'
+                                        );
+                                        err.name = 'AbortError';
+                                        reject(err);
+                                    }
+                                );
+                            }),
+                    };
+                });
+                const requester = new TestRequester({
+                    requestTimeoutMs: 100,
+                    fetch: fetchMock,
+                });
+                const p = requester._get({
+                    url: 'https://example.com/stalled-body',
+                });
+                p.catch(() => {});
+                await jest.advanceTimersByTimeAsync(150);
+                await expect(p).rejects.toMatchObject({
+                    isTimeout: true,
+                    timeoutMs: 100,
+                });
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('clears the timer once the fetch resolves so long-running processes do not leak timers', async () => {
             const fetchMock = okFetch();
             const requester = new TestRequester({
