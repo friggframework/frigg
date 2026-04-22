@@ -415,9 +415,16 @@ class AuroraBuilder extends InfrastructureBuilder {
                 ],
                 // Note: PubliclyAccessible is NOT supported on Aurora clusters
                 // It should only be set on DB instances (see FriggAuroraInstance below)
+                // MaxCapacity default bumped 1 → 4 ACU: at 0.5–1 ACU Aurora is
+                // CPU-starved under 20-way concurrent writes from a Lambda
+                // fan-out sync, which starves worker queries and compounds
+                // the tail-latency problem. 4 ACU is still cheap (scales to
+                // min when idle) and gives the DB enough headroom to
+                // absorb bursty sync traffic. Apps can still override both
+                // via app definition dbConfig.
                 ServerlessV2ScalingConfiguration: {
                     MinCapacity: dbConfig.minCapacity || 0.5,
-                    MaxCapacity: dbConfig.maxCapacity || 1,
+                    MaxCapacity: dbConfig.maxCapacity || 4,
                 },
                 EnableHttpEndpoint: false,
                 BackupRetentionPeriod: 7,
@@ -790,9 +797,35 @@ exports.handler = async (event, context) => {
             return `{{resolve:secretsmanager:${secretRefValue}:SecretString:password}}`;
         };
 
+        // Pool + timeout query params:
+        //  connection_limit=1       — one pg connection per Lambda container;
+        //                             rely on Lambda concurrency for parallelism
+        //                             rather than per-process pooling (AWS RDS/
+        //                             Lambda best practice).
+        //  pool_timeout=10          — throw P2024 instead of waiting forever for
+        //                             a pool slot.
+        //  connect_timeout=10       — bound TCP/TLS handshake to 10s.
+        //  socket_timeout=60        — kill the client socket if the server
+        //                             never responds (dead NAT/VPC route case).
+        //  options=-c statement_timeout=30000 -c lock_timeout=10000
+        //                           — Postgres-side hard caps on query and
+        //                             lock-wait duration; queries aborting
+        //                             with SQLSTATE 57014 / 55P03 surface as
+        //                             errors instead of 15-minute Lambda
+        //                             timeouts. URL-encoded per Postgres libpq
+        //                             conventions (space→%20, `=`→%3D inside
+        //                             the options value).
+        const queryParams = [
+            'connection_limit=1',
+            'pool_timeout=10',
+            'connect_timeout=10',
+            'socket_timeout=60',
+            'options=-c%20statement_timeout%3D30000%20-c%20lock_timeout%3D10000',
+        ].join('&');
+
         return {
             'Fn::Sub': [
-                `postgresql://\${Username}:\${Password}@\${Host}:\${Port}/\${Database}`,
+                `postgresql://\${Username}:\${Password}@\${Host}:\${Port}/\${Database}?${queryParams}`,
                 {
                     Username: resolveSecretRef(secretRef),
                     Password: resolveSecretPassword(secretRef),

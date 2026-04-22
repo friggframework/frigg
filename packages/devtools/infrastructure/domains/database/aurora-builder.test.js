@@ -556,7 +556,14 @@ describe('AuroraBuilder', () => {
 
                 // Should use Fn::Sub with nested Fn::Sub to resolve the Ref
                 expect(dbUrl['Fn::Sub']).toBeDefined();
-                expect(dbUrl['Fn::Sub'][0]).toBe('postgresql://${Username}:${Password}@${Host}:${Port}/${Database}');
+                // Template includes pool + timeout query params to prevent
+                // silent 15-min Lambda hangs on DB contention.
+                expect(dbUrl['Fn::Sub'][0]).toMatch(
+                    /^postgresql:\/\/\$\{Username\}:\$\{Password\}@\$\{Host\}:\$\{Port\}\/\$\{Database\}\?/
+                );
+                expect(dbUrl['Fn::Sub'][0]).toContain('connection_limit=1');
+                expect(dbUrl['Fn::Sub'][0]).toContain('pool_timeout=10');
+                expect(dbUrl['Fn::Sub'][0]).toContain('statement_timeout%3D30000');
 
                 // The Username and Password should use Fn::Sub to resolve the secret Ref, not literal "[object Object]"
                 expect(dbUrl['Fn::Sub'][1].Username['Fn::Sub']).toBeDefined();
