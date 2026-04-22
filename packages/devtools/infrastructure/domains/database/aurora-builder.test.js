@@ -561,9 +561,12 @@ describe('AuroraBuilder', () => {
                 expect(dbUrl['Fn::Sub'][0]).toMatch(
                     /^postgresql:\/\/\$\{Username\}:\$\{Password\}@\$\{Host\}:\$\{Port\}\/\$\{Database\}\?/
                 );
-                expect(dbUrl['Fn::Sub'][0]).toContain('connection_limit=1');
-                expect(dbUrl['Fn::Sub'][0]).toContain('pool_timeout=10');
+                expect(dbUrl['Fn::Sub'][0]).toContain('connection_limit=2');
+                expect(dbUrl['Fn::Sub'][0]).toContain('pool_timeout=20');
+                expect(dbUrl['Fn::Sub'][0]).toContain('connect_timeout=10');
+                expect(dbUrl['Fn::Sub'][0]).toContain('socket_timeout=60');
                 expect(dbUrl['Fn::Sub'][0]).toContain('statement_timeout%3D30000');
+                expect(dbUrl['Fn::Sub'][0]).toContain('lock_timeout%3D10000');
 
                 // The Username and Password should use Fn::Sub to resolve the secret Ref, not literal "[object Object]"
                 expect(dbUrl['Fn::Sub'][1].Username['Fn::Sub']).toBeDefined();
