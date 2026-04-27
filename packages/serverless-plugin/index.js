@@ -66,12 +66,37 @@ class FriggServerlessPlugin {
   }
 
   extractQueueDefinitions() {
+    // Each custom.*Queue entry is the resolved QueueName. The matching
+    // CloudFormation resource (under resources.Resources) has the same
+    // logical ID and carries the Properties block we want to mirror onto
+    // LocalStack (VisibilityTimeout, MessageRetentionPeriod,
+    // RedrivePolicy, …). Deployed AWS applies those via CloudFormation;
+    // locally they'd be silently dropped and LocalStack would fall back
+    // to AWS defaults — notably a 30s VisibilityTimeout which
+    // re-delivers in-flight messages while a long-running queue worker
+    // is still processing them.
+    const resources =
+      this.serverless.service.resources &&
+      this.serverless.service.resources.Resources
+        ? this.serverless.service.resources.Resources
+        : {};
+
     return Object.keys(this.serverless.service.custom)
       .filter((key) => key.endsWith('Queue'))
-      .map((key) => ({
-        key,
-        name: this.serverless.service.custom[key],
-      }));
+      .map((key) => {
+        const resource = resources[key];
+        const properties =
+          resource &&
+          resource.Type === 'AWS::SQS::Queue' &&
+          resource.Properties
+            ? resource.Properties
+            : undefined;
+        return {
+          key,
+          name: this.serverless.service.custom[key],
+          ...(properties ? { properties } : {}),
+        };
+      });
   }
 
   createLocalStackSQSClient() {

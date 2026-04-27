@@ -1,13 +1,15 @@
 /**
  * UpdateProcessMetrics Use Case Tests
- * 
- * Tests metrics updates, aggregate calculations, and ETA computation.
+ *
+ * Covers the atomic-path refactor: increments and errorDetails push go
+ * through applyProcessUpdate; derived fields are computed and written
+ * via the legacy update() as a non-fatal follow-up.
  */
 
 const { UpdateProcessMetrics } = require('./update-process-metrics');
 
 describe('UpdateProcessMetrics', () => {
-    let updateProcessMetricsUseCase;
+    let useCase;
     let mockProcessRepository;
     let mockWebsocketService;
 
@@ -15,294 +17,350 @@ describe('UpdateProcessMetrics', () => {
         mockProcessRepository = {
             findById: jest.fn(),
             update: jest.fn(),
+            applyProcessUpdate: jest.fn(),
         };
-        mockWebsocketService = {
-            broadcast: jest.fn(),
-        };
-        updateProcessMetricsUseCase = new UpdateProcessMetrics({
+        mockWebsocketService = { broadcast: jest.fn() };
+        useCase = new UpdateProcessMetrics({
             processRepository: mockProcessRepository,
             websocketService: mockWebsocketService,
         });
     });
 
     describe('constructor', () => {
-        it('should require processRepository', () => {
-            expect(() => new UpdateProcessMetrics({})).toThrow('processRepository is required');
+        it('requires processRepository', () => {
+            expect(() => new UpdateProcessMetrics({})).toThrow(
+                'processRepository is required'
+            );
         });
-
-        it('should initialize with processRepository and optional websocketService', () => {
-            expect(updateProcessMetricsUseCase.processRepository).toBe(mockProcessRepository);
-            expect(updateProcessMetricsUseCase.websocketService).toBe(mockWebsocketService);
+        it('initializes with repository and optional websocket', () => {
+            expect(useCase.processRepository).toBe(mockProcessRepository);
+            expect(useCase.websocketService).toBe(mockWebsocketService);
         });
-
-        it('should work without websocketService', () => {
-            const useCase = new UpdateProcessMetrics({
+        it('works without websocket', () => {
+            const uc = new UpdateProcessMetrics({
                 processRepository: mockProcessRepository,
             });
-            expect(useCase.websocketService).toBeUndefined();
+            expect(uc.websocketService).toBeUndefined();
         });
     });
 
-    describe('execute', () => {
+    describe('execute — atomic phase', () => {
         const processId = 'process-123';
         const baseTime = new Date('2024-01-01T10:00:00Z');
-        
-        const mockProcess = {
+
+        // Post-atomic snapshot returned by applyProcessUpdate. Counters
+        // have already been incremented server-side.
+        const atomicSnapshot = {
             id: processId,
-            userId: 'user-456',
-            integrationId: 'integration-789',
-            name: 'test-sync',
-            type: 'CRM_SYNC',
             state: 'PROCESSING_BATCHES',
             context: {
                 syncType: 'INITIAL',
                 totalRecords: 1000,
-                processedRecords: 100,
+                processedRecords: 150, // prior 100 + this batch's 50
                 startTime: baseTime.toISOString(),
             },
             results: {
                 aggregateData: {
-                    totalSynced: 95,
-                    totalFailed: 5,
-                    duration: 30000, // 30 seconds
-                    recordsPerSecond: 3.33,
+                    totalSynced: 143,
+                    totalFailed: 7,
                     errors: [
-                        { contactId: 'contact-1', error: 'Missing email', timestamp: '2024-01-01T10:00:30Z' }
+                        {
+                            contactId: 'contact-2',
+                            error: 'Invalid phone',
+                            timestamp: '2024-01-01T10:00:45Z',
+                        },
                     ],
                 },
             },
             createdAt: baseTime,
-            updatedAt: baseTime,
         };
 
         beforeEach(() => {
-            // Mock current time to be 45 seconds after start
             jest.useFakeTimers();
-            jest.setSystemTime(new Date(baseTime.getTime() + 45000));
+            jest.setSystemTime(new Date(baseTime.getTime() + 45000)); // +45s
         });
-
         afterEach(() => {
             jest.useRealTimers();
         });
 
-        it('should update metrics with new batch data', async () => {
-            const metricsUpdate = {
+        it('routes processed/success/errors to applyProcessUpdate.increment', async () => {
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
+
+            await useCase.execute(processId, {
                 processed: 50,
                 success: 48,
                 errors: 2,
-                errorDetails: [
-                    { contactId: 'contact-2', error: 'Invalid phone', timestamp: '2024-01-01T10:00:45Z' }
-                ],
-            };
-
-            const expectedContext = {
-                ...mockProcess.context,
-                processedRecords: 150, // 100 + 50
-            };
-
-            const expectedResults = {
-                aggregateData: {
-                    totalSynced: 143, // 95 + 48
-                    totalFailed: 7,   // 5 + 2
-                    duration: 45000,  // Current elapsed time
-                    recordsPerSecond: 3.33, // 150 / 45
-                    errors: [
-                        { contactId: 'contact-1', error: 'Missing email', timestamp: '2024-01-01T10:00:30Z' },
-                        { contactId: 'contact-2', error: 'Invalid phone', timestamp: '2024-01-01T10:00:45Z' }
-                    ],
-                },
-            };
-
-            const updatedProcess = {
-                ...mockProcess,
-                context: expectedContext,
-                results: expectedResults,
-            };
-
-            mockProcessRepository.findById.mockResolvedValue(mockProcess);
-            mockProcessRepository.update.mockResolvedValue(updatedProcess);
-
-            const result = await updateProcessMetricsUseCase.execute(processId, metricsUpdate);
-
-            expect(mockProcessRepository.findById).toHaveBeenCalledWith(processId);
-            expect(mockProcessRepository.update).toHaveBeenCalledWith(processId, {
-                context: expectedContext,
-                results: expectedResults,
             });
-            expect(result).toEqual(updatedProcess);
+
+            expect(mockProcessRepository.applyProcessUpdate).toHaveBeenCalledWith(
+                processId,
+                {
+                    increment: {
+                        'context.processedRecords': 50,
+                        'results.aggregateData.totalSynced': 48,
+                        'results.aggregateData.totalFailed': 2,
+                    },
+                    pushSlice: {},
+                }
+            );
         });
 
-        it('should calculate ETA when total records known', async () => {
-            const metricsUpdate = { processed: 100, success: 100, errors: 0 };
-            
-            // With 850 remaining records and 3.33 records/sec, ETA should be ~255 seconds
-            const expectedETA = new Date(Date.now() + (850 / 3.33 * 1000));
+        it('routes errorDetails to pushSlice with keepLast 100', async () => {
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
 
-            const updatedProcess = {
-                ...mockProcess,
-                context: {
-                    ...mockProcess.context,
-                    processedRecords: 200,
-                    estimatedCompletion: expectedETA.toISOString(),
+            const errorDetails = [
+                {
+                    contactId: 'contact-2',
+                    error: 'Invalid phone',
+                    timestamp: '2024-01-01T10:00:45Z',
                 },
-                results: {
-                    aggregateData: {
-                        totalSynced: 195,
-                        totalFailed: 5,
-                        duration: 45000,
-                        recordsPerSecond: 4.44, // 200 / 45
-                    },
-                },
-            };
-
-            mockProcessRepository.findById.mockResolvedValue(mockProcess);
-            mockProcessRepository.update.mockResolvedValue(updatedProcess);
-
-            const result = await updateProcessMetricsUseCase.execute(processId, metricsUpdate);
-
-            const updateCall = mockProcessRepository.update.mock.calls[0][1];
-            expect(updateCall.context.estimatedCompletion).toBeDefined();
-            expect(new Date(updateCall.context.estimatedCompletion)).toBeInstanceOf(Date);
-        });
-
-        it('should limit error details to last 100', async () => {
-            // Create a process with 98 existing errors
-            const existingErrors = Array.from({ length: 98 }, (_, i) => ({
-                contactId: `contact-${i}`,
-                error: `Error ${i}`,
-                timestamp: new Date().toISOString(),
-            }));
-
-            const processWithManyErrors = {
-                ...mockProcess,
-                results: {
-                    aggregateData: {
-                        totalSynced: 95,
-                        totalFailed: 5,
-                        duration: 30000,
-                        recordsPerSecond: 3.33,
-                        errors: existingErrors,
-                    },
-                },
-            };
-
-            const newErrors = Array.from({ length: 5 }, (_, i) => ({
-                contactId: `new-contact-${i}`,
-                error: `New error ${i}`,
-                timestamp: new Date().toISOString(),
-            }));
-
-            const metricsUpdate = {
+            ];
+            await useCase.execute(processId, {
                 processed: 5,
-                success: 0,
                 errors: 5,
-                errorDetails: newErrors,
-            };
+                errorDetails,
+            });
 
-            mockProcessRepository.findById.mockResolvedValue(processWithManyErrors);
-            mockProcessRepository.update.mockResolvedValue({});
-
-            await updateProcessMetricsUseCase.execute(processId, metricsUpdate);
-
-            const updateCall = mockProcessRepository.update.mock.calls[0][1];
-            const errorCount = updateCall.results.aggregateData.errors.length;
-            expect(errorCount).toBe(100); // Should be limited to 100
-            expect(updateCall.results.aggregateData.errors[0]).toEqual(existingErrors[3]); // First 3 old errors dropped
+            const [, ops] =
+                mockProcessRepository.applyProcessUpdate.mock.calls[0];
+            expect(ops.pushSlice).toEqual({
+                'results.aggregateData.errors': {
+                    values: errorDetails,
+                    keepLast: 100,
+                },
+            });
         });
 
-        it('should handle process with no existing context', async () => {
-            const processWithNoContext = {
-                ...mockProcess,
-                context: null,
-                results: null,
-            };
+        it('omits zero-value counters from the increment map', async () => {
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
 
-            const metricsUpdate = { processed: 10, success: 8, errors: 2 };
-            const updatedProcess = { ...processWithNoContext };
+            await useCase.execute(processId, {
+                processed: 50,
+                success: 50,
+                errors: 0,
+            });
 
-            mockProcessRepository.findById.mockResolvedValue(processWithNoContext);
-            mockProcessRepository.update.mockResolvedValue(updatedProcess);
-
-            const result = await updateProcessMetricsUseCase.execute(processId, metricsUpdate);
-
-            const updateCall = mockProcessRepository.update.mock.calls[0][1];
-            expect(updateCall.context.processedRecords).toBe(10);
-            expect(updateCall.results.aggregateData.totalSynced).toBe(8);
-            expect(updateCall.results.aggregateData.totalFailed).toBe(2);
+            const [, ops] =
+                mockProcessRepository.applyProcessUpdate.mock.calls[0];
+            // toHaveProperty interprets dots as nested paths; use `in`
+            // against the object keyed by our literal dot-paths.
+            expect('results.aggregateData.totalFailed' in ops.increment).toBe(
+                false
+            );
+            expect('context.processedRecords' in ops.increment).toBe(true);
+            expect('results.aggregateData.totalSynced' in ops.increment).toBe(
+                true
+            );
         });
 
-        it('should broadcast progress via WebSocket', async () => {
-            const metricsUpdate = { processed: 50, success: 48, errors: 2 };
-            const updatedProcess = { ...mockProcess };
+        it('short-circuits on an all-zero update without hitting applyProcessUpdate', async () => {
+            mockProcessRepository.findById.mockResolvedValue(atomicSnapshot);
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
 
-            mockProcessRepository.findById.mockResolvedValue(mockProcess);
-            mockProcessRepository.update.mockResolvedValue(updatedProcess);
+            await useCase.execute(processId, {
+                processed: 0,
+                success: 0,
+                errors: 0,
+            });
 
-            await updateProcessMetricsUseCase.execute(processId, metricsUpdate);
+            expect(
+                mockProcessRepository.applyProcessUpdate
+            ).not.toHaveBeenCalled();
+            expect(mockProcessRepository.findById).toHaveBeenCalledWith(
+                processId
+            );
+        });
+    });
+
+    describe('execute — derived-fields phase', () => {
+        const processId = 'process-123';
+        const baseTime = new Date('2024-01-01T10:00:00Z');
+        const atomicSnapshot = {
+            id: processId,
+            context: {
+                totalRecords: 1000,
+                processedRecords: 150,
+                startTime: baseTime.toISOString(),
+            },
+            results: { aggregateData: { totalSynced: 143, totalFailed: 7 } },
+            createdAt: baseTime,
+        };
+
+        beforeEach(() => {
+            jest.useFakeTimers();
+            jest.setSystemTime(new Date(baseTime.getTime() + 45000));
+        });
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        it('writes duration, recordsPerSecond, and estimatedCompletion via update()', async () => {
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
+
+            await useCase.execute(processId, { processed: 50, success: 50 });
+
+            const [id, derived] =
+                mockProcessRepository.update.mock.calls[0];
+            expect(id).toBe(processId);
+            expect(derived.results.aggregateData.duration).toBe(45000);
+            expect(derived.results.aggregateData.recordsPerSecond).toBeCloseTo(
+                150 / 45,
+                2
+            );
+            expect(derived.context.estimatedCompletion).toEqual(
+                expect.any(String)
+            );
+        });
+
+        it('continues returning the atomic snapshot when the derived-fields write fails (non-fatal)', async () => {
+            const consoleErr = jest.spyOn(console, 'error').mockImplementation();
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockRejectedValue(new Error('disk full'));
+
+            const result = await useCase.execute(processId, {
+                processed: 50,
+                success: 50,
+            });
+
+            expect(result).toBe(atomicSnapshot);
+            expect(consoleErr).toHaveBeenCalledWith(
+                expect.stringContaining('derived-fields write failed'),
+                expect.stringContaining('disk full')
+            );
+            consoleErr.mockRestore();
+        });
+
+        it('skips derived fields entirely for a never-processed process (both counters zero)', async () => {
+            const fresh = {
+                ...atomicSnapshot,
+                context: { totalRecords: 0, processedRecords: 0 },
+            };
+            mockProcessRepository.findById.mockResolvedValue(fresh);
+
+            await useCase.execute(processId, { processed: 0 });
+
+            expect(mockProcessRepository.update).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('execute — validation', () => {
+        it('throws when processId is empty', async () => {
+            await expect(useCase.execute('', {})).rejects.toThrow(
+                'processId must be a non-empty string'
+            );
+        });
+        it('throws when metricsUpdate is null', async () => {
+            await expect(
+                useCase.execute('p1', null)
+            ).rejects.toThrow('metricsUpdate must be an object');
+        });
+        it('throws when the atomic update yields no process', async () => {
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(null);
+            await expect(
+                useCase.execute('p1', { processed: 1 })
+            ).rejects.toThrow('Process not found: p1');
+        });
+        it('wraps applyProcessUpdate errors in "Failed to update process metrics"', async () => {
+            mockProcessRepository.applyProcessUpdate.mockRejectedValue(
+                new Error('db connection lost')
+            );
+            await expect(
+                useCase.execute('p1', { processed: 1 })
+            ).rejects.toThrow(
+                'Failed to update process metrics: db connection lost'
+            );
+        });
+    });
+
+    describe('execute — websocket broadcast', () => {
+        const atomicSnapshot = {
+            id: 'p1',
+            name: 'sync',
+            type: 'CRM_SYNC',
+            state: 'PROCESSING_BATCHES',
+            context: { totalRecords: 10, processedRecords: 3 },
+            results: { aggregateData: { totalSynced: 3, totalFailed: 0 } },
+            createdAt: new Date(),
+        };
+
+        it('broadcasts progress after a successful update', async () => {
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
+
+            await useCase.execute('p1', { processed: 3, success: 3 });
 
             expect(mockWebsocketService.broadcast).toHaveBeenCalledWith({
                 type: 'PROCESS_PROGRESS',
-                data: {
-                    processId,
-                    processName: mockProcess.name,
-                    processType: mockProcess.type,
-                    state: mockProcess.state,
-                    processed: 150, // 100 + 50
-                    total: 1000,
-                    successCount: 143, // 95 + 48
-                    errorCount: 7,    // 5 + 2
-                    recordsPerSecond: expect.any(Number),
-                    estimatedCompletion: expect.any(String),
-                    timestamp: expect.any(String),
-                },
+                data: expect.objectContaining({
+                    processId: 'p1',
+                    processed: 3,
+                    total: 10,
+                    successCount: 3,
+                    errorCount: 0,
+                }),
             });
         });
 
-        it('should handle WebSocket broadcast errors gracefully', async () => {
-            const websocketError = new Error('WebSocket connection failed');
-            mockWebsocketService.broadcast.mockRejectedValue(websocketError);
+        it('swallows websocket errors without failing the operation', async () => {
+            const consoleErr = jest.spyOn(console, 'error').mockImplementation();
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
+            mockWebsocketService.broadcast.mockRejectedValue(
+                new Error('ws closed')
+            );
 
-            const metricsUpdate = { processed: 10, success: 10, errors: 0 };
-            const updatedProcess = { ...mockProcess };
+            const result = await useCase.execute('p1', { processed: 3 });
 
-            mockProcessRepository.findById.mockResolvedValue(mockProcess);
-            mockProcessRepository.update.mockResolvedValue(updatedProcess);
-
-            // Should not throw error even if WebSocket fails
-            const result = await updateProcessMetricsUseCase.execute(processId, metricsUpdate);
-
-            expect(result).toEqual(updatedProcess);
-            expect(mockWebsocketService.broadcast).toHaveBeenCalled();
+            expect(result).toBe(atomicSnapshot);
+            consoleErr.mockRestore();
         });
+    });
 
-        it('should throw error if processId is missing', async () => {
-            await expect(updateProcessMetricsUseCase.execute('', {}))
-                .rejects.toThrow('processId must be a non-empty string');
-        });
+    describe('race simulation', () => {
+        it('N concurrent invocations produce N calls to applyProcessUpdate (DB is responsible for serializing)', async () => {
+            const snap = {
+                id: 'p1',
+                context: { processedRecords: 0, startTime: new Date().toISOString() },
+                results: { aggregateData: {} },
+                createdAt: new Date(),
+            };
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(snap);
+            mockProcessRepository.update.mockResolvedValue(snap);
 
-        it('should throw error if processId is not a string', async () => {
-            await expect(updateProcessMetricsUseCase.execute(123, {}))
-                .rejects.toThrow('processId must be a non-empty string');
-        });
+            const calls = Array.from({ length: 25 }, () =>
+                useCase.execute('p1', { processed: 1, success: 1 })
+            );
+            await Promise.all(calls);
 
-        it('should throw error if metricsUpdate is missing', async () => {
-            await expect(updateProcessMetricsUseCase.execute(processId, null))
-                .rejects.toThrow('metricsUpdate must be an object');
-        });
-
-        it('should throw error if process not found', async () => {
-            mockProcessRepository.findById.mockResolvedValue(null);
-
-            await expect(updateProcessMetricsUseCase.execute(processId, {}))
-                .rejects.toThrow('Process not found: process-123');
-        });
-
-        it('should handle repository errors', async () => {
-            const repositoryError = new Error('Database connection failed');
-            mockProcessRepository.findById.mockRejectedValue(repositoryError);
-
-            await expect(updateProcessMetricsUseCase.execute(processId, {}))
-                .rejects.toThrow('Failed to update process metrics: Database connection failed');
+            // Every invocation lands an atomic increment at the repo. Any
+            // clobbering is the DB's problem (and it handles it) — this
+            // layer just forwards.
+            expect(
+                mockProcessRepository.applyProcessUpdate
+            ).toHaveBeenCalledTimes(25);
+            expect(
+                mockProcessRepository.applyProcessUpdate.mock.calls.every(
+                    ([, ops]) => ops.increment['context.processedRecords'] === 1
+                )
+            ).toBe(true);
         });
     });
 });

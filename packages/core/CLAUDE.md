@@ -212,6 +212,14 @@ packages/core/
 - `integration-repository-mongo.js` - MongoDB implementation
 - `integration-repository-postgres.js` - PostgreSQL implementation
 - `integration-mapping-repository-*.js` - Mapping data persistence
+- `process-repository-*.js` - Process (long-running job) persistence.
+  Implements `applyProcessUpdate(processId, ops)` — a race-safe alternative
+  to `update(id, patch)` that routes increments, sets, and bounded-array
+  pushes through each backend's native atomic primitive (PostgreSQL
+  `jsonb_set` / MongoDB `$inc`/`$set`/`$push`). Use this method any time
+  multiple queue workers may concurrently mutate the same Process row
+  (counters, flags, error history). The legacy `update(id, patch)`
+  remains available but is clobber-prone under concurrency.
 
 **Integration developers extend IntegrationBase**:
 
