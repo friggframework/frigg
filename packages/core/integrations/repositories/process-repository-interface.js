@@ -48,6 +48,52 @@ class ProcessRepositoryInterface {
     }
 
     /**
+     * Apply atomic mutations to a process record.
+     *
+     * Race-safe counterpart to `update()`. Where `update()` takes full
+     * JSON blobs and does read-modify-write at the ORM layer (clobber-
+     * prone under concurrent writers), `applyProcessUpdate()` describes
+     * the intent declaratively and each backend uses its native atomic
+     * primitive:
+     *   - PostgreSQL: `jsonb_set` chain inside a single UPDATE ... RETURNING
+     *   - MongoDB: `$inc` / `$set` / `$push` via findAndModify
+     *   - DocumentDB: same operator set as MongoDB (with version caveats)
+     *
+     * All paths are dot-delimited and rooted in `context` or `results`
+     * (e.g. `context.processedRecords`,
+     * `results.aggregateData.totalSynced`). Paths MUST match
+     * `^(context|results)(\\.[a-zA-Z_][a-zA-Z0-9_]*)+$` — validated by
+     * each adapter before any SQL/command generation.
+     *
+     * Intended primary callers: UpdateProcessMetrics and
+     * UpdateProcessState. Other callers can use this directly when they
+     * need race-free cumulative updates.
+     *
+     * @typedef {Object} ProcessUpdateOps
+     * @property {Object.<string, number>} [increment] - Atomic numeric
+     *   increments keyed by dot-path. e.g.
+     *   `{ 'context.processedRecords': 1, 'results.aggregateData.totalSynced': 1 }`
+     * @property {Object.<string, *>} [set] - Atomic whole-subtree set
+     *   keyed by dot-path. Replaces the value at the path (NOT deep
+     *   merge). e.g. `{ 'context.fetchDone': true }`
+     * @property {Object.<string, {values: Array, keepLast: number}>} [pushSlice]
+     *   Atomic array push with bounded retention (sliding window of the
+     *   last `keepLast` items). Keys are dot-paths pointing to arrays.
+     *   e.g. `{ 'results.aggregateData.errors': { values: [err], keepLast: 100 } }`
+     * @property {string} [newState] - Top-level `state` column update.
+     *   Written alongside the JSON mutations in the same UPDATE so state
+     *   + counters move together.
+     *
+     * @param {string} processId - Process ID to update
+     * @param {ProcessUpdateOps} ops - Atomic operations to apply
+     * @returns {Promise<Object|null>} Updated process record (post-
+     *   mutation) or null if the process does not exist.
+     */
+    async applyProcessUpdate(processId, ops) {
+        throw new Error('Method applyProcessUpdate() must be implemented');
+    }
+
+    /**
      * Find processes by integration and type
      * @param {string} integrationId - Integration ID
      * @param {string} type - Process type

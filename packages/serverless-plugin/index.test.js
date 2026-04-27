@@ -183,6 +183,75 @@ describe('FriggServerlessPlugin', () => {
 
       expect(queues).toEqual([]);
     });
+
+    it('should attach Properties from matching CloudFormation resources', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      mockServerless.service.custom = {
+        HubspotQueue: 'svc--dev-HubspotQueue',
+      };
+      mockServerless.service.resources = {
+        Resources: {
+          HubspotQueue: {
+            Type: 'AWS::SQS::Queue',
+            Properties: {
+              QueueName: 'svc--dev-HubspotQueue',
+              VisibilityTimeout: 1800,
+              MessageRetentionPeriod: 345600,
+              RedrivePolicy: {
+                maxReceiveCount: 3,
+                deadLetterTargetArn: 'arn:aws:sqs:us-east-1:x:dlq',
+              },
+            },
+          },
+        },
+      };
+
+      const queues = plugin.extractQueueDefinitions();
+
+      expect(queues).toHaveLength(1);
+      expect(queues[0]).toEqual({
+        key: 'HubspotQueue',
+        name: 'svc--dev-HubspotQueue',
+        properties: {
+          QueueName: 'svc--dev-HubspotQueue',
+          VisibilityTimeout: 1800,
+          MessageRetentionPeriod: 345600,
+          RedrivePolicy: {
+            maxReceiveCount: 3,
+            deadLetterTargetArn: 'arn:aws:sqs:us-east-1:x:dlq',
+          },
+        },
+      });
+    });
+
+    it('should omit properties when resources.Resources is absent', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      mockServerless.service.custom = { LegacyQueue: 'legacy-queue' };
+      mockServerless.service.resources = undefined;
+
+      const queues = plugin.extractQueueDefinitions();
+
+      expect(queues).toEqual([{ key: 'LegacyQueue', name: 'legacy-queue' }]);
+    });
+
+    it('should ignore non-SQS CloudFormation resources with matching logical IDs', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      mockServerless.service.custom = { MisnamedQueue: 'misnamed-queue' };
+      mockServerless.service.resources = {
+        Resources: {
+          MisnamedQueue: {
+            Type: 'AWS::SNS::Topic',
+            Properties: { TopicName: 'not-an-sqs-queue' },
+          },
+        },
+      };
+
+      const queues = plugin.extractQueueDefinitions();
+
+      expect(queues).toEqual([
+        { key: 'MisnamedQueue', name: 'misnamed-queue' },
+      ]);
+    });
   });
 
   describe('Hooks', () => {

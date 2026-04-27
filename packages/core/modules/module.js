@@ -20,8 +20,9 @@ class Module extends Delegate {
      * @param {Object} params.definition The definition of the Api Module
      * @param {string} params.userId The user id
      * @param {Object} params.entity The entity record from the database
+     * @param {string} [params.state] Optional OAuth state value forwarded to the API client (round-trips through the OAuth provider).
      */
-    constructor({ definition, userId = null, entity: entityObj = null }) {
+    constructor({ definition, userId = null, entity: entityObj = null, state = null }) {
         super({ definition, userId, entity: entityObj });
 
         this.validateDefinition(definition);
@@ -46,6 +47,7 @@ class Module extends Delegate {
         const apiParams = {
             ...this.definition.env,
             delegate: this,
+            ...(state ? { state } : {}),
             ...(this.credential?.data
                 ? this.apiParamsFromCredential(this.credential.data)
                 : {}), // Handle case when credential is undefined
