@@ -25,6 +25,51 @@ const {
     ResourceOwnership,
 } = require('../shared/types');
 
+/**
+ * Bounds-check Definition.queue knobs against AWS SQS limits.
+ * Throws on out-of-range values so we fail at template-generation time
+ * instead of waiting for an opaque CloudFormation rejection.
+ */
+function validateQueueConfig(integrationName, queueConfig) {
+    const inRange = (val, min, max) =>
+        val === undefined || (Number.isFinite(val) && val >= min && val <= max);
+    const checks = [
+        ['visibilityTimeout', queueConfig.visibilityTimeout, 0, 43200],
+        ['messageRetentionPeriod', queueConfig.messageRetentionPeriod, 60, 1209600],
+        ['maxReceiveCount', queueConfig.maxReceiveCount, 1, 1000],
+    ];
+    for (const [key, val, min, max] of checks) {
+        if (!inRange(val, min, max)) {
+            throw new Error(
+                `Integration '${integrationName}': queue.${key}=${val} is out of range [${min}, ${max}]`
+            );
+        }
+    }
+}
+
+/**
+ * Bounds-check Definition.queue.worker knobs against the serverless
+ * framework + AWS Lambda+SQS limits. Mirrors osls's own input schema.
+ */
+function validateWorkerConfig(integrationName, workerConfig) {
+    const inRange = (val, min, max) =>
+        val === undefined || (Number.isFinite(val) && val >= min && val <= max);
+    const checks = [
+        ['batchSize', workerConfig.batchSize, 1, 10000],
+        ['maximumBatchingWindow', workerConfig.maximumBatchingWindow, 0, 300],
+        ['maximumConcurrency', workerConfig.maximumConcurrency, 2, 1000],
+        ['reservedConcurrency', workerConfig.reservedConcurrency, 0, 1000],
+        ['timeout', workerConfig.timeout, 1, 900],
+    ];
+    for (const [key, val, min, max] of checks) {
+        if (!inRange(val, min, max)) {
+            throw new Error(
+                `Integration '${integrationName}': queue.worker.${key}=${val} is out of range [${min}, ${max}]`
+            );
+        }
+    }
+}
+
 class IntegrationBuilder extends InfrastructureBuilder {
     constructor() {
         super();
@@ -218,7 +263,11 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 console.log(
                     `      ✓ Creating ${integrationName}Queue in stack`
                 );
-                this.createIntegrationQueue(integrationName, result);
+                this.createIntegrationQueue(
+                    integrationName,
+                    result,
+                    integration.Definition.queue
+                );
             } else {
                 console.log(`      ✓ Using external ${integrationName}Queue`);
                 this.useExternalIntegrationQueue(
@@ -366,27 +415,36 @@ class IntegrationBuilder extends InfrastructureBuilder {
 
         // Create Queue Worker function
         const queueWorkerName = `${integrationName}QueueWorker`;
+        const workerConfig = integration.Definition.queue?.worker || {};
+        validateWorkerConfig(integrationName, workerConfig);
+        const sqsEvent = {
+            arn: {
+                'Fn::GetAtt': [
+                    `${this.capitalizeFirst(integrationName)}Queue`,
+                    'Arn',
+                ],
+            },
+            batchSize: workerConfig.batchSize ?? 1,
+            functionResponseType: 'ReportBatchItemFailures',
+        };
+        // The serverless framework SQS event accepts `maximumBatchingWindow`
+        // (not `...InSeconds` — that's the AWS-side CFN property name). osls
+        // and serverless@3+ both reject the longer key with a schema error.
+        if (workerConfig.maximumBatchingWindow !== undefined) {
+            sqsEvent.maximumBatchingWindow =
+                workerConfig.maximumBatchingWindow;
+        }
+        if (workerConfig.maximumConcurrency !== undefined) {
+            sqsEvent.maximumConcurrency = workerConfig.maximumConcurrency;
+        }
         result.functions[queueWorkerName] = {
             handler: `node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
             skipEsbuild: true, // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }), // Queue workers need Prisma for database operations
-            reservedConcurrency: 20,
-            events: [
-                {
-                    sqs: {
-                        arn: {
-                            'Fn::GetAtt': [
-                                `${this.capitalizeFirst(integrationName)}Queue`,
-                                'Arn',
-                            ],
-                        },
-                        batchSize: 1,
-                        functionResponseType: 'ReportBatchItemFailures',
-                    },
-                },
-            ],
-            timeout: 900, // 15 minutes max for queue workers (Lambda maximum)
+            reservedConcurrency: workerConfig.reservedConcurrency ?? 20,
+            events: [{ sqs: sqsEvent }],
+            timeout: workerConfig.timeout ?? 900, // 15 minutes max for queue workers (Lambda maximum)
         };
         console.log(`      ✓ Queue worker function defined`);
     }
@@ -495,7 +553,8 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Create integration-specific SQS queue CloudFormation resource
      */
-    createIntegrationQueue(integrationName, result) {
+    createIntegrationQueue(integrationName, result, queueConfig = {}) {
+        validateQueueConfig(integrationName, queueConfig);
         const queueReference = `${this.capitalizeFirst(integrationName)}Queue`;
         const queueName = `\${self:service}--\${self:provider.stage}-${queueReference}`;
 
@@ -503,10 +562,11 @@ class IntegrationBuilder extends InfrastructureBuilder {
             Type: 'AWS::SQS::Queue',
             Properties: {
                 QueueName: `\${self:custom.${queueReference}}`,
-                MessageRetentionPeriod: 345600, // 4 days (SQS default)
-                VisibilityTimeout: 1800,
+                MessageRetentionPeriod:
+                    queueConfig.messageRetentionPeriod ?? 345600, // 4 days (SQS default)
+                VisibilityTimeout: queueConfig.visibilityTimeout ?? 1800,
                 RedrivePolicy: {
-                    maxReceiveCount: 3,
+                    maxReceiveCount: queueConfig.maxReceiveCount ?? 3,
                     deadLetterTargetArn: {
                         'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                     },
