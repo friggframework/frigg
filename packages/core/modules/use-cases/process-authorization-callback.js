@@ -28,6 +28,11 @@ class ProcessAuthorizationCallback {
     }
 
     async execute(userId, entityType, params) {
+        const hasCode = Boolean(params && params.code);
+        console.log(
+            `[Frigg] processAuthorizationCallback start userId=${userId} entityType=${entityType} hasCode=${hasCode}`
+        );
+
         const moduleDefinition = this.moduleDefinitions.find((def) => {
             return entityType === def.moduleName;
         });
@@ -38,12 +43,29 @@ class ProcessAuthorizationCallback {
             );
         }
 
-        // todo: check if we need to pass entity to Module, right now it's null
-        let entity = null;
+        // Bootstrap the Module with the existing entity (if any) so the API
+        // requester is preloaded with prior tokens. This enables a refresh
+        // fallback when callers lack a fresh OAuth code, and lets us match a
+        // re-auth back to the existing credential record by id.
+        const existingEntities =
+            await this.moduleRepository.findEntitiesByUserIdAndModuleName(
+                userId,
+                entityType
+            );
+        const existingEntity =
+            existingEntities && existingEntities.length > 0
+                ? existingEntities[0]
+                : null;
+
+        if (existingEntity) {
+            console.log(
+                `[Frigg] processAuthorizationCallback found existing entity id=${existingEntity.id} credentialId=${existingEntity.credential?.id}`
+            );
+        }
 
         const module = new Module({
             userId,
-            entity,
+            entity: existingEntity,
             definition: moduleDefinition,
         });
 
@@ -53,6 +75,16 @@ class ProcessAuthorizationCallback {
                 module.api,
                 params
             );
+            console.log(
+                `[Frigg] processAuthorizationCallback OAuth getToken complete userId=${userId} entityType=${entityType}`
+            );
+            // Belt-and-suspenders: persist tokens explicitly here rather than
+            // relying solely on the DLGT_TOKEN_UPDATE notification chain
+            // inside setTokens. The notification path remains in place but
+            // has been observed to no-op silently in some prod paths,
+            // leaving newly-issued tokens unsaved while the user-visible
+            // OAuth flow appears to succeed.
+            await this.onTokenUpdate(module, moduleDefinition, userId);
         } else {
             tokenResponse =
                 await moduleDefinition.requiredAuthMethods.setAuthParams(
@@ -61,6 +93,10 @@ class ProcessAuthorizationCallback {
                 );
             await this.onTokenUpdate(module, moduleDefinition, userId);
         }
+
+        console.log(
+            `[Frigg] processAuthorizationCallback credential persisted credentialId=${module.credential?.id} authIsValid=${module.credential?.authIsValid}`
+        );
 
         const authRes = await module.testAuth();
         if (!authRes) {
@@ -90,7 +126,12 @@ class ProcessAuthorizationCallback {
         // credential + entity are already persisted. Operators can recover
         // stuck integrations manually.
         try {
-            await this.restoreIntegrationsForEntity(persistedEntity.id);
+            const restoredCount = await this.restoreIntegrationsForEntity(
+                persistedEntity.id
+            );
+            console.log(
+                `[Frigg] processAuthorizationCallback restored ${restoredCount} integration(s) for entityId=${persistedEntity.id}`
+            );
         } catch (err) {
             console.error(
                 `[Frigg] Failed to restore integrations for entity ${persistedEntity.id} after successful re-auth — manual intervention may be needed`,
@@ -106,11 +147,12 @@ class ProcessAuthorizationCallback {
     }
 
     async restoreIntegrationsForEntity(entityId) {
-        if (!this.integrationRepository) return;
+        if (!this.integrationRepository) return 0;
         const integrations =
             await this.integrationRepository.findIntegrationsByEntityId(
                 entityId
             );
+        let restored = 0;
         for (const integration of integrations) {
             if (STATUSES_RESET_ON_REAUTH.includes(integration.status)) {
                 console.log(
@@ -120,8 +162,10 @@ class ProcessAuthorizationCallback {
                     integration.id,
                     'ENABLED'
                 );
+                restored++;
             }
         }
+        return restored;
     }
 
     async onTokenUpdate(module, moduleDefinition, userId) {

@@ -531,13 +531,33 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 'data',
             ]);
 
-            const entityDetails = await processAuthorizationCallback.execute(
-                userId,
-                params.entityType,
-                params.data
+            const dataKeys =
+                params.data && typeof params.data === 'object'
+                    ? Object.keys(params.data)
+                    : [];
+            console.log(
+                `[Frigg] POST /api/authorize userId=${userId} entityType=${params.entityType} dataKeys=${JSON.stringify(dataKeys)}`
             );
 
-            res.json(entityDetails);
+            try {
+                const entityDetails =
+                    await processAuthorizationCallback.execute(
+                        userId,
+                        params.entityType,
+                        params.data
+                    );
+
+                console.log(
+                    `[Frigg] POST /api/authorize success userId=${userId} entityType=${params.entityType} credentialId=${entityDetails?.credential_id} entityId=${entityDetails?.entity_id}`
+                );
+
+                res.json(entityDetails);
+            } catch (err) {
+                console.error(
+                    `[Frigg] POST /api/authorize failed userId=${userId} entityType=${params.entityType} error=${err?.message || err}`
+                );
+                throw err;
+            }
         })
     );
 

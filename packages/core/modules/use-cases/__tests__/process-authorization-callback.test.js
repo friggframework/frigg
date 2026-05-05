@@ -38,6 +38,15 @@ describe('ProcessAuthorizationCallback — re-auth status restoration', () => {
                 externalId: 'ext-1',
                 credential: 'cred-1',
             }),
+            findEntitiesByUserIdAndModuleName: jest.fn().mockResolvedValue([
+                {
+                    id: 'entity-1',
+                    userId: 'user-1',
+                    moduleName: 'testmodule',
+                    externalId: 'ext-1',
+                    credential: { id: 'cred-1', authIsValid: false },
+                },
+            ]),
             createEntity: jest.fn(),
         };
 
@@ -215,5 +224,39 @@ describe('ProcessAuthorizationCallback — re-auth status restoration', () => {
             status: 'ENABLED',
             success: true,
         });
+    });
+
+    it('persists credentials explicitly on OAuth2 re-auth (belt-and-suspenders)', async () => {
+        // Force the OAuth2 path
+        const { Module } = require('../../module');
+        Module.mockImplementation(({ userId, definition, entity }) => ({
+            userId,
+            entity,
+            credential: undefined,
+            definition,
+            apiClass: { requesterType: 'oauth2' },
+            api: { delegate: null },
+            testAuth: jest.fn().mockResolvedValue(true),
+            apiParamsFromCredential: jest.fn().mockReturnValue({}),
+            apiParamsFromEntity: jest.fn().mockReturnValue({}),
+            getName: jest.fn().mockReturnValue('testmodule'),
+        }));
+
+        moduleDefinitions[0].requiredAuthMethods.getToken = jest
+            .fn()
+            .mockResolvedValue({
+                access_token: 'fresh-access',
+                refresh_token: 'fresh-refresh',
+            });
+
+        await useCase.execute('user-1', 'testmodule', { code: 'oauth-code' });
+
+        // upsertCredential must be called once even on the OAuth2 path —
+        // we no longer rely solely on the DLGT_TOKEN_UPDATE notification.
+        expect(credentialRepository.upsertCredential).toHaveBeenCalledTimes(1);
+        expect(
+            credentialRepository.upsertCredential.mock.calls[0][0].details
+                .authIsValid
+        ).toBe(true);
     });
 });
