@@ -507,7 +507,8 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             const params = checkRequiredParams(req.query, ['entityType']);
             const module = await getModuleInstanceFromType.execute(
                 userId,
-                params.entityType
+                params.entityType,
+                { state: req.query.state }
             );
             const areRequirementsValid =
                 module.validateAuthorizationRequirements();
