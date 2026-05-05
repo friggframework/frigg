@@ -206,6 +206,28 @@ class ProcessAuthorizationCallback {
         });
 
         if (existingEntity) {
+            // Repoint the entity's credentialId when re-auth produced a
+            // different credential than the one currently linked. This
+            // happens when the user re-authenticates against a different
+            // workspace/account of the same provider — `upsertCredential`
+            // matches/creates a credential keyed by externalId, but
+            // findEntity matches the entity by its own externalId, leaving
+            // the entity still linked to the prior workspace's credential
+            // unless we explicitly update the link.
+            const existingCredentialId = existingEntity.credential?.id;
+            if (
+                credentialId &&
+                String(existingCredentialId) !== String(credentialId)
+            ) {
+                console.log(
+                    `[Frigg] Repointing entity ${existingEntity.id} credentialId ${existingCredentialId} -> ${credentialId} after re-auth`
+                );
+                const updated = await this.moduleRepository.updateEntity(
+                    existingEntity.id,
+                    { credential: credentialId }
+                );
+                if (updated) return updated;
+            }
             return existingEntity;
         }
 
