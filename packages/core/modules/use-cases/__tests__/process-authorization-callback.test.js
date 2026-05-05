@@ -36,7 +36,7 @@ describe('ProcessAuthorizationCallback — re-auth status restoration', () => {
                 userId: 'user-1',
                 moduleName: 'testmodule',
                 externalId: 'ext-1',
-                credential: 'cred-1',
+                credential: { id: 'cred-1' },
             }),
             findEntitiesByUserIdAndModuleName: jest.fn().mockResolvedValue([
                 {
@@ -48,6 +48,15 @@ describe('ProcessAuthorizationCallback — re-auth status restoration', () => {
                 },
             ]),
             createEntity: jest.fn(),
+            updateEntity: jest.fn().mockImplementation((entityId, updates) =>
+                Promise.resolve({
+                    id: entityId,
+                    userId: 'user-1',
+                    moduleName: 'testmodule',
+                    externalId: 'ext-1',
+                    credential: { id: updates.credential },
+                })
+            ),
         };
 
         credentialRepository = {
@@ -258,5 +267,67 @@ describe('ProcessAuthorizationCallback — re-auth status restoration', () => {
             credentialRepository.upsertCredential.mock.calls[0][0].details
                 .authIsValid
         ).toBe(true);
+    });
+
+    it('repoints existing entity credentialId when re-auth produces a different credential', async () => {
+        // Reset Module mock back to the apiKey default (a prior test
+        // mutated it to oauth2).
+        const { Module } = require('../../module');
+        Module.mockImplementation(({ userId, definition, entity }) => ({
+            userId,
+            entity,
+            credential: undefined,
+            definition,
+            apiClass: { requesterType: 'apiKey' },
+            api: { delegate: null },
+            testAuth: jest.fn().mockResolvedValue(true),
+            apiParamsFromCredential: jest.fn().mockReturnValue({}),
+            apiParamsFromEntity: jest.fn().mockReturnValue({}),
+            getName: jest.fn().mockReturnValue('testmodule'),
+        }));
+
+        // Existing entity is linked to cred-1 (e.g. workspace A);
+        // the just-upserted credential is cred-2 (workspace B). The
+        // entity must be repointed so the integration uses the fresh
+        // tokens.
+        credentialRepository.upsertCredential = jest.fn().mockResolvedValue({
+            id: 'cred-2',
+            userId: 'user-1',
+            authIsValid: true,
+        });
+
+        await useCase.execute('user-1', 'testmodule', { apiKey: 'new-key' });
+
+        expect(moduleRepository.updateEntity).toHaveBeenCalledTimes(1);
+        expect(moduleRepository.updateEntity).toHaveBeenCalledWith('entity-1', {
+            credential: 'cred-2',
+        });
+    });
+
+    it('does not repoint when the existing entity already points at the upserted credential', async () => {
+        const { Module } = require('../../module');
+        Module.mockImplementation(({ userId, definition, entity }) => ({
+            userId,
+            entity,
+            credential: undefined,
+            definition,
+            apiClass: { requesterType: 'apiKey' },
+            api: { delegate: null },
+            testAuth: jest.fn().mockResolvedValue(true),
+            apiParamsFromCredential: jest.fn().mockReturnValue({}),
+            apiParamsFromEntity: jest.fn().mockReturnValue({}),
+            getName: jest.fn().mockReturnValue('testmodule'),
+        }));
+
+        // upsert returns cred-1, same as the entity already has
+        credentialRepository.upsertCredential = jest.fn().mockResolvedValue({
+            id: 'cred-1',
+            userId: 'user-1',
+            authIsValid: true,
+        });
+
+        await useCase.execute('user-1', 'testmodule', { apiKey: 'new-key' });
+
+        expect(moduleRepository.updateEntity).not.toHaveBeenCalled();
     });
 });
