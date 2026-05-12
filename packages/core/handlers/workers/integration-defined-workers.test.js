@@ -596,5 +596,88 @@ describe('Webhook Queue Worker', () => {
             await expect(worker.run(sqsEvent, {})).resolves.not.toThrow();
         });
     });
+
+    describe('Process not found handling (hydration by processId)', () => {
+        it('should discard message when process no longer exists', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+            let mockedCreateQueueWorker;
+            jest.isolateModules(() => {
+                jest.doMock('../../integrations/repositories/process-repository-factory', () => ({
+                    createProcessRepository: () => ({
+                        findById: jest.fn().mockResolvedValue(null),
+                    }),
+                }));
+                jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
+                    createIntegrationRepository: () => ({}),
+                }));
+                jest.doMock('../../modules/repositories/module-repository-factory', () => ({
+                    createModuleRepository: () => ({}),
+                }));
+                mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
+            });
+
+            const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'FETCH_PERSON_PAGE',
+                data: {
+                    processId: 'deleted-process-12475',
+                    personObjectType: 'Contact',
+                    page: 3,
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('Process deleted-process-12475 not found')
+            );
+
+            consoleSpy.mockRestore();
+        });
+
+        it('should still throw for other processId hydration errors', async () => {
+            let mockedCreateQueueWorker;
+            jest.isolateModules(() => {
+                jest.doMock('../../integrations/repositories/process-repository-factory', () => ({
+                    createProcessRepository: () => ({
+                        findById: jest.fn().mockRejectedValue(new Error('DB connection failed')),
+                    }),
+                }));
+                jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
+                    createIntegrationRepository: () => ({}),
+                }));
+                jest.doMock('../../modules/repositories/module-repository-factory', () => ({
+                    createModuleRepository: () => ({}),
+                }));
+                mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
+            });
+
+            const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'FETCH_PERSON_PAGE',
+                data: {
+                    processId: 'process-123',
+                    personObjectType: 'Contact',
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+    });
 });
 
