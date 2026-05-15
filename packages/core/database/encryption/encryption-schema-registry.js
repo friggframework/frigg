@@ -43,6 +43,17 @@ const CORE_ENCRYPTION_SCHEMA = {
 let customSchema = {};
 
 /**
+ * Per-model write-side opt-out: fields registered here are NOT encrypted on
+ * write, but ARE still decrypted on read so legacy encrypted rows continue to
+ * deserialize. Lets apps migrate a model from encrypted to plain JSON without
+ * a data migration — touched rows naturally rewrite as plain on the next save,
+ * untouched rows stay encrypted-but-readable forever.
+ *
+ * Shape: `{ ModelName: ['field.path', ...] }`
+ */
+let encryptionOptOut = {};
+
+/**
  * Validates a custom encryption schema
  * @returns {{valid: boolean, errors: string[]}}
  */
@@ -218,6 +229,14 @@ function loadCustomEncryptionSchema() {
             registerCustomSchema(customSchema);
         }
 
+        // Load app-level encryption opt-out — apps can declare fields they
+        // don't want encrypted on write (decryption on read still works,
+        // so legacy data remains readable).
+        const disable = appDefinition.encryption?.disable;
+        if (disable && Object.keys(disable).length > 0) {
+            registerEncryptionOptOut(disable);
+        }
+
         // Load module-level encryption schemas from integrations
         const integrations = appDefinition.integrations;
         if (integrations && Array.isArray(integrations)) {
@@ -240,6 +259,115 @@ function getEncryptedFields(modelName) {
     return [...new Set(allFields)];
 }
 
+/**
+ * Validates an encryption opt-out config.
+ *
+ * Unlike custom schema validation, opt-out IS allowed to target paths that
+ * already live in CORE_ENCRYPTION_SCHEMA — that's the entire point.
+ *
+ * @param {Object} optOut - Map of `{ ModelName: ['field.path', ...] }`
+ * @returns {{valid: boolean, errors: string[]}}
+ */
+function validateOptOut(optOut) {
+    const errors = [];
+
+    if (!optOut || typeof optOut !== 'object') {
+        errors.push('Encryption opt-out must be an object');
+        return { valid: false, errors };
+    }
+
+    for (const [modelName, fields] of Object.entries(optOut)) {
+        if (typeof modelName !== 'string' || !modelName) {
+            errors.push(`Invalid model name in opt-out: ${modelName}`);
+            continue;
+        }
+
+        if (!Array.isArray(fields)) {
+            errors.push(
+                `Model "${modelName}" opt-out must be an array of field paths`
+            );
+            continue;
+        }
+
+        for (const fieldPath of fields) {
+            if (typeof fieldPath !== 'string' || !fieldPath) {
+                errors.push(
+                    `Model "${modelName}" has invalid opt-out field path: ${fieldPath}`
+                );
+            }
+        }
+    }
+
+    return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Registers an encryption opt-out config. Listed fields will be skipped during
+ * encryption on write while still being eligible for decryption on read (so
+ * legacy encrypted rows still deserialize correctly).
+ *
+ * Intended call site: `appDefinition.encryption.disable` via
+ * `loadCustomEncryptionSchema`.
+ *
+ * @param {Object} optOut - Map of `{ ModelName: ['field.path', ...] }`
+ * @throws {Error} If opt-out validation fails
+ */
+function registerEncryptionOptOut(optOut) {
+    if (!optOut || Object.keys(optOut).length === 0) {
+        return;
+    }
+
+    const validation = validateOptOut(optOut);
+    if (!validation.valid) {
+        throw new Error(
+            `Invalid encryption opt-out:\n- ${validation.errors.join('\n- ')}`
+        );
+    }
+
+    encryptionOptOut = { ...optOut };
+    logger.info(
+        `Registered encryption opt-out for models: ${Object.keys(
+            encryptionOptOut
+        ).join(', ')}`
+    );
+}
+
+/**
+ * Returns the field paths that should be encrypted when writing the given
+ * model. This is `getEncryptedFields` minus any paths the app has opted out
+ * of via `registerEncryptionOptOut`.
+ *
+ * Use this in the encrypt-on-write path of the FieldEncryptionService.
+ */
+function getFieldsToEncryptOnWrite(modelName) {
+    const allFields = getEncryptedFields(modelName);
+    const optedOut = new Set(encryptionOptOut[modelName] || []);
+    if (optedOut.size === 0) return allFields;
+    return allFields.filter((path) => !optedOut.has(path));
+}
+
+/**
+ * Returns the field paths that should be checked for decryption when reading
+ * the given model. Always includes opted-out paths so legacy encrypted rows
+ * remain readable after an app opts a field out.
+ *
+ * `FieldEncryptionService._isEncrypted` already short-circuits for plain JSON
+ * values, so listing more fields than necessary here is harmless.
+ *
+ * Use this in the decrypt-on-read path of the FieldEncryptionService.
+ */
+function getFieldsToDecryptOnRead(modelName) {
+    return getEncryptedFields(modelName);
+}
+
+/**
+ * Clears any registered encryption opt-outs. Test-helper; not intended for
+ * runtime use.
+ */
+function resetEncryptionOptOut() {
+    encryptionOptOut = {};
+}
+
 function hasEncryptedFields(modelName) {
     return getEncryptedFields(modelName).length > 0;
 }
@@ -257,12 +385,17 @@ function resetCustomSchema() {
 module.exports = {
     CORE_ENCRYPTION_SCHEMA,
     getEncryptedFields,
+    getFieldsToEncryptOnWrite,
+    getFieldsToDecryptOnRead,
     hasEncryptedFields,
     getEncryptedModels,
     registerCustomSchema,
+    registerEncryptionOptOut,
     loadCustomEncryptionSchema,
     loadModuleEncryptionSchemas,
     extractCredentialFieldsFromModules,
     validateCustomSchema,
+    validateOptOut,
     resetCustomSchema,
+    resetEncryptionOptOut,
 };

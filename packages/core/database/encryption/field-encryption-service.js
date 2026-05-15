@@ -17,12 +17,40 @@ class FieldEncryptionService {
         this.schema = schema;
     }
 
+    /**
+     * Resolve the field paths to encrypt on write. Prefers
+     * `schema.getFieldsToEncryptOnWrite` (which respects app opt-outs); falls
+     * back to `schema.getEncryptedFields` for backwards compatibility with
+     * older schema adapters.
+     * @private
+     */
+    _getWriteFields(modelName) {
+        if (typeof this.schema.getFieldsToEncryptOnWrite === 'function') {
+            return this.schema.getFieldsToEncryptOnWrite(modelName);
+        }
+        return this.schema.getEncryptedFields(modelName);
+    }
+
+    /**
+     * Resolve the field paths to attempt decryption on read. Prefers
+     * `schema.getFieldsToDecryptOnRead` (which IGNORES opt-outs so legacy
+     * encrypted rows still deserialize); falls back to
+     * `schema.getEncryptedFields` for backwards compatibility.
+     * @private
+     */
+    _getReadFields(modelName) {
+        if (typeof this.schema.getFieldsToDecryptOnRead === 'function') {
+            return this.schema.getFieldsToDecryptOnRead(modelName);
+        }
+        return this.schema.getEncryptedFields(modelName);
+    }
+
     async encryptFields(modelName, document) {
         if (!document || typeof document !== 'object') {
             return document;
         }
 
-        const fields = this.schema.getEncryptedFields(modelName);
+        const fields = this._getWriteFields(modelName);
         if (fields.length === 0) {
             return document;
         }
@@ -58,7 +86,7 @@ class FieldEncryptionService {
             return document;
         }
 
-        const fields = this.schema.getEncryptedFields(modelName);
+        const fields = this._getReadFields(modelName);
         if (fields.length === 0) {
             return document;
         }

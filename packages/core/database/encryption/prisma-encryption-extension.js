@@ -3,7 +3,11 @@
  * Intercepts Prisma queries to encrypt on write and decrypt on read.
  */
 
-const { getEncryptedFields } = require('./encryption-schema-registry');
+const {
+    getEncryptedFields,
+    getFieldsToEncryptOnWrite,
+    getFieldsToDecryptOnRead,
+} = require('./encryption-schema-registry');
 const { FieldEncryptionService } = require('./field-encryption-service');
 
 function createEncryptionExtension({ cryptor, enabled = true }) {
@@ -19,7 +23,11 @@ function createEncryptionExtension({ cryptor, enabled = true }) {
 
     const encryptionService = new FieldEncryptionService({
         cryptor,
-        schema: { getEncryptedFields },
+        schema: {
+            getEncryptedFields,
+            getFieldsToEncryptOnWrite,
+            getFieldsToDecryptOnRead,
+        },
     });
 
     return {
