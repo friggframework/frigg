@@ -373,6 +373,27 @@ describe('Requester', () => {
             expect(requester.notify).not.toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
+
+        it('resets refreshCount after a successful 2xx so a later 401 can attempt refresh again', async () => {
+            const fetchMock = oauthFetch([
+                { status: 401 },
+                { status: 200, body: { ok: 'first' } },
+                { status: 401 },
+                { status: 200, body: { ok: 'second' } },
+            ]);
+            const requester = new RefreshableRequester({ fetch: fetchMock });
+            requester.refreshAuth = jest.fn().mockResolvedValue(true);
+            requester.notify = jest.fn();
+
+            const r1 = await requester._get({ url: 'https://example.com/first' });
+            const r2 = await requester._get({ url: 'https://example.com/second' });
+
+            expect(r1).toEqual({ ok: 'first' });
+            expect(r2).toEqual({ ok: 'second' });
+            expect(requester.refreshAuth).toHaveBeenCalledTimes(2);
+            expect(requester.notify).not.toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+            expect(fetchMock).toHaveBeenCalledTimes(4);
+        });
     });
 
     describe('ECONNRESET retry (regression guard)', () => {

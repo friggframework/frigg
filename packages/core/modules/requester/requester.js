@@ -178,6 +178,11 @@ class Requester extends Delegate {
                 );
             }
 
+            // Successful response: reset the per-instance refresh budget so
+            // a later 401 in the same Requester lifetime can attempt refresh
+            // again instead of silently falling through.
+            this.refreshCount = 0;
+
             // parsedBody consumes the response body stream. If the server
             // stalls mid-stream the timer (still armed) aborts it.
             return options.returnFullRes
