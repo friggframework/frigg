@@ -58,4 +58,80 @@ describe('IntegrationBase.receiveNotification', () => {
         );
         expect(integration.status).toBe('ERROR');
     });
+
+    describe('CREDENTIAL_VALIDATED self-heal', () => {
+        const validatedPayload = {
+            credentialId: 'cred-1',
+            moduleName: 'testmodule',
+        };
+
+        it('heals ERROR → ENABLED when a module reports CREDENTIAL_VALIDATED', async () => {
+            integration.status = 'ERROR';
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_VALIDATED',
+                validatedPayload
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledTimes(1);
+            expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
+                'int-1',
+                'ENABLED'
+            );
+            expect(integration.status).toBe('ENABLED');
+        });
+
+        it('does nothing when the integration is already ENABLED', async () => {
+            integration.status = 'ENABLED';
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_VALIDATED',
+                validatedPayload
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+            expect(integration.status).toBe('ENABLED');
+        });
+
+        it('does not override NEEDS_CONFIG', async () => {
+            integration.status = 'NEEDS_CONFIG';
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_VALIDATED',
+                validatedPayload
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+            expect(integration.status).toBe('NEEDS_CONFIG');
+        });
+
+        it('does not override DISABLED', async () => {
+            integration.status = 'DISABLED';
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_VALIDATED',
+                validatedPayload
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+            expect(integration.status).toBe('DISABLED');
+        });
+
+        it('no-ops when the integration has no id yet', async () => {
+            integration.id = undefined;
+            integration.status = 'ERROR';
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_VALIDATED',
+                validatedPayload
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+        });
+    });
 });

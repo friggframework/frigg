@@ -354,7 +354,7 @@ describe('OAuth2Requester', () => {
             expect(mockFetch.mock.calls[0][1].headers.Authorization).toBeUndefined();
         });
 
-        it('should not retry more than once for consecutive 401s', async () => {
+        it('should not retry more than once for consecutive 401s and should NOT notify on the second 401', async () => {
             const mockFetch = jest.fn().mockResolvedValue({
                 status: 401,
                 headers: { get: () => 'application/json' },
@@ -377,10 +377,8 @@ describe('OAuth2Requester', () => {
             await expect(requester._get({ url: 'https://api.example.com/data' }))
                 .rejects.toThrow();
 
-            // Should call fetch twice: initial + 1 retry after refresh
             expect(mockFetch).toHaveBeenCalledTimes(2);
-            // Should notify DLGT_INVALID_AUTH after second 401
-            expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+            expect(requester.notify).not.toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
         });
 
         it('should use getTokenFromClientCredentials for client_credentials grant type on 401', async () => {

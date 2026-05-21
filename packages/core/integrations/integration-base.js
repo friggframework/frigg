@@ -560,13 +560,25 @@ class IntegrationBase {
      * @returns {Promise<void>}
      */
     async receiveNotification(notifier, delegateString, object = null) {
-        if (delegateString !== 'CREDENTIAL_INVALIDATED') return;
         if (!this.id) return;
-        console.log(
-            `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
-        );
-        await this.updateIntegrationStatus.execute(this.id, 'ERROR');
-        this.status = 'ERROR';
+
+        if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            console.log(
+                `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
+            );
+            await this.updateIntegrationStatus.execute(this.id, 'ERROR');
+            this.status = 'ERROR';
+            return;
+        }
+
+        if (delegateString === 'CREDENTIAL_VALIDATED') {
+            if (this.status !== 'ERROR') return;
+            console.log(
+                `[Frigg] Module ${notifier?.name || '?'} reported valid credentials for integration ${this.id} — clearing ERROR → ENABLED`
+            );
+            await this.updateIntegrationStatus.execute(this.id, 'ENABLED');
+            this.status = 'ENABLED';
+        }
     }
 }
 
