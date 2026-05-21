@@ -151,9 +151,9 @@ class Requester extends Delegate {
                 await new Promise((resolve) => setTimeout(resolve, delay));
                 return this._request(url, options, i + 1);
             } else if (status === 401) {
-                if (!this.isRefreshable || this.refreshCount > 0) {
+                if (!this.isRefreshable) {
                     await this.notify(this.DLGT_INVALID_AUTH);
-                } else {
+                } else if (this.refreshCount === 0) {
                     this.refreshCount++;
                     const refreshSucceeded = await this.refreshAuth();
                     if (refreshSucceeded) {

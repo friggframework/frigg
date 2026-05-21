@@ -41,6 +41,8 @@ class Module extends Delegate {
         // Module → parent delegate (typically IntegrationBase) events
         this.DLGT_CREDENTIAL_INVALIDATED = 'CREDENTIAL_INVALIDATED';
         this.delegateTypes.push(this.DLGT_CREDENTIAL_INVALIDATED);
+        this.DLGT_CREDENTIAL_VALIDATED = 'CREDENTIAL_VALIDATED';
+        this.delegateTypes.push(this.DLGT_CREDENTIAL_VALIDATED);
 
         Object.assign(this, this.definition.requiredAuthMethods);
 
@@ -123,6 +125,20 @@ class Module extends Delegate {
             credentialDetails
         );
         this.credential = persisted;
+
+        if (this.credential?.id) {
+            try {
+                await this.notify(this.DLGT_CREDENTIAL_VALIDATED, {
+                    credentialId: this.credential.id,
+                    moduleName: this.name,
+                });
+            } catch (err) {
+                console.error(
+                    `[Frigg] Failed to propagate CREDENTIAL_VALIDATED for module ${this.name}:`,
+                    err?.message || err
+                );
+            }
+        }
     }
 
     async receiveNotification(notifier, delegateString, object = null) {
