@@ -108,6 +108,77 @@ describe('UpdateProcessMetrics', () => {
             );
         });
 
+        it('routes skipped to applyProcessUpdate.increment as totalSkipped', async () => {
+            // Records that were intentionally not synced (hash-skip, loop
+            // protection, etc.) must increment a real counter so the UI
+            // can show processed = synced + failed + skipped. Previously
+            // the skipped count was silently dropped from the atomic phase.
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
+
+            await useCase.execute(processId, {
+                processed: 10,
+                success: 7,
+                errors: 0,
+                skipped: 3,
+            });
+
+            expect(mockProcessRepository.applyProcessUpdate).toHaveBeenCalledWith(
+                processId,
+                {
+                    increment: {
+                        'context.processedRecords': 10,
+                        'results.aggregateData.totalSynced': 7,
+                        'results.aggregateData.totalSkipped': 3,
+                    },
+                    pushSlice: {},
+                }
+            );
+        });
+
+        it('omits totalSkipped from the increment map when skipped is zero', async () => {
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
+
+            await useCase.execute(processId, {
+                processed: 5,
+                success: 5,
+                errors: 0,
+                skipped: 0,
+            });
+
+            const [, ops] =
+                mockProcessRepository.applyProcessUpdate.mock.calls[0];
+            expect('results.aggregateData.totalSkipped' in ops.increment).toBe(
+                false
+            );
+        });
+
+        it('treats a skipped-only batch as atomic work (does not short-circuit)', async () => {
+            // Regression guard: hasAtomicWork must include skipped so that
+            // a batch of skipped-only events still issues the UPDATE.
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
+            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
+
+            await useCase.execute(processId, {
+                processed: 0,
+                success: 0,
+                errors: 0,
+                skipped: 1,
+            });
+
+            expect(mockProcessRepository.applyProcessUpdate).toHaveBeenCalledTimes(
+                1
+            );
+            expect(mockProcessRepository.findById).not.toHaveBeenCalled();
+        });
+
         it('routes errorDetails to pushSlice with keepLast 100', async () => {
             mockProcessRepository.applyProcessUpdate.mockResolvedValue(
                 atomicSnapshot
