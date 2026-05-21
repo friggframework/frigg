@@ -28,8 +28,9 @@
  * const updateMetrics = new UpdateProcessMetrics({ processRepository, websocketService });
  * await updateMetrics.execute(processId, {
  *   processed: 100,
- *   success: 95,
+ *   success: 92,
  *   errors: 5,
+ *   skipped: 3,
  *   errorDetails: [{ contactId: 'abc', error: 'Missing email', timestamp: '...' }]
  * });
  */
@@ -54,6 +55,11 @@ class UpdateProcessMetrics {
      * @param {number} [metricsUpdate.processed=0] - Records processed in this batch
      * @param {number} [metricsUpdate.success=0] - Successful records
      * @param {number} [metricsUpdate.errors=0] - Failed records
+     * @param {number} [metricsUpdate.skipped=0] - Intentionally-skipped
+     *     records (hash-match, dedupe, loop protection, etc.). Increments
+     *     `results.aggregateData.totalSkipped`. Distinct from errors so the
+     *     UI can show `processed = synced + failed + skipped` without
+     *     conflating intentional skips with failures.
      * @param {Array} [metricsUpdate.errorDetails=[]] - Error details array
      * @returns {Promise<Object>} Updated process record
      * @throws {Error} If process not found or update fails
@@ -71,9 +77,11 @@ class UpdateProcessMetrics {
         const processed = metricsUpdate.processed || 0;
         const success = metricsUpdate.success || 0;
         const errors = metricsUpdate.errors || 0;
+        const skipped = metricsUpdate.skipped || 0;
         if (processed) increment['context.processedRecords'] = processed;
         if (success) increment['results.aggregateData.totalSynced'] = success;
         if (errors) increment['results.aggregateData.totalFailed'] = errors;
+        if (skipped) increment['results.aggregateData.totalSkipped'] = skipped;
 
         const pushSlice = {};
         if (
@@ -191,6 +199,7 @@ class UpdateProcessMetrics {
                     total: context.totalRecords || 0,
                     successCount: aggregateData.totalSynced || 0,
                     errorCount: aggregateData.totalFailed || 0,
+                    skippedCount: aggregateData.totalSkipped || 0,
                     recordsPerSecond: aggregateData.recordsPerSecond || 0,
                     estimatedCompletion: context.estimatedCompletion || null,
                     timestamp: new Date().toISOString(),
