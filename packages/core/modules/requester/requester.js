@@ -151,16 +151,40 @@ class Requester extends Delegate {
                 await new Promise((resolve) => setTimeout(resolve, delay));
                 return this._request(url, options, i + 1);
             } else if (status === 401) {
-                if (!this.isRefreshable || this.refreshCount > 0) {
+                // Three outcomes per the auth-state contract:
+                //   1. Token is not refreshable      → fire INVALID_AUTH (→ ERROR)
+                //   2. Refreshable, refresh FAILS    → refreshAuth's own catch
+                //                                      fires INVALID_AUTH; we
+                //                                      do NOT double-fire here
+                //   3. Refreshable, refresh SUCCEEDS → retry silently, no
+                //                                      status change
+                //
+                // The previous version also fired INVALID_AUTH on
+                // `refreshCount > 0` (any second 401 on the same Requester
+                // instance). That caused integrations to be marked ERROR
+                // when a transient 401 hit AFTER a successful refresh, or
+                // when sibling concurrent requesters had already refreshed
+                // (the new access token hadn't propagated to this
+                // instance's in-memory state). A 401 after we've already
+                // attempted refresh should just propagate up as a normal
+                // HTTP error and let the next worker invocation try
+                // refresh with the freshly persisted credential.
+                if (!this.isRefreshable) {
                     await this.notify(this.DLGT_INVALID_AUTH);
-                } else {
+                } else if (this.refreshCount === 0) {
                     this.refreshCount++;
                     const refreshSucceeded = await this.refreshAuth();
                     if (refreshSucceeded) {
                         clearRequestTimer();
                         return this._request(url, options, i + 1);
                     }
+                    // refresh failed — refreshAuth() already fired
+                    // INVALID_AUTH from its catch block; fall through
+                    // to throw the 401 below.
                 }
+                // refreshable AND already attempted in this instance: do
+                // nothing; the 401 will be thrown below and the integration
+                // status is left untouched.
             }
 
             // If the error wasn't retried, throw. FetchError.create reads

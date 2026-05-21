@@ -106,4 +106,25 @@ describe('Module.onTokenUpdate with organization userId', () => {
             '13' // Organization userId
         );
     });
+
+    it('notifies delegate of DLGT_CREDENTIAL_VALIDATED after credential is persisted as valid', async () => {
+        const notify = jest.fn().mockResolvedValue(undefined);
+        module.notify = notify;
+        module.credential = { id: 'cred-existing' };
+
+        await module.onTokenUpdate();
+
+        expect(notify).toHaveBeenCalledWith('CREDENTIAL_VALIDATED', {
+            credentialId: 'cred-123',
+            moduleName: 'testmodule',
+        });
+    });
+
+    it('does NOT throw when the delegate notify fails — token update is best-effort propagation', async () => {
+        module.notify = jest
+            .fn()
+            .mockRejectedValue(new Error('delegate boom'));
+
+        await expect(module.onTokenUpdate()).resolves.not.toThrow();
+    });
 });

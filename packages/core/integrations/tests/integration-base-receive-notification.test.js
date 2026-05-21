@@ -58,4 +58,64 @@ describe('IntegrationBase.receiveNotification', () => {
         );
         expect(integration.status).toBe('ERROR');
     });
+
+    describe('CREDENTIAL_VALIDATED (self-heal after a refresh succeeds)', () => {
+        it('clears ERROR back to ENABLED when a module reports valid credentials', async () => {
+            integration.status = 'ERROR';
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_VALIDATED',
+                { credentialId: 'cred-1', moduleName: 'testmodule' }
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledTimes(1);
+            expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
+                'int-1',
+                'ENABLED'
+            );
+            expect(integration.status).toBe('ENABLED');
+        });
+
+        it('is a no-op when the integration is already ENABLED', async () => {
+            integration.status = 'ENABLED';
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_VALIDATED',
+                { credentialId: 'cred-1', moduleName: 'testmodule' }
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+            expect(integration.status).toBe('ENABLED');
+        });
+
+        it('does NOT clobber other non-ERROR states (e.g. NEEDS_CONFIG, DISABLED)', async () => {
+            for (const status of ['NEEDS_CONFIG', 'DISABLED', 'PROCESSING']) {
+                mockUpdateIntegrationStatus.execute.mockClear();
+                integration.status = status;
+                await integration.receiveNotification(
+                    { name: 'testmodule' },
+                    'CREDENTIAL_VALIDATED',
+                    { credentialId: 'cred-1', moduleName: 'testmodule' }
+                );
+                expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+                expect(integration.status).toBe(status);
+            }
+        });
+
+        it('no-ops when the integration has no id yet (not hydrated)', async () => {
+            integration.id = undefined;
+            integration.status = 'ERROR';
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_VALIDATED',
+                { credentialId: 'cred-1', moduleName: 'testmodule' }
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+            expect(integration.status).toBe('ERROR');
+        });
+    });
 });

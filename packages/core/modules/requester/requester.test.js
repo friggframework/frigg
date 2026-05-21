@@ -284,6 +284,109 @@ describe('Requester', () => {
         });
     });
 
+    describe('401 handling — do not speculatively mark ERROR', () => {
+        function jsonOk(body = { ok: true }) {
+            return {
+                status: 200,
+                headers: { get: () => 'application/json' },
+                json: async () => body,
+            };
+        }
+        function unauthorized() {
+            return {
+                status: 401,
+                headers: { get: () => 'application/json' },
+                json: async () => ({ error: 'unauthorized' }),
+                text: async () => '{"error":"unauthorized"}',
+            };
+        }
+
+        it('fires DLGT_INVALID_AUTH when the token is NOT refreshable (case 1)', async () => {
+            const fetchMock = jest.fn().mockResolvedValueOnce(unauthorized());
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [],
+            });
+            requester.isRefreshable = false;
+            const notify = jest.fn();
+            requester.notify = notify;
+
+            await expect(requester._get({ url: 'https://x.example/r' })).rejects.toBeDefined();
+            expect(notify).toHaveBeenCalledWith('INVALID_AUTH');
+        });
+
+        it('attempts refresh when the token IS refreshable and retries the request on success (case 3)', async () => {
+            const fetchMock = jest
+                .fn()
+                .mockResolvedValueOnce(unauthorized())
+                .mockResolvedValueOnce(jsonOk({ ok: true }));
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [],
+            });
+            requester.isRefreshable = true;
+            requester.refreshAuth = jest.fn().mockResolvedValue(true);
+            const notify = jest.fn();
+            requester.notify = notify;
+
+            const result = await requester._get({ url: 'https://x.example/r' });
+            expect(result).toEqual({ ok: true });
+            expect(requester.refreshAuth).toHaveBeenCalledTimes(1);
+            // Refresh succeeded → do not fire INVALID_AUTH (no ERROR transition).
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('does NOT fire INVALID_AUTH itself when refresh fails — refreshAuth handles that (case 2)', async () => {
+            // refreshAuth() returns false on failure and fires INVALID_AUTH from
+            // its own catch in oauth-2.js. The requester must not double-fire.
+            const fetchMock = jest.fn().mockResolvedValueOnce(unauthorized());
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [],
+            });
+            requester.isRefreshable = true;
+            requester.refreshAuth = jest.fn().mockResolvedValue(false);
+            const notify = jest.fn();
+            requester.notify = notify;
+
+            await expect(requester._get({ url: 'https://x.example/r' })).rejects.toBeDefined();
+            expect(requester.refreshAuth).toHaveBeenCalledTimes(1);
+            // Requester does not fire INVALID_AUTH on refresh failure — oauth-2's
+            // refreshAuth catch is the sole source for that signal.
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('does NOT speculatively fire INVALID_AUTH on a second 401 within the same requester instance', async () => {
+            // First request: 401 → refresh succeeds → retry succeeds. Second
+            // request on the SAME requester: 401 again (transient). Old
+            // behavior fired INVALID_AUTH because refreshCount > 0. New
+            // behavior throws the 401 up without marking ERROR — a
+            // subsequently-constructed requester (next worker invocation)
+            // will get a chance to refresh fresh.
+            const fetchMock = jest
+                .fn()
+                .mockResolvedValueOnce(unauthorized()) // first call: 401
+                .mockResolvedValueOnce(jsonOk({ ok: true })) // refresh retry: ok
+                .mockResolvedValueOnce(unauthorized()); // second call: 401 again
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [],
+            });
+            requester.isRefreshable = true;
+            requester.refreshAuth = jest.fn().mockResolvedValue(true);
+            const notify = jest.fn();
+            requester.notify = notify;
+
+            await requester._get({ url: 'https://x.example/a' });
+            await expect(requester._get({ url: 'https://x.example/b' })).rejects.toBeDefined();
+
+            // Refresh was attempted once (refreshCount guard prevents loops).
+            expect(requester.refreshAuth).toHaveBeenCalledTimes(1);
+            // No INVALID_AUTH on the second 401 — let the 401 propagate.
+            expect(notify).not.toHaveBeenCalled();
+        });
+    });
+
     describe('ECONNRESET retry (regression guard)', () => {
         it('still retries on ECONNRESET following the backOff schedule', async () => {
             jest.useFakeTimers();

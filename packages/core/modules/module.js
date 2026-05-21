@@ -41,6 +41,13 @@ class Module extends Delegate {
         // Module → parent delegate (typically IntegrationBase) events
         this.DLGT_CREDENTIAL_INVALIDATED = 'CREDENTIAL_INVALIDATED';
         this.delegateTypes.push(this.DLGT_CREDENTIAL_INVALIDATED);
+        // Symmetric "auth healed" signal — fired after a successful token
+        // refresh persists the credential as valid again. Lets the parent
+        // (IntegrationBase) reset Integration.status from ERROR back to
+        // ENABLED so the user doesn't have to manually reconnect after a
+        // transient credential failure.
+        this.DLGT_CREDENTIAL_VALIDATED = 'CREDENTIAL_VALIDATED';
+        this.delegateTypes.push(this.DLGT_CREDENTIAL_VALIDATED);
 
         Object.assign(this, this.definition.requiredAuthMethods);
 
@@ -123,6 +130,30 @@ class Module extends Delegate {
             credentialDetails
         );
         this.credential = persisted;
+
+        // Propagate upward so a parent delegate (e.g. IntegrationBase) can
+        // self-heal Integration.status from ERROR back to ENABLED. Symmetric
+        // with the markCredentialsInvalid → CREDENTIAL_INVALIDATED path.
+        //
+        // Best-effort: this method is invoked from OAuth2Requester.setTokens
+        // immediately after a successful refresh; the new access_token has
+        // already been persisted on the credential, and the original 401'd
+        // API call is about to be retried with the new token. A delegate
+        // hiccup must NOT throw — that would re-surface as a 401 catch in
+        // the requester and confuse the auth state machine.
+        if (this.credential?.id) {
+            try {
+                await this.notify(this.DLGT_CREDENTIAL_VALIDATED, {
+                    credentialId: this.credential.id,
+                    moduleName: this.name,
+                });
+            } catch (err) {
+                console.error(
+                    `[Frigg] Failed to propagate CREDENTIAL_VALIDATED for module ${this.name}:`,
+                    err?.message || err
+                );
+            }
+        }
     }
 
     async receiveNotification(notifier, delegateString, object = null) {

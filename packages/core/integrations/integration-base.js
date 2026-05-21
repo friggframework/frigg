@@ -542,17 +542,25 @@ class IntegrationBase {
 
     /**
      * Receives notifications from modules (the Delegate pattern) when
-     * something integration-level needs attention. Today this catches the
-     * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
-     * and flips this integration's status to DISABLED so the queue worker
-     * stops processing further webhooks until the user re-authorizes.
+     * something integration-level needs attention. Today this catches:
+     *
+     *   - `CREDENTIAL_INVALIDATED` (Module → `markCredentialsInvalid`):
+     *     flips Integration.status to ERROR so the queue worker stops
+     *     processing further webhooks until auth is healed.
+     *   - `CREDENTIAL_VALIDATED` (Module → `onTokenUpdate`, fired after a
+     *     successful refresh): self-heals — if status is ERROR, transitions
+     *     back to ENABLED so the user doesn't have to manually reconnect
+     *     when a transient credential issue resolves on its own. Non-ERROR
+     *     statuses (NEEDS_CONFIG, DISABLED, etc.) are intentionally left
+     *     untouched — credential validity isn't authority to override
+     *     those states.
      *
      * Modules are wired to this delegate in `_appendModules()`, which runs
      * during `setIntegrationRecord()` — this covers every construction path
      * (HTTP read, queue worker, create/update/delete flows, etc.).
      *
-     * The delegate string below must match `Module.DLGT_CREDENTIAL_INVALIDATED`
-     * in `packages/core/modules/module.js`.
+     * The delegate strings below must match `Module.DLGT_CREDENTIAL_INVALIDATED`
+     * and `Module.DLGT_CREDENTIAL_VALIDATED` in `packages/core/modules/module.js`.
      *
      * @param {Object} notifier - The module that fired the event
      * @param {string} delegateString - Event type string
@@ -560,13 +568,27 @@ class IntegrationBase {
      * @returns {Promise<void>}
      */
     async receiveNotification(notifier, delegateString, object = null) {
-        if (delegateString !== 'CREDENTIAL_INVALIDATED') return;
-        if (!this.id) return;
-        console.log(
-            `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
-        );
-        await this.updateIntegrationStatus.execute(this.id, 'ERROR');
-        this.status = 'ERROR';
+        if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            if (!this.id) return;
+            console.log(
+                `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
+            );
+            await this.updateIntegrationStatus.execute(this.id, 'ERROR');
+            this.status = 'ERROR';
+            return;
+        }
+        if (delegateString === 'CREDENTIAL_VALIDATED') {
+            if (!this.id) return;
+            // Narrow self-heal: only resurrect from ERROR. Other states
+            // (NEEDS_CONFIG, DISABLED, PROCESSING, ENABLED itself) are
+            // load-bearing for reasons unrelated to credential validity.
+            if (this.status !== 'ERROR') return;
+            console.log(
+                `[Frigg] Module ${notifier?.name || '?'} reported valid credentials for integration ${this.id} — clearing ERROR → ENABLED`
+            );
+            await this.updateIntegrationStatus.execute(this.id, 'ENABLED');
+            this.status = 'ENABLED';
+        }
     }
 }
 

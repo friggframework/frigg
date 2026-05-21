@@ -354,7 +354,18 @@ describe('OAuth2Requester', () => {
             expect(mockFetch.mock.calls[0][1].headers.Authorization).toBeUndefined();
         });
 
-        it('should not retry more than once for consecutive 401s', async () => {
+        it('should not retry more than once for consecutive 401s, and should NOT speculatively notify INVALID_AUTH on the second 401', async () => {
+            // Contract change (fix/auth-state-reset-on-refresh):
+            // The previous behavior fired INVALID_AUTH on the second 401
+            // within the same Requester instance — which speculatively
+            // marked the integration ERROR even when the refresh itself
+            // had just succeeded (the API simply rejected the new token
+            // on this specific call, or a transient 401 followed the
+            // refresh). The new contract: refresh is attempted exactly
+            // once per requester instance; on a subsequent 401 we let
+            // the HTTP error propagate without firing INVALID_AUTH (the
+            // next worker invocation gets a fresh shot at refresh with
+            // the freshly persisted credential).
             const mockFetch = jest.fn().mockResolvedValue({
                 status: 401,
                 headers: { get: () => 'application/json' },
@@ -379,8 +390,11 @@ describe('OAuth2Requester', () => {
 
             // Should call fetch twice: initial + 1 retry after refresh
             expect(mockFetch).toHaveBeenCalledTimes(2);
-            // Should notify DLGT_INVALID_AUTH after second 401
-            expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+            // Should NOT notify DLGT_INVALID_AUTH on the second 401 —
+            // the refresh itself succeeded (it's the API call that's
+            // still 401ing for an unrelated reason), so the auth state
+            // shouldn't transition to ERROR.
+            expect(requester.notify).not.toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
         });
 
         it('should use getTokenFromClientCredentials for client_credentials grant type on 401', async () => {
