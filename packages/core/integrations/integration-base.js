@@ -11,6 +11,7 @@ const {
 const {
     UpdateIntegrationMessages,
 } = require('./use-cases/update-integration-messages');
+const { validateExtensionBinding } = require('./extension');
 
 const constantsToBeMigrated = {
     defaultEvents: {
@@ -60,6 +61,9 @@ class IntegrationBase {
         supportedVersions: [], // Eventually usable for deprecation and future test version purposes
 
         modules: {},
+        // Tier 3 Integration Extensions — see packages/core/integrations/EXTENSIONS.md
+        // Shape: { [bindingName]: { extension, handlers?: { [eventName]: methodName } } }
+        extensions: {},
         display: {
             name: 'Integration Name',
             logo: '',
@@ -504,6 +508,158 @@ class IntegrationBase {
         };
     }
 
+    /**
+     * Merge Tier 3 Integration Extension events into `this.events`.
+     *
+     * For each binding declared on `static Definition.extensions`, this method:
+     *   1. Validates the extension bundle shape and binding handlers
+     *   2. For each event the extension declares, resolves the handler in priority order:
+     *      a. Subclass-defined `this.events[eventName]` (set in the constructor) — wins; if a
+     *         binding tried to override that event with `handlers`, we log a warning so the
+     *         author knows their override is shadowed.
+     *      b. A method-name string in `binding.handlers[eventName]` → method on this instance
+     *      c. The extension's own default `handler` function
+     *      d. Otherwise throw — neither side provided a handler
+     *   3. Binds the resolved function to this instance and writes it to `this.events[eventName]`
+     *
+     * Two bindings declaring the same event throw a deterministic conflict error — silent
+     * "first/last writer wins" makes routing bugs nearly impossible to diagnose.
+     *
+     * @private
+     */
+    _mergeExtensions() {
+        const extensions = this.constructor.Definition?.extensions || {};
+        const integrationName = this.constructor.Definition?.name;
+        // Tracks which event names have been claimed by an extension binding during
+        // this merge — distinct from subclass-defined events on `this.events`.
+        const mergedByExtension = new Map();
+
+        for (const [bindingName, binding] of Object.entries(extensions)) {
+            if (!binding || typeof binding !== 'object') {
+                throw new Error(
+                    `Integration "${integrationName}" extension binding "${bindingName}" must be an object`
+                );
+            }
+            const { extension, handlers = {} } = binding;
+            validateExtensionBinding(
+                extension,
+                bindingName,
+                integrationName,
+                binding
+            );
+
+            const extEvents = extension.events || {};
+            for (const [eventName, eventDef] of Object.entries(extEvents)) {
+                // Conflict detection: another extension binding already claimed this event name.
+                if (mergedByExtension.has(eventName)) {
+                    const prev = mergedByExtension.get(eventName);
+                    throw new Error(
+                        `Integration "${integrationName}" extension event conflict: ` +
+                            `event "${eventName}" is declared by both binding "${prev}" and binding "${bindingName}" — ` +
+                            `use distinct event names per binding or omit duplicates`
+                    );
+                }
+
+                // Subclass shadowing: if the subclass set this.events[eventName] before initialize(),
+                // it wins. Warn if the binding tried to wire an override that's now ignored.
+                if (this.events[eventName]) {
+                    if (typeof handlers[eventName] === 'string') {
+                        console.warn(
+                            `[Frigg] Integration "${integrationName}" binding "${bindingName}": ` +
+                                `handler "${handlers[eventName]}" for event "${eventName}" is ignored because ` +
+                                `this.events["${eventName}"] was already set (subclass constructor or earlier merge)`
+                        );
+                    }
+                    continue;
+                }
+
+                let fn;
+                const override = handlers[eventName];
+                if (typeof override === 'string') {
+                    if (typeof this[override] !== 'function') {
+                        throw new Error(
+                            `Integration "${integrationName}" extension binding "${bindingName}": handler method "${override}" not found on instance`
+                        );
+                    }
+                    fn = this[override];
+                } else if (typeof eventDef.handler === 'function') {
+                    fn = eventDef.handler;
+                } else {
+                    throw new Error(
+                        `Extension "${extension.name}" event "${eventName}" has no default handler and binding "${bindingName}" did not provide one`
+                    );
+                }
+
+                this.events[eventName] = {
+                    type: eventDef.type,
+                    handler: fn.bind(this),
+                };
+                mergedByExtension.set(eventName, bindingName);
+            }
+        }
+    }
+
+    /**
+     * Reverse-lookup helper: find an integration ID by a module entity's externalId.
+     *
+     * Used by extension default handlers (e.g. HubSpot webhook receiver) that need
+     * to resolve an incoming app-level event to a specific per-account integration
+     * record. The external ID is provided by the upstream system (HubSpot portalId,
+     * Slack team_id, etc.) — this helper looks up which Frigg integration owns the
+     * entity carrying that external ID.
+     *
+     * Throws on ambiguous resolution. A single externalId mapping to multiple
+     * integrations is a cross-tenant routing risk (e.g. two users connecting the
+     * same HubSpot portal): we refuse to silently pick `[0]`. Callers that
+     * legitimately need to fan out to multiple integrations should use the
+     * lower-level repository call directly.
+     *
+     * @param {string} externalId - The provider's stable identifier for the account/portal/workspace.
+     * @param {string} [moduleName] - Optional module name to disambiguate when multiple modules in the same app could carry colliding externalIds.
+     * @returns {Promise<string|null>} The integration ID, or null if no match.
+     * @throws {Error} If more than one integration is found for the (externalId, moduleName) tuple.
+     */
+    async findIntegrationByPortalId(externalId, moduleName) {
+        if (!externalId) return null;
+        const {
+            createModuleRepository,
+        } = require('../modules/repositories/module-repository-factory');
+        const moduleRepository = createModuleRepository();
+
+        const filter = { externalId: String(externalId) };
+        if (moduleName) filter.moduleName = moduleName;
+
+        const entity = await moduleRepository.findEntity(filter);
+        if (!entity) {
+            console.log(
+                `[Frigg] findIntegrationByPortalId: no entity for externalId=${externalId}${
+                    moduleName ? ` moduleName=${moduleName}` : ''
+                }`
+            );
+            return null;
+        }
+
+        const integrations =
+            await this.integrationRepository.findIntegrationsByEntityId(
+                entity.id
+            );
+        if (!integrations || integrations.length === 0) {
+            console.log(
+                `[Frigg] findIntegrationByPortalId: entity ${entity.id} has no owning integrations (orphan)`
+            );
+            return null;
+        }
+        if (integrations.length > 1) {
+            const ids = integrations.map((i) => i.id).join(', ');
+            throw new Error(
+                `findIntegrationByPortalId: ambiguous resolution — externalId=${externalId}` +
+                    `${moduleName ? ` moduleName=${moduleName}` : ''} maps to ${integrations.length} integrations [${ids}]. ` +
+                    `Refusing to pick one to avoid cross-tenant routing.`
+            );
+        }
+        return integrations[0].id;
+    }
+
     async initialize() {
         try {
             const additionalUserActions = await this.loadDynamicUserActions();
@@ -512,6 +668,7 @@ class IntegrationBase {
             this.addError(e);
         }
 
+        this._mergeExtensions();
         this.registerEventHandlers();
     }
 
