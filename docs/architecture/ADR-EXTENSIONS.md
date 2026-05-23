@@ -1,6 +1,6 @@
 # Architecture Decision Record: Plugins, Extensions, and Artifacts
 
-**Status**: Proposed (revised 2026-05-23 to add Artifacts and the Capability Declaration)
+**Status**: Proposed (revised 2026-05-23 to add Artifacts, the Capability Declaration, and the framework load mechanism reflecting [PR #590](https://github.com/friggframework/frigg/pull/590))
 **Date**: 2026-05-22 (original), 2026-05-23 (revised)
 **Author**: Sean Matthews
 
@@ -221,6 +221,75 @@ All three repos define a stub `backend/src/extensions.js` exporting `hubspotWebh
 - **Declarative in `Definition.extensions`, not imperative in the constructor.** Today's prototypes assign `this.extensions = {...}` in the constructor. The framework should read this from `static Definition.extensions` like every other piece of integration metadata. The constructor assignment is a current-state implementation detail, not the desired API.
 - **Handlers are referenced by name, not bound directly.** `handlers: { WEBHOOK_EVENT: 'handleWebhookEvent' }` rather than `handlers: { WEBHOOK_EVENT: this.handleWebhookEvent.bind(this) }`. The framework does the binding at instantiation time. Eliminates the `this`-in-static-Definition bootstrapping problem the current prototypes hit.
 
+### Framework load mechanism
+
+The contract above is implemented by [PR #590](https://github.com/friggframework/frigg/pull/590) (Daniel Klotz). The framework splits the work into two seams:
+
+**Boot-time (once per integration class).** `packages/core/handlers/routers/integration-defined-routers.js` walks each `IntegrationClass.Definition.extensions` via `getExtensionRoutes(IntegrationClass)`, claims each `method + path` in a per-class `Map`, and mounts via the existing `loadRouterFromObject`. Throws on conflict between `Definition.routes` and any extension route, or between two extension routes.
+
+**Per-instance (every integration instantiation).** `IntegrationBase._mergeExtensions()` runs inside `initialize()`, just before `registerEventHandlers()`. It walks `static Definition.extensions`, validates each binding, and merges extension events into `this.events` with handlers bound to the live instance.
+
+Event-handler resolution priority:
+1. Subclass-defined `this.events[event]` (constructor) wins — any matching `binding.handlers[event]` is `console.warn`'d as ignored
+2. Else `binding.handlers[event]` → method-name string, resolved on `this` (throws if method missing)
+3. Else extension's own default `eventDef.handler`
+4. Else throw at boot
+
+Two bindings declaring the same event name throw at `_mergeExtensions` — no namespacing by binding key in the current implementation.
+
+**Instantiation sites added in #590** — anywhere an integration is freshly constructed, `initialize()` now runs and `_mergeExtensions` folds extension events in before dispatch:
+- `loadRouterFromObject`'s per-request closure (HTTP path)
+- `createQueueWorker`'s dry-instance branch (queue path)
+
+**Fail-loud defaults** that #590 hard-codes:
+- Two bindings claiming the same event name → throw
+- Two routes claiming the same `method + path` → throw (with both source bindings named)
+- Binding handler references a method that doesn't exist on the integration → throw
+- `binding.handlers` typo referencing an event the extension doesn't declare → throw
+- `findIntegrationByPortalId` ambiguous resolution (one externalId, multiple integrations) → throw (cross-tenant routing guard)
+- Subclass shadows a binding-declared handler → `console.warn` (subclass wins by design)
+
+Quickstart for integration authors and API module authors: [`packages/core/integrations/EXTENSIONS.md`](https://github.com/friggframework/frigg/blob/next/packages/core/integrations/EXTENSIONS.md).
+
+### Deferred from the initial implementation
+
+[#590](https://github.com/friggframework/frigg/pull/590) lands the route + event seams. Three Phase-2 items remain explicitly deferred:
+
+1. **Per-class merged-event cache.** `_mergeExtensions` re-runs every instantiation (every HTTP request, every queue worker run). Pure function of `static Definition.extensions`; cacheable per class at first call. Matters for webhook firehoses.
+2. **Worker-side consumption of `getExtensionWorkers`.** Helper is exported but `integration-defined-workers.js` is a `TODO(Phase 2)`. Extension events ride the default per-integration queue worker for now.
+3. **Declarative `route.middleware: []` seam.** Extensions own signature verification but have no declared place for it. An author who forgets leaves an open endpoint.
+
+A pre-existing gap that extensions now inherit:
+
+4. **`IntegrationBase` dependency injection.** Repositories are factory'd inline (`integrationRepository = createIntegrationRepository()`); the `// todo: maybe we can pass this as Dependency Injection in the sub-class constructor` comment is untouched. `findIntegrationByPortalId` (new in #590) continues the `require()`-inside-method pattern. Worth a separate ADR before extension authors hit the same wall.
+
+### Beyond `{ routes, events, queues, workers }` — extending the contract
+
+The current contract is enough to bundle a webhook receiver and queue dispatcher. Other Frigg primitives are not yet declarable on extensions and should be considered for v1.1:
+
+| Primitive | What it is | Should extensions declare it? |
+|---|---|---|
+| **Custom queues** | Integration-specific queues with their own handlers, beyond the default per-integration queue | Already in the contract shape per #590; worker consumption is Phase 2 |
+| **Crons / schedules** | EventBridge schedules, periodic sync triggers | Yes — `schedules: [{ rate, event }]` would let extensions ship reusable scheduled-sync patterns |
+| **User Actions** | Events typed `USER_ACTION` that `loadUserActions()` exposes to the integration UI | Yes — would let extensions ship pre-built bulk operations (e.g. "resync all contacts" on a HubSpot extension) |
+| **Config options** | Schema for per-integration config UI returned by `getConfigOptions()` | Maybe — depends on whether they merge additively across extensions or stay integration-owned |
+| **Dynamic options** | Lists fetched from the API for config UI dropdowns | Maybe — same merge-vs-own question |
+
+Crons and User Actions feel like the highest-leverage adds since they unlock "reusable scheduled-sync extension" and "reusable bulk-operation user action" as bundled patterns directly. Config options and dynamic options need a clearer story for whether they compose additively across extensions or stay owned by the integration class.
+
+### Core / API module boundary — worked example
+
+[#590](https://github.com/friggframework/frigg/pull/590) added `IntegrationBase.findIntegrationByPortalId(externalId, moduleName?)` — a reverse-lookup helper for resolving an inbound platform identifier to a Frigg integration ID. "Portal ID" is HubSpot's vocabulary; the generic operation is "find an integration by an entity's external ID."
+
+The boundary this draws (worth encoding as a general rule for any helper):
+
+- **Core** should expose `IntegrationBase.findIntegrationByEntityExternalId(externalId, moduleName?)` — the platform-neutral primitive. Likely also a `list*` variant for the legitimate case where one externalId maps to multiple integrations, distinct from the cross-tenant guard that the current `findIntegrationByPortalId` throws on.
+- **The HubSpot api-module's extension** exposes the thin platform-vocabulary wrapper: `hubspot.helpers.findIntegrationByPortalId(portalId)` calls the core primitive.
+
+Why this matters: a healthy number of API modules route inbound webhooks by account identifier alone — `team_id` (Slack), `tenant_id` (Microsoft Teams), `workspace_id` (Asana, Google Workspace), `portal_id` (HubSpot). Every one will reach for this reverse-lookup. Keeping the generic operation in core (platform-neutral, reusable) and the platform-vocabulary wrapper in each extension (self-documenting for that platform's developers) is the right split.
+
+The rule applies more broadly to any helper: **if you can name it in a single platform's vocabulary, it belongs in that platform's extension, not in core.** Filed as Open Question 14 — encode as a contributor guideline, or trust to code review.
+
 ---
 
 ## Artifacts
@@ -424,7 +493,7 @@ Written by API module authors. The declaration is the contract a module exposes 
 - Tier 3 prototypes set `this.extensions` in the constructor so they can `.bind(this)` handlers.
 - Every other piece of integration metadata lives on `static Definition`.
 
-**Resolution**: move Tier 3 to `static Definition.extensions` and have the framework do the binding at instantiation. Handlers are referenced by *method name string*, not bound function. The framework resolves them against the integration instance at runtime.
+**Resolution**: move Tier 3 to `static Definition.extensions` and have the framework do the binding at instantiation. Handlers are referenced by *method name string*, not bound function. The framework resolves them against the integration instance at runtime. Landed in [#590](https://github.com/friggframework/frigg/pull/590) via `IntegrationBase._mergeExtensions()` called from `initialize()`.
 
 ### Mismatch 3 — Vocabulary collision
 
@@ -444,12 +513,17 @@ Written by API module authors. The declaration is the contract a module exposes 
 - Add `appDefinition.extensions` to the App Definition schema (`packages/schemas`).
 - CLI: extend `frigg build` to invoke schema composition.
 
-### Phase 2 — Formalize Tier 3 (Integration Extensions)
-- Add `Definition.extensions` to `IntegrationBase` definition schema.
-- Implement definition merge: routes/events/queues/workers from each binding are added to the integration's effective definition.
-- Implement string-name handler binding at instantiation.
+### Phase 2 — Formalize Tier 3 (Integration Extensions) — in flight via [#590](https://github.com/friggframework/frigg/pull/590)
+
+Daniel Klotz's [PR #590](https://github.com/friggframework/frigg/pull/590) lands the framework half: extension contract + helpers (`extension.js`), `_mergeExtensions` + `findIntegrationByPortalId` on `IntegrationBase`, route claiming/mounting in `integration-defined-routers.js`, instantiation hooks in `loadRouterFromObject` and `createQueueWorker`, plus 69 unit tests and the [`EXTENSIONS.md`](https://github.com/friggframework/frigg/blob/next/packages/core/integrations/EXTENSIONS.md) quickstart. See **Framework load mechanism** under Tier 3 for the runtime seams and **Deferred from the initial implementation** for what's explicitly Phase-2.
+
+Items in this phase:
+- ~~Add `Definition.extensions` to `IntegrationBase` definition schema.~~ Done in #590.
+- ~~Implement definition merge: routes/events from each binding are added to the integration's effective definition.~~ Done in #590 (routes at boot; events per-instance). Workers Phase 2.
+- ~~Implement string-name handler binding at instantiation.~~ Done in #590.
 - Migrate the existing `this.extensions` prototypes in `frigg-2.0-prototyping` et al. to the new form. (These are LeftHook-owned downstream repos — coordinate.)
-- Ship `@friggframework/api-module-hubspot`'s `extensions.webhooks` as the reference.
+- Ship `@friggframework/api-module-hubspot`'s `extensions.webhooks` as the reference (separate PR in api-module-library).
+- Rename/relocate `findIntegrationByPortalId` per the **Core / API module boundary** worked example (Open Question 14).
 
 ### Phase 3 — Documentation
 - Author guide: "Writing an Application Extension"
@@ -472,6 +546,11 @@ Written by API module authors. The declaration is the contract a module exposes 
 - Reference impl: HubSpot module ships an `artifacts['hubspot-project']` entry with `scaffold.cli: 'hs project add'` and a starter template under `packages/api-module-hubspot/artifacts/hubspot-project-template/`.
 - CLI: `frigg artifact list` (enumerate declared artifacts for a module), `frigg artifact scaffold <name>` (invoke the vendor CLI or copy the template into the consuming repo), `frigg doctor` (verify required artifacts are generated and required vendor CLIs are installed).
 
+### Phase 7 — Extend the Tier 3 contract beyond `{ routes, events, queues, workers }`
+- Add `schedules: [{ rate, event }]` (crons / EventBridge schedules) — unblocks reusable scheduled-sync extensions.
+- Add User Actions support so extensions can ship pre-built `USER_ACTION` events (e.g. "resync all contacts") that `loadUserActions()` enumerates.
+- Resolve the merge-vs-own question for config options and dynamic options before adding them.
+
 ---
 
 ## Open questions
@@ -484,6 +563,12 @@ Written by API module authors. The declaration is the contract a module exposes 
 6. **Vendor CLI as a first-class concept.** Artifacts may rely on vendor CLIs (`hs`, `slack-cli`, `sf`, `gh`). Should `scaffold.cli` stay a freeform string, or should we standardise a `requiredCLIs` block at the module level so `frigg doctor` can verify installations and version-pin them?
 7. **Capability *types* — open or closed set?** Today's draft enumerates `objects | actions | ui | sync | constraints | ...`. Should the set be closed (defined in the schema, vendor extensions via `x-`), or open (any key allowed)? Closed keeps tooling tractable; open accommodates platforms we haven't seen yet.
 8. **Where does `defaultConfig.json` end and the Capability Declaration begin?** Today's `defaultConfig.json` carries identity metadata (name, label, productUrl, categories). Should `capabilities` live in the same file with a richer `$schema` pointer, or in a separate `capabilities.json` so the existing file stays unchanged? The API class and extensions obviously stay in `definition.js`; only the JSON-serialisable parts of the capability declaration are in play.
+9. **Per-class merged-event cache.** `_mergeExtensions` re-runs every instantiation (every HTTP request, every queue worker run). Pure function of `static Definition.extensions` — cacheable per class at first call. Should land before any extension ships at webhook-firehose volume.
+10. **Worker-side consumption of `getExtensionWorkers`.** Helper is exported but the worker walker is a Phase-2 TODO. Today extension events ride the default per-integration queue worker via `this.events`. Should worker-side consumption land paired with cron/schedule support in the contract, or earlier?
+11. **Declarative `route.middleware: []` seam.** Extensions own their signature verification but there's no declared place to put it. Should we add `middleware: [...]` to the route shape, or keep auth/verification embedded in the handler?
+12. **`IntegrationBase` dependency injection.** Pre-existing TODO on the base class; extensions now inherit it. Repositories are factory'd inline; `findIntegrationByPortalId` continues the `require()`-inside-method pattern. Worth a separate ADR before extension authors hit the same wall.
+13. **Extending the Tier 3 contract.** Beyond `{ routes, events, queues, workers }`, which primitives belong in v1.1? Crons/schedules and user actions are highest-leverage; config options and dynamic options need more discussion (additive across extensions, or integration-owned?).
+14. **Core / API module boundary as a contributor guideline.** The `findIntegrationByPortalId` → `findIntegrationByEntityExternalId` worked example illustrates the rule: core exposes platform-neutral primitives, API modules wrap them in platform vocabulary. Encode as a written guideline, or trust to code review?
 
 ---
 
@@ -502,6 +587,9 @@ Written by API module authors. The declaration is the contract a module exposes 
 - `lefthookhq/frigg-2.0-prototyping/backend/src/integrations/HubSpotIntegration.js`
 - `stack-global--frigg-2.0/backend/src/integrations/HubSpotIntegration.js`
 - `vartopia--frigg-2.0/backend/src/integrations/HubSpotIntegration.js`
+
+### Framework implementation (in flight)
+- [PR #590](https://github.com/friggframework/frigg/pull/590) — Tier 3 framework implementation by Daniel Klotz. Adds `packages/core/integrations/extension.js` (contract + `validateExtensionBinding`, `getExtensionRoutes`, `getExtensionWorkers` helpers), `IntegrationBase._mergeExtensions()` invoked from `initialize()`, route claiming + mounting in `packages/core/handlers/routers/integration-defined-routers.js`, `IntegrationBase.findIntegrationByPortalId()` reverse-lookup helper, instantiation hooks in `loadRouterFromObject` and `createQueueWorker`, plus 69 unit tests and a [`packages/core/integrations/EXTENSIONS.md`](https://github.com/friggframework/frigg/blob/next/packages/core/integrations/EXTENSIONS.md) quickstart.
 
 ### Commits
 - [`69acce55`](https://github.com/friggframework/frigg/commit/69acce55) — `feat(core): add extension system for DB-backed OAuth credentials` (Tier 2 design rationale)
