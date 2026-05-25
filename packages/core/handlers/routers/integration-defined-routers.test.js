@@ -51,6 +51,7 @@ class StubIntegration extends IntegrationBase {
 const startServer = (router) =>
     new Promise((resolve) => {
         const app = express();
+        app.disable('x-powered-by'); // suppress server-version disclosure (Sonar)
         app.use(express.json());
         app.use('/api/stub-integration', router);
         const server = app.listen(0, () => {

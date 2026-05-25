@@ -235,6 +235,34 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
     }
 
     /**
+     * Find all entities matching a filter.
+     *
+     * @param {Object} filter - Filter criteria
+     * @returns {Promise<Array>} Array of entity objects with string IDs (empty if no match)
+     */
+    async findEntities(filter) {
+        const where = this._convertFilterToWhere(filter);
+        const entities = await this.prisma.entity.findMany({
+            where,
+        });
+
+        const credentialIds = entities
+            .map((e) => e.credentialId)
+            .filter(Boolean);
+        const credentialMap = await this._fetchCredentialsBulk(credentialIds);
+
+        return entities.map((e) => ({
+            id: e.id,
+            credential: credentialMap.get(e.credentialId) || null,
+            userId: e.userId,
+            name: e.name,
+            externalId: e.externalId,
+            moduleName: e.moduleName,
+            ...(e.data || {}),
+        }));
+    }
+
+    /**
      * Create a new entity
      * Replaces: Entity.create(entityData)
      *

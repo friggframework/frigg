@@ -104,10 +104,15 @@ module.exports = {
                 // verify signature, look up integration by portalId, queue
                 await verifyHubSpotSignature(req);
                 for (const evt of req.body) {
-                    const integrationId = await this.findIntegrationByPortalId(
-                        evt.portalId,
-                        'hubspot'
-                    );
+                    // Core helper is generic; the extension wraps it in
+                    // HubSpot vocabulary for its own readability:
+                    //   findIntegrationByPortalId(portalId) =
+                    //     findIntegrationByEntityExternalId(portalId, 'hubspot')
+                    const integrationId =
+                        await this.findIntegrationByEntityExternalId(
+                            evt.portalId,
+                            'hubspot'
+                        );
                     if (!integrationId) continue;
                     await this.queueWebhook({
                         integrationId,
@@ -155,15 +160,47 @@ At `initialize()`, the framework validates each binding:
 
 Validation failures throw at boot with a message identifying the integration, binding, and field.
 
-## Reverse-lookup helper
+## Reverse-lookup helpers
 
-For app-level webhooks (HubSpot, Slack, etc.) where one URL serves many accounts, extension default handlers commonly need to resolve the inbound external ID (portalId, team_id, workspace_id) to a Frigg integration record. Use the inherited helper:
+For app-level webhooks (HubSpot, Slack, Asana, Microsoft Teams, etc.) where one URL serves many accounts, extension default handlers need to resolve the inbound external ID (HubSpot `portalId`, Slack `team_id`, Asana `workspace_id`, Teams `tenant_id`) to a Frigg integration record. Two inherited helpers:
 
 ```javascript
-const integrationId = await this.findIntegrationByPortalId(externalId, 'hubspot');
+// Throws on ambiguous resolution. Use when one externalId is expected
+// to map to exactly one integration.
+const integrationId = await this.findIntegrationByEntityExternalId(
+    externalId,
+    'hubspot' // optional moduleName
+);
+
+// Returns array. Use when one externalId may legitimately fan out to
+// multiple integrations (e.g. one upstream account broadcasting to
+// several Frigg integration records).
+const integrationIds = await this.listIntegrationsByEntityExternalId(
+    externalId,
+    'hubspot'
+);
 ```
 
-Returns the integration ID (or `null`) for the first matching entity. The second arg disambiguates when multiple modules in the same app could carry colliding external IDs.
+`findIntegrationByEntityExternalId` throws if:
+- the (externalId, moduleName) tuple matches more than one Entity row, OR
+- the matched entity is owned by more than one Integration record
+
+A silent first-match at either layer is a cross-tenant routing risk; the helper refuses to pick. The second argument (moduleName) disambiguates when multiple modules in the same app could carry colliding external IDs — pass it whenever an api-module knows its own moduleName.
+
+### Where platform-named wrappers belong
+
+The core helpers are intentionally platform-neutral. Platform-vocabulary wrappers (`findIntegrationByPortalId`, `findIntegrationByTeamId`, `findIntegrationByWorkspaceId`, etc.) belong **inside the api-module's own extension**, not in core:
+
+```javascript
+// inside @friggframework/api-module-hubspot/extensions/webhooks
+async function findIntegrationByPortalId(portalId) {
+    // thin wrapper — reads as self-documenting HubSpot code,
+    // delegates to the platform-neutral core primitive
+    return this.findIntegrationByEntityExternalId(portalId, 'hubspot');
+}
+```
+
+This keeps core platform-neutral and reusable while keeping the api-module code self-documenting for the platform's developers. The same rule applies to any helper that can be named in a single platform's vocabulary.
 
 ## See also
 
