@@ -434,6 +434,19 @@ class IntegrationBase {
         // Default: no-op, integrations override this
     }
 
+    /**
+     * Queue a webhook for asynchronous worker dispatch.
+     *
+     * The dispatch event defaults to `ON_WEBHOOK` for backward compatibility
+     * with the `Definition.webhooks: true` path. Extensions (and any caller
+     * that needs the worker to invoke a specific bound handler) can override
+     * by passing `event` in the payload — it's stripped from the payload and
+     * used as the SQS message's dispatch event.
+     *
+     * @param {Object} data - Webhook payload. May include `event` to override
+     *   the default `ON_WEBHOOK` dispatch event. All other fields are passed
+     *   through to the worker as the `data` field of the SQS message.
+     */
     async queueWebhook(data) {
         const { QueuerUtil } = require('../queues');
 
@@ -446,10 +459,12 @@ class IntegrationBase {
             throw new Error(`Queue URL not found for ${queueName}`);
         }
 
+        const { event: dispatchEvent, ...payload } = data || {};
+
         return QueuerUtil.send(
             {
-                event: 'ON_WEBHOOK',
-                data,
+                event: dispatchEvent || 'ON_WEBHOOK',
+                data: payload,
             },
             queueUrl
         );
