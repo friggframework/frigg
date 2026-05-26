@@ -30,7 +30,33 @@ A fourth, optional responsibility:
 
 4. **MCP server fallback** — for agents that don't run inside Claude Code (e.g. CLI tools, CI agents, IDE integrations), the harness exposes the same content as an MCP server. The agent reads capabilities and ontology via `mcp__frigg-harness__get_capabilities()` and `mcp__frigg-harness__get_ontology()` tool calls instead of receiving them in the system prompt. Same content, different transport.
 
-The harness is Node-based, shipped from the same monorepo as the rest of the framework. It depends on `@friggframework/core` (for `resolveCapabilities`) and `@friggframework/ontology` (for `compileContext`).
+The harness is Node-based, shipped from the same monorepo as the rest of the framework. It depends on `@friggframework/core` (for `resolveCapabilities`), `@friggframework/ontology` (for `compileContext`), and the shared `@freyaframework/friction` package (see [Shared friction pipeline](#shared-friction-pipeline) below).
+
+### Lifecycle taxonomy
+
+The harness's touchpoints map onto the 9-phase agent lifecycle Freya specifies in [their ADR-008](https://github.com/lefthookhq/freya/blob/main/docs/adr/008-harness-hooks-layer.md). Adopting that taxonomy as the conceptual model gives every Frigg concern an obvious home and aligns with the substrate we co-own — but Frigg's harness does *not* implement its own runtime. Most phases resolve to either a Claude Code hook or a skill convention.
+
+| Phase | What it covers | How Frigg implements |
+|---|---|---|
+| `pre_turn` (parent) | Ontology + capability injection at session start | Claude Code SessionStart hook → emits the `<FRIGG-HARNESS-CONTEXT>` block |
+| `pre_turn` (subagent) | Same block inherited by spawned subagents | Claude Code SubagentStart hook — the central infrastructure decision in this ADR |
+| `pre_context` | Last chance to mutate context before LLM call | Folded into SessionStart in Frigg's model — the harness builds the full block once at session start; Claude Code owns the rest of context assembly |
+| `pre_llm` / `post_llm` | Per-LLM-call wrap (budget, caching, etc.) | Not implemented by Frigg's harness; defer to Claude Code's native LLM observability |
+| `pre_tool` / `post_tool` | Per-tool-call wrap (capability invariant checks, friction emission on untyped tool output) | Implemented as **port decorators** in adopter integration code (see decorator-vs-hook framing below), not as new Claude Code hooks |
+| `pre_capture` | Validation pass before output is finalized | The recommended validation subagent pattern from [ADR-ONTOLOGY-LAYERS](./ADR-ONTOLOGY-LAYERS.md) — invoked by skills at high-stakes decision points, not a global hook |
+| `post_capture` | Friction emission, telemetry | Direct API calls from skills / handlers into the shared friction pipeline |
+| `post_turn` | Cleanup, audit | Claude Code Stop hook if needed; minimal in v1 |
+
+**Decorators vs hooks** (also borrowed from Freya ADR-008):
+
+- **Decorators wrap ports.** Structural concerns that belong on the port itself — e.g. a capability invariant check that wraps an integration's tool execution, or input sanitization on Frigg's `Api` classes. JavaScript/TypeScript wrapping patterns over `IntegrationBase` / `Api`.
+- **Hooks punctuate the lifecycle.** Cross-cutting concerns that need a specific phase but don't belong on any one port — ontology block injection, the validation pass, friction emission. These are Claude Code hooks where the lifecycle exposes them, skill conventions everywhere else.
+
+The two compose orthogonally: a `pre_tool` decorator validates the call shape; a (hypothetical) `pre_tool` hook would emit telemetry around the same call. Frigg's v1 uses decorators for per-tool concerns and Claude Code hooks only at the two boundaries the lifecycle actually exposes (`pre_turn` parent + subagent).
+
+### Shared friction pipeline
+
+Friction emission and ontology PR proposals (per [ADR-ONTOLOGY-LAYERS](./ADR-ONTOLOGY-LAYERS.md)) ship as a **shared `@freyaframework/friction` package** consumed by both Frigg and Freya (decided 2026-05-26). Frigg's harness depends on the package and invokes its API at `post_capture` / `post_tool` touchpoints. The detailed surface — what Frigg consumes in v1, what it defers, and the non-negotiable guardrails — lives in ADR-ONTOLOGY-LAYERS to keep all friction discussion in one place.
 
 ---
 

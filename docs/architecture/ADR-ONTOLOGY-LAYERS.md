@@ -210,27 +210,59 @@ Engineers building agent harnesses or skills that act on the compiled ontology s
 
 1. Spawn a subagent with the same compiled ontology block the parent agent received (the [ADR-AGENT-HARNESS](./ADR-AGENT-HARNESS.md) SubagentStart hook makes this automatic — the subagent inherits the parent's pinned block).
 2. Hand it the parent agent's plan, proposed action, or generated output as material to review.
-3. Instruct the subagent explicitly: *"Review the input against the ontology block. Flag every constraint, locked rule, or pattern preference that the input violates or is at risk of violating. If the input is consistent with the ontology, say so explicitly. If the ontology is ambiguous or doesn't cover the case, flag that too — do not fill the gap from your own priors."*
+3. Instruct the subagent explicitly: *"Review the input against the ontology block. For each claim or proposed action, classify it as one of: VALID (consistent with the ontology), FIXABLE (uses wrong terminology for a known concept — provide the correction), or FRICTION (the ontology is ambiguous, conflicting, or doesn't cover the case)."*
 
-The validation pass is a recommendation, not a mandate. Cost: one extra subagent invocation per checkpoint. Benefit: catches ontology violations the parent agent missed and surfaces ambiguity the parent agent papered over. Engineers calibrate frequency to the stakes — every plan for irreversible actions, periodic spot-checks for routine work, skip entirely for low-risk read-only tasks.
+The validation pass returns a typed result with a discriminated-union shape borrowed verbatim from Freya's `OntologyValidationService` ([Freya ADR-002](https://github.com/lefthookhq/freya/blob/main/docs/adr/002-ontology-validation-loop.md), reaffirmed in [Freya ADR-009 Phase 13C](https://github.com/lefthookhq/freya/blob/main/docs/adr/009-friction-pipeline-and-ontology-pr-proposals.md)):
 
-The validation subagent's findings feed into the friction-capture loop described next.
+```
+{ kind: "valid" }
+{ kind: "fixable",  correctionPrompt: string }
+{ kind: "friction", events: FrictionEvent[] }
+```
+
+- **VALID** → continue.
+- **FIXABLE** → request a correction (the parent agent re-runs with the suggestion). Capped at a small retry count (default 2) to bound cost.
+- **FRICTION** → emit the events into the shared friction pipeline (see next subsection); do not block the parent agent.
+
+This is a recommendation, not a mandate. Cost: one extra subagent invocation per checkpoint, plus 0–2 LLM calls for FIXABLE corrections. Benefit: catches ontology violations the parent missed, surfaces ambiguity the parent papered over, and feeds the bottom-up evolution loop. Engineers calibrate frequency to the stakes — every plan for irreversible actions, periodic spot-checks for routine work, skip entirely for low-risk read-only tasks.
 
 ### Friction capture and ontology evolution
 
 The ontology improves over time only if there is a mechanism to capture where it failed — entries that were ambiguous in context, rules that didn't generalize, gaps the agent had to fill from priors, cases where two layers' guidance pulled in opposite directions. Without that feedback, the ontology rots the way long-form docs rot: the people writing know what they meant, the people reading don't, and the gap goes silent.
 
-**Friction sources:**
-- Validation subagent flags (per the recommended pattern above): every "ambiguous," "not covered," or "conflict with another rule" emission.
+**Frigg adopts Freya's friction pipeline** ([Freya ADR-009](https://github.com/lefthookhq/freya/blob/main/docs/adr/009-friction-pipeline-and-ontology-pr-proposals.md)) as a **shared `@freyaframework/friction` package** consumed by both frameworks (decided 2026-05-26). The package owns the canonical types, ports, and pipeline shape; Frigg consumes it directly rather than running a parallel implementation. The shape is right; the surface needs trimming for v1 (see below).
+
+**Friction sources** (where events originate in a Frigg session):
+- Validation subagent FRICTION classification (per the previous subsection): the discriminated-union return emits `FrictionEvent[]` directly into the pipeline.
 - Agent self-reports during work: explicit instruction in the compiled block tells the agent to surface friction inline rather than silently route around it.
 - Code review: reviewers tag PR comments with an ontology-friction label when they catch a violation the agent didn't catch.
-- Post-mortems on miss-cases from [ADR-EVALS](./ADR-EVALS.md): every eval miss is a friction signal.
+- Eval miss-cases from [ADR-EVALS](./ADR-EVALS.md): every eval miss is a friction signal.
 
-Friction is captured by tooling that lives alongside the ontology (specific tool TBD; see [Open question 9](#open-questions)). Each capture records: which entry (if any) was implicated, what the agent was trying to do, the nature of the friction (ambiguity / conflict / gap / staleness), what the agent did instead, and a free-text note. Captures are durable, queryable, and tied back to the ontology version in use at the time.
+**v1 surface Frigg consumes** from `@freyaframework/friction`:
+- **Typed `FrictionEvent`** with a starting signal catalogue of six: the four ADR-002 validator signals (`unknown_entity`, `unknown_property`, `invalid_value`, `missing_relationship`) plus `tool_output_untyped` and `repeated_disambiguation`, which match patterns observed in integration work. The full ten-signal catalogue from Freya ADR-009 is supported by the package; Frigg adds the remaining detectors (`polymorphic_property`, `conflicting_facts`, `vector_miss`, `low_confidence_drop`) as the relevant code paths land.
+- **`OntologyVcsPort` + `GitHubOntologyVcsAdapter`** — friction proposals become real PRs against the ontology repo. Matches Frigg's YAML-files-in-git ontology shape directly; PR review is the loop closure.
+- **`OntologyValidationService` with the discriminated-union return** consumed by the validation subagent above.
+- **Threshold + cross-agent corroboration + decay** before promoting a cluster to a PR.
 
-**The backlog of captured friction is the maintenance trigger.** Rather than "someone notices the ontology is wrong and edits it," the loop is: agent encounters friction → tool logs it → reviewer triages the backlog → high-signal items become ontology edits. This is the explicit mechanism that addresses the maintenance concern in [Consequences → Negative](#negative) — prior ontology authoring work has shown a pattern where seed content commits but ongoing edits stall; the friction loop is the named defense against that pattern.
+**v1 surface Frigg defers** (kept on the Freya ADR-009 roadmap, marked Phase 2+ in the package):
+- `MigrationPlan` and `backwardsCompatible` flagging — Frigg's ontology is YAML files in git; "migration" is "merge the PR" and CI runs `ontology validate-layer` against the proposed state. No structured plan required.
+- Persisted `FrictionCluster` as a separate entity — clusters are derivable from events + decay; v1 computes them on-demand rather than persisting them.
+- `confidence: 0..1` numeric field on patches — replaced with `evidenceCount`; humans judge.
+- Per-scope thresholds tuned to specific numbers — defer until real friction data exists to tune against.
+- Multiple separate detection hooks (`RecallAnnotatorHook`, `SupersedePatternHook`, `DisambiguationCounterHook`, etc. from ADR-009) — collapse to one `FrictionDetectorHook` with internal dispatch.
+- Eight separate domain event types — collapse to the three that are load-bearing (`ontology.friction_detected`, `ontology.patch_proposed`, `ontology.patch_merged`).
+- Scheduled aggregator service via `@freyaframework/routines` — v1 checks threshold on each event append; revisit if append-time cost gets high.
 
-The friction loop is what turns a static doc into an evolving artifact. It is also what justifies investing in the higher-density layers (L3, L4) at all — those layers are sustainable only when there is a low-friction way to update them as the world changes.
+**Guardrails (non-negotiable, lifted verbatim from Freya ADR-009):**
+1. **Detection is harness-side, not agent-side.** The agent's context never includes friction events or proposed patches. The agent is never told "your last action caused friction" — to prevent feedback-loop gaming.
+2. **Merge requires human approval.** No autopatch, ever, even at confidence 1.0 with purely additive changes. The ontology owner approves; CI runs `ontology validate-layer` against the proposed state.
+3. **Patch decay.** Open proposals expire after a configurable period (default 30 days); the shape returns to the pool and must re-cross threshold to surface again.
+4. **Rejection feedback.** When an owner rejects with a reason, the shape is suppressed for a configurable cooldown (default 90 days). Rejection reason is stored and shown if the shape resurfaces.
+5. **Cross-tenant isolation by construction.** Friction events carry a tenant identifier (the adopter project); clusters are scoped to one tenant. Friction from one adopter never feeds another's evolution.
+
+**The backlog of captured friction is the maintenance trigger.** Rather than "someone notices the ontology is wrong and edits it," the loop is: agent encounters friction → pipeline logs it → threshold + corroboration produce a cluster → proposer drafts a patch → `OntologyVcsPort` opens a PR → human reviews / approves / merges → ontology evolves. This is the explicit mechanism that addresses the maintenance concern in [Consequences → Negative](#negative) — prior ontology authoring work has shown a pattern where seed content commits but ongoing edits stall; the friction loop is the named defense.
+
+**Positioning.** This is **bottom-up *schema* synthesis** — the structural inverse of Hermes-style bottom-up *procedure* synthesis (skills). Same observed-from-real-use evolution pattern, applied to the typed ontology that describes the codebase rather than to the procedures that act on it. The play Frigg can make: it has the typed ontology, the PR-tracked source of truth, and the harness substrate that makes harness-side-only detection enforceable. No other integration framework can ship this combination.
 
 ### Relationship to integration capabilities
 
@@ -400,7 +432,7 @@ Implement the friction-capture surface described in [Friction capture and ontolo
 
 8. **Schema compatibility with future open-source frameworks.** If a community framework matching this design emerges, we want to swap implementations without re-authoring YAML. Keep the schema deliberately minimal and well-documented so a future migration is mechanical, not conceptual.
 
-9. **Friction-capture tooling — name and home.** Should the friction surface be a CLI in `@friggframework/ontology` (`ontology friction add | list | triage`), a standalone service, or part of an existing observability stack? Lean: start as `ontology friction` subcommands so the friction artifacts live alongside the ontology they describe; revisit if a separate observability use case emerges. There is referenced upstream tooling for this loop that this ADR currently treats abstractly — name it explicitly once selected.
+9. **Shared friction package — confirm trimmed v1 surface with Freya.** The friction pipeline ships as a shared `@freyaframework/friction` package consumed by both Frigg and Freya (decided 2026-05-26 — see [Friction capture and ontology evolution](#friction-capture-and-ontology-evolution) for the consumed and deferred surfaces). Open piece: revise [Freya ADR-009](https://github.com/lefthookhq/freya/blob/main/docs/adr/009-friction-pipeline-and-ontology-pr-proposals.md) to mark the items Frigg defers as Phase 2+ on the package roadmap rather than v1 must-haves, so the package doesn't ship pieces neither v1 needs. Cross-framework alignment work, not a Frigg-internal decision.
 
 10. **Module-exported ontology rollout cadence.** New api modules ship with `ontology/` directories from day one; existing modules are retrofitted incrementally. When the compiler encounters a module without an `ontology/` directory, should it (a) silently skip, (b) emit a warning (lean), or (c) hard-fail to force retrofit before adoption? Lean: warn — creates pressure on the rollout without blocking. Revisit once a meaningful fraction of the library has been retrofitted.
 
