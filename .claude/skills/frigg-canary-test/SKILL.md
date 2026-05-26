@@ -1,6 +1,6 @@
 ---
 name: frigg-canary-test
-description: Test a Frigg core canary version end-to-end against a minimal Frigg backend harness backed by a real PostgreSQL database. Use when verifying a published @friggframework/core canary build, validating an integration use case (e.g. FRI-498 find-integration-context), or inspecting the real shape of persisted records.
+description: Test a Frigg core canary version end-to-end against a minimal Frigg backend harness backed by a real PostgreSQL database. Use when verifying a published @friggframework/core canary build, validating an integration use case, or inspecting the real shape of persisted records.
 ---
 
 # Frigg Canary Test
