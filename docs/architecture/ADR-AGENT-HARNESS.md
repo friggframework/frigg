@@ -89,7 +89,7 @@ module.exports = {
     ontologyRoot: 'git+https://github.com/friggframework/frigg@v0.3.1#ontology',
 
     // Domains to compile. Drives layer selection; not every layer applies to every task.
-    domains: ['integrations', 'vendor/quo'],
+    domains: ['integrations', 'vendor/hubspot'],
 
     // Token budget for the compiled context block.
     // Higher = more comprehensive; lower = leave room for task content.
@@ -115,7 +115,7 @@ Sensible defaults exist for every field; a minimal config is one line (`module.e
 
 Single-integration adopter repos: trivial — `activeIntegration: 'auto-from-cwd'` matches the only file under `backend/src/integrations/`.
 
-Multi-integration repos like `lefthookhq/quo--frigg`: the harness inspects, in order:
+Multi-integration adopter repos: the harness inspects, in order:
 1. Explicit `activeIntegration` in config (highest priority).
 2. Current git branch name — if it matches `(feature|fix|claude)/<vendor>-<rest>`, treat `<vendor>` as the active integration (e.g. `claude/pipedrive-add-resync-action` → `PipedriveIntegration`).
 3. Current working directory — if cwd is under `backend/src/integrations/<Name>/` or files in cwd are mostly about one integration, infer it.
@@ -137,7 +137,7 @@ A single XML-tagged block with two sub-blocks, prepended to the session's system
     blockHash="sha256:7f8a..."
     task="pipedrive-add-resync-action">
 
-  <ONTOLOGY domains="integrations,vendor/quo" maxTokens="2000">
+  <ONTOLOGY domains="integrations,vendor/hubspot" maxTokens="2000">
     <!-- compiled L1+L2+L3 layers from @friggframework/ontology -->
     <!-- LOCKED-CONSTRAINT entries clearly framed -->
     <!-- retrieve_from pointers rendered as natural-language fetch instructions -->

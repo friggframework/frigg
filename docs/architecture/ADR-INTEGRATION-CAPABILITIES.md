@@ -18,7 +18,7 @@ That ADR scopes capabilities to the **API module**. It does not address the laye
 
 Today, none of this is declared. The integration's `static Definition` carries `name`, `version`, `modules`, `routes`, `webhooks`, and `display` — but the *meaning* of the integration is implicit in its code. An agent (or a new developer) cannot enumerate what an integration does without reading every method on the class and every entry the constructor wires into `this.events`.
 
-This gap has already produced bugs. The May 24–25, 2026 `#dev-feed` thread surfaced the `PipedriveIntegration` definition declaring four routes (`/uninstall`, `GET /settings`, `PUT /settings`, `POST /admin/run-script`); on review, only `/uninstall` is a genuine route that needs to exist. The `/settings` pair manages a per-tenant preference (`callActivityDestination: 'deal' | 'lead' | 'all'`) and should ride Frigg's existing `getConfigOptions()` + `PATCH /api/integrations/:integrationId` surface — Quo's frontend already uses that pattern for phone-number selection. The `/admin/run-script` route is a user-invoked action and should ride the `USER_ACTION` event registry plus the framework's existing `/api/integrations/:id/actions/...` surface. The integration's `static Definition` gave no way to express the intent of each route, so the wrong shapes accumulated without anyone catching it before the routes shipped.
+This gap has already produced bugs. The May 24–25, 2026 `#dev-feed` thread surfaced a `PipedriveIntegration` definition declaring four routes (`/uninstall`, `GET /settings`, `PUT /settings`, `POST /admin/run-script`); on review, only `/uninstall` is a genuine route that needs to exist. The `/settings` pair manages a per-tenant preference (`callActivityDestination: 'deal' | 'lead' | 'all'`) and should ride Frigg's existing `getConfigOptions()` + `PATCH /api/integrations/:integrationId` surface — the adopter's frontend already uses that pattern for similar settings. The `/admin/run-script` route is a user-invoked action and should ride the `USER_ACTION` event registry plus the framework's existing `/api/integrations/:id/actions/...` surface. The integration's `static Definition` gave no way to express the intent of each route, so the wrong shapes accumulated without anyone catching it before the routes shipped.
 
 This ADR proposes an **integration-level Capability Declaration** that mirrors the API module pattern from [ADR-EXTENSIONS](./ADR-EXTENSIONS.md), extended with:
 
@@ -69,7 +69,7 @@ capabilities: [
       auth: 'none',                                                // credential carrier accepted
       requires: [                                                  // methods the concrete class must implement
         'fetchPersonPage',
-        'transformPersonToQuo',
+        'transformPersonToDestination',
         'fetchPersonsByIds',
       ],
       events: [
@@ -164,7 +164,7 @@ Vendor-namespaced surfaces (`vendor-webhook`, `vendor-namespaced`) are reserved 
 - **`vendor-webhook`** — the external system pushes events Frigg didn't initiate, and signature validation (not user credentials) gates entry. Mounted by the framework's webhook router under `/api/<integration-name>-integration/webhooks[/...]` when `Definition.webhooks.enabled === true`
 - **`vendor-namespaced`** — vendor-side caller needs a stable endpoint outside the default `/api/...` shape, *not* a webhook (the Pipedrive `/uninstall` route is the closest current example, and even that should probably move under the webhook router)
 
-The smell to watch for: a capability declared `vendor-namespaced` (or with a vendor-prefixed path under an otherwise-default mount) where the consumer *could* have used a `default` surface if the route shape had been chosen differently. The Pipedrive `/settings` smell from the May 25 thread is exactly this — the consumer is Quo's frontend (which carries a Bearer token), and the existing `getConfigOptions()` machinery already handles the use case.
+The smell to watch for: a capability declared `vendor-namespaced` (or with a vendor-prefixed path under an otherwise-default mount) where the consumer *could* have used a `default` surface if the route shape had been chosen differently. The Pipedrive `/settings` smell from the May 25 thread is exactly this — the consumer is an adopter frontend (which carries a Bearer token), and the existing `getConfigOptions()` machinery already handles the use case.
 
 ---
 
@@ -192,7 +192,7 @@ The set is **enumerated but extensible**. Vendor-specific primitives are added v
 
 ## Inheritance and resolution
 
-Capabilities declared on a base class apply to every subclass without redeclaration. `IntegrationBase.Definition.capabilities` declares the foundational set (the lifecycle hooks the constructor wires up); adopter base classes such as `BaseCRMIntegration` (in `lefthookhq/quo--frigg`) or `BaseOutboundIntegration` (in `lefthookhq/aes--frigg`) declare their domain capabilities in those repos; concrete integration classes only declare what's *new or overridden*.
+Capabilities declared on a base class apply to every subclass without redeclaration. `IntegrationBase.Definition.capabilities` declares the foundational set (the lifecycle hooks the constructor wires up); adopter base classes (e.g. a `BaseCRMIntegration` for a CRM-aggregator project, or a `BaseOutboundIntegration` for a one-way push project) declare their domain capabilities in their own repos; concrete integration classes only declare what's *new or overridden*.
 
 Resolution walks the prototype chain. A helper exposed on the framework returns the merged view:
 
@@ -201,7 +201,7 @@ const { resolveCapabilities } = require('@friggframework/core');
 
 const capabilities = resolveCapabilities(PipedriveIntegration);
 // Returns: [ ...IntegrationBase capabilities,
-//            ...BaseCRMIntegration capabilities (declared in quo--frigg),
+//            ...BaseCRMIntegration capabilities (declared in an adopter project),
 //            ...PipedriveIntegration own capabilities (with override blocks applied) ]
 ```
 
@@ -325,7 +325,7 @@ This composition is what lets an agent answer "what does this integration do?" w
 
 ## Worked example: PipedriveIntegration
 
-The current `PipedriveIntegration.Definition` in `lefthookhq/quo--frigg` (`backend/src/integrations/PipedriveIntegration.js` as of the default branch) declares four routes:
+A real `PipedriveIntegration.Definition` from an adopter project (`backend/src/integrations/PipedriveIntegration.js`) declares four routes:
 
 ```js
 // CURRENT
@@ -358,13 +358,13 @@ static Definition = {
 
     display: {
         label: 'Pipedrive',
-        description: 'Pipeline management platform integration with Quo API',
+        description: 'Pipeline management platform integration with destination system',
         category: 'CRM & Sales',
     },
 
     modules: {
         pipedrive: { definition: pipedrive.Definition },
-        quo:       { definition: { ...quo.Definition, getName: () => 'quo-pipedrive', moduleName: 'quo-pipedrive' } },
+        destination: { definition: { ...destination.Definition, getName: () => 'destination-pipedrive', moduleName: 'destination-pipedrive' } },
     },
 
     // Only the uninstall route survives. The other three are folded into
@@ -428,10 +428,10 @@ static Definition = {
 };
 ```
 
-**Inherited from `BaseCRMIntegration.Definition.capabilities`** (declared in `lefthookhq/quo--frigg`'s base class, not this file, and resolved automatically):
+**Inherited from `BaseCRMIntegration.Definition.capabilities`** (declared in the adopter project's base class, not this file, and resolved automatically):
 - `crm.initialContactSync` — `surface: internal`, `auth: none`
 - `crm.ongoingContactSync` — `surface: internal` + a sibling `webhookHandler` capability for the inbound path
-- `crm.outboundSmsLogging`, `crm.outboundCallLogging` — `surface: internal`, invoked from Quo activity events
+- `crm.outboundSmsLogging`, `crm.outboundCallLogging` — `surface: internal`, invoked from destination-system activity events
 - `crm.processStateTracking` — `surface: internal`
 
 **Inherited from `IntegrationBase.Definition.capabilities`** (declared in the framework):
@@ -458,7 +458,7 @@ static Definition = {
 
 ### Negative
 
-- **Migration is multi-repo, multi-PR**. Phase 2 (framework `IntegrationBase`) lands in `friggframework/frigg`. Phase 2.5 (adopter base classes) lands in `lefthookhq/quo--frigg` etc., owned by adopter teams on adopter release cadences. Concrete integration migrations (Phase 5) cannot start until both Phase 2 and Phase 2.5 of the relevant base have landed.
+- **Migration is multi-repo, multi-PR**. Phase 2 (framework `IntegrationBase`) lands in `friggframework/frigg`. Phase 2.5 (adopter base classes) lands in adopter repos, owned by adopter teams on adopter release cadences. Concrete integration migrations (Phase 5) cannot start until both Phase 2 and Phase 2.5 of the relevant base have landed.
 - **Version-skew risk**. If an adopter picks up a schema bump (transitive via devtools) without the matching `@friggframework/core` resolver, a Definition with a `capabilities` array could hit a missing-resolver path. Mitigation: `resolveCapabilities` is feature-detected (soft no-op when not present); `validateCapabilityImplementation` is opt-in via CLI, **not** wired into `initialize()`.
 - **Authoring discipline**. Authors must learn the primitive taxonomy, the `surface` / `auth` split, and the description-is-purpose rule. Mitigated by lint feedback and by the `frigg-create-integration` skill producing the right shape from the start.
 - **Schema becomes load-bearing**. Today's `packages/schemas/integration-definition.schema.json` has zero consumers (per the schema audit during this design conversation). This ADR changes that — `frigg validate` enforces the schema, capability resolution depends on it, CI on at least one adopter repo runs the lint before Phase 5 can begin.
@@ -526,31 +526,31 @@ This ADR is the schema and resolver. Tooling that consumes it is covered in the 
 ### Phase 2.5 — Adopter base classes (adopter repos, not friggframework/frigg)
 
 This phase is owned by adopter teams in their own repos:
-- `lefthookhq/quo--frigg/backend/src/base/BaseCRMIntegration.js` gains `static Definition.capabilities` for the CRM set (initial sync, ongoing sync, outbound logging, process state tracking).
-- `lefthookhq/aes--frigg/backend/src/base/BaseOutboundIntegration.js` gains its own equivalent.
-- Other adopter base classes follow.
+- The adopter's `backend/src/base/BaseCRMIntegration.js` (or domain-equivalent base class) gains `static Definition.capabilities` for the relevant domain set (e.g. for a CRM-aggregator: initial sync, ongoing sync, outbound logging, process state tracking).
+- One-way push adopters gain their own `BaseOutboundIntegration.Definition.capabilities` equivalent.
+- Other adopter base classes follow the same pattern.
 
 These are not framework deliverables. The framework provides the schema, resolver, and lint; adopter teams declare their own domain capabilities using them.
 
 ### Phase 3 — Canary migration (Pipedrive)
 
-- Migrate `PipedriveIntegration` in `lefthookhq/quo--frigg` to the new shape per the worked example above.
+- Migrate a real `PipedriveIntegration` in a canary adopter project to the new shape per the worked example above.
 - Move `callActivityDestination` from a dedicated route into `getConfigOptions()`.
 - Move `/admin/run-script` into the `USER_ACTION` event registry (event type change + capability declaration).
 - Delete the routes that no longer have backing capabilities.
 
-**Gate**: Phase 2 (framework) and Phase 2.5 (`BaseCRMIntegration` in quo--frigg) both landed.
+**Gate**: Phase 2 (framework) and Phase 2.5 (the canary adopter's base classes) both landed.
 
 ### Phase 4 — `frigg validate` extension + CI enforcement
 
 - Extend the existing CLI to validate integration-level capability declarations, verify cross-references (`implementedBy.modules` keys exist in `Definition.modules`; `implementedBy.extensions` keys exist in `Definition.extensions`; `implementedBy.artifacts` resolve via the API module's declared artifacts), and confirm the `requires` static check.
-- CI on `lefthookhq/quo--frigg` runs `frigg validate` on PR. Other adopter repos opt in.
+- CI on the canary adopter repo runs `frigg validate` on PR. Other adopter repos opt in.
 
 **Gate**: Phase 5 cannot start until this is running on at least one adopter repo.
 
 ### Phase 5 — Rolling migration
 
-- Migrate remaining integrations across `lefthookhq/quo--frigg`, `lefthookhq/aes--frigg`, `lefthookhq/faulkners-nursery--frigg`, `lefthookhq/frontify--frigg`, `lefthookhq/clyde--frigg`. Each integration gains a `capabilities` array; legacy fields stay until the integration's next refactor.
+- Migrate remaining integrations across participating adopter projects. Each integration gains a `capabilities` array; legacy fields stay until the integration's next refactor.
 
 **Gate**: Eval falsification criteria from [ADR-EVALS](./ADR-EVALS.md) not yet failed. If the capability-only condition shows <8pp lift at Sonnet OR Haiku scores <70% on all-three-enabled, Phase 5 is paused and the design is revisited.
 

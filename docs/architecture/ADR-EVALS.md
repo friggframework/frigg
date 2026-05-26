@@ -75,7 +75,7 @@ Specific tasks for v1 (revisable per [Open question 1](#open-questions)):
 
 1. **(generic)** Add a new `userAction` capability to a `FixtureCRMIntegration` — exercise the discovery of `USER_ACTION` event registration vs declaring a new route.
 2. **(generic)** Implement a `webhookHandler` capability for a new event on the fixture integration — verify the agent routes to the framework's webhook router, not a new vendor-prefixed surface.
-3. **(generic)** Implement the required hooks (`fetchPersonPage`, `transformPersonToQuo`, etc.) on a fresh `BaseCRMIntegration` subclass — verify the agent reads `requires` and produces all five methods.
+3. **(generic)** Implement the required hooks (`fetchPersonPage`, `transformPersonToDestination`, etc.) on a fresh `BaseCRMIntegration` subclass — verify the agent reads `requires` and produces all five methods.
 4. **(generic)** Migrate a legacy integration Definition (pre-capability shape) to the new shape — verify the agent identifies dead routes and folds settings into `getConfigOptions()`.
 5. **(generic)** Add an `apiProxy` capability backed by the v2 proxy endpoint (once available) — verify the agent doesn't reach for a new vendor-namespaced route.
 6. **(real-bug)** The Pipedrive `/settings` smell — given a Definition that declares `GET /pipedrive/settings`, identify the smell and propose the `getConfigOptions()` migration. The "correct" diff is structured and scorable.
@@ -167,15 +167,15 @@ The eval rig has three layers of ownership, matching the architecture decisions 
     ├── tasks/adversarial/: 2 locked-constraint pressure tests
     └── fixtures/: FixtureCRMIntegration, FixtureSettingsPanelIntegration, ...
 
-lefthookhq/quo--frigg/evals/  (adopter repo, optional)
-    ├── tasks/: real-Pipedrive, real-Attio, etc. tasks
+<adopter-repo>/evals/  (adopter repo, optional)
+    ├── tasks/: real-vendor-specific tasks
     └── frigg-evals.config.ts: pins to @friggframework/evals scorers + fixtures
 
-lefthookhq/aes--frigg/evals/  (adopter repo, optional)
-    └── tasks/: real-Salesforce tasks
+<another-adopter-repo>/evals/  (adopter repo, optional)
+    └── tasks/: other real-vendor tasks
 ```
 
-**Framework eval** uses fixture integrations. Generalization claim: the design works on Frigg-shaped code, not just on `lefthookhq/quo--frigg`'s code. No adopter-specific bias.
+**Framework eval** uses fixture integrations. Generalization claim: the design works on Frigg-shaped code generally, not just on any one adopter project's code. No adopter-specific bias.
 
 **Adopter evals** use real integrations. Demonstrative claim: the same rig works against production codebases, and the design's lift survives adopter-specific complexity. Imported scorers from `@friggframework/evals`; only the tasks are repo-specific.
 
@@ -244,7 +244,7 @@ Falsification criteria check:
 - **Adopter-portable.** `@friggframework/evals` ships from the same monorepo as the framework; adopters install it, write their own tasks against their real integrations, get the same quality bar.
 - **Cost-bounded.** Manual `workflow_dispatch` trigger + canonical milestones means we never accidentally pay for an eval we didn't want.
 - **Auditable.** Every canonical run's data is committed. The ADR's claims about "design improves agent task accuracy by X" are auditable retroactively against the original result JSON.
-- **Generic and biased eval kept separate.** Framework numbers come from synthetic fixtures (no `quo--frigg` bias); adopter numbers come from real integrations (full real-world signal). Both are useful for different questions.
+- **Generic and biased eval kept separate.** Framework numbers come from synthetic fixtures (no single-adopter bias); adopter numbers come from real integrations (full real-world signal). Both are useful for different questions.
 
 ### Negative
 
@@ -322,13 +322,13 @@ Each PR triggers a full canonical run; CI gates on falsification criteria.
 
 ### Phase 6 — First canonical run
 
-- After [ADR-INTEGRATION-CAPABILITIES](./ADR-INTEGRATION-CAPABILITIES.md) Phase 4 lands (`frigg validate` running on `lefthookhq/quo--frigg`), trigger the first canonical run.
+- After [ADR-INTEGRATION-CAPABILITIES](./ADR-INTEGRATION-CAPABILITIES.md) Phase 4 lands (`frigg validate` running on the canary adopter repo), trigger the first canonical run.
 - Commit results to `evals/results/`; populate this ADR's [Canonical results](#canonical-results) section.
 - Check falsification criteria. If clear, [ADR-INTEGRATION-CAPABILITIES](./ADR-INTEGRATION-CAPABILITIES.md) Phase 5 begins. If failed, design revisit.
 
 ### Phase 7 — Adopter eval seeding
 
-- Sample `evals/` directory + sample tasks committed to `lefthookhq/quo--frigg`, `lefthookhq/aes--frigg` as a reference adopter implementation.
+- Sample `evals/` directory + sample tasks committed to the canary adopter project and one or two other reference adopter implementations.
 - Adopter teams add their own tasks against their real integrations.
 - Adopter results are illustrative; framework numbers remain the load-bearing claim.
 
@@ -369,7 +369,7 @@ Each PR triggers a full canonical run; CI gates on falsification criteria.
 ### Related ADRs
 
 - [ADR-INTEGRATION-CAPABILITIES](./ADR-INTEGRATION-CAPABILITIES.md) — Phase 5 (rolling migration) gates on this eval's canonical run clearing falsification criteria.
-- [ADR-ONTOLOGY-LAYERS](./ADR-ONTOLOGY-LAYERS.md) — The eval tests whether ontology-on adds measurable lift. Open question 1 in that ADR (XML-vs-alternative-framings) is testable here.
+- [ADR-ONTOLOGY-LAYERS](./ADR-ONTOLOGY-LAYERS.md) — The eval tests whether ontology-on adds measurable lift. Open question 1 in that ADR (XML-vs-alternative-framings) is testable here. Eval miss-cases also feed the friction pipeline as `FrictionEvent`s — see the [Friction capture and ontology evolution](./ADR-ONTOLOGY-LAYERS.md#friction-capture-and-ontology-evolution) subsection for the shared `@freyaframework/friction` package this eval emits into.
 - [ADR-AGENT-HARNESS](./ADR-AGENT-HARNESS.md) — The eval tests harness on/off, push-vs-pull (SessionStart-vs-MCP), and hash-mismatch policy variations.
 
 ### Eval framework
