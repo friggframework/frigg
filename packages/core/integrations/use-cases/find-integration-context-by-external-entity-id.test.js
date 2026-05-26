@@ -61,10 +61,10 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
     });
 
     describe('execute', () => {
-        it('throws if externalEntityId is not provided', async () => {
+        it('throws if externalId is not provided', async () => {
             await expect(useCase.execute({})).rejects.toMatchObject({
-                message: 'externalEntityId is required',
-                code: 'EXTERNAL_ENTITY_ID_REQUIRED',
+                message: 'externalId is required',
+                code: 'EXTERNAL_ID_REQUIRED',
             });
         });
 
@@ -72,7 +72,7 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
             mockModuleRepository.findEntity.mockResolvedValue(null);
 
             await expect(
-                useCase.execute({ externalEntityId: 'ext-123' })
+                useCase.execute({ externalId: 'ext-123' })
             ).rejects.toMatchObject({
                 message: 'Entity not found for externalId: ext-123',
                 code: 'ENTITY_NOT_FOUND',
@@ -87,7 +87,7 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
             );
 
             await expect(
-                useCase.execute({ externalEntityId: 'ext-123' })
+                useCase.execute({ externalId: 'ext-123' })
             ).rejects.toMatchObject({
                 message: 'Integration not found for entity: entity-123',
                 code: 'INTEGRATION_NOT_FOUND',
@@ -114,7 +114,7 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
                 mockContext
             );
 
-            const result = await useCase.execute({ externalEntityId: 'ext-123' });
+            const result = await useCase.execute({ externalId: 'ext-123' });
 
             expect(
                 mockIntegrationRepository.findIntegrationsByEntityId
@@ -140,7 +140,7 @@ describe('FindIntegrationContextByExternalEntityIdUseCase', () => {
                 mockContext
             );
 
-            const result = await useCase.execute({ externalEntityId: 'ext-123' });
+            const result = await useCase.execute({ externalId: 'ext-123' });
 
             expect(result.record).toBe(mockIntegration1);
         });

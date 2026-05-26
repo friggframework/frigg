@@ -19,20 +19,20 @@ class FindIntegrationContextByExternalEntityIdUseCase {
         this.loadIntegrationContextUseCase = loadIntegrationContextUseCase;
     }
 
-    async execute({ externalEntityId }) {
-        if (!externalEntityId) {
-            const error = new Error('externalEntityId is required');
-            error.code = 'EXTERNAL_ENTITY_ID_REQUIRED';
+    async execute({ externalId }) {
+        if (!externalId) {
+            const error = new Error('externalId is required');
+            error.code = 'EXTERNAL_ID_REQUIRED';
             throw error;
         }
 
         const entity = await this.moduleRepository.findEntity({
-            externalId: externalEntityId,
+            externalId,
         });
 
         if (!entity) {
             const error = new Error(
-                `Entity not found for externalId: ${externalEntityId}`
+                `Entity not found for externalId: ${externalId}`
             );
             error.code = 'ENTITY_NOT_FOUND';
             throw error;
