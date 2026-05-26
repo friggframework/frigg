@@ -38,24 +38,20 @@ class FindIntegrationContextByExternalEntityIdUseCase {
             throw error;
         }
 
-        if (!entity.userId) {
-            const error = new Error('Entity does not have an associated user');
-            error.code = 'ENTITY_USER_NOT_FOUND';
-            throw error;
-        }
-
-        const integrationRecord =
-            await this.integrationRepository.findIntegrationByUserId(
-                entity.userId
+        const integrations =
+            await this.integrationRepository.findIntegrationsByEntityId(
+                entity.id
             );
 
-        if (!integrationRecord) {
+        if (!integrations || integrations.length === 0) {
             const error = new Error(
-                `Integration not found for user: ${entity.userId}`
+                `Integration not found for entity: ${entity.id}`
             );
             error.code = 'INTEGRATION_NOT_FOUND';
             throw error;
         }
+
+        const integrationRecord = integrations[0];
 
         const context = await this.loadIntegrationContextUseCase.execute({
             integrationRecord,
