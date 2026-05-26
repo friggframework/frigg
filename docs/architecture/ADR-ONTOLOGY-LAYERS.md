@@ -14,14 +14,14 @@ This produces specific failure modes for agent-driven integration work, observed
 
 - **CLAUDE.md grows monotonically.** Frigg's existing `CLAUDE.md` is ~34 KB and growing. Every domain, every gotcha, every architectural rule competes for attention in the same flat document. An agent receives all of it on every session, regardless of whether the task touches encryption, the integration router, or the test harness.
 - **Reading discipline is implicit.** The Slack thread on `PipedriveIntegration`'s `/settings` routes surfaced a rule — *"for a user-consumed capability, prefer existing Frigg default-surface primitives over declaring new routes"* — that is nowhere written down. The rule exists in Sean Matthews's head and in the heads of two other core contributors. An agent (or a new contributor) has no way to find it short of building the wrong shape and being corrected in code review.
-- **Vendor-specific knowledge has no home.** Pipedrive's v2 API state, Quo's positioning as a comms platform (formerly OpenPhone), Salesforce managed-package constraints — these affect every integration decision but live in scattered docs, commit messages, and chat history.
-- **Pointer-into-code knowledge is unstable.** A note saying *"the canonical CRM integration pattern is in `quo--frigg/backend/src/base/BaseCRMIntegration.js`"* is useful until the file moves. There's no maintained registry of "where to look for X."
+- **Vendor-specific knowledge has no home.** Pipedrive's v2 API state, HubSpot's portalId conventions, Salesforce managed-package constraints, Slack's rate-limit tiers — these affect every integration decision but live in scattered docs, commit messages, and chat history.
+- **Pointer-into-code knowledge is unstable.** A note saying *"the canonical CRM integration pattern is in `<adopter-repo>/backend/src/base/BaseCRMIntegration.js`"* is useful until the file moves. There's no maintained registry of "where to look for X."
 
 This ADR proposes a **four-layer ontology model** for stratifying knowledge by *scope of applicability*, plus an in-house compiler that renders task-scoped subsets into XML-tagged natural-language blocks for agent context injection. The layers are:
 
 - **L1 — Universal non-obvious facts.** Things true regardless of who's reading; only included when an agent might not know them at frontier capability.
 - **L2 — Frigg-context reading discipline.** How to read a Frigg repo: where things live, what naming conventions mean, which existing primitives to reach for before declaring new ones. The Slack thread rule lives here.
-- **L3 — Vendor and domain knowledge.** Per-platform context: Quo is comms, Pipedrive's v2 API is upcoming, HubSpot's portalId conventions, Salesforce managed-package constraints.
+- **L3 — Vendor and domain knowledge.** Per-platform context: Pipedrive's v2 API is upcoming, HubSpot's portalId conventions, Salesforce managed-package constraints, Slack's rate-limit tiers. The canonical home for L3 entries is the relevant api module in `@friggframework/api-module-library` (see [Module-exported ontology](#module-exported-ontology)); integration projects compose what their installed modules export.
 - **L4 — Instance, live-read.** Pointers into the actual codebase (file paths, capability references, Definition entries) and into instance state (this tenant's config, this Process's current state, this PR's review status). Almost no inline content — agents follow the pointers and read live.
 
 Layers compose: more-specific overrides less-specific for non-locked content; `locked_constraints` accumulate across layers and survive overrides. The compiler reads YAML layer files, walks the layers requested for a task, applies overrides, and emits an XML-tagged block sized to a token budget.
@@ -40,7 +40,7 @@ Knowledge is stratified by **scope of applicability**, not by subject matter:
 |---|---|---|
 | **L1** | Is this helpful to anyone, regardless of what they do — and not obvious to a frontier-capability agent? | "API in this domain usually means HTTP/JSON, not RPC/SOAP/GraphQL." "Webhooks may arrive duplicated; handlers must be idempotent." "OAuth refresh-token responsibility belongs to the framework, not the integration code." |
 | **L2** | Is this specific to working in a Frigg repo? | "To enumerate an integration's capabilities, read its static Definition and resolve via prototype chain." "For a user-consumed capability, prefer existing default-surface primitives over declaring new routes." "DDD/Hexagonal architecture is non-negotiable: handlers call use cases, use cases call repositories, never bypass." |
-| **L3** | Is this specific to a vendor / platform / domain we work in? | "Quo is a communications platform (formerly OpenPhone); we build CRM integrations that sync persons and log call/SMS activity." "Pipedrive v2 API is upcoming; v1 uses cursor pagination on `/persons` and offset on `/deals`." "HubSpot's portalId is the inbound webhook routing identifier; the core primitive is `findIntegrationByEntityExternalId`." |
+| **L3** | Is this specific to a vendor / platform / domain we work in? | "Pipedrive v2 API is upcoming; v1 uses cursor pagination on `/persons` and offset on `/deals`." "HubSpot's portalId is the inbound webhook routing identifier; the core primitive is `findIntegrationByEntityExternalId`." "Slack's tier-2 rate limit on `conversations.history` is ~20/min/workspace; back off aggressively." |
 | **L4** | Is this specific to this codebase, this user, this task, this session? | `retrieve_from` pointers to actual files, capabilities, database state, PR state. Almost no inline content. |
 
 ### Authoring discipline
@@ -52,7 +52,7 @@ Each layer is a directory of YAML files. Each file conforms to a canonical schem
 # Parent-chain imports (L4 → L3 → L2 → L1) are implicit.
 imports:
   - integrations
-  - vendor/quo
+  - vendor/hubspot
 
 entities:
   IntegrationDefinition:
@@ -121,7 +121,7 @@ Schema rules:
 const { compileContext } = require('@friggframework/ontology');
 
 const block = await compileContext({
-    domains: ['integrations', 'vendor/quo'],
+    domains: ['integrations', 'vendor/hubspot'],
     task: 'add-pipedrive-resync-user-action',
     maxTokens: 2000,
     ontologyRoot: './ontology',                  // local path, git+https://..., or HTTP archive
@@ -133,7 +133,7 @@ const block = await compileContext({
 
 ```bash
 npx @friggframework/ontology compile \
-    --domains=integrations,vendor/quo \
+    --domains=integrations,vendor/hubspot \
     --task=add-pipedrive-resync-user-action \
     --ontology-root=./ontology \
     --max-tokens=2000
@@ -148,7 +148,52 @@ What the compiler does:
 6. Compress to fit `maxTokens` by dropping lowest-priority entries first (priority = `locked > pattern > entity > decision > nice-to-have`).
 7. Stamp a header: `content_version` (the ontology version pinned for this task), `framework_version` (the `@friggframework/ontology` version), `compiled_at`, `block_hash`. Consumers cache by `block_hash` and detect upstream changes by comparing hashes after refresh.
 
-The compiler is **~300 LOC Node**: YAML parsing (existing `js-yaml`), schema validation (existing `ajv`), the override / locking / precedence walker (custom, small), the XML renderer (string concatenation), the `git+https://...@<ref>` clone-and-cache helper for remote ontology roots.
+The compiler is **~300 LOC Node**: YAML parsing (existing `js-yaml`), schema validation (existing `ajv`), the override / locking / precedence walker (custom, small), the XML renderer (string concatenation), the `git+https://...@<ref>` clone-and-cache helper for remote ontology roots, plus the source adapters described next.
+
+### Source adapters
+
+Ontology content originates in many places — YAML files committed in the repo, markdown docs in `docs/`, Google Docs and Notion pages owned by a product team, README content in upstream api modules, even live API introspection (e.g. fetching a HubSpot object schema and converting it to entity facts). The compiler does not require all content to be transcribed into YAML by hand.
+
+Each source has an **adapter** that converts the source's native shape into a canonical ontology record:
+
+| Source type | Adapter behavior | Use |
+|---|---|---|
+| `yaml` | Pass-through (the native authoring format). | Hand-authored entries, the default. |
+| `md` | Parse markdown front-matter + headings; map sections to entity / decision / pattern shapes. | Existing prose docs we want to surface without re-authoring. |
+| `gdoc` / `notion` | Fetch via API + adapter; convert blocks to entries. | Knowledge owned outside git (product teams, sales). |
+| `github` | Fetch a file or directory from a remote repo at a pinned ref; treat as `yaml` or `md`. | Pulling vendor ontology fragments from upstream api modules. |
+| `live` | Introspect a live source at compile time (API call, database query); convert response to a frozen entry for the compiled block. | Captures facts about *this tenant's* state into L4 at session start. |
+
+Each entry may carry a `source:` block describing where it originated:
+
+```yaml
+source:
+  type: github
+  pointer: https://github.com/friggframework/api-module-library/tree/main/packages/hubspot/ontology
+  ref: v1.2.0
+```
+
+External pointers (`source.type` ≠ `yaml`) are dereferenced and normalized to the canonical record shape at compile time, so the compiled block remains deterministic and the `block_hash` covers the dereferenced content. The on-the-fly conversion is the responsibility of the source adapter — it must produce something the schema validator accepts.
+
+**`source` and `retrieve_from` are distinct.** `source` is *authoring-time* metadata: where this entry's content lives, who owns it, how to refresh it. `retrieve_from` is *runtime* metadata for the agent: where to fetch live for this fact during work. An entry may have both — e.g. an entry authored from a Google Doc (`source.type: gdoc`) that points the agent at a live API call when it needs current data (`retrieve_from.source_type: api`).
+
+### Module-exported ontology
+
+API modules in `@friggframework/api-module-library` (and adopter-private equivalents) are the natural home for vendor- and API-specific knowledge — they already encapsulate the vendor's HTTP client, auth, and capabilities. Each api module also exports an **ontology fragment** at its package root:
+
+```
+@friggframework/api-module-hubspot/
+├── package.json
+├── src/
+└── ontology/
+    └── vendor/hubspot.yaml
+```
+
+At compile time, the ontology compiler walks `node_modules/@friggframework/api-module-*/ontology/` (and the equivalent path for adopter-private namespaces) and merges each module's fragment into the project compile. Integration projects gain vendor knowledge by installing the module; no per-project re-authoring is required.
+
+Module-exported ontology is **L3 by default** (vendor / platform). Modules may also export L1 fragments where a vendor surfaces a genuinely universal pattern (e.g. an OAuth idiom that's broadly applicable). L2 stays with the framework; L4 stays with the integration project. Adopter-side ontology shrinks to the truly project-specific (multi-tenant policy, custom auth wiring, this-product's terminology) and to overrides of module-shipped entries.
+
+This mirrors the capability-export pattern from [ADR-INTEGRATION-CAPABILITIES](./ADR-INTEGRATION-CAPABILITIES.md) and [ADR-EXTENSIONS](./ADR-EXTENSIONS.md): the api module is the canonical home for everything vendor-specific, and downstream consumers compose what the module exports. Vendor knowledge accumulates as a community deliverable rather than fragmenting across adopter repos.
 
 ### Session protocol
 
@@ -158,6 +203,34 @@ The compiler is **~300 LOC Node**: YAML parsing (existing `js-yaml`), schema val
 2. **Never refresh mid-task.** Changing the ontology version mid-task invalidates the agent's working assumptions. A phase-executor that started with one compiled block should finish with the same one. Refresh happens at task boundaries.
 
 Between tasks, the harness checks for a newer version and decides whether to adopt. Patch/minor bumps auto-adopt; major bumps (locked-rule changes, entry removals) surface for review via `ontology diff`.
+
+### Validation subagent pattern (recommended)
+
+Engineers building agent harnesses or skills that act on the compiled ontology should wire up a **validation pass** at high-stakes decision points: before irreversible actions, after generating a multi-step plan, after synthesizing a workflow. The pattern:
+
+1. Spawn a subagent with the same compiled ontology block the parent agent received (the [ADR-AGENT-HARNESS](./ADR-AGENT-HARNESS.md) SubagentStart hook makes this automatic — the subagent inherits the parent's pinned block).
+2. Hand it the parent agent's plan, proposed action, or generated output as material to review.
+3. Instruct the subagent explicitly: *"Review the input against the ontology block. Flag every constraint, locked rule, or pattern preference that the input violates or is at risk of violating. If the input is consistent with the ontology, say so explicitly. If the ontology is ambiguous or doesn't cover the case, flag that too — do not fill the gap from your own priors."*
+
+The validation pass is a recommendation, not a mandate. Cost: one extra subagent invocation per checkpoint. Benefit: catches ontology violations the parent agent missed and surfaces ambiguity the parent agent papered over. Engineers calibrate frequency to the stakes — every plan for irreversible actions, periodic spot-checks for routine work, skip entirely for low-risk read-only tasks.
+
+The validation subagent's findings feed into the friction-capture loop described next.
+
+### Friction capture and ontology evolution
+
+The ontology improves over time only if there is a mechanism to capture where it failed — entries that were ambiguous in context, rules that didn't generalize, gaps the agent had to fill from priors, cases where two layers' guidance pulled in opposite directions. Without that feedback, the ontology rots the way long-form docs rot: the people writing know what they meant, the people reading don't, and the gap goes silent.
+
+**Friction sources:**
+- Validation subagent flags (per the recommended pattern above): every "ambiguous," "not covered," or "conflict with another rule" emission.
+- Agent self-reports during work: explicit instruction in the compiled block tells the agent to surface friction inline rather than silently route around it.
+- Code review: reviewers tag PR comments with an ontology-friction label when they catch a violation the agent didn't catch.
+- Post-mortems on miss-cases from [ADR-EVALS](./ADR-EVALS.md): every eval miss is a friction signal.
+
+Friction is captured by tooling that lives alongside the ontology (specific tool TBD; see [Open question 9](#open-questions)). Each capture records: which entry (if any) was implicated, what the agent was trying to do, the nature of the friction (ambiguity / conflict / gap / staleness), what the agent did instead, and a free-text note. Captures are durable, queryable, and tied back to the ontology version in use at the time.
+
+**The backlog of captured friction is the maintenance trigger.** Rather than "someone notices the ontology is wrong and edits it," the loop is: agent encounters friction → tool logs it → reviewer triages the backlog → high-signal items become ontology edits. This is the explicit mechanism that addresses the maintenance concern in [Consequences → Negative](#negative) — prior ontology authoring work has shown a pattern where seed content commits but ongoing edits stall; the friction loop is the named defense against that pattern.
+
+The friction loop is what turns a static doc into an evolving artifact. It is also what justifies investing in the higher-density layers (L3, L4) at all — those layers are sustainable only when there is a low-friction way to update them as the world changes.
 
 ### Relationship to integration capabilities
 
@@ -173,7 +246,7 @@ This ADR and [ADR-INTEGRATION-CAPABILITIES](./ADR-INTEGRATION-CAPABILITIES.md) a
 
 Capabilities are the canonical *what does this integration do*; ontology layers are the canonical *what does an agent need to know in order to work on it*. The harness compiles both together at session start, and subagents inherit both.
 
-A subtle relationship: an integration's L4 ontology entries are mostly thin pointers to its capabilities. *"For Quo's CRM integrations, the capability set lives in `static Definition.capabilities` on each `*Integration.js` file under `backend/src/integrations/`; resolve via `Frigg.resolveCapabilities(IntegrationClass)`."* The L4 ontology doesn't duplicate the capabilities — it teaches the agent how to find them.
+A subtle relationship: an integration's L4 ontology entries are mostly thin pointers to its capabilities. *"For this project's CRM integrations, the capability set lives in `static Definition.capabilities` on each `*Integration.js` file under `backend/src/integrations/`; resolve via `Frigg.resolveCapabilities(IntegrationClass)`."* The L4 ontology doesn't duplicate the capabilities — it teaches the agent how to find them.
 
 ---
 
@@ -191,8 +264,8 @@ A subtle relationship: an integration's L4 ontology entries are mostly thin poin
 
 ### Negative
 
-- **Authoring overhead.** Someone has to write L1, L2, and seed L3 entries. Framework-side cost is ~1–2 weeks of focused writing (Sean + core contributors). Adopter-side cost is per-vendor / per-product, bounded.
-- **Drift on the prose itself.** The locked-rule mechanism prevents *silent* drift on invariants, but soft preferences (non-locked rules) can become stale. Mitigation: `ontology verify --stale-days=90` flags entries whose `provenance.last_verified` is older than the threshold.
+- **Authoring overhead.** Someone has to write L1, L2, and seed L3 entries. Framework-side cost is ~1–2 weeks of focused writing for the L1+L2 seed (Sean + core contributors). L3 cost is distributed: per-api-module rather than per-adopter, since each api module owns its vendor's ontology fragment (see [Module-exported ontology](#module-exported-ontology)). The friction loop reframes the seed-scope decision: smaller initial seed + healthy friction loop is preferable to a larger seed with no maintenance trigger.
+- **Drift on the prose itself.** The locked-rule mechanism prevents *silent* drift on invariants, but soft preferences (non-locked rules) can become stale. Two mitigations: `ontology verify --stale-days=90` flags entries whose `provenance.last_verified` is older than the threshold, and the friction-capture loop (see [Friction capture and ontology evolution](#friction-capture-and-ontology-evolution)) feeds a backlog of agent-surfaced friction that becomes the trigger for entry updates. Prior ontology authoring work without a friction loop has shown a pattern where seed content commits but ongoing edits stall — the friction loop is the explicit defense.
 - **Adoption discipline.** The compiler is useless if no one runs it. The session-start hook in [ADR-AGENT-HARNESS](./ADR-AGENT-HARNESS.md) automates injection; without that hook, the ontology is just docs.
 - **Yet-another-file convention.** Adopter repos gain an `ontology/` directory. Initial reaction may be "why not just CLAUDE.md?" — the answer (scoping, locking, pinning, override semantics) is real but takes a worked example to land.
 - **Tooling debt.** `ontology compile`, `ontology validate-layer`, `ontology verify`, `ontology diff`, `ontology inject` — six commands to maintain. Mitigation: keep the implementation small (~300 LOC core) and pin the schema early so changes are rare.
@@ -217,7 +290,7 @@ Continue using monolithic CLAUDE.md files, with stricter authoring discipline (e
 
 Push all knowledge into per-capability `description`, `prd`, and `backedBy` fields on the structured capability declaration from [ADR-INTEGRATION-CAPABILITIES](./ADR-INTEGRATION-CAPABILITIES.md). Skip the separate ontology layer.
 
-**Rejected.** Capabilities are about *what an integration does*, not *what an agent needs to know in order to work on Frigg*. The Slack thread rule ("prefer default surface") is not a fact about any specific capability — it's a framework convention. The Quo-is-a-comms-platform L3 fact is not about any capability. Forcing this content into capability fields conflates concerns and weakens both shapes.
+**Rejected.** Capabilities are about *what an integration does*, not *what an agent needs to know in order to work on Frigg*. The Slack thread rule ("prefer default surface") is not a fact about any specific capability — it's a framework convention. An L3 fact like "Pipedrive v1 uses cursor pagination on `/persons` and offset on `/deals`" is not about any specific capability either. Forcing this content into capability fields conflates concerns and weakens both shapes.
 
 The two shapes compose; they don't substitute for each other.
 
@@ -272,22 +345,38 @@ Author the initial framework ontology under `friggframework/frigg/ontology/`:
 - Tests live alongside source (`*.test.js` next to file under test).
 - Encryption flows through Prisma extension; new sensitive fields update `encryption-schema-registry.js`.
 
-L1 + L2 seed is ~30–50 entries. Authored once, refined over time via PR.
+L1 + L2 seed is intentionally lean (target ~30–50 entries). The friction loop (Phase 8) is the planned mechanism for filling gaps the seed misses, rather than authoring exhaustively up front.
 
-### Phase 5 — Seed L3 layers (adopter)
+### Phase 5 — Seed L3 via module-exported ontology
 
-Adopter repos seed their own L3 ontologies. Initial set:
-- `lefthookhq/quo--frigg/ontology/vendor/quo.yaml` — Quo (FKA OpenPhone) as a platform, OpenPhone API positioning.
-- `lefthookhq/quo--frigg/ontology/vendor/pipedrive.yaml`, `attio.yaml`, `clio.yaml`, etc. — per-vendor backstory and gotchas.
-- `lefthookhq/aes--frigg/ontology/vendor/salesforce.yaml`.
+L3 vendor knowledge ships *from* api modules rather than from adopter repos. Initial rollout:
 
-Adopter-owned; not framework deliverables. Pattern documented in framework docs.
+- Add an `ontology/` directory to the most-used api modules in `friggframework/api-module-library` (e.g. HubSpot, Salesforce, Slack, Pipedrive, Google Workspace). Each ships a `vendor/<platform>.yaml` covering platform positioning, API quirks, common gotchas, and module-specific conventions.
+- Update the compiler to walk installed-module ontology directories and merge fragments into the project compile.
+- Document the module-ontology-export pattern in `api-module-library` contributor docs so new modules ship ontology from day one.
 
-### Phase 6 — Harness integration
+Adopter repos contribute only the truly project-specific L3 (custom multi-tenant policy, product-specific auth wiring) and L4 (file-path pointers, instance state). The vendor knowledge they consume is whatever their installed api modules export.
 
-[ADR-AGENT-HARNESS](./ADR-AGENT-HARNESS.md) wires the compiler into a Claude Code `SessionStart` hook. The hook reads the current task's pinned ontology version, calls `compileContext()`, and emits the resulting block as a system-prompt overlay. Subagents inherit.
+Existing api modules without an `ontology/` directory are retrofitted incrementally; the compiler emits a warning (not an error) so the rollout creates pressure without blocking work. See [Open question 10](#open-questions).
 
-### Phase 7 — Eval measurement
+### Phase 6 — Source adapters and on-the-fly compilation
+
+Implement source adapters beyond `yaml` (see [Source adapters](#source-adapters)):
+
+- `md` adapter for surfacing existing prose docs without re-authoring.
+- `github` adapter for pulling module fragments at pinned refs.
+- `gdoc` / `notion` adapter for knowledge owned outside git (deferred to demand; not required for Phase 5).
+- `live` adapter for per-tenant L4 introspection at session start.
+
+### Phase 7 — Harness integration
+
+[ADR-AGENT-HARNESS](./ADR-AGENT-HARNESS.md) wires the compiler into a Claude Code `SessionStart` hook and a `SubagentStart` hook (per the harness design decision). The hooks read the current task's pinned ontology version, call `compileContext()`, and emit the resulting block as a system-prompt overlay; subagents inherit the same pinned block.
+
+### Phase 8 — Friction-capture tooling
+
+Implement the friction-capture surface described in [Friction capture and ontology evolution](#friction-capture-and-ontology-evolution): a CLI / API for logging friction events, a triage view for reviewing the backlog, and a workflow for promoting high-signal friction into ontology edits. The friction tool ships with the ontology so the artifacts live alongside the content they describe.
+
+### Phase 9 — Eval measurement
 
 [ADR-EVALS](./ADR-EVALS.md) measures whether having the ontology in the context window actually improves task accuracy. The ontology-on / ontology-off conditions are two of the eight in the matrix.
 
@@ -310,6 +399,10 @@ Adopter-owned; not framework deliverables. Pattern documented in framework docs.
 7. **Compiler in core vs separate package.** `@friggframework/ontology` is a separate npm package per the current plan. Alternative: fold into `@friggframework/core` as a sub-module. Lean: keep separate — the compiler is dev-time tooling, not runtime; adopters who don't yet use it shouldn't carry the dependency.
 
 8. **Schema compatibility with future open-source frameworks.** If a community framework matching this design emerges, we want to swap implementations without re-authoring YAML. Keep the schema deliberately minimal and well-documented so a future migration is mechanical, not conceptual.
+
+9. **Friction-capture tooling — name and home.** Should the friction surface be a CLI in `@friggframework/ontology` (`ontology friction add | list | triage`), a standalone service, or part of an existing observability stack? Lean: start as `ontology friction` subcommands so the friction artifacts live alongside the ontology they describe; revisit if a separate observability use case emerges. There is referenced upstream tooling for this loop that this ADR currently treats abstractly — name it explicitly once selected.
+
+10. **Module-exported ontology rollout cadence.** New api modules ship with `ontology/` directories from day one; existing modules are retrofitted incrementally. When the compiler encounters a module without an `ontology/` directory, should it (a) silently skip, (b) emit a warning (lean), or (c) hard-fail to force retrofit before adoption? Lean: warn — creates pressure on the rollout without blocking. Revisit once a meaningful fraction of the library has been retrofitted.
 
 ---
 
