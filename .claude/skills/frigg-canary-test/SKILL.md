@@ -103,7 +103,7 @@ instance so `this.config` and `this.entities` are populated before the action
 runs:
 
 ```javascript
-const commands = createIntegrationCommands({ integrationClass: TestApiAIntegration });
+const commands = createFriggCommands({ integrationClass: TestApiAIntegration });
 const { context } = await commands.loadIntegrationContextById(integrationId);
 const integration = new TestApiAIntegration({ ...context.record, modules: context.modules });
 const dispatcher = new IntegrationEventDispatcher(integration);
@@ -127,6 +127,62 @@ Assertions:
   (`Credential` has its own separate `externalId` column at
   `this['test-api-a'].credential.externalId` — that is **not** what the use
   case filters on.)
+
+## Canonical integration structure
+
+Mirror a real production integration (verified against `AxisCareIntegration` in
+`quo--frigg`). A minimal integration should look like:
+
+```javascript
+const { IntegrationBase, createFriggCommands } = require('@friggframework/core');
+const testApiA = require('../api-modules/test-api-a');
+
+class TestApiAIntegration extends IntegrationBase {
+    static Definition = {
+        name: 'test-api-a',
+        version: '1.0.0',
+        modules: {
+            // ✅ wrap each module as { definition: <ModuleDefinition> }.
+            // The key ('testApiA') is how it attaches to `this` (this.testApiA.api).
+            testApiA: { definition: testApiA.Definition },
+        },
+    };
+
+    constructor(params) {
+        super(params);
+        // ✅ public command factory (createIntegrationCommands is internal)
+        this.commands = createFriggCommands({ integrationClass: TestApiAIntegration });
+        this.events = {
+            ...this.events,
+            FIND_INTEGRATION_BY_EXTERNAL_ID: {
+                type: 'USER_ACTION',
+                handler: this.findIntegrationByExternalId.bind(this),
+            },
+        };
+    }
+}
+```
+
+Conventions, confirmed against the real integration:
+
+- **Use `createFriggCommands`**, not `createIntegrationCommands`. The former is
+  the public API integration developers use (it spreads in integration + user +
+  entity + credential commands); the latter is internal.
+- **No `static modules` field.** Real integrations don't declare one — the
+  framework only reads `Definition.modules`. Anything reading `static modules`
+  is harness-only cruft.
+- **Modules attach to `this` by their declaration key** → `this.testApiA.api`.
+  To namespace a shared module under a custom key, override `getName`/
+  `moduleName` inside its `definition` (AxisCare does this to mount `quo` as
+  `quo-axisCare`):
+
+  ```javascript
+  modules: {
+      quo: {
+          definition: { ...quo.Definition, getName: () => 'quo-axisCare', moduleName: 'quo-axisCare' },
+      },
+  }
+  ```
 
 ## Gotchas
 
