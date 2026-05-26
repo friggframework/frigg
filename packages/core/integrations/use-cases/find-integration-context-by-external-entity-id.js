@@ -19,10 +19,16 @@ class FindIntegrationContextByExternalEntityIdUseCase {
         this.loadIntegrationContextUseCase = loadIntegrationContextUseCase;
     }
 
-    async execute({ externalId }) {
+    async execute({ externalId, type }) {
         if (!externalId) {
             const error = new Error('externalId is required');
             error.code = 'EXTERNAL_ID_REQUIRED';
+            throw error;
+        }
+
+        if (!type) {
+            const error = new Error('type is required');
+            error.code = 'TYPE_REQUIRED';
             throw error;
         }
 
@@ -43,15 +49,17 @@ class FindIntegrationContextByExternalEntityIdUseCase {
                 entity.id
             );
 
-        if (!integrations || integrations.length === 0) {
+        const integrationRecord = integrations?.find(
+            (i) => i.config?.type === type
+        );
+
+        if (!integrationRecord) {
             const error = new Error(
-                `Integration not found for entity: ${entity.id}`
+                `Integration of type '${type}' not found for entity: ${entity.id}`
             );
             error.code = 'INTEGRATION_NOT_FOUND';
             throw error;
         }
-
-        const integrationRecord = integrations[0];
 
         const context = await this.loadIntegrationContextUseCase.execute({
             integrationRecord,
