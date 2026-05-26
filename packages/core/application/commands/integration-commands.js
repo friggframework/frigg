@@ -25,7 +25,8 @@ const ERROR_CODE_MAP = {
     ENTITY_NOT_FOUND: 401,
     ENTITY_USER_NOT_FOUND: 401,
     INTEGRATION_NOT_FOUND: 404,
-    EXTERNAL_ENTITY_ID_REQUIRED: 400,
+    EXTERNAL_ID_REQUIRED: 400,
+    TYPE_REQUIRED: 400,
     INTEGRATION_RECORD_NOT_FOUND: 404,
 };
 
@@ -83,14 +84,20 @@ function createIntegrationCommands({ integrationClass }) {
     });
 
     return {
-        async findIntegrationContextByExternalEntityId(externalEntityId) {
+        /**
+         * Find integration context by external entity ID and type
+         * @param {Object} params
+         * @param {string} params.externalId - External ID of the entity
+         * @param {string} params.type - Integration type (config.type)
+         * @returns {Promise<Object>} Integration context, entity, and record
+         */
+        async findIntegrationContextByExternalEntityId({ externalId, type }) {
             try {
-                const { context } = await findByExternalEntityIdUseCase.execute(
-                    {
-                        externalEntityId,
-                    }
-                );
-                return { context };
+                const result = await findByExternalEntityIdUseCase.execute({
+                    externalId,
+                    type,
+                });
+                return result;
             } catch (error) {
                 return mapErrorToResponse(error);
             }
@@ -197,11 +204,12 @@ function createIntegrationCommands({ integrationClass }) {
 
 async function findIntegrationContextByExternalEntityId({
     integrationClass,
-    externalEntityId,
+    externalId,
+    type,
 } = {}) {
     const commands = createIntegrationCommands({ integrationClass });
 
-    return commands.findIntegrationContextByExternalEntityId(externalEntityId);
+    return commands.findIntegrationContextByExternalEntityId({ externalId, type });
 }
 
 module.exports = {
