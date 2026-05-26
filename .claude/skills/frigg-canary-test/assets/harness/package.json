@@ -6,8 +6,12 @@
   "scripts": {
     "frigg:start": "node server.js",
     "test": "node test-find-integration-context.js",
-    "prisma:generate": "npx prisma generate --schema=./node_modules/@friggframework/core/prisma-postgresql/schema.prisma",
-    "prisma:migrate": "npx prisma migrate deploy --schema=./node_modules/@friggframework/core/prisma-postgresql/schema.prisma"
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "prisma:generate:postgres": "npx prisma generate --schema=./node_modules/@friggframework/core/prisma-postgresql/schema.prisma",
+    "prisma:generate:mongo": "npx prisma generate --schema=./node_modules/@friggframework/core/prisma-mongodb/schema.prisma",
+    "db:migrate:postgres": "npx prisma migrate deploy --schema=./node_modules/@friggframework/core/prisma-postgresql/schema.prisma",
+    "db:push:mongo": "npx prisma db push --schema=./node_modules/@friggframework/core/prisma-mongodb/schema.prisma"
   },
   "dependencies": {
     "@friggframework/core": "2.0.0--canary.593.63aa551.0",
