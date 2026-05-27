@@ -568,6 +568,75 @@ describe('IntegrationBuilder', () => {
             ]);
         });
 
+        it('should emit dedicated httpApi events for Tier 3 extension routes, before the catch-all', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hubspot',
+                            extensions: {
+                                hubspotWebhooks: {
+                                    extension: {
+                                        name: 'hubspot-webhooks',
+                                        routes: [
+                                            {
+                                                path: '/webhooks',
+                                                method: 'POST',
+                                                event: 'HUBSPOT_WEBHOOK_RECEIVED',
+                                            },
+                                        ],
+                                        events: {
+                                            HUBSPOT_WEBHOOK_RECEIVED: {
+                                                type: 'LIFE_CYCLE_EVENT',
+                                                handler: () => {},
+                                            },
+                                        },
+                                    },
+                                    handlers: {},
+                                },
+                            },
+                        },
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            // The extension route is registered on the same handler as the
+            // catch-all, and ordered before {proxy+}.
+            expect(result.functions.hubspot.events).toEqual([
+                {
+                    httpApi: {
+                        path: '/api/hubspot-integration/webhooks',
+                        method: 'POST',
+                    },
+                },
+                {
+                    httpApi: {
+                        path: '/api/hubspot-integration/{proxy+}',
+                        method: 'ANY',
+                    },
+                },
+            ]);
+        });
+
+        it('should only have the catch-all proxy route when no extensions are declared', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'plain' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.plain.events).toEqual([
+                {
+                    httpApi: {
+                        path: '/api/plain-integration/{proxy+}',
+                        method: 'ANY',
+                    },
+                },
+            ]);
+        });
+
         it('should define webhook handler BEFORE catch-all proxy route (ordering bug fix)', async () => {
             const appDefinition = {
                 integrations: [
