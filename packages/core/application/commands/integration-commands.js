@@ -12,6 +12,12 @@ const {
     FindIntegrationContextByExternalEntityIdUseCase,
 } = require('../../integrations/use-cases/find-integration-context-by-external-entity-id');
 const {
+    FindIntegrationByEntityExternalIdUseCase,
+} = require('../../integrations/use-cases/find-integration-by-entity-external-id');
+const {
+    ListIntegrationsByEntityExternalIdUseCase,
+} = require('../../integrations/use-cases/list-integrations-by-entity-external-id');
+const {
     GetIntegrationsForUser,
 } = require('../../integrations/use-cases/get-integrations-for-user');
 const {
@@ -70,6 +76,18 @@ function createIntegrationCommands({ integrationClass }) {
             loadIntegrationContextUseCase: loadIntegrationContextUseCase,
         });
 
+    const findIntegrationByEntityExternalIdUseCase =
+        new FindIntegrationByEntityExternalIdUseCase({
+            integrationRepository,
+            moduleRepository,
+        });
+
+    const listIntegrationsByEntityExternalIdUseCase =
+        new ListIntegrationsByEntityExternalIdUseCase({
+            integrationRepository,
+            moduleRepository,
+        });
+
     const getIntegrationsForUserUseCase = new GetIntegrationsForUser({
         integrationRepository,
         integrationClasses: [integrationClass],
@@ -101,6 +119,41 @@ function createIntegrationCommands({ integrationClass }) {
             } catch (error) {
                 return mapErrorToResponse(error);
             }
+        },
+
+        /**
+         * Resolve an externalId (e.g. HubSpot portalId, Slack team_id) to a
+         * single integration ID. Throws on ambiguous resolution at either the
+         * entity or integration layer — cross-tenant routing is refused.
+         *
+         * @param {string|number} externalId - Provider's stable identifier.
+         * @param {string} [moduleName] - Disambiguates when multiple modules in
+         *     the same app could carry colliding externalIds.
+         * @returns {Promise<string|null>} Integration ID, or null on no match.
+         * @throws {Error} On ambiguous resolution (multiple entities or
+         *     multiple owning integrations).
+         */
+        async findIntegrationByEntityExternalId(externalId, moduleName) {
+            return findIntegrationByEntityExternalIdUseCase.execute({
+                externalId,
+                moduleName,
+            });
+        },
+
+        /**
+         * List all integration IDs whose module entities match an externalId.
+         * Use when one externalId is expected to map to multiple integrations
+         * (intentional fan-out). Does not throw on ambiguity.
+         *
+         * @param {string|number} externalId - Provider's stable identifier.
+         * @param {string} [moduleName] - Disambiguates across modules.
+         * @returns {Promise<Array<string>>} Array of integration IDs (possibly empty).
+         */
+        async listIntegrationsByEntityExternalId(externalId, moduleName) {
+            return listIntegrationsByEntityExternalIdUseCase.execute({
+                externalId,
+                moduleName,
+            });
         },
 
         async loadIntegrationContextById(integrationId) {

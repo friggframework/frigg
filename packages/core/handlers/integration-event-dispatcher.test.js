@@ -139,6 +139,92 @@ describe('IntegrationEventDispatcher', () => {
         });
     });
 
+    describe('Tier 3 Extension Events', () => {
+        const stubExtension = {
+            name: 'stub-ext',
+            routes: [
+                { path: '/hook', method: 'POST', event: 'STUB_WEBHOOK' },
+            ],
+            events: {
+                STUB_WEBHOOK: {
+                    type: 'LIFE_CYCLE_EVENT',
+                    handler: async function ({ req }) {
+                        return { source: 'extension', body: req?.body };
+                    },
+                },
+            },
+        };
+
+        class ExtensionIntegration extends IntegrationBase {
+            static Definition = {
+                name: 'ext-int',
+                version: '1.0.0',
+                modules: {},
+                extensions: {
+                    stub: {
+                        extension: stubExtension,
+                        handlers: { STUB_WEBHOOK: 'handleStub' },
+                    },
+                },
+            };
+
+            async handleStub({ req }) {
+                ExtensionIntegration.lastCall = { body: req?.body };
+                return { source: 'integration', echo: req?.body };
+            }
+        }
+
+        beforeEach(() => {
+            ExtensionIntegration.lastCall = null;
+        });
+
+        it('dispatches an extension-contributed event after initialize() merges it', async () => {
+            const integration = new ExtensionIntegration();
+            await integration.initialize();
+            const dispatcher = new IntegrationEventDispatcher(integration);
+
+            const result = await dispatcher.dispatchHttp({
+                event: 'STUB_WEBHOOK',
+                req: { body: { portalId: 999 } },
+                res: {},
+                next: jest.fn(),
+            });
+
+            expect(result).toEqual({
+                source: 'integration',
+                echo: { portalId: 999 },
+            });
+            expect(ExtensionIntegration.lastCall).toEqual({
+                body: { portalId: 999 },
+            });
+        });
+
+        it('falls back to the extension default handler when no binding override is provided', async () => {
+            class NoOverride extends IntegrationBase {
+                static Definition = {
+                    name: 'no-override',
+                    version: '1.0.0',
+                    modules: {},
+                    extensions: { stub: { extension: stubExtension } },
+                };
+            }
+            const integration = new NoOverride();
+            await integration.initialize();
+            const dispatcher = new IntegrationEventDispatcher(integration);
+
+            const result = await dispatcher.dispatchHttp({
+                event: 'STUB_WEBHOOK',
+                req: { body: { foo: 1 } },
+                res: {},
+                next: jest.fn(),
+            });
+            expect(result).toEqual({
+                source: 'extension',
+                body: { foo: 1 },
+            });
+        });
+    });
+
     describe('Webhook Events', () => {
         it('should dispatch WEBHOOK_RECEIVED without hydration', async () => {
             const integration = new TestIntegration();

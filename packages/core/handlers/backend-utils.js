@@ -31,6 +31,9 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
     router[method.toLowerCase()](path, async (req, res, next) => {
         try {
             const integrationInstance = new IntegrationClass();
+            // initialize() registers dynamic user actions AND merges any Tier 3
+            // Integration Extension events into instance.events before dispatch.
+            await integrationInstance.initialize();
             const dispatcher = new IntegrationEventDispatcher(
                 integrationInstance
             );
@@ -212,6 +215,9 @@ const createQueueWorker = (integrationClass) => {
                         logCtx
                     );
                     integrationInstance = new integrationClass();
+                    // Merge Tier 3 Integration Extension events into instance.events
+                    // so extension-contributed queue events can be dispatched.
+                    await integrationInstance.initialize();
                 }
 
                 const dispatcher = new IntegrationEventDispatcher(

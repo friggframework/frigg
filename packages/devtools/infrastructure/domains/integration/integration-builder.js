@@ -347,13 +347,46 @@ class IntegrationBuilder extends InfrastructureBuilder {
             console.log(`      ✓ Webhook handler function defined`);
         }
 
-        // Create HTTP API handler for integration (catch-all route AFTER webhooks)
+        // Tier 3 Integration Extension routes (e.g. hubspot.extensions.webhooks).
+        // The integration-defined-routers handler already mounts these at
+        // runtime; emitting explicit httpApi events here registers them as
+        // dedicated routes (visible at startup, and matched ahead of the
+        // catch-all) instead of silently relying on {proxy+}. They point at
+        // the same handler as the catch-all. Route shape mirrors core's
+        // getExtensionRoutes; we read it directly to avoid coupling the
+        // build-time generator to a core runtime import.
+        const extensionBindings = Object.values(
+            integration.Definition.extensions || {}
+        );
+        const extensionRouteEvents = [];
+        for (const binding of extensionBindings) {
+            const routes =
+                (binding && binding.extension && binding.extension.routes) ||
+                [];
+            for (const route of routes) {
+                extensionRouteEvents.push({
+                    httpApi: {
+                        path: `/api/${integrationName}-integration${route.path}`,
+                        method: route.method,
+                    },
+                });
+            }
+        }
+        if (extensionRouteEvents.length > 0) {
+            console.log(
+                `      ✓ ${extensionRouteEvents.length} extension route(s) defined`
+            );
+        }
+
+        // Create HTTP API handler for integration (catch-all route AFTER
+        // webhooks and extension routes)
         result.functions[integrationName] = {
             handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
             skipEsbuild: true, // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }), // HTTP handlers need Prisma for integration queries
             events: [
+                ...extensionRouteEvents,
                 {
                     httpApi: {
                         path: `/api/${integrationName}-integration/{proxy+}`,

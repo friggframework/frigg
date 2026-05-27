@@ -11,6 +11,7 @@ const {
 const {
     UpdateIntegrationMessages,
 } = require('./use-cases/update-integration-messages');
+const { validateExtensionBinding } = require('./extension');
 
 const constantsToBeMigrated = {
     defaultEvents: {
@@ -60,6 +61,9 @@ class IntegrationBase {
         supportedVersions: [], // Eventually usable for deprecation and future test version purposes
 
         modules: {},
+        // Tier 3 Integration Extensions — see packages/core/integrations/EXTENSIONS.md
+        // Shape: { [bindingName]: { extension, handlers?: { [eventName]: methodName } } }
+        extensions: {},
         display: {
             name: 'Integration Name',
             logo: '',
@@ -430,6 +434,19 @@ class IntegrationBase {
         // Default: no-op, integrations override this
     }
 
+    /**
+     * Queue a webhook for asynchronous worker dispatch.
+     *
+     * The dispatch event defaults to `ON_WEBHOOK` for backward compatibility
+     * with the `Definition.webhooks: true` path. Extensions (and any caller
+     * that needs the worker to invoke a specific bound handler) can override
+     * by passing `event` in the payload — it's stripped from the payload and
+     * used as the SQS message's dispatch event.
+     *
+     * @param {Object} data - Webhook payload. May include `event` to override
+     *   the default `ON_WEBHOOK` dispatch event. All other fields are passed
+     *   through to the worker as the `data` field of the SQS message.
+     */
     async queueWebhook(data) {
         const { QueuerUtil } = require('../queues');
 
@@ -442,10 +459,12 @@ class IntegrationBase {
             throw new Error(`Queue URL not found for ${queueName}`);
         }
 
+        const { event: dispatchEvent, ...payload } = data || {};
+
         return QueuerUtil.send(
             {
-                event: 'ON_WEBHOOK',
-                data,
+                event: dispatchEvent || 'ON_WEBHOOK',
+                data: payload,
             },
             queueUrl
         );
@@ -504,6 +523,97 @@ class IntegrationBase {
         };
     }
 
+    /**
+     * Merge Tier 3 Integration Extension events into `this.events`.
+     *
+     * For each binding declared on `static Definition.extensions`, this method:
+     *   1. Validates the extension bundle shape and binding handlers
+     *   2. For each event the extension declares, resolves the handler in priority order:
+     *      a. Subclass-defined `this.events[eventName]` (set in the constructor) — wins; if a
+     *         binding tried to override that event with `handlers`, we log a warning so the
+     *         author knows their override is shadowed.
+     *      b. A method-name string in `binding.handlers[eventName]` → method on this instance
+     *      c. The extension's own default `handler` function
+     *      d. Otherwise throw — neither side provided a handler
+     *   3. Binds the resolved function to this instance and writes it to `this.events[eventName]`
+     *
+     * Two bindings declaring the same event throw a deterministic conflict error — silent
+     * "first/last writer wins" makes routing bugs nearly impossible to diagnose.
+     *
+     * @private
+     */
+    _mergeExtensions() {
+        const extensions = this.constructor.Definition?.extensions || {};
+        const integrationName = this.constructor.Definition?.name;
+        // Tracks which event names have been claimed by an extension binding during
+        // this merge — distinct from subclass-defined events on `this.events`.
+        const mergedByExtension = new Map();
+
+        for (const [bindingName, binding] of Object.entries(extensions)) {
+            if (!binding || typeof binding !== 'object') {
+                throw new Error(
+                    `Integration "${integrationName}" extension binding "${bindingName}" must be an object`
+                );
+            }
+            const { extension, handlers = {} } = binding;
+            validateExtensionBinding(
+                extension,
+                bindingName,
+                integrationName,
+                binding
+            );
+
+            const extEvents = extension.events || {};
+            for (const [eventName, eventDef] of Object.entries(extEvents)) {
+                // Conflict detection: another extension binding already claimed this event name.
+                if (mergedByExtension.has(eventName)) {
+                    const prev = mergedByExtension.get(eventName);
+                    throw new Error(
+                        `Integration "${integrationName}" extension event conflict: ` +
+                            `event "${eventName}" is declared by both binding "${prev}" and binding "${bindingName}" — ` +
+                            `use distinct event names per binding or omit duplicates`
+                    );
+                }
+
+                // Subclass shadowing: if the subclass set this.events[eventName] before initialize(),
+                // it wins. Warn if the binding tried to wire an override that's now ignored.
+                if (this.events[eventName]) {
+                    if (typeof handlers[eventName] === 'string') {
+                        console.warn(
+                            `[Frigg] Integration "${integrationName}" binding "${bindingName}": ` +
+                                `handler "${handlers[eventName]}" for event "${eventName}" is ignored because ` +
+                                `this.events["${eventName}"] was already set (subclass constructor or earlier merge)`
+                        );
+                    }
+                    continue;
+                }
+
+                let fn;
+                const override = handlers[eventName];
+                if (typeof override === 'string') {
+                    if (typeof this[override] !== 'function') {
+                        throw new Error(
+                            `Integration "${integrationName}" extension binding "${bindingName}": handler method "${override}" not found on instance`
+                        );
+                    }
+                    fn = this[override];
+                } else if (typeof eventDef.handler === 'function') {
+                    fn = eventDef.handler;
+                } else {
+                    throw new Error(
+                        `Extension "${extension.name}" event "${eventName}" has no default handler and binding "${bindingName}" did not provide one`
+                    );
+                }
+
+                this.events[eventName] = {
+                    type: eventDef.type,
+                    handler: fn.bind(this),
+                };
+                mergedByExtension.set(eventName, bindingName);
+            }
+        }
+    }
+
     async initialize() {
         try {
             const additionalUserActions = await this.loadDynamicUserActions();
@@ -512,6 +622,7 @@ class IntegrationBase {
             this.addError(e);
         }
 
+        this._mergeExtensions();
         this.registerEventHandlers();
     }
 
