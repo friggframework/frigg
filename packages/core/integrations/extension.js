@@ -70,6 +70,24 @@ function validateExtensionBinding(extension, bindingName, integrationName, bindi
         throw new Error(`${ctx}: extension is missing required "name" field`);
     }
 
+    if (
+        extension.useDatabase !== undefined &&
+        typeof extension.useDatabase !== 'boolean'
+    ) {
+        throw new Error(
+            `${ctx}: extension "${extension.name}" "useDatabase" must be a boolean`
+        );
+    }
+    if (
+        binding &&
+        binding.useDatabase !== undefined &&
+        typeof binding.useDatabase !== 'boolean'
+    ) {
+        throw new Error(
+            `${ctx}: binding "useDatabase" must be a boolean`
+        );
+    }
+
     const events = extension.events || {};
     if (typeof events !== 'object' || Array.isArray(events)) {
         throw new Error(
@@ -181,6 +199,10 @@ function getExtensionRoutes(IntegrationClass) {
             integrationName,
             binding
         );
+        // useDatabase is resolved at the binding level, falling back to the
+        // extension's declared value, then to false (DB-free by default).
+        const useDatabase =
+            binding.useDatabase ?? binding.extension.useDatabase ?? false;
         const routes = binding.extension.routes || [];
         for (const route of routes) {
             flat.push({
@@ -189,6 +211,7 @@ function getExtensionRoutes(IntegrationClass) {
                 path: route.path,
                 method: route.method,
                 event: route.event,
+                useDatabase,
             });
         }
     }

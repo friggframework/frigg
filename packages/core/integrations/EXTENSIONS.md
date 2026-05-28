@@ -24,6 +24,8 @@ class HubSpotIntegration extends IntegrationBase {
             hubspotWebhooks: {
                 extension: hubspot.extensions.webhooks,
                 handlers: { HUBSPOT_WEBHOOK: 'onHubSpotEvent' },
+                // optional: override the extension's declared useDatabase
+                // useDatabase: true,
             },
         },
     };
@@ -39,19 +41,39 @@ class HubSpotIntegration extends IntegrationBase {
 }
 ```
 
-The binding key (`hubspotWebhooks`) is your local name. The extension reference (`hubspot.extensions.webhooks`) is whatever the API module exports.
+The binding key (`hubspotWebhooks`) is your local name. It is also the **URL namespace** for the extension's routes (see below), so pick something readable — `hubspot` yields a cleaner URL than `hubspotWebhooks`. The extension reference (`hubspot.extensions.webhooks`) is whatever the API module exports.
 
 ## Step 2: Deploy
 
-The framework auto-mounts each extension's routes at the integration's base path. Boot logs show:
+Each extension binding is mounted under its **binding key**, on its own dedicated handler/Lambda function. This means two modules' extensions (e.g. a HubSpot and a Clockwork webhooks extension on the same integration) never collide — each lives at a distinct namespaced path. Boot logs show:
 
 ```
 │ Configuring routes for hubspot Integration:
-│ POST /api/hubspot-integration/webhooks  (extension: hubspot-webhooks)
+│ POST /api/hubspot-integration/hubspotWebhooks/webhooks  (extension: hubspot-webhooks, useDatabase: false)
 │
 ```
 
-Hit that URL and the bound method (`onHubSpotEvent`) fires on the resolved per-account integration instance.
+So the full URL is `/api/{integration-name}-integration/{bindingKey}{route.path}`. Register that URL with the upstream provider (e.g. paste it into your HubSpot app's webhook settings). Hit it and the bound method (`onHubSpotEvent`) fires on the resolved per-account integration instance.
+
+## `useDatabase` — does the receiver open a DB connection?
+
+Each extension declares whether its route handler should open a database connection:
+
+```javascript
+// in the extension bundle (api-module side)
+module.exports = {
+    name: 'hubspot-webhooks',
+    useDatabase: false,   // default — the receiver is DB-free
+    routes: [ /* ... */ ],
+    events: { /* ... */ },
+};
+```
+
+- **Default is `false`** — a webhook receiver that only verifies a signature and enqueues should not pay for a DB connection (faster cold start; at build time its Lambda doesn't get the Prisma layer).
+- Set `useDatabase: true` at the **extension level** if the receiver itself needs the DB. A binding may override it locally (`extensions: { x: { extension, useDatabase: true } }`), though that's rarely needed.
+- Resolution order: `binding.useDatabase ?? extension.useDatabase ?? false`.
+
+If `useDatabase` is `false`, the receiver must not touch the database. Work that needs the DB (e.g. resolving `portalId → integrationId`) belongs in the queue worker that processes the dispatched event, not in the receiver.
 
 ## How handler binding works
 
@@ -84,7 +106,7 @@ This means **binding the same extension twice only works if the extension itself
 
 Subclass overrides via `this.events[eventName]` (set in the constructor) take precedence over extension-declared events. If a binding tried to wire a handler that's now shadowed, the framework logs a warning naming the integration, binding, and ignored method.
 
-Route path conflicts (two extensions declaring the same `method + path`, or an extension colliding with a `Definition.routes` entry) also throw at boot.
+**Routes do not collide across bindings** — each binding's routes are namespaced under its binding key (`/{bindingKey}{route.path}`), so two extensions can both declare `POST /webhooks` and live at distinct URLs. A route conflict only throws at boot if a *single* binding declares two routes with the same `method + path` (or a `Definition.routes` entry exactly matches an extension's namespaced path). Note this is independent of event-name conflicts above: namespacing disambiguates URLs, but two bindings still must use distinct **event** names since events are merged into one `this.events` map.
 
 ## Authoring an extension (for API module authors)
 

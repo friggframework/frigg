@@ -145,6 +145,81 @@ describe('getExtensionRoutes', () => {
     });
 });
 
+describe('useDatabase resolution', () => {
+    it('accepts a boolean extension.useDatabase', () => {
+        expect(() =>
+            validateExtensionBinding(
+                buildExtension({ useDatabase: true }),
+                'b',
+                'int'
+            )
+        ).not.toThrow();
+        expect(() =>
+            validateExtensionBinding(
+                buildExtension({ useDatabase: false }),
+                'b',
+                'int'
+            )
+        ).not.toThrow();
+    });
+
+    it('rejects a non-boolean extension.useDatabase', () => {
+        expect(() =>
+            validateExtensionBinding(
+                buildExtension({ useDatabase: 'yes' }),
+                'b',
+                'int'
+            )
+        ).toThrow(/useDatabase.*boolean/i);
+    });
+
+    it('rejects a non-boolean binding.useDatabase', () => {
+        const ext = buildExtension();
+        expect(() =>
+            validateExtensionBinding(ext, 'b', 'int', {
+                extension: ext,
+                useDatabase: 'nope',
+            })
+        ).toThrow(/useDatabase.*boolean/i);
+    });
+
+    it('getExtensionRoutes defaults useDatabase to false when unset', () => {
+        const ext = buildExtension();
+        class C extends IntegrationBase {
+            static Definition = {
+                name: 'c',
+                modules: {},
+                extensions: { b: { extension: ext } },
+            };
+        }
+        expect(getExtensionRoutes(C)[0].useDatabase).toBe(false);
+    });
+
+    it('getExtensionRoutes surfaces extension-level useDatabase', () => {
+        const ext = buildExtension({ useDatabase: true });
+        class C extends IntegrationBase {
+            static Definition = {
+                name: 'c',
+                modules: {},
+                extensions: { b: { extension: ext } },
+            };
+        }
+        expect(getExtensionRoutes(C)[0].useDatabase).toBe(true);
+    });
+
+    it('getExtensionRoutes lets binding.useDatabase override the extension default (false wins over true)', () => {
+        const ext = buildExtension({ useDatabase: true });
+        class C extends IntegrationBase {
+            static Definition = {
+                name: 'c',
+                modules: {},
+                extensions: { b: { extension: ext, useDatabase: false } },
+            };
+        }
+        expect(getExtensionRoutes(C)[0].useDatabase).toBe(false);
+    });
+});
+
 describe('validateExtensionBinding — handler/binding shape validation', () => {
     it('rejects an event whose handler is set but not a function', () => {
         expect(() =>

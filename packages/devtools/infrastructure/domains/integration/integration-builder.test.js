@@ -568,7 +568,7 @@ describe('IntegrationBuilder', () => {
             ]);
         });
 
-        it('should emit dedicated httpApi events for Tier 3 extension routes, before the catch-all', async () => {
+        it('emits a dedicated per-binding function (namespaced) for Tier 3 extension routes; the main handler keeps only {proxy+}', async () => {
             const appDefinition = {
                 integrations: [
                     {
@@ -602,15 +602,24 @@ describe('IntegrationBuilder', () => {
 
             const result = await integrationBuilder.build(appDefinition, {});
 
-            // The extension route is registered on the same handler as the
-            // catch-all, and ordered before {proxy+}.
-            expect(result.functions.hubspot.events).toEqual([
+            // Dedicated per-binding function, namespaced under the binding key,
+            // pointing at its own handler export.
+            const fn = result.functions.hubspot__hubspotWebhooks;
+            expect(fn).toBeDefined();
+            expect(fn.handler).toBe(
+                'node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.hubspot__hubspotWebhooks.handler'
+            );
+            expect(fn.events).toEqual([
                 {
                     httpApi: {
-                        path: '/api/hubspot-integration/webhooks',
+                        path: '/api/hubspot-integration/hubspotWebhooks/webhooks',
                         method: 'POST',
                     },
                 },
+            ]);
+
+            // The main integration handler keeps only the catch-all.
+            expect(result.functions.hubspot.events).toEqual([
                 {
                     httpApi: {
                         path: '/api/hubspot-integration/{proxy+}',
@@ -618,6 +627,45 @@ describe('IntegrationBuilder', () => {
                     },
                 },
             ]);
+
+            // useDatabase defaults to false → no Prisma layer on the receiver.
+            expect(fn.layers).toBeUndefined();
+        });
+
+        it('attaches the Prisma layer to a per-binding function only when useDatabase is true', async () => {
+            const mkDef = (useDatabase) => ({
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hs',
+                            extensions: {
+                                wh: {
+                                    extension: {
+                                        name: 'wh-ext',
+                                        useDatabase,
+                                        routes: [
+                                            {
+                                                path: '/webhooks',
+                                                method: 'POST',
+                                                event: 'E',
+                                            },
+                                        ],
+                                        events: { E: { handler: () => {} } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+            });
+
+            const withDb = await integrationBuilder.build(mkDef(true), {});
+            expect(withDb.functions.hs__wh.layers).toEqual([
+                { Ref: 'PrismaLambdaLayer' },
+            ]);
+
+            const withoutDb = await integrationBuilder.build(mkDef(false), {});
+            expect(withoutDb.functions.hs__wh.layers).toBeUndefined();
         });
 
         it('should only have the catch-all proxy route when no extensions are declared', async () => {
