@@ -348,8 +348,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
         }
 
         // Create HTTP API handler for integration (catch-all route AFTER
-        // webhooks). Tier 3 extension routes are NOT folded in here — each
-        // binding gets its own function below so it can have its own DB infra.
+        // webhooks). Extension routes get their own functions below.
         result.functions[integrationName] = {
             handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
             skipEsbuild: true, // Nested exports in node_modules - skip esbuild bundling
@@ -366,13 +365,8 @@ class IntegrationBuilder extends InfrastructureBuilder {
         };
         console.log(`      ✓ HTTP handler function defined`);
 
-        // Tier 3 Integration Extensions — one dedicated function per binding,
-        // namespaced under /{bindingKey} so multiple modules' extensions (e.g.
-        // hubspot + clockwork webhooks) never collide on the same path. The
-        // Prisma layer is attached only when the extension/binding declares
-        // useDatabase: true (default false → DB-free receiver, faster cold
-        // start). Route shape mirrors core's getExtensionRoutes; read directly
-        // to avoid coupling the build-time generator to a core runtime import.
+        // One serverless function per extension binding, namespaced under
+        // /{bindingKey}. Prisma layer attached only when useDatabase is true.
         const sanitizeBindingKey = (name) =>
             String(name).replace(/[^A-Za-z0-9]/g, '');
         const extensionEntries = Object.entries(
@@ -386,15 +380,12 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 binding.useDatabase ??
                 (extension && extension.useDatabase) ??
                 false;
-            // fnName is the wire contract with core's integration-defined-routers
-            // (it exports handlers[`${name}__${sanitizeBindingKey(binding)}`]).
-            // Keep this derivation IN SYNC with that file.
+            // Wire contract: core's integration-defined-routers derives the
+            // identical handler key. Keep both in sync.
             const fnName = `${integrationName}__${sanitizeBindingKey(
                 bindingKey
             )}`;
-            // Guard the same silent-overwrite the runtime router guards: two
-            // binding keys that sanitize to the same value would clobber one
-            // function definition while leaving both httpApi paths live.
+            // Distinct binding keys can sanitize to the same fnName — fail loud rather than overwrite.
             if (
                 Object.prototype.hasOwnProperty.call(result.functions, fnName)
             ) {

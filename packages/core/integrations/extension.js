@@ -199,8 +199,6 @@ function getExtensionRoutes(IntegrationClass) {
             integrationName,
             binding
         );
-        // useDatabase is resolved at the binding level, falling back to the
-        // extension's declared value, then to false (DB-free by default).
         const useDatabase =
             binding.useDatabase ?? binding.extension.useDatabase ?? false;
         const routes = binding.extension.routes || [];

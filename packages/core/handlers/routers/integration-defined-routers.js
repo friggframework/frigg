@@ -56,11 +56,8 @@ for (const IntegrationClass of integrationClasses) {
         }
     }
 
-    // Tier 3 Integration Extension routes — each binding gets a dedicated
-    // handler, namespaced under /{bindingName}, so multiple modules' extensions
-    // can declare the same relative path (e.g. two /webhooks) without colliding.
-    // Each per-binding handler carries its own shouldUseDatabase (resolved from
-    // the extension/binding `useDatabase`, default false → DB-free receiver).
+    // Each extension binding gets its own namespaced handler (/{bindingName}),
+    // so two modules' extensions can share a path like /webhooks without colliding.
     const bindingGroups = new Map();
     for (const extRoute of getExtensionRoutes(IntegrationClass)) {
         const namespacedPath = `/${extRoute.bindingName}${extRoute.path}`;
@@ -94,16 +91,12 @@ for (const IntegrationClass of integrationClasses) {
     };
 
     for (const [bindingName, group] of bindingGroups) {
-        // The function key is the wire contract with the devtools serverless
-        // generator (integration-builder.js builds the identical key). Keep
-        // the derivation here and there IN SYNC.
+        // Wire contract: integration-builder.js (devtools) derives the identical
+        // function key for the serverless config. Keep both in sync.
         const fnKey = `${IntegrationClass.Definition.name}__${sanitizeBindingKey(
             bindingName
         )}`;
-        // Two binding keys that sanitize to the same value (e.g. "hub-spot"
-        // and "hubspot") would silently overwrite each other's handler. The
-        // namespaced-path claim() above can't catch it (the paths differ), so
-        // fail loud here.
+        // Distinct binding keys can sanitize to the same fnKey — fail loud rather than overwrite.
         if (Object.prototype.hasOwnProperty.call(handlers, fnKey)) {
             throw new Error(
                 `Integration "${IntegrationClass.Definition.name}" extension handler conflict: ` +

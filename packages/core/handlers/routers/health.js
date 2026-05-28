@@ -511,10 +511,8 @@ router.get('/health/ready', async (_req, res) => {
     });
 });
 
-// shouldUseDatabase: false — health must NOT eagerly open a DB connection.
-// /health/live is a pure liveness probe (no DB), and /health/ready probes the
-// DB itself and degrades to 503 gracefully. Eager-connect at handler entry
-// would turn a DB outage into a 500 for both (killing healthy containers).
+// DB-free: /health/ready probes the DB itself and degrades to 503. Eager-connect
+// here would turn a DB outage into a 500, killing otherwise-healthy containers.
 const handler = createAppHandler('HTTP Event: Health', router, false);
 
 module.exports = { handler, router };

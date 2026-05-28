@@ -80,10 +80,7 @@ const createHandler = (optionByName = {}) => {
             // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.
             await secretsToEnv();
 
-            // Open the database connection up front when the handler needs it.
-            // Lazy-required so DB-free handlers (e.g. extension webhook
-            // receivers with useDatabase:false) never load the Prisma client.
-            // $connect is idempotent, so this safely reuses a warm connection.
+            // Lazy-required so DB-free handlers never load the Prisma client.
             if (shouldUseDatabase) {
                 const { connectPrisma } = require('../database/prisma');
                 await connectPrisma();
