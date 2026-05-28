@@ -386,9 +386,24 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 binding.useDatabase ??
                 (extension && extension.useDatabase) ??
                 false;
+            // fnName is the wire contract with core's integration-defined-routers
+            // (it exports handlers[`${name}__${sanitizeBindingKey(binding)}`]).
+            // Keep this derivation IN SYNC with that file.
             const fnName = `${integrationName}__${sanitizeBindingKey(
                 bindingKey
             )}`;
+            // Guard the same silent-overwrite the runtime router guards: two
+            // binding keys that sanitize to the same value would clobber one
+            // function definition while leaving both httpApi paths live.
+            if (
+                Object.prototype.hasOwnProperty.call(result.functions, fnName)
+            ) {
+                throw new Error(
+                    `Integration "${integrationName}" extension function conflict: ` +
+                        `binding "${bindingKey}" sanitizes to "${fnName}", which is already taken. ` +
+                        `Use binding keys that are distinct after stripping non-alphanumeric characters.`
+                );
+            }
             result.functions[fnName] = {
                 handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${fnName}.handler`,
                 skipEsbuild: true,

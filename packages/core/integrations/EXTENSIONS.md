@@ -55,6 +55,8 @@ Each extension binding is mounted under its **binding key**, on its own dedicate
 
 So the full URL is `/api/{integration-name}-integration/{bindingKey}{route.path}`. Register that URL with the upstream provider (e.g. paste it into your HubSpot app's webhook settings). Hit it and the bound method (`onHubSpotEvent`) fires on the resolved per-account integration instance.
 
+> **⚠️ Breaking:** extension routes used to mount un-namespaced (`/api/{x}-integration/webhooks`). They are now namespaced under the binding key. Any provider webhook already registered against the old path must be re-pointed at the new `/{bindingKey}` URL — and for signature schemes that sign the full URL (e.g. HubSpot v3), the old registration will also fail verification until updated.
+
 ## `useDatabase` — does the receiver open a DB connection?
 
 Each extension declares whether its route handler should open a database connection:
@@ -72,6 +74,7 @@ module.exports = {
 - **Default is `false`** — a webhook receiver that only verifies a signature and enqueues should not pay for a DB connection (faster cold start; at build time its Lambda doesn't get the Prisma layer).
 - Set `useDatabase: true` at the **extension level** if the receiver itself needs the DB. A binding may override it locally (`extensions: { x: { extension, useDatabase: true } }`), though that's rarely needed.
 - Resolution order: `binding.useDatabase ?? extension.useDatabase ?? false`.
+- Scope note: `false` is the default **for extension routes**. `createHandler` itself still defaults `shouldUseDatabase: true` for the integration's own catch-all handler and the legacy `Definition.webhooks: true` path — those connect as before. The `false` default applies only to the per-binding extension handler.
 
 If `useDatabase` is `false`, the receiver must not touch the database. Work that needs the DB (e.g. resolving `portalId → integrationId`) belongs in the queue worker that processes the dispatched event, not in the receiver.
 

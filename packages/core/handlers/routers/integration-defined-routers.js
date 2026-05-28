@@ -94,9 +94,23 @@ for (const IntegrationClass of integrationClasses) {
     };
 
     for (const [bindingName, group] of bindingGroups) {
+        // The function key is the wire contract with the devtools serverless
+        // generator (integration-builder.js builds the identical key). Keep
+        // the derivation here and there IN SYNC.
         const fnKey = `${IntegrationClass.Definition.name}__${sanitizeBindingKey(
             bindingName
         )}`;
+        // Two binding keys that sanitize to the same value (e.g. "hub-spot"
+        // and "hubspot") would silently overwrite each other's handler. The
+        // namespaced-path claim() above can't catch it (the paths differ), so
+        // fail loud here.
+        if (Object.prototype.hasOwnProperty.call(handlers, fnKey)) {
+            throw new Error(
+                `Integration "${IntegrationClass.Definition.name}" extension handler conflict: ` +
+                    `binding "${bindingName}" sanitizes to "${fnKey}", which is already taken. ` +
+                    `Use binding keys that are distinct after stripping non-alphanumeric characters.`
+            );
+        }
         handlers[fnKey] = {
             handler: createAppHandler(
                 `HTTP Event: ${IntegrationClass.Definition.name} extension ${bindingName}`,

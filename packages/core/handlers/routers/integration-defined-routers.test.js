@@ -274,4 +274,59 @@ describe('integration-defined-routers — per-binding namespacing', () => {
             require('./integration-defined-routers')
         ).not.toThrow();
     });
+
+    it('throws at boot when two binding keys sanitize to the same handler key', () => {
+        const a = makeExt('ext-a', 'A_EVENT');
+        const b = makeExt('ext-b', 'B_EVENT');
+        class Collide extends IntegrationBase {
+            static Definition = {
+                name: 'collide',
+                version: '1.0.0',
+                modules: {},
+                extensions: {
+                    'hub-spot': { extension: a }, // sanitizes to "hubspot"
+                    hubspot: { extension: b }, // also "hubspot" → collision
+                },
+            };
+        }
+        jest.doMock('../app-definition-loader', () => ({
+            loadAppDefinition: () => ({ integrations: [Collide] }),
+        }));
+        expect(() => require('./integration-defined-routers')).toThrow(
+            /extension handler conflict.*sanitizes to "collide__hubspot"/
+        );
+    });
+
+    it('passes the resolved binding useDatabase through to createAppHandler', () => {
+        const calls = [];
+        jest.doMock('./../app-handler-helpers', () => ({
+            createAppHandler: (eventName, router, shouldUseDatabase) => {
+                calls.push({ eventName, shouldUseDatabase });
+                return { __mock: eventName };
+            },
+        }));
+        const ext = {
+            name: 'e',
+            useDatabase: false,
+            routes: [{ path: '/w', method: 'POST', event: 'E' }],
+            events: { E: { handler: async () => null } },
+        };
+        class C extends IntegrationBase {
+            static Definition = {
+                name: 'c',
+                version: '1.0.0',
+                modules: {},
+                extensions: { wh: { extension: ext } },
+            };
+        }
+        jest.doMock('../app-definition-loader', () => ({
+            loadAppDefinition: () => ({ integrations: [C] }),
+        }));
+        require('./integration-defined-routers');
+        const bindingCall = calls.find((c) =>
+            /extension wh$/.test(c.eventName)
+        );
+        expect(bindingCall).toBeDefined();
+        expect(bindingCall.shouldUseDatabase).toBe(false);
+    });
 });

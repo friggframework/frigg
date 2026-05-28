@@ -668,6 +668,30 @@ describe('IntegrationBuilder', () => {
             expect(withoutDb.functions.hs__wh.layers).toBeUndefined();
         });
 
+        it('throws when two binding keys sanitize to the same function name', async () => {
+            const mkExt = (name, event) => ({
+                name,
+                routes: [{ path: '/w', method: 'POST', event }],
+                events: { [event]: { handler: () => {} } },
+            });
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hs',
+                            extensions: {
+                                'hub-spot': { extension: mkExt('a', 'A') }, // → hs__hubspot
+                                hubspot: { extension: mkExt('b', 'B') }, // → hs__hubspot
+                            },
+                        },
+                    },
+                ],
+            };
+            await expect(
+                integrationBuilder.build(appDefinition, {})
+            ).rejects.toThrow(/extension function conflict.*hs__hubspot/);
+        });
+
         it('should only have the catch-all proxy route when no extensions are declared', async () => {
             const appDefinition = {
                 integrations: [{ Definition: { name: 'plain' } }],

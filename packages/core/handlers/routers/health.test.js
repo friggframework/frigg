@@ -22,6 +22,14 @@ jest.mock('../../database/prisma', () => ({
     disconnectPrisma: jest.fn(),
 }));
 
+// Capture how health.js wraps its router. `router` is exported independently
+// of the handler, so mocking createAppHandler does not affect the router-based
+// tests below.
+jest.mock('./../app-handler-helpers', () => ({
+    createApp: jest.fn(),
+    createAppHandler: jest.fn(() => ({})),
+}));
+
 const mockHealthCheckRepository = {
     getDatabaseConnectionState: jest.fn().mockResolvedValue({
         readyState: 1, stateName: 'connected', isConnected: true,
@@ -68,6 +76,17 @@ jest.mock('./../app-handler-helpers', () => ({
 }));
 
 const { router } = require('./health');
+
+describe('Health handler DB posture', () => {
+    it('creates the handler DB-free (shouldUseDatabase=false) so liveness/readiness never eager-connect', () => {
+        const { createAppHandler } = require('./../app-handler-helpers');
+        const healthCall = createAppHandler.mock.calls.find(
+            (c) => c[0] === 'HTTP Event: Health'
+        );
+        expect(healthCall).toBeDefined();
+        expect(healthCall[2]).toBe(false);
+    });
+});
 
 const mockRequest = (path, headers = {}) => ({
     path,
