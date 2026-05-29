@@ -49,6 +49,7 @@ const createHandler = (optionByName = {}) => {
         eventName = 'Event',
         isUserFacingResponse = true,
         method,
+        shouldUseDatabase = true,
     } = optionByName;
 
     if (!method) {
@@ -78,6 +79,12 @@ const createHandler = (optionByName = {}) => {
 
             // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.
             await secretsToEnv();
+
+            // Lazy-required so DB-free handlers never load the Prisma client.
+            if (shouldUseDatabase) {
+                const { connectPrisma } = require('../database/prisma');
+                await connectPrisma();
+            }
 
             // Helps reuse the database connection.  Lowers response times.
             context.callbackWaitsForEmptyEventLoop = false;

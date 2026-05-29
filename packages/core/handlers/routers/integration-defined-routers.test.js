@@ -107,6 +107,7 @@ describe('integration-defined-routers — extension routes', () => {
             path: '/stub-hook',
             method: 'POST',
             event: 'STUB_EVENT',
+            useDatabase: false,
         });
     });
 
@@ -168,62 +169,164 @@ describe('integration-defined-routers — extension routes', () => {
     });
 });
 
-describe('integration-defined-routers — boot-time route conflict detection', () => {
+describe('integration-defined-routers — per-binding namespacing', () => {
     afterEach(() => {
         jest.resetModules();
     });
 
-    it('throws when an extension route collides with a Definition.routes entry', () => {
-        const extension = {
-            name: 'collide-ext',
-            routes: [{ path: '/hook', method: 'POST', event: 'X_EVENT' }],
-            events: { X_EVENT: { handler: async () => null } },
-        };
-        class CollidingIntegration extends IntegrationBase {
+    const makeExt = (name, event) => ({
+        name,
+        routes: [{ path: '/webhooks', method: 'POST', event }],
+        events: { [event]: { handler: async () => null } },
+    });
+
+    it('exposes a dedicated handler per extension binding, keyed by binding name, alongside the main integration handler', () => {
+        const ext = makeExt('hs-webhooks', 'HS_EVENT');
+        class Multi extends IntegrationBase {
             static Definition = {
-                name: 'collider',
+                name: 'multi',
                 version: '1.0.0',
                 modules: {},
-                routes: [{ path: '/hook', method: 'POST', event: 'OWN_EVENT' }],
-                extensions: { ext: { extension } },
+                extensions: { hubspotWebhooks: { extension: ext } },
             };
         }
         jest.doMock('../app-definition-loader', () => ({
-            loadAppDefinition: () => ({
-                integrations: [CollidingIntegration],
-            }),
+            loadAppDefinition: () => ({ integrations: [Multi] }),
+        }));
+        const { handlers } = require('./integration-defined-routers');
+        expect(handlers).toHaveProperty('multi'); // main catch-all
+        expect(handlers).toHaveProperty('multi__hubspotWebhooks'); // per-binding
+    });
+
+    it('does NOT collide when two bindings declare the same relative route path (namespacing disambiguates)', () => {
+        const a = makeExt('ext-a', 'A_EVENT');
+        const b = makeExt('ext-b', 'B_EVENT');
+        class TwoMod extends IntegrationBase {
+            static Definition = {
+                name: 'twomod',
+                version: '1.0.0',
+                modules: {},
+                extensions: {
+                    hubspot: { extension: a },
+                    clockwork: { extension: b },
+                },
+            };
+        }
+        jest.doMock('../app-definition-loader', () => ({
+            loadAppDefinition: () => ({ integrations: [TwoMod] }),
+        }));
+        let mod;
+        expect(() => {
+            mod = require('./integration-defined-routers');
+        }).not.toThrow();
+        expect(mod.handlers).toHaveProperty('twomod__hubspot');
+        expect(mod.handlers).toHaveProperty('twomod__clockwork');
+    });
+
+    it('still throws when a single binding declares two routes with the same method+path', () => {
+        const dup = {
+            name: 'dup-ext',
+            routes: [
+                { path: '/dup', method: 'POST', event: 'E1' },
+                { path: '/dup', method: 'POST', event: 'E2' },
+            ],
+            events: {
+                E1: { handler: async () => null },
+                E2: { handler: async () => null },
+            },
+        };
+        class DupIntegration extends IntegrationBase {
+            static Definition = {
+                name: 'dupint',
+                version: '1.0.0',
+                modules: {},
+                extensions: { only: { extension: dup } },
+            };
+        }
+        jest.doMock('../app-definition-loader', () => ({
+            loadAppDefinition: () => ({ integrations: [DupIntegration] }),
         }));
         expect(() => require('./integration-defined-routers')).toThrow(
-            /route conflict.*POST \/hook.*Definition\.routes.*extension "collide-ext"/
+            /route conflict.*POST \/only\/dup/
         );
     });
 
-    it('throws when two extensions in the same integration share a path', () => {
-        const extA = {
-            name: 'ext-a',
-            routes: [{ path: '/shared', method: 'POST', event: 'A_EVENT' }],
-            events: { A_EVENT: { handler: async () => null } },
+    it('does not collide an extension route with a Definition.route that shares the un-namespaced path (extension is namespaced)', () => {
+        const ext = {
+            name: 'ns-ext',
+            routes: [{ path: '/hook', method: 'POST', event: 'X_EVENT' }],
+            events: { X_EVENT: { handler: async () => null } },
         };
-        const extB = {
-            name: 'ext-b',
-            routes: [{ path: '/shared', method: 'POST', event: 'B_EVENT' }],
-            events: { B_EVENT: { handler: async () => null } },
-        };
-        class DoubleColliderIntegration extends IntegrationBase {
+        class NoCollide extends IntegrationBase {
             static Definition = {
-                name: 'double-collide',
+                name: 'nocollide',
                 version: '1.0.0',
                 modules: {},
-                extensions: { a: { extension: extA }, b: { extension: extB } },
+                routes: [{ path: '/hook', method: 'POST', event: 'OWN_EVENT' }],
+                extensions: { ext: { extension: ext } },
             };
         }
         jest.doMock('../app-definition-loader', () => ({
-            loadAppDefinition: () => ({
-                integrations: [DoubleColliderIntegration],
-            }),
+            loadAppDefinition: () => ({ integrations: [NoCollide] }),
+        }));
+        // Definition route claims POST /hook; extension claims POST /ext/hook — distinct.
+        expect(() =>
+            require('./integration-defined-routers')
+        ).not.toThrow();
+    });
+
+    it('throws at boot when two binding keys sanitize to the same handler key', () => {
+        const a = makeExt('ext-a', 'A_EVENT');
+        const b = makeExt('ext-b', 'B_EVENT');
+        class Collide extends IntegrationBase {
+            static Definition = {
+                name: 'collide',
+                version: '1.0.0',
+                modules: {},
+                extensions: {
+                    'hub-spot': { extension: a }, // sanitizes to "hubspot"
+                    hubspot: { extension: b }, // also "hubspot" → collision
+                },
+            };
+        }
+        jest.doMock('../app-definition-loader', () => ({
+            loadAppDefinition: () => ({ integrations: [Collide] }),
         }));
         expect(() => require('./integration-defined-routers')).toThrow(
-            /route conflict.*POST \/shared.*ext-a.*ext-b/
+            /extension handler conflict.*sanitizes to "collide__hubspot"/
         );
+    });
+
+    it('passes the resolved binding useDatabase through to createAppHandler', () => {
+        const calls = [];
+        jest.doMock('./../app-handler-helpers', () => ({
+            createAppHandler: (eventName, router, shouldUseDatabase) => {
+                calls.push({ eventName, shouldUseDatabase });
+                return { __mock: eventName };
+            },
+        }));
+        const ext = {
+            name: 'e',
+            useDatabase: false,
+            routes: [{ path: '/w', method: 'POST', event: 'E' }],
+            events: { E: { handler: async () => null } },
+        };
+        class C extends IntegrationBase {
+            static Definition = {
+                name: 'c',
+                version: '1.0.0',
+                modules: {},
+                extensions: { wh: { extension: ext } },
+            };
+        }
+        jest.doMock('../app-definition-loader', () => ({
+            loadAppDefinition: () => ({ integrations: [C] }),
+        }));
+        require('./integration-defined-routers');
+        const bindingCall = calls.find((c) =>
+            /extension wh$/.test(c.eventName)
+        );
+        expect(bindingCall).toBeDefined();
+        expect(bindingCall.shouldUseDatabase).toBe(false);
     });
 });

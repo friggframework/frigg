@@ -12,6 +12,9 @@ const { integrations: integrationClasses } = loadAppDefinition();
 
 const routeKey = (method, path) => `${(method || 'ANY').toUpperCase()} ${path}`;
 
+// Serverless function keys must be alphanumeric; binding keys are developer-chosen.
+const sanitizeBindingKey = (name) => String(name).replace(/[^A-Za-z0-9]/g, '');
+
 //todo: this should be in a use case class
 for (const IntegrationClass of integrationClasses) {
     const router = Router();
@@ -53,20 +56,29 @@ for (const IntegrationClass of integrationClasses) {
         }
     }
 
-    // Tier 3 Integration Extension routes — see EXTENSIONS.md
+    // Each extension binding gets its own namespaced handler (/{bindingName}),
+    // so two modules' extensions can share a path like /webhooks without colliding.
+    const bindingGroups = new Map();
     for (const extRoute of getExtensionRoutes(IntegrationClass)) {
+        const namespacedPath = `/${extRoute.bindingName}${extRoute.path}`;
         claim(
             extRoute.method,
-            extRoute.path,
+            namespacedPath,
             `extension "${extRoute.extensionName}" (binding "${extRoute.bindingName}")`
         );
-        router.use(
-            basePath,
+        if (!bindingGroups.has(extRoute.bindingName)) {
+            bindingGroups.set(extRoute.bindingName, {
+                router: Router(),
+                useDatabase: extRoute.useDatabase,
+            });
+        }
+        const group = bindingGroups.get(extRoute.bindingName);
+        group.router.use(
+            `${basePath}/${extRoute.bindingName}`,
             loadRouterFromObject(IntegrationClass, extRoute)
         );
-        const method = extRoute.method.toUpperCase();
         console.log(
-            `│ ${method} ${basePath}${extRoute.path}  (extension: ${extRoute.extensionName})`
+            `│ ${extRoute.method.toUpperCase()} ${basePath}/${extRoute.bindingName}${extRoute.path}  (extension: ${extRoute.extensionName}, useDatabase: ${extRoute.useDatabase})`
         );
     }
     console.log('│');
@@ -77,6 +89,29 @@ for (const IntegrationClass of integrationClasses) {
             router
         ),
     };
+
+    for (const [bindingName, group] of bindingGroups) {
+        // Wire contract: integration-builder.js (devtools) derives the identical
+        // function key for the serverless config. Keep both in sync.
+        const fnKey = `${IntegrationClass.Definition.name}__${sanitizeBindingKey(
+            bindingName
+        )}`;
+        // Distinct binding keys can sanitize to the same fnKey — fail loud rather than overwrite.
+        if (Object.prototype.hasOwnProperty.call(handlers, fnKey)) {
+            throw new Error(
+                `Integration "${IntegrationClass.Definition.name}" extension handler conflict: ` +
+                    `binding "${bindingName}" sanitizes to "${fnKey}", which is already taken. ` +
+                    `Use binding keys that are distinct after stripping non-alphanumeric characters.`
+            );
+        }
+        handlers[fnKey] = {
+            handler: createAppHandler(
+                `HTTP Event: ${IntegrationClass.Definition.name} extension ${bindingName}`,
+                group.router,
+                group.useDatabase
+            ),
+        };
+    }
 }
 
 module.exports = { handlers };

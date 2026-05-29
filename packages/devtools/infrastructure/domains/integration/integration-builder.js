@@ -347,46 +347,14 @@ class IntegrationBuilder extends InfrastructureBuilder {
             console.log(`      ✓ Webhook handler function defined`);
         }
 
-        // Tier 3 Integration Extension routes (e.g. hubspot.extensions.webhooks).
-        // The integration-defined-routers handler already mounts these at
-        // runtime; emitting explicit httpApi events here registers them as
-        // dedicated routes (visible at startup, and matched ahead of the
-        // catch-all) instead of silently relying on {proxy+}. They point at
-        // the same handler as the catch-all. Route shape mirrors core's
-        // getExtensionRoutes; we read it directly to avoid coupling the
-        // build-time generator to a core runtime import.
-        const extensionBindings = Object.values(
-            integration.Definition.extensions || {}
-        );
-        const extensionRouteEvents = [];
-        for (const binding of extensionBindings) {
-            const routes =
-                (binding && binding.extension && binding.extension.routes) ||
-                [];
-            for (const route of routes) {
-                extensionRouteEvents.push({
-                    httpApi: {
-                        path: `/api/${integrationName}-integration${route.path}`,
-                        method: route.method,
-                    },
-                });
-            }
-        }
-        if (extensionRouteEvents.length > 0) {
-            console.log(
-                `      ✓ ${extensionRouteEvents.length} extension route(s) defined`
-            );
-        }
-
         // Create HTTP API handler for integration (catch-all route AFTER
-        // webhooks and extension routes)
+        // webhooks). Extension routes get their own functions below.
         result.functions[integrationName] = {
             handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
             skipEsbuild: true, // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }), // HTTP handlers need Prisma for integration queries
             events: [
-                ...extensionRouteEvents,
                 {
                     httpApi: {
                         path: `/api/${integrationName}-integration/{proxy+}`,
@@ -396,6 +364,54 @@ class IntegrationBuilder extends InfrastructureBuilder {
             ],
         };
         console.log(`      ✓ HTTP handler function defined`);
+
+        // One serverless function per extension binding, namespaced under
+        // /{bindingKey}. Prisma layer attached only when useDatabase is true.
+        const sanitizeBindingKey = (name) =>
+            String(name).replace(/[^A-Za-z0-9]/g, '');
+        const extensionEntries = Object.entries(
+            integration.Definition.extensions || {}
+        );
+        for (const [bindingKey, binding] of extensionEntries) {
+            const extension = binding && binding.extension;
+            const routes = (extension && extension.routes) || [];
+            if (routes.length === 0) continue;
+            const useDatabase =
+                binding.useDatabase ??
+                (extension && extension.useDatabase) ??
+                false;
+            // Wire contract: core's integration-defined-routers derives the
+            // identical handler key. Keep both in sync.
+            const fnName = `${integrationName}__${sanitizeBindingKey(
+                bindingKey
+            )}`;
+            // Distinct binding keys can sanitize to the same fnName — fail loud rather than overwrite.
+            if (
+                Object.prototype.hasOwnProperty.call(result.functions, fnName)
+            ) {
+                throw new Error(
+                    `Integration "${integrationName}" extension function conflict: ` +
+                        `binding "${bindingKey}" sanitizes to "${fnName}", which is already taken. ` +
+                        `Use binding keys that are distinct after stripping non-alphanumeric characters.`
+                );
+            }
+            result.functions[fnName] = {
+                handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${fnName}.handler`,
+                skipEsbuild: true,
+                package: functionPackageConfig,
+                ...(usePrismaLayer &&
+                    useDatabase && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
+                events: routes.map((route) => ({
+                    httpApi: {
+                        path: `/api/${integrationName}-integration/${bindingKey}${route.path}`,
+                        method: route.method,
+                    },
+                })),
+            };
+            console.log(
+                `      ✓ Extension handler function defined: ${fnName} (useDatabase: ${useDatabase})`
+            );
+        }
 
         // Create Queue Worker function
         const queueWorkerName = `${integrationName}QueueWorker`;
