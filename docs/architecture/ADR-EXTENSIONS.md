@@ -1,7 +1,7 @@
 # Architecture Decision Record: Plugins, Extensions, and Artifacts
 
-**Status**: Proposed (revised 2026-05-23 to add Artifacts, the Capability Declaration, and the framework load mechanism reflecting [PR #590](https://github.com/friggframework/frigg/pull/590))
-**Date**: 2026-05-22 (original), 2026-05-23 (revised)
+**Status**: Mixed (revised 2026-05-30) — **Tier 3 Integration Extensions is Implemented** ([PR #590](https://github.com/friggframework/frigg/pull/590) + [PR #596](https://github.com/friggframework/frigg/pull/596); see [`packages/core/integrations/EXTENSIONS.md`](../../packages/core/integrations/EXTENSIONS.md)). **Tier 1 Core Plugins, Tier 2 Application Extensions, Artifacts, and the Capability Declaration remain Proposed.**
+**Date**: 2026-05-22 (original), 2026-05-23 (revised), 2026-05-30 (reconciled with shipped Tier 3 implementation)
 **Author**: Sean Matthews
 
 ## Context
@@ -143,6 +143,8 @@ Written by:
 
 ## Tier 3 — Integration Extensions
 
+**Status**: **Implemented.** Ratified by [PR #590](https://github.com/friggframework/frigg/pull/590) (initial framework load — route + event seams, fail-loud defaults) and [PR #596](https://github.com/friggframework/frigg/pull/596) (route namespacing under binding key, `useDatabase` extension-level field). Authoritative quick-start lives in code at [`packages/core/integrations/EXTENSIONS.md`](../../packages/core/integrations/EXTENSIONS.md); this ADR documents the *decision* shape, the quick-start documents the *current* shape — keep both in sync when the contract evolves.
+
 **Optional, off-the-shelf functionality bundled *with* an integration — typically with an API module or a sibling extensions library. Provides reusable handler bundles (webhooks, sync routines, etc.) that an integration class wires into its own `Definition`.**
 
 An Integration Extension is *integration-scoped reuse*. The HubSpot webhook plumbing — verifying signatures, routing payloads to event handlers, queueing work — is the same for every HubSpot integration ever built. Rather than copy-paste that into each integration class, the API module exposes it as an extension that the integration "plugs in."
@@ -179,14 +181,15 @@ class HubSpotIntegration extends IntegrationBase {
 // @friggframework/api-module-hubspot/extensions/webhooks.js
 module.exports = {
     name: 'hubspot-webhooks',
+    useDatabase: false,                              // shipped in #596; default false for extension routes
     routes: [
-        { path: '/hubspot/webhooks', method: 'POST', event: 'WEBHOOK_EVENT' },
+        { path: '/webhooks', method: 'POST', event: 'WEBHOOK_EVENT' },  // mounted at /api/{integration}-integration/{bindingKey}/webhooks
     ],
     events: {
         WEBHOOK_EVENT: { /* event definition, queueing, etc. */ },
     },
-    queues: [ /* queue definitions */ ],
-    workers: [ /* worker definitions */ ],
+    queues: [ /* queue definitions — Phase 2 */ ],
+    workers: [ /* worker definitions — Phase 2 */ ],
 };
 ```
 
@@ -223,9 +226,15 @@ All three repos define a stub `backend/src/extensions.js` exporting `hubspotWebh
 
 ### Framework load mechanism
 
-The contract above is implemented by [PR #590](https://github.com/friggframework/frigg/pull/590) (Daniel Klotz). The framework splits the work into two seams:
+The contract above is implemented by [PR #590](https://github.com/friggframework/frigg/pull/590) (initial framework load) and [PR #596](https://github.com/friggframework/frigg/pull/596) (route namespacing under binding key, `useDatabase`), both authored by Daniel Klotz. The framework splits the work into two seams:
 
-**Boot-time (once per integration class).** `packages/core/handlers/routers/integration-defined-routers.js` walks each `IntegrationClass.Definition.extensions` via `getExtensionRoutes(IntegrationClass)`, claims each `method + path` in a per-class `Map`, and mounts via the existing `loadRouterFromObject`. Throws on conflict between `Definition.routes` and any extension route, or between two extension routes.
+**Boot-time (once per integration class).** `packages/core/handlers/routers/integration-defined-routers.js` walks each `IntegrationClass.Definition.extensions` via `getExtensionRoutes(IntegrationClass)`. Since [#596](https://github.com/friggframework/frigg/pull/596), each binding's routes are mounted under its **binding key**, producing the URL pattern:
+
+```
+/api/{integration-name}-integration/{bindingKey}{route.path}
+```
+
+For example, a HubSpot integration with binding key `hubspot` and route `POST /webhooks` mounts at `POST /api/hubspot-integration/hubspot/webhooks`. Each binding gets its **own dedicated handler / Lambda function** (registered as `handlers['{extension-name}__{bindingKey}']`), so two modules' extensions on the same integration (e.g. a HubSpot and a Clockwork webhook receiver) cannot collide on route paths. Within-binding duplicate `method + path` still throws. Conflicts between `Definition.routes` and an extension's namespaced path also throw.
 
 **Per-instance (every integration instantiation).** `IntegrationBase._mergeExtensions()` runs inside `initialize()`, just before `registerEventHandlers()`. It walks `static Definition.extensions`, validates each binding, and merges extension events into `this.events` with handlers bound to the live instance.
 
@@ -235,19 +244,31 @@ Event-handler resolution priority:
 3. Else extension's own default `eventDef.handler`
 4. Else throw at boot
 
-Two bindings declaring the same event name throw at `_mergeExtensions` — no namespacing by binding key in the current implementation.
+**Event names are *not* namespaced** — two bindings declaring the same event name still throw at `_mergeExtensions`. Routes are namespaced by binding key (#596) but events are not, so binding the same extension twice only works when the extension defines disjoint event sets per use-case (e.g. an API module shipping `webhooks` and `sandboxWebhooks` as separate bundles with distinct event names).
+
+**`useDatabase` resolution (added in #596).** Each extension declares whether its route handler opens a DB connection via the optional `useDatabase` field. Resolution order at boot:
+
+```
+binding.useDatabase ?? extension.useDatabase ?? false
+```
+
+Default is **`false`** for extension routes — a receiver that only verifies a signature and enqueues should not pay for a DB connection (faster cold start; the Lambda doesn't get the Prisma layer at build time). Scope note: this `false` default applies only to per-binding extension handlers. `createHandler` itself still defaults `shouldUseDatabase: true` for the integration's own catch-all handler and the legacy `Definition.webhooks: true` path. When `useDatabase: false`, the receiver must not touch the database — DB-dependent work (e.g. `portalId → integrationId` lookup) belongs in the queue worker that processes the dispatched event.
 
 **Instantiation sites added in #590** — anywhere an integration is freshly constructed, `initialize()` now runs and `_mergeExtensions` folds extension events in before dispatch:
 - `loadRouterFromObject`'s per-request closure (HTTP path)
 - `createQueueWorker`'s dry-instance branch (queue path)
 
-**Fail-loud defaults** that #590 hard-codes:
-- Two bindings claiming the same event name → throw
-- Two routes claiming the same `method + path` → throw (with both source bindings named)
+**Fail-loud defaults:**
+- Two bindings claiming the same event name → throw (events are not namespaced)
+- Two routes claiming the same `method + path` *within a single binding* → throw (cross-binding collisions are structurally impossible since #596)
+- `Definition.routes` entry exactly matching an extension's namespaced path → throw
 - Binding handler references a method that doesn't exist on the integration → throw
 - `binding.handlers` typo referencing an event the extension doesn't declare → throw
+- Extension's `useDatabase` (or binding override) is not a boolean → throw
 - `findIntegrationByPortalId` ambiguous resolution (one externalId, multiple integrations) → throw (cross-tenant routing guard)
 - Subclass shadows a binding-declared handler → `console.warn` (subclass wins by design)
+
+**Breaking change in #596 to flag for adopters.** Extension routes used to mount un-namespaced (`/api/{x}-integration{route.path}`). They are now namespaced under the binding key. Any provider webhook already registered against the old path must be re-pointed at the new `/{bindingKey}` URL — and for signature schemes that sign the full URL (e.g. HubSpot v3), the old registration will also fail signature verification until updated.
 
 Quickstart for integration authors and API module authors: [`packages/core/integrations/EXTENSIONS.md`](https://github.com/friggframework/frigg/blob/next/packages/core/integrations/EXTENSIONS.md).
 
