@@ -110,6 +110,22 @@ const loadIntegrationForWebhook = async (integrationId) => {
     return instance;
 };
 
+// Returns false only when the integration is confirmed gone; a transient
+// lookup failure returns true so genuine errors keep their normal retry path.
+const integrationExists = async (integrationId) => {
+    const integrationRepository = createIntegrationRepository();
+    try {
+        const record =
+            await integrationRepository.findIntegrationById(integrationId);
+        return Boolean(record);
+    } catch (error) {
+        if (error.message?.includes('not found')) {
+            return false;
+        }
+        return true;
+    }
+};
+
 const loadIntegrationForProcess = async (processId, integrationClass) => {
 
     const { processRepository, integrationRepository, moduleRepository } =
@@ -233,6 +249,18 @@ const createQueueWorker = (integrationClass) => {
                 console.log(`[QueueWorker] ${params.event} dispatched ok`, logCtx);
                 return result;
             } catch (error) {
+                // Integration deleted mid-flight: no retry can succeed once
+                // it's gone, so discard instead of sending it to the DLQ.
+                if (
+                    params.data?.integrationId &&
+                    !(await integrationExists(params.data.integrationId))
+                ) {
+                    console.warn(
+                        `[${integrationName}] Integration ${params.data.integrationId} was deleted mid-flight — discarding ${params.event} message (no retry)`
+                    );
+                    return;
+                }
+
                 console.error(
                     `Error in ${params.event} for ${integrationName}:`,
                     error
@@ -265,4 +293,5 @@ const createQueueWorker = (integrationClass) => {
 module.exports = {
     loadRouterFromObject,
     createQueueWorker,
+    integrationExists,
 };
