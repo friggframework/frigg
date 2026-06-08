@@ -1,10 +1,12 @@
-# Frigg Management API Endpoints Reference
+# Frigg Management API Reference
 
-Endpoints available in a deployed Frigg application.
+HTTP endpoints, authentication, and provisioning workflows for a deployed Frigg application.
 
 ## Table of Contents
 
-- [Authentication Methods](#authentication-methods)
+- [Authentication — choosing a method](#authentication--choosing-a-method)
+- [Setup](#setup)
+- [End-to-End Provisioning Workflow](#end-to-end-provisioning-workflow)
 - [User Management](#user-management)
 - [Health & Status Endpoints](#health--status-endpoints)
 - [Authorization & Entity Endpoints](#authorization--entity-endpoints)
@@ -13,22 +15,95 @@ Endpoints available in a deployed Frigg application.
 - [OAuth Redirect Endpoint](#oauth-redirect-endpoint)
 - [Common Response Codes](#common-response-codes)
 
-## Authentication Methods
+## Authentication — choosing a method
 
-**1. JWT Token Authentication (user-facing)** — for apps where users create accounts and authenticate:
+Frigg supports two auth methods. **Which one to use is determined by whether a Frigg Management UI (with end-user accounts) is in front of the API:**
+
+| Scenario | Method | Headers |
+| --- | --- | --- |
+| **Backend talks to Frigg directly** (no UI) — server-to-server, automated scripts, CI/CD, OAuth redirect handlers | **Shared secret (x-frigg headers)** — the default for backend integrations | `x-frigg-api-key`, `x-frigg-appuserid`, `x-frigg-apporgid` |
+| **A Frigg Management UI / end-user accounts exist** — users log in (web, mobile, dashboards) | **JWT bearer** — only used when there's a UI | `Authorization: Bearer <token>` |
+
+> Rule of thumb: **no UI → x-frigg headers; UI with user login → JWT.** Most backend-to-backend integrations use the x-frigg headers; user/password + JWT is for when Frigg's own UI is the front end.
+
+### Shared secret (x-frigg headers) — backend-to-backend
+
+```bash
+x-frigg-api-key:   ${FRIGG_API_KEY}        # the shared secret (FRIGG_APP_API_KEY in the deployment)
+x-frigg-appuserid: ${FRIGG_APP_USER_ID}    # identifies which app user owns the entities/integrations
+x-frigg-apporgid:  ${FRIGG_APP_ORG_ID}     # ONLY required if organizationUserRequired: true in app config
+```
+
+No login step — the backend authenticates every request with these headers. The shared-secret value comes from the administrator who deployed the Frigg instance.
+
+### JWT bearer — only when a Frigg UI is available
+
+End users create an account / log in (via `/user/create` or `/user/login`, normally through the Frigg UI) to obtain a token, then send it on every request:
 
 ```bash
 Authorization: Bearer ${FRIGG_JWT_TOKEN}
 ```
 
-**2. Shared Secret Authentication (backend-to-backend)** — for backend services, automated scripts, server-to-server:
+Every authenticated endpoint below accepts **either** method — substitute the header block accordingly.
+
+## Setup
 
 ```bash
-x-frigg-api-key: ${FRIGG_API_KEY}
-x-frigg-appuserid: ${FRIGG_APP_USER_ID}
+# Base URL
+export FRIGG_URL="http://localhost:3001"                                   # local
+export FRIGG_URL="https://<id>.execute-api.us-east-1.amazonaws.com"        # deployed
+
+# Backend-to-backend (x-frigg headers)
+export FRIGG_API_KEY="your-shared-secret"        # must match FRIGG_APP_API_KEY in the deployment
+export FRIGG_APP_USER_ID="your-user-identifier"
+export FRIGG_APP_ORG_ID="your-org-identifier"    # only if organizationUserRequired: true
 ```
 
+`FRIGG_APP_API_KEY` must be set in the Frigg deployment for x-frigg header auth to work. Per-module credentials (e.g. an API key for an API-key module) are supplied when authorizing each entity, below.
+
+## End-to-End Provisioning Workflow
+
+Provisioning an integration without the UI (backend, x-frigg headers):
+
+1. **Authenticate** — set the x-frigg headers (no login step). *(UI path instead: `POST /user/create` or `/user/login` → use the returned JWT.)*
+2. **Get auth requirements** — `GET /api/authorize?entityType=<module>` → returns an `apiKey` JSON schema or an `oauth2` URL.
+3. **Create the entity** — API-key module: `POST /api/authorize` with the credentials. OAuth module: open the returned `url`, the user authorizes, Frigg creates the entity on redirect.
+4. **Create the integration** — `POST /api/integrations` with `entities` (array of entity IDs) + `config.type` (selects the integration class).
+5. **Trigger initial sync** — `POST /api/integrations/{id}/actions/INITIAL_SYNC`.
+6. **Verify** — `GET /api/integrations`.
+
+Example (backend, x-frigg headers) — authorize an API-key entity then create the integration:
+
+```bash
+# Get auth requirements
+curl -X GET "${FRIGG_URL}/api/authorize?entityType=<module>" \
+  -H "x-frigg-api-key: ${FRIGG_API_KEY}" \
+  -H "x-frigg-appuserid: ${FRIGG_APP_USER_ID}" \
+  -H "x-frigg-apporgid: ${FRIGG_APP_ORG_ID}"
+
+# Create entity (API-key module)
+curl -X POST "${FRIGG_URL}/api/authorize" \
+  -H "x-frigg-api-key: ${FRIGG_API_KEY}" \
+  -H "x-frigg-appuserid: ${FRIGG_APP_USER_ID}" \
+  -H "x-frigg-apporgid: ${FRIGG_APP_ORG_ID}" \
+  -H "Content-Type: application/json" \
+  -d '{ "entityType": "<module>", "data": { "apiKey": "'"${MODULE_API_KEY}"'" } }'
+# -> { "entity_id": "7", "credential_id": "12", "entityType": "<module>" }
+
+# Create integration from two entities
+curl -X POST "${FRIGG_URL}/api/integrations" \
+  -H "x-frigg-api-key: ${FRIGG_API_KEY}" \
+  -H "x-frigg-appuserid: ${FRIGG_APP_USER_ID}" \
+  -H "x-frigg-apporgid: ${FRIGG_APP_ORG_ID}" \
+  -H "Content-Type: application/json" \
+  -d '{ "entities": ["3", "4"], "config": { "type": "<integration-type>" } }'
+```
+
+The same calls with a UI/JWT setup swap the three `x-frigg-*` headers for a single `-H "Authorization: Bearer ${FRIGG_JWT_TOKEN}"`.
+
 ## User Management
+
+Used by the **JWT/UI path** to mint tokens (no-UI backends use x-frigg headers instead and skip this).
 
 ```bash
 POST /user/create
@@ -68,6 +143,8 @@ Response (200): { "ready": true, "checks": { "database": true, "modules": true }
 
 ## Authorization & Entity Endpoints
 
+Authenticate with **either** the x-frigg headers or `Authorization: Bearer` (see [Authentication](#authentication--choosing-a-method)); examples below show `Bearer` for brevity.
+
 ```bash
 # Get authorization requirements — API-Key module
 GET /api/authorize?entityType=quo
@@ -80,11 +157,12 @@ GET /api/authorize?entityType=attio
 Authorization: Bearer ${TOKEN}
 Response (200): { "type": "oauth2", "url": "https://app.attio.com/authorize?client_id=...&redirect_uri=...&scope=...&state=..." }
 
-# Submit authorization (create entity)
+# Submit authorization (create entity) — API-Key module
 POST /api/authorize
 Authorization: Bearer ${TOKEN}
 Body: { "entityType": "quo", "data": { "apiKey": "your-api-key" } }
 Response (200): { "entity_id": "7", "credential_id": "12", "entityType": "quo" }
+# OAuth modules instead: open the returned `url`; Frigg creates the entity on redirect callback.
 
 # Create entity from existing credential
 POST /api/entity
@@ -122,6 +200,8 @@ Response (200): { "options": [...], "refreshed": true }
 ```
 
 ## Integration Management Endpoints
+
+`config.type` selects the integration class. `entities` must be an **array of entity IDs**, not an object.
 
 ```bash
 # List integrations
@@ -181,7 +261,7 @@ Response (200): { "options": [...] }
 POST /api/integrations/${INTEGRATION_ID}/actions/${ACTION_ID}
 Authorization: Bearer ${TOKEN}
 Body: { "parameters": {...} }
-Response (200): { "message": "Initial sync started for AxisCare clients", "processIds": ["36"], "clientObjectTypes": ["clients"] }
+Response (200): { "message": "Initial sync started", "processIds": ["36"], "clientObjectTypes": ["clients"] }
 # Common actions: INITIAL_SYNC (trigger initial data sync), SYNC_NOW (force immediate sync), REFRESH_SCHEMA (refresh integration schema)
 ```
 
