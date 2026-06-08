@@ -130,18 +130,24 @@ There is no one-command scaffold. Start a project by either:
 
 ## Quick Reference
 
-**Monorepo layout** (`packages/` has many top-level packages — `core`, `database`, `encrypt`, `integrations`, etc. are siblings, NOT nested under `core/`):
+**Monorepo layout** (most framework code lives under `packages/core/`; `database`, `encrypt`, `integrations`, `errors`, etc. are subdirectories of `core/`, NOT top-level packages):
 
 ```
 packages/
-├── core/              # IntegrationBase, handlers, user, credential, modules, queues, syncs, workflows, lambda
+├── core/                  # the framework
+│   ├── integrations/      # IntegrationBase
+│   ├── handlers/  user/  credential/  modules/  token/  associations/
+│   ├── database/  encrypt/  errors/  assertions/  logs/  types/
+│   ├── queues/  syncs/  websocket/  lambda/  infrastructure/
+│   └── prisma-mongodb/  prisma-postgresql/
 ├── devtools/
-│   ├── frigg-cli/     # CLI (install, start, build, deploy, ui, doctor, repair, generate-iam, auth)
-│   ├── infrastructure/# IaC: domains/ (networking, security, database, parameters, integration, scheduler, health, shared)
-│   └── management-ui/ # Vite web UI
-├── database/  encrypt/  integrations/  errors/  assertions/  logs/  schemas/  types/  serverless-plugin/  ui/
+│   ├── frigg-cli/         # CLI (install, start, build, deploy, ui, doctor, repair, generate-iam, auth)
+│   ├── infrastructure/    # IaC: domains/ (networking, security, database, parameters, integration, scheduler, health, shared)
+│   └── management-ui/     # Vite web UI
+├── serverless-plugin/     # Frigg serverless plugin
+└── schemas/  eslint-config/  prettier-config/  test/  ui/
 
-api-module-library/    # pre-built API modules (separate repo)
+api-module-library/        # pre-built API modules (separate repo)
 ```
 
 **Integration Definition**:
