@@ -11,14 +11,17 @@ This is the **core reference**. For focused tasks, use the companion skills belo
 
 ## Related Frigg skills
 
+- **bootstrap-frigg-integration** — creating an integration from scratch end-to-end (project → modules → integration class → sync → deploy); the runbook that ties the skills below together.
 - **frigg-api-modules** — building and auth-testing API modules (module structure, requester base classes, `requiredAuthMethods`, `frigg auth`).
 - **frigg-management-api** — authenticating to and calling a deployed app's HTTP API (x-frigg headers vs JWT, endpoint reference).
 - **frigg-user-actions** — provisioning an integration and executing actions end-to-end (entities → integration → INITIAL_SYNC).
+- **frigg-extensions** — Tier 3 integration extensions: reusable handler bundles (webhooks/cards/workers) consumed via `Definition.extensions`.
+- **frigg-scheduled-jobs** — one-time deferred jobs via EventBridge Scheduler (`createSchedulerCommands`); webhook renewals, delayed tasks.
 - **frigg-development-best-practices** — developing the framework itself (iteration loop, TDD, canary, command system, Delegate pattern).
 
 ### References in this skill
 
-- **[references/infrastructure.md](references/infrastructure.md)** — domain builders, infra composer, AWS discovery, scheduler (builder + command API), health domain, VPC, osls, `frigg doctor`/`repair`. Read for deployment/infra/scheduling work.
+- **[references/infrastructure.md](references/infrastructure.md)** — domain builders, infra composer, AWS discovery, scheduler builder, health domain, VPC, osls, `frigg doctor`/`repair`. Read for deployment/infra work.
 - **[references/security-encryption.md](references/security-encryption.md)** — field-level encryption architecture, env config, encrypted-field registry. Read when handling sensitive data.
 
 ## Architecture

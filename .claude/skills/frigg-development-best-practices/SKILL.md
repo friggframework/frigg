@@ -57,7 +57,7 @@ const credential = await commands.createCredential({
 });
 ```
 
-For scheduling one-time jobs from integration code (`createSchedulerCommands`), see the scheduler section of the `frigg` skill's infrastructure reference.
+For scheduling one-time jobs from integration code (`createSchedulerCommands`), see the **frigg-scheduled-jobs** skill.
 
 ## Event Handling (Delegate Pattern)
 
