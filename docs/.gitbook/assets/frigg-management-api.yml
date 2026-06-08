@@ -109,14 +109,12 @@ paths:
                                 value:
                                     entityType: hubspot
                                     data:
-                                        code: '{{oauthCode}}'
+                                        code: abc123def456
                             API key callback:
                                 value:
-                                    entityType: '{{targetEntityType}}'
+                                    entityType: quo
                                     data:
-                                        subdomain: '{{userProvidedSubdomain}}'
-                                        public_key: '{{userProvidedPublicKey}}'
-                                        private_key: '{{userProvidedPrivateKey}}'
+                                        apiKey: your-api-key
             responses:
                 '200':
                     description: Credential and entity created/linked.
@@ -185,8 +183,8 @@ paths:
                                     items:
                                         type: string
                                     example:
-                                        - '{{yourAppEntityId}}'
-                                        - '{{targetAppEntityId}}'
+                                        - "7"
+                                        - "11"
                                 config:
                                     type: object
                                     required:
@@ -196,15 +194,15 @@ paths:
                                         type:
                                             type: string
                                             description: The integration type to create.
-                                            example: '{{targetIntegrationType}}'
+                                            example: attio
                         examples:
                             Create Integration:
                                 value:
                                     entities:
-                                        - '{{yourAppEntityId}}'
-                                        - '{{targetAppEntityId}}'
+                                        - "7"
+                                        - "11"
                                     config:
-                                        type: '{{targetIntegrationType}}'
+                                        type: attio
             responses:
                 '201':
                     description: The created, formatted integration.
@@ -215,13 +213,13 @@ paths:
                             examples:
                                 Create Integration:
                                     value:
-                                        id: '{{generatedIntegrationId}}'
+                                        id: "16"
                                         entities:
-                                            - '{{yourAppEntityId}}'
-                                            - '{{targetAppEntityId}}'
+                                            - "7"
+                                            - "11"
                                         status: ENABLED
                                         config:
-                                            type: '{{targetIntegrationType}}'
+                                            type: attio
                                             enable:
                                                 sync: true
                                                 webhooks: true
@@ -525,13 +523,13 @@ paths:
                                     properties:
                                         credential_id:
                                             type: string
-                                            example: '{{generatedCredentialId}}'
+                                            example: "12"
                         examples:
                             Create Entity:
                                 value:
                                     entityType: hubspot
                                     data:
-                                        credential_id: '{{generatedCredentialId}}'
+                                        credential_id: "12"
             responses:
                 '200':
                     description: The found or created entity.
@@ -749,16 +747,21 @@ components:
             properties:
                 id:
                     type: string
-                    example: '{{integrationId}}'
+                    example: "16"
                 entities:
                     type: array
                     items:
                         type: string
+                    example:
+                        - "7"
+                        - "11"
                 status:
                     $ref: '#/components/schemas/IntegrationStatus'
                 config:
                     type: object
                     additionalProperties: true
+                    example:
+                        type: attio
                 userActions:
                     type: array
                     items:
@@ -767,52 +770,91 @@ components:
         Entity:
             type: object
             additionalProperties: true
+            description: >-
+                A persisted entity — an authorized connection to an external system,
+                backed by a credential. Fields mirror the Entity model; some
+                endpoints also serialize a nested `credential` object.
             properties:
                 id:
                     type: string
-                user:
+                    example: "7"
+                userId:
                     type: string
+                    example: "3"
+                credentialId:
+                    type: string
+                    example: "12"
                 name:
                     type: string
+                    example: Acme HubSpot
+                moduleName:
+                    type: string
+                    description: The API module / entity type.
+                    example: hubspot
+                externalId:
+                    type: string
+                    example: hub_98531
+                data:
+                    type: object
+                    additionalProperties: true
+                createdAt:
+                    type: string
+                    format: date-time
+                updatedAt:
+                    type: string
+                    format: date-time
         AuthorizationRequirements:
             type: object
             additionalProperties: true
             description: >-
-                For OAuth flows, typically `{ type, url }`. For credential/form
-                flows, typically `{ type, data: { jsonSchema, uiSchema } }`.
+                Auth requirements for the entity type. OAuth modules return
+                `{ type: "oauth2", url }`; API-key modules return
+                `{ type: "apiKey", jsonSchema, ... }` describing the credential form.
             properties:
                 type:
                     type: string
                     example: oauth2
                 url:
                     type: string
-                    example: https://app.example.com/oauth/authorize?client_id=...
+                    description: Authorization redirect URL (OAuth modules).
+                    example: https://app.hubspot.com/oauth/authorize?client_id=...&redirect_uri=...&scope=...&state=...
+                jsonSchema:
+                    type: object
+                    additionalProperties: true
+                    description: JSON Schema describing the credential form (API-key modules).
+                uiSchema:
+                    type: object
+                    additionalProperties: true
         AuthCallbackResult:
             type: object
             additionalProperties: true
+            description: >-
+                Returned by the authorize callback after it creates/links the
+                credential and entity for the user.
             properties:
-                type:
-                    type: string
-                    example: hubspot
                 credential_id:
                     type: string
-                    example: '{{generatedCredentialId}}'
+                    example: "12"
                 entity_id:
                     type: string
-                    example: '{{generatedEntityId}}'
+                    example: "7"
+                type:
+                    type: string
+                    description: The API module / entity type (the module's name).
+                    example: hubspot
         Options:
             type: object
             additionalProperties: true
             description: >-
-                A dynamic options form, typically expressed as a JSON Schema plus
-                a UI Schema consumed by the Frigg frontend.
+                An integration- or module-defined options payload. The exact shape
+                is provider-specific; it is commonly an `options` array of
+                selectable values.
             properties:
-                jsonSchema:
-                    type: object
-                    additionalProperties: true
-                uiSchema:
-                    type: object
-                    additionalProperties: true
+                options:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: true
         OkStatus:
             type: object
             properties:

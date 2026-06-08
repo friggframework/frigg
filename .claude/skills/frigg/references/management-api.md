@@ -84,7 +84,7 @@ Response (200): { "type": "oauth2", "url": "https://app.attio.com/authorize?clie
 POST /api/authorize
 Authorization: Bearer ${TOKEN}
 Body: { "entityType": "quo", "data": { "apiKey": "your-api-key" } }
-Response (200): { "entity_id": "7", "credential_id": "12", "entityType": "quo" }
+Response (200): { "entity_id": "7", "credential_id": "12", "type": "quo" }
 
 # Create entity from existing credential
 POST /api/entity
