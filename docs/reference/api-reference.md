@@ -46,6 +46,10 @@ Management API
 [Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
 {% endswagger %}
 
+{% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations/{integrationId}/actions" method="get" %}
+[Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
+{% endswagger %}
+
 {% swagger src="../.gitbook/assets/Frigg Management API.yml" path="/api/integrations/{integrationId}/actions/{actionId}/options" method="get" %}
 [Frigg Management API.yml](<../.gitbook/assets/Frigg Management API.yml>)
 {% endswagger %}

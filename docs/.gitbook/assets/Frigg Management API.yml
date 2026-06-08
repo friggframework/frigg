@@ -59,13 +59,15 @@ paths:
                   schema:
                       type: string
                       example: hubspot
-                - name: connectingEntityType
+                - name: state
                   in: query
                   required: false
-                  description: Optional entity type initiating the connection.
+                  description: >-
+                      Optional OAuth `state` value forwarded into the
+                      authorization-requirements lookup.
                   schema:
                       type: string
-                      example: demo
+                      example: abc123
             responses:
                 '200':
                     description: Authorization requirements.
@@ -313,15 +315,8 @@ paths:
                 integration for the acting user.
             operationId: deleteIntegration
             responses:
-                '201':
-                    description: Integration deleted (empty object body).
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                            examples:
-                                Deleted:
-                                    value: {}
+                '204':
+                    description: Integration deleted. No content.
     /api/integrations/{integrationId}/config/options:
         parameters:
             - $ref: '#/components/parameters/IntegrationIdPath'
@@ -367,6 +362,28 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Options'
+    /api/integrations/{integrationId}/actions:
+        parameters:
+            - $ref: '#/components/parameters/IntegrationIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Integrations
+            summary: List User Actions
+            description: >-
+                Lists the user actions available for the integration. The route is
+                registered with `.all`, so it responds to any HTTP method; GET is
+                the typical call.
+            operationId: listUserActions
+            responses:
+                '200':
+                    description: Available user actions.
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
     /api/integrations/{integrationId}/actions/{actionId}/options:
         parameters:
             - $ref: '#/components/parameters/IntegrationIdPath'
