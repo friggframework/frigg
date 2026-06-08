@@ -1,17 +1,11 @@
-# Development Workflow Reference
+---
+name: frigg-development-best-practices
+description: "Practices for developing the Frigg framework itself and its api-modules: the fast local iteration loop (edit node_modules → port upstream → canary → deploy), test-driven development expectations and test distribution, the canary publish/install workflow, the database command system (createFriggCommands), the Delegate event pattern, local Docker testing, debugging integration issues, and pre-commit quality standards. Use when contributing to or modifying Frigg core/devtools/serverless-plugin or api-module-library code, or when setting up a local Frigg development loop."
+---
 
-Practices for working on the Frigg framework and API modules.
+# Frigg Development Best Practices
 
-## Table of Contents
-
-- [Fast Iteration Pattern](#fast-iteration-pattern)
-- [TDD](#tdd)
-- [Canary Workflow](#canary-workflow)
-- [Command System for Database Operations](#command-system-for-database-operations)
-- [Event Handling (Delegate Pattern)](#event-handling-delegate-pattern)
-- [Local Testing with Docker](#local-testing-with-docker)
-- [Debugging Integration Issues](#debugging-integration-issues)
-- [Quality Standards](#quality-standards)
+For building integrations or calling a deployed app, see the `frigg`, `frigg-api-modules`, `frigg-management-api`, and `frigg-user-actions` skills. This skill is about working ON the framework and its modules.
 
 ## Fast Iteration Pattern
 
@@ -63,7 +57,7 @@ const credential = await commands.createCredential({
 });
 ```
 
-For scheduling one-time jobs from integration code, see the scheduler command API in [infrastructure.md](infrastructure.md#scheduler).
+For scheduling one-time jobs from integration code (`createSchedulerCommands`), see the scheduler section of the `frigg` skill's infrastructure reference.
 
 ## Event Handling (Delegate Pattern)
 
