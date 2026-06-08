@@ -15,7 +15,7 @@ Load the relevant file when the task calls for it — keep this body lean:
 - **[references/auth-testing.md](references/auth-testing.md)** — `frigg auth` CLI: testing OAuth2/API-key flows, what it tests, saved credentials in tests, troubleshooting. Read when authenticating or testing a module.
 - **[references/infrastructure.md](references/infrastructure.md)** — domain builders, infra composer, AWS discovery, scheduler (builder + command API), health domain, VPC, osls, `frigg doctor`/`repair`. Read for deployment/infra/scheduling work.
 - **[references/security-encryption.md](references/security-encryption.md)** — field-level encryption architecture, env config, encrypted-field registry. Read when handling sensitive data.
-- **[references/management-api.md](references/management-api.md)** — full HTTP endpoint reference for a deployed app (auth, users, health, authorization/entities, integrations, DB migration, OAuth redirect, response codes). Read when calling a running Frigg app.
+- **[references/management-api.md](references/management-api.md)** — calling a deployed app's HTTP API: **the two auth methods (x-frigg headers for backend-to-backend with no UI; JWT user/password only when a Frigg UI exists)**, setup, an end-to-end provisioning curl workflow, and the full endpoint reference (users, health, entities, integrations, DB migration, OAuth redirect). Read when a backend or script talks to a running Frigg app.
 - **[references/development.md](references/development.md)** — fast iteration loop, TDD expectations, canary workflow, command system, Delegate pattern, debugging. Read when developing the framework itself.
 
 ## Architecture
