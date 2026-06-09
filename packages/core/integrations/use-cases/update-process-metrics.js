@@ -34,6 +34,8 @@
  *   errorDetails: [{ contactId: 'abc', error: 'Missing email', timestamp: '...' }]
  * });
  */
+const { invalidProcessData, processNotFound } = require('./process-errors');
+
 class UpdateProcessMetrics {
     /**
      * @param {Object} params
@@ -66,10 +68,10 @@ class UpdateProcessMetrics {
      */
     async execute(processId, metricsUpdate) {
         if (!processId || typeof processId !== 'string') {
-            throw new Error('processId must be a non-empty string');
+            throw invalidProcessData('processId must be a non-empty string');
         }
         if (!metricsUpdate || typeof metricsUpdate !== 'object') {
-            throw new Error('metricsUpdate must be an object');
+            throw invalidProcessData('metricsUpdate must be an object');
         }
 
         // Phase 1: atomic increments + bounded error history.
@@ -119,7 +121,7 @@ class UpdateProcessMetrics {
         }
 
         if (!updatedProcess) {
-            throw new Error(`Process not found: ${processId}`);
+            throw processNotFound(`Process not found: ${processId}`);
         }
 
         // Phase 2: derived metrics (non-atomic, best-effort). Preserved

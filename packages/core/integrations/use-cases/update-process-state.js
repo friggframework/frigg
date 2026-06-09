@@ -22,6 +22,8 @@
  *   pagination: { pageSize: 100 }
  * });
  */
+const { invalidProcessData, processNotFound } = require('./process-errors');
+
 class UpdateProcessState {
     /**
      * @param {Object} params
@@ -45,13 +47,13 @@ class UpdateProcessState {
     async execute(processId, newState, contextUpdates = {}) {
         // Validate inputs
         if (!processId || typeof processId !== 'string') {
-            throw new Error('processId must be a non-empty string');
+            throw invalidProcessData('processId must be a non-empty string');
         }
         if (!newState || typeof newState !== 'string') {
-            throw new Error('newState must be a non-empty string');
+            throw invalidProcessData('newState must be a non-empty string');
         }
         if (contextUpdates && typeof contextUpdates !== 'object') {
-            throw new Error('contextUpdates must be an object');
+            throw invalidProcessData('contextUpdates must be an object');
         }
 
         // Route through the atomic path when the repo supports it AND we
@@ -82,10 +84,13 @@ class UpdateProcessState {
                     { set, newState }
                 );
                 if (!updated) {
-                    throw new Error(`Process not found: ${processId}`);
+                    throw processNotFound(`Process not found: ${processId}`);
                 }
                 return updated;
             } catch (error) {
+                if (error.code === 'PROCESS_NOT_FOUND') {
+                    throw error;
+                }
                 throw new Error(
                     `Failed to update process state: ${error.message}`
                 );
@@ -100,7 +105,7 @@ class UpdateProcessState {
         try {
             const process = await this.processRepository.findById(processId);
             if (!process) {
-                throw new Error(`Process not found: ${processId}`);
+                throw processNotFound(`Process not found: ${processId}`);
             }
 
             const updates = { state: newState };
@@ -114,7 +119,7 @@ class UpdateProcessState {
             return await this.processRepository.update(processId, updates);
         } catch (error) {
             // Re-throw "Process not found" as-is; wrap other errors.
-            if (error.message && error.message.startsWith('Process not found')) {
+            if (error.code === 'PROCESS_NOT_FOUND') {
                 throw error;
             }
             throw new Error(`Failed to update process state: ${error.message}`);
@@ -140,7 +145,7 @@ class UpdateProcessState {
     async updateContextOnly(processId, contextUpdates) {
         const process = await this.processRepository.findById(processId);
         if (!process) {
-            throw new Error(`Process not found: ${processId}`);
+            throw processNotFound(`Process not found: ${processId}`);
         }
 
         const updates = {

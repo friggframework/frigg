@@ -15,6 +15,8 @@
  * // or
  * const process = await getProcess.executeOrThrow(processId);
  */
+const { invalidProcessData, processNotFound } = require('./process-errors');
+
 class GetProcess {
     /**
      * @param {Object} params
@@ -36,7 +38,7 @@ class GetProcess {
     async execute(processId) {
         // Validate input
         if (!processId || typeof processId !== 'string') {
-            throw new Error('processId must be a non-empty string');
+            throw invalidProcessData('processId must be a non-empty string');
         }
 
         // Delegate to repository
@@ -58,7 +60,7 @@ class GetProcess {
         const process = await this.execute(processId);
 
         if (!process) {
-            throw new Error(`Process not found: ${processId}`);
+            throw processNotFound(`Process not found: ${processId}`);
         }
 
         return process;
@@ -71,7 +73,7 @@ class GetProcess {
      */
     async executeMany(processIds) {
         if (!Array.isArray(processIds)) {
-            throw new Error('processIds must be an array');
+            throw invalidProcessData('processIds must be an array');
         }
 
         const processes = await Promise.all(

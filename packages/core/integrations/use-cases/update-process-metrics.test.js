@@ -434,4 +434,25 @@ describe('UpdateProcessMetrics', () => {
             ).toBe(true);
         });
     });
+
+    describe('error codes', () => {
+        it('tags validation errors with INVALID_PROCESS_DATA', async () => {
+            await expect(useCase.execute('', {})).rejects.toHaveProperty(
+                'code',
+                'INVALID_PROCESS_DATA'
+            );
+            await expect(useCase.execute('p1', null)).rejects.toHaveProperty(
+                'code',
+                'INVALID_PROCESS_DATA'
+            );
+        });
+
+        it('tags not-found with PROCESS_NOT_FOUND', async () => {
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(null);
+
+            await expect(
+                useCase.execute('p1', { processed: 1 })
+            ).rejects.toHaveProperty('code', 'PROCESS_NOT_FOUND');
+        });
+    });
 });
