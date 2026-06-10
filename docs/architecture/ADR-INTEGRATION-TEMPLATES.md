@@ -1,45 +1,47 @@
 # Architecture Decision Record: Integration Templates
 
-**Status**: Proposed (net-new concept)
+**Status**: Proposed (new concept)
 **Date**: 2026-06-09
 **Author**: Sean Matthews
 
 ## Context
 
-`frigg install hubspot` today gets an adopter as far as "a HubSpot API module is registered and the integration class is scaffolded." From there the developer writes everything else: which events to listen for, how to map fields, how to sync records, what user actions to expose. The framework provides the *primitives* but not the *patterns* — every adopter rebuilds bidirectional contact sync, every adopter rebuilds field-mapping UI, every adopter rebuilds initial-sync + reconciliation flow.
+`frigg install hubspot` today gets an adopter as far as a registered HubSpot API module and a scaffolded integration class. From there the developer writes everything else: which events to listen for, how to map fields, how to sync records, what user actions to expose. The framework provides the primitives but not the patterns. Each adopter rebuilds bidirectional contact sync, field-mapping UI, and initial-sync plus reconciliation flows.
 
-Two existing concepts are adjacent but don't solve this:
+Two existing concepts are adjacent but do not solve this:
 
-- **[API Module Extensions](./ADR-API-MODULE-EXTENSIONS.md)** are provider-specific bundles. Useful, but coupled to one provider.
-- **[Integration Extensions](./ADR-INTEGRATION-EXTENSIONS.md)** are reusable handler bundles. Also useful, but they're plug-in libraries the adopter imports — not a starting point the adopter owns.
+- [API Module Extensions](./ADR-API-MODULE-EXTENSIONS.md) are provider-specific bundles. They are coupled to one provider.
+- [Integration Extensions](./ADR-INTEGRATION-EXTENSIONS.md) are reusable handler bundles. They are plug-in libraries the adopter imports, not a starting point the adopter owns.
 
-What's missing is a starting point: a working integration *base class* for a category (CRM sync, notification fanout, billing reconciliation, support-ticket bridge) that the adopter copies into their codebase, owns, and customizes for the specific provider pair.
+What is missing is a starting point: a working integration base class for a category (CRM sync, notification fanout, billing reconciliation, support-ticket bridge) that the adopter copies into their codebase, owns, and customizes for the specific provider pair.
 
 ## Decision
 
-An **Integration Template** is a category-typed base integration class that an adopter copies into their codebase via the Frigg CLI. The template ships with field mapping pre-built on the *partner side* (e.g. HubSpot, Salesforce), common workflows wired, tests scaffolded — the adopter only maps their own API to the template's expected shape. **Templates mirror the ShadCN philosophy**: copy the proven implementation into your codebase, own it, customize freely, no upstream dependency to bump.
+An **Integration Template** is a category-typed base integration class that an adopter copies into their codebase via the Frigg CLI. The template ships with field mapping pre-built on the partner side (HubSpot, Salesforce), common workflows wired, and tests scaffolded. The adopter maps their own API to the template's expected shape.
 
-### What makes this ShadCN-shaped, not npm-shaped
+Templates follow the ShadCN model: copy the implementation into your codebase, own it, customize freely, no upstream dependency to bump.
 
-| Shape | Adopter owns the code? | Updates? | Customization |
+### How this differs from an npm package
+
+| Shape | Adopter owns the code? | Updates | Customization |
 |---|---|---|---|
-| **npm-shaped** (today: API modules, extensions) | No | `npm update`, breaking changes possible | Limited to declared config surface |
-| **ShadCN-shaped** (Integration Templates) | Yes (copied into their repo) | Manual re-copy if upstream improves | Edit the file directly |
+| npm-shaped (today: API modules, extensions) | No | `npm update`, breaking changes possible | Limited to declared config surface |
+| ShadCN-shaped (Integration Templates) | Yes (copied into their repo) | Manual re-copy if upstream improves | Edit the file directly |
 
-The implication: templates can be opinionated and complete (full integration class, full event handler set, full mapping schema) without locking the adopter in. If the template's bidirectional-sync logic doesn't match the adopter's quirks, they edit the file. If a new template version ships, the adopter compares and selectively re-copies.
+Templates can be opinionated and complete (full integration class, full event handler set, full mapping schema) without locking the adopter in. If the template's bidirectional-sync logic does not match the adopter's quirks, they edit the file. If a new template version ships, the adopter compares and selectively re-copies.
 
 ### Template categories (initial set)
 
 | Category | What the template ships pre-built |
 |---|---|
-| **`crm-sync-bidir`** | Bidirectional contact / company / deal sync, field mapping schema, initial-sync + delta-sync + reconciliation, conflict resolution policy, common user actions (resync, pause, test) |
-| **`crm-sync-oneway`** | One-way source→destination, daily polling, no webhooks, mapping schema |
-| **`notification-fanout`** | Event-in → fanout to N destinations (Slack, email, webhook), routing rules, dedup |
-| **`support-ticket-bridge`** | Inbound webhook → ticket creation in destination, comment sync, status mapping |
-| **`billing-reconciliation`** | Periodic comparison between two billing sources, diff detection, reconciliation actions |
-| **`ui-extension-only`** | No sync; just renders provider-native UI (HubSpot CRM Card, Salesforce Lightning component) backed by Frigg data |
+| `crm-sync-bidir` | Bidirectional contact/company/deal sync, field mapping schema, initial sync, delta sync, reconciliation, conflict resolution policy, common user actions (resync, pause, test) |
+| `crm-sync-oneway` | One-way source-to-destination, daily polling, no webhooks, mapping schema |
+| `notification-fanout` | Event-in to fanout across N destinations (Slack, email, webhook), routing rules, dedup |
+| `support-ticket-bridge` | Inbound webhook to ticket creation in destination, comment sync, status mapping |
+| `billing-reconciliation` | Periodic comparison between two billing sources, diff detection, reconciliation actions |
+| `ui-extension-only` | No sync; renders provider-native UI (HubSpot CRM Card, Salesforce Lightning component) backed by Frigg data |
 
-Each category is its own template; we expect this list to grow.
+Each category is its own template. The list will grow.
 
 ## Shape (worked example)
 
@@ -76,13 +78,13 @@ class MyHubspotSync extends CRMSyncBidirTemplate {
 module.exports = MyHubspotSync;
 ```
 
-The template *base class* lives in `@friggframework/integration-templates/crm-sync-bidir`. The adopter's *integration class* is copied into their repo. The composition is explicit (`composeDefinition({ partner, adopter, mapping })`) so the adopter can see exactly what the template injects and edit it where needed.
+The template base class lives in `@friggframework/integration-templates/crm-sync-bidir`. The adopter's integration class is copied into their repo. The composition is explicit (`composeDefinition({ partner, adopter, mapping })`) so the adopter can see what the template injects and edit it where needed.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Pkg["@friggframework/integration-templates/<br/>(npm — the base classes live here)"]
+    subgraph Pkg["@friggframework/integration-templates/<br/>(npm: the base classes live here)"]
         T1["CRMSyncBidirTemplate"]
         T2["NotificationFanoutTemplate"]
         T3["SupportTicketBridgeTemplate"]
@@ -98,32 +100,31 @@ flowchart TB
     Pkg -. "ships new versions; adopter selectively re-copies" .-> Copy
 ```
 
-The npm package ships base classes (long-lived contract). The CLI copies a *scaffold* (short-lived starting point) that extends the base class. The adopter owns the scaffold.
+The npm package ships base classes (the long-lived contract). The CLI copies a scaffold (the short-lived starting point) that extends the base class. The adopter owns the scaffold.
 
-## Why this is distinct from API Modules + Integration Extensions
+## Why this is distinct from API Modules and Integration Extensions
 
-A reasonable question: couldn't a sufficiently rich Integration Extension do this? No — for two reasons:
+Two reasons a sufficiently rich Integration Extension does not solve the same problem:
 
-1. **Mapping is adopter-specific code, not extension code.** The adopter has to write *their* field mapping; an extension can't ship that. The template scaffolds the file in the adopter's repo so they can write it once.
-2. **Workflow customization is the norm, not the exception.** Adopters routinely need "bidirectional sync, except for this one field which is one-way" or "delta sync, but trigger a reconciliation if the count drift exceeds X." That's edit-the-file territory, not config-via-options territory. Templates put the file in the adopter's hands.
+1. **Mapping is adopter-specific code, not extension code.** The adopter writes their field mapping. An extension cannot ship that code. The template scaffolds the file in the adopter's repo so they can write it once.
+2. **Workflow customization is the common case.** Adopters routinely need bidirectional sync with one one-way field, or delta sync that triggers a reconciliation when count drift exceeds a threshold. That is edit-the-file territory, not config-via-options territory. Templates put the file in the adopter's hands.
 
 ## Cross-references
 
-- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md) — Integration Templates are a sibling to extensions, not a type of extension
-- [INTEGRATION-EXTENSIONS](./ADR-INTEGRATION-EXTENSIONS.md) — templates can bind Integration Extensions internally (a CRM sync template binds a sync-engine extension)
-- [API-MODULE-EXTENSIONS](./ADR-API-MODULE-EXTENSIONS.md) — templates know their partner module's API Module Extensions and bind them
-- [CAPABILITIES](./ADR-CAPABILITIES.md) — each template declares the capability set it promises; this is the contract the adopter inherits and can extend
-- [AGENT-HARNESS](./ADR-AGENT-HARNESS.md) — the harness uses templates as the dominant scaffold path for new integration work
+- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md): Integration Templates are a sibling to extensions, not a type of extension
+- [INTEGRATION-EXTENSIONS](./ADR-INTEGRATION-EXTENSIONS.md): templates can bind Integration Extensions internally (a CRM sync template binds a sync-engine extension)
+- [API-MODULE-EXTENSIONS](./ADR-API-MODULE-EXTENSIONS.md): templates know their partner module's API Module Extensions and bind them
+- [CAPABILITIES](./ADR-CAPABILITIES.md): each template declares the capability set it promises; the adopter inherits and can extend
+- [AGENT-HARNESS](./ADR-AGENT-HARNESS.md): the harness uses templates as the dominant scaffold path for new integration work
 
 ## Open questions
 
 1. **Re-copy vs upgrade.** When a template ships a new version, how does the adopter compare against their owned copy? `frigg add template ... --diff`? Lean: yes.
-2. **Template authoring story.** Who can publish templates? Lefthook first; community via `@frigg-community/integration-templates-*`? Default: open to community, governance TBD.
-3. **Template + extension overlap.** A template necessarily ships *some* logic that could also be packaged as an extension. The rule of thumb in this ADR is "templates ship adopter-owned code; extensions ship adopter-imported code" — clear in principle, fuzzy in edge cases.
-4. **Per-template tests.** Should `frigg add template` scaffold tests that work out of the box (against fixtures) or only stubs? Lean: against fixtures, so the adopter has a green build immediately.
-5. **Composition of templates.** Can an adopter combine two templates (e.g. CRM sync + notification fanout) into one integration class? Lean: yes via multiple inheritance / mixin pattern; needs design.
+2. **Template authoring.** Who can publish templates? Lefthook first; community via `@frigg-community/integration-templates-*`? Default: open to community, governance TBD.
+3. **Template and extension overlap.** A template ships some logic that could also be packaged as an extension. The rule of thumb in this ADR: templates ship adopter-owned code, extensions ship adopter-imported code. Edge cases will need case-by-case calls.
+4. **Per-template tests.** Should `frigg add template` scaffold tests that work out of the box against fixtures, or only stubs? Lean: against fixtures, so the adopter has a green build immediately.
+5. **Composition of templates.** Can an adopter combine two templates (CRM sync + notification fanout) into one integration class? Lean: yes via multiple inheritance or mixin pattern; needs design.
 
 ## References
 
-- [ShadCN](https://ui.shadcn.com/) — the design philosophy this borrows from: pre-built components copied into the consumer's codebase rather than installed as a dependency
-- The "common base class integration of a category type" framing from the call with Daniel (2026-06-09)
+- [ShadCN](https://ui.shadcn.com/): the design philosophy this borrows from. Pre-built components copied into the consumer's codebase rather than installed as a dependency.

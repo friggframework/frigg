@@ -1,70 +1,61 @@
 # Architecture Decision Record: Capabilities
 
-**Status**: Proposed (replaces [ADR-INTEGRATION-CAPABILITIES](./ADR-INTEGRATION-CAPABILITIES.md) with a broader scope)
+**Status**: Proposed
 **Date**: 2026-06-09
 **Author**: Sean Matthews
 
 ## Context
 
-Frigg's `static Definition` blocks today carry mechanical metadata — `name`, `version`, `modules`, `routes`, `webhooks` — but no structured statement of what a piece of Frigg *can do*. Reading any Frigg codebase to answer "what does this app, integration, or API module actually do?" requires traversing class methods, event registrations, route handlers, and constructor wiring.
+A Frigg `static Definition` block today carries mechanical metadata (`name`, `version`, `modules`, `routes`, `webhooks`). It does not carry a structured statement of what the piece of Frigg can do. Answering "what does this app, integration, or API module do?" today requires reading the class methods, event registrations, route handlers, and constructor wiring.
 
-That blocks two consumers:
+Two consumers want a structured answer instead:
 
-1. **Agents reasoning about a Frigg codebase.** A Claude Code agent (or any LLM tool) asked to add a new workflow needs to know what already exists before it can extend it. Today, the only answer is "read all the source." That's expensive and error-prone — and it produces the kind of "I declared four routes for what should have been one route + two config-options + one user action" mistakes that show up in PR review.
-2. **Humans needing a view of an app's surface without reading code.** Dashboards, docs, change-impact analysis, and UI auto-rendering all want a structured answer to "what does this thing expose?" Today they don't have one; everything is reverse-engineered from code.
+1. An agent working on the codebase. Adding a new workflow requires knowing what already exists. The current answer is "read all the source," which is expensive and produces the kind of mistakes that surface in PR review (e.g. declaring four routes for something that should have been one route plus two config options plus one user action).
+2. Humans wanting visibility into an app's surface. Dashboards, docs, change-impact analysis, and UI auto-rendering all want a structured answer to "what does this thing expose." Today they reverse-engineer it from code.
 
-This ADR introduces **Capabilities** as Frigg's first-class answer to both consumers.
+This ADR introduces **Capabilities** as a structured surface that serves both.
 
 ## Decision
 
-A **Capability** is a typed, structured declaration on a Frigg `Definition` that names a piece of behavior, points at its spec, and points at its implementation — without being the implementation. Capabilities tie tightly to the code they describe; they are not the code.
+A **Capability** is a typed declaration on a Frigg `Definition` that names a piece of behavior and points at the spec describing it and the code implementing it. The capability is metadata about the code, not the code.
 
-Capabilities exist at **three levels of Frigg**, each composing from the level below:
+Capabilities exist at three Frigg levels and compose from the level below:
 
 | Level | Lives on | Answers |
 |---|---|---|
-| **API Module Capabilities** | `apiModule.Definition.capabilities` | "What can this provider's API do that we've wired up?" (list contacts, watch deal changes, send a message) |
-| **Integration Capabilities** | `IntegrationBase.Definition.capabilities` | "What workflow does this integration expose?" (sync contacts bidirectionally, route inbound webhooks to a destination, surface this dashboard) |
-| **Application Capabilities** | `appDefinition.capabilities` | "What does the whole app expose to its users?" (a top-level view computed from the integrations it loads + any app-level extensions) |
+| **API Module Capabilities** | `apiModule.Definition.capabilities` | What can this provider's API do that has been wired up? (list contacts, watch deal changes, send a message) |
+| **Integration Capabilities** | `IntegrationBase.Definition.capabilities` | What workflow does this integration expose? (sync contacts bidirectionally, route inbound webhooks to a destination, surface a dashboard) |
+| **Application Capabilities** | `appDefinition.capabilities` | What does the whole app expose? (a top-level view computed from the integrations it loads and any app-level extensions) |
 
 Each capability declares:
 
-- A **name** — stable identifier (`crm.contact.sync`, `notifications.slack.send`)
-- A **surface** — what kind of capability it is (sync, action, webhook, ui, lifecycle, ai-inference, mcp-tool, config, cron)
-- A pointer to its **spec** — OpenAPI, AsyncAPI, Arazzo, Fenestra, or a free-form schema reference
-- A pointer to its **implementation** — where in code (or in a Tier 3 extension, template, or artifact) the capability is wired
-- Optional **dependencies** — other capabilities (typically lower-level) it composes from
+- A **name**: stable identifier (`crm.contact.sync`, `notifications.slack.send`)
+- A **surface**: the kind of capability (sync, action, webhook, ui, lifecycle, ai-inference, mcp-tool, config, cron)
+- A pointer to its **spec**: OpenAPI, AsyncAPI, Arazzo, Fenestra, or a free-form schema reference
+- A pointer to its **implementation**: code location, or a reference to a Tier 3 extension, template, or artifact
+- Optional **dependencies**: other capabilities (typically lower-level) it composes from
 
-## The two consumers
-
-Capabilities serve two consumers, and the shape is designed to satisfy both without forking.
+## Two consumers
 
 ### Agentic consumption
 
-An agent traversing a Frigg codebase queries the capability graph instead of reading source. Concretely:
+An agent queries the capability graph instead of reading source. For a task like "add bidirectional contact sync between HubSpot and the adopter's CRM," the resolver returns:
 
-```
-agent: "I need to add bidirectional contact sync between HubSpot and the adopter's CRM."
+- HubSpot module has capability `crm.contact.list` (spec: `hubspot-openapi#/contacts.list`)
+- HubSpot module has capability `crm.contact.watch` (spec: `hubspot-asyncapi#/contact.changed`)
+- No adopter-side module exists; the agent scaffolds one using [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md)
+- Integration capability `crm.contact.sync.bidir` composes from both modules' capabilities
 
-→ resolver returns:
-  - HubSpot module has capability `crm.contact.list` (spec: hubspot-openapi#/contacts.list)
-  - HubSpot module has capability `crm.contact.watch` (spec: hubspot-asyncapi#/contact.changed)
-  - No adopter-side module exists yet → agent scaffolds one via INTEGRATION-TEMPLATES
-  - Integration capability `crm.contact.sync.bidir` composes from both modules' caps
-```
+The [Agent Harness](./ADR-AGENT-HARNESS.md) wires this query into session start. The [Ontology](./ADR-ONTOLOGY.md) provides the convention layer for interpreting the graph.
 
-The agent doesn't read code to plan; it reads capabilities, then writes code to bind capabilities. The [Agent Harness](./ADR-AGENT-HARNESS.md) is the wiring that makes this query happen at session start; the [Ontology](./ADR-ONTOLOGY.md) is the convention layer that tells the agent how to interpret the graph.
+### Visibility consumption
 
-### Visibility-without-traversal consumption
-
-The capability graph renders to humans without anyone reading source. Concretely:
+The capability graph renders for humans without anyone reading source:
 
 - `GET /api/capabilities` on a deployed Frigg app returns the composed graph (api modules → integrations → app)
-- The management UI renders the graph as "this app can do: …" with drill-down to spec + implementation pointers
-- Docs generators produce API/integration/app reference pages from capabilities
+- The management UI renders the graph with drill-down to spec and implementation pointers
+- Docs generators produce API, integration, and app reference pages from capabilities
 - Change-impact analysis flags downstream consumers when a low-level capability changes shape
-
-This is the answer to "what does this thing expose?" that today requires reading code.
 
 ## Composition across levels
 
@@ -89,7 +80,7 @@ flowchart BT
     IN2 --> AP1
 ```
 
-A capability at one level always points down to the lower-level capabilities it composes from. The graph is acyclic (composition is one-directional) and queryable from either end — bottom-up ("what uses this API module capability?") and top-down ("what does this app actually do?").
+A capability at one level points down to the lower-level capabilities it composes from. The graph is acyclic and queryable bottom-up ("what uses this API module capability?") and top-down ("what does this app expose?").
 
 ## Shape (worked example)
 
@@ -132,27 +123,27 @@ capabilities: {
 },
 ```
 
-App level capabilities are usually *computed* (the union of declared integration capabilities) rather than declared explicitly. An app can override or annotate, but the default is "what the integrations expose."
+App level capabilities are usually computed (the union of declared integration capabilities) rather than declared explicitly. An app can override or annotate, but the default is the union of what its integrations expose.
 
 ## Cross-references
 
-- [PLUGINS](./ADR-PLUGINS.md) — plugins are not capabilities (they're infra swaps), but capabilities can declare `requires` against plugin types (e.g. "this capability needs an AWS deployment")
-- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md), [CORE-EXTENSIONS](./ADR-CORE-EXTENSIONS.md), [INTEGRATION-EXTENSIONS](./ADR-INTEGRATION-EXTENSIONS.md), [API-MODULE-EXTENSIONS](./ADR-API-MODULE-EXTENSIONS.md) — extensions are pointed at by `implementedBy`
-- [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md) — templates are pointed at by `implementedBy` and typically declare a capability set the template promises
-- [ARTIFACTS](./ADR-ARTIFACTS.md) — artifacts are pointed at by `implementedBy` when a capability needs outside-Frigg code (HubSpot Project, Slack manifest)
-- [ONTOLOGY](./ADR-ONTOLOGY.md) — the ontology contains capability naming and surface-kind conventions
-- [AGENT-HARNESS](./ADR-AGENT-HARNESS.md) — the harness compiles + injects the capability graph at session start
+- [PLUGINS](./ADR-PLUGINS.md): plugins are not capabilities (they swap infrastructure), but capabilities can declare `requires` against plugin types (e.g. a capability that needs an AWS deployment)
+- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md), [CORE-EXTENSIONS](./ADR-CORE-EXTENSIONS.md), [INTEGRATION-EXTENSIONS](./ADR-INTEGRATION-EXTENSIONS.md), [API-MODULE-EXTENSIONS](./ADR-API-MODULE-EXTENSIONS.md): extensions are referenced by `implementedBy`
+- [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md): templates are referenced by `implementedBy` and typically declare the capability set the template promises
+- [ARTIFACTS](./ADR-ARTIFACTS.md): artifacts are referenced by `implementedBy` when a capability requires outside-Frigg code (HubSpot Project, Slack manifest)
+- [ONTOLOGY](./ADR-ONTOLOGY.md): the ontology contains capability naming and surface-kind conventions
+- [AGENT-HARNESS](./ADR-AGENT-HARNESS.md): the harness compiles and injects the capability graph at session start
 
 ## Open questions
 
 1. **Capability namespacing.** `crm.contact.sync.bidir` vs `crm/contact/sync.bidir` vs `crm:contact:sync:bidir`. Lean dot-notation for filesystem-safety and grep-ability.
-2. **App-level capability computation.** Always computed from integrations, or sometimes explicitly declared (e.g. for app-level capabilities that don't belong to a single integration — global webhooks, dashboards)?
-3. **Surface enum scope.** Initial set: `sync, data-read, data-write, action, webhook-source, webhook-sink, ui, lifecycle, ai-inference, mcp-tool, config, cron`. Open to additions; closed to free-form strings (so the rendering UI can be exhaustive).
+2. **App-level capability computation.** Always computed from integrations, or sometimes explicitly declared (e.g. for app-level capabilities that don't belong to a single integration, like global webhooks or dashboards)?
+3. **Surface enum scope.** Initial set: `sync, data-read, data-write, action, webhook-source, webhook-sink, ui, lifecycle, ai-inference, mcp-tool, config, cron`. Open to additions; closed to free-form strings so the rendering UI can be exhaustive.
 4. **Spec-kind enum scope.** Initial set: `openapi, asyncapi, arazzo, fenestra, json-schema, free-form`. Same closed-set treatment.
 5. **Versioning.** Do capabilities carry their own version, or inherit from their parent Definition's version?
 
 ## References
 
 - Mike Amundsen's writing on the API resource graph as the unit of agent reasoning
-- The OpenAPI / AsyncAPI / Arazzo specs that capabilities point at
-- ShadCN's "this component owns its surface" philosophy, applied at the capability level
+- The OpenAPI, AsyncAPI, and Arazzo specs that capabilities point at
+- ShadCN's component-ownership philosophy, applied at the capability level
