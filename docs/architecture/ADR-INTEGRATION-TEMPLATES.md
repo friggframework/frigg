@@ -19,7 +19,7 @@ What is missing is a starting point: a working integration base class for a cate
 
 An **Integration Template** is a category-typed base integration class that an adopter copies into their codebase via the Frigg CLI. The template ships with field mapping pre-built on the partner side (HubSpot, Salesforce), common workflows wired, and tests scaffolded. The adopter maps their own API to the template's expected shape.
 
-Templates follow the ShadCN model: copy the implementation into your codebase, own it, customize freely, no upstream dependency to bump.
+Templates mirror the ShadCN model: copy the implementation into your codebase, own it, customize freely, no upstream dependency to bump.
 
 ### How this differs from an npm package
 

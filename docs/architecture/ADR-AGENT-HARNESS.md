@@ -25,7 +25,7 @@ agent + CLI + harness + templates + capabilities → predictable, testable, vali
 | Agent (LLM inference) | Reasoning, code generation, planning |
 | CLI (`frigg` commands) | Deterministic actions: scaffold, install, deploy, test |
 | Harness | Session wiring: inject ontology, query capabilities, spawn validators, log friction |
-| [Integration Templates](./ADR-INTEGRATION-TEMPLATES.md) | ShadCN-style starting points the agent copies and customizes |
+| [Integration Templates](./ADR-INTEGRATION-TEMPLATES.md) | ShadCN-mirror starting points the agent copies and customizes |
 | [Capabilities](./ADR-CAPABILITIES.md) | Machine-readable model of what exists and what can be added |
 
 The harness on its own does nothing. It is the composition layer that brings the other four into the agent's session. With all five in place, the agent's remaining work is the finishing portion: adopter-specific API mapping, business logic, edge cases.

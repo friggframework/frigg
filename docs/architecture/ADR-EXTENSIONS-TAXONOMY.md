@@ -33,7 +33,7 @@ Extensions split into three types, each with its own ADR:
 
 Two concepts are often discussed alongside extensions but belong to their own categories:
 
-- **[Integration Templates](./ADR-INTEGRATION-TEMPLATES.md)**: ShadCN-style copy-into-your-codebase base integrations. Templates are owned by the adopter after the copy; extensions are imported and consumed. Different lifecycle, different authoring story.
+- **[Integration Templates](./ADR-INTEGRATION-TEMPLATES.md)**: ShadCN-mirror, copy-into-your-codebase base integrations. Templates are owned by the adopter after the copy; extensions are imported and consumed. Different lifecycle, different authoring story.
 - **[Artifacts](./ADR-ARTIFACTS.md)**: code or configuration that runs outside Frigg (HubSpot Project, Slack manifest, Salesforce managed package). Extensions run inside Frigg's runtime; artifacts run on the target platform.
 
 ## Architecture
