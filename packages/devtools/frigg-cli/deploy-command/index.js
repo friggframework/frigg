@@ -268,15 +268,53 @@ async function runPostDeploymentHealthCheck(stackName, options) {
 }
 
 async function deployCommand(options) {
+    const stage = options.stage || 'dev';
+    const region = process.env.AWS_REGION || 'us-east-1';
+
+    if (options.dryRun) {
+        console.log('🔍 Running deployment dry-run...\n');
+
+        try {
+            const { executeDryRun } = require('./dry-run');
+            const appPath = process.cwd();
+            const appDefinition = loadAppDefinition();
+
+            if (!appDefinition) {
+                console.error('❌ Could not load app definition from index.js');
+                process.exit(1);
+            }
+
+            const stackName = getStackName(appDefinition, options);
+            if (!stackName) {
+                console.error('❌ Could not determine stack name from app definition');
+                process.exit(1);
+            }
+
+            const report = await executeDryRun({
+                appPath,
+                stackName,
+                region,
+                stage,
+                options,
+            });
+
+            process.exit(report.getExitCode());
+        } catch (error) {
+            console.error(`\n❌ Dry-run failed: ${error.message}`);
+            if (options.verbose) {
+                console.error(error.stack);
+            }
+            process.exit(1);
+        }
+    }
+
     console.log('Deploying the serverless application...');
 
     const appDefinition = loadAppDefinition();
     const environment = validateAndBuildEnvironment(appDefinition, options);
 
-    // Execute deployment
     const exitCode = await executeServerlessDeployment(environment, options);
 
-    // Check if deployment was successful
     if (exitCode !== 0) {
         console.error(`\n✗ Deployment failed with exit code ${exitCode}`);
         process.exit(exitCode);
@@ -286,7 +324,6 @@ async function deployCommand(options) {
 
     const skipHealthCheck = options.skipDoctor || appDefinition?.deployment?.skipPostDeploymentHealthCheck;
 
-    // Run post-deployment health check (unless disabled)
     if (!skipHealthCheck) {
         const stackName = getStackName(appDefinition, options);
 
