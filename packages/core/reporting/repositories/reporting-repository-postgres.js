@@ -27,11 +27,13 @@ class ReportingRepositoryPostgres extends ReportingRepositoryInterface {
      */
     _convertId(id) {
         if (id === null || id === undefined) return id;
-        const parsed = parseInt(id, 10);
-        if (isNaN(parsed)) {
+        // Require an exact integer string — `parseInt` would otherwise coerce
+        // '12abc'/'12.9' to 12 and silently return the wrong record.
+        const str = String(id).trim();
+        if (!/^-?\d+$/.test(str)) {
             throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
         }
-        return parsed;
+        return parseInt(str, 10);
     }
 
     async findIntegrationsForReport({ status, userId } = {}) {

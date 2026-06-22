@@ -1,17 +1,21 @@
-jest.mock('../../database/prisma', () => ({ prisma: {} }));
+const mockRunCommandRaw = jest.fn();
+
+jest.mock('../../database/prisma', () => ({
+    prisma: { $runCommandRaw: mockRunCommandRaw },
+}));
 jest.mock('../../database/documentdb-utils', () => ({
     toObjectId: jest.fn((v) => (v == null || v === '' ? undefined : `oid:${v}`)),
     fromObjectId: jest.fn((v) =>
         typeof v === 'string' && v.startsWith('oid:') ? v.slice(4) : v
     ),
-    findMany: jest.fn(),
-    aggregate: jest.fn(),
 }));
 
-const { findMany, aggregate } = require('../../database/documentdb-utils');
 const {
     ReportingRepositoryDocumentDB,
 } = require('./reporting-repository-documentdb');
+
+// Single-batch cursor result (id 0 → exhausted, no getMore).
+const singleBatch = (firstBatch) => ({ cursor: { firstBatch, id: 0 } });
 
 describe('ReportingRepositoryDocumentDB', () => {
     let repo;
@@ -22,27 +26,30 @@ describe('ReportingRepositoryDocumentDB', () => {
     });
 
     it('filters by status/userId and derives moduleCount from entityIds', async () => {
-        findMany.mockResolvedValue([
-            {
-                _id: 'i1',
-                config: { type: 'hubspot' },
-                status: 'ENABLED',
-                userId: 'u1',
-                version: '1',
-                errors: [{ title: 'boom' }],
-                entityIds: ['e1', 'e2', 'e3'],
-                createdAt: null,
-                updatedAt: null,
-            },
-        ]);
+        mockRunCommandRaw.mockResolvedValueOnce(
+            singleBatch([
+                {
+                    _id: 'i1',
+                    config: { type: 'hubspot' },
+                    status: 'ENABLED',
+                    userId: 'u1',
+                    version: '1',
+                    errors: [{ title: 'boom' }],
+                    entityIds: ['e1', 'e2', 'e3'],
+                    createdAt: null,
+                    updatedAt: null,
+                },
+            ])
+        );
 
         const rows = await repo.findIntegrationsForReport({
             status: 'ENABLED',
             userId: 'u1',
         });
 
-        const filterArg = findMany.mock.calls[0][2];
-        expect(filterArg).toEqual({ status: 'ENABLED', userId: 'oid:u1' });
+        const command = mockRunCommandRaw.mock.calls[0][0];
+        expect(command.find).toBe('Integration');
+        expect(command.filter).toEqual({ status: 'ENABLED', userId: 'oid:u1' });
         expect(rows[0]).toMatchObject({
             id: 'i1',
             type: 'hubspot',
@@ -51,24 +58,47 @@ describe('ReportingRepositoryDocumentDB', () => {
         });
     });
 
-    it('returns an empty list (does not drop the filter) when userId is not a valid id', async () => {
+    it('returns an empty list (does not query) when userId is not a valid id', async () => {
         const rows = await repo.findIntegrationsForReport({ userId: '' });
         expect(rows).toEqual([]);
-        expect(findMany).not.toHaveBeenCalled();
+        expect(mockRunCommandRaw).not.toHaveBeenCalled();
     });
 
-    it('counts mappings by matching integrationId as a STRING (it is stored as a string)', async () => {
-        aggregate.mockResolvedValue([{ _id: 'i1', count: 9 }]);
+    it('drains the cursor across multiple batches (does not stop at firstBatch)', async () => {
+        mockRunCommandRaw
+            .mockResolvedValueOnce({
+                cursor: {
+                    firstBatch: [{ _id: 'i1', entityIds: [] }],
+                    id: { $numberLong: '42' },
+                },
+            })
+            .mockResolvedValueOnce({
+                cursor: { nextBatch: [{ _id: 'i2', entityIds: [] }], id: 0 },
+            });
+
+        const rows = await repo.findIntegrationsForReport({});
+
+        expect(rows.map((r) => r.id)).toEqual(['i1', 'i2']);
+        // first command = find, second command = getMore on the open cursor
+        expect(mockRunCommandRaw.mock.calls[0][0].find).toBe('Integration');
+        const getMore = mockRunCommandRaw.mock.calls[1][0];
+        expect(getMore.getMore).toEqual({ $numberLong: '42' });
+        expect(getMore.collection).toBe('Integration');
+    });
+
+    it('counts mappings by matching integrationId as a STRING via aggregation', async () => {
+        mockRunCommandRaw.mockResolvedValueOnce(
+            singleBatch([{ _id: 'i1', count: 9 }])
+        );
 
         const counts = await repo.countMappingsByIntegrationIds(['i1']);
 
-        const [, collection, pipeline] = aggregate.mock.calls[0];
-        expect(collection).toBe('IntegrationMapping');
-        // string match, NOT toObjectId — matches how the mapping writer persists it
-        expect(pipeline[0]).toEqual({
+        const command = mockRunCommandRaw.mock.calls[0][0];
+        expect(command.aggregate).toBe('IntegrationMapping');
+        expect(command.pipeline[0]).toEqual({
             $match: { integrationId: { $in: ['i1'] } },
         });
-        expect(pipeline[1]).toEqual({
+        expect(command.pipeline[1]).toEqual({
             $group: { _id: '$integrationId', count: { $sum: 1 } },
         });
         expect(counts.get('i1')).toBe(9);

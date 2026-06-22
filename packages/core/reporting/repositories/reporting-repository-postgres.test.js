@@ -91,6 +91,16 @@ describe('ReportingRepositoryPostgres', () => {
         ).rejects.toThrow(/Invalid ID/);
     });
 
+    it('rejects partially-numeric / decimal userId instead of coercing it', async () => {
+        await expect(
+            repo.findIntegrationsForReport({ userId: '12abc' })
+        ).rejects.toThrow(/Invalid ID/);
+        await expect(
+            repo.findIntegrationsForReport({ userId: '12.9' })
+        ).rejects.toThrow(/Invalid ID/);
+        expect(prisma.integration.findMany).not.toHaveBeenCalled();
+    });
+
     it('throws on a non-numeric id in countMappingsByIntegrationIds', async () => {
         await expect(
             repo.countMappingsByIntegrationIds(['abc'])
