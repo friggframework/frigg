@@ -311,6 +311,16 @@ function createBaseDefinition(
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
                 ],
             },
+            reporting: {
+                handler: 'node_modules/@friggframework/core/handlers/routers/reporting.handler',
+                ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
+                skipEsbuild: true,  // Handlers in node_modules don't need bundling
+                package: skipEsbuildPackageConfig,
+                events: [
+                    { httpApi: { path: '/api/v2/reports', method: 'GET' } },
+                    { httpApi: { path: '/api/v2/reports/{proxy+}', method: 'GET' } },
+                ],
+            },
             // Note: dbMigrate removed - MigrationBuilder now handles migration infrastructure
             // See: packages/devtools/infrastructure/domains/database/migration-builder.js
         },

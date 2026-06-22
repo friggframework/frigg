@@ -71,6 +71,10 @@ const {
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
 } = require('./integrations/index');
+const {
+    createReportingRouter,
+    createReportingRepository,
+} = require('./reporting/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
@@ -138,6 +142,10 @@ module.exports = {
     UpdateProcessState,
     UpdateProcessMetrics,
     GetProcess,
+
+    // reporting
+    createReportingRouter,
+    createReportingRepository,
 
     // application - Command factories for integration developers
     application,
