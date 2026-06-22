@@ -1,0 +1,147 @@
+const { ListIntegrationsReport } = require('./list-integrations-report');
+
+const makeRepo = (rows, mappingCounts = new Map()) => ({
+    findIntegrationsForReport: jest.fn().mockResolvedValue(rows),
+    countMappingsByIntegrationIds: jest.fn().mockResolvedValue(mappingCounts),
+});
+
+describe('ListIntegrationsReport', () => {
+    it('requires a reportingRepository', () => {
+        expect(() => new ListIntegrationsReport({})).toThrow(
+            /reportingRepository is required/
+        );
+    });
+
+    it('builds the versioned envelope with totals, byStatus, byType and per-row counts', async () => {
+        const rows = [
+            {
+                id: '1',
+                type: 'hubspot',
+                status: 'ENABLED',
+                userId: '3',
+                version: '1.0.0',
+                moduleCount: 2,
+                errorCount: 0,
+                createdAt: new Date('2026-01-01T00:00:00Z'),
+                updatedAt: new Date('2026-01-02T00:00:00Z'),
+            },
+            {
+                id: '2',
+                type: 'hubspot',
+                status: 'ERROR',
+                userId: '3',
+                version: '1.0.0',
+                moduleCount: 1,
+                errorCount: 3,
+            },
+            {
+                id: '3',
+                type: 'salesforce',
+                status: 'ENABLED',
+                userId: '4',
+                version: '2.0.0',
+                moduleCount: 1,
+                errorCount: 0,
+            },
+        ];
+        const counts = new Map([
+            ['1', 412],
+            ['2', 5],
+        ]);
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows, counts),
+        });
+
+        const out = await useCase.execute({});
+
+        expect(out.schemaVersion).toBe(1);
+        expect(out.service).toBe('frigg-core-api');
+        expect(typeof out.generatedAt).toBe('string');
+        expect(out.metrics.total).toBe(3);
+        expect(out.metrics.byStatus).toEqual({
+            ENABLED: 2,
+            ERROR: 1,
+            NEEDS_CONFIG: 0,
+            PROCESSING: 0,
+            DISABLED: 0,
+        });
+
+        const hub = out.metrics.byType.find((t) => t.type === 'hubspot');
+        expect(hub.total).toBe(2);
+        expect(hub.byStatus).toEqual({
+            ENABLED: 1,
+            ERROR: 1,
+            NEEDS_CONFIG: 0,
+            PROCESSING: 0,
+            DISABLED: 0,
+        });
+
+        const row1 = out.metrics.integrations.find((i) => i.id === '1');
+        expect(row1.mappedRecordCount).toBe(412);
+        expect(row1.moduleCount).toBe(2);
+        expect(row1.createdAt).toBe('2026-01-01T00:00:00.000Z');
+
+        const row3 = out.metrics.integrations.find((i) => i.id === '3');
+        expect(row3.mappedRecordCount).toBe(0);
+        expect(row3.createdAt).toBeNull();
+    });
+
+    it('filters by type in the use-case and only counts mappings for matching ids', async () => {
+        const rows = [
+            { id: '1', type: 'hubspot', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
+            { id: '2', type: 'salesforce', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
+        ];
+        const repo = makeRepo(rows, new Map([['1', 10]]));
+        const useCase = new ListIntegrationsReport({ reportingRepository: repo });
+
+        const out = await useCase.execute({ type: 'hubspot' });
+
+        expect(out.metrics.total).toBe(1);
+        expect(out.metrics.integrations[0].id).toBe('1');
+        expect(repo.countMappingsByIntegrationIds).toHaveBeenCalledWith(['1']);
+        expect(out.filters.type).toBe('hubspot');
+    });
+
+    it('passes status/userId to the repository, echoes filters, and skips mapping count when empty', async () => {
+        const repo = makeRepo([]);
+        const useCase = new ListIntegrationsReport({ reportingRepository: repo });
+
+        const out = await useCase.execute({ status: 'ERROR', userId: '7' });
+
+        expect(repo.findIntegrationsForReport).toHaveBeenCalledWith({
+            status: 'ERROR',
+            userId: '7',
+        });
+        expect(out.metrics.total).toBe(0);
+        expect(out.filters).toEqual({ status: 'ERROR', type: null, userId: '7' });
+        expect(repo.countMappingsByIntegrationIds).not.toHaveBeenCalled();
+    });
+
+    it('buckets null type as "unknown"', async () => {
+        const rows = [
+            { id: '1', type: null, status: 'ENABLED', moduleCount: 0, errorCount: 0 },
+        ];
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows),
+        });
+
+        const out = await useCase.execute({});
+
+        expect(out.metrics.integrations[0].type).toBe('unknown');
+        expect(out.metrics.byType[0].type).toBe('unknown');
+    });
+
+    it('picks up an unknown status value dynamically (new enum member)', async () => {
+        const rows = [
+            { id: '1', type: 'x', status: 'ARCHIVED', moduleCount: 0, errorCount: 0 },
+        ];
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows),
+        });
+
+        const out = await useCase.execute({});
+
+        expect(out.metrics.byStatus.ARCHIVED).toBe(1);
+        expect(out.metrics.byStatus.ENABLED).toBe(0);
+    });
+});

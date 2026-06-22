@@ -1,0 +1,1029 @@
+openapi: 3.0.3
+info:
+    title: Frigg Management API BASE
+    description: >-
+        This base management API comes out-of-the-box with every Frigg
+        implementation. It can be customized to your needs, but is intended to work
+        immediately once you've got some initial integrations configured and API
+        Modules installed.
+
+
+        All routes are mounted by `createIntegrationRouter`
+        (`@friggframework/core`). Every endpoint runs behind the app-supplied
+        `requireLoggedInUser` middleware and resolves the acting user via
+        `getUserId`, so a user context is always required. Depending on how your
+        Frigg app wires `getUserId`, that context is provided either via a bearer
+        token or the `x-frigg-appuserid` / `x-frigg-apporgid` headers.
+    version: 1.0.0
+    contact: {}
+servers:
+    - url: http://localhost:3001/dev
+      description: Local development (serverless-offline)
+    - url: https://{restApiId}.execute-api.{region}.amazonaws.com/{stage}
+      description: Deployed API Gateway endpoint
+      variables:
+          restApiId:
+              default: your-api-id
+          region:
+              default: us-east-1
+          stage:
+              default: dev
+security:
+    - bearerAuth: []
+tags:
+    - name: Authorization
+      description: Authorize API Modules / entities and handle auth callbacks.
+    - name: Integrations
+      description: Create, configure, inspect, and act on integrations.
+    - name: Entities
+      description: Manage the connected entities backing an integration.
+    - name: Reporting
+      description: >-
+          Read-only, deployment-wide reporting for admin/back-office callers.
+          Gated by a dedicated reporting API key (not the per-user auth used by
+          the rest of this API).
+paths:
+    /api/authorize:
+        parameters:
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Authorization
+            summary: Get Auth Requirements
+            description: >-
+                Returns the authorization requirements for the given entity type
+                (for OAuth this is typically a redirect `url`; for API-key/basic
+                auth it is a `jsonSchema`/`uiSchema` form definition).
+            operationId: getAuthRequirements
+            parameters:
+                - name: entityType
+                  in: query
+                  required: true
+                  description: The API Module / entity type to authorize.
+                  schema:
+                      type: string
+                      example: hubspot
+                - name: state
+                  in: query
+                  required: false
+                  description: >-
+                      Optional OAuth `state` value forwarded into the
+                      authorization-requirements lookup.
+                  schema:
+                      type: string
+                      example: abc123
+            responses:
+                '200':
+                    description: Authorization requirements.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AuthorizationRequirements'
+        post:
+            tags:
+                - Authorization
+            summary: Auth (Callback)
+            description: >-
+                Processes an authorization callback (e.g. an OAuth `code` exchange
+                or submitted credential form) and creates/links the credential and
+                entity for the acting user.
+            operationId: authCallback
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - entityType
+                                - data
+                            properties:
+                                entityType:
+                                    type: string
+                                    example: hubspot
+                                data:
+                                    type: object
+                                    additionalProperties: true
+                                    description: >-
+                                        Provider-specific callback payload (OAuth
+                                        `code`, or credential fields such as
+                                        api keys / subdomains).
+                        examples:
+                            OAuth callback:
+                                value:
+                                    entityType: hubspot
+                                    data:
+                                        code: abc123def456
+                            API key callback:
+                                value:
+                                    entityType: quo
+                                    data:
+                                        apiKey: your-api-key
+            responses:
+                '200':
+                    description: Credential and entity created/linked.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AuthCallbackResult'
+    /api/integrations:
+        parameters:
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Integrations
+            summary: List Integrations
+            description: >-
+                Returns integration options, the entities the user is authorized
+                to use, and the user's existing integrations (each annotated with
+                its available `userActions`).
+            operationId: listIntegrations
+            responses:
+                '200':
+                    description: Integration options, authorized entities, and integrations.
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    entities:
+                                        type: object
+                                        properties:
+                                            options:
+                                                type: array
+                                                items:
+                                                    type: object
+                                                    additionalProperties: true
+                                            authorized:
+                                                type: array
+                                                items:
+                                                    type: object
+                                                    additionalProperties: true
+                                    integrations:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/Integration'
+        post:
+            tags:
+                - Integrations
+            summary: Create Integration
+            description: >-
+                Creates an integration from a pair of entities and a config object,
+                then runs the integration's `onCreate` lifecycle hook.
+            operationId: createIntegration
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - entities
+                                - config
+                            properties:
+                                entities:
+                                    type: array
+                                    items:
+                                        type: string
+                                    example:
+                                        - "7"
+                                        - "11"
+                                config:
+                                    type: object
+                                    required:
+                                        - type
+                                    additionalProperties: true
+                                    properties:
+                                        type:
+                                            type: string
+                                            description: The integration type to create.
+                                            example: attio
+                        examples:
+                            Create Integration:
+                                value:
+                                    entities:
+                                        - "7"
+                                        - "11"
+                                    config:
+                                        type: attio
+            responses:
+                '201':
+                    description: The created, formatted integration.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Integration'
+                            examples:
+                                Create Integration:
+                                    value:
+                                        id: "16"
+                                        entities:
+                                            - "7"
+                                            - "11"
+                                        status: ENABLED
+                                        config:
+                                            type: attio
+                                            enable:
+                                                sync: true
+                                                webhooks: true
+                                            map:
+                                                syncMap:
+                                                    freshbooksEntityId:
+                                                        - name.first
+                                                        - name.last
+                                                    salesforceEntityId:
+                                                        - firstName
+                                                        - lastName
+    /api/integrations/{integrationId}:
+        parameters:
+            - $ref: '#/components/parameters/IntegrationIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Integrations
+            summary: Get Integration
+            description: Returns the integration's id, entities, status, and config.
+            operationId: getIntegration
+            responses:
+                '200':
+                    description: The integration.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Integration'
+        patch:
+            tags:
+                - Integrations
+            summary: Update Integration
+            description: >-
+                Updates an integration's config and runs the integration's
+                `onUpdate` lifecycle hook.
+            operationId: updateIntegration
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - config
+                            properties:
+                                config:
+                                    type: object
+                                    additionalProperties: true
+                                    properties:
+                                        enable:
+                                            type: object
+                                            properties:
+                                                sync:
+                                                    type: boolean
+                                                    example: true
+                                                webhooks:
+                                                    type: boolean
+                                                    example: false
+                                        map:
+                                            type: object
+                                            additionalProperties: true
+                        examples:
+                            Update Integration:
+                                value:
+                                    config:
+                                        enable:
+                                            sync: true
+                                            webhooks: false
+                                        map:
+                                            syncMap:
+                                                freshbooksEntityId:
+                                                    - name.first
+                                                    - name.last
+                                                salesforceEntityId:
+                                                    - firstName
+                                                    - lastName
+            responses:
+                '200':
+                    description: The updated, formatted integration.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Integration'
+        delete:
+            tags:
+                - Integrations
+            summary: Delete Integration
+            description: >-
+                Runs the integration's `onDelete` lifecycle hook and removes the
+                integration for the acting user.
+            operationId: deleteIntegration
+            responses:
+                '204':
+                    description: Integration deleted. No content.
+    /api/integrations/{integrationId}/config/options:
+        parameters:
+            - $ref: '#/components/parameters/IntegrationIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Integrations
+            summary: Get Integration Config Options
+            description: Returns the dynamic config-options form for the integration.
+            operationId: getIntegrationConfigOptions
+            responses:
+                '200':
+                    description: Config options.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Options'
+    /api/integrations/{integrationId}/config/options/refresh:
+        parameters:
+            - $ref: '#/components/parameters/IntegrationIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        post:
+            tags:
+                - Integrations
+            summary: Refresh Integration Config Options
+            description: >-
+                Re-evaluates the config-options form given the current (partial)
+                config submission, e.g. to populate dependent dropdowns.
+            operationId: refreshIntegrationConfigOptions
+            requestBody:
+                required: false
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            additionalProperties: true
+            responses:
+                '200':
+                    description: Refreshed config options.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Options'
+    /api/integrations/{integrationId}/actions:
+        parameters:
+            - $ref: '#/components/parameters/IntegrationIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Integrations
+            summary: List User Actions
+            description: >-
+                Lists the user actions available for the integration. The route is
+                registered with `.all`, so it responds to any HTTP method; GET is
+                the typical call.
+            operationId: listUserActions
+            responses:
+                '200':
+                    description: Available user actions.
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+    /api/integrations/{integrationId}/actions/{actionId}/options:
+        parameters:
+            - $ref: '#/components/parameters/IntegrationIdPath'
+            - $ref: '#/components/parameters/ActionIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Integrations
+            summary: Get User Action Options
+            description: Returns the dynamic options form for a given user action.
+            operationId: getUserActionOptions
+            responses:
+                '200':
+                    description: Action options.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Options'
+    /api/integrations/{integrationId}/actions/{actionId}/options/refresh:
+        parameters:
+            - $ref: '#/components/parameters/IntegrationIdPath'
+            - $ref: '#/components/parameters/ActionIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        post:
+            tags:
+                - Integrations
+            summary: Refresh User Action Options
+            description: >-
+                Re-evaluates a user action's options form given the current
+                (partial) submission.
+            operationId: refreshUserActionOptions
+            requestBody:
+                required: false
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            additionalProperties: true
+            responses:
+                '200':
+                    description: Refreshed action options.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Options'
+    /api/integrations/{integrationId}/actions/{actionId}:
+        parameters:
+            - $ref: '#/components/parameters/IntegrationIdPath'
+            - $ref: '#/components/parameters/ActionIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        post:
+            tags:
+                - Integrations
+            summary: Submit User Action
+            description: >-
+                Submits/triggers a user action on the integration (calls the
+                integration's `notify(actionId, body)`). The request body is the
+                action-specific payload.
+            operationId: submitUserAction
+            requestBody:
+                required: false
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            additionalProperties: true
+                        examples:
+                            Submit User Action:
+                                value:
+                                    confirm: true
+            responses:
+                '200':
+                    description: Action result.
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties: true
+    /api/integrations/{integrationId}/test-auth:
+        parameters:
+            - $ref: '#/components/parameters/IntegrationIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Integrations
+            summary: Test Integration Auth
+            description: >-
+                Runs `testAuth` against the integration's entities and reports any
+                authentication errors raised during the check.
+            operationId: testIntegrationAuth
+            responses:
+                '200':
+                    description: Authentication is healthy.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OkStatus'
+                '400':
+                    description: Authentication errors were detected.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+    /api/entity:
+        parameters:
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        post:
+            tags:
+                - Entities
+            summary: Create Entity
+            description: >-
+                Finds or creates an entity for a previously-created credential.
+                `data.credential_id` is required and must reference an existing
+                credential.
+            operationId: createEntity
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - entityType
+                                - data
+                            properties:
+                                entityType:
+                                    type: string
+                                    example: hubspot
+                                data:
+                                    type: object
+                                    required:
+                                        - credential_id
+                                    additionalProperties: true
+                                    properties:
+                                        credential_id:
+                                            type: string
+                                            example: "12"
+                        examples:
+                            Create Entity:
+                                value:
+                                    entityType: hubspot
+                                    data:
+                                        credential_id: "12"
+            responses:
+                '200':
+                    description: The found or created entity.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Entity'
+    /api/entity/options/{credentialId}:
+        parameters:
+            - $ref: '#/components/parameters/CredentialIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Entities
+            summary: Get Entity Options (by Credential)
+            description: >-
+                Returns the entity-selection options available for a credential
+                (e.g. selectable accounts/workspaces). The credential must belong
+                to the acting user.
+            operationId: getEntityOptionsByCredential
+            parameters:
+                - name: entityType
+                  in: query
+                  required: true
+                  description: The API Module / entity type the credential belongs to.
+                  schema:
+                      type: string
+                      example: hubspot
+            responses:
+                '200':
+                    description: Entity options.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Options'
+                '403':
+                    description: The credential does not belong to the acting user.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+    /api/entities/{entityId}:
+        parameters:
+            - $ref: '#/components/parameters/EntityIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Entities
+            summary: Get Entity
+            description: Returns the entity record for the given entity id.
+            operationId: getEntity
+            responses:
+                '200':
+                    description: The entity.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Entity'
+                '404':
+                    description: Entity not found for the acting user.
+    /api/entities/{entityId}/test-auth:
+        parameters:
+            - $ref: '#/components/parameters/EntityIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        get:
+            tags:
+                - Entities
+            summary: Test Entity Auth
+            description: Runs `testAuth` against a single entity's credential.
+            operationId: testEntityAuth
+            responses:
+                '200':
+                    description: Authentication is healthy.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OkStatus'
+                '400':
+                    description: Authentication error for this entity.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                '404':
+                    description: Entity not found for the acting user.
+    /api/entities/{entityId}/options:
+        parameters:
+            - $ref: '#/components/parameters/EntityIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        post:
+            tags:
+                - Entities
+            summary: Get Entity Options (by Entity)
+            description: Returns the options form for an existing entity.
+            operationId: getEntityOptions
+            requestBody:
+                required: false
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            additionalProperties: true
+            responses:
+                '200':
+                    description: Entity options.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Options'
+                '404':
+                    description: Entity not found for the acting user.
+    /api/entities/{entityId}/options/refresh:
+        parameters:
+            - $ref: '#/components/parameters/EntityIdPath'
+            - $ref: '#/components/parameters/AppUserIdHeader'
+            - $ref: '#/components/parameters/AppOrgIdHeader'
+        post:
+            tags:
+                - Entities
+            summary: Refresh Entity Options
+            description: >-
+                Re-evaluates an entity's options form given the current (partial)
+                submission.
+            operationId: refreshEntityOptions
+            requestBody:
+                required: false
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            additionalProperties: true
+            responses:
+                '200':
+                    description: Refreshed entity options.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Options'
+                '404':
+                    description: Entity not found for the acting user.
+    /api/v2/reports/integrations:
+        get:
+            tags:
+                - Reporting
+            summary: List integrations report
+            description: >-
+                Read-only, deployment-wide report of integrations: a total, a
+                breakdown by `IntegrationStatus`, a per-type breakdown, and a
+                lightweight per-integration row list (status, type, userId,
+                version, moduleCount, errorCount, mappedRecordCount, timestamps).
+                Gated by the reporting API key — not the per-user auth used by the
+                rest of this API.
+            operationId: listIntegrationsReport
+            security:
+                - reportingApiKey: []
+            parameters:
+                - name: status
+                  in: query
+                  required: false
+                  description: Filter by integration status.
+                  schema:
+                      type: string
+                      enum:
+                          - ENABLED
+                          - ERROR
+                          - NEEDS_CONFIG
+                          - PROCESSING
+                          - DISABLED
+                - name: type
+                  in: query
+                  required: false
+                  description: Filter by integration type (`config.type`).
+                  schema:
+                      type: string
+                      example: hubspot
+                - name: userId
+                  in: query
+                  required: false
+                  description: Filter to a single user's integrations.
+                  schema:
+                      type: string
+            responses:
+                '200':
+                    description: The integrations report (versioned envelope).
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/IntegrationsReport'
+                '401':
+                    description: Missing or invalid reporting API key.
+components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            description: >-
+                Bearer token for the acting user, when the Frigg app's `getUserId`
+                resolves the user from an Authorization header.
+        reportingApiKey:
+            type: apiKey
+            in: header
+            name: x-frigg-reporting-api-key
+            description: >-
+                Dedicated admin key for the read-only reporting endpoints,
+                validated against the `REPORTING_API_KEY` environment variable.
+    parameters:
+        AppUserIdHeader:
+            name: x-frigg-appuserid
+            in: header
+            required: false
+            description: >-
+                Identifies the acting end user, when the Frigg app's `getUserId`
+                resolves the user from this header instead of a bearer token.
+            schema:
+                type: string
+                example: '{{appUserId}}'
+        AppOrgIdHeader:
+            name: x-frigg-apporgid
+            in: header
+            required: false
+            description: Identifies the acting end user's organization (app-specific).
+            schema:
+                type: string
+                example: '{{appOrgId}}'
+        IntegrationIdPath:
+            name: integrationId
+            in: path
+            required: true
+            description: The integration's id.
+            schema:
+                type: string
+                example: '{{integrationId}}'
+        ActionIdPath:
+            name: actionId
+            in: path
+            required: true
+            description: The user action identifier.
+            schema:
+                type: string
+                example: DELETE_ALL_CUSTOM_OBJECTS
+        EntityIdPath:
+            name: entityId
+            in: path
+            required: true
+            description: The entity's id.
+            schema:
+                type: string
+                example: '{{entityId}}'
+        CredentialIdPath:
+            name: credentialId
+            in: path
+            required: true
+            description: The credential's id.
+            schema:
+                type: string
+                example: '{{credentialId}}'
+    schemas:
+        IntegrationStatus:
+            type: string
+            enum:
+                - ENABLED
+                - DISABLED
+                - NEEDS_CONFIG
+                - PROCESSING
+                - ERROR
+        IntegrationsReport:
+            type: object
+            properties:
+                schemaVersion:
+                    type: integer
+                    example: 1
+                service:
+                    type: string
+                    example: frigg-core-api
+                generatedAt:
+                    type: string
+                    format: date-time
+                filters:
+                    type: object
+                    properties:
+                        status:
+                            type: string
+                            nullable: true
+                        type:
+                            type: string
+                            nullable: true
+                        userId:
+                            type: string
+                            nullable: true
+                metrics:
+                    type: object
+                    properties:
+                        total:
+                            type: integer
+                            example: 12
+                        byStatus:
+                            type: object
+                            description: Count keyed by IntegrationStatus value.
+                            additionalProperties:
+                                type: integer
+                        byType:
+                            type: array
+                            items:
+                                type: object
+                                properties:
+                                    type:
+                                        type: string
+                                        example: hubspot
+                                    total:
+                                        type: integer
+                                    byStatus:
+                                        type: object
+                                        additionalProperties:
+                                            type: integer
+                        integrations:
+                            type: array
+                            items:
+                                $ref: '#/components/schemas/IntegrationReportRow'
+        IntegrationReportRow:
+            type: object
+            properties:
+                id:
+                    type: string
+                    example: "17"
+                type:
+                    type: string
+                    example: hubspot
+                status:
+                    $ref: '#/components/schemas/IntegrationStatus'
+                userId:
+                    type: string
+                    nullable: true
+                version:
+                    type: string
+                    nullable: true
+                    example: "1.0.0"
+                moduleCount:
+                    type: integer
+                    example: 2
+                errorCount:
+                    type: integer
+                    example: 0
+                mappedRecordCount:
+                    type: integer
+                    example: 412
+                createdAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                updatedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+        Integration:
+            type: object
+            properties:
+                id:
+                    type: string
+                    example: "16"
+                entities:
+                    type: array
+                    items:
+                        type: string
+                    example:
+                        - "7"
+                        - "11"
+                status:
+                    $ref: '#/components/schemas/IntegrationStatus'
+                config:
+                    type: object
+                    additionalProperties: true
+                    example:
+                        type: attio
+                userActions:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: true
+        Entity:
+            type: object
+            additionalProperties: true
+            description: >-
+                A persisted entity — an authorized connection to an external system,
+                backed by a credential. Fields mirror the Entity model; some
+                endpoints also serialize a nested `credential` object.
+            properties:
+                id:
+                    type: string
+                    example: "7"
+                userId:
+                    type: string
+                    example: "3"
+                credentialId:
+                    type: string
+                    example: "12"
+                name:
+                    type: string
+                    example: Acme HubSpot
+                moduleName:
+                    type: string
+                    description: The API module / entity type.
+                    example: hubspot
+                externalId:
+                    type: string
+                    example: hub_98531
+                data:
+                    type: object
+                    additionalProperties: true
+                createdAt:
+                    type: string
+                    format: date-time
+                updatedAt:
+                    type: string
+                    format: date-time
+        AuthorizationRequirements:
+            type: object
+            additionalProperties: true
+            description: >-
+                Auth requirements for the entity type. OAuth modules return
+                `{ type: "oauth2", url }`; API-key modules return
+                `{ type: "apiKey", jsonSchema, ... }` describing the credential form.
+            properties:
+                type:
+                    type: string
+                    example: oauth2
+                url:
+                    type: string
+                    description: Authorization redirect URL (OAuth modules).
+                    example: https://app.hubspot.com/oauth/authorize?client_id=...&redirect_uri=...&scope=...&state=...
+                jsonSchema:
+                    type: object
+                    additionalProperties: true
+                    description: JSON Schema describing the credential form (API-key modules).
+                uiSchema:
+                    type: object
+                    additionalProperties: true
+        AuthCallbackResult:
+            type: object
+            additionalProperties: true
+            description: >-
+                Returned by the authorize callback after it creates/links the
+                credential and entity for the user.
+            properties:
+                credential_id:
+                    type: string
+                    example: "12"
+                entity_id:
+                    type: string
+                    example: "7"
+                type:
+                    type: string
+                    description: The API module / entity type (the module's name).
+                    example: hubspot
+        Options:
+            type: object
+            additionalProperties: true
+            description: >-
+                An integration- or module-defined options payload. The exact shape
+                is provider-specific; it is commonly an `options` array of
+                selectable values.
+            properties:
+                options:
+                    type: array
+                    items:
+                        type: object
+                        additionalProperties: true
+        OkStatus:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: ok
+        ErrorResponse:
+            type: object
+            properties:
+                errors:
+                    type: array
+                    items:
+                        type: object
+                        properties:
+                            title:
+                                type: string
+                                example: Authentication Error
+                            message:
+                                type: string
+                            timestamp:
+                                type: integer
+                                format: int64
