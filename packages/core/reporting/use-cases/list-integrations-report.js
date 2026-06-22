@@ -99,7 +99,7 @@ class ListIntegrationsReport {
                 );
             }
         }
-        const normalize = (value) => (value ? value : undefined);
+        const normalize = (value) => value || undefined;
         const normalized = {
             status: normalize(status),
             type: normalize(type),
