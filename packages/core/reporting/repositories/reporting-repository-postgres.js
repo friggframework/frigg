@@ -18,6 +18,13 @@ class ReportingRepositoryPostgres extends ReportingRepositoryInterface {
         this.prisma = prisma;
     }
 
+    /**
+     * Convert string ID to integer for PostgreSQL queries
+     * @private
+     * @param {string|number|null|undefined} id - ID to convert
+     * @returns {number|null|undefined} Integer ID or null/undefined
+     * @throws {Error} If ID cannot be converted to integer
+     */
     _convertId(id) {
         if (id === null || id === undefined) return id;
         const parsed = parseInt(id, 10);

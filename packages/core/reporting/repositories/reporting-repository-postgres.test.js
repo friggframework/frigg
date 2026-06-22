@@ -84,4 +84,16 @@ describe('ReportingRepositoryPostgres', () => {
         expect(counts.size).toBe(0);
         expect(prisma.integrationMapping.groupBy).not.toHaveBeenCalled();
     });
+
+    it('throws on a non-numeric userId filter', async () => {
+        await expect(
+            repo.findIntegrationsForReport({ userId: 'abc' })
+        ).rejects.toThrow(/Invalid ID/);
+    });
+
+    it('throws on a non-numeric id in countMappingsByIntegrationIds', async () => {
+        await expect(
+            repo.countMappingsByIntegrationIds(['abc'])
+        ).rejects.toThrow(/Invalid ID/);
+    });
 });

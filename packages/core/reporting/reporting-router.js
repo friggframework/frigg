@@ -3,7 +3,10 @@ const catchAsyncError = require('express-async-handler');
 const {
     createReportingRepository,
 } = require('./repositories/reporting-repository-factory');
-const { ListIntegrationsReport } = require('./use-cases/list-integrations-report');
+const {
+    ListIntegrationsReport,
+    KNOWN_STATUSES,
+} = require('./use-cases/list-integrations-report');
 
 /**
  * Admin API key validation middleware.
@@ -45,6 +48,26 @@ function createReportingRouter() {
         '/api/v2/reports/integrations',
         catchAsyncError(async (req, res) => {
             const { status, type, userId } = req.query;
+
+            // Reject malformed input with 400 (a 500 would otherwise surface from
+            // the repository/Prisma layer on object/array-shaped query params).
+            for (const [key, value] of Object.entries({ status, type, userId })) {
+                if (value !== undefined && typeof value !== 'string') {
+                    return res.status(400).json({
+                        status: 'error',
+                        message: `Invalid query parameter '${key}': expected a string`,
+                    });
+                }
+            }
+            if (status && !KNOWN_STATUSES.includes(status)) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: `Invalid status '${status}'. Expected one of: ${KNOWN_STATUSES.join(
+                        ', '
+                    )}`,
+                });
+            }
+
             const result = await listIntegrationsReport.execute({
                 status: status || undefined,
                 type: type || undefined,

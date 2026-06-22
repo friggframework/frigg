@@ -103,5 +103,43 @@ describe('reporting-router', () => {
             expect(body.metrics.total).toBe(1);
             expect(body.metrics.integrations[0].mappedRecordCount).toBe(5);
         });
+
+        const integrationsHandler = () =>
+            findRouteHandler(router, '/api/v2/reports/integrations');
+
+        it('returns 400 for an object-shaped query param', async () => {
+            const res = mockRes();
+            await integrationsHandler()(
+                { query: { userId: { $oid: 'x' } } },
+                res,
+                jest.fn()
+            );
+            expect(res.status).toHaveBeenCalledWith(400);
+        });
+
+        it('returns 400 for an unknown status value', async () => {
+            const res = mockRes();
+            await integrationsHandler()(
+                { query: { status: 'BOGUS' } },
+                res,
+                jest.fn()
+            );
+            expect(res.status).toHaveBeenCalledWith(400);
+        });
+
+        it('forwards filters and coerces empty strings to undefined', async () => {
+            const res = mockRes();
+            await integrationsHandler()(
+                { query: { status: 'ENABLED', type: '', userId: '7' } },
+                res,
+                jest.fn()
+            );
+            const body = res.json.mock.calls[0][0];
+            expect(body.filters).toEqual({
+                status: 'ENABLED',
+                type: null,
+                userId: '7',
+            });
+        });
     });
 });

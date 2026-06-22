@@ -679,6 +679,37 @@ paths:
                                 $ref: '#/components/schemas/Options'
                 '404':
                     description: Entity not found for the acting user.
+    /api/v2/reports:
+        get:
+            tags:
+                - Reporting
+            summary: Reporting index
+            description: Lists the available reports on this instance.
+            operationId: reportsIndex
+            security:
+                - reportingApiKey: []
+            responses:
+                '200':
+                    description: The available reports.
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    service:
+                                        type: string
+                                        example: frigg-core-api
+                                    reports:
+                                        type: array
+                                        items:
+                                            type: string
+                                        example: [integrations]
+                '401':
+                    description: Missing or invalid reporting API key.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ReportingError'
     /api/v2/reports/integrations:
         get:
             tags:
@@ -700,13 +731,7 @@ paths:
                   required: false
                   description: Filter by integration status.
                   schema:
-                      type: string
-                      enum:
-                          - ENABLED
-                          - ERROR
-                          - NEEDS_CONFIG
-                          - PROCESSING
-                          - DISABLED
+                      $ref: '#/components/schemas/IntegrationStatus'
                 - name: type
                   in: query
                   required: false
@@ -727,8 +752,18 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/IntegrationsReport'
+                '400':
+                    description: Malformed query parameter.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ReportingError'
                 '401':
                     description: Missing or invalid reporting API key.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ReportingError'
 components:
     securitySchemes:
         bearerAuth:
@@ -867,7 +902,9 @@ components:
                     type: string
                     example: hubspot
                 status:
-                    $ref: '#/components/schemas/IntegrationStatus'
+                    allOf:
+                        - $ref: '#/components/schemas/IntegrationStatus'
+                    nullable: true
                 userId:
                     type: string
                     nullable: true
@@ -892,6 +929,15 @@ components:
                     type: string
                     format: date-time
                     nullable: true
+        ReportingError:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: error
+                message:
+                    type: string
+                    example: Unauthorized - x-frigg-reporting-api-key header required
         Integration:
             type: object
             properties:

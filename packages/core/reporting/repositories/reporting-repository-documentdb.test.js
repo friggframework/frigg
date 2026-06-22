@@ -51,13 +51,23 @@ describe('ReportingRepositoryDocumentDB', () => {
         });
     });
 
-    it('counts mappings with a $group aggregation pipeline', async () => {
-        aggregate.mockResolvedValue([{ _id: 'oid:i1', count: 9 }]);
+    it('returns an empty list (does not drop the filter) when userId is not a valid id', async () => {
+        const rows = await repo.findIntegrationsForReport({ userId: '' });
+        expect(rows).toEqual([]);
+        expect(findMany).not.toHaveBeenCalled();
+    });
+
+    it('counts mappings by matching integrationId as a STRING (it is stored as a string)', async () => {
+        aggregate.mockResolvedValue([{ _id: 'i1', count: 9 }]);
 
         const counts = await repo.countMappingsByIntegrationIds(['i1']);
 
         const [, collection, pipeline] = aggregate.mock.calls[0];
         expect(collection).toBe('IntegrationMapping');
+        // string match, NOT toObjectId — matches how the mapping writer persists it
+        expect(pipeline[0]).toEqual({
+            $match: { integrationId: { $in: ['i1'] } },
+        });
         expect(pipeline[1]).toEqual({
             $group: { _id: '$integrationId', count: { $sum: 1 } },
         });

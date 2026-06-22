@@ -28,7 +28,10 @@ class ReportingRepositoryDocumentDB extends ReportingRepositoryInterface {
         if (status) filter.status = status;
         if (userId !== undefined && userId !== null) {
             const objectId = toObjectId(userId);
-            if (objectId) filter.userId = objectId;
+            // A userId was requested but is not a valid id → no matches.
+            // (Do NOT drop the filter, which would return the whole deployment.)
+            if (!objectId) return [];
+            filter.userId = objectId;
         }
 
         const docs = await findMany(this.prisma, 'Integration', filter);
@@ -55,16 +58,18 @@ class ReportingRepositoryDocumentDB extends ReportingRepositoryInterface {
         const counts = new Map();
         if (!ids || ids.length === 0) return counts;
 
-        const objectIds = ids.map((id) => toObjectId(id)).filter(Boolean);
-        if (objectIds.length === 0) return counts;
+        // IntegrationMapping.integrationId is persisted as a PLAIN STRING in
+        // DocumentDB (see integration-mapping-repository-documentdb.js), so match
+        // by string — an ObjectId `$in` would never match and silently yield 0.
+        const stringIds = ids.map((id) => String(id));
 
         const rows = await aggregate(this.prisma, 'IntegrationMapping', [
-            { $match: { integrationId: { $in: objectIds } } },
+            { $match: { integrationId: { $in: stringIds } } },
             { $group: { _id: '$integrationId', count: { $sum: 1 } } },
         ]);
 
         for (const row of rows) {
-            counts.set(fromObjectId(row?._id), row?.count ?? 0);
+            counts.set(String(row?._id), row?.count ?? 0);
         }
         return counts;
     }

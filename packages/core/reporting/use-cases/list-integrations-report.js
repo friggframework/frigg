@@ -80,8 +80,10 @@ class ListIntegrationsReport {
         const byStatus = emptyStatusCounts();
         const byTypeMap = new Map();
         for (const integration of integrations) {
-            byStatus[integration.status] =
-                (byStatus[integration.status] ?? 0) + 1;
+            // Bucket under a sentinel when status is missing so a null never
+            // becomes a literal "null" key (only reachable for malformed rows).
+            const statusKey = integration.status ?? 'UNKNOWN';
+            byStatus[statusKey] = (byStatus[statusKey] ?? 0) + 1;
 
             if (!byTypeMap.has(integration.type)) {
                 byTypeMap.set(integration.type, {
@@ -92,8 +94,7 @@ class ListIntegrationsReport {
             }
             const bucket = byTypeMap.get(integration.type);
             bucket.total += 1;
-            bucket.byStatus[integration.status] =
-                (bucket.byStatus[integration.status] ?? 0) + 1;
+            bucket.byStatus[statusKey] = (bucket.byStatus[statusKey] ?? 0) + 1;
         }
 
         return {
@@ -115,4 +116,4 @@ class ListIntegrationsReport {
     }
 }
 
-module.exports = { ListIntegrationsReport, SCHEMA_VERSION };
+module.exports = { ListIntegrationsReport, SCHEMA_VERSION, KNOWN_STATUSES };

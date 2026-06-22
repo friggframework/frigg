@@ -144,4 +144,58 @@ describe('ListIntegrationsReport', () => {
         expect(out.metrics.byStatus.ARCHIVED).toBe(1);
         expect(out.metrics.byStatus.ENABLED).toBe(0);
     });
+
+    it('buckets a missing status under UNKNOWN, never a literal "null" key', async () => {
+        const rows = [
+            { id: '1', type: 'x', status: null, moduleCount: 0, errorCount: 0 },
+        ];
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows),
+        });
+
+        const out = await useCase.execute({});
+
+        expect(out.metrics.byStatus.UNKNOWN).toBe(1);
+        expect(out.metrics.byStatus).not.toHaveProperty('null');
+        expect(out.metrics.byType[0].byStatus.UNKNOWN).toBe(1);
+        expect(out.metrics.byType[0].byStatus).not.toHaveProperty('null');
+    });
+
+    it('asserts byType buckets are independent across types', async () => {
+        const rows = [
+            { id: '1', type: 'hubspot', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
+            { id: '2', type: 'salesforce', status: 'ERROR', moduleCount: 1, errorCount: 1 },
+        ];
+        const out = await new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows),
+        }).execute({});
+
+        expect(out.metrics.byType).toHaveLength(2);
+        const sf = out.metrics.byType.find((t) => t.type === 'salesforce');
+        expect(sf.total).toBe(1);
+        expect(sf.byStatus).toEqual({
+            ENABLED: 0,
+            ERROR: 1,
+            NEEDS_CONFIG: 0,
+            PROCESSING: 0,
+            DISABLED: 0,
+        });
+    });
+
+    it('normalizes timestamps from Date, extended-JSON {$date}, string, and null', async () => {
+        const rows = [
+            { id: '1', type: 'x', status: 'ENABLED', moduleCount: 0, errorCount: 0, createdAt: { $date: '2026-03-04T05:06:07Z' }, updatedAt: { $date: 'not-a-date' } },
+            { id: '2', type: 'x', status: 'ENABLED', moduleCount: 0, errorCount: 0, createdAt: '2026-03-04T05:06:07.000Z', updatedAt: null },
+        ];
+        const out = await new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows),
+        }).execute({});
+
+        const r1 = out.metrics.integrations.find((i) => i.id === '1');
+        expect(r1.createdAt).toBe('2026-03-04T05:06:07.000Z');
+        expect(r1.updatedAt).toBeNull();
+        const r2 = out.metrics.integrations.find((i) => i.id === '2');
+        expect(r2.createdAt).toBe('2026-03-04T05:06:07.000Z');
+        expect(r2.updatedAt).toBeNull();
+    });
 });
