@@ -18,10 +18,45 @@
   },
   "overrides": {
     "rollup": {
-      "@rollup/rollup-linux-x64-gnu": "4.52.5",
-      "@rollup/rollup-darwin-x64": "4.52.5",
-      "@rollup/rollup-darwin-arm64": "4.52.5",
-      "@rollup/rollup-win32-x64-msvc": "4.52.5"
+      ".": "4.62.2",
+      "@rollup/rollup-linux-x64-gnu": "4.62.2",
+      "@rollup/rollup-darwin-x64": "4.62.2",
+      "@rollup/rollup-darwin-arm64": "4.62.2",
+      "@rollup/rollup-win32-x64-msvc": "4.62.2"
+    },
+    "fast-xml-parser": "5.9.3",
+    "handlebars": "4.7.9",
+    "simple-git": "3.36.0",
+    "lodash": "4.18.1",
+    "ws": "8.21.0",
+    "tmp": "0.2.7",
+    "flatted": "3.4.2",
+    "fast-uri": "3.1.2",
+    "defu": "6.1.7",
+    "effect": "3.21.4",
+    "velocityjs": "2.1.6",
+    "@hapi/content": "6.0.2",
+    "@hapi/wreck": "18.1.2",
+    "qs": "6.15.2",
+    "follow-redirects": "1.16.0",
+    "ip-address": "10.2.0",
+    "@jsonforms/core": "3.6.0",
+    "@jsonforms/react": "3.6.0",
+    "@jsonforms/material-renderers": "3.6.0",
+    "jshint": {
+      "minimatch": "3.1.5"
+    },
+    "mongodb-memory-server-core": {
+      "uuid": "11.1.1"
+    },
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "4.2.0"
+    },
+    "lerna": {
+      "js-yaml": "4.2.0"
+    },
+    "@lerna/create": {
+      "js-yaml": "4.2.0"
     }
   },
   "author": "seanspeaks <sean.matthews@lefthook.co>",
