@@ -5,20 +5,6 @@ const {
 } = require('./repositories/reporting-repository-factory');
 const { ListIntegrationsReport } = require('./use-cases/list-integrations-report');
 
-const validateApiKey = (req, res, next) => {
-    const apiKey = req.headers['x-frigg-reporting-api-key'];
-
-    if (!apiKey || apiKey !== process.env.REPORTING_API_KEY) {
-        console.error('Unauthorized access attempt to reporting endpoint');
-        return res.status(401).json({
-            status: 'error',
-            message: 'Unauthorized - x-frigg-reporting-api-key header required',
-        });
-    }
-
-    next();
-};
-
 function createReportingRouter() {
     const reportingRepository = createReportingRepository();
     const listIntegrationsReport = new ListIntegrationsReport({
@@ -43,6 +29,20 @@ function createReportingRouter() {
     );
 
     return router;
+}
+
+function validateApiKey(req, res, next) {
+    const apiKey = req.headers['x-frigg-reporting-api-key'];
+
+    if (!apiKey || apiKey !== process.env.REPORTING_API_KEY) {
+        console.error('Unauthorized access attempt to reporting endpoint');
+        return res.status(401).json({
+            status: 'error',
+            message: 'Unauthorized - x-frigg-reporting-api-key header required',
+        });
+    }
+
+    next();
 }
 
 module.exports = { createReportingRouter, validateApiKey };

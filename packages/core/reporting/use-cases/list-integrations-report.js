@@ -13,54 +13,12 @@ const KNOWN_STATUSES = [
     'DISABLED',
 ];
 
-function emptyStatusCounts() {
-    return KNOWN_STATUSES.reduce((acc, status) => {
-        acc[status] = 0;
-        return acc;
-    }, {});
-}
-
-function toIso(value) {
-    if (!value) return null;
-    if (value instanceof Date) return value.toISOString();
-    // DocumentDB raw reads surface dates as { $date: ... }
-    if (typeof value === 'object' && value.$date) {
-        const date = new Date(value.$date);
-        return Number.isNaN(date.getTime()) ? null : date.toISOString();
-    }
-    return String(value);
-}
-
 class ListIntegrationsReport {
     constructor({ reportingRepository } = {}) {
         if (!reportingRepository) {
             throw new Error('reportingRepository is required');
         }
         this.reportingRepository = reportingRepository;
-    }
-
-    _validateQuery({ status, type, userId } = {}) {
-        for (const [key, value] of Object.entries({ status, type, userId })) {
-            if (value !== undefined && value !== null && typeof value !== 'string') {
-                throw Boom.badRequest(
-                    `Invalid query parameter '${key}': expected a string`
-                );
-            }
-        }
-        const normalize = (value) => (value ? value : undefined);
-        const normalized = {
-            status: normalize(status),
-            type: normalize(type),
-            userId: normalize(userId),
-        };
-        if (normalized.status && !KNOWN_STATUSES.includes(normalized.status)) {
-            throw Boom.badRequest(
-                `Invalid status '${normalized.status}'. Expected one of: ${KNOWN_STATUSES.join(
-                    ', '
-                )}`
-            );
-        }
-        return normalized;
     }
 
     async execute(query = {}) {
@@ -132,6 +90,48 @@ class ListIntegrationsReport {
             },
         };
     }
+
+    _validateQuery({ status, type, userId } = {}) {
+        for (const [key, value] of Object.entries({ status, type, userId })) {
+            if (value !== undefined && value !== null && typeof value !== 'string') {
+                throw Boom.badRequest(
+                    `Invalid query parameter '${key}': expected a string`
+                );
+            }
+        }
+        const normalize = (value) => (value ? value : undefined);
+        const normalized = {
+            status: normalize(status),
+            type: normalize(type),
+            userId: normalize(userId),
+        };
+        if (normalized.status && !KNOWN_STATUSES.includes(normalized.status)) {
+            throw Boom.badRequest(
+                `Invalid status '${normalized.status}'. Expected one of: ${KNOWN_STATUSES.join(
+                    ', '
+                )}`
+            );
+        }
+        return normalized;
+    }
 }
 
-module.exports = { ListIntegrationsReport, SCHEMA_VERSION, KNOWN_STATUSES };
+function emptyStatusCounts() {
+    return KNOWN_STATUSES.reduce((acc, status) => {
+        acc[status] = 0;
+        return acc;
+    }, {});
+}
+
+function toIso(value) {
+    if (!value) return null;
+    if (value instanceof Date) return value.toISOString();
+    // DocumentDB raw reads surface dates as { $date: ... }
+    if (typeof value === 'object' && value.$date) {
+        const date = new Date(value.$date);
+        return Number.isNaN(date.getTime()) ? null : date.toISOString();
+    }
+    return String(value);
+}
+
+module.exports = { ListIntegrationsReport, SCHEMA_VERSION };

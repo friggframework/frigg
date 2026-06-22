@@ -9,19 +9,6 @@ class ReportingRepositoryPostgres extends ReportingRepositoryInterface {
         this.prisma = prisma;
     }
 
-    _convertId(id) {
-        if (id === null || id === undefined) return id;
-        // Reject anything that isn't an exact integer — parseInt would coerce
-        // '12abc'/'12.9' to 12 and return the wrong record.
-        const str = String(id).trim();
-        if (!/^-?\d+$/.test(str)) {
-            throw new TypeError(
-                `Invalid ID: ${id} cannot be converted to integer`
-            );
-        }
-        return Number.parseInt(str, 10);
-    }
-
     async findIntegrationsForReport({ status, userId } = {}) {
         const where = {};
         if (status) where.status = status;
@@ -64,6 +51,19 @@ class ReportingRepositoryPostgres extends ReportingRepositoryInterface {
             counts.set(group.integrationId?.toString(), group._count._all);
         }
         return counts;
+    }
+
+    _convertId(id) {
+        if (id === null || id === undefined) return id;
+        // Reject anything that isn't an exact integer — parseInt would coerce
+        // '12abc'/'12.9' to 12 and return the wrong record.
+        const str = String(id).trim();
+        if (!/^-?\d+$/.test(str)) {
+            throw new TypeError(
+                `Invalid ID: ${id} cannot be converted to integer`
+            );
+        }
+        return Number.parseInt(str, 10);
     }
 }
 
