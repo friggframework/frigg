@@ -3,14 +3,6 @@ const {
     ReportingRepositoryInterface,
 } = require('./reporting-repository-interface');
 
-/**
- * MongoDB Reporting Repository Adapter
- *
- * MongoDB-specific characteristics:
- * - String ObjectId ids (no conversion needed)
- * - Reads only non-encrypted scalar fields + entity ids; mapping counts use
- *   `groupBy` (encryption-extension passthrough), so nothing is ever decrypted.
- */
 class ReportingRepositoryMongo extends ReportingRepositoryInterface {
     constructor() {
         super();

@@ -3,32 +3,16 @@ const {
     ReportingRepositoryInterface,
 } = require('./reporting-repository-interface');
 
-/**
- * PostgreSQL Reporting Repository Adapter
- *
- * PostgreSQL-specific characteristics:
- * - Int IDs with autoincrement; converted to/from strings at the app boundary
- * - Many-to-many entities via implicit join table (counted via included relation)
- * - Reads only non-encrypted scalar fields + entity ids; mapping counts use
- *   `groupBy` (encryption-extension passthrough), so nothing is ever decrypted.
- */
 class ReportingRepositoryPostgres extends ReportingRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
     }
 
-    /**
-     * Convert string ID to integer for PostgreSQL queries
-     * @private
-     * @param {string|number|null|undefined} id - ID to convert
-     * @returns {number|null|undefined} Integer ID or null/undefined
-     * @throws {Error} If ID cannot be converted to integer
-     */
     _convertId(id) {
         if (id === null || id === undefined) return id;
-        // Require an exact integer string — `parseInt` would otherwise coerce
-        // '12abc'/'12.9' to 12 and silently return the wrong record.
+        // Reject anything that isn't an exact integer — parseInt would coerce
+        // '12abc'/'12.9' to 12 and return the wrong record.
         const str = String(id).trim();
         if (!/^-?\d+$/.test(str)) {
             throw new TypeError(

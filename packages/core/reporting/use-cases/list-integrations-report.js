@@ -1,9 +1,8 @@
 const SCHEMA_VERSION = 1;
 const SERVICE = 'frigg-core-api';
 
-// Display seed so every known status appears in the output (even at zero).
-// Increments are dynamic, so a NEW IntegrationStatus value added to the schema
-// is still picked up — it just won't be pre-seeded at zero.
+// Seeded so every known status appears (even at 0); unknown values added to
+// the schema later are still counted dynamically.
 const KNOWN_STATUSES = [
     'ENABLED',
     'ERROR',
@@ -22,7 +21,7 @@ function emptyStatusCounts() {
 function toIso(value) {
     if (!value) return null;
     if (value instanceof Date) return value.toISOString();
-    // DocumentDB raw reads can surface extended-JSON dates: { $date: ... }
+    // DocumentDB raw reads surface dates as { $date: ... }
     if (typeof value === 'object' && value.$date) {
         const date = new Date(value.$date);
         return Number.isNaN(date.getTime()) ? null : date.toISOString();
@@ -30,16 +29,6 @@ function toIso(value) {
     return String(value);
 }
 
-/**
- * ListIntegrationsReport
- *
- * Read-only, deployment-wide report of integrations: total + status breakdown +
- * per-type breakdown + lightweight per-integration rows (status, type, userId,
- * version, moduleCount, errorCount, mappedRecordCount, timestamps).
- *
- * `status` and `userId` are pushed to the repository query; `type` is filtered
- * here (it lives in `config.type`, a JSON path that is not portably groupable).
- */
 class ListIntegrationsReport {
     constructor({ reportingRepository } = {}) {
         if (!reportingRepository) {
@@ -54,6 +43,8 @@ class ListIntegrationsReport {
             userId,
         });
 
+        // type lives in config.type (a JSON path not portably groupable across
+        // DBs), so it is filtered here rather than in the repository query.
         const filtered =
             type === undefined || type === null
                 ? rows
@@ -80,8 +71,7 @@ class ListIntegrationsReport {
         const byStatus = emptyStatusCounts();
         const byTypeMap = new Map();
         for (const integration of integrations) {
-            // Bucket under a sentinel when status is missing so a null never
-            // becomes a literal "null" key (only reachable for malformed rows).
+            // sentinel so a missing status never becomes a literal "null" key
             const statusKey = integration.status ?? 'UNKNOWN';
             byStatus[statusKey] = (byStatus[statusKey] ?? 0) + 1;
 

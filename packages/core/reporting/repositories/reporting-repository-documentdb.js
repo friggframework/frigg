@@ -5,18 +5,11 @@ const {
 } = require('./reporting-repository-interface');
 
 const DRAIN_BATCH_SIZE = 1000;
-// Defensive guard so a misbehaving cursor can never loop forever.
 const MAX_BATCHES = 100000;
 
-/**
- * DocumentDB Reporting Repository Adapter
- *
- * DocumentDB has no Prisma `groupBy`/`include`, so it uses raw `$runCommandRaw`.
- * Unlike `documentdb-utils.findMany`/`aggregate` (which only return the cursor's
- * first batch, ~101 docs), the reporting reads must be deployment-complete, so
- * these helpers follow the cursor with `getMore` until it is exhausted. No
- * encrypted field (`mapping`/`data`) is read.
- */
+// Drains cursors via getMore rather than reusing documentdb-utils.findMany/
+// aggregate, which return only the first batch (~101 docs) and would silently
+// truncate a deployment-wide report.
 class ReportingRepositoryDocumentDB extends ReportingRepositoryInterface {
     constructor() {
         super();
@@ -28,8 +21,8 @@ class ReportingRepositoryDocumentDB extends ReportingRepositoryInterface {
         if (status) filter.status = status;
         if (userId !== undefined && userId !== null) {
             const objectId = toObjectId(userId);
-            // A userId was requested but is not a valid id → no matches.
-            // (Do NOT drop the filter, which would return the whole deployment.)
+            // An invalid userId means no matches — must not fall through to an
+            // unfiltered query that returns the whole deployment.
             if (!objectId) return [];
             filter.userId = objectId;
         }
@@ -58,9 +51,8 @@ class ReportingRepositoryDocumentDB extends ReportingRepositoryInterface {
         const counts = new Map();
         if (!ids || ids.length === 0) return counts;
 
-        // IntegrationMapping.integrationId is persisted as a PLAIN STRING in
-        // DocumentDB (see integration-mapping-repository-documentdb.js), so match
-        // by string — an ObjectId `$in` would never match and silently yield 0.
+        // IntegrationMapping.integrationId is stored as a string in DocumentDB,
+        // so match by string — an ObjectId $in would never match (always 0).
         const stringIds = ids.map(String);
 
         const rows = await this._aggregateDrained('IntegrationMapping', [

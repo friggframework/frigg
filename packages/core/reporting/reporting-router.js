@@ -8,10 +8,6 @@ const {
     KNOWN_STATUSES,
 } = require('./use-cases/list-integrations-report');
 
-/**
- * Admin API key validation middleware.
- * Mirrors the db-migration.js pattern, but with a dedicated reporting key.
- */
 const validateApiKey = (req, res, next) => {
     const apiKey = req.headers['x-frigg-reporting-api-key'];
 
@@ -26,11 +22,6 @@ const validateApiKey = (req, res, next) => {
     next();
 };
 
-/**
- * Composition root for the reporting API. Wires the DB-specific repository
- * (via the factory) into the use case, gates every route behind the reporting
- * admin key, and exposes the versioned read-only endpoints.
- */
 function createReportingRouter() {
     const reportingRepository = createReportingRepository();
     const listIntegrationsReport = new ListIntegrationsReport({
@@ -49,8 +40,8 @@ function createReportingRouter() {
         catchAsyncError(async (req, res) => {
             const { status, type, userId } = req.query;
 
-            // Reject malformed input with 400 (a 500 would otherwise surface from
-            // the repository/Prisma layer on object/array-shaped query params).
+            // 400 on malformed params; an object/array value would otherwise 500
+            // from the Prisma layer.
             for (const [key, value] of Object.entries({ status, type, userId })) {
                 if (value !== undefined && typeof value !== 'string') {
                     return res.status(400).json({

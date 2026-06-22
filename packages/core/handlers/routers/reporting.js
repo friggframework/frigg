@@ -3,8 +3,7 @@ const { createAppHandler } = require('./../app-handler-helpers');
 
 const router = createReportingRouter();
 
-// shouldUseDatabase = true: the reporting endpoints read the DB, so eager-connect
-// Prisma in the handler wrapper.
+// true → eager-connect Prisma; the reporting endpoints read the DB.
 const handler = createAppHandler('HTTP Event: Reporting', router, true);
 
 module.exports = { handler, router };

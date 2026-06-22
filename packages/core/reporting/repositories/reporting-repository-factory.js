@@ -7,12 +7,6 @@ const {
 } = require('./reporting-repository-documentdb');
 const config = require('../../database/config');
 
-/**
- * Reporting Repository Factory
- * Creates the appropriate reporting adapter based on database type.
- *
- * @returns {ReportingRepositoryInterface} Configured repository adapter
- */
 function createReportingRepository() {
     const dbType = config.DB_TYPE;
 
@@ -35,7 +29,6 @@ function createReportingRepository() {
 
 module.exports = {
     createReportingRepository,
-    // Export adapters for direct testing
     ReportingRepositoryMongo,
     ReportingRepositoryPostgres,
     ReportingRepositoryDocumentDB,
