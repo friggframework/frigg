@@ -107,27 +107,7 @@ describe('reporting-router', () => {
         const integrationsHandler = () =>
             findRouteHandler(router, '/api/v2/reports/integrations');
 
-        it('returns 400 for an object-shaped query param', async () => {
-            const res = mockRes();
-            await integrationsHandler()(
-                { query: { userId: { $oid: 'x' } } },
-                res,
-                jest.fn()
-            );
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('returns 400 for an unknown status value', async () => {
-            const res = mockRes();
-            await integrationsHandler()(
-                { query: { status: 'BOGUS' } },
-                res,
-                jest.fn()
-            );
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('forwards filters and coerces empty strings to undefined', async () => {
+        it('forwards query params to the use case and echoes filters', async () => {
             const res = mockRes();
             await integrationsHandler()(
                 { query: { status: 'ENABLED', type: '', userId: '7' } },

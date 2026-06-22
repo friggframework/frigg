@@ -1,3 +1,5 @@
+const Boom = require('@hapi/boom');
+
 const SCHEMA_VERSION = 1;
 const SERVICE = 'frigg-core-api';
 
@@ -37,7 +39,33 @@ class ListIntegrationsReport {
         this.reportingRepository = reportingRepository;
     }
 
-    async execute({ status, type, userId } = {}) {
+    _validateQuery({ status, type, userId } = {}) {
+        for (const [key, value] of Object.entries({ status, type, userId })) {
+            if (value !== undefined && value !== null && typeof value !== 'string') {
+                throw Boom.badRequest(
+                    `Invalid query parameter '${key}': expected a string`
+                );
+            }
+        }
+        const normalize = (value) => (value ? value : undefined);
+        const normalized = {
+            status: normalize(status),
+            type: normalize(type),
+            userId: normalize(userId),
+        };
+        if (normalized.status && !KNOWN_STATUSES.includes(normalized.status)) {
+            throw Boom.badRequest(
+                `Invalid status '${normalized.status}'. Expected one of: ${KNOWN_STATUSES.join(
+                    ', '
+                )}`
+            );
+        }
+        return normalized;
+    }
+
+    async execute(query = {}) {
+        const { status, type, userId } = this._validateQuery(query);
+
         const rows = await this.reportingRepository.findIntegrationsForReport({
             status,
             userId,
@@ -46,7 +74,7 @@ class ListIntegrationsReport {
         // type lives in config.type (a JSON path not portably groupable across
         // DBs), so it is filtered here rather than in the repository query.
         const filtered =
-            type === undefined || type === null
+            type === undefined
                 ? rows
                 : rows.filter((row) => (row.type ?? 'unknown') === type);
 

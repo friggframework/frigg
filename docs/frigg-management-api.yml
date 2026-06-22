@@ -753,11 +753,14 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/IntegrationsReport'
                 '400':
-                    description: Malformed query parameter.
+                    description: Malformed or invalid query parameter.
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/ReportingError'
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
                 '401':
                     description: Missing or invalid reporting API key.
                     content:

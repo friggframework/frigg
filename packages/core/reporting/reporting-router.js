@@ -3,10 +3,7 @@ const catchAsyncError = require('express-async-handler');
 const {
     createReportingRepository,
 } = require('./repositories/reporting-repository-factory');
-const {
-    ListIntegrationsReport,
-    KNOWN_STATUSES,
-} = require('./use-cases/list-integrations-report');
+const { ListIntegrationsReport } = require('./use-cases/list-integrations-report');
 
 const validateApiKey = (req, res, next) => {
     const apiKey = req.headers['x-frigg-reporting-api-key'];
@@ -39,32 +36,9 @@ function createReportingRouter() {
         '/api/v2/reports/integrations',
         catchAsyncError(async (req, res) => {
             const { status, type, userId } = req.query;
-
-            // 400 on malformed params; an object/array value would otherwise 500
-            // from the Prisma layer.
-            for (const [key, value] of Object.entries({ status, type, userId })) {
-                if (value !== undefined && typeof value !== 'string') {
-                    return res.status(400).json({
-                        status: 'error',
-                        message: `Invalid query parameter '${key}': expected a string`,
-                    });
-                }
-            }
-            if (status && !KNOWN_STATUSES.includes(status)) {
-                return res.status(400).json({
-                    status: 'error',
-                    message: `Invalid status '${status}'. Expected one of: ${KNOWN_STATUSES.join(
-                        ', '
-                    )}`,
-                });
-            }
-
-            const result = await listIntegrationsReport.execute({
-                status: status || undefined,
-                type: type || undefined,
-                userId: userId || undefined,
-            });
-            res.json(result);
+            res.json(
+                await listIntegrationsReport.execute({ status, type, userId })
+            );
         })
     );
 

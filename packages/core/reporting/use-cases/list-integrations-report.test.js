@@ -12,6 +12,25 @@ describe('ListIntegrationsReport', () => {
         );
     });
 
+    it('rejects an unknown status with a 400 (Boom) error', async () => {
+        const repo = makeRepo([]);
+        const useCase = new ListIntegrationsReport({ reportingRepository: repo });
+        await expect(useCase.execute({ status: 'BOGUS' })).rejects.toMatchObject({
+            isBoom: true,
+            output: { statusCode: 400 },
+        });
+        expect(repo.findIntegrationsForReport).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-string query param with a 400 (Boom) error', async () => {
+        const repo = makeRepo([]);
+        const useCase = new ListIntegrationsReport({ reportingRepository: repo });
+        await expect(
+            useCase.execute({ userId: { $oid: 'x' } })
+        ).rejects.toMatchObject({ isBoom: true, output: { statusCode: 400 } });
+        expect(repo.findIntegrationsForReport).not.toHaveBeenCalled();
+    });
+
     it('builds the versioned envelope with totals, byStatus, byType and per-row counts', async () => {
         const rows = [
             {
