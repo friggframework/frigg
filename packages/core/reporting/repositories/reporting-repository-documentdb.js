@@ -61,7 +61,7 @@ class ReportingRepositoryDocumentDB extends ReportingRepositoryInterface {
         // IntegrationMapping.integrationId is persisted as a PLAIN STRING in
         // DocumentDB (see integration-mapping-repository-documentdb.js), so match
         // by string — an ObjectId `$in` would never match and silently yield 0.
-        const stringIds = ids.map((id) => String(id));
+        const stringIds = ids.map(String);
 
         const rows = await this._aggregateDrained('IntegrationMapping', [
             { $match: { integrationId: { $in: stringIds } } },

@@ -31,9 +31,11 @@ class ReportingRepositoryPostgres extends ReportingRepositoryInterface {
         // '12abc'/'12.9' to 12 and silently return the wrong record.
         const str = String(id).trim();
         if (!/^-?\d+$/.test(str)) {
-            throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
+            throw new TypeError(
+                `Invalid ID: ${id} cannot be converted to integer`
+            );
         }
-        return parseInt(str, 10);
+        return Number.parseInt(str, 10);
     }
 
     async findIntegrationsForReport({ status, userId } = {}) {

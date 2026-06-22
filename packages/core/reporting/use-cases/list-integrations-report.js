@@ -25,7 +25,7 @@ function toIso(value) {
     // DocumentDB raw reads can surface extended-JSON dates: { $date: ... }
     if (typeof value === 'object' && value.$date) {
         const date = new Date(value.$date);
-        return isNaN(date.getTime()) ? null : date.toISOString();
+        return Number.isNaN(date.getTime()) ? null : date.toISOString();
     }
     return String(value);
 }
