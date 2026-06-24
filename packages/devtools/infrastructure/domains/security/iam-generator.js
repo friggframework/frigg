@@ -426,6 +426,8 @@ function generateIAMCloudFormation(options = {}) {
             ],
             Resource: [
                 { 'Fn::Sub': 'arn:aws:sqs:*:${AWS::AccountId}:*frigg*' },
+                // Case-sensitive: lowercase "*frigg*" won't match "FriggUserActionQueue.fifo".
+                { 'Fn::Sub': 'arn:aws:sqs:*:${AWS::AccountId}:*Frigg*' },
                 {
                     'Fn::Sub':
                         'arn:aws:sqs:*:${AWS::AccountId}:internal-error-queue-*',

@@ -751,9 +751,10 @@ describe('IntegrationBuilder', () => {
 
             const functionKeys = Object.keys(result.functions);
 
-            // Expected order: dlqProcessor (from InternalErrorQueue), webhook, integration, queueWorker
+            // App-level functions (dlqProcessor, userActionQueueWorker) come first.
             expect(functionKeys).toEqual([
                 'dlqProcessor',
+                'userActionQueueWorker',
                 'testWebhook',
                 'test',
                 'testQueueWorker',
@@ -933,6 +934,123 @@ describe('IntegrationBuilder', () => {
             expect(result.functions.asana.package.exclude).not.toEqual(
                 expect.arrayContaining(['node_modules/@prisma/**'])
             );
+        });
+    });
+
+    describe('User-Action FIFO queue', () => {
+        const appDefinition = {
+            integrations: [{ Definition: { name: 'test' } }],
+        };
+
+        it('creates a FIFO queue without ContentBasedDeduplication', async () => {
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            const q = result.resources.FriggUserActionQueue;
+            expect(q).toBeDefined();
+            expect(q.Type).toBe('AWS::SQS::Queue');
+            expect(q.Properties.FifoQueue).toBe(true);
+            expect(q.Properties.ContentBasedDeduplication).toBeUndefined();
+            expect(q.Properties.VisibilityTimeout).toBe(1800);
+            expect(q.Properties.MessageRetentionPeriod).toBe(345600);
+        });
+
+        it('redrives to the FIFO DLQ with maxReceiveCount 2', async () => {
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(
+                result.resources.FriggUserActionQueue.Properties.RedrivePolicy
+            ).toEqual({
+                maxReceiveCount: 2,
+                deadLetterTargetArn: {
+                    'Fn::GetAtt': ['FriggUserActionDLQ', 'Arn'],
+                },
+            });
+        });
+
+        it('creates a FIFO DLQ with 14-day retention', async () => {
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            const dlq = result.resources.FriggUserActionDLQ;
+            expect(dlq).toBeDefined();
+            expect(dlq.Properties.FifoQueue).toBe(true);
+            expect(dlq.Properties.MessageRetentionPeriod).toBe(1209600);
+        });
+
+        it('creates the worker bound to the FIFO queue ARN with no reservedConcurrency', async () => {
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            const worker = result.functions.userActionQueueWorker;
+            expect(worker).toBeDefined();
+            expect(worker.handler).toBe(
+                'node_modules/@friggframework/core/handlers/workers/user-action-worker.userActionQueueWorker'
+            );
+            expect(worker.timeout).toBe(900);
+            expect(worker.reservedConcurrency).toBeUndefined();
+            expect(worker.events).toEqual([
+                {
+                    sqs: {
+                        arn: { 'Fn::GetAtt': ['FriggUserActionQueue', 'Arn'] },
+                        batchSize: 1,
+                        functionResponseType: 'ReportBatchItemFailures',
+                    },
+                },
+            ]);
+        });
+
+        it('exposes USER_ACTION_QUEUE_URL to all Lambdas', async () => {
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.environment.USER_ACTION_QUEUE_URL).toEqual({
+                Ref: 'FriggUserActionQueue',
+            });
+        });
+
+        it('alarms on the FIFO DLQ via the InternalErrorBridgeTopic', async () => {
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            const alarm = result.resources.FriggUserActionDLQAlarm;
+            expect(alarm).toBeDefined();
+            expect(alarm.Properties.AlarmActions).toEqual([
+                { Ref: 'InternalErrorBridgeTopic' },
+            ]);
+        });
+
+        it('creates exactly one FIFO queue + worker regardless of integration count', async () => {
+            const result = await integrationBuilder.build(
+                {
+                    integrations: [
+                        { Definition: { name: 'hubspot' } },
+                        { Definition: { name: 'salesforce' } },
+                        { Definition: { name: 'slack' } },
+                    ],
+                },
+                {}
+            );
+
+            const fifoQueues = Object.keys(result.resources).filter(
+                (k) => k === 'FriggUserActionQueue'
+            );
+            expect(fifoQueues).toHaveLength(1);
+            expect(result.functions.userActionQueueWorker).toBeDefined();
+        });
+
+        it('does not make per-integration queues FIFO', async () => {
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(
+                result.resources.TestQueue.Properties.FifoQueue
+            ).toBeUndefined();
+        });
+
+        it('omits the Prisma layer on the worker when usePrismaLambdaLayer=false', async () => {
+            const result = await integrationBuilder.build(
+                { usePrismaLambdaLayer: false, integrations: [{ Definition: { name: 'test' } }] },
+                {}
+            );
+
+            expect(
+                result.functions.userActionQueueWorker.layers
+            ).toBeUndefined();
         });
     });
 });

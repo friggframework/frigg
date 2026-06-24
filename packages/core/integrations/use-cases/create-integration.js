@@ -2,6 +2,7 @@
 const {
     mapIntegrationClassToIntegrationDTO,
 } = require('../utils/map-integration-dto');
+const { dispatchIntegrationEvent } = require('./dispatch-integration-event');
 
 /**
  * Use case for creating a new integration instance.
@@ -72,9 +73,21 @@ class CreateIntegration {
         });
 
         await integrationInstance.initialize();
-        await integrationInstance.send('ON_CREATE', {
-            integrationId: integrationRecord.id,
+        const outcome = await dispatchIntegrationEvent({
+            instance: integrationInstance,
+            event: 'ON_CREATE',
+            data: { integrationId: integrationRecord.id },
+            userId,
         });
+
+        if (outcome.queued) {
+            return {
+                queued: true,
+                integrationId: integrationInstance.id,
+                messageId: outcome.messageId,
+                requestId: outcome.requestId,
+            };
+        }
 
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }

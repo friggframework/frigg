@@ -31,6 +31,9 @@ const {
 } = require('./use-cases/get-integration-instance');
 const { UpdateIntegration } = require('./use-cases/update-integration');
 const {
+    dispatchIntegrationEvent,
+} = require('./use-cases/dispatch-integration-event');
+const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('./utils/map-integration-dto');
 const {
@@ -293,6 +296,9 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                 params.config
             );
 
+            if (integration?.queued) {
+                return res.status(202).json(integration);
+            }
             res.status(201).json(integration);
         })
     );
@@ -308,6 +314,9 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                 userId,
                 params.config
             );
+            if (integration?.queued) {
+                return res.status(202).json(integration);
+            }
             res.json(integration);
         })
     );
@@ -425,7 +434,21 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                 params.integrationId,
                 user.getId()
             );
-            res.json(await integration.send(params.actionId, req.body));
+            const outcome = await dispatchIntegrationEvent({
+                instance: integration,
+                event: params.actionId,
+                data: req.body,
+                userId: user.getId(),
+            });
+            if (outcome.queued) {
+                return res.status(202).json({
+                    queued: true,
+                    integrationId: integration.id,
+                    messageId: outcome.messageId,
+                    requestId: outcome.requestId,
+                });
+            }
+            res.json(outcome.result);
         })
     );
 

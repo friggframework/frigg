@@ -196,6 +196,8 @@ class IntegrationBuilder extends InfrastructureBuilder {
             );
         }
 
+        this.createUserActionQueue(result, functionPackageConfig, usePrismaLayer);
+
         for (const integration of appDefinition.integrations) {
             const integrationName = integration.Definition.name;
             const queueDecision = decisions.integrations[integrationName].queue;
@@ -470,6 +472,99 @@ class IntegrationBuilder extends InfrastructureBuilder {
         );
 
         console.log('  ✓ Created InternalErrorQueue resource');
+    }
+
+    /**
+     * App-level FIFO queue + DLQ + worker for `dispatch: 'queue'` events. One
+     * queue serves all integrations; MessageGroupId = integrationId serializes
+     * per integration. Always created, like the InternalErrorQueue.
+     */
+    createUserActionQueue(result, functionPackageConfig, usePrismaLayer = true) {
+        const queueName =
+            '${self:service}-${self:provider.stage}-FriggUserActionQueue.fifo';
+        const dlqName =
+            '${self:service}-${self:provider.stage}-FriggUserActionDLQ.fifo';
+
+        result.custom.FriggUserActionQueue = queueName;
+        result.custom.FriggUserActionDLQ = dlqName;
+
+        // A FIFO source queue can only redrive to a FIFO DLQ.
+        result.resources.FriggUserActionDLQ = {
+            Type: 'AWS::SQS::Queue',
+            Properties: {
+                QueueName: '${self:custom.FriggUserActionDLQ}',
+                FifoQueue: true,
+                MessageRetentionPeriod: 1209600, // 14 days
+            },
+        };
+
+        // No ContentBasedDeduplication: the producer sends a unique dedup id so
+        // two distinct requests with identical bodies both run (not deduped).
+        result.resources.FriggUserActionQueue = {
+            Type: 'AWS::SQS::Queue',
+            Properties: {
+                QueueName: '${self:custom.FriggUserActionQueue}',
+                FifoQueue: true,
+                MessageRetentionPeriod: 345600, // 4 days
+                VisibilityTimeout: 1800, // >= worker timeout (900s)
+                RedrivePolicy: {
+                    maxReceiveCount: 2,
+                    deadLetterTargetArn: {
+                        'Fn::GetAtt': ['FriggUserActionDLQ', 'Arn'],
+                    },
+                },
+            },
+        };
+
+        result.environment.USER_ACTION_QUEUE_URL = {
+            Ref: 'FriggUserActionQueue',
+        };
+
+        result.resources.FriggUserActionDLQAlarm = {
+            Type: 'AWS::CloudWatch::Alarm',
+            Properties: {
+                AlarmDescription:
+                    'Messages in FriggUserActionDLQ — eventual (queued) integration event failures',
+                Namespace: 'AWS/SQS',
+                MetricName: 'ApproximateNumberOfMessagesVisible',
+                Statistic: 'Maximum',
+                Threshold: 0,
+                ComparisonOperator: 'GreaterThanThreshold',
+                EvaluationPeriods: 1,
+                Period: 300,
+                AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
+                Dimensions: [
+                    {
+                        Name: 'QueueName',
+                        Value: {
+                            'Fn::GetAtt': ['FriggUserActionDLQ', 'QueueName'],
+                        },
+                    },
+                ],
+            },
+        };
+
+        // No reservedConcurrency: FIFO already serializes per group; capping
+        // would serialize across all integrations.
+        result.functions.userActionQueueWorker = {
+            handler:
+                'node_modules/@friggframework/core/handlers/workers/user-action-worker.userActionQueueWorker',
+            skipEsbuild: true,
+            package: functionPackageConfig,
+            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
+            timeout: 900,
+            events: [
+                {
+                    sqs: {
+                        arn: { 'Fn::GetAtt': ['FriggUserActionQueue', 'Arn'] },
+                        batchSize: 1,
+                        functionResponseType: 'ReportBatchItemFailures',
+                    },
+                },
+            ],
+        };
+
+        console.log('  ✓ Created FriggUserActionQueue (.fifo) + DLQ + worker');
     }
 
     /**

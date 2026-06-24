@@ -205,6 +205,8 @@ Resources:
               - 'sqs:UntagQueue'
             Resource:
               - !Sub 'arn:aws:sqs:*:${AWS::AccountId}:*frigg*'
+              # Case-sensitive: lowercase "*frigg*" won't match "FriggUserActionQueue.fifo".
+              - !Sub 'arn:aws:sqs:*:${AWS::AccountId}:*Frigg*'
               - !Sub 'arn:aws:sqs:*:${AWS::AccountId}:internal-error-queue-*'
           
           # SNS permissions

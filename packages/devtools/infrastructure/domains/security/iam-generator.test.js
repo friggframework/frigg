@@ -182,6 +182,22 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('internal-error-queue-*');
         });
 
+        it('should include a case-sensitive *Frigg* SQS resource for the FIFO queue', () => {
+            const appDefinition = {
+                name: 'test-app',
+                integrations: [],
+            };
+
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features,
+            });
+
+            // The lowercase "*frigg*" glob would not match "...-FriggUserActionQueue.fifo".
+            expect(yaml).toContain(':*Frigg*');
+        });
+
         it('should generate outputs section', () => {
             const appDefinition = {
                 name: 'test-app',

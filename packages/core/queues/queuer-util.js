@@ -90,10 +90,16 @@ const inspectBatchResult = (result, queueUrl, buffer) => {
 };
 
 const QueuerUtil = {
-    send: async (message, queueUrl) => {
+    // FIFO-only: default a unique dedup id so identical bodies aren't dropped.
+    // Standard sends pass no opts and stay unchanged.
+    send: async (message, queueUrl, { messageGroupId, messageDeduplicationId } = {}) => {
         const command = new SendMessageCommand({
             MessageBody: JSON.stringify(message),
             QueueUrl: queueUrl,
+            ...(messageGroupId !== undefined && {
+                MessageGroupId: messageGroupId,
+                MessageDeduplicationId: messageDeduplicationId || uuid(),
+            }),
         });
         const result = await sqs.send(command);
         console.log(

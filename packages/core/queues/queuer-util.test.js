@@ -49,6 +49,42 @@ describe('QueuerUtil - AWS SDK v3', () => {
 
             await expect(QueuerUtil.send(message, queueUrl)).rejects.toThrow('SQS Error');
         });
+
+        it('should NOT include FIFO fields when no options are passed', async () => {
+            sqsMock.on(SendMessageCommand).resolves({ MessageId: 'm-1' });
+
+            await QueuerUtil.send({ a: 1 }, 'https://queue-url');
+
+            const input = sqsMock.call(0).args[0].input;
+            expect(input).not.toHaveProperty('MessageGroupId');
+            expect(input).not.toHaveProperty('MessageDeduplicationId');
+        });
+
+        it('should include MessageGroupId when provided (FIFO)', async () => {
+            sqsMock.on(SendMessageCommand).resolves({ MessageId: 'm-1' });
+
+            await QueuerUtil.send({ a: 1 }, 'https://queue-url.fifo', {
+                messageGroupId: 'integration-123',
+                messageDeduplicationId: 'req-abc',
+            });
+
+            const input = sqsMock.call(0).args[0].input;
+            expect(input.MessageGroupId).toBe('integration-123');
+            expect(input.MessageDeduplicationId).toBe('req-abc');
+        });
+
+        it('should default MessageDeduplicationId to a unique value when group set without one', async () => {
+            sqsMock.on(SendMessageCommand).resolves({ MessageId: 'm-1' });
+
+            await QueuerUtil.send({ a: 1 }, 'https://queue-url.fifo', {
+                messageGroupId: 'integration-123',
+            });
+
+            const input = sqsMock.call(0).args[0].input;
+            expect(input.MessageGroupId).toBe('integration-123');
+            expect(typeof input.MessageDeduplicationId).toBe('string');
+            expect(input.MessageDeduplicationId.length).toBeGreaterThan(0);
+        });
     });
 
     describe('batchSend()', () => {

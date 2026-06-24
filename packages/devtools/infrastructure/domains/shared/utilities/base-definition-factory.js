@@ -196,6 +196,8 @@ function createBaseDefinition(
                     ],
                     Resource: [
                         { 'Fn::GetAtt': ['InternalErrorQueue', 'Arn'] },
+                        // Explicit: the "-*Queue" glob below doesn't match ".fifo".
+                        { 'Fn::GetAtt': ['FriggUserActionQueue', 'Arn'] },
                         {
                             'Fn::Join': [
                                 ':',

@@ -31,6 +31,11 @@ const constantsToBeMigrated = {
         LIFE_CYCLE_EVENT: 'LIFE_CYCLE_EVENT',
         USER_ACTION: 'USER_ACTION',
     },
+    // 'sync' runs in-process (default); 'queue' routes through the FIFO queue.
+    dispatch: {
+        SYNC: 'sync',
+        QUEUE: 'queue',
+    },
 };
 
 class IntegrationBase {
@@ -521,6 +526,18 @@ class IntegrationBase {
             ...this.defaultEvents,
             ...this.events,
         };
+
+        // Definition.eventDispatch marks default events; inline dispatch wins,
+        // unknown names are ignored.
+        const eventDispatch = this.constructor.Definition?.eventDispatch || {};
+        for (const [eventName, mode] of Object.entries(eventDispatch)) {
+            if (this.on[eventName] && this.on[eventName].dispatch === undefined) {
+                this.on[eventName] = {
+                    ...this.on[eventName],
+                    dispatch: mode,
+                };
+            }
+        }
     }
 
     /**
@@ -608,6 +625,9 @@ class IntegrationBase {
                 this.events[eventName] = {
                     type: eventDef.type,
                     handler: fn.bind(this),
+                    ...(eventDef.dispatch !== undefined && {
+                        dispatch: eventDef.dispatch,
+                    }),
                 };
                 mergedByExtension.set(eventName, bindingName);
             }

@@ -31,9 +31,12 @@ class GetIntegrationInstance {
             await this.integrationRepository.findIntegrationById(integrationId);
 
         if (!integrationRecord) {
-            throw new Error(
+            const error = new Error(
                 `No integration found by the ID of ${integrationId}`
             );
+            // isTerminal → the queue worker discards these (no retry can succeed).
+            error.isTerminal = true;
+            throw error;
         }
 
         const integrationClass = this.integrationClasses.find(
@@ -43,15 +46,19 @@ class GetIntegrationInstance {
         );
 
         if (!integrationClass) {
-            throw new Error(
+            const error = new Error(
                 `No integration class found for type: ${integrationRecord.config.type}`
             );
+            error.isTerminal = true;
+            throw error;
         }
 
         if (integrationRecord.userId !== userId) {
-            throw new Error(
+            const error = new Error(
                 `Integration ${integrationId} does not belong to User ${userId}`
             );
+            error.isTerminal = true;
+            throw error;
         }
 
         const modules = [];

@@ -91,6 +91,12 @@ const application = require('./application');
 const utils = require('./utils');
 
 const { QueuerUtil } = require('./queues');
+const {
+    dispatchIntegrationEvent,
+} = require('./integrations/use-cases/dispatch-integration-event');
+const {
+    userActionQueueWorker,
+} = require('./handlers/workers/user-action-worker');
 
 module.exports = {
     // assertions
@@ -137,6 +143,7 @@ module.exports = {
     checkRequiredParams,
     createIntegrationRouter,
     getModulesDefinitionFromIntegrationClasses,
+    dispatchIntegrationEvent,
     LoadIntegrationContextUseCase,
     CreateProcess,
     UpdateProcessState,
@@ -179,6 +186,9 @@ module.exports = {
     ModuleFactory,
     // queues
     QueuerUtil,
+
+    // workers
+    userActionQueueWorker,
 
     // utils
     ...utils,

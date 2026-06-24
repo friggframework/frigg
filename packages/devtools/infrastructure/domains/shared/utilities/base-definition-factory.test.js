@@ -133,6 +133,11 @@ describe('Base Definition Factory', () => {
                 stmt => stmt.Action.includes('sqs:SendMessage')
             );
             expect(sqsPermission).toBeDefined();
+
+            // The "-*Queue" glob doesn't match ".fifo", so the ARN is explicit.
+            expect(sqsPermission.Resource).toContainEqual({
+                'Fn::GetAtt': ['FriggUserActionQueue', 'Arn'],
+            });
         });
 
         it('should include required plugins', () => {
