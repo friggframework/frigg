@@ -170,6 +170,40 @@ function createUserCommands() {
         },
 
         /**
+         * Find all individual users linked to an organization user.
+         *
+         * Resolves the external appUserId (e.g. ^US...) from an organization
+         * user id — appUserId lives only on individual users, so reading it off
+         * an organization user yields null. An organization may have more than
+         * one individual user, so this returns an array; callers pick.
+         * @param {string} organizationUserId - Organization user ID
+         * @returns {Promise<Object[]|Object>} Array of { id, username, email, appUserId } (empty if none), or an error response
+         */
+        async findIndividualUsersByOrganizationId(organizationUserId) {
+            try {
+                if (!organizationUserId) {
+                    const error = new Error('organizationUserId is required');
+                    error.code = 'INVALID_USER_DATA';
+                    throw error;
+                }
+
+                const users =
+                    await userRepository.findIndividualUsersByOrganizationId(
+                        organizationUserId
+                    );
+
+                return (users || []).map((user) => ({
+                    id: user._id?.toString() || user.id,
+                    username: user.username,
+                    email: user.email,
+                    appUserId: user.appUserId,
+                }));
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
          * Find an organization user by their ID
          * @param {string} userId - Organization user ID to search for
          * @returns {Promise<Object|null>} Organization user object or null if not found

@@ -54,6 +54,22 @@ class UserRepositoryInterface {
     }
 
     /**
+     * Find all individual users linked to an organization user.
+     *
+     * appUserId (the external app's user id) lives only on individual users,
+     * so this is the path to resolve it from an organization user id.
+     *
+     * @param {string|number} organizationUserId - Organization user ID
+     * @returns {Promise<Object[]>} Array of individual user objects (empty if none)
+     * @abstract
+     */
+    async findIndividualUsersByOrganizationId(organizationUserId) {
+        throw new Error(
+            'Method findIndividualUsersByOrganizationId must be implemented by subclass'
+        );
+    }
+
+    /**
      * Create token with expiration
      *
      * @param {string|number} userId - User ID
