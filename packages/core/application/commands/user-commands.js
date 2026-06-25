@@ -170,14 +170,9 @@ function createUserCommands() {
         },
 
         /**
-         * Find all individual users linked to an organization user.
-         *
-         * Resolves the external appUserId (e.g. ^US...) from an organization
-         * user id — appUserId lives only on individual users, so reading it off
-         * an organization user yields null. An organization may have more than
-         * one individual user, so this returns an array; callers pick.
-         * @param {string} organizationUserId - Organization user ID
-         * @returns {Promise<Object[]|Object>} Array of { id, username, email, appUserId } (empty if none), or an error response
+         * Find all individual users linked to an organization user
+         * @param {string} organizationUserId - Organization user ID to search for
+         * @returns {Promise<Object[]>} Array of individual user objects (empty if none)
          */
         async findIndividualUsersByOrganizationId(organizationUserId) {
             try {
