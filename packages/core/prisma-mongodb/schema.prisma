@@ -59,6 +59,7 @@ model User {
   @@unique([username, appUserId])
   @@index([type])
   @@index([appUserId])
+  @@index([organizationId])
   @@map("User")
 }
 
