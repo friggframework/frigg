@@ -119,9 +119,7 @@ class Requester extends Delegate {
                 if (e?.code === 'ECONNRESET' && i < this.backOff.length) {
                     clearRequestTimer();
                     const delay = this.backOff[i] * 1000;
-                    await new Promise((resolve) =>
-                        setTimeout(resolve, delay)
-                    );
+                    await new Promise((resolve) => setTimeout(resolve, delay));
                     return this._request(url, options, i + 1);
                 }
                 const fetchError = await FetchError.create({
@@ -150,16 +148,24 @@ class Requester extends Delegate {
                 const delay = this.backOff[i] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
                 return this._request(url, options, i + 1);
-            } else if (status === 401) {
+            }
+
+            if (status === 401) {
                 if (!this.isRefreshable) {
                     await this.notify(this.DLGT_INVALID_AUTH);
-                } else if (this.refreshCount === 0) {
+                    return;
+                }
+
+                if (this.refreshCount === 0) {
                     this.refreshCount++;
                     const refreshSucceeded = await this.refreshAuth();
                     if (refreshSucceeded) {
                         clearRequestTimer();
                         return this._request(url, options, i + 1);
                     }
+
+                    await this.notify(this.DLGT_INVALID_AUTH);
+                    return;
                 }
             }
 
@@ -201,8 +207,7 @@ class Requester extends Delegate {
     _maybeFlagTimeoutDuringBodyRead(err, timeoutMs) {
         if (!err || typeof err !== 'object') return err;
         if (err.isTimeout) return err;
-        const isAbort =
-            err.name === 'AbortError' || err.type === 'aborted';
+        const isAbort = err.name === 'AbortError' || err.type === 'aborted';
         if (!isAbort) return err;
         err.isTimeout = true;
         err.timeoutMs = timeoutMs;

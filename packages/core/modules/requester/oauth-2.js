@@ -315,13 +315,13 @@ class OAuth2Requester extends Requester {
             console.log('[Frigg] Token refresh succeeded');
             return true;
         } catch (error) {
-            console.error('[Frigg] Token refresh failed', {
+            const moduleName = this.delegate?.name ?? 'unknown module';
+            console.error(`[Frigg] Token refresh failed for ${moduleName}`, {
                 error_message: error?.message,
                 error_name: error?.name,
                 response_status: error?.response?.status,
                 response_data: error?.response?.data,
             });
-            await this.notify(this.DLGT_INVALID_AUTH);
             return false;
         }
     }
