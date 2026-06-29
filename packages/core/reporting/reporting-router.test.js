@@ -21,6 +21,15 @@ jest.mock('./repositories/reporting-repository-factory', () => ({
     })),
 }));
 
+jest.mock('../handlers/app-definition-loader', () => ({
+    loadAppDefinition: jest.fn(() => ({
+        integrations: [
+            { Definition: { name: 'hubspot', display: { label: 'HubSpot CRM' } } },
+            { Definition: { name: 'salesforce', display: { label: 'Salesforce' } } },
+        ],
+    })),
+}));
+
 const { createReportingRouter, validateApiKey } = require('./reporting-router');
 
 const mockRes = () => {
@@ -119,6 +128,18 @@ describe('reporting-router', () => {
                 status: 'ENABLED',
                 type: null,
                 userId: '7',
+            });
+        });
+
+        it('labels byType entries from the loaded integration definitions', async () => {
+            const res = mockRes();
+            await integrationsHandler()({ query: {} }, res, jest.fn());
+            const body = res.json.mock.calls[0][0];
+            const hub = body.metrics.byType.find((t) => t.type === 'hubspot');
+            expect(hub.label).toBe('HubSpot CRM');
+            expect(body.metrics.typeLabels).toEqual({
+                hubspot: 'HubSpot CRM',
+                salesforce: 'Salesforce',
             });
         });
     });
