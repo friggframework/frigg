@@ -60,7 +60,8 @@ Optional query params (all strings): `status` (an `IntegrationStatus`), `type`
     older app that doesn't register it). Additive — `type` is unchanged.
 - `metrics.typeLabels` — map of `type` slug → human-readable label, so callers can
   label `integrations[].type` rows without bloating each row. Contains only types
-  whose registered class supplies a `display.label`.
+  whose registered class supplies a non-default `display.label` (classes still
+  carrying the IntegrationBase default `'Integration Name'` are excluded).
 - `metrics.integrations[]` — lightweight per-integration rows (`id`, `type`,
   `status`, `userId`, `version`, `moduleCount`, `errorCount`, `mappedRecordCount`,
   `createdAt`, `updatedAt`). These rows carry `type` only — resolve display names

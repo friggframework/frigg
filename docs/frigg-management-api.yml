@@ -906,7 +906,9 @@ components:
                                 Map of `type` slug to human-readable label, for
                                 resolving labels on `integrations[].type` rows.
                                 Contains only types whose registered integration
-                                class supplies a `display.label`.
+                                class supplies a non-default `display.label`
+                                (classes still carrying the IntegrationBase
+                                default `Integration Name` are excluded).
                             additionalProperties:
                                 type: string
                             example:

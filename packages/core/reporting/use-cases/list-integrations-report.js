@@ -88,7 +88,7 @@ class ListIntegrationsReport {
                 total: integrations.length,
                 byStatus,
                 byType: Array.from(byTypeMap.values()),
-                typeLabels: this.typeLabels,
+                typeLabels: { ...this.typeLabels },
                 integrations,
             },
         };
