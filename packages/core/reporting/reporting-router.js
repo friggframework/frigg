@@ -4,11 +4,40 @@ const {
     createReportingRepository,
 } = require('./repositories/reporting-repository-factory');
 const { ListIntegrationsReport } = require('./use-cases/list-integrations-report');
+const { loadAppDefinition } = require('../handlers/app-definition-loader');
+
+// IntegrationBase.Definition default — skip it so the slug is used instead.
+const PLACEHOLDER_DISPLAY_NAME = 'Integration Name';
+
+// Map each integration's config.type slug to its human-readable display label.
+// Wrapped so reporting still works if the app definition fails to load.
+function buildTypeLabels() {
+    try {
+        const { integrations = [] } = loadAppDefinition();
+        const labels = {};
+        for (const IntegrationClass of integrations) {
+            const def = IntegrationClass?.Definition;
+            if (!def?.name) continue;
+            const label = def.display?.label;
+            if (label && label !== PLACEHOLDER_DISPLAY_NAME) {
+                labels[def.name] = label;
+            }
+        }
+        return labels;
+    } catch (error) {
+        console.error(
+            'Reporting: failed to load integration labels:',
+            error.message
+        );
+        return {};
+    }
+}
 
 function createReportingRouter() {
     const reportingRepository = createReportingRepository();
     const listIntegrationsReport = new ListIntegrationsReport({
         reportingRepository,
+        typeLabels: buildTypeLabels(),
     });
 
     const router = express.Router();

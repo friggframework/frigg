@@ -14,11 +14,12 @@ const KNOWN_STATUSES = [
 ];
 
 class ListIntegrationsReport {
-    constructor({ reportingRepository } = {}) {
+    constructor({ reportingRepository, typeLabels = {} } = {}) {
         if (!reportingRepository) {
             throw new Error('reportingRepository is required');
         }
         this.reportingRepository = reportingRepository;
+        this.typeLabels = typeLabels;
     }
 
     async execute(query = {}) {
@@ -64,6 +65,7 @@ class ListIntegrationsReport {
             if (!byTypeMap.has(integration.type)) {
                 byTypeMap.set(integration.type, {
                     type: integration.type,
+                    label: this.typeLabels[integration.type] || integration.type,
                     total: 0,
                     byStatus: emptyStatusCounts(),
                 });
@@ -86,6 +88,7 @@ class ListIntegrationsReport {
                 total: integrations.length,
                 byStatus,
                 byType: Array.from(byTypeMap.values()),
+                typeLabels: { ...this.typeLabels },
                 integrations,
             },
         };

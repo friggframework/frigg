@@ -217,4 +217,42 @@ describe('ListIntegrationsReport', () => {
         expect(r2.createdAt).toBe('2026-03-04T05:06:07.000Z');
         expect(r2.updatedAt).toBeNull();
     });
+
+    it('labels byType buckets from the typeLabels map and exposes the map', async () => {
+        const rows = [
+            { id: '1', type: 'hubspot', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
+            { id: '2', type: 'salesforce', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
+        ];
+        const typeLabels = { hubspot: 'HubSpot CRM', salesforce: 'Salesforce' };
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows),
+            typeLabels,
+        });
+
+        const out = await useCase.execute({});
+
+        const hub = out.metrics.byType.find((t) => t.type === 'hubspot');
+        expect(hub.label).toBe('HubSpot CRM');
+        const sf = out.metrics.byType.find((t) => t.type === 'salesforce');
+        expect(sf.label).toBe('Salesforce');
+        expect(out.metrics.typeLabels).toEqual(typeLabels);
+    });
+
+    it('falls back to the slug when a type has no label, and defaults typeLabels to {}', async () => {
+        const rows = [
+            { id: '1', type: 'hubspot', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
+            { id: '2', type: null, status: 'ENABLED', moduleCount: 0, errorCount: 0 },
+        ];
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows),
+        });
+
+        const out = await useCase.execute({});
+
+        const hub = out.metrics.byType.find((t) => t.type === 'hubspot');
+        expect(hub.label).toBe('hubspot');
+        const unknown = out.metrics.byType.find((t) => t.type === 'unknown');
+        expect(unknown.label).toBe('unknown');
+        expect(out.metrics.typeLabels).toEqual({});
+    });
 });
