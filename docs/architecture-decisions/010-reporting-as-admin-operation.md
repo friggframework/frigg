@@ -62,15 +62,23 @@ must never surface in an end-user-scoped query.
    are adopter-registered definitions, an adopter ships a report from *their* repository against a
    published `@friggframework/core` — no fork, no core release per report.
 
+5. **Cross-integration metrics need a generic contract.** The built-in usage-comparison report is
+   only apples-to-apples if core defines a standard way for each integration type to surface
+   comparable counts (e.g. records synced, webhooks received, workflows invoked) rather than
+   per-adopter bespoke fields. Built-in reports read these generic counters; adopter reports may
+   extend them. This generalized metric contract is a prerequisite for the comparison report and is
+   tracked as follow-up scope, not assumed to exist today.
+
 ### Conceivable use cases
 
-- **Core built-in:** integrations by status/type (#607); OAuth token-health; per-type error rates.
+- **Core built-in:** integrations by status/type (#607); OAuth token-health; per-type error rates;
+  **cross-integration usage comparison** — apples-to-apples counts (records synced, webhooks
+  received, workflows invoked) per integration type, so any adopter can see how each of their
+  integrations performs relative to the others. This is generically valuable to every adopter and
+  therefore ships in core, not as an adopter definition.
 - **Adopter, "data we have today":** connected accounts active in the last 30/60/90 days, derived
   from integration `createdAt` + credential-refresh timestamps — a few lines in one report
   definition, run async so a deployment-wide scan never blocks a request.
-- **Adopter, product analytics:** apples-to-apples usage across integration types (records synced,
-  webhooks received, workflows invoked) so a Frigg adopter can compare how each of their
-  integrations is performing.
 - **Adopter, operations:** a scheduled per-tenant operational export pushed to an external admin
   dashboard, gated by the admin key — no direct database access to each instance.
 
