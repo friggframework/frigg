@@ -22,6 +22,7 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [003](./003-runtime-state-only.md) | Runtime State Only for Management GUI | Accepted | 2025-01-25 |
 | [004](./004-migration-tool-design.md) | Migration Tool Design | Proposed | 2025-01-25 |
 | [005](./005-admin-script-runner.md) | Admin Script Runner Service | Accepted | 2025-12-10 |
+| [010](./010-reporting-as-admin-operation.md) | Reporting as an Admin Operation | Proposed | 2026-06-30 |
 
 ## ADR Template
 
