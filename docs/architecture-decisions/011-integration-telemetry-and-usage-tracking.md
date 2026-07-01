@@ -136,6 +136,81 @@ Per-user / per-integration labels explode metric cardinality. Rule: high-cardina
 (integrationType, event, endpoint, status). The usage rollup derives per-integration counts from
 spans, not from unbounded metric labels.
 
+## Usage-Counter Contract
+
+The concrete contract behind ADR-010 Decision 5 — how integrations declare comparable counters, and
+how those are emitted, persisted, and read by reports. It is a thin convention on the ADR-011
+metrics primitive, **not** a parallel API.
+
+**1. Canonical vocabulary (core-owned, versioned).** A registry of well-known counter keys is what
+makes cross-integration comparison apples-to-apples. Canonical keys are the only metrics guaranteed
+comparable *across* integration types.
+
+```js
+const CANONICAL_COUNTERS = {
+  'records.synced':    { unit: 'count', label: 'Records synced',    dims: ['entity'] },
+  'webhooks.received': { unit: 'count', label: 'Webhooks received', dims: ['event'] },
+  'workflows.invoked': { unit: 'count', label: 'Workflows invoked', dims: ['workflow'] },
+  'api.requests':      { unit: 'count', label: 'API requests',      dims: ['endpoint', 'status'] },
+  'user_actions':      { unit: 'count', label: 'User actions',      dims: ['action'] },
+};
+```
+
+**2. Declaration (opt-in per integration).** An integration declares which counters it reports.
+Declaring a canonical key opts it into the comparison report and the rollup; custom keys are
+surfaced but comparable only *within* that integration type.
+
+```js
+class HubSpotIntegration extends IntegrationBase {
+  static Definition = {
+    name: 'hubspot',
+    usage: {
+      canonical: ['records.synced', 'webhooks.received', 'api.requests'],
+      custom: { 'deals.enriched': { unit: 'count', label: 'Deals enriched' } },
+    },
+  };
+}
+```
+
+**3. Emission (one path, two sources).** A usage counter is an ordinary ADR-011 metric whose key is
+canonical or declared in `usage`. Populated either by auto-instrumentation (Decision 2 maps
+framework signals: api-module request → `api.requests`, webhook seam → `webhooks.received`,
+`USER_ACTION` handler → `user_actions`) or explicitly:
+
+```js
+this.telemetry.count('records.synced', batch.length, { entity: 'contact' });
+```
+
+**4. Persistence (rollup store, isolated).** The Decision-7 subscriber folds declared counters into
+a Frigg-owned usage store with its own repository triad (postgres/mongo/documentdb), isolated per
+ADR-010 Decision 3. Dimensions must be bounded (Cardinality note); high-cardinality ids stay on
+traces.
+
+```js
+class UsageRepositoryInterface {                 // port; adapters mirror reporting/process
+  async increment({ integrationId, integrationType, metric, value, window }) {}
+  async totals({ metric, groupBy, since }) {}                     // comparison
+  async series({ metric, integrationType, from, to, bucket }) {}  // trend
+}
+// fact row: { integrationId, integrationType, metric, window, value, updatedAt }
+```
+
+**5. Read contract (what reports call).**
+
+```js
+frigg.usage.totals({ metric: 'records.synced', groupBy: 'integrationType', since })
+  // → [{ integrationType, value }]                    powers the apples-to-apples comparison
+frigg.usage.series({ metric: 'records.synced', integrationType: 'hubspot', from, to, bucket: 'day' })
+  // → [{ bucket, value }]                             powers snapshot / trend
+```
+
+**6. North Star** references a counter key (canonical or custom); Decision 5's config maps it to a
+derived-from-trace signal or a direct emission — no separate mechanism.
+
+**Rules:** canonical keys compare across types; custom keys compare within a type; the registry is
+versioned and additive (new keys never break existing reports); declaration in `Definition.usage` is
+the single opt-in for rollup + report inclusion.
+
 ## Consequences
 
 ### Positive
