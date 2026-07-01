@@ -36,6 +36,15 @@ feeds a durable usage store for reporting.
    definition (OTLP → the adopter's backend: Honeycomb / Datadog / CloudWatch / etc.); the default
    is no-op/console so telemetry rides for free in dev and adds nothing mandatory.
 
+   ```js
+   // core wraps the OTel SDK; integrations use this, never a vendor SDK
+   const telemetry = createTelemetry({
+     exporter: appDefinition.telemetry?.exporter ?? { type: 'none' }, // no-op default
+     resource: { service: appName, stage },
+   });
+   // injected onto each integration instance as this.telemetry
+   ```
+
 2. **Auto-instrumentation that rides for free.** Framework seams emit spans + low-cardinality
    counters with no developer effort:
    - **Instantiation** — every integration instance opens a context carrying standard identifiers
@@ -48,6 +57,18 @@ feeds a durable usage store for reporting.
      the `Worker`/queue and webhook seams.
    These yield ADR-010's usage counters as a byproduct of normal execution — zero per-integration
    code.
+
+   ```js
+   // framework wraps every handler dispatch — devs write no telemetry for this
+   async function dispatch(event, handler, ctx) {
+     return telemetry.span(`handler.${event.type}`, async (span) => {
+       span.setAttributes(ctx.identifiers);              // integrationId, integrationType, userId, version
+       telemetry.count('frigg.handler.invocations', 1, {
+         integration_type: ctx.integrationType, event: event.type });
+       return handler(event);
+     });
+   }
+   ```
 
 3. **Standard context / baggage.** The identifier set from instantiation rides every emission as
    resource attributes / baggage, so all telemetry is sliceable by integration, type, and tenant.
@@ -92,6 +113,15 @@ feeds a durable usage store for reporting.
    comparison report and snapshot series read. This is deliberately distinct from OTel export: OTel
    feeds observability backends; the rollup owns durable, queryable usage history for reports.
    **Reports never query an external APM.**
+
+   ```js
+   // built-in subscriber: fold selected signals into the durable usage store reports read
+   telemetry.on('metric', ({ name, value, attrs }) => {
+     if (!usageRollup.tracks(name)) return;              // only rolled-up metrics + north star
+     usageRollup.increment({ integrationType: attrs.integration_type, metric: name, value });
+   });
+   // ADR-010 `snapshot` mode periodically persists usageRollup values → trend series
+   ```
 
 ### Relationship to ADR-010
 

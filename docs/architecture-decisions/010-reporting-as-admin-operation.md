@@ -44,6 +44,16 @@ must never surface in an end-user-scoped query.
    are discovered, listed, and executed through the same runner. PR #607's integrations report
    becomes the first built-in report definition, not a bespoke endpoint.
 
+   ```js
+   // app definition — same shape as adminScripts
+   const Definition = {
+     name: 'my-app',
+     integrations: [HubSpotIntegration, SalesforceIntegration],
+     reports: [ConnectedAccountsActivity, RevenueByType],  // adopter-defined
+     admin: { includeBuiltinReports: true },               // + core built-ins (integrations, usage-comparison, ...)
+   };
+   ```
+
 2. **`ReportBase` mirrors `AdminScriptBase`.** A report is a definition (`name`, `version`,
    `description`, optional `inputSchema`/`outputSchema`, optional `schedule`) with an `execute`
    method receiving the same admin helper (`AdminFriggCommands`) and returning a structured
@@ -57,6 +67,19 @@ must never surface in an end-user-scoped query.
    or a discriminated (`scope: 'admin'`) partition, the repository layer **must guarantee that a
    user-context query can never return an admin record**, and vice versa. This isolation is the
    reason admin operations are not folded into `Process`.
+
+   ```js
+   // admin execution store — separate from the integration-scoped Process repo
+   class AdminExecutionRepository {                 // every row is scope:'admin'
+     async create({ kind, name, params }) { /* writes scope:'admin' only */ }
+     async findById(id) { /* ... */ }
+     async listByName(name, { from, to }) { /* snapshot series */ }
+   }
+   // hard guard, enforced at the repository boundary:
+   //   ProcessRepository.find({ userId })  → scope:'user' rows only
+   //   AdminExecutionRepository.*          → scope:'admin' rows only
+   // neither can ever return the other's rows.
+   ```
 
 4. **Adopter reports run on stock core.** Because the runner and registry live in core and reports
    are adopter-registered definitions, an adopter ships a report from *their* repository against a
