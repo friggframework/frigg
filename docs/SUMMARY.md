@@ -2,6 +2,11 @@
 
 * [🥳 Welcome to Frigg!](README.md)
 
+## 🚀 Frigg 2.0 <a href="#frigg-2-0" id="frigg-2-0"></a>
+
+* [What's New in 2.0](getting-started/whats-new-in-2.0.md)
+* [Migrating from 1.x to 2.0](guides/migrating-to-2.0.md)
+
 ## 👩‍💻 Tutorials (Learning) <a href="#tutorials" id="tutorials"></a>
 
 * [Learning Frigg](tutorials/overview.md)
