@@ -33,9 +33,12 @@ describe('IntegrationBase.testAuth', () => {
         integration.updateIntegrationStatus = mockUpdateIntegrationStatus;
         integration.updateIntegrationMessages = mockUpdateIntegrationMessages;
 
+        // Shaped like a real Module instance: getName() is defined on the
+        // instance itself (Module.prototype.getName() returns this.name),
+        // not on the constructor.
         integration.testmodule = {
             testAuth: jest.fn().mockResolvedValue(true),
-            constructor: { getName: () => 'testmodule' },
+            getName: () => 'testmodule',
         };
     });
 
@@ -113,6 +116,24 @@ describe('IntegrationBase.testAuth', () => {
             'ERROR'
         );
         expect(integration.status).toBe('ERROR');
+    });
+
+    it('records the failing module name in the error message without crashing', async () => {
+        // Regression: the error-message builder used to read
+        // this[module].constructor.getName(), which does not exist on a real
+        // Module instance (getName() is an instance method) — every genuine
+        // auth failure crashed here instead of recording the error.
+        integration.testmodule.testAuth.mockResolvedValue(false);
+
+        await integration.testAuth();
+
+        expect(mockUpdateIntegrationMessages.execute).toHaveBeenCalledWith(
+            'int-1',
+            'errors',
+            'Authentication Error',
+            expect.stringContaining('testmodule'),
+            expect.any(Number)
+        );
     });
 
     it('does not heal ERROR to ENABLED when a module resolves false', async () => {

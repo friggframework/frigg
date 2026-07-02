@@ -312,7 +312,7 @@ class IntegrationBase {
                     'Authentication Error',
                     `There was an error with your ${this[
                         module
-                    ].constructor.getName()} Entity.
+                    ].getName()} Entity.
                 Please reconnect/re-authenticate, or reach out to Support for assistance.`,
                     Date.now()
                 );
