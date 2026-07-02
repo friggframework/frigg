@@ -383,6 +383,144 @@ describe('CreateIntegration Use-Case', () => {
             expect(reused.id).toBe(created.id);
             expect(reused.status).toBe('ENABLED');
         });
+
+        it('re-enables a reused integration that was DISABLED when the user reconnects', async () => {
+            class RealAuthIntegration extends DummyIntegration {
+                testAuth() {
+                    return IntegrationBase.prototype.testAuth.call(this);
+                }
+            }
+            class HealingModuleFactory {
+                async getModuleInstance(entityId, userId) {
+                    return {
+                        getName: () => 'dummy',
+                        api: {},
+                        entityId,
+                        userId,
+                        testAuth: jest.fn().mockResolvedValue(true),
+                    };
+                }
+            }
+            const createIntegrationWithRealAuth = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [RealAuthIntegration],
+                moduleFactory: new HealingModuleFactory(),
+            });
+            const entities = ['entity-1'];
+            const userId = 'user-reconnect-1';
+            const config = { type: 'dummy' };
+
+            const created = await createIntegrationWithRealAuth.execute(
+                entities,
+                userId,
+                config
+            );
+            const record = await integrationRepository.findIntegrationById(
+                created.id
+            );
+            record.status = 'DISABLED';
+
+            const reused = await createIntegrationWithRealAuth.execute(
+                entities,
+                userId,
+                config
+            );
+
+            expect(reused.id).toBe(created.id);
+            expect(reused.status).toBe('ENABLED');
+        });
+
+        it('does not force-enable a reused integration still in NEEDS_CONFIG', async () => {
+            class RealAuthIntegration extends DummyIntegration {
+                testAuth() {
+                    return IntegrationBase.prototype.testAuth.call(this);
+                }
+            }
+            class HealingModuleFactory {
+                async getModuleInstance(entityId, userId) {
+                    return {
+                        getName: () => 'dummy',
+                        api: {},
+                        entityId,
+                        userId,
+                        testAuth: jest.fn().mockResolvedValue(true),
+                    };
+                }
+            }
+            const createIntegrationWithRealAuth = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [RealAuthIntegration],
+                moduleFactory: new HealingModuleFactory(),
+            });
+            const entities = ['entity-1'];
+            const userId = 'user-reconnect-2';
+            const config = { type: 'dummy' };
+
+            const created = await createIntegrationWithRealAuth.execute(
+                entities,
+                userId,
+                config
+            );
+            const record = await integrationRepository.findIntegrationById(
+                created.id
+            );
+            record.status = 'NEEDS_CONFIG';
+
+            const reused = await createIntegrationWithRealAuth.execute(
+                entities,
+                userId,
+                config
+            );
+
+            expect(reused.id).toBe(created.id);
+            expect(reused.status).toBe('NEEDS_CONFIG');
+        });
+
+        it('flips a reused DISABLED integration to ERROR instead of ENABLED when credentials are actually invalid', async () => {
+            class RealAuthIntegration extends DummyIntegration {
+                testAuth() {
+                    return IntegrationBase.prototype.testAuth.call(this);
+                }
+            }
+            class FailingModuleFactory {
+                async getModuleInstance(entityId, userId) {
+                    return {
+                        getName: () => 'dummy',
+                        api: {},
+                        entityId,
+                        userId,
+                        testAuth: jest.fn().mockResolvedValue(false),
+                    };
+                }
+            }
+            const createIntegrationWithFailingAuth = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [RealAuthIntegration],
+                moduleFactory: new FailingModuleFactory(),
+            });
+            const entities = ['entity-1'];
+            const userId = 'user-reconnect-3';
+            const config = { type: 'dummy' };
+
+            const created = await createIntegrationWithFailingAuth.execute(
+                entities,
+                userId,
+                config
+            );
+            const record = await integrationRepository.findIntegrationById(
+                created.id
+            );
+            record.status = 'DISABLED';
+
+            const reused = await createIntegrationWithFailingAuth.execute(
+                entities,
+                userId,
+                config
+            );
+
+            expect(reused.id).toBe(created.id);
+            expect(reused.status).toBe('ERROR');
+        });
     });
 
     describe('creation race backstop', () => {

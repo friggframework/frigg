@@ -79,6 +79,19 @@ class CreateIntegration {
             integrationRecord
         );
         await integrationInstance.testAuth();
+
+        // testAuth() only restores from ERROR. A user going through this
+        // create/connect flow again for a DISABLED integration is a
+        // deliberate reconnect — mirrors the same ERROR/DISABLED restoration
+        // ProcessAuthorizationCallback performs on entity re-auth.
+        if (integrationInstance.status === 'DISABLED') {
+            await integrationInstance.updateIntegrationStatus.execute(
+                integrationInstance.id,
+                'ENABLED'
+            );
+            integrationInstance.status = 'ENABLED';
+        }
+
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }
 
