@@ -32,6 +32,7 @@ class DummyIntegration extends IntegrationBase {
     constructor(params) {
         super(params);
         this.sendSpy = jest.fn();
+        this.testAuthSpy = jest.fn();
         this.eventCallHistory = [];
         this.events = {};
 
@@ -64,6 +65,10 @@ class DummyIntegration extends IntegrationBase {
 
     async initialize() {
         return;
+    }
+
+    async testAuth() {
+        this.testAuthSpy();
     }
 
     async onCreate({ integrationId }) {

@@ -84,6 +84,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
                 version: converted.version,
                 status: converted.status,
                 messages: converted.messages,
+                createdAt: converted.createdAt,
             };
         });
     }

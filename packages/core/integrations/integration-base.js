@@ -295,12 +295,25 @@ class IntegrationBase {
         }
     }
 
+    /**
+     * Verify every module's credentials. Records a diagnostic error message
+     * per failing module and returns whether all passed. Does not directly
+     * change integration status — the caller decides the consequence (see
+     * reconcileAuthStatus), so a passive check and an active reconnect can
+     * react differently. (A module can still fire a credential-invalidated
+     * delegate that flips status via receiveNotification, independent of this
+     * return value.)
+     * @returns {Promise<boolean>} True when every module authenticated.
+     */
     async testAuth() {
         let didAuthPass = true;
 
         for (const module of Object.keys(this.constructor.Definition.modules)) {
             try {
-                await this[module].testAuth();
+                const authPassed = await this[module].testAuth();
+                if (!authPassed) {
+                    throw new Error(`testAuth returned false for module ${module}`);
+                }
             } catch {
                 didAuthPass = false;
                 await this.updateIntegrationMessages.execute(
@@ -309,15 +322,35 @@ class IntegrationBase {
                     'Authentication Error',
                     `There was an error with your ${this[
                         module
-                    ].constructor.getName()} Entity.
+                    ].getName()} Entity.
                 Please reconnect/re-authenticate, or reach out to Support for assistance.`,
                     Date.now()
                 );
             }
         }
 
-        if (!didAuthPass) {
-            await this.updateIntegrationStatus.execute(this.id, 'ERROR');
+        return didAuthPass;
+    }
+
+    /**
+     * Reconcile the auth-health axis (ERROR ↔ ENABLED) from a testAuth result.
+     * On success it never clears DISABLED — a user pause is not an auth-health
+     * state, so it is only lifted by a deliberate reconnect. On failure the
+     * integration is marked ERROR regardless of its prior status.
+     * @param {boolean} authPassed - The result of testAuth().
+     */
+    async reconcileAuthStatus(authPassed) {
+        if (!authPassed) {
+            console.log(
+                `[Frigg] Integration ${this.id} failed to authenticate`
+            );
+            await this.persistStatus('ERROR');
+        }
+        if (authPassed && this.status === 'ERROR') {
+            console.log(
+                `[Frigg] auth confirmed for integration ${this.id} — clearing ERROR → ENABLED`
+            );
+            await this.persistStatus('ENABLED');
         }
     }
 
@@ -500,6 +533,18 @@ class IntegrationBase {
         this.messages.warnings.push(warning);
     }
 
+    /**
+     * Persist a status change and keep the in-memory field in sync. The
+     * single place that couples both writes, so no caller can update the
+     * database while leaving `this.status` stale.
+     * @param {string} status - The new integration status.
+     */
+    async persistStatus(status) {
+        await this.updateIntegrationStatus.execute(this.id, status);
+        this.status = status;
+        console.log(`[Frigg] Integration ${this.id} status changed to ${status}`);
+    }
+
     isActive() {
         return this.status === 'ENABLED' || this.status === 'ACTIVE';
     }
@@ -655,7 +700,7 @@ class IntegrationBase {
      * Receives notifications from modules (the Delegate pattern) when
      * something integration-level needs attention. Today this catches the
      * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
-     * and flips this integration's status to DISABLED so the queue worker
+     * and flips this integration's status to ERROR so the queue worker
      * stops processing further webhooks until the user re-authorizes.
      *
      * Modules are wired to this delegate in `_appendModules()`, which runs
@@ -677,8 +722,7 @@ class IntegrationBase {
             console.log(
                 `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
             );
-            await this.updateIntegrationStatus.execute(this.id, 'ERROR');
-            this.status = 'ERROR';
+            await this.persistStatus('ERROR');
             return;
         }
 
@@ -687,8 +731,7 @@ class IntegrationBase {
             console.log(
                 `[Frigg] Module ${notifier?.name || '?'} reported valid credentials for integration ${this.id} — clearing ERROR → ENABLED`
             );
-            await this.updateIntegrationStatus.execute(this.id, 'ENABLED');
-            this.status = 'ENABLED';
+            await this.persistStatus('ENABLED');
         }
     }
 }

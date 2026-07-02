@@ -48,6 +48,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             version: integration.version,
             status: integration.status,
             messages: integration.messages,
+            createdAt: integration.createdAt,
         }));
     }
 

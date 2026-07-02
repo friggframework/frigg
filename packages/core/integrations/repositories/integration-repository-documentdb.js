@@ -200,6 +200,7 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             version: doc?.version ?? null,
             status: doc?.status ?? null,
             messages,
+            createdAt: doc?.createdAt ?? null,
         };
     }
 
