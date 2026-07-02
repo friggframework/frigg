@@ -34,12 +34,19 @@ class CreateIntegration {
      * @throws {Error} When integration class is not found for the specified type.
      */
     async execute(entities, userId, config) {
+        console.log(
+            `[Frigg] Creating ${config?.type} integration for user ${userId} with entities [${entities}]`
+        );
+
         const existing = await this._findDuplicate(
             userId,
             config?.type,
             entities
         );
         if (existing) {
+            console.log(
+                `[Frigg] Found existing integration ${existing.id} for the same user, type, and entities — reusing it`
+            );
             return this._reuseExisting(existing);
         }
 
@@ -49,6 +56,9 @@ class CreateIntegration {
                 userId,
                 config
             );
+        console.log(
+            `[Frigg] Created integration ${integrationRecord.id} for user ${userId}`
+        );
 
         // A concurrent request may have created a matching row between the
         // lookup above and this insert; re-check before any side effects run.
@@ -58,6 +68,9 @@ class CreateIntegration {
             entities
         );
         if (survivor && String(survivor.id) !== String(integrationRecord.id)) {
+            console.log(
+                `[Frigg] Concurrent create detected — deleting duplicate ${integrationRecord.id} and reusing ${survivor.id}`
+            );
             await this.integrationRepository.deleteIntegrationById(
                 integrationRecord.id
             );
@@ -66,6 +79,9 @@ class CreateIntegration {
 
         const integrationInstance = await this._buildInstance(
             integrationRecord
+        );
+        console.log(
+            `[Frigg] Sending ON_CREATE for integration ${integrationRecord.id}`
         );
         await integrationInstance.send('ON_CREATE', {
             integrationId: integrationRecord.id,
@@ -83,6 +99,9 @@ class CreateIntegration {
         const authPassed = await integrationInstance.testAuth();
         await integrationInstance.reconcileAuthStatus(authPassed);
         if (integrationInstance.status === 'DISABLED') {
+            console.log(
+                `[Frigg] Integration ${integrationInstance.id} changed status from DISABLED to ENABLED`
+            );
             await integrationInstance.persistStatus('ENABLED');
         }
 

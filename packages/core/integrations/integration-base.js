@@ -341,6 +341,9 @@ class IntegrationBase {
      */
     async reconcileAuthStatus(authPassed) {
         if (!authPassed) {
+            console.log(
+                `[Frigg] Integration ${this.id} failed to authenticate`
+            );
             await this.persistStatus('ERROR');
         }
         if (authPassed && this.status === 'ERROR') {
@@ -539,6 +542,7 @@ class IntegrationBase {
     async persistStatus(status) {
         await this.updateIntegrationStatus.execute(this.id, status);
         this.status = status;
+        console.log(`[Frigg] Integration ${this.id} status changed to ${status}`);
     }
 
     isActive() {
