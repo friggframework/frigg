@@ -1,4 +1,5 @@
 const { v4: uuid } = require('uuid');
+const { validateConfigPatch } = require('../../repositories/config-patch-shared');
 
 class TestIntegrationRepository {
     constructor() {
@@ -80,6 +81,18 @@ class TestIntegrationRepository {
         }
         rec.config = config;
         this.operationHistory.push({ operation: 'updateConfig', id, success: true });
+        return rec;
+    }
+
+    async patchIntegrationConfig(id, patch) {
+        validateConfigPatch(patch);
+        const rec = this.store.get(id);
+        if (!rec) {
+            this.operationHistory.push({ operation: 'patchConfig', id, success: false });
+            throw new Error(`Integration with id ${id} not found`);
+        }
+        rec.config = { ...rec.config, ...patch };
+        this.operationHistory.push({ operation: 'patchConfig', id, success: true });
         return rec;
     }
 
