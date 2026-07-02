@@ -70,7 +70,7 @@ describe('IntegrationBase.testAuth', () => {
         }
     );
 
-    it('sets ERROR when a module auth check fails', async () => {
+    it('sets ERROR when a module auth check throws', async () => {
         integration.testmodule.testAuth.mockRejectedValue(
             new Error('bad creds')
         );
@@ -84,7 +84,7 @@ describe('IntegrationBase.testAuth', () => {
         expect(integration.status).toBe('ERROR');
     });
 
-    it('keeps ERROR when a currently-ERROR integration still fails auth', async () => {
+    it('keeps ERROR when a currently-ERROR integration still throws on auth', async () => {
         integration.status = 'ERROR';
         integration.testmodule.testAuth.mockRejectedValue(
             new Error('bad creds')
@@ -95,6 +95,39 @@ describe('IntegrationBase.testAuth', () => {
         expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
             'int-1',
             'ERROR'
+        );
+        expect(integration.status).toBe('ERROR');
+    });
+
+    it('sets ERROR when a module resolves false (the real Module.testAuth contract on bad credentials)', async () => {
+        // Module.testAuth() catches its own request failures and resolves
+        // false rather than rejecting — this is how real modules (Attio,
+        // AxisCare, HouseCallPro) report a 401. A resolved false must be
+        // treated the same as a thrown error.
+        integration.testmodule.testAuth.mockResolvedValue(false);
+
+        await integration.testAuth();
+
+        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
+            'int-1',
+            'ERROR'
+        );
+        expect(integration.status).toBe('ERROR');
+    });
+
+    it('does not heal ERROR to ENABLED when a module resolves false', async () => {
+        integration.status = 'ERROR';
+        integration.testmodule.testAuth.mockResolvedValue(false);
+
+        await integration.testAuth();
+
+        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
+            'int-1',
+            'ERROR'
+        );
+        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalledWith(
+            'int-1',
+            'ENABLED'
         );
         expect(integration.status).toBe('ERROR');
     });

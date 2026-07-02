@@ -300,7 +300,10 @@ class IntegrationBase {
 
         for (const module of Object.keys(this.constructor.Definition.modules)) {
             try {
-                await this[module].testAuth();
+                const authPassed = await this[module].testAuth();
+                if (!authPassed) {
+                    throw new Error(`testAuth returned false for module ${module}`);
+                }
             } catch {
                 didAuthPass = false;
                 await this.updateIntegrationMessages.execute(
