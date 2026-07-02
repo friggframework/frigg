@@ -11,6 +11,9 @@ const { TestModuleFactory } = require('../../../modules/tests/doubles/test-modul
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 const { IntegrationBase } = require('../../integration-base');
 
+// Simulates two requests racing to create the same integration: the caller's
+// initial duplicate check misses a row that a concurrent request already
+// committed. Used by the "creation race backstop" tests below.
 function makeFirstLookupStale(repository) {
     const realFind = repository.findIntegrationsByUserId.bind(repository);
     let first = true;
