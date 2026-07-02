@@ -342,7 +342,8 @@ class IntegrationBase {
     async reconcileAuthStatus(authPassed) {
         if (!authPassed) {
             await this.persistStatus('ERROR');
-        } else if (this.status === 'ERROR') {
+        }
+        if (authPassed && this.status === 'ERROR') {
             console.log(
                 `[Frigg] auth confirmed for integration ${this.id} — clearing ERROR → ENABLED`
             );
