@@ -390,7 +390,7 @@ class IntegrationBase {
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
     async onCreate({ integrationId }) {
-        await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
+        await this.persistStatus('ENABLED');
     }
 
     async onUpdate(params) {
