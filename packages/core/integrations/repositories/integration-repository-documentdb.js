@@ -213,7 +213,20 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             $set[`config.${key}`] = value;
         }
 
-        await updateOne(this.prisma, 'Integration', { _id: objectId }, { $set });
+        const result = await updateOne(
+            this.prisma,
+            'Integration',
+            { _id: objectId },
+            { $set }
+        );
+        if (result.writeErrors?.length) {
+            throw new Error(
+                `Failed to patch integration config: ${result.writeErrors[0].errmsg}`
+            );
+        }
+        if (!result.n) {
+            throw new Error(`Integration with id ${integrationId} not found`);
+        }
 
         const updated = await findOne(this.prisma, 'Integration', { _id: objectId });
         if (!updated) {

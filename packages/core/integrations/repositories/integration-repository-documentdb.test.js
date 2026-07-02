@@ -14,7 +14,7 @@ const {
 
 const OID = '507f1f77bcf86cd799439011';
 
-function makeRepo({ findResult = null } = {}) {
+function makeRepo({ findResult = null, updateResult = { ok: 1, n: 1, nModified: 1 } } = {}) {
     const repo = new IntegrationRepositoryDocumentDB();
     const calls = [];
     repo.prisma = {
@@ -23,7 +23,7 @@ function makeRepo({ findResult = null } = {}) {
             if (command.find) {
                 return { cursor: { firstBatch: findResult ? [findResult] : [] } };
             }
-            return { ok: 1, n: 1, nModified: 1 };
+            return updateResult;
         }),
     };
     return { repo, calls };
@@ -112,6 +112,33 @@ describe('IntegrationRepositoryDocumentDB.patchIntegrationConfig', () => {
         await expect(
             repo.patchIntegrationConfig(OID, { attioWebhookId: 'wh_1' })
         ).rejects.toThrow('Document not found after update');
+    });
+
+    it('throws "not found" when the update command matches no document, without reading back', async () => {
+        const { repo, calls } = makeRepo({
+            updateResult: { ok: 1, n: 0, nModified: 0 },
+        });
+
+        await expect(
+            repo.patchIntegrationConfig(OID, { attioWebhookId: 'wh_1' })
+        ).rejects.toThrow(`Integration with id ${OID} not found`);
+        expect(calls.some((c) => c.find)).toBe(false);
+    });
+
+    it('throws when the update command reports a write error, without reading back', async () => {
+        const { repo, calls } = makeRepo({
+            updateResult: {
+                ok: 1,
+                n: 0,
+                nModified: 0,
+                writeErrors: [{ errmsg: 'document too large' }],
+            },
+        });
+
+        await expect(
+            repo.patchIntegrationConfig(OID, { attioWebhookId: 'wh_1' })
+        ).rejects.toThrow('document too large');
+        expect(calls.some((c) => c.find)).toBe(false);
     });
 });
 
