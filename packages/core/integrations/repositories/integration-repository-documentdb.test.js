@@ -114,3 +114,27 @@ describe('IntegrationRepositoryDocumentDB.patchIntegrationConfig', () => {
         ).rejects.toThrow('Document not found after update');
     });
 });
+
+describe('IntegrationRepositoryDocumentDB.createIntegration', () => {
+    it('inserts new integrations with status PROCESSING', async () => {
+        const repo = new IntegrationRepositoryDocumentDB();
+        const insertedDoc = { ...FOUND_DOC, status: 'PROCESSING' };
+        const calls = [];
+        repo.prisma = {
+            $runCommandRaw: jest.fn(async (command) => {
+                calls.push(command);
+                if (command.insert) {
+                    return { ok: 1, n: 1 };
+                }
+                return { cursor: { firstBatch: [insertedDoc] } };
+            }),
+        };
+
+        await repo.createIntegration(['507f1f77bcf86cd799439099'], OID, {
+            type: 'attio',
+        });
+
+        const insertCall = calls.find((c) => c.insert === 'Integration');
+        expect(insertCall.documents[0].status).toBe('PROCESSING');
+    });
+});

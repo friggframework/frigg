@@ -150,7 +150,7 @@ model Integration {
   id     Int               @id @default(autoincrement())
   userId Int?
   user   User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status IntegrationStatus @default(ENABLED)
+  status IntegrationStatus @default(PROCESSING)
 
   // Configuration and version
   config  Json? // Integration configuration object
