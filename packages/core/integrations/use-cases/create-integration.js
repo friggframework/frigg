@@ -78,13 +78,14 @@ class CreateIntegration {
         const integrationInstance = await this._buildInstance(
             integrationRecord
         );
-        // testAuth reconciles the auth-health axis (ERROR ↔ ENABLED). Reaching
-        // this reuse path means the user is actively reconnecting, so also
-        // clear a deliberate pause — the same ERROR/DISABLED restoration
-        // ProcessAuthorizationCallback performs on entity re-auth. A reconnect
-        // whose credentials fail is left in ERROR by testAuth, so this only
-        // fires when auth is confirmed good.
-        await integrationInstance.testAuth();
+        // Reaching this reuse path means the user is actively reconnecting.
+        // Reconcile the auth-health axis from the check, then also clear a
+        // deliberate pause — the same ERROR/DISABLED restoration
+        // ProcessAuthorizationCallback performs on entity re-auth. A failed
+        // reconnect is left in ERROR by reconcileAuthStatus, so DISABLED is
+        // only cleared when auth is confirmed good.
+        const authPassed = await integrationInstance.testAuth();
+        await integrationInstance.reconcileAuthStatus(authPassed);
         if (integrationInstance.status === 'DISABLED') {
             await integrationInstance.persistStatus('ENABLED');
         }

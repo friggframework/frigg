@@ -42,87 +42,31 @@ describe('IntegrationBase.testAuth', () => {
         };
     });
 
-    it("flips ERROR to ENABLED when every module's auth check passes", async () => {
-        integration.status = 'ERROR';
-
-        await integration.testAuth();
-
-        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
-            'int-1',
-            'ENABLED'
-        );
-        expect(integration.status).toBe('ENABLED');
+    it('returns true when every module authenticates', async () => {
+        await expect(integration.testAuth()).resolves.toBe(true);
     });
 
-    it('does not touch status when auth passes and the integration is already ENABLED', async () => {
-        await integration.testAuth();
-
-        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
-        expect(integration.status).toBe('ENABLED');
-    });
-
-    it.each(['NEEDS_CONFIG', 'DISABLED', 'PROCESSING'])(
-        'does not heal %s when auth passes',
-        async (status) => {
-            integration.status = status;
-
-            await integration.testAuth();
-
-            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
-            expect(integration.status).toBe(status);
-        }
-    );
-
-    it('sets ERROR when a module auth check throws', async () => {
+    it('returns false when a module throws', async () => {
         integration.testmodule.testAuth.mockRejectedValue(
             new Error('bad creds')
         );
 
-        await integration.testAuth();
-
-        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
-            'int-1',
-            'ERROR'
-        );
-        expect(integration.status).toBe('ERROR');
+        await expect(integration.testAuth()).resolves.toBe(false);
     });
 
-    it('keeps ERROR when a currently-ERROR integration still throws on auth', async () => {
-        integration.status = 'ERROR';
-        integration.testmodule.testAuth.mockRejectedValue(
-            new Error('bad creds')
-        );
-
-        await integration.testAuth();
-
-        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
-            'int-1',
-            'ERROR'
-        );
-        expect(integration.status).toBe('ERROR');
-    });
-
-    it('sets ERROR when a module resolves false (the real Module.testAuth contract on bad credentials)', async () => {
+    it('returns false when a module resolves false (the real Module.testAuth contract on bad credentials)', async () => {
         // Module.testAuth() catches its own request failures and resolves
         // false rather than rejecting — this is how real modules (Attio,
-        // AxisCare, HouseCallPro) report a 401. A resolved false must be
-        // treated the same as a thrown error.
+        // AxisCare, HouseCallPro) report a 401.
         integration.testmodule.testAuth.mockResolvedValue(false);
 
-        await integration.testAuth();
-
-        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
-            'int-1',
-            'ERROR'
-        );
-        expect(integration.status).toBe('ERROR');
+        await expect(integration.testAuth()).resolves.toBe(false);
     });
 
-    it('records the failing module name in the error message without crashing', async () => {
-        // Regression: the error-message builder used to read
+    it('records the failing module name in an error message without crashing', async () => {
+        // Regression: the message builder used to read
         // this[module].constructor.getName(), which does not exist on a real
-        // Module instance (getName() is an instance method) — every genuine
-        // auth failure crashed here instead of recording the error.
+        // Module instance (getName() is an instance method).
         integration.testmodule.testAuth.mockResolvedValue(false);
 
         await integration.testAuth();
@@ -136,20 +80,21 @@ describe('IntegrationBase.testAuth', () => {
         );
     });
 
-    it('does not heal ERROR to ENABLED when a module resolves false', async () => {
+    it('does not change integration status on success', async () => {
         integration.status = 'ERROR';
+
+        await integration.testAuth();
+
+        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+        expect(integration.status).toBe('ERROR');
+    });
+
+    it('does not change integration status on failure', async () => {
         integration.testmodule.testAuth.mockResolvedValue(false);
 
         await integration.testAuth();
 
-        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
-            'int-1',
-            'ERROR'
-        );
-        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalledWith(
-            'int-1',
-            'ENABLED'
-        );
-        expect(integration.status).toBe('ERROR');
+        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+        expect(integration.status).toBe('ENABLED');
     });
 });

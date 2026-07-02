@@ -468,7 +468,8 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             }
 
             const start = Date.now();
-            await instance.testAuth();
+            const authPassed = await instance.testAuth();
+            await instance.reconcileAuthStatus(authPassed);
             const errors = instance.record.messages?.errors?.filter(
                 ({ timestamp }) => timestamp >= start
             );

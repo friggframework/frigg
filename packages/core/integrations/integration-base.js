@@ -295,6 +295,16 @@ class IntegrationBase {
         }
     }
 
+    /**
+     * Verify every module's credentials. Records a diagnostic error message
+     * per failing module and returns whether all passed. Does not directly
+     * change integration status — the caller decides the consequence (see
+     * reconcileAuthStatus), so a passive check and an active reconnect can
+     * react differently. (A module can still fire a credential-invalidated
+     * delegate that flips status via receiveNotification, independent of this
+     * return value.)
+     * @returns {Promise<boolean>} True when every module authenticated.
+     */
     async testAuth() {
         let didAuthPass = true;
 
@@ -319,11 +329,22 @@ class IntegrationBase {
             }
         }
 
-        if (!didAuthPass) {
+        return didAuthPass;
+    }
+
+    /**
+     * Reconcile the auth-health axis (ERROR ↔ ENABLED) from a testAuth result.
+     * On success it never clears DISABLED — a user pause is not an auth-health
+     * state, so it is only lifted by a deliberate reconnect. On failure the
+     * integration is marked ERROR regardless of its prior status.
+     * @param {boolean} authPassed - The result of testAuth().
+     */
+    async reconcileAuthStatus(authPassed) {
+        if (!authPassed) {
             await this.persistStatus('ERROR');
         } else if (this.status === 'ERROR') {
             console.log(
-                `[Frigg] testAuth passed for integration ${this.id} — clearing ERROR → ENABLED`
+                `[Frigg] auth confirmed for integration ${this.id} — clearing ERROR → ENABLED`
             );
             await this.persistStatus('ENABLED');
         }
@@ -674,7 +695,7 @@ class IntegrationBase {
      * Receives notifications from modules (the Delegate pattern) when
      * something integration-level needs attention. Today this catches the
      * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
-     * and flips this integration's status to DISABLED so the queue worker
+     * and flips this integration's status to ERROR so the queue worker
      * stops processing further webhooks until the user re-authorizes.
      *
      * Modules are wired to this delegate in `_appendModules()`, which runs

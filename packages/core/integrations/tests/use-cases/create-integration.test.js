@@ -197,6 +197,7 @@ describe('CreateIntegration Use-Case', () => {
             class AuthTrackingIntegration extends DummyIntegration {
                 async testAuth() {
                     testAuthCalls.push(this.id);
+                    return true;
                 }
             }
             const createIntegrationWithAuthTracking = new CreateIntegration({
@@ -598,6 +599,7 @@ describe('CreateIntegration Use-Case', () => {
             class AuthTrackingIntegration extends DummyIntegration {
                 async testAuth() {
                     testAuthCalls.push(this.id);
+                    return true;
                 }
             }
             const createIntegrationWithAuthTracking = new CreateIntegration({
