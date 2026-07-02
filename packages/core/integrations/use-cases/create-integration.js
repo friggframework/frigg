@@ -89,12 +89,21 @@ class CreateIntegration {
             });
         } catch (error) {
             console.error(
-                `[Frigg] ON_CREATE failed for integration ${integrationRecord.id}, marking ERROR:`,
+                `[Frigg] ON_CREATE failed for integration ${integrationRecord.id}:`,
                 error
             );
-            await this.integrationRepository.updateIntegrationStatus(
+            // Stays PROCESSING rather than ERROR: ERROR is the one status
+            // reconcileAuthStatus's reuse-time healing clears back to ENABLED
+            // once auth is confirmed good, without rerunning setup. Marking a
+            // row that never completed creation as ERROR would let a retry
+            // with valid-but-unrelated credentials silently heal it to
+            // ENABLED with no webhooks ever created.
+            await this.integrationRepository.updateIntegrationMessages(
                 integrationRecord.id,
-                'ERROR'
+                'errors',
+                'ON_CREATE Failed',
+                error.message,
+                Date.now()
             );
             throw error;
         }

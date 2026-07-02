@@ -675,7 +675,15 @@ describe('CreateIntegration Use-Case', () => {
             };
         }
 
-        it('marks the integration ERROR and rethrows when ON_CREATE throws', async () => {
+        it('records an error message and leaves the integration PROCESSING when ON_CREATE throws', async () => {
+            // Status stays PROCESSING rather than flipping to ERROR: ERROR is
+            // the one status reconcileAuthStatus's reuse-time healing treats
+            // specially (auth-confirmed-good clears ERROR -> ENABLED without
+            // rerunning setup). Marking a failed-to-complete row ERROR would
+            // let a retry with valid but unrelated-to-the-failure credentials
+            // silently heal it to ENABLED with setup never having run.
+            // PROCESSING is inert to that healing, so the row stays honestly
+            // incomplete until setup actually succeeds.
             const createIntegrationWithFailingOnCreate = new CreateIntegration({
                 integrationRepository,
                 integrationClasses: [makeFailingOnCreateIntegration([])],
@@ -696,7 +704,13 @@ describe('CreateIntegration Use-Case', () => {
             const [record] = await integrationRepository.findIntegrationsByUserId(
                 userId
             );
-            expect(record.status).toBe('ERROR');
+            expect(record.status).toBe('PROCESSING');
+            expect(record.messages.errors).toContainEqual(
+                expect.objectContaining({
+                    title: 'ON_CREATE Failed',
+                    message: 'boom',
+                })
+            );
         });
 
         it('does not delete the row when ON_CREATE throws', async () => {
@@ -723,7 +737,7 @@ describe('CreateIntegration Use-Case', () => {
             expect(stored).toHaveLength(1);
         });
 
-        it('does not fire ON_CREATE again when reusing the ERROR row it just created', async () => {
+        it('does not fire ON_CREATE again when reusing the PROCESSING row it just created', async () => {
             const sendEvents = [];
             const createIntegrationWithFailingOnCreate = new CreateIntegration({
                 integrationRepository,
@@ -751,6 +765,52 @@ describe('CreateIntegration Use-Case', () => {
             expect(
                 sendEvents.filter((event) => event === 'ON_CREATE')
             ).toHaveLength(1);
+        });
+
+        it('does not silently heal to ENABLED on retry when credentials are fine but setup never completed', async () => {
+            // The scenario this guards against: ON_CREATE fails for a reason
+            // unrelated to auth (e.g. a transient webhook-API error). The
+            // user retries. testAuth passes (credentials were never the
+            // problem). If the failed row had been marked ERROR,
+            // reconcileAuthStatus would silently heal ERROR -> ENABLED here
+            // with setup never having run — an integration that looks
+            // healthy but has no webhooks.
+            class FailingOnCreateWithGoodAuth extends DummyIntegration {
+                async send(event, data) {
+                    if (event === 'ON_CREATE') {
+                        throw new Error('boom');
+                    }
+                    return super.send(event, data);
+                }
+
+                async testAuth() {
+                    return true;
+                }
+            }
+            const createIntegrationWithFailingOnCreate = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [FailingOnCreateWithGoodAuth],
+                moduleFactory,
+            });
+            const entities = ['entity-1'];
+            const userId = 'user-on-create-failure-4';
+            const config = { type: 'dummy' };
+
+            await expect(
+                createIntegrationWithFailingOnCreate.execute(
+                    entities,
+                    userId,
+                    config
+                )
+            ).rejects.toThrow('boom');
+
+            const dto = await createIntegrationWithFailingOnCreate.execute(
+                entities,
+                userId,
+                config
+            );
+
+            expect(dto.status).toBe('PROCESSING');
         });
     });
 });
