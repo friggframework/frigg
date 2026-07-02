@@ -24,6 +24,12 @@ const {
     CreateIntegration,
 } = require('../../integrations/use-cases/create-integration');
 const {
+    UpdateIntegrationConfig,
+} = require('../../integrations/use-cases/update-integration-config');
+const {
+    PatchIntegrationConfig,
+} = require('../../integrations/use-cases/patch-integration-config');
+const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../../integrations/utils/map-integration-dto');
 
@@ -99,6 +105,14 @@ function createIntegrationCommands({ integrationClass }) {
         integrationRepository,
         integrationClasses: [integrationClass],
         moduleFactory,
+    });
+
+    const updateIntegrationConfigUseCase = new UpdateIntegrationConfig({
+        integrationRepository,
+    });
+
+    const patchIntegrationConfigUseCase = new PatchIntegrationConfig({
+        integrationRepository,
     });
 
     return {
@@ -212,9 +226,28 @@ function createIntegrationCommands({ integrationClass }) {
          */
         async updateIntegrationConfig({ integrationId, config }) {
             try {
-                const integration = await integrationRepository.updateIntegrationConfig(
+                const integration = await updateIntegrationConfigUseCase.execute(
                     integrationId,
                     config
+                );
+                return integration;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Atomically merge a partial update into an integration's config
+         * @param {Object} params
+         * @param {string} params.integrationId - Integration ID
+         * @param {Object} params.patch - Keys to merge into the existing config
+         * @returns {Promise<Object>} Updated integration
+         */
+        async patchIntegrationConfig({ integrationId, patch }) {
+            try {
+                const integration = await patchIntegrationConfigUseCase.execute(
+                    integrationId,
+                    patch
                 );
                 return integration;
             } catch (error) {
