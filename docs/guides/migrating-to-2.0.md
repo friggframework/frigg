@@ -19,6 +19,12 @@ safety net.
 
 ## Before you begin
 
+{% hint style="info" %}
+**Scaffolding moved to the `frigg` CLI.** `create-frigg-app` is retired in 2.0.
+Use `frigg init` for new apps and the `frigg` CLI for the full lifecycle
+(`install`, `start`, `build`, `deploy`, `db:setup`, `doctor`, `repair`).
+{% endhint %}
+
 * **Node 22+ / npm 10+.** Bump your local and CI runtimes. `nvm install 22`.
 * **Pick your database.** 2.0 runs on PostgreSQL, MongoDB, or DocumentDB. If you
   were on MongoDB in 1.x you can stay on MongoDB; you can also take this
