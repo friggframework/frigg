@@ -83,9 +83,21 @@ class CreateIntegration {
         console.log(
             `[Frigg] Sending ON_CREATE for integration ${integrationRecord.id}`
         );
-        await integrationInstance.send('ON_CREATE', {
-            integrationId: integrationRecord.id,
-        });
+        try {
+            await integrationInstance.send('ON_CREATE', {
+                integrationId: integrationRecord.id,
+            });
+        } catch (error) {
+            console.error(
+                `[Frigg] ON_CREATE failed for integration ${integrationRecord.id}, marking ERROR:`,
+                error
+            );
+            await this.integrationRepository.updateIntegrationStatus(
+                integrationRecord.id,
+                'ERROR'
+            );
+            throw error;
+        }
 
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }

@@ -661,4 +661,96 @@ describe('CreateIntegration Use-Case', () => {
             );
         });
     });
+
+    describe('ON_CREATE failure', () => {
+        function makeFailingOnCreateIntegration(sendEvents) {
+            return class FailingOnCreateIntegration extends DummyIntegration {
+                async send(event, data) {
+                    sendEvents.push(event);
+                    if (event === 'ON_CREATE') {
+                        throw new Error('boom');
+                    }
+                    return super.send(event, data);
+                }
+            };
+        }
+
+        it('marks the integration ERROR and rethrows when ON_CREATE throws', async () => {
+            const createIntegrationWithFailingOnCreate = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [makeFailingOnCreateIntegration([])],
+                moduleFactory,
+            });
+            const entities = ['entity-1'];
+            const userId = 'user-on-create-failure';
+            const config = { type: 'dummy' };
+
+            await expect(
+                createIntegrationWithFailingOnCreate.execute(
+                    entities,
+                    userId,
+                    config
+                )
+            ).rejects.toThrow('boom');
+
+            const [record] = await integrationRepository.findIntegrationsByUserId(
+                userId
+            );
+            expect(record.status).toBe('ERROR');
+        });
+
+        it('does not delete the row when ON_CREATE throws', async () => {
+            const createIntegrationWithFailingOnCreate = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [makeFailingOnCreateIntegration([])],
+                moduleFactory,
+            });
+            const entities = ['entity-1'];
+            const userId = 'user-on-create-failure-2';
+            const config = { type: 'dummy' };
+
+            await expect(
+                createIntegrationWithFailingOnCreate.execute(
+                    entities,
+                    userId,
+                    config
+                )
+            ).rejects.toThrow('boom');
+
+            const stored = await integrationRepository.findIntegrationsByUserId(
+                userId
+            );
+            expect(stored).toHaveLength(1);
+        });
+
+        it('does not fire ON_CREATE again when reusing the ERROR row it just created', async () => {
+            const sendEvents = [];
+            const createIntegrationWithFailingOnCreate = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [makeFailingOnCreateIntegration(sendEvents)],
+                moduleFactory,
+            });
+            const entities = ['entity-1'];
+            const userId = 'user-on-create-failure-3';
+            const config = { type: 'dummy' };
+
+            await expect(
+                createIntegrationWithFailingOnCreate.execute(
+                    entities,
+                    userId,
+                    config
+                )
+            ).rejects.toThrow('boom');
+
+            await createIntegrationWithFailingOnCreate.execute(
+                entities,
+                userId,
+                config
+            );
+
+            expect(
+                sendEvents.filter((event) => event === 'ON_CREATE')
+            ).toHaveLength(1);
+        });
+    });
 });
