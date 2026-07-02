@@ -78,12 +78,8 @@ class CreateIntegration {
         const integrationInstance = await this._buildInstance(
             integrationRecord
         );
-        // Reaching this reuse path means the user is actively reconnecting.
-        // Reconcile the auth-health axis from the check, then also clear a
-        // deliberate pause — the same ERROR/DISABLED restoration
-        // ProcessAuthorizationCallback performs on entity re-auth. A failed
-        // reconnect is left in ERROR by reconcileAuthStatus, so DISABLED is
-        // only cleared when auth is confirmed good.
+        // User is actively trying to reconnect; here if the integration is
+        // disabled, we can enable it again.
         const authPassed = await integrationInstance.testAuth();
         await integrationInstance.reconcileAuthStatus(authPassed);
         if (integrationInstance.status === 'DISABLED') {
