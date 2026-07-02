@@ -11,6 +11,12 @@ const {
 const {
     UpdateIntegrationMessages,
 } = require('./use-cases/update-integration-messages');
+const {
+    PatchIntegrationConfig,
+} = require('./use-cases/patch-integration-config');
+const {
+    UpdateIntegrationConfig,
+} = require('./use-cases/update-integration-config');
 const { validateExtensionBinding } = require('./extension');
 
 const constantsToBeMigrated = {
@@ -41,6 +47,12 @@ class IntegrationBase {
         integrationRepository: this.integrationRepository,
     });
     updateIntegrationMessages = new UpdateIntegrationMessages({
+        integrationRepository: this.integrationRepository,
+    });
+    patchIntegrationConfig = new PatchIntegrationConfig({
+        integrationRepository: this.integrationRepository,
+    });
+    updateIntegrationConfig = new UpdateIntegrationConfig({
         integrationRepository: this.integrationRepository,
     });
 
@@ -543,6 +555,36 @@ class IntegrationBase {
         await this.updateIntegrationStatus.execute(this.id, status);
         this.status = status;
         console.log(`[Frigg] Integration ${this.id} status changed to ${status}`);
+    }
+
+    /**
+     * Merge a partial update into config and keep the in-memory field in
+     * sync with what was actually persisted — not a local `{...this.config,
+     * ...patch}` guess, which would silently drop keys a concurrent writer
+     * already landed. Throws if the merge fails.
+     * @param {Object} patch - Keys to merge into the existing config.
+     */
+    async patchConfig(patch) {
+        const updated = await this.patchIntegrationConfig.execute(
+            this.id,
+            patch
+        );
+        this.config = updated.config;
+        return this.config;
+    }
+
+    /**
+     * Replace config entirely and keep the in-memory field in sync. Keys
+     * omitted from the new config are deleted. Throws if the write fails.
+     * @param {Object} config - The new configuration object.
+     */
+    async updateConfig(config) {
+        const updated = await this.updateIntegrationConfig.execute(
+            this.id,
+            config
+        );
+        this.config = updated.config;
+        return this.config;
     }
 
     isActive() {
