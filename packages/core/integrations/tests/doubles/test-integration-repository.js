@@ -17,6 +17,7 @@ class TestIntegrationRepository {
             version: '0.0.0',
             status: 'NEW',
             messages: {},
+            createdAt: new Date(),
         };
         this.store.set(id, record);
         this.operationHistory.push({ operation: 'create', id, userId, config });

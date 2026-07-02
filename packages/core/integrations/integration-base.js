@@ -318,6 +318,13 @@ class IntegrationBase {
 
         if (!didAuthPass) {
             await this.updateIntegrationStatus.execute(this.id, 'ERROR');
+            this.status = 'ERROR';
+        } else if (this.status === 'ERROR') {
+            console.log(
+                `[Frigg] testAuth passed for integration ${this.id} — clearing ERROR → ENABLED`
+            );
+            await this.updateIntegrationStatus.execute(this.id, 'ENABLED');
+            this.status = 'ENABLED';
         }
     }
 
