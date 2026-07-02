@@ -54,7 +54,6 @@ frigg init my-integration
 # Install API modules
 frigg install hubspot
 frigg install salesforce
-frigg search crm
 
 # Local development
 frigg start                    # Start local server with hot reload
@@ -339,7 +338,8 @@ Located in `packages/devtools/infrastructure/`:
 frigg install <module>        # Install and configure API modules
 frigg start                   # Local development server
 frigg deploy                  # Infrastructure deployment
-frigg search <term>           # Search available API modules
+frigg doctor                  # Health-check a deployed stack
+frigg repair <stackName>      # Reconcile infrastructure drift
 ```
 
 ### Frigg Authenticator
@@ -1000,6 +1000,6 @@ Framework uses semantic versioning with automated releases:
 - **Minor**: New features, backward compatible
 - **Patch**: Bug fixes and improvements
 
-Current stable version: v2.0.0-next.0 (pre-release)
-Recommended Node.js: >=18
-Recommended npm: >=9
+Current version: v2.0.0-next.0 (pre-release on the `next` branch)
+Recommended Node.js: >=22
+Recommended npm: >=10

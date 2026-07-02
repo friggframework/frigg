@@ -16,7 +16,7 @@ second notification telling you your integration service is ready for a version 
 
 And now imagine all of this is running on your own accounts.
 
-That's our vision for Frigg. Learn more at <a href="https://friggramework.org/">FriggFramework.org</a>
+That's our vision for Frigg. Learn more at <a href="https://friggframework.org/">FriggFramework.org</a>
 
 
 ## Background

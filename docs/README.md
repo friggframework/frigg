@@ -15,6 +15,13 @@ Sure, we hear you. [**Check out our Quick Start tutorial.**](tutorials/quick-sta
 For our thorough readers, read on!
 {% endhint %}
 
+{% hint style="info" %}
+**Frigg 2.0 is here.** A ground-up DDD/hexagonal refactor with a
+multi-database data layer and a provider-agnostic foundation. See
+[What's New in 2.0](getting-started/whats-new-in-2.0.md) and the
+[migration guide](guides/migrating-to-2.0.md).
+{% endhint %}
+
 ## Integrations shouldn't be that hard to build and maintain...
 
 Frigg was built with the core principles that user-facing self-serve software integrations should be:
@@ -39,11 +46,11 @@ In general, there are four main areas of the docs, and four supplemental section
 
 ### Main Documentation Areas
 
-<table data-card-size="large" data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th><th data-hidden data-card-cover data-type="files"></th></tr></thead><tbody><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f9d1-1f4bb">🧑‍💻</span> Tutorials (Learning)</td><td>Hands-on activities to learn how to use Frigg, and how to think about and build high quality integrations.</td><td><a href="broken-reference">Broken link</a></td><td><a href=".gitbook/assets/tutorials.png">tutorials.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="2705">✅</span> How-To Guides (Goals)</td><td>In-depth directions for achieving different integration goals with Frigg, both general and on specific app/integration marketplaces.</td><td><a href="broken-reference">Broken link</a></td><td><a href=".gitbook/assets/how-to guides.png">how-to guides.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4d6">📖</span> Reference (Information)</td><td>Technical definitions for all things Frigg. Classes, Objects, Methods, APIs, and more</td><td><a href="broken-reference">Broken link</a></td><td><a href=".gitbook/assets/reference.png">reference.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4ad">💭</span> Explanation (Understanding)</td><td>Here you'll find our thought processes for building Frigg the way we have, and for how we think about integration development</td><td><a href="broken-reference">Broken link</a></td><td><a href=".gitbook/assets/explanation.png">explanation.png</a></td></tr></tbody></table>
+<table data-card-size="large" data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th><th data-hidden data-card-cover data-type="files"></th></tr></thead><tbody><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f9d1-1f4bb">🧑‍💻</span> Tutorials (Learning)</td><td>Hands-on activities to learn how to use Frigg, and how to think about and build high quality integrations.</td><td><a href="tutorials/overview.md">Tutorials</a></td><td><a href=".gitbook/assets/tutorials.png">tutorials.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="2705">✅</span> How-To Guides (Goals)</td><td>In-depth directions for achieving different integration goals with Frigg, both general and on specific app/integration marketplaces.</td><td><a href="guides/cooking-with-frigg.md">How-To Guides</a></td><td><a href=".gitbook/assets/how-to guides.png">how-to guides.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4d6">📖</span> Reference (Information)</td><td>Technical definitions for all things Frigg. Classes, Objects, Methods, APIs, and more</td><td><a href="reference/core-concepts.md">Reference</a></td><td><a href=".gitbook/assets/reference.png">reference.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4ad">💭</span> Explanation (Understanding)</td><td>Here you'll find our thought processes for building Frigg the way we have, and for how we think about integration development</td><td><a href="explanation/the-why-of-frigg-technical-decisions.md">Explanation</a></td><td><a href=".gitbook/assets/explanation.png">explanation.png</a></td></tr></tbody></table>
 
 ### Supplemental Documentation Areas
 
-<table data-card-size="large" data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th><th data-hidden data-card-cover data-type="files"></th></tr></thead><tbody><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f50c">🔌</span> API Modules</td><td>Documentation for each API module published in Frigg's main library.</td><td><a href="broken-reference">Broken link</a></td><td><a href=".gitbook/assets/API Modules.png">API Modules.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f91d">🤝</span> Contributing</td><td>All things contributing to Frigg from as little as a typo-fixer to as deep as a core maintainer.</td><td><a href="broken-reference">Broken link</a></td><td><a href=".gitbook/assets/Contributing.png">Contributing.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4de">📞</span> Support</td><td>Notes about how to get support</td><td><a href="broken-reference">Broken link</a></td><td><a href=".gitbook/assets/Support.png">Support.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f5fa">🗺️</span> Roadmap</td><td>The short, medium, and long term features and opportunities roadmap for Frigg</td><td><a href="broken-reference">Broken link</a></td><td><a href=".gitbook/assets/Roadmap.png">Roadmap.png</a></td></tr></tbody></table>
+<table data-card-size="large" data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th><th data-hidden data-card-cover data-type="files"></th></tr></thead><tbody><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f50c">🔌</span> API Modules</td><td>Documentation for each API module published in Frigg's main library.</td><td><a href="api-module-library/overview.md">API Modules</a></td><td><a href=".gitbook/assets/API Modules.png">API Modules.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f91d">🤝</span> Contributing</td><td>All things contributing to Frigg from as little as a typo-fixer to as deep as a core maintainer.</td><td><a href="contributing/contributing/README.md">Contributing</a></td><td><a href=".gitbook/assets/Contributing.png">Contributing.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f4de">📞</span> Support</td><td>Notes about how to get support</td><td><a href="support/support.md">Support</a></td><td><a href=".gitbook/assets/Support.png">Support.png</a></td></tr><tr><td><span data-gb-custom-inline data-tag="emoji" data-code="1f5fa">🗺️</span> Roadmap</td><td>The short, medium, and long term features and opportunities roadmap for Frigg</td><td><a href="roadmap/page-1.md">Roadmap</a></td><td><a href=".gitbook/assets/Roadmap.png">Roadmap.png</a></td></tr></tbody></table>
 
 
 
@@ -103,7 +110,7 @@ Before you introduce Frigg to your engineering colleagues, partnership leaders s
 
 Meanwhile, Frigg's documentation site is targeted at engineers and product leaders who will need to understand the framework as a development tool.
 
-If you're ready to introduce Frigg to your technical colleagues, share this documentation site. Our [live demo site](https://demo.friggframework.,org) is also instructive to both technical and non-technical audiences as well.
+If you're ready to introduce Frigg to your technical colleagues, share this documentation site. Our [live demo site](https://demo.friggframework.org) is also instructive to both technical and non-technical audiences as well.
 
 Have questions? Let's [connect](support/support.md)!
 
@@ -137,10 +144,10 @@ Frigg handles integration listing, authentication, and configuration out-of-the-
 
 A Frigg Application is predominantly a backend microservice, with an optional frontend. Most Frigg adopters already have an existing frontend UI built using a framework of their choice, or will bake integration UX into their product's core code. Frigg ships with a simple library of components to get you started quickly. See more details about frontend options here.
 
-In the backend, Frigg is based on the serverless.com framework. This key piece of technology and the underlying compute/architecture under the hood provides a number of advantages:
+In the backend, Frigg deploys as serverless infrastructure using **oss-serverless** (the community-maintained fork of the Serverless Framework) as its infrastructure-as-code tool. As of 2.0 the cloud provider sits behind an abstraction layer, with **AWS as the first fully supported provider**. This architecture provides a number of advantages:
 
 * Infrastructure-as-Code- The need to manually configure resources on the host provider is greatly reduced
-* Deployable to your favorite host- AWS, GCP, Azure, any a list of many more are available
+* Provider-agnostic foundation- AWS today, with the abstraction in place to support additional clouds over time
 * Horizontal Scalability
 * Pay as you go
 {% endhint %}
