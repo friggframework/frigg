@@ -78,18 +78,15 @@ class CreateIntegration {
         const integrationInstance = await this._buildInstance(
             integrationRecord
         );
+        // testAuth reconciles the auth-health axis (ERROR ↔ ENABLED). Reaching
+        // this reuse path means the user is actively reconnecting, so also
+        // clear a deliberate pause — the same ERROR/DISABLED restoration
+        // ProcessAuthorizationCallback performs on entity re-auth. A reconnect
+        // whose credentials fail is left in ERROR by testAuth, so this only
+        // fires when auth is confirmed good.
         await integrationInstance.testAuth();
-
-        // testAuth() only restores from ERROR. A user going through this
-        // create/connect flow again for a DISABLED integration is a
-        // deliberate reconnect — mirrors the same ERROR/DISABLED restoration
-        // ProcessAuthorizationCallback performs on entity re-auth.
         if (integrationInstance.status === 'DISABLED') {
-            await integrationInstance.updateIntegrationStatus.execute(
-                integrationInstance.id,
-                'ENABLED'
-            );
-            integrationInstance.status = 'ENABLED';
+            await integrationInstance.persistStatus('ENABLED');
         }
 
         return mapIntegrationClassToIntegrationDTO(integrationInstance);

@@ -320,14 +320,12 @@ class IntegrationBase {
         }
 
         if (!didAuthPass) {
-            await this.updateIntegrationStatus.execute(this.id, 'ERROR');
-            this.status = 'ERROR';
+            await this.persistStatus('ERROR');
         } else if (this.status === 'ERROR') {
             console.log(
                 `[Frigg] testAuth passed for integration ${this.id} — clearing ERROR → ENABLED`
             );
-            await this.updateIntegrationStatus.execute(this.id, 'ENABLED');
-            this.status = 'ENABLED';
+            await this.persistStatus('ENABLED');
         }
     }
 
@@ -510,6 +508,17 @@ class IntegrationBase {
         this.messages.warnings.push(warning);
     }
 
+    /**
+     * Persist a status change and keep the in-memory field in sync. The
+     * single place that couples both writes, so no caller can update the
+     * database while leaving `this.status` stale.
+     * @param {string} status - The new integration status.
+     */
+    async persistStatus(status) {
+        await this.updateIntegrationStatus.execute(this.id, status);
+        this.status = status;
+    }
+
     isActive() {
         return this.status === 'ENABLED' || this.status === 'ACTIVE';
     }
@@ -687,8 +696,7 @@ class IntegrationBase {
             console.log(
                 `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
             );
-            await this.updateIntegrationStatus.execute(this.id, 'ERROR');
-            this.status = 'ERROR';
+            await this.persistStatus('ERROR');
             return;
         }
 
@@ -697,8 +705,7 @@ class IntegrationBase {
             console.log(
                 `[Frigg] Module ${notifier?.name || '?'} reported valid credentials for integration ${this.id} — clearing ERROR → ENABLED`
             );
-            await this.updateIntegrationStatus.execute(this.id, 'ENABLED');
-            this.status = 'ENABLED';
+            await this.persistStatus('ENABLED');
         }
     }
 }
