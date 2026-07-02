@@ -74,6 +74,9 @@ class TestIntegrationRepository {
     }
 
     async updateIntegrationConfig(id, config) {
+        if (config === null || config === undefined) {
+            throw new Error('Config parameter is required');
+        }
         const rec = this.store.get(id);
         if (!rec) {
             this.operationHistory.push({ operation: 'updateConfig', id, success: false });
