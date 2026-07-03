@@ -25,6 +25,7 @@ class StatusCapturingDeleteIntegration extends DummyIntegration {
 class FailingDeleteIntegration extends DummyIntegration {
     async send(event, data) {
         if (event === 'ON_DELETE') {
+            capturedStatusAtDelete = this.status;
             throw new Error('teardown failed');
         }
         return super.send(event, data);
@@ -127,6 +128,56 @@ describe('DeleteIntegrationForUser Use-Case', () => {
         });
     });
 
+    describe('resilience to onDelete failures', () => {
+        it('deletes the integration row even when onDelete throws', async () => {
+            class ThrowingOnDeleteIntegration extends DummyIntegration {
+                static Definition = {
+                    ...DummyIntegration.Definition,
+                    name: 'throwing-on-delete',
+                };
+
+                async onDelete(params) {
+                    throw new Error('webhook deregistration failed');
+                }
+            }
+
+            const useCaseWithThrowingIntegration = new DeleteIntegrationForUser({
+                integrationRepository,
+                integrationClasses: [ThrowingOnDeleteIntegration],
+            });
+            const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'throwing-on-delete' });
+
+            await useCaseWithThrowingIntegration.execute(record.id, 'user-1');
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).toBeNull();
+        });
+
+        it('deletes the integration row even when onDelete rejects with a non-Error value', async () => {
+            class NullRejectingOnDeleteIntegration extends DummyIntegration {
+                static Definition = {
+                    ...DummyIntegration.Definition,
+                    name: 'null-rejecting-on-delete',
+                };
+
+                async onDelete(params) {
+                    throw null;
+                }
+            }
+
+            const useCaseWithNullRejectingIntegration = new DeleteIntegrationForUser({
+                integrationRepository,
+                integrationClasses: [NullRejectingOnDeleteIntegration],
+            });
+            const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'null-rejecting-on-delete' });
+
+            await useCaseWithNullRejectingIntegration.execute(record.id, 'user-1');
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).toBeNull();
+        });
+    });
+
     describe('edge cases', () => {
         it('handles deletion of already deleted integration', async () => {
             const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'dummy' });
@@ -188,7 +239,8 @@ describe('DeleteIntegrationForUser Use-Case', () => {
             expect(capturedStatusAtDelete).toBe('IN_DELETION');
         });
 
-        it('leaves the row undeleted when teardown throws, for later cleanup', async () => {
+        it('still marks IN_DELETION and deletes the row when teardown throws (cleanup is best-effort)', async () => {
+            capturedStatusAtDelete = undefined;
             const useCaseFailing = new DeleteIntegrationForUser({
                 integrationRepository,
                 integrationClasses: [FailingDeleteIntegration],
@@ -199,14 +251,13 @@ describe('DeleteIntegrationForUser Use-Case', () => {
                 { type: 'dummy' }
             );
 
-            await expect(
-                useCaseFailing.execute(record.id, 'user-1')
-            ).rejects.toThrow('teardown failed');
+            await useCaseFailing.execute(record.id, 'user-1');
 
+            expect(capturedStatusAtDelete).toBe('IN_DELETION');
             const found = await integrationRepository.findIntegrationById(
                 record.id
             );
-            expect(found).not.toBeNull();
+            expect(found).toBeNull();
         });
     });
 });

@@ -60,6 +60,9 @@ class DummyIntegration extends IntegrationBase {
         if (event === 'ON_UPDATE') {
             await this.onUpdate(data);
         }
+        if (event === 'ON_DELETE') {
+            await this.onDelete(data);
+        }
         return { event, data };
     }
 
