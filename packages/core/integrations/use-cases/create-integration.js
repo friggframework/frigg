@@ -94,6 +94,20 @@ class CreateIntegration {
         const integrationInstance = await this._buildInstance(
             integrationRecord
         );
+
+        if (integrationInstance.status === 'IN_CREATION') {
+            // ON_CREATE never finished for this row (crashed mid-setup or is
+            // still running concurrently). Re-firing ON_CREATE here would
+            // risk re-registering a webhook a partially-completed attempt
+            // already created — unsafe without idempotent setup, which is a
+            // separate, larger change. Surfaced loudly rather than silently
+            // reused as if healthy, so it's diagnosable; testAuth below still
+            // runs and can at least surface bad credentials as ERROR.
+            console.warn(
+                `[Frigg] Integration ${integrationInstance.id} is still IN_CREATION on reuse — setup never completed`
+            );
+        }
+
         // User is actively trying to reconnect; here if the integration is
         // disabled, we can enable it again.
         const authPassed = await integrationInstance.testAuth();
@@ -114,6 +128,14 @@ class CreateIntegration {
         const target = [...(entityIds ?? [])].map(String).sort();
 
         const matches = candidates.filter((integration) => {
+            // An IN_DELETION row is either mid-teardown or a zombie left
+            // behind by a failed deleteIntegrationById call — never a live
+            // integration. Treating it as a duplicate would hand a reinstall
+            // attempt a row nothing will ever move out of IN_DELETION,
+            // silently discarded by the queue worker forever. Let a fresh
+            // create proceed instead; the zombie is cleaned up out-of-band,
+            // matching how teardown failures are already handled here.
+            if (integration.status === 'IN_DELETION') return false;
             if (integration.config?.type !== type) return false;
             const current = [...(integration.entitiesIds ?? [])]
                 .map(String)

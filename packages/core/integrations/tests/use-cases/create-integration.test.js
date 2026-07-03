@@ -522,6 +522,85 @@ describe('CreateIntegration Use-Case', () => {
             expect(reused.id).toBe(created.id);
             expect(reused.status).toBe('ERROR');
         });
+
+        it('does not reuse a row stuck IN_DELETION — creates a fresh integration instead', async () => {
+            const entities = ['entity-1'];
+            const userId = 'user-zombie-1';
+            const config = { type: 'dummy' };
+
+            const created = await createIntegration.execute(
+                entities,
+                userId,
+                config
+            );
+            const record = await integrationRepository.findIntegrationById(
+                created.id
+            );
+            record.status = 'IN_DELETION';
+
+            const fresh = await createIntegration.execute(
+                entities,
+                userId,
+                config
+            );
+
+            expect(fresh.id).not.toBe(created.id);
+            expect(fresh.status).not.toBe('IN_DELETION');
+        });
+
+        it('reuses an IN_CREATION row without re-running setup, leaving status alone when auth still passes', async () => {
+            const sendEvents = [];
+            class SendTrackingIntegration extends DummyIntegration {
+                testAuth() {
+                    return IntegrationBase.prototype.testAuth.call(this);
+                }
+                async send(event, data) {
+                    sendEvents.push(event);
+                    return super.send(event, data);
+                }
+            }
+            class HealingModuleFactory {
+                async getModuleInstance(entityId, userId) {
+                    return {
+                        getName: () => 'dummy',
+                        api: {},
+                        entityId,
+                        userId,
+                        testAuth: jest.fn().mockResolvedValue(true),
+                    };
+                }
+            }
+            const createIntegrationWithSendTracking = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [SendTrackingIntegration],
+                moduleFactory: new HealingModuleFactory(),
+            });
+            const entities = ['entity-1'];
+            const userId = 'user-stuck-1';
+            const config = { type: 'dummy' };
+
+            const created = await createIntegrationWithSendTracking.execute(
+                entities,
+                userId,
+                config
+            );
+            const record = await integrationRepository.findIntegrationById(
+                created.id
+            );
+            record.status = 'IN_CREATION';
+
+            const reused = await createIntegrationWithSendTracking.execute(
+                entities,
+                userId,
+                config
+            );
+
+            expect(reused.id).toBe(created.id);
+            expect(reused.status).toBe('IN_CREATION');
+            expect(
+                sendEvents.filter((event) => event === 'ON_CREATE')
+            ).toHaveLength(1);
+        });
     });
 
     describe('creation race backstop', () => {

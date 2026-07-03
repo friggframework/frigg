@@ -179,13 +179,13 @@ model Integration {
 }
 
 enum IntegrationStatus {
-  IN_CREATION
   ENABLED
   NEEDS_CONFIG
   PROCESSING
-  IN_DELETION
   DISABLED
   ERROR
+  IN_CREATION
+  IN_DELETION
 }
 
 /// Integration-specific data mappings

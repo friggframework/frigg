@@ -410,8 +410,24 @@ class IntegrationBase {
         }
     }
 
+    /**
+     * Default post-update lifecycle hook: merges any submitted config in as a
+     * patch, then re-validates. A NEEDS_CONFIG integration moves to ENABLED
+     * once nothing required is missing — other statuses (DISABLED, ERROR,
+     * IN_CREATION, IN_DELETION) are left alone; a config edit shouldn't
+     * silently un-pause or auto-heal those. Children can override to run
+     * their own update logic.
+     * @param {Object} [params]
+     * @param {Object} [params.config] - Keys to merge into the existing config.
+     */
     async onUpdate(params) {
-        return this.validateConfig();
+        if (params?.config) {
+            await this.patchConfig(params.config);
+        }
+        const needsConfig = await this.validateConfig();
+        if (!needsConfig && this.status === 'NEEDS_CONFIG') {
+            await this.persistStatus('ENABLED');
+        }
     }
 
     async onDelete(params) {}
