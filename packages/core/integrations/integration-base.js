@@ -352,7 +352,7 @@ class IntegrationBase {
      * @param {boolean} authPassed - The result of testAuth().
      */
     async reconcileAuthStatus(authPassed) {
-        if (!authPassed && this.status !== 'PROCESSING') {
+        if (!authPassed) {
             console.log(
                 `[Frigg] Integration ${this.id} failed to authenticate`
             );
@@ -390,7 +390,7 @@ class IntegrationBase {
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
     async onCreate({ integrationId }) {
-        await this.persistStatus('ENABLED');
+        await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
     }
 
     async onUpdate(params) {
@@ -743,11 +743,7 @@ class IntegrationBase {
      * something integration-level needs attention. Today this catches the
      * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
      * and flips this integration's status to ERROR so the queue worker
-     * stops processing further webhooks until the user re-authorizes — unless
-     * the integration is still PROCESSING (initial setup hasn't completed), in
-     * which case it's left alone: ERROR is the status this class's own auth-confirmed
-     * heal clears back to ENABLED, and doing that before setup ever ran would
-     * produce an integration that looks healthy but has no webhooks.
+     * stops processing further webhooks until the user re-authorizes.
      *
      * Modules are wired to this delegate in `_appendModules()`, which runs
      * during `setIntegrationRecord()` — this covers every construction path
@@ -765,12 +761,6 @@ class IntegrationBase {
         if (!this.id) return;
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
-            if (this.status === 'PROCESSING') {
-                console.log(
-                    `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} during initial setup — leaving PROCESSING`
-                );
-                return;
-            }
             console.log(
                 `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
             );

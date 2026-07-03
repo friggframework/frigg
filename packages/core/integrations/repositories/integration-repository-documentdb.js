@@ -125,7 +125,7 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             userId: toObjectId(userId) || null,
             config,
             version: '0.0.0',
-            status: 'PROCESSING',
+            status: 'ENABLED',
             entityIds: toObjectIdArray(entities),
             messages: { errors: [], warnings: [], info: [], logs: [] },
             errors: [],

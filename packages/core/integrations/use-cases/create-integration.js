@@ -83,30 +83,9 @@ class CreateIntegration {
         console.log(
             `[Frigg] Sending ON_CREATE for integration ${integrationRecord.id}`
         );
-        try {
-            await integrationInstance.send('ON_CREATE', {
-                integrationId: integrationRecord.id,
-            });
-        } catch (error) {
-            console.error(
-                `[Frigg] ON_CREATE failed for integration ${integrationRecord.id}:`,
-                error
-            );
-            // Stays PROCESSING rather than ERROR: ERROR is the one status
-            // reconcileAuthStatus's reuse-time healing clears back to ENABLED
-            // once auth is confirmed good, without rerunning setup. Marking a
-            // row that never completed creation as ERROR would let a retry
-            // with valid-but-unrelated credentials silently heal it to
-            // ENABLED with no webhooks ever created.
-            await this.integrationRepository.updateIntegrationMessages(
-                integrationRecord.id,
-                'errors',
-                'ON_CREATE Failed',
-                error.message,
-                Date.now()
-            );
-            throw error;
-        }
+        await integrationInstance.send('ON_CREATE', {
+            integrationId: integrationRecord.id,
+        });
 
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }
