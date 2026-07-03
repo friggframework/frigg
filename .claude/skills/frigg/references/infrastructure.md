@@ -50,44 +50,9 @@ Each builder implements:
 
 ## Scheduler
 
-The scheduler builder (`scheduler/scheduler-builder.js`) auto-enables when any integration has `webhooks.enabled = true` (or explicitly via `appDefinition.scheduler.enable = true`). It creates an EventBridge Scheduler ScheduleGroup + an IAM role for EventBridge → SQS, enabling one-time scheduled jobs (e.g., webhook subscription renewals).
+The scheduler builder (`scheduler/scheduler-builder.js`) auto-enables when any integration has `webhooks.enabled = true` (or explicitly via `appDefinition.scheduler.enable = true`). It creates an EventBridge Scheduler `ScheduleGroup` + an IAM role for EventBridge → SQS and exposes `SCHEDULER_ROLE_ARN`, enabling one-time scheduled jobs (e.g., webhook subscription renewals).
 
-Schedule jobs from integration code with the scheduler command API:
-
-```javascript
-const { createSchedulerCommands } = require("@friggframework/core");
-
-const schedulerCommands = createSchedulerCommands({ integrationName: "zoho" });
-
-// Schedule a one-time job
-await schedulerCommands.scheduleJob({
-  jobId: `renewal-${integrationId}-${Date.now()}`,
-  scheduledAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000), // 6 days
-  event: "REFRESH_WEBHOOK",
-  payload: { integrationId, executionId },
-  queueUrl: process.env.ZOHO_QUEUE_URL, // standard Frigg env var
-});
-
-await schedulerCommands.deleteJob(jobId);
-const status = await schedulerCommands.getJobStatus(jobId);
-// status -> { exists: boolean, scheduledAt?: string, state?: string }
-```
-
-Key behaviors:
-- Production uses AWS EventBridge Scheduler; local dev uses an in-memory mock (`SCHEDULER_PROVIDER=mock`, or `STAGE=local` auto-selects it)
-- Schedules auto-delete after execution (`ActionAfterCompletion: DELETE`)
-- SQS ARN is derived internally from the queue URL
-- If the scheduler isn't configured, it logs a warning but doesn't fail (graceful degradation)
-
-```bash
-# Production (auto-detected)
-SCHEDULER_ROLE_ARN=arn:aws:iam::...:role/...   # IAM role for EventBridge
-ZOHO_QUEUE_URL=https://sqs...                  # integration queue URL (Frigg sets this)
-
-# Local development
-SCHEDULER_PROVIDER=mock
-STAGE=local
-```
+For scheduling jobs from integration code (`createSchedulerCommands`: `scheduleJob` / `deleteJob` / `getJobStatus`), the production-vs-mock provider, auto-cleanup, and env vars, see the **frigg-scheduled-jobs** skill.
 
 ## Health Domain
 

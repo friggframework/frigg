@@ -1,13 +1,20 @@
-# API Modules Reference
+---
+name: frigg-api-modules
+description: "Building and authenticating Frigg API modules — the reusable connector packages integrations consume via this.{moduleName}.api.{method}(). Covers module structure, the auth requester base classes (OAuth2Requester, ApiKeyRequester, BasicAuthRequester), the requiredAuthMethods definition, JSON Schema authorization forms for API-key modules, and testing auth flows locally with the frigg auth CLI. Use when creating, modifying, or auth-testing a Frigg api-module (an api-module-* package) — distinct from calling a deployed app's Management API (see the frigg-management-api skill)."
+---
 
-API Modules are reusable connector packages defining how to connect to a third-party system and what APIs are available. Accessed in integrations via `this.{moduleName}.api.{method}()`.
+# Frigg API Modules
 
-## Table of Contents
+API Modules are reusable connector packages defining how to connect to a third-party system and what APIs are available. Integrations consume them via one consistent pattern:
 
-- [Module Structure](#module-structure)
-- [Authentication Requester Base Classes](#authentication-requester-base-classes)
-- [Required Module Structure for Definitions](#required-module-structure-for-definitions)
-- [JSON Schema Form for API-Key Modules](#json-schema-form-for-api-key-modules)
+```javascript
+await this.{moduleName}.api.{method}()
+// e.g. const contacts = await this.hubspot.api.getContacts();
+```
+
+This gives automatic token management, built-in retry/error handling, and a consistent interface across every integration. Do NOT override or wrap api-modules unless explicitly asked — the standard api-module is the source of truth.
+
+To test a module's authentication locally with the `frigg auth` CLI, see **[references/auth-testing.md](references/auth-testing.md)**.
 
 ## Module Structure
 
@@ -15,7 +22,7 @@ API Modules are reusable connector packages defining how to connect to a third-p
 module.exports = {
     moduleName: 'service-name',        // Unique identifier
     API: ServiceAPIClass,              // Main API class
-    requiredAuthMethods: {             // Authentication methods
+    requiredAuthMethods: {             // Authentication methods (see below)
         getToken: function,
         getEntityDetails: function,
         getCredentialDetails: function,
@@ -26,10 +33,6 @@ module.exports = {
     modelName: 'ServiceModel'         // Optional model name
 };
 ```
-
-Why API modules matter: eliminate redundant per-API work, standardize auth/error-handling/data-formats, centralize updates and version management, and provide built-in token refresh, rate limiting, and logging.
-
-> Anti-pattern: do NOT override api-modules or wrap them unless explicitly asked. The standard api-module must remain the source of truth.
 
 ## Authentication Requester Base Classes
 
@@ -71,11 +74,9 @@ class QuoApi extends ApiKeyRequester {
 }
 ```
 
-**Other base classes**:
-- `BasicAuthRequester` — HTTP Basic Authentication
-- `Requester` — base class for custom authentication
+**Other base classes**: `BasicAuthRequester` (HTTP Basic Auth), `Requester` (base class for custom authentication).
 
-## Required Module Structure for Definitions
+## Required Module Definition
 
 For the framework (and the `frigg auth` tester) to work, a module definition must provide:
 
@@ -87,7 +88,7 @@ const Definition = {
   API: Api,                  // extends OAuth2Requester or ApiKeyRequester
   moduleName: "my-module",
   requiredAuthMethods: {
-    // API-Key modules: return JSON Schema form for interactive CLI (see below)
+    // API-Key modules: return a JSON Schema form for the interactive CLI / hosted UI (see below)
     getAuthorizationRequirements: (api) => ({ /* ... */ }),
 
     getToken: async (api, params) => {
@@ -151,6 +152,4 @@ getAuthorizationRequirements: (api) => ({
 });
 ```
 
-Supported UI schema options:
-- `ui:widget: 'password'` — masks input with `*`
-- `ui:help` — help text shown before the field prompt
+Supported UI schema options: `ui:widget: 'password'` (masks input with `*`) and `ui:help` (help text shown before the field prompt).

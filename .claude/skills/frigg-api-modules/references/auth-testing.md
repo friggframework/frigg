@@ -1,6 +1,6 @@
 # Auth Testing Reference (`frigg auth`)
 
-The Frigg Authenticator (`frigg auth`) tests OAuth2 and API-Key auth flows for an API module without deploying infrastructure. Module definition requirements are in [api-modules.md](api-modules.md).
+The Frigg Authenticator (`frigg auth`) tests OAuth2 and API-Key auth flows for an API module without deploying infrastructure. Module definition requirements are in the parent skill (SKILL.md).
 
 ## Table of Contents
 

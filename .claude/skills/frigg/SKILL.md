@@ -1,22 +1,28 @@
 ---
 name: frigg
-description: "Expert guidance on the Frigg integration framework: building serverless integrations, API modules, hexagonal architecture, field-level encryption, AWS infrastructure, the Management API, and the frigg CLI. Use whenever working in a Frigg project or repo (friggframework packages, IntegrationBase, api-module-*, infrastructure.js), creating or debugging integrations, building or authenticating API modules (frigg auth), calling the Management API, running frigg CLI commands (install, start, build, deploy, doctor, repair, ui, generate-iam, auth), or configuring Frigg infrastructure, VPC, scheduler, or encryption. Covers Frigg best practices and anti-patterns."
+description: "Core reference and entry point for the Frigg integration framework: what Frigg is, hexagonal architecture and the golden rule, the integration definition pattern, the frigg CLI (install, start, build, deploy, doctor, repair, ui, generate-iam), AWS infrastructure (domain builders, scheduler, VPC, osls), field-level encryption, the monorepo layout, and anti-patterns. Use when working in a Frigg project or repo (friggframework packages, IntegrationBase, infrastructure.js), understanding Frigg's architecture, configuring infrastructure/VPC/encryption, or running frigg CLI commands. Links to the focused companion skills: frigg-api-modules, frigg-management-api, frigg-user-actions, and frigg-development-best-practices."
 ---
 
 # Frigg Integration Framework Expert
 
 Frigg is an opinionated **integration framework** for building direct/native integrations between software products and external partners. It runs serverless (AWS Lambda) on your own cloud accounts (no vendor lock-in), with the goal of spinning up integrations in minutes and deploying to production in a day.
 
-## References
+This is the **core reference**. For focused tasks, use the companion skills below.
 
-Load the relevant file when the task calls for it — keep this body lean:
+## Related Frigg skills
 
-- **[references/api-modules.md](references/api-modules.md)** — API module structure, auth requester base classes (OAuth2/ApiKey/Basic), required module definition, JSON Schema forms. Read when building or modifying an API module.
-- **[references/auth-testing.md](references/auth-testing.md)** — `frigg auth` CLI: testing OAuth2/API-key flows, what it tests, saved credentials in tests, troubleshooting. Read when authenticating or testing a module.
-- **[references/infrastructure.md](references/infrastructure.md)** — domain builders, infra composer, AWS discovery, scheduler (builder + command API), health domain, VPC, osls, `frigg doctor`/`repair`. Read for deployment/infra/scheduling work.
+- **bootstrap-frigg-integration** — creating an integration from scratch end-to-end (project → modules → integration class → sync → deploy); the runbook that ties the skills below together.
+- **frigg-api-modules** — building and auth-testing API modules (module structure, requester base classes, `requiredAuthMethods`, `frigg auth`).
+- **frigg-management-api** — authenticating to and calling a deployed app's HTTP API (x-frigg headers vs JWT, endpoint reference).
+- **frigg-user-actions** — provisioning an integration and executing actions end-to-end (entities → integration → INITIAL_SYNC).
+- **frigg-extensions** — Tier 3 integration extensions: reusable handler bundles (webhooks/cards/workers) consumed via `Definition.extensions`.
+- **frigg-scheduled-jobs** — one-time deferred jobs via EventBridge Scheduler (`createSchedulerCommands`); webhook renewals, delayed tasks.
+- **frigg-development-best-practices** — developing the framework itself (iteration loop, TDD, canary, command system, Delegate pattern).
+
+### References in this skill
+
+- **[references/infrastructure.md](references/infrastructure.md)** — domain builders, infra composer, AWS discovery, scheduler builder, health domain, VPC, osls, `frigg doctor`/`repair`. Read for deployment/infra work.
 - **[references/security-encryption.md](references/security-encryption.md)** — field-level encryption architecture, env config, encrypted-field registry. Read when handling sensitive data.
-- **[references/management-api.md](references/management-api.md)** — full HTTP endpoint reference for a deployed app (auth, users, health, authorization/entities, integrations, DB migration, OAuth redirect, response codes). Read when calling a running Frigg app.
-- **[references/development.md](references/development.md)** — fast iteration loop, TDD expectations, canary workflow, command system, Delegate pattern, debugging. Read when developing the framework itself.
 
 ## Architecture
 
@@ -39,20 +45,9 @@ Layer responsibilities:
 - **Use Cases** — contain business logic and validation; orchestrate repository calls; use dependency injection; avoid "god" use cases; never touch the DB directly or handle HTTP.
 - **Handlers/Adapters** — call use cases; HTTP concerns only; map domain errors to HTTP errors; stay thin (<50 lines).
 
-## API Modules
-
-API Modules are reusable connector packages defining how to connect to a third-party system. In an integration they are accessed through one consistent pattern:
-
-```javascript
-await this.{moduleName}.api.{method}()
-// e.g.
-const contacts = await this.hubspot.api.getContacts();
-await this.salesforce.api.createLeads(contacts);
-```
-
-This gives automatic token management, built-in retry/error handling, and a consistent interface across every integration. For module structure, auth base classes, and how to build one, see [references/api-modules.md](references/api-modules.md).
-
 ## Integration Pattern
+
+API Modules are reusable connectors accessed via `await this.{moduleName}.api.{method}()` (automatic token management + retry/error handling). To build or auth-test a module, use the **frigg-api-modules** skill.
 
 ```javascript
 const { IntegrationBase } = require("@friggframework/core");
@@ -106,7 +101,7 @@ frigg doctor [stackName]     # health check on a deployed CF stack
 frigg repair <stackName>     # fix drift / import orphaned resources
 frigg generate-iam           # generate deployment IAM CloudFormation stack
 
-# Auth testing (see references/auth-testing.md)
+# Auth testing (see the frigg-api-modules skill)
 frigg auth test <module>     # test a module's OAuth2 / API-key flow
 
 # Management UI — dev mode serves the Vite frontend at http://localhost:5173
