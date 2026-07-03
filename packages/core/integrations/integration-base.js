@@ -352,7 +352,7 @@ class IntegrationBase {
      * @param {boolean} authPassed - The result of testAuth().
      */
     async reconcileAuthStatus(authPassed) {
-        if (!authPassed) {
+        if (!authPassed && this.status !== 'PROCESSING') {
             console.log(
                 `[Frigg] Integration ${this.id} failed to authenticate`
             );
@@ -743,7 +743,11 @@ class IntegrationBase {
      * something integration-level needs attention. Today this catches the
      * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
      * and flips this integration's status to ERROR so the queue worker
-     * stops processing further webhooks until the user re-authorizes.
+     * stops processing further webhooks until the user re-authorizes — unless
+     * the row is still PROCESSING (initial setup hasn't completed), in which
+     * case it's left alone: ERROR is the status this class's own auth-confirmed
+     * heal clears back to ENABLED, and doing that before setup ever ran would
+     * produce an integration that looks healthy but has no webhooks.
      *
      * Modules are wired to this delegate in `_appendModules()`, which runs
      * during `setIntegrationRecord()` — this covers every construction path
@@ -761,6 +765,12 @@ class IntegrationBase {
         if (!this.id) return;
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            if (this.status === 'PROCESSING') {
+                console.log(
+                    `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} during initial setup — leaving PROCESSING`
+                );
+                return;
+            }
             console.log(
                 `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
             );

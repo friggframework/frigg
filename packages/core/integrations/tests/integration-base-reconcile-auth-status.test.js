@@ -62,4 +62,18 @@ describe('IntegrationBase.reconcileAuthStatus', () => {
             expect(integration.status).toBe(status);
         }
     );
+
+    it('leaves PROCESSING untouched when auth fails, instead of marking ERROR', async () => {
+        // A row that never completed creation is PROCESSING, not ERROR,
+        // specifically so this method's own heal (authPassed && ERROR ->
+        // ENABLED) can never fire for it. Demoting PROCESSING to ERROR here
+        // would reopen that exact hole on the next retry with valid auth:
+        // ERROR heals to ENABLED even though setup never ran.
+        integration.status = 'PROCESSING';
+
+        await integration.reconcileAuthStatus(false);
+
+        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+        expect(integration.status).toBe('PROCESSING');
+    });
 });

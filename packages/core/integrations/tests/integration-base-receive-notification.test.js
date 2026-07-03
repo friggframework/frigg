@@ -59,6 +59,25 @@ describe('IntegrationBase.receiveNotification', () => {
         expect(integration.status).toBe('ERROR');
     });
 
+    it('leaves PROCESSING untouched when a module reports CREDENTIAL_INVALIDATED during initial setup', async () => {
+        // A 401 from a not-yet-propagated API key while ON_CREATE is still
+        // running fires this same delegate. Flipping PROCESSING to ERROR
+        // here would reopen the false-heal hole on the next retry: ERROR
+        // clears to ENABLED once auth is confirmed good, even though setup
+        // never ran to completion.
+        integration.status = 'PROCESSING';
+        const mockNotifier = { name: 'testmodule' };
+
+        await integration.receiveNotification(
+            mockNotifier,
+            'CREDENTIAL_INVALIDATED',
+            { credentialId: 'cred-1', moduleName: 'testmodule' }
+        );
+
+        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+        expect(integration.status).toBe('PROCESSING');
+    });
+
     describe('CREDENTIAL_VALIDATED self-heal', () => {
         const validatedPayload = {
             credentialId: 'cred-1',
