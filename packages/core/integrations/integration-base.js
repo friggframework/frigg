@@ -744,8 +744,8 @@ class IntegrationBase {
      * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
      * and flips this integration's status to ERROR so the queue worker
      * stops processing further webhooks until the user re-authorizes — unless
-     * the row is still PROCESSING (initial setup hasn't completed), in which
-     * case it's left alone: ERROR is the status this class's own auth-confirmed
+     * the integration is still PROCESSING (initial setup hasn't completed), in
+     * which case it's left alone: ERROR is the status this class's own auth-confirmed
      * heal clears back to ENABLED, and doing that before setup ever ran would
      * produce an integration that looks healthy but has no webhooks.
      *
