@@ -28,7 +28,7 @@ describe('IntegrationBase.validateConfig', () => {
         integration.updateIntegrationMessages = mockUpdateIntegrationMessages;
     });
 
-    it('returns false and changes nothing when no fields are required', async () => {
+    it('enables an IN_CREATION integration when no fields are required', async () => {
         integration.getConfigOptions = jest.fn().mockResolvedValue({
             jsonSchema: {
                 type: 'object',
@@ -40,12 +40,15 @@ describe('IntegrationBase.validateConfig', () => {
         const needsConfig = await integration.validateConfig();
 
         expect(needsConfig).toBe(false);
-        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
         expect(mockUpdateIntegrationMessages.execute).not.toHaveBeenCalled();
-        expect(integration.status).toBe('IN_CREATION');
+        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
+            'int-1',
+            'ENABLED'
+        );
+        expect(integration.status).toBe('ENABLED');
     });
 
-    it('returns false when every required field is present', async () => {
+    it('enables an IN_CREATION integration when every required field is present', async () => {
         integration.config = { apiKey: 'abc' };
         integration.getConfigOptions = jest.fn().mockResolvedValue({
             jsonSchema: {
@@ -59,9 +62,51 @@ describe('IntegrationBase.validateConfig', () => {
         const needsConfig = await integration.validateConfig();
 
         expect(needsConfig).toBe(false);
-        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
-        expect(integration.status).toBe('IN_CREATION');
+        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
+            'int-1',
+            'ENABLED'
+        );
+        expect(integration.status).toBe('ENABLED');
     });
+
+    it('enables a NEEDS_CONFIG integration once nothing required is missing', async () => {
+        integration.status = 'NEEDS_CONFIG';
+        integration.config = { apiKey: 'abc' };
+        integration.getConfigOptions = jest.fn().mockResolvedValue({
+            jsonSchema: {
+                type: 'object',
+                required: ['apiKey'],
+                properties: { apiKey: { type: 'string', title: 'API Key' } },
+            },
+            uiSchema: {},
+        });
+
+        const needsConfig = await integration.validateConfig();
+
+        expect(needsConfig).toBe(false);
+        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
+            'int-1',
+            'ENABLED'
+        );
+        expect(integration.status).toBe('ENABLED');
+    });
+
+    it.each(['DISABLED', 'ERROR', 'IN_DELETION', 'ENABLED'])(
+        'does not touch a %s integration when nothing is missing',
+        async (status) => {
+            integration.status = status;
+            integration.getConfigOptions = jest.fn().mockResolvedValue({
+                jsonSchema: { type: 'object', properties: {} },
+                uiSchema: {},
+            });
+
+            const needsConfig = await integration.validateConfig();
+
+            expect(needsConfig).toBe(false);
+            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+            expect(integration.status).toBe(status);
+        }
+    );
 
     it('moves to NEEDS_CONFIG and records a warning when a required field is missing', async () => {
         integration.config = {};
