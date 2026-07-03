@@ -191,7 +191,7 @@ const createQueueWorker = (integrationClass) => {
                         integrationStatus: integrationInstance?.status,
                         hydratedIntegrationId: integrationInstance?.id,
                     });
-                    if (['DISABLED', 'ERROR'].includes(integrationInstance?.status)) {
+                    if (['DISABLED', 'ERROR', 'IN_DELETION'].includes(integrationInstance?.status)) {
                         console.warn(
                             `[${integrationName}] Integration for process ${params.data.processId} is ${integrationInstance.status}. Discarding ${params.event} message.`
                         );
@@ -215,7 +215,7 @@ const createQueueWorker = (integrationClass) => {
                         ...logCtx,
                         integrationStatus: integrationInstance?.status,
                     });
-                    if (['DISABLED', 'ERROR'].includes(integrationInstance.status)) {
+                    if (['DISABLED', 'ERROR', 'IN_DELETION'].includes(integrationInstance.status)) {
                         console.warn(
                             `[${integrationName}] Integration ${params.data.integrationId} is ${integrationInstance.status}. Discarding ${params.event} message.`
                         );

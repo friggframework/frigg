@@ -11,6 +11,12 @@ const {
 const {
     UpdateIntegrationMessages,
 } = require('./use-cases/update-integration-messages');
+const {
+    PatchIntegrationConfig,
+} = require('./use-cases/patch-integration-config');
+const {
+    UpdateIntegrationConfig,
+} = require('./use-cases/update-integration-config');
 const { validateExtensionBinding } = require('./extension');
 
 const constantsToBeMigrated = {
@@ -41,6 +47,12 @@ class IntegrationBase {
         integrationRepository: this.integrationRepository,
     });
     updateIntegrationMessages = new UpdateIntegrationMessages({
+        integrationRepository: this.integrationRepository,
+    });
+    patchIntegrationConfig = new PatchIntegrationConfig({
+        integrationRepository: this.integrationRepository,
+    });
+    updateIntegrationConfig = new UpdateIntegrationConfig({
         integrationRepository: this.integrationRepository,
     });
 
@@ -266,33 +278,36 @@ class IntegrationBase {
         return modules;
     }
 
+    /**
+     * Check the current config against the required fields declared by
+     * `getConfigOptions()`. Config options use the react-jsonschema-form shape,
+     * so the required top-level keys live in `jsonSchema.required`. Records a
+     * warning for each missing field. Does not change integration status —
+     * the caller decides the consequence (see `onCreate`/`onUpdate`), the same
+     * separation `testAuth`/`reconcileAuthStatus` use for the auth axis.
+     * @returns {Promise<boolean>} True when a required field is missing.
+     */
     async validateConfig() {
-        const configOptions = await this.getConfigOptions();
-        const currentConfig = this.getConfig();
+        const { jsonSchema } = await this.getConfigOptions();
+        const currentConfig = this.getConfig() || {};
+        const requiredKeys = Array.isArray(jsonSchema?.required)
+            ? jsonSchema.required
+            : [];
         let needsConfig = false;
-        for (const option of configOptions) {
-            if (option.required) {
-                // For now, just make sure the key exists. We should add more dynamic/better validation later.
-                if (
-                    !Object.prototype.hasOwnProperty.call(
-                        currentConfig,
-                        option.key
-                    )
-                ) {
-                    needsConfig = true;
-                    await this.updateIntegrationMessages.execute(
-                        this.id,
-                        'warnings',
-                        'Config Validation Error',
-                        `Missing required field of ${option.label}`,
-                        Date.now()
-                    );
-                }
+        for (const key of requiredKeys) {
+            if (!Object.prototype.hasOwnProperty.call(currentConfig, key)) {
+                needsConfig = true;
+                const label = jsonSchema?.properties?.[key]?.title || key;
+                await this.updateIntegrationMessages.execute(
+                    this.id,
+                    'warnings',
+                    'Config Validation Error',
+                    `Missing required field of ${label}`,
+                    Date.now()
+                );
             }
         }
-        if (needsConfig) {
-            await this.updateIntegrationStatus.execute(this.id, 'NEEDS_CONFIG');
-        }
+        return needsConfig;
     }
 
     /**
@@ -377,12 +392,39 @@ class IntegrationBase {
     /**
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
-    async onCreate({ integrationId }) {
-        await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
+    /**
+     * Default post-create lifecycle hook. The integration is born IN_CREATION;
+     * moved to NEEDS_CONFIG when validateConfig finds a required field
+     * missing, otherwise enabled. If this hook throws, the integration is
+     * left IN_CREATION — a visibly incomplete create rather than a healthy
+     * looking one. Children can override to run their own setup (and then own
+     * their status transition, calling `super.onCreate()` to keep this default).
+     */
+    async onCreate() {
+        const needsConfig = await this.validateConfig();
+        await this.persistStatus(needsConfig ? 'NEEDS_CONFIG' : 'ENABLED');
     }
 
+    /**
+     * Default post-update lifecycle hook: merges any submitted config in as a
+     * patch, then re-validates. A NEEDS_CONFIG integration moves to ENABLED
+     * once nothing required is missing — other statuses (DISABLED, ERROR,
+     * IN_CREATION, IN_DELETION) are left alone; a config edit shouldn't
+     * silently un-pause or auto-heal those. Children can override to run
+     * their own update logic.
+     * @param {Object} [params]
+     * @param {Object} [params.config] - Keys to merge into the existing config.
+     */
     async onUpdate(params) {
-        return this.validateConfig();
+        if (params?.config) {
+            await this.patchConfig(params.config);
+        }
+        const needsConfig = await this.validateConfig();
+        if (needsConfig) {
+            await this.persistStatus('NEEDS_CONFIG');
+        } else if (this.status === 'NEEDS_CONFIG') {
+            await this.persistStatus('ENABLED');
+        }
     }
 
     async onDelete(params) {}
@@ -543,6 +585,36 @@ class IntegrationBase {
         await this.updateIntegrationStatus.execute(this.id, status);
         this.status = status;
         console.log(`[Frigg] Integration ${this.id} status changed to ${status}`);
+    }
+
+    /**
+     * Merge a partial update into config and keep the in-memory field in
+     * sync with what was actually persisted — not a local `{...this.config,
+     * ...patch}` guess, which would silently drop keys a concurrent writer
+     * already landed. Throws if the merge fails.
+     * @param {Object} patch - Keys to merge into the existing config.
+     */
+    async patchConfig(patch) {
+        const updated = await this.patchIntegrationConfig.execute(
+            this.id,
+            patch
+        );
+        this.config = updated.config;
+        return this.config;
+    }
+
+    /**
+     * Replace config entirely and keep the in-memory field in sync. Keys
+     * omitted from the new config are deleted. Throws if the write fails.
+     * @param {Object} config - The new configuration object.
+     */
+    async updateConfig(config) {
+        const updated = await this.updateIntegrationConfig.execute(
+            this.id,
+            config
+        );
+        this.config = updated.config;
+        return this.config;
     }
 
     isActive() {

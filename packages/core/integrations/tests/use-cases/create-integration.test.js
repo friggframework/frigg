@@ -61,7 +61,7 @@ describe('CreateIntegration Use-Case', () => {
             expect(dto.config).toEqual(config);
             expect(dto.userId).toBe(userId);
             expect(dto.entities).toEqual(entities);
-            expect(dto.status).toBe('NEW');
+            expect(dto.status).toBe('IN_CREATION');
         });
 
         it('triggers ON_CREATE event with correct payload', async () => {
@@ -190,6 +190,34 @@ describe('CreateIntegration Use-Case', () => {
                 userId
             );
             expect(stored).toHaveLength(1);
+        });
+
+        it("persists the caller's changed config on reuse while keeping keys added during the original create", async () => {
+            const entities = ['entity-1'];
+            const userId = 'user-reuse-config-1';
+
+            const created = await createIntegration.execute(entities, userId, {
+                type: 'dummy',
+                setting: 'old',
+            });
+            // A key the original create added (e.g. a webhook id) that the
+            // reconnect payload doesn't carry — it must survive the merge.
+            const record = await integrationRepository.findIntegrationById(
+                created.id
+            );
+            record.config.webhookId = 'wh_stored';
+
+            const reused = await createIntegration.execute(entities, userId, {
+                type: 'dummy',
+                setting: 'new',
+            });
+
+            expect(reused.id).toBe(created.id);
+            expect(reused.config).toEqual({
+                type: 'dummy',
+                setting: 'new',
+                webhookId: 'wh_stored',
+            });
         });
 
         it('runs testAuth on the reused integration so stale credentials surface', async () => {
@@ -521,6 +549,85 @@ describe('CreateIntegration Use-Case', () => {
 
             expect(reused.id).toBe(created.id);
             expect(reused.status).toBe('ERROR');
+        });
+
+        it('does not reuse a row stuck IN_DELETION — creates a fresh integration instead', async () => {
+            const entities = ['entity-1'];
+            const userId = 'user-zombie-1';
+            const config = { type: 'dummy' };
+
+            const created = await createIntegration.execute(
+                entities,
+                userId,
+                config
+            );
+            const record = await integrationRepository.findIntegrationById(
+                created.id
+            );
+            record.status = 'IN_DELETION';
+
+            const fresh = await createIntegration.execute(
+                entities,
+                userId,
+                config
+            );
+
+            expect(fresh.id).not.toBe(created.id);
+            expect(fresh.status).not.toBe('IN_DELETION');
+        });
+
+        it('reuses an IN_CREATION row without re-running setup, leaving status alone when auth still passes', async () => {
+            const sendEvents = [];
+            class SendTrackingIntegration extends DummyIntegration {
+                testAuth() {
+                    return IntegrationBase.prototype.testAuth.call(this);
+                }
+                async send(event, data) {
+                    sendEvents.push(event);
+                    return super.send(event, data);
+                }
+            }
+            class HealingModuleFactory {
+                async getModuleInstance(entityId, userId) {
+                    return {
+                        getName: () => 'dummy',
+                        api: {},
+                        entityId,
+                        userId,
+                        testAuth: jest.fn().mockResolvedValue(true),
+                    };
+                }
+            }
+            const createIntegrationWithSendTracking = new CreateIntegration({
+                integrationRepository,
+                integrationClasses: [SendTrackingIntegration],
+                moduleFactory: new HealingModuleFactory(),
+            });
+            const entities = ['entity-1'];
+            const userId = 'user-stuck-1';
+            const config = { type: 'dummy' };
+
+            const created = await createIntegrationWithSendTracking.execute(
+                entities,
+                userId,
+                config
+            );
+            const record = await integrationRepository.findIntegrationById(
+                created.id
+            );
+            record.status = 'IN_CREATION';
+
+            const reused = await createIntegrationWithSendTracking.execute(
+                entities,
+                userId,
+                config
+            );
+
+            expect(reused.id).toBe(created.id);
+            expect(reused.status).toBe('IN_CREATION');
+            expect(
+                sendEvents.filter((event) => event === 'ON_CREATE')
+            ).toHaveLength(1);
         });
     });
 

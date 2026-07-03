@@ -6,10 +6,12 @@ const SERVICE = 'frigg-core-api';
 // Seeded so every known status appears (even at 0); unknown values added to
 // the schema later are still counted dynamically.
 const KNOWN_STATUSES = [
+    'IN_CREATION',
     'ENABLED',
     'ERROR',
     'NEEDS_CONFIG',
     'PROCESSING',
+    'IN_DELETION',
     'DISABLED',
 ];
 

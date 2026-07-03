@@ -148,4 +148,38 @@ describe('createQueueWorker — integration deleted mid-flight', () => {
             )
         ).rejects.toBe(boom);
     });
+
+    it('discards the message when the integration is IN_DELETION (teardown in progress)', async () => {
+        const findIntegrationById = jest
+            .fn()
+            .mockResolvedValue({ id: '19306', userId: 'u1' });
+        createIntegrationRepository.mockReturnValue({ findIntegrationById });
+
+        GetIntegrationInstance.mockImplementation(() => ({
+            execute: jest
+                .fn()
+                .mockResolvedValue({ id: '19306', status: 'IN_DELETION' }),
+        }));
+        const dispatchJob = jest.fn().mockResolvedValue(undefined);
+        IntegrationEventDispatcher.mockImplementation(() => ({ dispatchJob }));
+
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        jest.spyOn(console, 'error').mockImplementation();
+        jest.spyOn(console, 'log').mockImplementation();
+
+        const QueueWorker = createQueueWorker(FakeIntegration);
+        const worker = new QueueWorker();
+
+        await expect(
+            worker._run(
+                { event: 'ON_WEBHOOK', data: { integrationId: '19306' } },
+                {}
+            )
+        ).resolves.toBeUndefined();
+
+        expect(dispatchJob).not.toHaveBeenCalled();
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Discarding')
+        );
+    });
 });

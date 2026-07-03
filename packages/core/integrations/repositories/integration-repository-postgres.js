@@ -2,6 +2,7 @@ const { prisma } = require('../../database/prisma');
 const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
+const { validateConfigPatch } = require('./config-patch-shared');
 
 /**
  * PostgreSQL Integration Repository Adapter
@@ -347,6 +348,32 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
             status: converted.status,
             messages: converted.messages,
         };
+    }
+
+    /**
+     * Atomically merge a patch into the existing config with a single
+     * jsonb concatenation — the database does the merge, so there is no
+     * JS-side read-modify-write for concurrent callers to race on.
+     *
+     * @param {string} integrationId - Integration ID (string from application layer)
+     * @param {Object} patch - Keys to merge into the existing config
+     * @returns {Promise<Object>} Updated integration object with string IDs
+     */
+    async patchIntegrationConfig(integrationId, patch) {
+        validateConfigPatch(patch);
+
+        const intId = this._convertId(integrationId);
+        const affectedCount = await this.prisma.$executeRawUnsafe(
+            'UPDATE "Integration" SET "config" = COALESCE("config", \'{}\'::jsonb) || $1::jsonb, "updatedAt" = NOW() WHERE "id" = $2',
+            JSON.stringify(patch),
+            intId
+        );
+
+        if (!affectedCount) {
+            throw new Error(`Integration with id ${integrationId} not found`);
+        }
+
+        return this.findIntegrationById(integrationId);
     }
 
     /**

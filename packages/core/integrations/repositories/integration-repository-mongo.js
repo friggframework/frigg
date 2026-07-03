@@ -2,6 +2,7 @@ const { prisma } = require('../../database/prisma');
 const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
+const { validateConfigPatch } = require('./config-patch-shared');
 
 /**
  * MongoDB Integration Repository Adapter
@@ -324,6 +325,52 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             version: integration.version,
             status: integration.status,
             messages: integration.messages,
+        };
+    }
+
+    /**
+     * Atomically merge a patch into the existing config via findAndModify,
+     * so the write and the post-write read happen in one server-side round
+     * trip with no JS-side read-modify-write to race on. entityIds is a
+     * scalar array directly on the Integration document in Mongo, so the
+     * raw document already carries everything needed to shape the return
+     * value — no follow-up findUnique.
+     *
+     * @param {string} integrationId - Integration ID
+     * @param {Object} patch - Keys to merge into the existing config
+     * @returns {Promise<Object>} Updated integration object
+     */
+    async patchIntegrationConfig(integrationId, patch) {
+        validateConfigPatch(patch);
+
+        const $set = {};
+        for (const [key, value] of Object.entries(patch)) {
+            $set[`config.${key}`] = value;
+        }
+        $set.updatedAt = new Date();
+
+        const result = await this.prisma.$runCommandRaw({
+            findAndModify: 'Integration',
+            query: { _id: { $oid: integrationId } },
+            update: { $set },
+            new: true,
+        });
+
+        const doc = result && result.value;
+        if (!doc) {
+            throw new Error(`Integration with id ${integrationId} not found`);
+        }
+
+        return {
+            id: doc._id.$oid ?? doc._id,
+            entitiesIds: (doc.entityIds || []).map(
+                (entityId) => entityId.$oid ?? entityId
+            ),
+            userId: doc.userId?.$oid ?? doc.userId ?? null,
+            config: doc.config,
+            version: doc.version,
+            status: doc.status,
+            messages: doc.messages,
         };
     }
 }

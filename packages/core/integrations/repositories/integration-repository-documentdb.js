@@ -12,6 +12,7 @@ const {
 const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
+const { validateConfigPatch } = require('./config-patch-shared');
 
 class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     constructor() {
@@ -124,7 +125,7 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             userId: toObjectId(userId) || null,
             config,
             version: '0.0.0',
-            status: 'ENABLED',
+            status: 'IN_CREATION',
             entityIds: toObjectIdArray(entities),
             messages: { errors: [], warnings: [], info: [], logs: [] },
             errors: [],
@@ -181,6 +182,57 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             console.error('[IntegrationRepositoryDocumentDB] Integration not found after update', {
                 integrationId: fromObjectId(objectId),
                 config,
+            });
+            throw new Error(
+                'Failed to update integration: Document not found after update. ' +
+                'This indicates a database consistency issue.'
+            );
+        }
+        return this._mapIntegration(updated);
+    }
+
+    /**
+     * Atomically merge a patch into the existing config with a per-key
+     * $set (config.<k> for each patch key), then re-read to shape the
+     * return value — DocumentDB's raw update command doesn't return the
+     * post-update document directly.
+     *
+     * @param {string} integrationId - Integration ID
+     * @param {Object} patch - Keys to merge into the existing config
+     * @returns {Promise<Object>} Updated integration object
+     */
+    async patchIntegrationConfig(integrationId, patch) {
+        validateConfigPatch(patch);
+        const objectId = toObjectId(integrationId);
+        if (!objectId) {
+            throw new Error(`Integration with id ${integrationId} not found`);
+        }
+
+        const $set = { updatedAt: new Date() };
+        for (const [key, value] of Object.entries(patch)) {
+            $set[`config.${key}`] = value;
+        }
+
+        const result = await updateOne(
+            this.prisma,
+            'Integration',
+            { _id: objectId },
+            { $set }
+        );
+        if (result.writeErrors?.length) {
+            throw new Error(
+                `Failed to patch integration config: ${result.writeErrors[0].errmsg}`
+            );
+        }
+        if (!result.n) {
+            throw new Error(`Integration with id ${integrationId} not found`);
+        }
+
+        const updated = await findOne(this.prisma, 'Integration', { _id: objectId });
+        if (!updated) {
+            console.error('[IntegrationRepositoryDocumentDB] Integration not found after update', {
+                integrationId: fromObjectId(objectId),
+                patch,
             });
             throw new Error(
                 'Failed to update integration: Document not found after update. ' +

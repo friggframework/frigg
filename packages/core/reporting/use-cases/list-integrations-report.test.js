@@ -82,6 +82,8 @@ describe('ListIntegrationsReport', () => {
             ERROR: 1,
             NEEDS_CONFIG: 0,
             PROCESSING: 0,
+            IN_CREATION: 0,
+            IN_DELETION: 0,
             DISABLED: 0,
         });
 
@@ -92,6 +94,8 @@ describe('ListIntegrationsReport', () => {
             ERROR: 1,
             NEEDS_CONFIG: 0,
             PROCESSING: 0,
+            IN_CREATION: 0,
+            IN_DELETION: 0,
             DISABLED: 0,
         });
 
@@ -197,6 +201,8 @@ describe('ListIntegrationsReport', () => {
             ERROR: 1,
             NEEDS_CONFIG: 0,
             PROCESSING: 0,
+            IN_CREATION: 0,
+            IN_DELETION: 0,
             DISABLED: 0,
         });
     });

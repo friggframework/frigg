@@ -1,4 +1,5 @@
 const { v4: uuid } = require('uuid');
+const { validateConfigPatch } = require('../../repositories/config-patch-shared');
 
 class TestIntegrationRepository {
     constructor() {
@@ -15,7 +16,7 @@ class TestIntegrationRepository {
             userId: userId,
             config,
             version: '0.0.0',
-            status: 'NEW',
+            status: 'IN_CREATION',
             messages: {},
             createdAt: new Date(),
         };
@@ -73,6 +74,9 @@ class TestIntegrationRepository {
     }
 
     async updateIntegrationConfig(id, config) {
+        if (config === null || config === undefined) {
+            throw new Error('Config parameter is required');
+        }
         const rec = this.store.get(id);
         if (!rec) {
             this.operationHistory.push({ operation: 'updateConfig', id, success: false });
@@ -80,6 +84,24 @@ class TestIntegrationRepository {
         }
         rec.config = config;
         this.operationHistory.push({ operation: 'updateConfig', id, success: true });
+        return rec;
+    }
+
+    async patchIntegrationConfig(id, patch) {
+        validateConfigPatch(patch);
+        if (!this.store.has(id)) {
+            this.operationHistory.push({ operation: 'patchConfig', id, success: false });
+            throw new Error(`Integration with id ${id} not found`);
+        }
+        // Simulates the DB round trip real adapters make: the merge reads
+        // the record fresh at write time rather than off a snapshot taken
+        // before the await, so concurrent patches to the same id can't lose
+        // each other's keys — same guarantee as `config || $1::jsonb` in
+        // postgres or a mongo/documentdb findAndModify.
+        await Promise.resolve();
+        const rec = this.store.get(id);
+        rec.config = { ...rec.config, ...patch };
+        this.operationHistory.push({ operation: 'patchConfig', id, success: true });
         return rec;
     }
 
