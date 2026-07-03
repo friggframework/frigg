@@ -97,7 +97,7 @@ describe('DeleteIntegrationForUser Use-Case', () => {
                 .toThrow(`Integration ${record.id} does not belong to User different-user`);
         });
 
-        it('throws error when integration class not found', async () => {
+        it('best-effort deletes the row when no registered class matches the type (avoids a permanently undeletable row)', async () => {
             const useCaseWithoutClasses = new DeleteIntegrationForUser({
                 integrationRepository,
                 integrationClasses: [],
@@ -106,8 +106,11 @@ describe('DeleteIntegrationForUser Use-Case', () => {
             const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'dummy' });
 
             await expect(useCaseWithoutClasses.execute(record.id, 'user-1'))
-                .rejects
-                .toThrow();
+                .resolves
+                .toBeUndefined();
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).toBeNull();
         });
 
         it('tracks failed delete operation for non-existent integration', async () => {
@@ -220,6 +223,63 @@ describe('DeleteIntegrationForUser Use-Case', () => {
                 expect.stringContaining('webhook deregistration failed'),
                 expect.any(Number)
             );
+        });
+    });
+
+    describe('undeletable-row guard (malformed / unregistered config)', () => {
+        it('best-effort deletes the row when config is null (no TypeError, no permanent 500)', async () => {
+            const record = await integrationRepository.createIntegration(['e1'], 'user-1', null);
+
+            await expect(useCase.execute(record.id, 'user-1'))
+                .resolves
+                .toBeUndefined();
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).toBeNull();
+        });
+
+        it('best-effort deletes the row when config.type is unregistered', async () => {
+            const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'decommissioned-type' });
+
+            await expect(useCase.execute(record.id, 'user-1'))
+                .resolves
+                .toBeUndefined();
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).toBeNull();
+        });
+
+        it('best-effort deletes the row when config is present but has no type', async () => {
+            const record = await integrationRepository.createIntegration(['e1'], 'user-1', { settings: { foo: 'bar' } });
+
+            await expect(useCase.execute(record.id, 'user-1'))
+                .resolves
+                .toBeUndefined();
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).toBeNull();
+        });
+
+        it('best-effort deletes the row when config.type is an empty string', async () => {
+            const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: '' });
+
+            await expect(useCase.execute(record.id, 'user-1'))
+                .resolves
+                .toBeUndefined();
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).toBeNull();
+        });
+
+        it('still enforces ownership before the best-effort path (null config, wrong user)', async () => {
+            const record = await integrationRepository.createIntegration(['e1'], 'user-1', null);
+
+            await expect(useCase.execute(record.id, 'different-user'))
+                .rejects
+                .toThrow(`Integration ${record.id} does not belong to User different-user`);
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).not.toBeNull();
         });
     });
 

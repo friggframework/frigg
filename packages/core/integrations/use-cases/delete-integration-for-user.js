@@ -27,7 +27,10 @@ class DeleteIntegrationForUser {
      * @async
      * @param {string} integrationId - ID of the integration to delete.
      * @param {string} userId - ID of the user requesting the deletion.
-     * @returns {Promise<void>} Resolves when the integration is successfully deleted.
+     * @returns {Promise<void>} Resolves when the integration is deleted. If the
+     *   record's config.type is missing or maps to no registered integration
+     *   class, the record is deleted best-effort WITHOUT running ON_DELETE
+     *   teardown (any external webhooks may need manual cleanup).
      * @throws {Boom.notFound} When integration with the specified ID does not exist.
      * @throws {Error} When the integration doesn't belong to the specified user.
      */
@@ -41,16 +44,37 @@ class DeleteIntegrationForUser {
             );
         }
 
-        const integrationClass = this.integrationClasses.find(
-            (integrationClass) =>
-                integrationClass.Definition.name ===
-                integrationRecord.config.type
-        );
-
+        // Ownership is independent of config shape — enforce it first so a row
+        // with a malformed or unregistered config still cannot be deleted by
+        // the wrong user.
         if (integrationRecord.userId !== userId) {
             throw new Error(
                 `Integration ${integrationId} does not belong to User ${userId}`
             );
+        }
+
+        const integrationType = integrationRecord.config?.type;
+        const integrationClass = integrationType
+            ? this.integrationClasses.find(
+                  (integrationClass) =>
+                      integrationClass.Definition.name === integrationType
+              )
+            : undefined;
+
+        // Without a registered class we cannot instantiate the integration to
+        // run ON_DELETE teardown. Rather than throw and leave the row
+        // permanently undeletable (a null or decommissioned config.type used to
+        // TypeError here and return a 500 forever), delete the record
+        // best-effort and log loudly so any external webhooks it still owns get
+        // cleaned up out of band.
+        if (!integrationClass) {
+            console.error(
+                `[Integration Deletion] No registered integration class for type ${JSON.stringify(
+                    integrationType
+                )} (integration ${integrationId}). Deleting the record WITHOUT teardown — any external webhooks may require manual cleanup.`
+            );
+            await this.integrationRepository.deleteIntegrationById(integrationId);
+            return;
         }
 
         // Load modules with API clients for webhook deletion
