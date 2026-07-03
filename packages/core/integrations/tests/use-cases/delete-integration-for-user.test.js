@@ -105,6 +105,32 @@ describe('DeleteIntegrationForUser Use-Case', () => {
         });
     });
 
+    describe('resilience to onDelete failures', () => {
+        it('deletes the integration row even when onDelete throws', async () => {
+            class ThrowingOnDeleteIntegration extends DummyIntegration {
+                static Definition = {
+                    ...DummyIntegration.Definition,
+                    name: 'throwing-on-delete',
+                };
+
+                async onDelete(params) {
+                    throw new Error('webhook deregistration failed');
+                }
+            }
+
+            const useCaseWithThrowingIntegration = new DeleteIntegrationForUser({
+                integrationRepository,
+                integrationClasses: [ThrowingOnDeleteIntegration],
+            });
+            const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'throwing-on-delete' });
+
+            await useCaseWithThrowingIntegration.execute(record.id, 'user-1');
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).toBeNull();
+        });
+    });
+
     describe('edge cases', () => {
         it('handles deletion of already deleted integration', async () => {
             const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'dummy' });
