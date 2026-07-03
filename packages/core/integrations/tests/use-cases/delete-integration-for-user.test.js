@@ -129,6 +129,30 @@ describe('DeleteIntegrationForUser Use-Case', () => {
             const found = await integrationRepository.findIntegrationById(record.id);
             expect(found).toBeNull();
         });
+
+        it('deletes the integration row even when onDelete rejects with a non-Error value', async () => {
+            class NullRejectingOnDeleteIntegration extends DummyIntegration {
+                static Definition = {
+                    ...DummyIntegration.Definition,
+                    name: 'null-rejecting-on-delete',
+                };
+
+                async onDelete(params) {
+                    throw null;
+                }
+            }
+
+            const useCaseWithNullRejectingIntegration = new DeleteIntegrationForUser({
+                integrationRepository,
+                integrationClasses: [NullRejectingOnDeleteIntegration],
+            });
+            const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'null-rejecting-on-delete' });
+
+            await useCaseWithNullRejectingIntegration.execute(record.id, 'user-1');
+
+            const found = await integrationRepository.findIntegrationById(record.id);
+            expect(found).toBeNull();
+        });
     });
 
     describe('edge cases', () => {
