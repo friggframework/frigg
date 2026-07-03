@@ -92,7 +92,16 @@ class DeleteIntegrationForUser {
 
         // Complete async initialization (load dynamic actions, register handlers)
         await integrationInstance.initialize();
-        await integrationInstance.send('ON_DELETE');
+
+        try {
+            await integrationInstance.send('ON_DELETE');
+        } catch (error) {
+            const reason = error?.message ?? String(error);
+            console.error(
+                `[Integration Deletion] onDelete failed for integration ${integrationId}, continuing with deletion:`,
+                reason
+            );
+        }
 
         await this.integrationRepository.deleteIntegrationById(integrationId);
     }
