@@ -28,7 +28,7 @@ describe('IntegrationBase.validateConfig', () => {
         integration.updateIntegrationMessages = mockUpdateIntegrationMessages;
     });
 
-    it('enables an IN_CREATION integration when no fields are required', async () => {
+    it('returns false and touches no status when no fields are required', async () => {
         integration.getConfigOptions = jest.fn().mockResolvedValue({
             jsonSchema: {
                 type: 'object',
@@ -41,14 +41,11 @@ describe('IntegrationBase.validateConfig', () => {
 
         expect(needsConfig).toBe(false);
         expect(mockUpdateIntegrationMessages.execute).not.toHaveBeenCalled();
-        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
-            'int-1',
-            'ENABLED'
-        );
-        expect(integration.status).toBe('ENABLED');
+        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+        expect(integration.status).toBe('IN_CREATION');
     });
 
-    it('enables an IN_CREATION integration when every required field is present', async () => {
+    it('returns false when every required field is present', async () => {
         integration.config = { apiKey: 'abc' };
         integration.getConfigOptions = jest.fn().mockResolvedValue({
             jsonSchema: {
@@ -62,53 +59,11 @@ describe('IntegrationBase.validateConfig', () => {
         const needsConfig = await integration.validateConfig();
 
         expect(needsConfig).toBe(false);
-        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
-            'int-1',
-            'ENABLED'
-        );
-        expect(integration.status).toBe('ENABLED');
+        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+        expect(integration.status).toBe('IN_CREATION');
     });
 
-    it('enables a NEEDS_CONFIG integration once nothing required is missing', async () => {
-        integration.status = 'NEEDS_CONFIG';
-        integration.config = { apiKey: 'abc' };
-        integration.getConfigOptions = jest.fn().mockResolvedValue({
-            jsonSchema: {
-                type: 'object',
-                required: ['apiKey'],
-                properties: { apiKey: { type: 'string', title: 'API Key' } },
-            },
-            uiSchema: {},
-        });
-
-        const needsConfig = await integration.validateConfig();
-
-        expect(needsConfig).toBe(false);
-        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
-            'int-1',
-            'ENABLED'
-        );
-        expect(integration.status).toBe('ENABLED');
-    });
-
-    it.each(['DISABLED', 'ERROR', 'IN_DELETION', 'ENABLED'])(
-        'does not touch a %s integration when nothing is missing',
-        async (status) => {
-            integration.status = status;
-            integration.getConfigOptions = jest.fn().mockResolvedValue({
-                jsonSchema: { type: 'object', properties: {} },
-                uiSchema: {},
-            });
-
-            const needsConfig = await integration.validateConfig();
-
-            expect(needsConfig).toBe(false);
-            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
-            expect(integration.status).toBe(status);
-        }
-    );
-
-    it('moves to NEEDS_CONFIG and records a warning when a required field is missing', async () => {
+    it('returns true and records a warning when a required field is missing', async () => {
         integration.config = {};
         integration.getConfigOptions = jest.fn().mockResolvedValue({
             jsonSchema: {
@@ -122,11 +77,8 @@ describe('IntegrationBase.validateConfig', () => {
         const needsConfig = await integration.validateConfig();
 
         expect(needsConfig).toBe(true);
-        expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
-            'int-1',
-            'NEEDS_CONFIG'
-        );
-        expect(integration.status).toBe('NEEDS_CONFIG');
+        expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+        expect(integration.status).toBe('IN_CREATION');
         expect(mockUpdateIntegrationMessages.execute).toHaveBeenCalledWith(
             'int-1',
             'warnings',
