@@ -150,7 +150,7 @@ model Integration {
   id     Int               @id @default(autoincrement())
   userId Int?
   user   User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status IntegrationStatus @default(ENABLED)
+  status IntegrationStatus @default(IN_CREATION)
 
   // Configuration and version
   config  Json? // Integration configuration object
@@ -179,9 +179,11 @@ model Integration {
 }
 
 enum IntegrationStatus {
+  IN_CREATION
   ENABLED
   NEEDS_CONFIG
   PROCESSING
+  IN_DELETION
   DISABLED
   ERROR
 }

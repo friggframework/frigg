@@ -9,6 +9,28 @@ const { DeleteIntegrationForUser } = require('../../use-cases/delete-integration
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
+// Records the integration's in-memory status at the moment ON_DELETE fires, so
+// a test can prove IN_DELETION was set before any teardown ran.
+let capturedStatusAtDelete;
+class StatusCapturingDeleteIntegration extends DummyIntegration {
+    async send(event, data) {
+        if (event === 'ON_DELETE') {
+            capturedStatusAtDelete = this.status;
+        }
+        return super.send(event, data);
+    }
+}
+
+// Simulates a teardown that throws (e.g. a webhook deregistration failure).
+class FailingDeleteIntegration extends DummyIntegration {
+    async send(event, data) {
+        if (event === 'ON_DELETE') {
+            throw new Error('teardown failed');
+        }
+        return super.send(event, data);
+    }
+}
+
 describe('DeleteIntegrationForUser Use-Case', () => {
     let integrationRepository;
     let useCase;
@@ -147,4 +169,44 @@ describe('DeleteIntegrationForUser Use-Case', () => {
                 .toThrow(`Integration ${record.id} does not belong to User undefined`);
         });
     });
-}); 
+
+    describe('deletion lifecycle (IN_DELETION)', () => {
+        it('marks the integration IN_DELETION before teardown runs', async () => {
+            capturedStatusAtDelete = undefined;
+            const useCaseCapturing = new DeleteIntegrationForUser({
+                integrationRepository,
+                integrationClasses: [StatusCapturingDeleteIntegration],
+            });
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                { type: 'dummy' }
+            );
+
+            await useCaseCapturing.execute(record.id, 'user-1');
+
+            expect(capturedStatusAtDelete).toBe('IN_DELETION');
+        });
+
+        it('leaves the row undeleted when teardown throws, for later cleanup', async () => {
+            const useCaseFailing = new DeleteIntegrationForUser({
+                integrationRepository,
+                integrationClasses: [FailingDeleteIntegration],
+            });
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                { type: 'dummy' }
+            );
+
+            await expect(
+                useCaseFailing.execute(record.id, 'user-1')
+            ).rejects.toThrow('teardown failed');
+
+            const found = await integrationRepository.findIntegrationById(
+                record.id
+            );
+            expect(found).not.toBeNull();
+        });
+    });
+});

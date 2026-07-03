@@ -92,6 +92,13 @@ class DeleteIntegrationForUser {
 
         // Complete async initialization (load dynamic actions, register handlers)
         await integrationInstance.initialize();
+
+        // Mark IN_DELETION before any teardown runs. If teardown throws before
+        // the row is deleted, the integration is left visibly half-deleted
+        // rather than looking healthy. Done here (not in onDelete) because
+        // children override onDelete and call super at the end of teardown,
+        // which would mark it too late to matter.
+        await integrationInstance.persistStatus('IN_DELETION');
         await integrationInstance.send('ON_DELETE');
 
         await this.integrationRepository.deleteIntegrationById(integrationId);

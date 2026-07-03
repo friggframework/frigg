@@ -278,33 +278,39 @@ class IntegrationBase {
         return modules;
     }
 
+    /**
+     * Check the current config against the required fields declared by
+     * `getConfigOptions()`. Config options use the react-jsonschema-form shape,
+     * so the required top-level keys live in `jsonSchema.required`. Records a
+     * warning for each missing field and, when any are missing, moves the
+     * integration to NEEDS_CONFIG. Returns whether configuration is still
+     * needed so callers (see `onCreate`) can decide the next transition.
+     * @returns {Promise<boolean>} True when a required field is missing.
+     */
     async validateConfig() {
-        const configOptions = await this.getConfigOptions();
-        const currentConfig = this.getConfig();
+        const { jsonSchema } = await this.getConfigOptions();
+        const currentConfig = this.getConfig() || {};
+        const requiredKeys = Array.isArray(jsonSchema?.required)
+            ? jsonSchema.required
+            : [];
         let needsConfig = false;
-        for (const option of configOptions) {
-            if (option.required) {
-                // For now, just make sure the key exists. We should add more dynamic/better validation later.
-                if (
-                    !Object.prototype.hasOwnProperty.call(
-                        currentConfig,
-                        option.key
-                    )
-                ) {
-                    needsConfig = true;
-                    await this.updateIntegrationMessages.execute(
-                        this.id,
-                        'warnings',
-                        'Config Validation Error',
-                        `Missing required field of ${option.label}`,
-                        Date.now()
-                    );
-                }
+        for (const key of requiredKeys) {
+            if (!Object.prototype.hasOwnProperty.call(currentConfig, key)) {
+                needsConfig = true;
+                const label = jsonSchema?.properties?.[key]?.title || key;
+                await this.updateIntegrationMessages.execute(
+                    this.id,
+                    'warnings',
+                    'Config Validation Error',
+                    `Missing required field of ${label}`,
+                    Date.now()
+                );
             }
         }
         if (needsConfig) {
-            await this.updateIntegrationStatus.execute(this.id, 'NEEDS_CONFIG');
+            await this.persistStatus('NEEDS_CONFIG');
         }
+        return needsConfig;
     }
 
     /**
@@ -389,8 +395,19 @@ class IntegrationBase {
     /**
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
-    async onCreate({ integrationId }) {
-        await this.updateIntegrationStatus.execute(integrationId, 'ENABLED');
+    /**
+     * Default post-create lifecycle hook. The row is born IN_CREATION;
+     * validateConfig moves it to NEEDS_CONFIG when a required field is
+     * missing, otherwise it is enabled here. If this hook throws, the row is
+     * left IN_CREATION — a visibly incomplete create rather than a healthy
+     * looking one. Children can override to run their own setup (and then own
+     * their status transition, calling `super.onCreate()` to keep this default).
+     */
+    async onCreate() {
+        const needsConfig = await this.validateConfig();
+        if (!needsConfig) {
+            await this.persistStatus('ENABLED');
+        }
     }
 
     async onUpdate(params) {

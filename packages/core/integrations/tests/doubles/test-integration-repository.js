@@ -16,7 +16,7 @@ class TestIntegrationRepository {
             userId: userId,
             config,
             version: '0.0.0',
-            status: 'NEW',
+            status: 'IN_CREATION',
             messages: {},
             createdAt: new Date(),
         };

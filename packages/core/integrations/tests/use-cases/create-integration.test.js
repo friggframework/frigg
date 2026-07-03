@@ -61,7 +61,7 @@ describe('CreateIntegration Use-Case', () => {
             expect(dto.config).toEqual(config);
             expect(dto.userId).toBe(userId);
             expect(dto.entities).toEqual(entities);
-            expect(dto.status).toBe('NEW');
+            expect(dto.status).toBe('IN_CREATION');
         });
 
         it('triggers ON_CREATE event with correct payload', async () => {
