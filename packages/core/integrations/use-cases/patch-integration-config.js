@@ -6,7 +6,8 @@
  * key in the patch replaces its existing value wholesale (a nested object is
  * overwritten as a block, not deep-merged). To change one field inside a
  * nested object without dropping its siblings, pass the whole updated object
- * as that key's value. To delete a key or write null, use a full replace via
+ * as that key's value. A `null` value sets the key to null (clears the field
+ * without removing it); to remove a key entirely, use a full replace via
  * UpdateIntegrationConfig instead.
  * @class PatchIntegrationConfig
  */

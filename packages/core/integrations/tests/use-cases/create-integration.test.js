@@ -192,6 +192,34 @@ describe('CreateIntegration Use-Case', () => {
             expect(stored).toHaveLength(1);
         });
 
+        it("persists the caller's changed config on reuse while keeping keys added during the original create", async () => {
+            const entities = ['entity-1'];
+            const userId = 'user-reuse-config-1';
+
+            const created = await createIntegration.execute(entities, userId, {
+                type: 'dummy',
+                setting: 'old',
+            });
+            // A key the original create added (e.g. a webhook id) that the
+            // reconnect payload doesn't carry — it must survive the merge.
+            const record = await integrationRepository.findIntegrationById(
+                created.id
+            );
+            record.config.webhookId = 'wh_stored';
+
+            const reused = await createIntegration.execute(entities, userId, {
+                type: 'dummy',
+                setting: 'new',
+            });
+
+            expect(reused.id).toBe(created.id);
+            expect(reused.config).toEqual({
+                type: 'dummy',
+                setting: 'new',
+                webhookId: 'wh_stored',
+            });
+        });
+
         it('runs testAuth on the reused integration so stale credentials surface', async () => {
             const testAuthCalls = [];
             class AuthTrackingIntegration extends DummyIntegration {

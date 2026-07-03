@@ -92,10 +92,20 @@ describe('IntegrationRepositoryMongo.patchIntegrationConfig', () => {
 
         await expect(
             repo.patchIntegrationConfig('507f1f77bcf86cd799439011', {
-                attioWebhookId: null,
+                'bad.key': 'x',
             })
-        ).rejects.toThrow('cannot be null or undefined');
+        ).rejects.toThrow("cannot contain '.' or start with '$'");
         expect(calls).toHaveLength(0);
+    });
+
+    it('sets a null value via $set (clears the field)', async () => {
+        const { repo, calls } = makeRepo({ value: RAW_DOC });
+
+        await repo.patchIntegrationConfig('507f1f77bcf86cd799439011', {
+            lastBillingErrorAt: null,
+        });
+
+        expect(calls[0].update.$set['config.lastBillingErrorAt']).toBeNull();
     });
 
     it('returns the standard mapped integration shape after the write', async () => {

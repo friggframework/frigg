@@ -77,9 +77,21 @@ describe('IntegrationRepositoryPostgres.patchIntegrationConfig', () => {
         const { repo, calls } = makeRepo();
 
         await expect(
-            repo.patchIntegrationConfig('7', { attioWebhookId: null })
-        ).rejects.toThrow('cannot be null or undefined');
+            repo.patchIntegrationConfig('7', { 'bad.key': 'x' })
+        ).rejects.toThrow("cannot contain '.' or start with '$'");
         expect(calls).toHaveLength(0);
+    });
+
+    it('binds a null value as JSON null (clears the field)', async () => {
+        const { repo, calls } = makeRepo();
+
+        await repo.patchIntegrationConfig('7', { lastBillingErrorAt: null });
+
+        const { params } = calls[0];
+        expect(params).toEqual([
+            JSON.stringify({ lastBillingErrorAt: null }),
+            7,
+        ]);
     });
 
     it('throws when no row was updated and does not attempt a follow-up read', async () => {

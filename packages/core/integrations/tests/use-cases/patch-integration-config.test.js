@@ -72,24 +72,27 @@ describe('PatchIntegrationConfig Use-Case', () => {
                 quoMessageWebhooks: ['msg_1'],
             });
         });
-    });
 
-    describe('error cases', () => {
-        it('throws when a patch value is null and leaves config unchanged', async () => {
+        it('clears a field by patching it to null, leaving other keys intact', async () => {
             const record = await integrationRepository.createIntegration(
                 ['entity-1'],
                 'user-1',
-                { type: 'attio' }
+                { type: 'attio', lastBillingErrorAt: '2026-01-01' }
             );
 
-            await expect(
-                useCase.execute(record.id, { attioWebhookId: null })
-            ).rejects.toThrow('cannot be null or undefined');
+            await useCase.execute(record.id, { lastBillingErrorAt: null });
 
-            const unchanged = await integrationRepository.findIntegrationById(record.id);
-            expect(unchanged.config).toEqual({ type: 'attio' });
+            const updated = await integrationRepository.findIntegrationById(
+                record.id
+            );
+            expect(updated.config).toEqual({
+                type: 'attio',
+                lastBillingErrorAt: null,
+            });
         });
+    });
 
+    describe('error cases', () => {
         it('throws when a patch value is undefined', async () => {
             const record = await integrationRepository.createIntegration(
                 ['entity-1'],
@@ -99,7 +102,7 @@ describe('PatchIntegrationConfig Use-Case', () => {
 
             await expect(
                 useCase.execute(record.id, { attioWebhookId: undefined })
-            ).rejects.toThrow('cannot be null or undefined');
+            ).rejects.toThrow('cannot be undefined');
         });
 
         it('throws for an empty patch', async () => {

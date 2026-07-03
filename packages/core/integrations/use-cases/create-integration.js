@@ -47,7 +47,7 @@ class CreateIntegration {
             console.log(
                 `[Frigg] Found existing integration ${existing.id} for the same user, type, and entities — reusing it`
             );
-            return this._reuseExisting(existing);
+            return this._reuseExisting(existing, config);
         }
 
         const integrationRecord =
@@ -74,7 +74,7 @@ class CreateIntegration {
             await this.integrationRepository.deleteIntegrationById(
                 integrationRecord.id
             );
-            return this._reuseExisting(survivor);
+            return this._reuseExisting(survivor, config);
         }
 
         const integrationInstance = await this._buildInstance(
@@ -90,7 +90,20 @@ class CreateIntegration {
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }
 
-    async _reuseExisting(integrationRecord) {
+    async _reuseExisting(integrationRecord, config) {
+        // The caller may be reconnecting with changed settings. Persist the
+        // requested config onto the reused row as a shallow patch, so new
+        // values take effect while keys added during the original create
+        // (webhook ids, secrets) survive. `type` is re-written to the same
+        // value it dedupe-matched on, which is a harmless no-op.
+        if (config && Object.keys(config).length > 0) {
+            integrationRecord =
+                await this.integrationRepository.patchIntegrationConfig(
+                    integrationRecord.id,
+                    config
+                );
+        }
+
         const integrationInstance = await this._buildInstance(
             integrationRecord
         );

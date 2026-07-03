@@ -54,12 +54,12 @@ describe('IntegrationBase.patchConfig', () => {
 
     it('leaves this.config unchanged when the patch fails', async () => {
         mockPatchIntegrationConfig.execute.mockRejectedValue(
-            new Error('cannot be null or undefined')
+            new Error('db write failed')
         );
 
         await expect(
-            integration.patchConfig({ attioWebhookId: null })
-        ).rejects.toThrow('cannot be null or undefined');
+            integration.patchConfig({ attioWebhookId: 'wh_1' })
+        ).rejects.toThrow('db write failed');
         expect(integration.config).toEqual({ type: 'attio' });
     });
 

@@ -8,8 +8,11 @@
  *
  * Keys may not contain '.' or start with '$' — both are reserved by the
  * MongoDB/DocumentDB update-command syntax the mongo and documentdb adapters
- * use to address `config.<key>` paths. Patch values may not be null or
- * undefined; deleting a key requires a full-replace via updateConfig.
+ * use to address `config.<key>` paths. A value of `null` is allowed and sets
+ * the key to null — the only way to clear a config field over the PATCH HTTP
+ * endpoint (it sets the value, it does not remove the key). `undefined` is
+ * rejected: it can't arrive over JSON and signals a programming error, not an
+ * intent. Removing a key entirely still requires a full replace via updateConfig.
  */
 function validateConfigPatch(patch) {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
@@ -29,9 +32,9 @@ function validateConfigPatch(patch) {
                 `patchIntegrationConfig: patch key '${key}' cannot contain '.' or start with '$'`
             );
         }
-        if (patch[key] === null || patch[key] === undefined) {
+        if (patch[key] === undefined) {
             throw new Error(
-                `patchIntegrationConfig: patch['${key}'] cannot be null or undefined`
+                `patchIntegrationConfig: patch['${key}'] cannot be undefined`
             );
         }
     }

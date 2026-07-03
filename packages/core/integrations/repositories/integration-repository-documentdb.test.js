@@ -89,9 +89,19 @@ describe('IntegrationRepositoryDocumentDB.patchIntegrationConfig', () => {
         const { repo, calls } = makeRepo();
 
         await expect(
-            repo.patchIntegrationConfig(OID, { attioWebhookId: null })
-        ).rejects.toThrow('cannot be null or undefined');
+            repo.patchIntegrationConfig(OID, { 'bad.key': 'x' })
+        ).rejects.toThrow("cannot contain '.' or start with '$'");
         expect(calls).toHaveLength(0);
+    });
+
+    it('sets a null value via $set (clears the field)', async () => {
+        const { repo, calls } = makeRepo({ findResult: FOUND_DOC });
+
+        await repo.patchIntegrationConfig(OID, { lastBillingErrorAt: null });
+
+        const updateCall = calls.find((c) => c.update === 'Integration');
+        const [op] = updateCall.updates;
+        expect(op.u.$set['config.lastBillingErrorAt']).toBeNull();
     });
 
     it('throws before any command for an invalid integration id', async () => {

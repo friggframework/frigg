@@ -41,16 +41,16 @@ describe('validateConfigPatch', () => {
         );
     });
 
-    it('throws when a patch value is null', () => {
+    it('accepts a null patch value (clears the field to null)', () => {
         expect(() =>
-            validateConfigPatch({ attioWebhookId: null })
-        ).toThrow("patch['attioWebhookId'] cannot be null or undefined");
+            validateConfigPatch({ lastBillingErrorAt: null })
+        ).not.toThrow();
     });
 
     it('throws when a patch value is undefined', () => {
         expect(() =>
             validateConfigPatch({ attioWebhookId: undefined })
-        ).toThrow("patch['attioWebhookId'] cannot be null or undefined");
+        ).toThrow("patch['attioWebhookId'] cannot be undefined");
     });
 
     it('throws when a key contains a dot', () => {
