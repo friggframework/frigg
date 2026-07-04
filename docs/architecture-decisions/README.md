@@ -30,7 +30,20 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [011](./011-integration-telemetry-and-usage-tracking.md) | Integration Telemetry, Eventing & Feature-Usage Tracking | Accepted | 2026-07-03 |
 | [012](./012-database-schema-migrations.md) | Database Schema Migrations | Proposed | 2026-07-04 |
 | [013](./013-integration-version-migrations.md) | Integration Version Migrations | Proposed | 2026-07-04 |
-| [014](./014-consolidate-adr-register.md) | One Numbered ADR Register | Proposed | 2026-07-04 |
+| [014](./014-consolidate-adr-register.md) | One Numbered ADR Register | Accepted | 2026-07-04 |
+
+## Conventions
+
+Per [ADR-014](./014-consolidate-adr-register.md), all architecture decisions live **here** — one
+numbered register, one structure:
+
+- **Location:** `docs/architecture-decisions/` (the only home for ADRs).
+- **Filename:** `NNN-kebab-title.md` (e.g. `010-reporting-as-admin-operation.md`).
+- **Heading:** `# ADR-NNN: Human Readable Title` — number *and* name.
+- **Metadata block:** `**Status**` / `**Date**` / `**Deciders**` (bold form, directly under the heading).
+- **Sections:** Context / Decision / Consequences (Positive / Negative / Neutral) / Alternatives Considered / Related.
+- **Index:** the **Current ADRs** table above is the single source of truth — add a row for every new ADR.
+- **Number:** take the next unused integer; numbers are stable IDs and never reused.
 
 ## ADR Template
 

@@ -1,6 +1,6 @@
 # ADR-014: One Numbered ADR Register
 
-**Status**: Proposed
+**Status**: Accepted
 **Date**: 2026-07-04
 **Deciders**: Sean Matthews, Daniel Klotz
 
