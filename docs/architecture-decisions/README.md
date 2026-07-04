@@ -28,6 +28,8 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [009](./009-e2e-test-package.md) | E2E Test Package | Accepted | 2025-12-15 |
 | [010](./010-reporting-as-admin-operation.md) | Reporting as an Admin Operation | Accepted | 2026-07-03 |
 | [011](./011-integration-telemetry-and-usage-tracking.md) | Integration Telemetry, Eventing & Feature-Usage Tracking | Accepted | 2026-07-03 |
+| [012](./012-database-schema-migrations.md) | Database Schema Migrations | Proposed | 2026-07-04 |
+| [013](./013-integration-version-migrations.md) | Integration Version Migrations | Proposed | 2026-07-04 |
 
 ## ADR Template
 
