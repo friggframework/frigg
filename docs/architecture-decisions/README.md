@@ -20,7 +20,7 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [001](./001-use-vite-for-management-ui.md) | Use Vite + React for Management UI | Accepted | 2025-01-25 |
 | [002](./002-no-database-for-local-dev.md) | No Database for Local Development Tools | Accepted | 2025-01-25 |
 | [003](./003-runtime-state-only.md) | Runtime State Only for Management GUI | Accepted | 2025-01-25 |
-| [004](./004-migration-tool-design.md) | Migration Tool Design | Proposed | 2025-01-25 |
+| [004](./004-migration-tool-design.md) | Project Structure Migration Tool | Proposed | 2025-01-25 |
 | [005](./005-admin-script-runner.md) | Admin Script Runner Service | Accepted | 2025-12-10 |
 | [006](./006-integration-router-v2.md) | Integration Router v2 | Accepted | 2025-12-14 |
 | [007](./007-management-ui-architecture.md) | Management UI Architecture | Accepted | 2025-12-14 |
