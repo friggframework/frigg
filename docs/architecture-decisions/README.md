@@ -43,18 +43,19 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [024](./024-global-entities.md) | Global Entities | Proposed | 2024-12-18 |
 | [025](./025-agent-harness.md) | Agent Harness | Proposed | 2026-06-09 |
 | [026](./026-evals.md) | Evals | Proposed | 2026-06-09 |
+| [027](./027-integration-versioning.md) | Integration Versioning | Proposed (exploratory) | 2026-09-27 |
 
 ## Conventions
 
-Per [ADR-014](./014-consolidate-adr-register.md), all architecture decisions live **here** — one
+Per [ADR-014](./014-consolidate-adr-register.md), all architecture decisions live **here**, one
 numbered register, one structure:
 
 - **Location:** `docs/architecture-decisions/` (the only home for ADRs).
 - **Filename:** `NNN-kebab-title.md` (e.g. `010-reporting-as-admin-operation.md`).
-- **Heading:** `# ADR-NNN: Human Readable Title` — number *and* name.
+- **Heading:** `# ADR-NNN: Human Readable Title` (number and name).
 - **Metadata block:** `**Status**` / `**Date**` / `**Deciders**` (bold form, directly under the heading).
 - **Sections:** Context / Decision / Consequences (Positive / Negative / Neutral) / Alternatives Considered / Related.
-- **Index:** the **Current ADRs** table above is the single source of truth — add a row for every new ADR.
+- **Index:** the **Current ADRs** table above is the single source of truth. Add a row for every new ADR.
 - **Number:** take the next unused integer; numbers are stable IDs and never reused.
 
 ## ADR Template
