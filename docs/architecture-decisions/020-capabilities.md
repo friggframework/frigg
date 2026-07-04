@@ -1,8 +1,8 @@
-# Architecture Decision Record: Capabilities
+# ADR-020: Capabilities
 
 **Status**: Proposed
 **Date**: 2026-06-09
-**Author**: Sean Matthews
+**Deciders**: Sean Matthews
 
 ## Context
 
@@ -43,10 +43,10 @@ An agent queries the capability graph instead of reading source. For a task like
 
 - HubSpot module has capability `crm.contact.list` (spec: `hubspot-openapi#/contacts.list`)
 - HubSpot module has capability `crm.contact.watch` (spec: `hubspot-asyncapi#/contact.changed`)
-- No adopter-side module exists; the agent scaffolds one using [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md)
+- No adopter-side module exists; the agent scaffolds one using [INTEGRATION-TEMPLATES](./023-integration-templates.md)
 - Integration capability `crm.contact.sync.bidir` composes from both modules' capabilities
 
-The [Agent Harness](./ADR-AGENT-HARNESS.md) wires this query into session start. The [Ontology](./ADR-ONTOLOGY.md) provides the convention layer for interpreting the graph.
+The [Agent Harness](./025-agent-harness.md) wires this query into session start. The [Ontology](./021-ontology.md) provides the convention layer for interpreting the graph.
 
 ### Visibility consumption
 
@@ -127,12 +127,12 @@ App level capabilities are usually computed (the union of declared integration c
 
 ## Cross-references
 
-- [PLUGINS](./ADR-PLUGINS.md): plugins are not capabilities (they swap infrastructure), but capabilities can declare `requires` against plugin types (e.g. a capability that needs an AWS deployment)
-- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md), [CORE-EXTENSIONS](./ADR-CORE-EXTENSIONS.md), [INTEGRATION-EXTENSIONS](./ADR-INTEGRATION-EXTENSIONS.md), [API-MODULE-EXTENSIONS](./ADR-API-MODULE-EXTENSIONS.md): extensions are referenced by `implementedBy`
-- [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md): templates are referenced by `implementedBy` and typically declare the capability set the template promises
-- [ARTIFACTS](./ADR-ARTIFACTS.md): artifacts are referenced by `implementedBy` when a capability requires outside-Frigg code (HubSpot Project, Slack manifest)
-- [ONTOLOGY](./ADR-ONTOLOGY.md): the ontology contains capability naming and surface-kind conventions
-- [AGENT-HARNESS](./ADR-AGENT-HARNESS.md): the harness compiles and injects the capability graph at session start
+- [PLUGINS](./016-plugins.md): plugins are not capabilities (they swap infrastructure), but capabilities can declare `requires` against plugin types (e.g. a capability that needs an AWS deployment)
+- [EXTENSIONS-TAXONOMY](./015-extensions-taxonomy.md), [CORE-EXTENSIONS](./017-core-extensions.md), [INTEGRATION-EXTENSIONS](./018-integration-extensions.md), [API-MODULE-EXTENSIONS](./019-api-module-extensions.md): extensions are referenced by `implementedBy`
+- [INTEGRATION-TEMPLATES](./023-integration-templates.md): templates are referenced by `implementedBy` and typically declare the capability set the template promises
+- [ARTIFACTS](./022-artifacts.md): artifacts are referenced by `implementedBy` when a capability requires outside-Frigg code (HubSpot Project, Slack manifest)
+- [ONTOLOGY](./021-ontology.md): the ontology contains capability naming and surface-kind conventions
+- [AGENT-HARNESS](./025-agent-harness.md): the harness compiles and injects the capability graph at session start
 
 ## Open questions
 

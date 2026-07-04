@@ -1,18 +1,18 @@
-# Architecture Decision Record: Extensions Taxonomy
+# ADR-015: Extensions Taxonomy
 
 **Status**: Proposed
 **Date**: 2026-06-09
-**Author**: Sean Matthews
+**Deciders**: Sean Matthews
 
 ## Context
 
 Frigg has used the word "extension" for several different things: app-level functionality additions, integration-class plugged-in bundles, provider-specific webhook handlers, and (in conversation) sometimes for templates and artifacts. Adopters and contributors cannot tell which is meant from context, and the prior ADR set bundled three distinct shapes into one document.
 
-This ADR defines **Extensions** as one of Frigg's two top-level categories of swap-in code, alongside [Plugins](./ADR-PLUGINS.md), and points to per-type ADRs for each kind.
+This ADR defines **Extensions** as one of Frigg's two top-level categories of swap-in code, alongside [Plugins](./016-plugins.md), and points to per-type ADRs for each kind.
 
 ## Decision
 
-An **Extension** is a package that adds optional functionality to a Frigg app, an integration, or an API module. Extensions differ from [Plugins](./ADR-PLUGINS.md):
+An **Extension** is a package that adds optional functionality to a Frigg app, an integration, or an API module. Extensions differ from [Plugins](./016-plugins.md):
 
 | | Plugins | Extensions |
 |---|---|---|
@@ -25,16 +25,16 @@ Extensions split into three types, each with its own ADR:
 
 | Type | Lives on | Authored by | Concern |
 |---|---|---|---|
-| **[Core Extensions](./ADR-CORE-EXTENSIONS.md)** | `appDefinition.extensions` | App developer, framework, community | App-level functionality (alerting, monitoring, agents, Slack interaction) |
-| **[Integration Extensions](./ADR-INTEGRATION-EXTENSIONS.md)** | `IntegrationBase.Definition.extensions` | API module, shared library, app developer | Integration-level patterns (sync engine, durable workflows, fan-out and fan-in, state machines, common user actions, multi-page config, field mapping) |
-| **[API Module Extensions](./ADR-API-MODULE-EXTENSIONS.md)** | `apiModule.extensions` | API module author | Provider-specific bundles (e.g. `hubspot.extensions.webhooks`) consumed by Integration Extensions |
+| **[Core Extensions](./017-core-extensions.md)** | `appDefinition.extensions` | App developer, framework, community | App-level functionality (alerting, monitoring, agents, Slack interaction) |
+| **[Integration Extensions](./018-integration-extensions.md)** | `IntegrationBase.Definition.extensions` | API module, shared library, app developer | Integration-level patterns (sync engine, durable workflows, fan-out and fan-in, state machines, common user actions, multi-page config, field mapping) |
+| **[API Module Extensions](./019-api-module-extensions.md)** | `apiModule.extensions` | API module author | Provider-specific bundles (e.g. `hubspot.extensions.webhooks`) consumed by Integration Extensions |
 
 ### Adjacent siblings
 
 Two concepts are often discussed alongside extensions but belong to their own categories:
 
-- **[Integration Templates](./ADR-INTEGRATION-TEMPLATES.md)**: ShadCN-mirror, copy-into-your-codebase base integrations. Templates are owned by the adopter after the copy; extensions are imported and consumed. Different lifecycle, different authoring story.
-- **[Artifacts](./ADR-ARTIFACTS.md)**: code or configuration that runs outside Frigg (HubSpot Project, Slack manifest, Salesforce managed package). Extensions run inside Frigg's runtime; artifacts run on the target platform.
+- **[Integration Templates](./023-integration-templates.md)**: ShadCN-mirror, copy-into-your-codebase base integrations. Templates are owned by the adopter after the copy; extensions are imported and consumed. Different lifecycle, different authoring story.
+- **[Artifacts](./022-artifacts.md)**: code or configuration that runs outside Frigg (HubSpot Project, Slack manifest, Salesforce managed package). Extensions run inside Frigg's runtime; artifacts run on the target platform.
 
 ## Architecture
 
@@ -70,10 +70,10 @@ Combining them into one ADR or one runtime mechanism mixes those concerns. Split
 
 ## Cross-references
 
-- [PLUGINS](./ADR-PLUGINS.md): the other top-level category (required-with-defaults infrastructure swaps)
-- [CORE-EXTENSIONS](./ADR-CORE-EXTENSIONS.md), [INTEGRATION-EXTENSIONS](./ADR-INTEGRATION-EXTENSIONS.md), [API-MODULE-EXTENSIONS](./ADR-API-MODULE-EXTENSIONS.md): the three extension types
-- [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md), [ARTIFACTS](./ADR-ARTIFACTS.md): adjacent siblings
-- [CAPABILITIES](./ADR-CAPABILITIES.md): capabilities can be `implementedBy` an extension of any of the three types
+- [PLUGINS](./016-plugins.md): the other top-level category (required-with-defaults infrastructure swaps)
+- [CORE-EXTENSIONS](./017-core-extensions.md), [INTEGRATION-EXTENSIONS](./018-integration-extensions.md), [API-MODULE-EXTENSIONS](./019-api-module-extensions.md): the three extension types
+- [INTEGRATION-TEMPLATES](./023-integration-templates.md), [ARTIFACTS](./022-artifacts.md): adjacent siblings
+- [CAPABILITIES](./020-capabilities.md): capabilities can be `implementedBy` an extension of any of the three types
 
 ## Open questions
 

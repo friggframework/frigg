@@ -31,6 +31,18 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [012](./012-database-schema-migrations.md) | Database Schema Migrations | Proposed | 2026-07-04 |
 | [013](./013-integration-version-migrations.md) | Integration Version Migrations | Proposed | 2026-07-04 |
 | [014](./014-consolidate-adr-register.md) | One Numbered ADR Register | Accepted | 2026-07-04 |
+| [015](./015-extensions-taxonomy.md) | Extensions Taxonomy | Proposed | 2026-06-09 |
+| [016](./016-plugins.md) | Plugins | Proposed | 2026-06-09 |
+| [017](./017-core-extensions.md) | Core Extensions | Proposed | 2026-06-09 |
+| [018](./018-integration-extensions.md) | Integration Extensions | Implemented | 2026-06-09 |
+| [019](./019-api-module-extensions.md) | API Module Extensions | Proposed | 2026-06-09 |
+| [020](./020-capabilities.md) | Capabilities | Proposed | 2026-06-09 |
+| [021](./021-ontology.md) | Ontology | Proposed | 2026-06-09 |
+| [022](./022-artifacts.md) | Artifacts | Proposed | 2026-06-09 |
+| [023](./023-integration-templates.md) | Integration Templates | Proposed | 2026-06-09 |
+| [024](./024-global-entities.md) | Global Entities | Proposed | 2024-12-18 |
+| [025](./025-agent-harness.md) | Agent Harness | Proposed | 2026-06-09 |
+| [026](./026-evals.md) | Evals | Proposed | 2026-06-09 |
 
 ## Conventions
 

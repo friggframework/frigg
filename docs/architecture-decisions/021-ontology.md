@@ -1,8 +1,8 @@
-# Architecture Decision Record: Ontology
+# ADR-021: Ontology
 
 **Status**: Proposed
 **Date**: 2026-06-09
-**Author**: Sean Matthews
+**Deciders**: Sean Matthews
 
 ## Context
 
@@ -19,11 +19,11 @@ A Frigg ontology is a stack of four layers, each progressively more specific:
 | Layer | Scope | Authored by | Examples |
 |---|---|---|---|
 | **L1 (Universal)** | Cross-framework conventions | Cross-framework working group (with Freya) | "Capability declarations point at specs and implementations." "Friction is captured to a shared `@freyaframework/friction` log." |
-| **L2 (Framework)** | Frigg conventions, locked constraints | Frigg core maintainers | "Routes ride [Capabilities](./ADR-CAPABILITIES.md), not raw handlers." "Credentials use field-level encryption." "Provider-vocabulary helpers belong in API Module Extensions." |
+| **L2 (Framework)** | Frigg conventions, locked constraints | Frigg core maintainers | "Routes ride [Capabilities](./020-capabilities.md), not raw handlers." "Credentials use field-level encryption." "Provider-vocabulary helpers belong in API Module Extensions." |
 | **L3 (Vendor-domain)** | Per-API-module conventions | API module authors (shipped with the module) | "HubSpot signature verification uses v3 URL-signing." "Salesforce credential refresh requires `apiPropertiesToPersist` for sandbox vs prod." |
 | **L4 (Instance)** | This specific Frigg app | The adopter | "This app uses Aurora Postgres." "Multi-tenant: every webhook receiver looks up portalId to integrationId." |
 
-Layers compose bottom-up at session start. Higher layers override or refine lower ones. The compiled result is a single XML-tagged context block (`<FRIGG-HARNESS-CONTEXT>...</FRIGG-HARNESS-CONTEXT>`) injected by the [Agent Harness](./ADR-AGENT-HARNESS.md).
+Layers compose bottom-up at session start. Higher layers override or refine lower ones. The compiled result is a single XML-tagged context block (`<FRIGG-HARNESS-CONTEXT>...</FRIGG-HARNESS-CONTEXT>`) injected by the [Agent Harness](./025-agent-harness.md).
 
 ### Module-exported ontology
 
@@ -76,7 +76,7 @@ Composition is additive: each higher layer adds or overrides conventions from th
 
 ## Session protocol
 
-At session start, the [Agent Harness](./ADR-AGENT-HARNESS.md):
+At session start, the [Agent Harness](./025-agent-harness.md):
 
 1. Walks the four layers in order (L1, L2, L3, L4)
 2. Compiles them into a single ontology object
@@ -94,20 +94,20 @@ The recommended use of the ontology by an agent:
 3. Validation subagent checks the design against L1–L4 conventions and locked constraints
 4. Validation subagent returns findings; parent agent corrects or proceeds
 
-This is one of the three interventions tested in the [Evals](./ADR-EVALS.md) precursor.
+This is one of the three interventions tested in the [Evals](./026-evals.md) precursor.
 
 ## Friction capture and ontology evolution
 
-When an agent encounters a question the ontology should have answered but did not, it logs a friction event to the shared `@freyaframework/friction` package (see [ADR-AGENT-HARNESS](./ADR-AGENT-HARNESS.md) for cross-framework alignment with Freya). Friction events are triaged into PR proposals against the relevant ontology layer.
+When an agent encounters a question the ontology should have answered but did not, it logs a friction event to the shared `@freyaframework/friction` package (see [ADR-AGENT-HARNESS](./025-agent-harness.md) for cross-framework alignment with Freya). Friction events are triaged into PR proposals against the relevant ontology layer.
 
 The ontology fills its own gaps from real agent traces rather than from anyone enumerating every constraint up front.
 
 ## Cross-references
 
-- [AGENT-HARNESS](./ADR-AGENT-HARNESS.md): the harness compiles, injects, and propagates the ontology
-- [CAPABILITIES](./ADR-CAPABILITIES.md): capability naming and surface-kind conventions live in the L2 ontology
-- [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md): templates may declare their own ontology fragment for adopter-specific conventions
-- [EVALS](./ADR-EVALS.md): measures whether ontology injection improves agent output
+- [AGENT-HARNESS](./025-agent-harness.md): the harness compiles, injects, and propagates the ontology
+- [CAPABILITIES](./020-capabilities.md): capability naming and surface-kind conventions live in the L2 ontology
+- [INTEGRATION-TEMPLATES](./023-integration-templates.md): templates may declare their own ontology fragment for adopter-specific conventions
+- [EVALS](./026-evals.md): measures whether ontology injection improves agent output
 
 ## Open questions
 
