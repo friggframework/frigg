@@ -43,6 +43,9 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [024](./024-global-entities.md) | Global Entities | Proposed | 2024-12-18 |
 | [025](./025-agent-harness.md) | Agent Harness | Proposed | 2026-06-09 |
 | [026](./026-evals.md) | Evals | Proposed | 2026-06-09 |
+| [028](./028-app-init.md) | App Init | Proposed | 2026-09-27 |
+| [029](./029-skills.md) | Skills | Proposed | 2026-09-27 |
+| [030](./030-agent-pipeline.md) | Agent Pipeline | Proposed | 2026-09-27 |
 
 ## Conventions
 
