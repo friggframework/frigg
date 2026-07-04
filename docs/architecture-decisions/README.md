@@ -26,8 +26,8 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [007](./007-management-ui-architecture.md) | Management UI Architecture | Accepted | 2025-12-14 |
 | [008](./008-frigg-cli-start-command.md) | Frigg CLI Start Command | Accepted | 2025-12-14 |
 | [009](./009-e2e-test-package.md) | E2E Test Package | Accepted | 2025-12-15 |
-| [010](./010-reporting-as-admin-operation.md) | Reporting as an Admin Operation | Proposed | 2026-06-30 |
-| [011](./011-integration-telemetry-and-usage-tracking.md) | Integration Telemetry, Eventing & Feature-Usage Tracking | Proposed | 2026-06-30 |
+| [010](./010-reporting-as-admin-operation.md) | Reporting as an Admin Operation | Accepted | 2026-07-03 |
+| [011](./011-integration-telemetry-and-usage-tracking.md) | Integration Telemetry, Eventing & Feature-Usage Tracking | Accepted | 2026-07-03 |
 
 ## ADR Template
 
