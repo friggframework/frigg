@@ -253,8 +253,8 @@ Explicit follow-ups Sean called out for further investigation before landing a d
 
 ## Related
 
-- [ADR-006: Integration Router v2](./006-integration-router-v2.md) — current routing surface any versioning scheme must integrate with.
-- [ADR-012: Database Schema Migrations](./012-database-schema-migrations.md) — schema evolution, distinct from record versioning.
-- [ADR-013: Integration Version Migrations](./013-integration-version-migrations.md) — record transformation between versions. This ADR provides the version contract ADR-013 keys off.
-- [ADR-004: Project Structure Migration Tool](./004-migration-tool-design.md) — project-scaffold migration; distinct from all of the above.
+- [ADR-006: Integration Router v2](./006-integration-router-v2.md): current routing surface any versioning scheme must integrate with.
+- [ADR-012: Database Schema Migrations](./012-database-schema-migrations.md): schema evolution, distinct from record versioning.
+- [ADR-013: Integration Version Migrations](./013-integration-version-migrations.md): record transformation between versions. This ADR provides the version contract ADR-013 keys off.
+- [ADR-004: Project Structure Migration Tool](./004-migration-tool-design.md): project-scaffold migration; distinct from all of the above.
 - Implementation surface: `packages/core/integrations/integration-base.js` (`Definition.version`, `supportedVersions`, `getCurrentVersion`), `packages/core/prisma-postgresql/schema.prisma` (`Integration.version`), `packages/core/integrations/repositories/integration-repository-*.js`.
