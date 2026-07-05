@@ -18,6 +18,9 @@ const {
     UpdateIntegrationConfig,
 } = require('./use-cases/update-integration-config');
 const { validateExtensionBinding } = require('./extension');
+const { getTelemetry } = require('../telemetry/telemetry-singleton');
+const { instrumentHandler } = require('../telemetry/instrument-handler');
+const { bindTelemetryContext } = require('../telemetry/bind-telemetry-context');
 
 const constantsToBeMigrated = {
     defaultEvents: {
@@ -76,6 +79,11 @@ class IntegrationBase {
         // Tier 3 Integration Extensions — see packages/core/integrations/EXTENSIONS.md
         // Shape: { [bindingName]: { extension, handlers?: { [eventName]: methodName } } }
         extensions: {},
+        // Usage-counter opt-in (ADR-011). Declaring a canonical key opts into the
+        // cross-integration comparison report + durable rollup; custom keys are
+        // comparable within this integration type. Shape:
+        //   usage: { canonical: ['records.synced', ...], custom: { 'deals.enriched': { unit, label } } }
+        usage: {},
         display: {
             name: 'Integration Name',
             logo: '',
@@ -100,18 +108,28 @@ class IntegrationBase {
         this.messages = { errors: [], warnings: [] };
         this._isHydrated = false;
 
-        if (params && Object.keys(params).length > 0) {
+        // Telemetry (ADR-011): every instance carries the service so integration
+        // code can call `this.telemetry.*`. Extracted before the record check so
+        // passing only `telemetry` never triggers a hollow hydration. Bound to
+        // this instance so emissions auto-carry `integration_type` for the usage
+        // rollup (see bind-telemetry-context).
+        const { telemetry, ...recordParams } = params;
+        this.telemetry = bindTelemetryContext(telemetry || getTelemetry(), () =>
+            this.getTelemetryContext()
+        );
+
+        if (Object.keys(recordParams).length > 0) {
             this.setIntegrationRecord({
                 record: {
-                    id: params.id,
-                    userId: params.userId,
-                    entities: params.entities,
-                    config: params.config,
-                    status: params.status,
-                    version: params.version,
-                    messages: params.messages,
+                    id: recordParams.id,
+                    userId: recordParams.userId,
+                    entities: recordParams.entities,
+                    config: recordParams.config,
+                    status: recordParams.status,
+                    version: recordParams.version,
+                    messages: recordParams.messages,
                 },
-                modules: params.modules || [],
+                modules: recordParams.modules || [],
             });
         }
 
@@ -211,6 +229,25 @@ class IntegrationBase {
         return this._isHydrated;
     }
 
+    /**
+     * Standard telemetry identifier set (ADR-011 Decision 3). Assembled from the
+     * hydrated record (integrationId, userId, version), the static Definition
+     * (integrationType, version fallback), and the environment (stage, appName).
+     * High-cardinality ids (integrationId, userId) ride span baggage only — never
+     * metric labels.
+     */
+    getTelemetryContext() {
+        const Definition = this.constructor.Definition || {};
+        return {
+            integrationId: this.id ?? null,
+            integrationType: Definition.name ?? null,
+            userId: this.userId ?? null,
+            version: this.version ?? Definition.version ?? null,
+            stage: process.env.STAGE || process.env.NODE_ENV || null,
+            appName: process.env.FRIGG_STACK || null,
+        };
+    }
+
     assertHydrated(message = 'Integration instance is not hydrated') {
         if (!this.isHydrated) {
             throw new Error(message);
@@ -220,11 +257,11 @@ class IntegrationBase {
     /**
      * Returns the modules as object with keys as module names.
      * Uses the keys from Definition.modules to attach modules correctly.
-     * 
+     *
      * Example:
      *   Definition.modules = { attio: {...}, quo: { definition: { getName: () => 'quo-attio' } } }
      *   Module with getName()='quo-attio' gets attached as this.quo (not this['quo-attio'])
-     * 
+     *
      * @private
      * @param {Array} integrationModules - Array of module instances
      * @returns {Object} The modules object
@@ -236,13 +273,16 @@ class IntegrationBase {
         // e.g., 'quo-attio' → 'quo', 'attio' → 'attio'
         const moduleNameToKey = {};
         if (this.constructor.Definition?.modules) {
-            for (const [key, moduleConfig] of Object.entries(this.constructor.Definition.modules)) {
+            for (const [key, moduleConfig] of Object.entries(
+                this.constructor.Definition.modules
+            )) {
                 const definition = moduleConfig.definition;
                 if (definition) {
                     // Use getName() if available, fallback to moduleName
-                    const definitionName = typeof definition.getName === 'function'
-                        ? definition.getName()
-                        : definition.moduleName;
+                    const definitionName =
+                        typeof definition.getName === 'function'
+                            ? definition.getName()
+                            : definition.moduleName;
                     if (definitionName) {
                         moduleNameToKey[definitionName] = key;
                     }
@@ -327,7 +367,9 @@ class IntegrationBase {
             try {
                 const authPassed = await this[module].testAuth();
                 if (!authPassed) {
-                    throw new Error(`testAuth returned false for module ${module}`);
+                    throw new Error(
+                        `testAuth returned false for module ${module}`
+                    );
                 }
             } catch {
                 didAuthPass = false;
@@ -584,7 +626,9 @@ class IntegrationBase {
     async persistStatus(status) {
         await this.updateIntegrationStatus.execute(this.id, status);
         this.status = status;
-        console.log(`[Frigg] Integration ${this.id} status changed to ${status}`);
+        console.log(
+            `[Frigg] Integration ${this.id} status changed to ${status}`
+        );
     }
 
     /**
@@ -749,7 +793,15 @@ class IntegrationBase {
                 `Event ${event} is not defined in the Integration event object`
             );
         }
-        return this.on[event].handler.call(this, object);
+        // Auto-instrument (ADR-011 Decision 2). This is the seam for user
+        // actions, config-options, and lifecycle events dispatched via `this.on`
+        // (the queue/webhook/route paths go through IntegrationEventDispatcher).
+        return instrumentHandler(
+            this.telemetry,
+            this.getTelemetryContext(),
+            { event, eventType: this.on[event].type },
+            () => this.on[event].handler.call(this, object)
+        );
     }
 
     getOptionDetails() {
@@ -792,7 +844,11 @@ class IntegrationBase {
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
             console.log(
-                `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
+                `[Frigg] Module ${
+                    notifier?.name || '?'
+                } reported invalid credentials for integration ${
+                    this.id
+                } — marking ERROR`
             );
             await this.persistStatus('ERROR');
             return;
@@ -801,7 +857,11 @@ class IntegrationBase {
         if (delegateString === 'CREDENTIAL_VALIDATED') {
             if (this.status !== 'ERROR') return;
             console.log(
-                `[Frigg] Module ${notifier?.name || '?'} reported valid credentials for integration ${this.id} — clearing ERROR → ENABLED`
+                `[Frigg] Module ${
+                    notifier?.name || '?'
+                } reported valid credentials for integration ${
+                    this.id
+                } — clearing ERROR → ENABLED`
             );
             await this.persistStatus('ENABLED');
         }

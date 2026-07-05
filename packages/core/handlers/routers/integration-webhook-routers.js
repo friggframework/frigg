@@ -6,6 +6,23 @@ const { IntegrationEventDispatcher } = require('../integration-event-dispatcher'
 const handlers = {};
 const { integrations: integrationClasses } = loadAppDefinition();
 
+/**
+ * Emit the canonical `webhooks.received` usage signal (ADR-011). Counted at the
+ * receipt seam where the instance is still dry (no integrationId), so this is
+ * integration_type-scoped only — per-integration webhook processing is counted
+ * downstream at the (post-hydration) queue dispatch. Fully guarded: a telemetry
+ * failure must never break webhook receipt.
+ */
+function recordWebhookReceived(integrationInstance, IntegrationClass) {
+    try {
+        integrationInstance.telemetry?.count?.('frigg.webhooks.received', 1, {
+            integration_type: IntegrationClass.Definition?.name || 'unknown',
+        });
+    } catch (_) {
+        // never break the webhook path
+    }
+}
+
 for (const IntegrationClass of integrationClasses) {
     const webhookConfig = IntegrationClass.Definition.webhooks;
 
@@ -23,6 +40,7 @@ for (const IntegrationClass of integrationClasses) {
     router.post(basePath, async (req, res, next) => {
         try {
             const integrationInstance = new IntegrationClass();
+            recordWebhookReceived(integrationInstance, IntegrationClass);
             const dispatcher = new IntegrationEventDispatcher(integrationInstance);
             await dispatcher.dispatchHttp({
                 event: 'WEBHOOK_RECEIVED',
@@ -40,6 +58,7 @@ for (const IntegrationClass of integrationClasses) {
     router.post(`${basePath}/:integrationId`, async (req, res, next) => {
         try {
             const integrationInstance = new IntegrationClass();
+            recordWebhookReceived(integrationInstance, IntegrationClass);
             const dispatcher = new IntegrationEventDispatcher(integrationInstance);
             await dispatcher.dispatchHttp({
                 event: 'WEBHOOK_RECEIVED',

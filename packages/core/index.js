@@ -75,6 +75,8 @@ const {
     createReportingRouter,
     createReportingRepository,
 } = require('./reporting/index');
+const { createTelemetry } = require('./telemetry/index');
+const { createUsageRepository } = require('./usage/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
@@ -147,6 +149,10 @@ module.exports = {
     createReportingRouter,
     createReportingRepository,
 
+    // telemetry (ADR-011)
+    createTelemetry,
+    createUsageRepository,
+
     // application - Command factories for integration developers
     application,
     createFriggCommands: application.createFriggCommands,
@@ -156,6 +162,7 @@ module.exports = {
     createCredentialCommands: application.createCredentialCommands,
     createProcessCommands: application.createProcessCommands,
     createSchedulerCommands: application.createSchedulerCommands,
+    createUsageCommands: application.createUsageCommands,
     findIntegrationContextByExternalEntityId:
         application.findIntegrationContextByExternalEntityId,
     integrationCommands: application.integrationCommands,

@@ -4,6 +4,69 @@
 
 const { initDebugLog, flushDebugLog } = require('../logs');
 const { secretsToEnv } = require('./secrets-to-env');
+const { getTelemetry } = require('../telemetry/telemetry-singleton');
+const {
+    getUsageRollupSubscriber,
+} = require('../telemetry/usage-rollup-singleton');
+
+const DEFAULT_FLUSH_TIMEOUT_MS =
+    Number(process.env.OTEL_FLUSH_TIMEOUT_MS) || 2000;
+
+/**
+ * Fold the invocation's buffered usage counters into the durable store, then
+ * clear the buffer. On an SQS redelivery (ApproximateReceiveCount > 1) we
+ * DISCARD rather than flush — the prior delivery already counted, and the usage
+ * accuracy contract is "approximate, skip obvious redeliveries". Fully guarded.
+ */
+async function flushUsageRollup(subscriber, eventSummary) {
+    if (!subscriber) return;
+    try {
+        const redelivered =
+            Array.isArray(eventSummary?.records) &&
+            eventSummary.records.some((r) => Number(r.receiveCount) > 1);
+        if (redelivered) {
+            subscriber.discard();
+        } else {
+            await subscriber.flush();
+        }
+    } catch (_) {
+        // Usage rollup must never break the handler.
+    }
+}
+
+/**
+ * Flush telemetry before the Lambda container freezes. Because
+ * `callbackWaitsForEmptyEventLoop=false` (below) stops the event loop the moment
+ * the handler returns, OTel's timer-driven batch processors would never fire —
+ * so spans/metrics must be flushed synchronously here. Bounded by a timeout so a
+ * stalled exporter can never block the response, and fully guarded so a flush
+ * failure never breaks the handler.
+ */
+async function flushTelemetry(telemetry, timeoutMs) {
+    try {
+        if (
+            !telemetry ||
+            typeof telemetry.isEnabled !== 'function' ||
+            !telemetry.isEnabled()
+        ) {
+            return;
+        }
+        let timer;
+        const deadline = new Promise((resolve) => {
+            timer = setTimeout(resolve, timeoutMs);
+        });
+        try {
+            await Promise.race([
+                Promise.resolve(telemetry.forceFlush()),
+                deadline,
+            ]);
+        } finally {
+            clearTimeout(timer);
+        }
+    } catch (_) {
+        // Telemetry flush must never break the handler.
+    }
+}
 
 // Best-effort extraction of correlation identifiers from a Lambda event.
 // For SQS: pulls messageIds + parsed event/processId/integrationId from each
@@ -36,8 +99,7 @@ const summarizeLambdaEvent = (event) => {
     if (event.httpMethod || event.requestContext?.http) {
         return {
             source: 'http',
-            method:
-                event.httpMethod || event.requestContext?.http?.method,
+            method: event.httpMethod || event.requestContext?.http?.method,
             path: event.path || event.rawPath,
         };
     }
@@ -50,6 +112,9 @@ const createHandler = (optionByName = {}) => {
         isUserFacingResponse = true,
         method,
         shouldUseDatabase = true,
+        telemetry,
+        flushTimeoutMs = DEFAULT_FLUSH_TIMEOUT_MS,
+        usageRollup,
     } = optionByName;
 
     if (!method) {
@@ -58,16 +123,18 @@ const createHandler = (optionByName = {}) => {
 
     return async (event, context) => {
         const eventSummary = summarizeLambdaEvent(event);
+        const activeTelemetry = telemetry || getTelemetry();
+        const activeUsageRollup =
+            usageRollup !== undefined
+                ? usageRollup
+                : getUsageRollupSubscriber();
 
         try {
-            console.info(
-                `[createHandler] ${eventName}: handler entry`,
-                {
-                    eventName,
-                    awsRequestId: context?.awsRequestId,
-                    ...eventSummary,
-                }
-            );
+            console.info(`[createHandler] ${eventName}: handler entry`, {
+                eventName,
+                awsRequestId: context?.awsRequestId,
+                ...eventSummary,
+            });
 
             initDebugLog(eventName, event);
 
@@ -139,6 +206,10 @@ const createHandler = (optionByName = {}) => {
 
             // Here we can just rethrow and let AWS build the response.
             throw error;
+        } finally {
+            // Flush telemetry + usage before the container freezes.
+            await flushTelemetry(activeTelemetry, flushTimeoutMs);
+            await flushUsageRollup(activeUsageRollup, eventSummary);
         }
     };
 };

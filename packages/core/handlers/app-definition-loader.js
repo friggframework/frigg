@@ -1,17 +1,18 @@
 const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const path = require('node:path');
 const fs = require('fs-extra');
+const { resolveTelemetryConfig } = require('../telemetry/telemetry-config');
 
 /**
  * Loads the App definition from the nearest backend package
  * @function loadAppDefinition
  * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
  * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, admin: object}} An object containing the application definition.
+ * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, admin: object, telemetry: object}} An object containing the application definition.
  * @throws {Error} Throws error if backend package.json cannot be found.
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
  * @example
- * const { integrations, userConfig } = loadAppDefinition();
+ * const { integrations, userConfig, telemetry } = loadAppDefinition();
  * console.log(`Found ${integrations.length} integrations`);
  */
 function loadAppDefinition() {
@@ -35,7 +36,8 @@ function loadAppDefinition() {
         adminScripts = [],
         admin = {},
     } = appDefinition;
-    return { integrations, userConfig, adminScripts, admin };
+    const telemetry = resolveTelemetryConfig(appDefinition);
+    return { integrations, userConfig, adminScripts, admin, telemetry };
 }
 
 module.exports = {

@@ -66,3 +66,167 @@ describe('createHandler — shouldUseDatabase', () => {
         expect(connectPrisma).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('createHandler — telemetry flush (ADR-011 P4)', () => {
+    const ctx = { awsRequestId: 'r1' };
+
+    it('force-flushes enabled telemetry after the method resolves', async () => {
+        const forceFlush = jest.fn().mockResolvedValue(undefined);
+        const telemetry = { isEnabled: () => true, forceFlush };
+        const handler = createHandler({
+            isUserFacingResponse: false,
+            shouldUseDatabase: false,
+            method: async () => 'ok',
+            telemetry,
+        });
+
+        await handler({}, { ...ctx });
+
+        expect(forceFlush).toHaveBeenCalledTimes(1);
+    });
+
+    it('force-flushes even when the method throws (finally path)', async () => {
+        const forceFlush = jest.fn().mockResolvedValue(undefined);
+        const telemetry = { isEnabled: () => true, forceFlush };
+        const handler = createHandler({
+            isUserFacingResponse: false,
+            shouldUseDatabase: false,
+            method: async () => {
+                throw new Error('boom');
+            },
+            telemetry,
+        });
+
+        await expect(handler({}, { ...ctx })).rejects.toThrow('boom');
+        expect(forceFlush).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not flush a disabled (no-op) telemetry', async () => {
+        const forceFlush = jest.fn();
+        const telemetry = { isEnabled: () => false, forceFlush };
+        const handler = createHandler({
+            isUserFacingResponse: false,
+            shouldUseDatabase: false,
+            method: async () => 'ok',
+            telemetry,
+        });
+
+        await handler({}, { ...ctx });
+
+        expect(forceFlush).not.toHaveBeenCalled();
+    });
+
+    it('returns the response even if forceFlush hangs (bounded by timeout)', async () => {
+        const telemetry = {
+            isEnabled: () => true,
+            forceFlush: () => new Promise(() => {}), // never resolves
+        };
+        const handler = createHandler({
+            isUserFacingResponse: false,
+            shouldUseDatabase: false,
+            method: async () => 'ok',
+            telemetry,
+            flushTimeoutMs: 20,
+        });
+
+        await expect(handler({}, { ...ctx })).resolves.toBe('ok');
+    });
+
+    it('never lets a throwing forceFlush break the handler response', async () => {
+        const telemetry = {
+            isEnabled: () => true,
+            forceFlush: async () => {
+                throw new Error('flush exploded');
+            },
+        };
+        const handler = createHandler({
+            isUserFacingResponse: false,
+            shouldUseDatabase: false,
+            method: async () => 'ok',
+            telemetry,
+        });
+
+        await expect(handler({}, { ...ctx })).resolves.toBe('ok');
+    });
+});
+
+describe('createHandler — usage rollup flush (ADR-011 P9)', () => {
+    const ctx = { awsRequestId: 'r1' };
+    const noopTelemetry = { isEnabled: () => false, forceFlush: jest.fn() };
+
+    it('flushes the usage rollup after a normal (non-SQS) invocation', async () => {
+        const usageRollup = {
+            flush: jest.fn().mockResolvedValue(),
+            discard: jest.fn(),
+        };
+        const handler = createHandler({
+            isUserFacingResponse: false,
+            shouldUseDatabase: false,
+            method: async () => 'ok',
+            telemetry: noopTelemetry,
+            usageRollup,
+        });
+
+        await handler({}, { ...ctx });
+
+        expect(usageRollup.flush).toHaveBeenCalledTimes(1);
+        expect(usageRollup.discard).not.toHaveBeenCalled();
+    });
+
+    it('discards (does not flush) on an SQS redelivery to avoid double-counting', async () => {
+        const usageRollup = {
+            flush: jest.fn().mockResolvedValue(),
+            discard: jest.fn(),
+        };
+        const handler = createHandler({
+            isUserFacingResponse: false,
+            shouldUseDatabase: false,
+            method: async () => 'ok',
+            telemetry: noopTelemetry,
+            usageRollup,
+        });
+
+        const sqsRedelivery = {
+            Records: [
+                {
+                    messageId: 'm1',
+                    body: '{}',
+                    attributes: { ApproximateReceiveCount: '2' },
+                },
+            ],
+        };
+        await handler(sqsRedelivery, { ...ctx });
+
+        expect(usageRollup.discard).toHaveBeenCalledTimes(1);
+        expect(usageRollup.flush).not.toHaveBeenCalled();
+    });
+
+    it('flushes on first SQS delivery (receiveCount 1)', async () => {
+        const usageRollup = {
+            flush: jest.fn().mockResolvedValue(),
+            discard: jest.fn(),
+        };
+        const handler = createHandler({
+            isUserFacingResponse: false,
+            shouldUseDatabase: false,
+            method: async () => 'ok',
+            telemetry: noopTelemetry,
+            usageRollup,
+        });
+
+        await handler(
+            {
+                Records: [
+                    {
+                        messageId: 'm1',
+                        body: '{}',
+                        attributes: { ApproximateReceiveCount: '1' },
+                    },
+                ],
+            },
+            { ...ctx }
+        );
+
+        expect(usageRollup.flush).toHaveBeenCalledTimes(1);
+    });
+});

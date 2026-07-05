@@ -4,15 +4,10 @@ const {
 } = require('./commands/integration-commands');
 const { createUserCommands } = require('./commands/user-commands');
 const { createEntityCommands } = require('./commands/entity-commands');
-const {
-    createCredentialCommands,
-} = require('./commands/credential-commands');
-const {
-    createProcessCommands,
-} = require('./commands/process-commands');
-const {
-    createSchedulerCommands,
-} = require('./commands/scheduler-commands');
+const { createCredentialCommands } = require('./commands/credential-commands');
+const { createProcessCommands } = require('./commands/process-commands');
+const { createSchedulerCommands } = require('./commands/scheduler-commands');
+const { createUsageCommands } = require('./commands/usage-commands');
 
 /**
  * Create a unified command factory with all CRUD operations
@@ -56,6 +51,9 @@ function createFriggCommands({ integrationClass }) {
 
         // Process commands
         ...processCommands,
+
+        // Usage read/write (ADR-011) — nested to match `frigg.usage.*`
+        usage: createUsageCommands(),
     };
 }
 
@@ -70,6 +68,7 @@ module.exports = {
     createCredentialCommands,
     createProcessCommands,
     createSchedulerCommands,
+    createUsageCommands,
 
     // Legacy standalone function
     findIntegrationContextByExternalEntityId,
