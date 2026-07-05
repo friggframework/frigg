@@ -87,6 +87,22 @@ describe('createTelemetry — real (OTel-backed) path', () => {
         });
     });
 
+    it('nests child spans under the active parent (context manager registered)', async () => {
+        const { telemetry, traceExporter } = buildInMemoryTelemetry();
+
+        await telemetry.span('parent', async () => {
+            await telemetry.span('child', async () => {});
+        });
+        await telemetry.forceFlush();
+
+        const spans = traceExporter.getFinishedSpans();
+        const parent = spans.find((s) => s.name === 'parent');
+        const child = spans.find((s) => s.name === 'child');
+        expect(child.parentSpanContext?.spanId).toBe(
+            parent.spanContext().spanId
+        );
+    });
+
     it('marks the span as error and re-throws when the callback throws', async () => {
         const { telemetry, traceExporter } = buildInMemoryTelemetry();
         const boom = new Error('sync failed');

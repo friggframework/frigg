@@ -12,10 +12,13 @@
  *
  * ## Public event contract (semver-stable)
  * Event types and their payload shapes:
- *   - `'metric'` → `{ name: string, value: number, attributes: object }`
- *   - `'event'`  → `{ name: string, attributes: object }`
- * High-cardinality identifiers (integrationId, userId) travel on span baggage,
- * not on these payloads' `attributes` (Cardinality note).
+ *   - `'metric'` → `{ name: string, value: number, attributes: object, context?: object }`
+ *   - `'event'`  → `{ name: string, attributes: object, context?: object }`
+ * `attributes` are the bounded OTel metric labels. `context` (present when an
+ * ambient telemetry context is active) carries the high-cardinality identifiers
+ * — {integrationId, integrationType, userId, version, ...} plus per-call extras
+ * like a request `url` — which the usage rollup reads for attribution. Those ids
+ * NEVER appear in `attributes` (Cardinality note).
  */
 function createTelemetryEventBus() {
     /** @type {Map<string, Set<Function>>} */

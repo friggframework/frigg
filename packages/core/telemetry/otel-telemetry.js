@@ -23,6 +23,30 @@ const METRIC_EXPORT_INTERVAL_MS =
     Number(process.env.OTEL_METRIC_EXPORT_INTERVAL_MS) || 60000;
 
 /**
+ * Register an AsyncLocalStorage-backed OTel context manager once per process.
+ * Without it `BasicTracerProvider` uses the Noop context manager, so
+ * `startActiveSpan` never sets an active context — spans would be unparented
+ * roots, `getActiveSpan()` always undefined, and baggage inert. Guarded so
+ * repeated telemetry construction (tests) doesn't re-register.
+ */
+let contextManagerRegistered = false;
+function ensureContextManager() {
+    if (contextManagerRegistered) return;
+    contextManagerRegistered = true;
+    try {
+        const {
+            AsyncLocalStorageContextManager,
+        } = require('@opentelemetry/context-async-hooks');
+        const manager = new AsyncLocalStorageContextManager();
+        manager.enable();
+        otelApi.context.setGlobalContextManager(manager);
+    } catch (_) {
+        // If registration fails, traces are flat but usage attribution (which
+        // rides the separate telemetry-context ALS) is unaffected.
+    }
+}
+
+/**
  * The OpenTelemetry-backed telemetry service (ADR-011 Decision 1). Reached only
  * when a real exporter is configured; `createTelemetry` returns the no-op
  * otherwise. `BatchSpanProcessor` is used uniformly — spans are delivered by the
@@ -35,6 +59,7 @@ function createOtelTelemetry({
     sampleRatio,
     bus = createTelemetryEventBus(),
 } = {}) {
+    ensureContextManager();
     const { traceExporter, metricExporter } = buildExporters(exporter);
 
     const resourceAttrs = {

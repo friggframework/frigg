@@ -36,7 +36,27 @@ function loadAppDefinition() {
         adminScripts = [],
         admin = {},
     } = appDefinition;
-    const telemetry = resolveTelemetryConfig(appDefinition);
+
+    // Degrade consistently: an invalid telemetry block must never take down a
+    // router bundle that loads the app definition at module scope (telemetry is
+    // never allowed to break a handler). The singletons apply the same
+    // fall-back, so all consumers behave identically.
+    let telemetry;
+    try {
+        telemetry = resolveTelemetryConfig(appDefinition);
+    } catch (error) {
+        console.warn(
+            `[Frigg][telemetry] invalid telemetry config, defaulting to disabled: ${
+                error && error.message
+            }`
+        );
+        telemetry = {
+            exporter: { type: 'none' },
+            northStar: null,
+            sampleRatio: 1,
+        };
+    }
+
     return { integrations, userConfig, adminScripts, admin, telemetry };
 }
 

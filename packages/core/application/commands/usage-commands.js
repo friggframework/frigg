@@ -13,25 +13,34 @@
 const {
     createUsageRepository,
 } = require('../../usage/repositories/usage-repository-factory');
+const { computeUsageWindows } = require('../../telemetry/usage-windows');
 
 function createUsageCommands({ usageRepository } = {}) {
     const repository = usageRepository || createUsageRepository();
 
     return {
+        /**
+         * Record a usage counter for a point in time. Callers pass `at` (a Date,
+         * default now) — NOT a raw window key — and both the day and hour windows
+         * are derived, matching how the auto-rollup persists so series() reads
+         * back consistently at either granularity.
+         */
         async recordUsageCounter({
             integrationId,
             integrationType,
             metric,
-            window,
             value = 1,
+            at = new Date(),
         }) {
-            return repository.increment({
-                integrationId,
-                integrationType,
-                metric,
-                window,
-                value,
-            });
+            for (const window of computeUsageWindows(at)) {
+                await repository.increment({
+                    integrationId,
+                    integrationType,
+                    metric,
+                    window,
+                    value,
+                });
+            }
         },
 
         async totals(args) {

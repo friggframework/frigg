@@ -65,10 +65,12 @@ function matchesDeriveFrom(
 function createNorthStarDerivationSubscriber({ telemetry, northStar }) {
     if (!telemetry || !northStar) return { unsubscribe() {} };
 
+    // Hoisted — the referenced-key set is fixed for the life of the subscriber.
+    const keys = northStarKeys(northStar);
+
     function onMetric(payload) {
         try {
             // Never react to a North Star counter's own emission (no loop).
-            const keys = northStarKeys(northStar);
             if (keys.has(payload.name)) return;
 
             const integrationType =

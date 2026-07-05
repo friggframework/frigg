@@ -13,7 +13,7 @@ function fakeRepo() {
 }
 
 describe('createUsageCommands (ADR-011 §5 read contract)', () => {
-    it('recordUsageCounter delegates to the repository increment', async () => {
+    it('recordUsageCounter derives day+hour windows from a timestamp and increments both', async () => {
         const repo = fakeRepo();
         const cmds = createUsageCommands({ usageRepository: repo });
 
@@ -21,17 +21,23 @@ describe('createUsageCommands (ADR-011 §5 read contract)', () => {
             integrationId: 'int_1',
             integrationType: 'hubspot',
             metric: 'records.synced',
-            window: 'day:2026-07-05',
             value: 4,
+            at: new Date('2026-07-05T14:23:00.000Z'),
         });
 
-        expect(repo.increment).toHaveBeenCalledWith({
-            integrationId: 'int_1',
-            integrationType: 'hubspot',
-            metric: 'records.synced',
-            window: 'day:2026-07-05',
-            value: 4,
-        });
+        expect(repo.increment).toHaveBeenCalledTimes(2);
+        const windows = repo.increment.mock.calls.map((c) => c[0].window);
+        expect(windows).toEqual(
+            expect.arrayContaining(['day:2026-07-05', 'hour:2026-07-05T14'])
+        );
+        expect(repo.increment).toHaveBeenCalledWith(
+            expect.objectContaining({
+                integrationId: 'int_1',
+                integrationType: 'hubspot',
+                metric: 'records.synced',
+                value: 4,
+            })
+        );
     });
 
     it('totals delegates to the repository and returns its rows', async () => {

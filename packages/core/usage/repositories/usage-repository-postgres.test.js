@@ -127,10 +127,10 @@ describe('UsageRepositoryPostgres', () => {
     });
 
     describe('series', () => {
-        it('range-filters on the window key (not updatedAt) at a granularity', async () => {
-            prisma.usageCounter.findMany.mockResolvedValue([
-                { window: 'day:2026-07-04', value: 5 },
-                { window: 'day:2026-07-05', value: 9 },
+        it('aggregates across integration instances into one point per window, range-filtered on the window key', async () => {
+            prisma.usageCounter.groupBy.mockResolvedValue([
+                { window: 'day:2026-07-04', _sum: { value: 5 } },
+                { window: 'day:2026-07-05', _sum: { value: 14 } },
             ]);
 
             const result = await repo.series({
@@ -141,7 +141,8 @@ describe('UsageRepositoryPostgres', () => {
                 bucket: 'day',
             });
 
-            const arg = prisma.usageCounter.findMany.mock.calls[0][0];
+            const arg = prisma.usageCounter.groupBy.mock.calls[0][0];
+            expect(arg.by).toEqual(['window']);
             expect(arg.where).toMatchObject({
                 metric: 'records.synced',
                 integrationType: 'hubspot',
@@ -154,8 +155,14 @@ describe('UsageRepositoryPostgres', () => {
             expect(arg.where.updatedAt).toBeUndefined();
             expect(result).toEqual([
                 { bucket: 'day:2026-07-04', value: 5 },
-                { bucket: 'day:2026-07-05', value: 9 },
+                { bucket: 'day:2026-07-05', value: 14 },
             ]);
+        });
+
+        it('rejects a missing integrationType (would silently mix types)', async () => {
+            await expect(
+                repo.series({ metric: 'm', bucket: 'day' })
+            ).rejects.toThrow(/integrationType/i);
         });
 
         it('rejects an un-allowlisted bucket', async () => {
@@ -166,6 +173,12 @@ describe('UsageRepositoryPostgres', () => {
                     bucket: 'week',
                 })
             ).rejects.toThrow(/bucket/i);
+        });
+    });
+
+    describe('totals — requires a metric', () => {
+        it('rejects an absent metric (would sum across mixed-unit metrics)', async () => {
+            await expect(repo.totals({})).rejects.toThrow(/metric/i);
         });
     });
 });

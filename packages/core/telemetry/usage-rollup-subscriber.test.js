@@ -70,6 +70,38 @@ describe('usage rollup subscriber (ADR-011 P9)', () => {
         );
     });
 
+    it('maps an ON_WEBHOOK handler dispatch to webhooks.received (DB-connected seam)', async () => {
+        const { telemetry, increments, subscriber } = harness([
+            'webhooks.received',
+        ]);
+
+        telemetry.count(
+            'frigg.handler.invocations',
+            1,
+            {
+                integration_type: 'hubspot',
+                event: 'LIFE_CYCLE_EVENT',
+                status: 'ok',
+            },
+            {
+                integrationType: 'hubspot',
+                integrationId: 'int_1',
+                event_name: 'ON_WEBHOOK',
+            }
+        );
+        await subscriber.flush();
+
+        expect(increments).toContainEqual(
+            expect.objectContaining({
+                integrationId: 'int_1',
+                integrationType: 'hubspot',
+                metric: 'webhooks.received',
+                window: 'day:2026-07-05',
+                value: 1,
+            })
+        );
+    });
+
     it('ignores metrics that do not resolve to a tracked key', async () => {
         const { telemetry, usageRepository, subscriber } = harness([
             'records.synced',

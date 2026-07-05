@@ -1,15 +1,24 @@
 const { computeUsageWindows } = require('./usage-windows');
 
+const WEBHOOK_EVENT_NAMES = new Set(['ON_WEBHOOK']);
+
 /**
  * Framework auto-signal metric names → the canonical usage key they feed
- * (ADR-011 §3). A resolver may return null to decline (e.g. only USER_ACTION
- * handler invocations count as `user_actions`).
+ * (ADR-011 §3). Resolvers receive (attributes, context) and may return null to
+ * decline. Handler invocations map by event: USER_ACTION → user_actions; the
+ * DB-connected `ON_WEBHOOK` queue dispatch → webhooks.received (per-integration,
+ * and where a durable write is actually possible — the HTTP receipt handler is
+ * DB-free so its buffer is discarded).
  */
 const METRIC_TO_CANONICAL = {
     'frigg.apimodule.requests': () => 'api.requests',
-    'frigg.webhooks.received': () => 'webhooks.received',
-    'frigg.handler.invocations': (attrs) =>
-        attrs && attrs.event === 'USER_ACTION' ? 'user_actions' : null,
+    'frigg.handler.invocations': (attrs, ctx) => {
+        if (attrs && attrs.event === 'USER_ACTION') return 'user_actions';
+        if (ctx && WEBHOOK_EVENT_NAMES.has(ctx.event_name)) {
+            return 'webhooks.received';
+        }
+        return null;
+    },
 };
 
 /**
@@ -34,17 +43,17 @@ function createUsageRollupSubscriber({
     // — collision-proof for developer-defined custom keys / names.
     let buffer = new Map();
 
-    function resolveUsageKey(name, attributes) {
+    function resolveUsageKey(name, attributes, context) {
         if (trackedMetrics.has(name)) return name;
         const resolver = METRIC_TO_CANONICAL[name];
-        const canonical = resolver ? resolver(attributes || {}) : null;
+        const canonical = resolver ? resolver(attributes || {}, context) : null;
         return canonical && trackedMetrics.has(canonical) ? canonical : null;
     }
 
     function onMetric(payload) {
         try {
             const { name, value = 1, attributes = {}, context } = payload;
-            const metric = resolveUsageKey(name, attributes);
+            const metric = resolveUsageKey(name, attributes, context);
             if (!metric) return;
 
             const integrationType =

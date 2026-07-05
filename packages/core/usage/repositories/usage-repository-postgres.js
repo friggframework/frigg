@@ -54,6 +54,9 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
         since,
         bucket = 'day',
     } = {}) {
+        if (!metric) {
+            throw new Error('totals requires a metric (units are per-metric)');
+        }
         assertGroupBy(groupBy);
         assertBucket(bucket);
 
@@ -77,6 +80,9 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
 
     async series({ metric, integrationType, from, to, bucket = 'day' } = {}) {
         assertBucket(bucket);
+        if (!integrationType) {
+            throw new Error('series requires an integrationType');
+        }
 
         // Range-filter on the WINDOW key (write-time `updatedAt` would misplace a
         // late increment for an earlier window). Window keys are ISO-lexicographic
@@ -85,12 +91,20 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
         if (from) window.gte = windowKey(bucket, from);
         if (to) window.lte = windowKey(bucket, to);
 
-        const rows = await this.prisma.usageCounter.findMany({
+        // Aggregate ACROSS integration instances: there is one row per
+        // (integrationId, integrationType, metric, window), so a type with many
+        // instances has many rows per window — sum them into one point.
+        const groups = await this.prisma.usageCounter.groupBy({
+            by: ['window'],
             where: { metric, integrationType, window },
+            _sum: { value: true },
             orderBy: { window: 'asc' },
         });
 
-        return rows.map((row) => ({ bucket: row.window, value: row.value }));
+        return groups.map((group) => ({
+            bucket: group.window,
+            value: group._sum?.value ?? 0,
+        }));
     }
 }
 
