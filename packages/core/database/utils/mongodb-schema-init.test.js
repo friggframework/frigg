@@ -2,18 +2,6 @@
  * Tests for MongoDB Schema Initialization
  */
 
-const {
-    initializeMongoDBSchema,
-    getPrismaCollections,
-} = require('./mongodb-schema-init');
-
-// Mock dependencies
-const mockMongoose = {
-    connection: {
-        readyState: 1, // connected
-    },
-};
-
 const mockEnsureCollectionsExist = jest.fn().mockResolvedValue(undefined);
 const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
     'User', 'Token', 'Credential', 'Entity', 'Integration',
@@ -21,8 +9,12 @@ const mockGetCollectionsFromSchemaSync = jest.fn().mockReturnValue([
     'Association', 'AssociationObject', 'State', 'WebsocketConnection'
 ]);
 
-jest.mock('../mongoose', () => ({
-    mongoose: mockMongoose,
+const mockConfig = {
+    DB_TYPE: 'mongodb',
+};
+
+jest.mock('../prisma', () => ({
+    prisma: { $runCommandRaw: jest.fn().mockResolvedValue({ ok: 1 }) },
 }));
 
 jest.mock('./mongodb-collection-utils', () => ({
@@ -33,17 +25,19 @@ jest.mock('./prisma-schema-parser', () => ({
     getCollectionsFromSchemaSync: mockGetCollectionsFromSchemaSync,
 }));
 
-const mockConfig = {
-    DB_TYPE: 'mongodb',
-};
-
 jest.mock('../config', () => mockConfig);
+
+const { prisma: mockPrisma } = require('../prisma');
+const {
+    initializeMongoDBSchema,
+    getPrismaCollections,
+} = require('./mongodb-schema-init');
 
 describe('MongoDB Schema Initialization', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockConfig.DB_TYPE = 'mongodb';
-        mockMongoose.connection.readyState = 1;
+        mockPrisma.$runCommandRaw.mockResolvedValue({ ok: 1 });
         console.log = jest.fn();
         console.error = jest.fn();
         console.warn = jest.fn();
@@ -82,8 +76,16 @@ describe('MongoDB Schema Initialization', () => {
             );
         });
 
+        it('should initialize for DocumentDB', async () => {
+            mockConfig.DB_TYPE = 'documentdb';
+
+            await initializeMongoDBSchema();
+
+            expect(mockEnsureCollectionsExist).toHaveBeenCalled();
+        });
+
         it('should throw error if database not connected', async () => {
-            mockMongoose.connection.readyState = 0; // disconnected
+            mockPrisma.$runCommandRaw.mockRejectedValueOnce(new Error('Connection refused'));
 
             await expect(initializeMongoDBSchema()).rejects.toThrow(
                 'Cannot initialize MongoDB schema - database not connected'

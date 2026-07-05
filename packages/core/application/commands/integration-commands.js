@@ -12,11 +12,23 @@ const {
     FindIntegrationContextByExternalEntityIdUseCase,
 } = require('../../integrations/use-cases/find-integration-context-by-external-entity-id');
 const {
+    FindIntegrationByEntityExternalIdUseCase,
+} = require('../../integrations/use-cases/find-integration-by-entity-external-id');
+const {
+    ListIntegrationsByEntityExternalIdUseCase,
+} = require('../../integrations/use-cases/list-integrations-by-entity-external-id');
+const {
     GetIntegrationsForUser,
 } = require('../../integrations/use-cases/get-integrations-for-user');
 const {
     CreateIntegration,
 } = require('../../integrations/use-cases/create-integration');
+const {
+    UpdateIntegrationConfig,
+} = require('../../integrations/use-cases/update-integration-config');
+const {
+    PatchIntegrationConfig,
+} = require('../../integrations/use-cases/patch-integration-config');
 const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../../integrations/utils/map-integration-dto');
@@ -25,7 +37,8 @@ const ERROR_CODE_MAP = {
     ENTITY_NOT_FOUND: 401,
     ENTITY_USER_NOT_FOUND: 401,
     INTEGRATION_NOT_FOUND: 404,
-    EXTERNAL_ENTITY_ID_REQUIRED: 400,
+    EXTERNAL_ID_REQUIRED: 400,
+    TYPE_REQUIRED: 400,
     INTEGRATION_RECORD_NOT_FOUND: 404,
 };
 
@@ -69,6 +82,18 @@ function createIntegrationCommands({ integrationClass }) {
             loadIntegrationContextUseCase: loadIntegrationContextUseCase,
         });
 
+    const findIntegrationByEntityExternalIdUseCase =
+        new FindIntegrationByEntityExternalIdUseCase({
+            integrationRepository,
+            moduleRepository,
+        });
+
+    const listIntegrationsByEntityExternalIdUseCase =
+        new ListIntegrationsByEntityExternalIdUseCase({
+            integrationRepository,
+            moduleRepository,
+        });
+
     const getIntegrationsForUserUseCase = new GetIntegrationsForUser({
         integrationRepository,
         integrationClasses: [integrationClass],
@@ -82,18 +107,67 @@ function createIntegrationCommands({ integrationClass }) {
         moduleFactory,
     });
 
+    const updateIntegrationConfigUseCase = new UpdateIntegrationConfig({
+        integrationRepository,
+    });
+
+    const patchIntegrationConfigUseCase = new PatchIntegrationConfig({
+        integrationRepository,
+    });
+
     return {
-        async findIntegrationContextByExternalEntityId(externalEntityId) {
+        /**
+         * Find integration context by external entity ID and type
+         * @param {Object} params
+         * @param {string} params.externalId - External ID of the entity
+         * @param {string} params.type - Integration type (config.type)
+         * @returns {Promise<Object>} Integration context, entity, and record
+         */
+        async findIntegrationContextByExternalEntityId({ externalId, type }) {
             try {
-                const { context } = await findByExternalEntityIdUseCase.execute(
-                    {
-                        externalEntityId,
-                    }
-                );
-                return { context };
+                const result = await findByExternalEntityIdUseCase.execute({
+                    externalId,
+                    type,
+                });
+                return result;
             } catch (error) {
                 return mapErrorToResponse(error);
             }
+        },
+
+        /**
+         * Resolve an externalId (e.g. HubSpot portalId, Slack team_id) to a
+         * single integration ID. Throws on ambiguous resolution at either the
+         * entity or integration layer — cross-tenant routing is refused.
+         *
+         * @param {string|number} externalId - Provider's stable identifier.
+         * @param {string} [moduleName] - Disambiguates when multiple modules in
+         *     the same app could carry colliding externalIds.
+         * @returns {Promise<string|null>} Integration ID, or null on no match.
+         * @throws {Error} On ambiguous resolution (multiple entities or
+         *     multiple owning integrations).
+         */
+        async findIntegrationByEntityExternalId(externalId, moduleName) {
+            return findIntegrationByEntityExternalIdUseCase.execute({
+                externalId,
+                moduleName,
+            });
+        },
+
+        /**
+         * List all integration IDs whose module entities match an externalId.
+         * Use when one externalId is expected to map to multiple integrations
+         * (intentional fan-out). Does not throw on ambiguity.
+         *
+         * @param {string|number} externalId - Provider's stable identifier.
+         * @param {string} [moduleName] - Disambiguates across modules.
+         * @returns {Promise<Array<string>>} Array of integration IDs (possibly empty).
+         */
+        async listIntegrationsByEntityExternalId(externalId, moduleName) {
+            return listIntegrationsByEntityExternalIdUseCase.execute({
+                externalId,
+                moduleName,
+            });
         },
 
         async loadIntegrationContextById(integrationId) {
@@ -152,9 +226,28 @@ function createIntegrationCommands({ integrationClass }) {
          */
         async updateIntegrationConfig({ integrationId, config }) {
             try {
-                const integration = await integrationRepository.updateIntegrationConfig(
+                const integration = await updateIntegrationConfigUseCase.execute(
                     integrationId,
                     config
+                );
+                return integration;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Atomically merge a partial update into an integration's config
+         * @param {Object} params
+         * @param {string} params.integrationId - Integration ID
+         * @param {Object} params.patch - Keys to merge into the existing config
+         * @returns {Promise<Object>} Updated integration
+         */
+        async patchIntegrationConfig({ integrationId, patch }) {
+            try {
+                const integration = await patchIntegrationConfigUseCase.execute(
+                    integrationId,
+                    patch
                 );
                 return integration;
             } catch (error) {
@@ -197,11 +290,12 @@ function createIntegrationCommands({ integrationClass }) {
 
 async function findIntegrationContextByExternalEntityId({
     integrationClass,
-    externalEntityId,
+    externalId,
+    type,
 } = {}) {
     const commands = createIntegrationCommands({ integrationClass });
 
-    return commands.findIntegrationContextByExternalEntityId(externalEntityId);
+    return commands.findIntegrationContextByExternalEntityId({ externalId, type });
 }
 
 module.exports = {

@@ -19,39 +19,43 @@ class FindIntegrationContextByExternalEntityIdUseCase {
         this.loadIntegrationContextUseCase = loadIntegrationContextUseCase;
     }
 
-    async execute({ externalEntityId }) {
-        if (!externalEntityId) {
-            const error = new Error('externalEntityId is required');
-            error.code = 'EXTERNAL_ENTITY_ID_REQUIRED';
+    async execute({ externalId, type }) {
+        if (!externalId) {
+            const error = new Error('externalId is required');
+            error.code = 'EXTERNAL_ID_REQUIRED';
+            throw error;
+        }
+
+        if (!type) {
+            const error = new Error('type is required');
+            error.code = 'TYPE_REQUIRED';
             throw error;
         }
 
         const entity = await this.moduleRepository.findEntity({
-            externalId: externalEntityId,
+            externalId,
         });
 
         if (!entity) {
             const error = new Error(
-                `Entity not found for externalId: ${externalEntityId}`
+                `Entity not found for externalId: ${externalId}`
             );
             error.code = 'ENTITY_NOT_FOUND';
             throw error;
         }
 
-        if (!entity.userId) {
-            const error = new Error('Entity does not have an associated user');
-            error.code = 'ENTITY_USER_NOT_FOUND';
-            throw error;
-        }
-
-        const integrationRecord =
-            await this.integrationRepository.findIntegrationByUserId(
-                entity.userId
+        const integrations =
+            await this.integrationRepository.findIntegrationsByEntityId(
+                entity.id
             );
+
+        const integrationRecord = integrations?.find(
+            (i) => i.config?.type === type
+        );
 
         if (!integrationRecord) {
             const error = new Error(
-                `Integration not found for user: ${entity.userId}`
+                `Integration of type '${type}' not found for entity: ${entity.id}`
             );
             error.code = 'INTEGRATION_NOT_FOUND';
             throw error;

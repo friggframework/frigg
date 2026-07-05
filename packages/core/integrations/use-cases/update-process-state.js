@@ -22,6 +22,8 @@
  *   pagination: { pageSize: 100 }
  * });
  */
+const { invalidProcessData, processNotFound } = require('./process-errors');
+
 class UpdateProcessState {
     /**
      * @param {Object} params
@@ -45,39 +47,81 @@ class UpdateProcessState {
     async execute(processId, newState, contextUpdates = {}) {
         // Validate inputs
         if (!processId || typeof processId !== 'string') {
-            throw new Error('processId must be a non-empty string');
+            throw invalidProcessData('processId must be a non-empty string');
         }
         if (!newState || typeof newState !== 'string') {
-            throw new Error('newState must be a non-empty string');
+            throw invalidProcessData('newState must be a non-empty string');
         }
         if (contextUpdates && typeof contextUpdates !== 'object') {
-            throw new Error('contextUpdates must be an object');
+            throw invalidProcessData('contextUpdates must be an object');
         }
 
-        // Retrieve current process
-        const process = await this.processRepository.findById(processId);
-        if (!process) {
-            throw new Error(`Process not found: ${processId}`);
+        // Route through the atomic path when the repo supports it AND we
+        // have context keys to set. The atomic path writes the state
+        // column + the context field-sets in one DB round trip without
+        // read-modify-write, so a concurrent counter bump from
+        // UpdateProcessMetrics can't clobber our flags (e.g. `fetchDone`)
+        // or vice versa.
+        //
+        // Each context update key becomes a `set` at path
+        // `context.<key>` — matching the prior semantics of a shallow
+        // top-level merge (sub-objects were and still are replaced
+        // whole, not deep-merged).
+        const hasContextKeys =
+            contextUpdates && Object.keys(contextUpdates).length > 0;
+
+        if (
+            hasContextKeys &&
+            typeof this.processRepository.applyProcessUpdate === 'function'
+        ) {
+            const set = {};
+            for (const [key, value] of Object.entries(contextUpdates)) {
+                set[`context.${key}`] = value;
+            }
+            try {
+                const updated = await this.processRepository.applyProcessUpdate(
+                    processId,
+                    { set, newState }
+                );
+                if (!updated) {
+                    throw processNotFound(`Process not found: ${processId}`);
+                }
+                return updated;
+            } catch (error) {
+                if (error.code === 'PROCESS_NOT_FOUND') {
+                    throw error;
+                }
+                throw new Error(
+                    `Failed to update process state: ${error.message}`
+                );
+            }
         }
 
-        // Prepare updates
-        const updates = {
-            state: newState,
-        };
-
-        // Merge context updates if provided
-        if (contextUpdates && Object.keys(contextUpdates).length > 0) {
-            updates.context = {
-                ...process.context,
-                ...contextUpdates,
-            };
-        }
-
-        // Persist updates
+        // Legacy path (no contextUpdates or repo lacks applyProcessUpdate):
+        // preserve the original read-merge-write semantics for backward
+        // compatibility with any custom repos. Wrap the full read+write
+        // in try/catch so a findById error surfaces under the same
+        // "Failed to update process state" message as a write failure.
         try {
-            const updatedProcess = await this.processRepository.update(processId, updates);
-            return updatedProcess;
+            const process = await this.processRepository.findById(processId);
+            if (!process) {
+                throw processNotFound(`Process not found: ${processId}`);
+            }
+
+            const updates = { state: newState };
+            if (hasContextKeys) {
+                updates.context = {
+                    ...process.context,
+                    ...contextUpdates,
+                };
+            }
+
+            return await this.processRepository.update(processId, updates);
         } catch (error) {
+            // Re-throw "Process not found" as-is; wrap other errors.
+            if (error.code === 'PROCESS_NOT_FOUND') {
+                throw error;
+            }
             throw new Error(`Failed to update process state: ${error.message}`);
         }
     }
@@ -101,7 +145,7 @@ class UpdateProcessState {
     async updateContextOnly(processId, contextUpdates) {
         const process = await this.processRepository.findById(processId);
         if (!process) {
-            throw new Error(`Process not found: ${processId}`);
+            throw processNotFound(`Process not found: ${processId}`);
         }
 
         const updates = {

@@ -15,9 +15,15 @@
  * and externally-provided SQS queues.
  */
 
-const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
+const {
+    InfrastructureBuilder,
+    ValidationResult,
+} = require('../shared/base-builder');
 const IntegrationResourceResolver = require('./integration-resolver');
-const { createEmptyDiscoveryResult, ResourceOwnership } = require('../shared/types');
+const {
+    createEmptyDiscoveryResult,
+    ResourceOwnership,
+} = require('../shared/types');
 
 class IntegrationBuilder extends InfrastructureBuilder {
     constructor() {
@@ -26,7 +32,10 @@ class IntegrationBuilder extends InfrastructureBuilder {
     }
 
     shouldExecute(appDefinition) {
-        return Array.isArray(appDefinition.integrations) && appDefinition.integrations.length > 0;
+        return (
+            Array.isArray(appDefinition.integrations) &&
+            appDefinition.integrations.length > 0
+        );
     }
 
     getDependencies() {
@@ -48,7 +57,9 @@ class IntegrationBuilder extends InfrastructureBuilder {
         // Validate each integration
         appDefinition.integrations.forEach((integration, index) => {
             if (!integration?.Definition?.name) {
-                result.addError(`Integration at index ${index} is missing Definition or name`);
+                result.addError(
+                    `Integration at index ${index} is missing Definition or name`
+                );
             }
         });
 
@@ -60,7 +71,9 @@ class IntegrationBuilder extends InfrastructureBuilder {
      */
     async build(appDefinition, discoveredResources) {
         console.log(`\n[${this.name}] Configuring integrations...`);
-        console.log(`  Processing ${appDefinition.integrations.length} integrations...`);
+        console.log(
+            `  Processing ${appDefinition.integrations.length} integrations...`
+        );
 
         const usePrismaLayer = appDefinition.usePrismaLambdaLayer !== false;
 
@@ -73,23 +86,34 @@ class IntegrationBuilder extends InfrastructureBuilder {
         };
 
         // Get structured discovery result
-        const discovery = discoveredResources._structured || this.convertFlatDiscoveryToStructured(discoveredResources);
+        const discovery =
+            discoveredResources._structured ||
+            this.convertFlatDiscoveryToStructured(discoveredResources);
 
         // Use IntegrationResourceResolver to make ownership decisions
         const resolver = new IntegrationResourceResolver();
         const decisions = resolver.resolveAll(appDefinition, discovery);
 
         console.log('\n  📋 Resource Ownership Decisions:');
-        console.log(`     InternalErrorQueue: ${decisions.internalErrorQueue.ownership} - ${decisions.internalErrorQueue.reason}`);
+        console.log(
+            `     InternalErrorQueue: ${decisions.internalErrorQueue.ownership} - ${decisions.internalErrorQueue.reason}`
+        );
 
         // Log per-integration decisions
-        Object.keys(decisions.integrations).forEach(integrationName => {
+        Object.keys(decisions.integrations).forEach((integrationName) => {
             const queueDecision = decisions.integrations[integrationName].queue;
-            console.log(`     ${integrationName}Queue: ${queueDecision.ownership} - ${queueDecision.reason}`);
+            console.log(
+                `     ${integrationName}Queue: ${queueDecision.ownership} - ${queueDecision.reason}`
+            );
         });
 
         // Build resources based on ownership decisions
-        await this.buildFromDecisions(decisions, appDefinition, result, usePrismaLayer);
+        await this.buildFromDecisions(
+            decisions,
+            appDefinition,
+            result,
+            usePrismaLayer
+        );
 
         console.log(`[${this.name}] ✅ Integration configuration completed`);
         return result;
@@ -113,7 +137,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
 
             // Add stack-managed resources from existingLogicalIds
             const existingLogicalIds = flatDiscovery.existingLogicalIds || [];
-            existingLogicalIds.forEach(logicalId => {
+            existingLogicalIds.forEach((logicalId) => {
                 let resourceType = '';
                 let physicalId = '';
 
@@ -124,7 +148,9 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 } else if (logicalId.endsWith('Queue')) {
                     // Integration-specific queue (e.g., SlackQueue, HubspotQueue)
                     resourceType = 'AWS::SQS::Queue';
-                    const integrationName = logicalId.replace('Queue', '').toLowerCase();
+                    const integrationName = logicalId
+                        .replace('Queue', '')
+                        .toLowerCase();
                     physicalId = flatDiscovery[`${integrationName}QueueUrl`];
                 }
 
@@ -132,7 +158,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
                     discovery.stackManaged.push({
                         logicalId,
                         physicalId,
-                        resourceType
+                        resourceType,
                     });
                 }
             });
@@ -144,20 +170,31 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Build integration resources based on ownership decisions
      */
-    async buildFromDecisions(decisions, appDefinition, result, usePrismaLayer = true) {
+    async buildFromDecisions(
+        decisions,
+        appDefinition,
+        result,
+        usePrismaLayer = true
+    ) {
+        // Create package config first — needed by all Lambda functions including DLQ processor
+        const functionPackageConfig =
+            this.createFunctionPackageConfig(usePrismaLayer);
+
         // Create InternalErrorQueue if ownership = STACK
-        const shouldCreateInternalErrorQueue = decisions.internalErrorQueue.ownership === ResourceOwnership.STACK;
+        const shouldCreateInternalErrorQueue =
+            decisions.internalErrorQueue.ownership === ResourceOwnership.STACK;
 
         if (shouldCreateInternalErrorQueue) {
             console.log('  → Creating InternalErrorQueue in stack');
-            this.createInternalErrorQueue(result);
+            this.createInternalErrorQueue(result, functionPackageConfig);
         } else {
             console.log('  → Using external InternalErrorQueue');
-            this.useExternalInternalErrorQueue(decisions.internalErrorQueue, result);
+            this.useExternalInternalErrorQueue(
+                decisions.internalErrorQueue,
+                result,
+                functionPackageConfig
+            );
         }
-
-        // Create Lambda function definitions and queue resources for each integration
-        const functionPackageConfig = this.createFunctionPackageConfig(usePrismaLayer);
 
         for (const integration of appDefinition.integrations) {
             const integrationName = integration.Definition.name;
@@ -166,17 +203,29 @@ class IntegrationBuilder extends InfrastructureBuilder {
             console.log(`\n    Adding integration: ${integrationName}`);
 
             // Create Lambda function definitions (serverless template code)
-            await this.createFunctionDefinitions(integration, functionPackageConfig, result, usePrismaLayer);
+            await this.createFunctionDefinitions(
+                integration,
+                functionPackageConfig,
+                result,
+                usePrismaLayer
+            );
 
             // Create or reference SQS queue based on ownership decision
-            const shouldCreateQueue = queueDecision.ownership === ResourceOwnership.STACK;
+            const shouldCreateQueue =
+                queueDecision.ownership === ResourceOwnership.STACK;
 
             if (shouldCreateQueue) {
-                console.log(`      ✓ Creating ${integrationName}Queue in stack`);
+                console.log(
+                    `      ✓ Creating ${integrationName}Queue in stack`
+                );
                 this.createIntegrationQueue(integrationName, result);
             } else {
                 console.log(`      ✓ Using external ${integrationName}Queue`);
-                this.useExternalIntegrationQueue(integrationName, queueDecision, result);
+                this.useExternalIntegrationQueue(
+                    integrationName,
+                    queueDecision,
+                    result
+                );
             }
         }
     }
@@ -192,12 +241,14 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 'node_modules/@aws-sdk/**',
 
                 // Exclude Prisma (provided via Lambda Layer)
-                ...(usePrismaLayer ? [
-                    'node_modules/@prisma/**',
-                    'node_modules/.prisma/**',
-                    'node_modules/prisma/**',
-                    'node_modules/@friggframework/core/generated/**',
-                ] : []),
+                ...(usePrismaLayer
+                    ? [
+                          'node_modules/@prisma/**',
+                          'node_modules/.prisma/**',
+                          'node_modules/prisma/**',
+                          'node_modules/@friggframework/core/generated/**',
+                      ]
+                    : []),
 
                 // Exclude ALL nested node_modules
                 'node_modules/**/node_modules/**',
@@ -253,21 +304,31 @@ class IntegrationBuilder extends InfrastructureBuilder {
      * Create Lambda function definitions for an integration
      * These are serverless framework template function definitions
      */
-    async createFunctionDefinitions(integration, functionPackageConfig, result, usePrismaLayer = true) {
+    async createFunctionDefinitions(
+        integration,
+        functionPackageConfig,
+        result,
+        usePrismaLayer = true
+    ) {
         const integrationName = integration.Definition.name;
 
         // Add webhook handler if enabled (BEFORE catch-all proxy route)
         // CRITICAL: Webhook routes must be defined before the catch-all {proxy+} route
         // to ensure proper route matching in AWS API Gateway/HTTP API
         const webhookConfig = integration.Definition.webhooks;
-        if (webhookConfig && (webhookConfig === true || webhookConfig.enabled === true)) {
+        if (
+            webhookConfig &&
+            (webhookConfig === true || webhookConfig.enabled === true)
+        ) {
             const webhookFunctionName = `${integrationName}Webhook`;
 
             result.functions[webhookFunctionName] = {
                 handler: `node_modules/@friggframework/core/handlers/routers/integration-webhook-routers.handlers.${integrationName}Webhook.handler`,
-                skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
+                skipEsbuild: true, // Nested exports in node_modules - skip esbuild bundling
                 package: functionPackageConfig,
-                ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),  // Webhook handlers need Prisma for credential lookups
+                ...(usePrismaLayer && {
+                    layers: [{ Ref: 'PrismaLambdaLayer' }],
+                }), // Webhook handlers need Prisma for credential lookups
                 events: [
                     {
                         httpApi: {
@@ -286,12 +347,13 @@ class IntegrationBuilder extends InfrastructureBuilder {
             console.log(`      ✓ Webhook handler function defined`);
         }
 
-        // Create HTTP API handler for integration (catch-all route AFTER webhooks)
+        // Create HTTP API handler for integration (catch-all route AFTER
+        // webhooks). Extension routes get their own functions below.
         result.functions[integrationName] = {
             handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${integrationName}.handler`,
-            skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
+            skipEsbuild: true, // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
-            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),  // HTTP handlers need Prisma for integration queries
+            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }), // HTTP handlers need Prisma for integration queries
             events: [
                 {
                     httpApi: {
@@ -303,23 +365,77 @@ class IntegrationBuilder extends InfrastructureBuilder {
         };
         console.log(`      ✓ HTTP handler function defined`);
 
+        // One serverless function per extension binding, namespaced under
+        // /{bindingKey}. Prisma layer attached only when useDatabase is true.
+        const sanitizeBindingKey = (name) =>
+            String(name).replace(/[^A-Za-z0-9]/g, '');
+        const extensionEntries = Object.entries(
+            integration.Definition.extensions || {}
+        );
+        for (const [bindingKey, binding] of extensionEntries) {
+            const extension = binding && binding.extension;
+            const routes = (extension && extension.routes) || [];
+            if (routes.length === 0) continue;
+            const useDatabase =
+                binding.useDatabase ??
+                (extension && extension.useDatabase) ??
+                false;
+            // Wire contract: core's integration-defined-routers derives the
+            // identical handler key. Keep both in sync.
+            const fnName = `${integrationName}__${sanitizeBindingKey(
+                bindingKey
+            )}`;
+            // Distinct binding keys can sanitize to the same fnName — fail loud rather than overwrite.
+            if (
+                Object.prototype.hasOwnProperty.call(result.functions, fnName)
+            ) {
+                throw new Error(
+                    `Integration "${integrationName}" extension function conflict: ` +
+                        `binding "${bindingKey}" sanitizes to "${fnName}", which is already taken. ` +
+                        `Use binding keys that are distinct after stripping non-alphanumeric characters.`
+                );
+            }
+            result.functions[fnName] = {
+                handler: `node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.${fnName}.handler`,
+                skipEsbuild: true,
+                package: functionPackageConfig,
+                ...(usePrismaLayer &&
+                    useDatabase && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
+                events: routes.map((route) => ({
+                    httpApi: {
+                        path: `/api/${integrationName}-integration/${bindingKey}${route.path}`,
+                        method: route.method,
+                    },
+                })),
+            };
+            console.log(
+                `      ✓ Extension handler function defined: ${fnName} (useDatabase: ${useDatabase})`
+            );
+        }
+
         // Create Queue Worker function
         const queueWorkerName = `${integrationName}QueueWorker`;
         result.functions[queueWorkerName] = {
             handler: `node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
-            skipEsbuild: true,  // Nested exports in node_modules - skip esbuild bundling
+            skipEsbuild: true, // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
-            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),  // Queue workers need Prisma for database operations
-            reservedConcurrency: 5,
+            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }), // Queue workers need Prisma for database operations
+            reservedConcurrency: 20,
             events: [
                 {
                     sqs: {
-                        arn: { 'Fn::GetAtt': [`${this.capitalizeFirst(integrationName)}Queue`, 'Arn'] },
+                        arn: {
+                            'Fn::GetAtt': [
+                                `${this.capitalizeFirst(integrationName)}Queue`,
+                                'Arn',
+                            ],
+                        },
                         batchSize: 1,
+                        functionResponseType: 'ReportBatchItemFailures',
                     },
                 },
             ],
-            timeout: 900,  // 15 minutes max for queue workers (Lambda maximum)
+            timeout: 900, // 15 minutes max for queue workers (Lambda maximum)
         };
         console.log(`      ✓ Queue worker function defined`);
     }
@@ -327,15 +443,31 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Create InternalErrorQueue CloudFormation resource
      */
-    createInternalErrorQueue(result) {
+    createInternalErrorQueue(result, functionPackageConfig) {
+        const queueName =
+            '${self:service}-${self:provider.stage}-InternalErrorQueue';
+
+        result.custom.InternalErrorQueue = queueName;
+
         result.resources.InternalErrorQueue = {
             Type: 'AWS::SQS::Queue',
             Properties: {
-                QueueName: '${self:service}-${self:provider.stage}-InternalErrorQueue',
+                QueueName: '${self:custom.InternalErrorQueue}',
                 MessageRetentionPeriod: 1209600, // 14 days
-                VisibilityTimeout: 300, // 5 minutes for error processing
+                VisibilityTimeout: 300, // 5 minutes — must be >= 6x DLQ processor Lambda timeout (30s × 6 = 180s)
             },
         };
+
+        this.createDLQObservability(
+            result,
+            functionPackageConfig,
+            {
+                'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
+            },
+            {
+                'Fn::GetAtt': ['InternalErrorQueue', 'QueueName'],
+            }
+        );
 
         console.log('  ✓ Created InternalErrorQueue resource');
     }
@@ -343,11 +475,70 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Use external InternalErrorQueue
      */
-    useExternalInternalErrorQueue(decision, result) {
+    useExternalInternalErrorQueue(decision, result, functionPackageConfig) {
         // Add ARN to environment for Lambda functions
         result.environment.INTERNAL_ERROR_QUEUE_ARN = decision.physicalId;
 
-        console.log(`  ✓ Using external InternalErrorQueue: ${decision.physicalId}`);
+        // Extract queue name from ARN for CloudWatch dimensions
+        const arnParts = decision.physicalId.split(':');
+        const queueName = arnParts[arnParts.length - 1];
+
+        this.createDLQObservability(
+            result,
+            functionPackageConfig,
+            decision.physicalId,
+            queueName
+        );
+
+        console.log(
+            `  ✓ Using external InternalErrorQueue: ${decision.physicalId}`
+        );
+    }
+
+    /**
+     * Create DLQ observability resources (alarm + processor Lambda).
+     * Called for both stack-owned and external InternalErrorQueues.
+     */
+    createDLQObservability(result, functionPackageConfig, queueArn, queueName) {
+        // CloudWatch Alarm: fires when any message lands in the DLQ
+        result.resources.DLQMessageAlarm = {
+            Type: 'AWS::CloudWatch::Alarm',
+            Properties: {
+                AlarmDescription:
+                    'Messages in dead-letter queue — integration queue processing failures',
+                Namespace: 'AWS/SQS',
+                MetricName: 'ApproximateNumberOfMessagesVisible',
+                Statistic: 'Maximum',
+                Threshold: 500,
+                ComparisonOperator: 'GreaterThanThreshold',
+                EvaluationPeriods: 1,
+                Period: 300,
+                AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
+                Dimensions: [{ Name: 'QueueName', Value: queueName }],
+            },
+        };
+
+        // DLQ processor Lambda: logs failed messages with structured context
+        result.functions.dlqProcessor = {
+            handler:
+                'node_modules/@friggframework/core/handlers/workers/dlq-processor.dlqProcessor',
+            skipEsbuild: true,
+            package: functionPackageConfig,
+            reservedConcurrency: 1,
+            timeout: 30,
+            events: [
+                {
+                    sqs: {
+                        arn: queueArn,
+                        batchSize: 10,
+                        functionResponseType: 'ReportBatchItemFailures',
+                    },
+                },
+            ],
+        };
+
+        console.log('  ✓ Created DLQ CloudWatch alarm');
+        console.log('  ✓ Created DLQ processor Lambda');
     }
 
     /**
@@ -361,10 +552,10 @@ class IntegrationBuilder extends InfrastructureBuilder {
             Type: 'AWS::SQS::Queue',
             Properties: {
                 QueueName: `\${self:custom.${queueReference}}`,
-                MessageRetentionPeriod: 60,
+                MessageRetentionPeriod: 345600, // 4 days (SQS default)
                 VisibilityTimeout: 1800,
                 RedrivePolicy: {
-                    maxReceiveCount: 1,
+                    maxReceiveCount: 3,
                     deadLetterTargetArn: {
                         'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                     },
@@ -388,7 +579,8 @@ class IntegrationBuilder extends InfrastructureBuilder {
      */
     useExternalIntegrationQueue(integrationName, decision, result) {
         // Add queue URL to environment for Lambda functions
-        result.environment[`${integrationName.toUpperCase()}_QUEUE_URL`] = decision.physicalId;
+        result.environment[`${integrationName.toUpperCase()}_QUEUE_URL`] =
+            decision.physicalId;
 
         console.log(`  ✓ Using external queue: ${decision.physicalId}`);
     }

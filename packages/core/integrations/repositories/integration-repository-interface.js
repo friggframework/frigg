@@ -122,6 +122,38 @@ class IntegrationRepositoryInterface {
     async updateIntegrationConfig(integrationId, config) {
         throw new Error('Method updateIntegrationConfig must be implemented by subclass');
     }
+
+    /**
+     * Atomically merge a partial update into an integration's config. Keys
+     * not present in the patch are left untouched; concurrent patches with
+     * disjoint keys must both persist. Patch values may not be null or
+     * undefined — key deletion is only supported via updateIntegrationConfig.
+     *
+     * @param {string|number} integrationId - Integration ID
+     * @param {Object} patch - Keys to merge into the existing config
+     * @returns {Promise<Object>} Updated integration object
+     * @abstract
+     */
+    async patchIntegrationConfig(integrationId, patch) {
+        throw new Error('Method patchIntegrationConfig must be implemented by subclass');
+    }
+
+    /**
+     * Find all integrations whose entity set includes the given entity ID.
+     *
+     * Used by the authorization callback flow to walk up from a re-authorized
+     * entity to its parent integrations so that any in a broken state (ERROR,
+     * DISABLED) can be restored to ENABLED.
+     *
+     * @param {string|number} entityId - Entity ID
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     * @abstract
+     */
+    async findIntegrationsByEntityId(entityId) {
+        throw new Error(
+            'Method findIntegrationsByEntityId must be implemented by subclass'
+        );
+    }
 }
 
 module.exports = { IntegrationRepositoryInterface };

@@ -20,8 +20,9 @@ class Module extends Delegate {
      * @param {Object} params.definition The definition of the Api Module
      * @param {string} params.userId The user id
      * @param {Object} params.entity The entity record from the database
+     * @param {string} [params.state] Optional OAuth state value forwarded to the API client (round-trips through the OAuth provider).
      */
-    constructor({ definition, userId = null, entity: entityObj = null }) {
+    constructor({ definition, userId = null, entity: entityObj = null, state = null }) {
         super({ definition, userId, entity: entityObj });
 
         this.validateDefinition(definition);
@@ -37,12 +38,21 @@ class Module extends Delegate {
         this.credentialRepository = createCredentialRepository();
         this.moduleRepository = createModuleRepository();
 
+        // Module → parent delegate (typically IntegrationBase) events
+        this.DLGT_CREDENTIAL_INVALIDATED = 'CREDENTIAL_INVALIDATED';
+        this.delegateTypes.push(this.DLGT_CREDENTIAL_INVALIDATED);
+        this.DLGT_CREDENTIAL_VALIDATED = 'CREDENTIAL_VALIDATED';
+        this.delegateTypes.push(this.DLGT_CREDENTIAL_VALIDATED);
+
         Object.assign(this, this.definition.requiredAuthMethods);
 
         const apiParams = {
             ...this.definition.env,
             delegate: this,
-            ...(this.credential?.data ? this.apiParamsFromCredential(this.credential.data) : {}), // Handle case when credential is undefined
+            ...(state ? { state } : {}),
+            ...(this.credential?.data
+                ? this.apiParamsFromCredential(this.credential.data)
+                : {}), // Handle case when credential is undefined
             ...this.apiParamsFromEntity(this.entity),
         };
         this.api = new this.apiClass(apiParams);
@@ -100,16 +110,35 @@ class Module extends Delegate {
             this.api,
             this.userId
         );
-        Object.assign(
-            credentialDetails.details,
-            this.apiParamsFromCredential(this.api)
-        );
+        const apiParams = this.apiParamsFromCredential(this.api);
+
+        if (!apiParams.refresh_token && this.api.isRefreshable) {
+            console.warn(
+                `[Frigg] No refresh_token in apiParams for module ${this.name}.`
+            );
+        }
+
+        Object.assign(credentialDetails.details, apiParams);
         credentialDetails.details.authIsValid = true;
 
         const persisted = await this.credentialRepository.upsertCredential(
             credentialDetails
         );
         this.credential = persisted;
+
+        if (this.credential?.id) {
+            try {
+                await this.notify(this.DLGT_CREDENTIAL_VALIDATED, {
+                    credentialId: this.credential.id,
+                    moduleName: this.name,
+                });
+            } catch (err) {
+                console.error(
+                    `[Frigg] Failed to propagate CREDENTIAL_VALIDATED for module ${this.name}:`,
+                    err?.message || err
+                );
+            }
+        }
     }
 
     async receiveNotification(notifier, delegateString, object = null) {
@@ -135,6 +164,30 @@ class Module extends Delegate {
         // Keep the in-memory snapshot consistent so that callers can read the
         // updated state without another fetch.
         this.credential.authIsValid = false;
+
+        // Propagate upward so a parent delegate (e.g. IntegrationBase) can
+        // react — for instance by flipping Integration.status to DISABLED.
+        // Delegate.notify is a silent no-op when this.delegate is null, so
+        // Module instances constructed outside of an Integration context
+        // (e.g. during ProcessAuthorizationCallback) remain unaffected.
+        //
+        // Best-effort: this method is invoked from the OAuth2Requester 401
+        // refresh catch block, which depends on us NOT throwing. A DB hiccup
+        // in the downstream status flip must not alter refreshAuth's
+        // documented `return false` contract. The credential has already
+        // been persisted as invalid; integrations left un-flipped can be
+        // recovered by the next retry or by operator intervention.
+        try {
+            await this.notify(this.DLGT_CREDENTIAL_INVALIDATED, {
+                credentialId: this.credential.id,
+                moduleName: this.name,
+            });
+        } catch (err) {
+            console.error(
+                `[Frigg] Failed to propagate CREDENTIAL_INVALIDATED for module ${this.name}:`,
+                err?.message || err
+            );
+        }
     }
 
     async deauthorize() {

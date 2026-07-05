@@ -4,6 +4,7 @@ const {
     toObjectId,
     fromObjectId,
     findOne,
+    findMany,
     insertOne,
     updateOne,
     deleteOne,
@@ -65,6 +66,22 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             doc
         );
         return this._mapUser(decrypted);
+    }
+
+    async findIndividualUsersByOrganizationId(organizationUserId) {
+        const docs = await findMany(this.prisma, 'User', {
+            organizationId: toObjectId(organizationUserId),
+            type: 'INDIVIDUAL',
+        });
+        return Promise.all(
+            docs.map(async (doc) => {
+                const decrypted = await this.encryptionService.decryptFields(
+                    'User',
+                    doc
+                );
+                return this._mapUser(decrypted);
+            })
+        );
     }
 
     async createToken(userId, rawToken, minutes = 120) {

@@ -1148,10 +1148,10 @@ describe('composeServerlessDefinition', () => {
                 Type: 'AWS::SQS::Queue',
                 Properties: {
                     QueueName: '${self:custom.TestIntegrationQueue}',
-                    MessageRetentionPeriod: 60,
+                    MessageRetentionPeriod: 345600,
                     VisibilityTimeout: 1800,
                     RedrivePolicy: {
-                        maxReceiveCount: 1,
+                        maxReceiveCount: 3,
                         deadLetterTargetArn: {
                             'Fn::GetAtt': ['InternalErrorQueue', 'Arn']
                         }
@@ -1162,13 +1162,14 @@ describe('composeServerlessDefinition', () => {
             // Check Queue Worker
             expect(result.functions.testIntegrationQueueWorker).toEqual({
                 handler: 'node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.testIntegration.queueWorker',
-                reservedConcurrency: 5,
+                reservedConcurrency: 20,
                 events: [{
                     sqs: {
                         arn: {
                             'Fn::GetAtt': ['TestIntegrationQueue', 'Arn']
                         },
-                        batchSize: 1
+                        batchSize: 1,
+                        functionResponseType: 'ReportBatchItemFailures'
                     }
                 }],
                 timeout: 600

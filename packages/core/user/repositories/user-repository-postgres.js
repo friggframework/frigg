@@ -106,6 +106,23 @@ class UserRepositoryPostgres extends UserRepositoryInterface {
     }
 
     /**
+     * Find all individual users linked to an organization user
+     *
+     * @param {string} organizationUserId - Organization user ID (string from application layer)
+     * @returns {Promise<Object[]>} Array of individual user objects with string IDs (empty if none)
+     */
+    async findIndividualUsersByOrganizationId(organizationUserId) {
+        const intId = this._convertId(organizationUserId);
+        const users = await this.prisma.user.findMany({
+            where: {
+                organizationId: intId,
+                type: 'INDIVIDUAL',
+            },
+        });
+        return users.map((user) => this._convertUserIds(user));
+    }
+
+    /**
      * Create token with expiration
      * Delegates to TokenRepository
      *

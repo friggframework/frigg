@@ -1,5 +1,4 @@
 const {
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
@@ -14,17 +13,9 @@ const {
     createHandler,
 } = require('./core/index');
 const {
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
 } = require('./database/index');
@@ -80,6 +71,10 @@ const {
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
 } = require('./integrations/index');
+const {
+    createReportingRouter,
+    createReportingRepository,
+} = require('./reporting/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
@@ -95,13 +90,10 @@ const {
 const application = require('./application');
 const utils = require('./utils');
 
-// const {Sync } = require('./syncs/model');
-
 const { QueuerUtil } = require('./queues');
 
 module.exports = {
     // assertions
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
@@ -116,17 +108,9 @@ module.exports = {
     createHandler,
 
     // database
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
     createUserRepository,
@@ -159,6 +143,10 @@ module.exports = {
     UpdateProcessMetrics,
     GetProcess,
 
+    // reporting
+    createReportingRouter,
+    createReportingRepository,
+
     // application - Command factories for integration developers
     application,
     createFriggCommands: application.createFriggCommands,
@@ -166,6 +154,7 @@ module.exports = {
     createUserCommands: application.createUserCommands,
     createEntityCommands: application.createEntityCommands,
     createCredentialCommands: application.createCredentialCommands,
+    createProcessCommands: application.createProcessCommands,
     createSchedulerCommands: application.createSchedulerCommands,
     findIntegrationContextByExternalEntityId:
         application.findIntegrationContextByExternalEntityId,

@@ -8,6 +8,9 @@ const {
     createCredentialCommands,
 } = require('./commands/credential-commands');
 const {
+    createProcessCommands,
+} = require('./commands/process-commands');
+const {
     createSchedulerCommands,
 } = require('./commands/scheduler-commands');
 
@@ -36,6 +39,8 @@ function createFriggCommands({ integrationClass }) {
 
     const credentialCommands = createCredentialCommands();
 
+    const processCommands = createProcessCommands();
+
     return {
         // Integration commands
         ...integrationCommands,
@@ -48,6 +53,9 @@ function createFriggCommands({ integrationClass }) {
 
         // Credential commands
         ...credentialCommands,
+
+        // Process commands
+        ...processCommands,
     };
 }
 
@@ -60,6 +68,7 @@ module.exports = {
     createUserCommands,
     createEntityCommands,
     createCredentialCommands,
+    createProcessCommands,
     createSchedulerCommands,
 
     // Legacy standalone function

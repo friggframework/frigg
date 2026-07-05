@@ -187,4 +187,27 @@ describe('GetProcess', () => {
             expect(result).toEqual([]);
         });
     });
+
+    describe('error codes', () => {
+        it('tags invalid processId with INVALID_PROCESS_DATA', async () => {
+            await expect(getProcessUseCase.execute('')).rejects.toHaveProperty(
+                'code',
+                'INVALID_PROCESS_DATA'
+            );
+        });
+
+        it('tags executeOrThrow not-found with PROCESS_NOT_FOUND', async () => {
+            mockProcessRepository.findById.mockResolvedValue(null);
+
+            await expect(
+                getProcessUseCase.executeOrThrow('process-123')
+            ).rejects.toHaveProperty('code', 'PROCESS_NOT_FOUND');
+        });
+
+        it('tags a non-array argument to executeMany with INVALID_PROCESS_DATA', async () => {
+            await expect(
+                getProcessUseCase.executeMany('not-an-array')
+            ).rejects.toHaveProperty('code', 'INVALID_PROCESS_DATA');
+        });
+    });
 });

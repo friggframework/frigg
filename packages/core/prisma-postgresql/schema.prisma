@@ -6,7 +6,13 @@ generator client {
   provider      = "prisma-client-js"
   output        = "../generated/prisma-postgresql"
   binaryTargets = ["native", "rhel-openssl-3.0.x"] // native for local dev, rhel for Lambda deployment
-  engineType    = "binary" // Use binary engines (smaller size)
+  // Library engine (default since Prisma 3.x): Rust query engine loads as a
+  // Node-API addon inside the same process. The binary engine forks a child
+  // query-engine subprocess and communicates over a local HTTP/IPC pipe with
+  // NO client-side timeout — a zombied child wedges the Node process until
+  // Lambda's 900s cap. Switching to library eliminates that entire class of
+  // silent hangs. See friggframework/frigg#580 for the investigation.
+  engineType    = "library"
 }
 
 datasource db {
@@ -53,6 +59,7 @@ model User {
   @@unique([username, appUserId])
   @@index([type])
   @@index([appUserId])
+  @@index([organizationId])
 }
 
 enum UserType {
@@ -143,7 +150,7 @@ model Integration {
   id     Int               @id @default(autoincrement())
   userId Int?
   user   User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status IntegrationStatus @default(ENABLED)
+  status IntegrationStatus @default(IN_CREATION)
 
   // Configuration and version
   config  Json? // Integration configuration object
@@ -177,6 +184,8 @@ enum IntegrationStatus {
   PROCESSING
   DISABLED
   ERROR
+  IN_CREATION
+  IN_DELETION
 }
 
 /// Integration-specific data mappings

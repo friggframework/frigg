@@ -186,7 +186,7 @@ describe('IntegrationBuilder', () => {
 
             const result = await integrationBuilder.build(appDefinition, {});
 
-            expect(result.resources.TestQueue.Properties.MessageRetentionPeriod).toBe(60);
+            expect(result.resources.TestQueue.Properties.MessageRetentionPeriod).toBe(345600);
             expect(result.resources.TestQueue.Properties.VisibilityTimeout).toBe(1800);
         });
 
@@ -200,7 +200,7 @@ describe('IntegrationBuilder', () => {
             const result = await integrationBuilder.build(appDefinition, {});
 
             expect(result.resources.TestQueue.Properties.RedrivePolicy).toEqual({
-                maxReceiveCount: 1,
+                maxReceiveCount: 3,
                 deadLetterTargetArn: {
                     'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                 },
@@ -233,6 +233,7 @@ describe('IntegrationBuilder', () => {
                     sqs: {
                         arn: { 'Fn::GetAtt': ['TestQueue', 'Arn'] },
                         batchSize: 1,
+                        functionResponseType: 'ReportBatchItemFailures',
                     },
                 },
             ]);
@@ -259,7 +260,7 @@ describe('IntegrationBuilder', () => {
 
             const result = await integrationBuilder.build(appDefinition, {});
 
-            expect(result.functions.testQueueWorker.reservedConcurrency).toBe(5);
+            expect(result.functions.testQueueWorker.reservedConcurrency).toBe(20);
         });
 
         it('should add queue URL to environment variables', async () => {
@@ -342,6 +343,112 @@ describe('IntegrationBuilder', () => {
 
             expect(result.functions['my-integration']).toBeDefined();
             expect(result.functions['my-integrationQueueWorker']).toBeDefined();
+        });
+
+        // ============================================================
+        // Theory-proving tests: demonstrate current dangerous config
+        // These tests document the root cause of the Modern Midstay bug
+        // where POST_CREATE_SETUP messages were silently lost.
+        // ============================================================
+
+        it('THEORY: MessageRetentionPeriod is too short for delayed messages', async () => {
+            // POST_CREATE_SETUP uses DelaySeconds=35.
+            // With MessageRetentionPeriod=60, the message is only visible
+            // for 25 seconds before SQS silently deletes it.
+            // Messages that expire are NOT sent to DLQ — they vanish.
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const retention = result.resources.TestQueue.Properties.MessageRetentionPeriod;
+
+            // The max SQS DelaySeconds is 900. Retention must comfortably
+            // exceed this to ensure delayed messages are never silently lost.
+            // Current value (60) fails this check.
+            expect(retention).toBeGreaterThan(900);
+        });
+
+        it('THEORY: maxReceiveCount=1 means zero retries on transient failures', async () => {
+            // A single transient error (network blip, cold start timeout,
+            // rate limit) sends the message straight to DLQ with no retry.
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const maxReceiveCount = result.resources.TestQueue.Properties.RedrivePolicy.maxReceiveCount;
+
+            // Should allow at least 2 retries (maxReceiveCount >= 3)
+            expect(maxReceiveCount).toBeGreaterThanOrEqual(3);
+        });
+
+        it('THEORY: SQS event source should enable ReportBatchItemFailures', async () => {
+            // Without this, Lambda can't tell SQS which specific messages
+            // failed — it's all-or-nothing for the entire invocation.
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const sqsEvent = result.functions.testQueueWorker.events[0].sqs;
+
+            expect(sqsEvent.functionResponseType).toBe('ReportBatchItemFailures');
+        });
+    });
+
+    describe('DLQ Observability', () => {
+        it('should create a CloudWatch alarm for DLQ message depth', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.resources.DLQMessageAlarm).toBeDefined();
+            expect(result.resources.DLQMessageAlarm.Type).toBe('AWS::CloudWatch::Alarm');
+            expect(result.resources.DLQMessageAlarm.Properties.MetricName).toBe('ApproximateNumberOfMessagesVisible');
+            expect(result.resources.DLQMessageAlarm.Properties.ComparisonOperator).toBe('GreaterThanThreshold');
+            expect(result.resources.DLQMessageAlarm.Properties.Threshold).toBe(500);
+        });
+
+        it('should wire alarm to InternalErrorBridgeTopic for notifications', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.resources.DLQMessageAlarm.Properties.AlarmActions).toEqual([
+                { Ref: 'InternalErrorBridgeTopic' },
+            ]);
+        });
+
+        it('should create a DLQ processor Lambda triggered by InternalErrorQueue', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.dlqProcessor).toBeDefined();
+            expect(result.functions.dlqProcessor.events[0].sqs.arn).toEqual({
+                'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
+            });
+            expect(result.functions.dlqProcessor.events[0].sqs.functionResponseType).toBe('ReportBatchItemFailures');
+        });
+
+        it('DLQ processor should have skipEsbuild, short timeout, and low concurrency', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.dlqProcessor.skipEsbuild).toBe(true);
+            expect(result.functions.dlqProcessor.package).toBeDefined();
+            expect(result.functions.dlqProcessor.timeout).toBeLessThanOrEqual(60);
+            expect(result.functions.dlqProcessor.reservedConcurrency).toBe(1);
         });
     });
 
@@ -461,6 +568,147 @@ describe('IntegrationBuilder', () => {
             ]);
         });
 
+        it('emits a dedicated per-binding function (namespaced) for Tier 3 extension routes; the main handler keeps only {proxy+}', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hubspot',
+                            extensions: {
+                                hubspotWebhooks: {
+                                    extension: {
+                                        name: 'hubspot-webhooks',
+                                        routes: [
+                                            {
+                                                path: '/webhooks',
+                                                method: 'POST',
+                                                event: 'HUBSPOT_WEBHOOK_RECEIVED',
+                                            },
+                                        ],
+                                        events: {
+                                            HUBSPOT_WEBHOOK_RECEIVED: {
+                                                type: 'LIFE_CYCLE_EVENT',
+                                                handler: () => {},
+                                            },
+                                        },
+                                    },
+                                    handlers: {},
+                                },
+                            },
+                        },
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            // Dedicated per-binding function, namespaced under the binding key,
+            // pointing at its own handler export.
+            const fn = result.functions.hubspot__hubspotWebhooks;
+            expect(fn).toBeDefined();
+            expect(fn.handler).toBe(
+                'node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.hubspot__hubspotWebhooks.handler'
+            );
+            expect(fn.events).toEqual([
+                {
+                    httpApi: {
+                        path: '/api/hubspot-integration/hubspotWebhooks/webhooks',
+                        method: 'POST',
+                    },
+                },
+            ]);
+
+            // The main integration handler keeps only the catch-all.
+            expect(result.functions.hubspot.events).toEqual([
+                {
+                    httpApi: {
+                        path: '/api/hubspot-integration/{proxy+}',
+                        method: 'ANY',
+                    },
+                },
+            ]);
+
+            // useDatabase defaults to false → no Prisma layer on the receiver.
+            expect(fn.layers).toBeUndefined();
+        });
+
+        it('attaches the Prisma layer to a per-binding function only when useDatabase is true', async () => {
+            const mkDef = (useDatabase) => ({
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hs',
+                            extensions: {
+                                wh: {
+                                    extension: {
+                                        name: 'wh-ext',
+                                        useDatabase,
+                                        routes: [
+                                            {
+                                                path: '/webhooks',
+                                                method: 'POST',
+                                                event: 'E',
+                                            },
+                                        ],
+                                        events: { E: { handler: () => {} } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+            });
+
+            const withDb = await integrationBuilder.build(mkDef(true), {});
+            expect(withDb.functions.hs__wh.layers).toEqual([
+                { Ref: 'PrismaLambdaLayer' },
+            ]);
+
+            const withoutDb = await integrationBuilder.build(mkDef(false), {});
+            expect(withoutDb.functions.hs__wh.layers).toBeUndefined();
+        });
+
+        it('throws when two binding keys sanitize to the same function name', async () => {
+            const mkExt = (name, event) => ({
+                name,
+                routes: [{ path: '/w', method: 'POST', event }],
+                events: { [event]: { handler: () => {} } },
+            });
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hs',
+                            extensions: {
+                                'hub-spot': { extension: mkExt('a', 'A') }, // → hs__hubspot
+                                hubspot: { extension: mkExt('b', 'B') }, // → hs__hubspot
+                            },
+                        },
+                    },
+                ],
+            };
+            await expect(
+                integrationBuilder.build(appDefinition, {})
+            ).rejects.toThrow(/extension function conflict.*hs__hubspot/);
+        });
+
+        it('should only have the catch-all proxy route when no extensions are declared', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'plain' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.plain.events).toEqual([
+                {
+                    httpApi: {
+                        path: '/api/plain-integration/{proxy+}',
+                        method: 'ANY',
+                    },
+                },
+            ]);
+        });
+
         it('should define webhook handler BEFORE catch-all proxy route (ordering bug fix)', async () => {
             const appDefinition = {
                 integrations: [
@@ -503,8 +751,9 @@ describe('IntegrationBuilder', () => {
 
             const functionKeys = Object.keys(result.functions);
 
-            // Expected order: webhook, integration, queueWorker
+            // Expected order: dlqProcessor (from InternalErrorQueue), webhook, integration, queueWorker
             expect(functionKeys).toEqual([
+                'dlqProcessor',
                 'testWebhook',
                 'test',
                 'testQueueWorker',
