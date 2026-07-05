@@ -5,6 +5,69 @@ const makeRepo = (rows, mappingCounts = new Map()) => ({
     countMappingsByIntegrationIds: jest.fn().mockResolvedValue(mappingCounts),
 });
 
+describe('ListIntegrationsReport — usage columns (ADR-011/ADR-010 hand-off)', () => {
+    const rows = [
+        { id: '1', type: 'hubspot', status: 'ENABLED', userId: 'u1' },
+        { id: '2', type: 'salesforce', status: 'ENABLED', userId: 'u2' },
+    ];
+
+    it('enriches byType with usage columns read from the usage store', async () => {
+        const reportingRepository = makeRepo(rows);
+        const usageRepository = {
+            totals: jest.fn(async ({ metric }) => {
+                if (metric === 'records.synced') {
+                    return [{ integrationType: 'hubspot', value: 42 }];
+                }
+                return [];
+            }),
+        };
+        const useCase = new ListIntegrationsReport({
+            reportingRepository,
+            usageRepository,
+        });
+
+        const result = await useCase.execute();
+
+        const hubspot = result.metrics.byType.find((t) => t.type === 'hubspot');
+        const salesforce = result.metrics.byType.find(
+            (t) => t.type === 'salesforce'
+        );
+        expect(hubspot.usage['records.synced']).toBe(42);
+        // absent usage reads as 0, not undefined
+        expect(salesforce.usage['records.synced']).toBe(0);
+        expect(hubspot.usage['webhooks.received']).toBe(0);
+        expect(usageRepository.totals).toHaveBeenCalledWith(
+            expect.objectContaining({
+                metric: 'records.synced',
+                groupBy: 'integrationType',
+            })
+        );
+    });
+
+    it('omits usage columns entirely when no usageRepository is injected (backward compatible)', async () => {
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows),
+        });
+        const result = await useCase.execute();
+        expect(result.metrics.byType[0].usage).toBeUndefined();
+        expect(result.schemaVersion).toBe(1);
+    });
+
+    it('never lets a usage-store failure break the structural report', async () => {
+        const usageRepository = {
+            totals: jest.fn().mockRejectedValue(new Error('usage db down')),
+        };
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: makeRepo(rows),
+            usageRepository,
+        });
+
+        const result = await useCase.execute();
+        expect(result.metrics.total).toBe(2);
+        // structural report intact; usage simply absent/empty
+    });
+});
+
 describe('ListIntegrationsReport', () => {
     it('requires a reportingRepository', () => {
         expect(() => new ListIntegrationsReport({})).toThrow(
@@ -14,8 +77,12 @@ describe('ListIntegrationsReport', () => {
 
     it('rejects an unknown status with a 400 (Boom) error', async () => {
         const repo = makeRepo([]);
-        const useCase = new ListIntegrationsReport({ reportingRepository: repo });
-        await expect(useCase.execute({ status: 'BOGUS' })).rejects.toMatchObject({
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: repo,
+        });
+        await expect(
+            useCase.execute({ status: 'BOGUS' })
+        ).rejects.toMatchObject({
             isBoom: true,
             output: { statusCode: 400 },
         });
@@ -24,7 +91,9 @@ describe('ListIntegrationsReport', () => {
 
     it('rejects a non-string query param with a 400 (Boom) error', async () => {
         const repo = makeRepo([]);
-        const useCase = new ListIntegrationsReport({ reportingRepository: repo });
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: repo,
+        });
         await expect(
             useCase.execute({ userId: { $oid: 'x' } })
         ).rejects.toMatchObject({ isBoom: true, output: { statusCode: 400 } });
@@ -111,11 +180,25 @@ describe('ListIntegrationsReport', () => {
 
     it('filters by type in the use-case and only counts mappings for matching ids', async () => {
         const rows = [
-            { id: '1', type: 'hubspot', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
-            { id: '2', type: 'salesforce', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
+            {
+                id: '1',
+                type: 'hubspot',
+                status: 'ENABLED',
+                moduleCount: 1,
+                errorCount: 0,
+            },
+            {
+                id: '2',
+                type: 'salesforce',
+                status: 'ENABLED',
+                moduleCount: 1,
+                errorCount: 0,
+            },
         ];
         const repo = makeRepo(rows, new Map([['1', 10]]));
-        const useCase = new ListIntegrationsReport({ reportingRepository: repo });
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: repo,
+        });
 
         const out = await useCase.execute({ type: 'hubspot' });
 
@@ -127,7 +210,9 @@ describe('ListIntegrationsReport', () => {
 
     it('passes status/userId to the repository, echoes filters, and skips mapping count when empty', async () => {
         const repo = makeRepo([]);
-        const useCase = new ListIntegrationsReport({ reportingRepository: repo });
+        const useCase = new ListIntegrationsReport({
+            reportingRepository: repo,
+        });
 
         const out = await useCase.execute({ status: 'ERROR', userId: '7' });
 
@@ -136,13 +221,23 @@ describe('ListIntegrationsReport', () => {
             userId: '7',
         });
         expect(out.metrics.total).toBe(0);
-        expect(out.filters).toEqual({ status: 'ERROR', type: null, userId: '7' });
+        expect(out.filters).toEqual({
+            status: 'ERROR',
+            type: null,
+            userId: '7',
+        });
         expect(repo.countMappingsByIntegrationIds).not.toHaveBeenCalled();
     });
 
     it('buckets null type as "unknown"', async () => {
         const rows = [
-            { id: '1', type: null, status: 'ENABLED', moduleCount: 0, errorCount: 0 },
+            {
+                id: '1',
+                type: null,
+                status: 'ENABLED',
+                moduleCount: 0,
+                errorCount: 0,
+            },
         ];
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
@@ -156,7 +251,13 @@ describe('ListIntegrationsReport', () => {
 
     it('picks up an unknown status value dynamically (new enum member)', async () => {
         const rows = [
-            { id: '1', type: 'x', status: 'ARCHIVED', moduleCount: 0, errorCount: 0 },
+            {
+                id: '1',
+                type: 'x',
+                status: 'ARCHIVED',
+                moduleCount: 0,
+                errorCount: 0,
+            },
         ];
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
@@ -186,8 +287,20 @@ describe('ListIntegrationsReport', () => {
 
     it('asserts byType buckets are independent across types', async () => {
         const rows = [
-            { id: '1', type: 'hubspot', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
-            { id: '2', type: 'salesforce', status: 'ERROR', moduleCount: 1, errorCount: 1 },
+            {
+                id: '1',
+                type: 'hubspot',
+                status: 'ENABLED',
+                moduleCount: 1,
+                errorCount: 0,
+            },
+            {
+                id: '2',
+                type: 'salesforce',
+                status: 'ERROR',
+                moduleCount: 1,
+                errorCount: 1,
+            },
         ];
         const out = await new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
@@ -209,8 +322,24 @@ describe('ListIntegrationsReport', () => {
 
     it('normalizes timestamps from Date, extended-JSON {$date}, string, and null', async () => {
         const rows = [
-            { id: '1', type: 'x', status: 'ENABLED', moduleCount: 0, errorCount: 0, createdAt: { $date: '2026-03-04T05:06:07Z' }, updatedAt: { $date: 'not-a-date' } },
-            { id: '2', type: 'x', status: 'ENABLED', moduleCount: 0, errorCount: 0, createdAt: '2026-03-04T05:06:07.000Z', updatedAt: null },
+            {
+                id: '1',
+                type: 'x',
+                status: 'ENABLED',
+                moduleCount: 0,
+                errorCount: 0,
+                createdAt: { $date: '2026-03-04T05:06:07Z' },
+                updatedAt: { $date: 'not-a-date' },
+            },
+            {
+                id: '2',
+                type: 'x',
+                status: 'ENABLED',
+                moduleCount: 0,
+                errorCount: 0,
+                createdAt: '2026-03-04T05:06:07.000Z',
+                updatedAt: null,
+            },
         ];
         const out = await new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
@@ -226,8 +355,20 @@ describe('ListIntegrationsReport', () => {
 
     it('labels byType buckets from the typeLabels map and exposes the map', async () => {
         const rows = [
-            { id: '1', type: 'hubspot', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
-            { id: '2', type: 'salesforce', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
+            {
+                id: '1',
+                type: 'hubspot',
+                status: 'ENABLED',
+                moduleCount: 1,
+                errorCount: 0,
+            },
+            {
+                id: '2',
+                type: 'salesforce',
+                status: 'ENABLED',
+                moduleCount: 1,
+                errorCount: 0,
+            },
         ];
         const typeLabels = { hubspot: 'HubSpot CRM', salesforce: 'Salesforce' };
         const useCase = new ListIntegrationsReport({
@@ -246,8 +387,20 @@ describe('ListIntegrationsReport', () => {
 
     it('falls back to the slug when a type has no label, and defaults typeLabels to {}', async () => {
         const rows = [
-            { id: '1', type: 'hubspot', status: 'ENABLED', moduleCount: 1, errorCount: 0 },
-            { id: '2', type: null, status: 'ENABLED', moduleCount: 0, errorCount: 0 },
+            {
+                id: '1',
+                type: 'hubspot',
+                status: 'ENABLED',
+                moduleCount: 1,
+                errorCount: 0,
+            },
+            {
+                id: '2',
+                type: null,
+                status: 'ENABLED',
+                moduleCount: 0,
+                errorCount: 0,
+            },
         ];
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),

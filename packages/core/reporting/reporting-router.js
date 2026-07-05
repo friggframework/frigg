@@ -3,7 +3,12 @@ const catchAsyncError = require('express-async-handler');
 const {
     createReportingRepository,
 } = require('./repositories/reporting-repository-factory');
-const { ListIntegrationsReport } = require('./use-cases/list-integrations-report');
+const {
+    createUsageRepository,
+} = require('../usage/repositories/usage-repository-factory');
+const {
+    ListIntegrationsReport,
+} = require('./use-cases/list-integrations-report');
 const { loadAppDefinition } = require('../handlers/app-definition-loader');
 
 // IntegrationBase.Definition default — skip it so the slug is used instead.
@@ -35,8 +40,18 @@ function buildTypeLabels() {
 
 function createReportingRouter() {
     const reportingRepository = createReportingRepository();
+    // ADR-011 hand-off: enrich the report with feature-usage columns read from
+    // the Frigg-owned usage store. Best-effort — a failure to construct it never
+    // blocks the structural report.
+    let usageRepository = null;
+    try {
+        usageRepository = createUsageRepository();
+    } catch (_) {
+        usageRepository = null;
+    }
     const listIntegrationsReport = new ListIntegrationsReport({
         reportingRepository,
+        usageRepository,
         typeLabels: buildTypeLabels(),
     });
 
