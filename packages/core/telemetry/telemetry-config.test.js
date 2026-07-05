@@ -8,11 +8,20 @@ describe('resolveTelemetryConfig — exporter default by stage', () => {
         expect(cfg.northStar).toBeNull();
     });
 
-    it.each(['dev', 'test', 'local'])(
-        'defaults to console in the local-dev stage "%s"',
+    it('defaults to console only for a genuinely local run (STAGE=local)', () => {
+        expect(resolveTelemetryConfig({}, { stage: 'local' }).exporter).toEqual(
+            {
+                type: 'console',
+            }
+        );
+    });
+
+    it.each(['dev', 'test', 'staging'])(
+        'defaults to none in deployed stage "%s" (no surprise CloudWatch spans)',
         (stage) => {
-            const cfg = resolveTelemetryConfig({}, { stage });
-            expect(cfg.exporter).toEqual({ type: 'console' });
+            expect(resolveTelemetryConfig({}, { stage }).exporter).toEqual({
+                type: 'none',
+            });
         }
     );
 

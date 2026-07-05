@@ -36,30 +36,17 @@ const CANONICAL_COUNTERS = {
     user_actions: { unit: 'count', label: 'User actions', dims: ['action'] },
 };
 
-/**
- * Framework auto-instrumentation signal → the canonical counter it feeds
- * (Usage-Counter Contract §3, "one path, two sources"). Only these signals are
- * auto-emitted; `records.synced` and `workflows.invoked` are deliberately absent
- * — they are explicit-only (`this.telemetry.count(...)`) so we never ship a
- * canonical counter that silently stays at zero.
- */
-const AUTO_SIGNAL_TO_CANONICAL = {
-    'apimodule.request': 'api.requests',
-    'webhook.received': 'webhooks.received',
-    user_action: 'user_actions',
-};
+// NOTE: the framework-signal → canonical mapping lives in the usage rollup
+// subscriber (METRIC_TO_CANONICAL, keyed by the actual emitted metric names).
+// `records.synced` / `workflows.invoked` have no auto-signal — they are
+// explicit-only (`this.telemetry.count(...)`), so a canonical counter is never
+// shipped that silently stays at zero.
 
 function isCanonicalCounter(name) {
     return Object.prototype.hasOwnProperty.call(CANONICAL_COUNTERS, name);
 }
 
-function canonicalForSignal(signal) {
-    return AUTO_SIGNAL_TO_CANONICAL[signal] || null;
-}
-
 module.exports = {
     CANONICAL_COUNTERS,
-    AUTO_SIGNAL_TO_CANONICAL,
     isCanonicalCounter,
-    canonicalForSignal,
 };

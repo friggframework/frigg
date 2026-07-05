@@ -13,6 +13,10 @@ const {
 const { resourceFromAttributes } = require('@opentelemetry/resources');
 const { buildExporters } = require('./exporters/exporter-factory');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
+const {
+    runWithTelemetryContext,
+    mergeTelemetryContext,
+} = require('./telemetry-context');
 
 const TRACER_NAME = 'frigg';
 const METRIC_EXPORT_INTERVAL_MS =
@@ -88,10 +92,12 @@ function createOtelTelemetry({
                 // Telemetry must never break the wrapped path.
             }
             // Mirror onto the internal stream for the usage rollup + plugin taps.
-            // `context` (incl. high-cardinality ids) rides the bus only — never
-            // the OTel metric attributes (Cardinality note).
+            // The bus `context` merges the ambient handler context (incl.
+            // high-cardinality ids) with any explicit per-call context — it rides
+            // the bus only, never the OTel metric attributes (Cardinality note).
+            const merged = mergeTelemetryContext(context);
             const payload = { name, value, attributes };
-            if (context) payload.context = context;
+            if (merged) payload.context = merged;
             bus.emit('metric', payload);
         },
 
@@ -100,8 +106,9 @@ function createOtelTelemetry({
                 const active = otelApi.trace.getActiveSpan();
                 if (active) active.addEvent(name, attributes);
             } catch (_) {}
+            const merged = mergeTelemetryContext(context);
             const payload = { name, attributes };
-            if (context) payload.context = context;
+            if (merged) payload.context = merged;
             bus.emit('event', payload);
         },
 
@@ -130,9 +137,10 @@ function createOtelTelemetry({
         },
 
         /**
-         * Run `fn` with the given identifiers on OTel baggage so downstream
-         * emissions (spans, api-module requests) inherit them. High-cardinality
-         * ids (integrationId, userId) ride here, never on metric labels.
+         * Run `fn` with the given identifiers on (a) the AsyncLocalStorage
+         * telemetry context — which the usage rollup reads to attribute emissions
+         * per-integration on ANY path — and (b) OTel baggage for trace
+         * propagation. High-cardinality ids ride here, never on metric labels.
          */
         async withContext(attributes = {}, fn) {
             const entries = {};
@@ -146,8 +154,10 @@ function createOtelTelemetry({
                 otelApi.context.active(),
                 baggage
             );
-            return otelApi.context.with(ctx, () =>
-                typeof fn === 'function' ? fn() : undefined
+            return runWithTelemetryContext(attributes, () =>
+                otelApi.context.with(ctx, () =>
+                    typeof fn === 'function' ? fn() : undefined
+                )
             );
         },
 

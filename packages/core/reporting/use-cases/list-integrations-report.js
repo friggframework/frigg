@@ -135,8 +135,15 @@ class ListIntegrationsReport {
                     bucket.usage[metric] = map.get(bucket.type) ?? 0;
                 }
             }
-        } catch (_) {
-            // Usage is a supplement; a read failure must not fail the report.
+        } catch (error) {
+            // Usage is a supplement; a read failure must not fail the report,
+            // but it is worth surfacing (silent all-zeros usage columns hide
+            // data-quality issues).
+            console.warn(
+                `[Frigg][reporting] usage columns unavailable: ${
+                    error && error.message
+                }`
+            );
         }
     }
 

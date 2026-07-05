@@ -86,7 +86,7 @@ describe('UsageRepositoryPostgres', () => {
     });
 
     describe('totals', () => {
-        it('sums a metric grouped by a bounded dimension since a timestamp', async () => {
+        it('sums a SINGLE window granularity so day+hour rows are not double-counted', async () => {
             prisma.usageCounter.groupBy.mockResolvedValue([
                 { integrationType: 'hubspot', _sum: { value: 12 } },
                 { integrationType: 'salesforce', _sum: { value: 4 } },
@@ -101,8 +101,10 @@ describe('UsageRepositoryPostgres', () => {
 
             const arg = prisma.usageCounter.groupBy.mock.calls[0][0];
             expect(arg.by).toEqual(['integrationType']);
+            // default bucket 'day' — the double-count fix
             expect(arg.where).toEqual({
                 metric: 'records.synced',
+                window: { startsWith: 'day:' },
                 updatedAt: { gte: since },
             });
             expect(result).toEqual([
@@ -110,10 +112,22 @@ describe('UsageRepositoryPostgres', () => {
                 { integrationType: 'salesforce', value: 4 },
             ]);
         });
+
+        it('rejects an un-allowlisted groupBy', async () => {
+            await expect(
+                repo.totals({ metric: 'm', groupBy: 'userId' })
+            ).rejects.toThrow(/groupBy/i);
+        });
+
+        it('rejects an un-allowlisted bucket', async () => {
+            await expect(
+                repo.totals({ metric: 'm', bucket: 'year' })
+            ).rejects.toThrow(/bucket/i);
+        });
     });
 
     describe('series', () => {
-        it('returns ordered buckets for one integration type at a granularity', async () => {
+        it('range-filters on the window key (not updatedAt) at a granularity', async () => {
             prisma.usageCounter.findMany.mockResolvedValue([
                 { window: 'day:2026-07-04', value: 5 },
                 { window: 'day:2026-07-05', value: 9 },
@@ -122,6 +136,8 @@ describe('UsageRepositoryPostgres', () => {
             const result = await repo.series({
                 metric: 'records.synced',
                 integrationType: 'hubspot',
+                from: new Date('2026-07-01T00:00:00Z'),
+                to: new Date('2026-07-05T00:00:00Z'),
                 bucket: 'day',
             });
 
@@ -129,12 +145,27 @@ describe('UsageRepositoryPostgres', () => {
             expect(arg.where).toMatchObject({
                 metric: 'records.synced',
                 integrationType: 'hubspot',
-                window: { startsWith: 'day:' },
+                window: {
+                    startsWith: 'day:',
+                    gte: 'day:2026-07-01',
+                    lte: 'day:2026-07-05',
+                },
             });
+            expect(arg.where.updatedAt).toBeUndefined();
             expect(result).toEqual([
                 { bucket: 'day:2026-07-04', value: 5 },
                 { bucket: 'day:2026-07-05', value: 9 },
             ]);
+        });
+
+        it('rejects an un-allowlisted bucket', async () => {
+            await expect(
+                repo.series({
+                    metric: 'm',
+                    integrationType: 't',
+                    bucket: 'week',
+                })
+            ).rejects.toThrow(/bucket/i);
         });
     });
 });

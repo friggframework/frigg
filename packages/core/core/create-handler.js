@@ -9,8 +9,11 @@ const {
     getUsageRollupSubscriber,
 } = require('../telemetry/usage-rollup-singleton');
 
+// Bounds the tail latency telemetry adds to every warm invocation. Kept low so
+// an unreachable OTLP endpoint (e.g. a VPC Lambda with no NAT/egress) costs at
+// most this, not multiple seconds. Override with OTEL_FLUSH_TIMEOUT_MS.
 const DEFAULT_FLUSH_TIMEOUT_MS =
-    Number(process.env.OTEL_FLUSH_TIMEOUT_MS) || 2000;
+    Number(process.env.OTEL_FLUSH_TIMEOUT_MS) || 500;
 
 /**
  * Fold the invocation's buffered usage counters into the durable store, then
@@ -18,9 +21,16 @@ const DEFAULT_FLUSH_TIMEOUT_MS =
  * DISCARD rather than flush — the prior delivery already counted, and the usage
  * accuracy contract is "approximate, skip obvious redeliveries". Fully guarded.
  */
-async function flushUsageRollup(subscriber, eventSummary) {
+async function flushUsageRollup(subscriber, eventSummary, shouldUseDatabase) {
     if (!subscriber) return;
     try {
+        // Persisting usage requires a DB connection. DB-free handlers (e.g. the
+        // webhook-receipt route) never called connectPrisma, so drop the buffer
+        // instead of issuing a connectionless Prisma write.
+        if (!shouldUseDatabase) {
+            subscriber.discard();
+            return;
+        }
         const redelivered =
             Array.isArray(eventSummary?.records) &&
             eventSummary.records.some((r) => Number(r.receiveCount) > 1);
@@ -209,7 +219,11 @@ const createHandler = (optionByName = {}) => {
         } finally {
             // Flush telemetry + usage before the container freezes.
             await flushTelemetry(activeTelemetry, flushTimeoutMs);
-            await flushUsageRollup(activeUsageRollup, eventSummary);
+            await flushUsageRollup(
+                activeUsageRollup,
+                eventSummary,
+                shouldUseDatabase
+            );
         }
     };
 };

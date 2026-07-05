@@ -22,9 +22,7 @@ const {
 } = require('./north-star');
 const {
     CANONICAL_COUNTERS,
-    AUTO_SIGNAL_TO_CANONICAL,
     isCanonicalCounter,
-    canonicalForSignal,
 } = require('./canonical-counters');
 
 module.exports = {
@@ -46,7 +44,5 @@ module.exports = {
     northStarKeys,
     createNorthStarDerivationSubscriber,
     CANONICAL_COUNTERS,
-    AUTO_SIGNAL_TO_CANONICAL,
     isCanonicalCounter,
-    canonicalForSignal,
 };

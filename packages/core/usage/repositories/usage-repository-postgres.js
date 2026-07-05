@@ -48,8 +48,19 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
         }
     }
 
-    async totals({ metric, groupBy = 'integrationType', since } = {}) {
-        const where = { metric };
+    async totals({
+        metric,
+        groupBy = 'integrationType',
+        since,
+        bucket = 'day',
+    } = {}) {
+        assertGroupBy(groupBy);
+        assertBucket(bucket);
+
+        // Filter to ONE window granularity — every event is written to both a
+        // day: and an hour: row, so summing across granularities would double
+        // (or worse) the true count.
+        const where = { metric, window: { startsWith: `${bucket}:` } };
         if (since) where.updatedAt = { gte: since };
 
         const groups = await this.prisma.usageCounter.groupBy({
@@ -65,25 +76,53 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
     }
 
     async series({ metric, integrationType, from, to, bucket = 'day' } = {}) {
-        const where = {
-            metric,
-            integrationType,
-            window: { startsWith: `${bucket}:` },
-        };
-        if (from || to) {
-            where.updatedAt = {
-                ...(from ? { gte: from } : {}),
-                ...(to ? { lte: to } : {}),
-            };
-        }
+        assertBucket(bucket);
+
+        // Range-filter on the WINDOW key (write-time `updatedAt` would misplace a
+        // late increment for an earlier window). Window keys are ISO-lexicographic
+        // within a granularity, so string gte/lte gives the correct range.
+        const window = { startsWith: `${bucket}:` };
+        if (from) window.gte = windowKey(bucket, from);
+        if (to) window.lte = windowKey(bucket, to);
 
         const rows = await this.prisma.usageCounter.findMany({
-            where,
+            where: { metric, integrationType, window },
             orderBy: { window: 'asc' },
         });
 
         return rows.map((row) => ({ bucket: row.window, value: row.value }));
     }
+}
+
+const VALID_GROUP_BY = new Set(['integrationType', 'metric']);
+const VALID_BUCKETS = new Set(['day', 'hour']);
+
+function assertGroupBy(groupBy) {
+    if (!VALID_GROUP_BY.has(groupBy)) {
+        throw new Error(
+            `Invalid groupBy "${groupBy}". Allowed: ${[...VALID_GROUP_BY].join(
+                ', '
+            )}`
+        );
+    }
+}
+
+function assertBucket(bucket) {
+    if (!VALID_BUCKETS.has(bucket)) {
+        throw new Error(
+            `Invalid bucket "${bucket}". Allowed: ${[...VALID_BUCKETS].join(
+                ', '
+            )}`
+        );
+    }
+}
+
+/** Window key for a date at a granularity (mirrors telemetry/usage-windows). */
+function windowKey(bucket, date) {
+    const iso = new Date(date).toISOString();
+    return `${bucket}:${
+        bucket === 'hour' ? iso.slice(0, 13) : iso.slice(0, 10)
+    }`;
 }
 
 module.exports = { UsageRepositoryPostgres };

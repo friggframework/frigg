@@ -153,68 +153,49 @@ describe('createHandler — telemetry flush (ADR-011 P4)', () => {
 describe('createHandler — usage rollup flush (ADR-011 P9)', () => {
     const ctx = { awsRequestId: 'r1' };
     const noopTelemetry = { isEnabled: () => false, forceFlush: jest.fn() };
-
-    it('flushes the usage rollup after a normal (non-SQS) invocation', async () => {
-        const usageRollup = {
-            flush: jest.fn().mockResolvedValue(),
-            discard: jest.fn(),
-        };
-        const handler = createHandler({
+    const makeRollup = () => ({
+        flush: jest.fn().mockResolvedValue(),
+        discard: jest.fn(),
+    });
+    const dbHandler = (usageRollup) =>
+        createHandler({
             isUserFacingResponse: false,
-            shouldUseDatabase: false,
+            shouldUseDatabase: true,
             method: async () => 'ok',
             telemetry: noopTelemetry,
             usageRollup,
         });
 
-        await handler({}, { ...ctx });
+    it('flushes the usage rollup after a normal (non-SQS) DB-connected invocation', async () => {
+        const usageRollup = makeRollup();
+        await dbHandler(usageRollup)({}, { ...ctx });
 
         expect(usageRollup.flush).toHaveBeenCalledTimes(1);
         expect(usageRollup.discard).not.toHaveBeenCalled();
     });
 
     it('discards (does not flush) on an SQS redelivery to avoid double-counting', async () => {
-        const usageRollup = {
-            flush: jest.fn().mockResolvedValue(),
-            discard: jest.fn(),
-        };
-        const handler = createHandler({
-            isUserFacingResponse: false,
-            shouldUseDatabase: false,
-            method: async () => 'ok',
-            telemetry: noopTelemetry,
-            usageRollup,
-        });
-
-        const sqsRedelivery = {
-            Records: [
-                {
-                    messageId: 'm1',
-                    body: '{}',
-                    attributes: { ApproximateReceiveCount: '2' },
-                },
-            ],
-        };
-        await handler(sqsRedelivery, { ...ctx });
+        const usageRollup = makeRollup();
+        await dbHandler(usageRollup)(
+            {
+                Records: [
+                    {
+                        messageId: 'm1',
+                        body: '{}',
+                        attributes: { ApproximateReceiveCount: '2' },
+                    },
+                ],
+            },
+            { ...ctx }
+        );
 
         expect(usageRollup.discard).toHaveBeenCalledTimes(1);
         expect(usageRollup.flush).not.toHaveBeenCalled();
     });
 
     it('flushes on first SQS delivery (receiveCount 1)', async () => {
-        const usageRollup = {
-            flush: jest.fn().mockResolvedValue(),
-            discard: jest.fn(),
-        };
-        const handler = createHandler({
-            isUserFacingResponse: false,
-            shouldUseDatabase: false,
-            method: async () => 'ok',
-            telemetry: noopTelemetry,
-            usageRollup,
-        });
-
-        await handler(
+        const usageRollup = makeRollup();
+        await dbHandler(usageRollup)(
             {
                 Records: [
                     {
@@ -228,5 +209,21 @@ describe('createHandler — usage rollup flush (ADR-011 P9)', () => {
         );
 
         expect(usageRollup.flush).toHaveBeenCalledTimes(1);
+    });
+
+    it('discards (never persists) for a DB-free handler — no connectionless Prisma write', async () => {
+        const usageRollup = makeRollup();
+        const handler = createHandler({
+            isUserFacingResponse: false,
+            shouldUseDatabase: false,
+            method: async () => 'ok',
+            telemetry: noopTelemetry,
+            usageRollup,
+        });
+
+        await handler({}, { ...ctx });
+
+        expect(usageRollup.flush).not.toHaveBeenCalled();
+        expect(usageRollup.discard).toHaveBeenCalledTimes(1);
     });
 });

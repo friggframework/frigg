@@ -1,8 +1,6 @@
 const {
     CANONICAL_COUNTERS,
     isCanonicalCounter,
-    AUTO_SIGNAL_TO_CANONICAL,
-    canonicalForSignal,
 } = require('./canonical-counters');
 
 describe('CANONICAL_COUNTERS registry', () => {
@@ -25,21 +23,5 @@ describe('CANONICAL_COUNTERS registry', () => {
     it('recognizes canonical vs custom keys', () => {
         expect(isCanonicalCounter('records.synced')).toBe(true);
         expect(isCanonicalCounter('deals.enriched')).toBe(false);
-    });
-});
-
-describe('auto-signal → canonical mapping', () => {
-    it('maps framework signals to the canonical counter they feed', () => {
-        expect(canonicalForSignal('apimodule.request')).toBe('api.requests');
-        expect(canonicalForSignal('webhook.received')).toBe(
-            'webhooks.received'
-        );
-        expect(canonicalForSignal('user_action')).toBe('user_actions');
-    });
-
-    it('has no auto signal for explicit-only counters (records.synced, workflows.invoked)', () => {
-        const auto = Object.values(AUTO_SIGNAL_TO_CANONICAL);
-        expect(auto).not.toContain('records.synced');
-        expect(auto).not.toContain('workflows.invoked');
     });
 });

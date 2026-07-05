@@ -40,6 +40,10 @@ function bindTelemetryContext(base, getContext) {
         withContext: (...args) => base.withContext(...args),
         on: (...args) => base.on(...args),
         forceFlush: (...args) => base.forceFlush(...args),
+        shutdown: (...args) =>
+            typeof base.shutdown === 'function'
+                ? base.shutdown(...args)
+                : undefined,
         isEnabled: (...args) => base.isEnabled(...args),
     };
 }

@@ -55,7 +55,12 @@ function getUsageRollupSubscriber() {
                 northStar: telemetry.northStar,
             });
         }
-    } catch (_) {
+    } catch (error) {
+        // Usage disabled for this process — surface it so operators can tell
+        // "usage off" from "usage broken" (e.g. unresolved DB_TYPE).
+        console.warn(
+            `[Frigg][usage] rollup disabled: ${error && error.message}`
+        );
         subscriber = null;
     }
     return subscriber;

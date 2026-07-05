@@ -1,4 +1,8 @@
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
+const {
+    runWithTelemetryContext,
+    mergeTelemetryContext,
+} = require('./telemetry-context');
 
 /**
  * No-op telemetry implementation.
@@ -20,13 +24,15 @@ const { createTelemetryEventBus } = require('./telemetry-event-bus');
 function createNoOpTelemetry({ bus = createTelemetryEventBus() } = {}) {
     const noop = {
         count(name, value = 1, attributes = {}, context) {
+            const merged = mergeTelemetryContext(context);
             const payload = { name, value, attributes };
-            if (context) payload.context = context;
+            if (merged) payload.context = merged;
             bus.emit('metric', payload);
         },
         event(name, attributes = {}, context) {
+            const merged = mergeTelemetryContext(context);
             const payload = { name, attributes };
-            if (context) payload.context = context;
+            if (merged) payload.context = merged;
             bus.emit('event', payload);
         },
         async span(_name, fn) {
@@ -41,8 +47,10 @@ function createNoOpTelemetry({ bus = createTelemetryEventBus() } = {}) {
                 end() {},
             };
         },
-        async withContext(_ctx, fn) {
-            return typeof fn === 'function' ? fn() : undefined;
+        async withContext(context, fn) {
+            return runWithTelemetryContext(context, () =>
+                typeof fn === 'function' ? fn() : undefined
+            );
         },
         on(eventType, callback) {
             return bus.on(eventType, callback);

@@ -61,6 +61,22 @@ describe('Requester — apimodule.requests instrumentation (ADR-011 P7)', () => 
         expect(JSON.stringify(attrs)).not.toContain('8842361');
     });
 
+    it('redacts the query string from the emitted URL (no secrets in telemetry)', async () => {
+        const { requester, metrics } = harness(async () => jsonOk());
+
+        await requester._request(
+            'https://api.example.com/contacts?api_key=SECRET123&token=abc',
+            { method: 'GET' }
+        );
+
+        const ctx = metrics.find(
+            (m) => m.name === 'frigg.apimodule.requests'
+        ).context;
+        expect(ctx.url).toBe('https://api.example.com/contacts');
+        expect(JSON.stringify(ctx)).not.toContain('SECRET123');
+        expect(JSON.stringify(ctx)).not.toContain('token=abc');
+    });
+
     it('emits an error-status metric when the request fails', async () => {
         const { requester, metrics } = harness(async () => ({
             status: 404,

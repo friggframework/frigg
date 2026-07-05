@@ -3,12 +3,12 @@
  * (ADR-011 Decisions 1 & 5) into a normalized config the TelemetryService and
  * usage rollup consume: `{ exporter, northStar, sampleRatio }`.
  *
- * Exporter default is keyed off STAGE (Fable advisor sharp-question #3):
- * local-dev stages get `console` (visible, free — telemetry "rides for free" in
- * dev), everything else gets `none` (zero cost in prod unless the adopter
- * explicitly configures an OTLP backend, which also has real per-event cost).
+ * Exporter default is keyed off STAGE: only a genuinely LOCAL run (STAGE=local)
+ * gets `console` (visible, free); every deployed stage — including `dev` —
+ * defaults to `none`. `dev` is a deployed AWS stage, and `console` there would
+ * write full spans to CloudWatch by default (cost + a data-exposure surface).
+ * Adopters opt into `console`/`otlp` explicitly for deployed stages.
  */
-const LOCAL_DEV_STAGES = ['dev', 'test', 'local'];
 const VALID_EXPORTER_TYPES = [
     'none',
     'noop',
@@ -20,9 +20,7 @@ const VALID_EXPORTER_TYPES = [
 
 function resolveExporter(exporter, stage) {
     if (!exporter) {
-        return LOCAL_DEV_STAGES.includes(stage)
-            ? { type: 'console' }
-            : { type: 'none' };
+        return stage === 'local' ? { type: 'console' } : { type: 'none' };
     }
 
     // Pre-built exporter instances (tests / advanced adopters) bypass type checks.

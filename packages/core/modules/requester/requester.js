@@ -49,6 +49,24 @@ class Requester extends Delegate {
         this.telemetry = (params && params.telemetry) || getTelemetry();
     }
 
+    /**
+     * Redact secrets/PII from a URL before it touches telemetry. Many API
+     * modules embed credentials in the query string (?api_key=, ?token=,
+     * presigned signatures) or in userinfo — those must never reach a span,
+     * the bus, or an exporter. Keep only protocol + host + path (enough for
+     * North Star endpoint matching).
+     */
+    _sanitizeUrl(url) {
+        const raw = String(url);
+        try {
+            const u = new URL(raw);
+            return `${u.protocol}//${u.host}${u.pathname}`;
+        } catch (_) {
+            // Relative/opaque URL: drop the query string at minimum.
+            return raw.split('?')[0];
+        }
+    }
+
     /** Bounded module label for the apimodule.requests metric. */
     _telemetryModuleLabel() {
         return (
@@ -93,18 +111,20 @@ class Requester extends Delegate {
 
         const module = this._telemetryModuleLabel();
         const method = (options.method || 'GET').toUpperCase();
+        const safeUrl = this._sanitizeUrl(url);
 
         return telemetry.span('frigg.apimodule.request', async (span) => {
             if (span && typeof span.setAttributes === 'function') {
                 span.setAttributes({
                     'frigg.module': module,
                     'http.request.method': method,
-                    'url.full': String(url),
+                    // Redacted (no query/userinfo) — never emit raw URLs.
+                    'url.path': safeUrl,
                 });
             }
-            // `url` (unbounded) rides the bus-only context for North Star
+            // Redacted url (unbounded) rides the bus-only context for North Star
             // derived-from-trace matching — never a metric label.
-            const busContext = { url: String(url) };
+            const busContext = { url: safeUrl };
             try {
                 const result = await this._rawRequest(url, options, 0);
                 telemetry.count(

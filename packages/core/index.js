@@ -30,9 +30,7 @@ const {
 const {
     GetUserFromAdopterJwt,
 } = require('./user/use-cases/get-user-from-adopter-jwt');
-const {
-    AuthenticateUser,
-} = require('./user/use-cases/authenticate-user');
+const { AuthenticateUser } = require('./user/use-cases/authenticate-user');
 
 const {
     CredentialRepository,
@@ -43,18 +41,14 @@ const {
 const {
     IntegrationMappingRepository,
 } = require('./integrations/repositories/integration-mapping-repository');
-const {
-    CreateProcess,
-} = require('./integrations/use-cases/create-process');
+const { CreateProcess } = require('./integrations/use-cases/create-process');
 const {
     UpdateProcessState,
 } = require('./integrations/use-cases/update-process-state');
 const {
     UpdateProcessMetrics,
 } = require('./integrations/use-cases/update-process-metrics');
-const {
-    GetProcess,
-} = require('./integrations/use-cases/get-process');
+const { GetProcess } = require('./integrations/use-cases/get-process');
 const { Cryptor } = require('./encrypt');
 const {
     BaseError,
@@ -75,7 +69,7 @@ const {
     createReportingRouter,
     createReportingRepository,
 } = require('./reporting/index');
-const { createTelemetry } = require('./telemetry/index');
+const { createTelemetry, getTelemetry } = require('./telemetry/index');
 const { createUsageRepository } = require('./usage/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
@@ -151,6 +145,7 @@ module.exports = {
 
     // telemetry (ADR-011)
     createTelemetry,
+    getTelemetry,
     createUsageRepository,
 
     // application - Command factories for integration developers
