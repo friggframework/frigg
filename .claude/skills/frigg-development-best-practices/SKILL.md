@@ -57,11 +57,11 @@ const credential = await commands.createCredential({
 });
 ```
 
-For scheduling one-time jobs from integration code (`createSchedulerCommands`), see the **frigg-scheduled-jobs** skill.
+For scheduling one-time jobs from integration code (`createSchedulerCommands`), see the **frigg-scheduled-jobs** skill. For durable usage counters, `createFriggCommands` also exposes `commands.usage.{totals,series,recordUsageCounter}` (ADR-011) — see the telemetry guide (`packages/core/telemetry/README.md`).
 
 ## Event Handling (Delegate Pattern)
 
-Current implementation uses a **Delegate** pattern (observer-like) for event propagation, not an EventBus (EventBus migration is planned).
+The **Delegate** pattern (observer-like, 1:1) is used for auth/status propagation (`TOKEN_REFRESHED`, `AUTH_FAILED`, integration status). Note: ADR-011 added a separate many-to-many `TelemetryEventBus` (`packages/core/telemetry/`) for the telemetry/usage stream — it is deliberately distinct from `Delegate` (do not route telemetry through Delegate, or vice versa).
 
 ```javascript
 const { Delegate } = require("@friggframework/core");

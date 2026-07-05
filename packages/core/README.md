@@ -200,6 +200,46 @@ const secureData = cryptor.encrypt(JSON.stringify({
 }));
 ```
 
+### 4b. Telemetry & Usage Tracking (`/telemetry`, `/usage`)
+
+Vendor-neutral OpenTelemetry observability plus durable, per-integration usage
+counters (ADR-011). No-op by default (zero cold-start cost); framework seams are
+auto-instrumented so integrations get handler/API-module/webhook metrics for free.
+
+**Usage:**
+```javascript
+// App definition — turn on export + declare a North Star:
+const Definition = {
+    name: 'my-app',
+    telemetry: {
+        exporter: { type: 'otlp', endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT },
+        northStar: { default: { name: 'records.synced' } },
+    },
+};
+
+// Integration code — custom metrics/spans (this.telemetry is auto-tagged):
+await this.telemetry.span('delta_sync', async () => {
+    this.telemetry.count('records.synced', batch.length, { entity: 'contact' });
+});
+
+// Declare which usage counters an integration reports (opts into reporting):
+class HubSpotIntegration extends IntegrationBase {
+    static Definition = {
+        name: 'hubspot',
+        usage: { canonical: ['records.synced', 'api.requests'] },
+    };
+}
+
+// Read the durable usage store (never an APM):
+const frigg = createFriggCommands({ integrationClass: HubSpotIntegration });
+await frigg.usage.totals({ metric: 'records.synced', groupBy: 'integrationType' });
+```
+
+**See:** [`telemetry/README.md`](telemetry/README.md) for the full guide
+(exporters, custom metrics, the Usage-Counter contract, North Star, the plugin
+tap, cardinality rules, and caveats) and [`usage/README.md`](usage/README.md) for
+the store internals.
+
 ### 5. Error Handling (`/errors`)
 
 Standardized error types with proper HTTP status codes.
