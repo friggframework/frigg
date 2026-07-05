@@ -1,0 +1,98 @@
+const { resolveTelemetryConfig } = require('./telemetry-config');
+
+describe('resolveTelemetryConfig — exporter default by stage', () => {
+    it('defaults to no-op in production-like stages when telemetry is absent', () => {
+        const cfg = resolveTelemetryConfig({}, { stage: 'production' });
+        expect(cfg.exporter).toEqual({ type: 'none' });
+        expect(cfg.sampleRatio).toBe(1);
+        expect(cfg.northStar).toBeNull();
+    });
+
+    it.each(['dev', 'test', 'local'])(
+        'defaults to console in the local-dev stage "%s"',
+        (stage) => {
+            const cfg = resolveTelemetryConfig({}, { stage });
+            expect(cfg.exporter).toEqual({ type: 'console' });
+        }
+    );
+
+    it('passes an explicit exporter through unchanged', () => {
+        const exporter = { type: 'otlp', endpoint: 'https://otlp.example' };
+        const cfg = resolveTelemetryConfig(
+            { telemetry: { exporter } },
+            { stage: 'production' }
+        );
+        expect(cfg.exporter).toEqual(exporter);
+    });
+
+    it('rejects an unknown exporter type', () => {
+        expect(() =>
+            resolveTelemetryConfig(
+                { telemetry: { exporter: { type: 'kafka' } } },
+                { stage: 'production' }
+            )
+        ).toThrow(/exporter/i);
+    });
+});
+
+describe('resolveTelemetryConfig — sampleRatio', () => {
+    it('accepts a ratio in [0,1]', () => {
+        const cfg = resolveTelemetryConfig(
+            { telemetry: { exporter: { type: 'console' }, sampleRatio: 0.1 } },
+            { stage: 'production' }
+        );
+        expect(cfg.sampleRatio).toBe(0.1);
+    });
+
+    it.each([2, -1, 'x', NaN])('rejects an out-of-range ratio %p', (bad) => {
+        expect(() =>
+            resolveTelemetryConfig(
+                { telemetry: { sampleRatio: bad } },
+                { stage: 'production' }
+            )
+        ).toThrow(/sampleRatio/i);
+    });
+});
+
+describe('resolveTelemetryConfig — northStar', () => {
+    it('accepts a default north-star referencing a counter key', () => {
+        const cfg = resolveTelemetryConfig(
+            {
+                telemetry: {
+                    northStar: { default: { name: 'records.synced' } },
+                },
+            },
+            { stage: 'production' }
+        );
+        expect(cfg.northStar).toEqual({
+            default: { name: 'records.synced' },
+        });
+    });
+
+    it('accepts byType with a derived-from-trace mapping', () => {
+        const northStar = {
+            byType: {
+                crm: {
+                    name: 'contacts_synced',
+                    deriveFrom: {
+                        apiRequest: { endpoint: '/contacts', method: 'POST' },
+                    },
+                },
+            },
+        };
+        const cfg = resolveTelemetryConfig(
+            { telemetry: { northStar } },
+            { stage: 'production' }
+        );
+        expect(cfg.northStar).toEqual(northStar);
+    });
+
+    it('rejects a north-star entry missing a counter name', () => {
+        expect(() =>
+            resolveTelemetryConfig(
+                { telemetry: { northStar: { default: {} } } },
+                { stage: 'production' }
+            )
+        ).toThrow(/northStar/i);
+    });
+});

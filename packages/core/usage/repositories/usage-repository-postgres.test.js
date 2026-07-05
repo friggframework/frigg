@@ -1,0 +1,140 @@
+jest.mock('../../database/prisma', () => ({
+    prisma: {
+        usageCounter: {
+            upsert: jest.fn(),
+            groupBy: jest.fn(),
+            findMany: jest.fn(),
+        },
+    },
+}));
+
+const { prisma } = require('../../database/prisma');
+const { UsageRepositoryPostgres } = require('./usage-repository-postgres');
+
+describe('UsageRepositoryPostgres', () => {
+    let repo;
+    beforeEach(() => {
+        jest.clearAllMocks();
+        repo = new UsageRepositoryPostgres();
+    });
+
+    describe('increment', () => {
+        it('upserts with an atomic value increment keyed by the compound unique', async () => {
+            prisma.usageCounter.upsert.mockResolvedValue({});
+
+            await repo.increment({
+                integrationId: 'int_1',
+                integrationType: 'hubspot',
+                metric: 'records.synced',
+                window: 'day:2026-07-05',
+                value: 3,
+            });
+
+            expect(prisma.usageCounter.upsert).toHaveBeenCalledTimes(1);
+            const arg = prisma.usageCounter.upsert.mock.calls[0][0];
+            expect(arg.where).toEqual({
+                integrationId_integrationType_metric_window: {
+                    integrationId: 'int_1',
+                    integrationType: 'hubspot',
+                    metric: 'records.synced',
+                    window: 'day:2026-07-05',
+                },
+            });
+            expect(arg.create).toMatchObject({
+                integrationId: 'int_1',
+                integrationType: 'hubspot',
+                metric: 'records.synced',
+                window: 'day:2026-07-05',
+                value: 3,
+            });
+            expect(arg.update).toEqual({ value: { increment: 3 } });
+        });
+
+        it('defaults value to 1 when omitted', async () => {
+            prisma.usageCounter.upsert.mockResolvedValue({});
+            await repo.increment({
+                integrationId: 'i',
+                integrationType: 't',
+                metric: 'm',
+                window: 'w',
+            });
+            const arg = prisma.usageCounter.upsert.mock.calls[0][0];
+            expect(arg.create.value).toBe(1);
+            expect(arg.update).toEqual({ value: { increment: 1 } });
+        });
+
+        it('retries once on a P2002 unique-violation race', async () => {
+            const p2002 = Object.assign(new Error('unique'), {
+                code: 'P2002',
+            });
+            prisma.usageCounter.upsert
+                .mockRejectedValueOnce(p2002)
+                .mockResolvedValueOnce({});
+
+            await expect(
+                repo.increment({
+                    integrationId: 'i',
+                    integrationType: 't',
+                    metric: 'm',
+                    window: 'w',
+                    value: 2,
+                })
+            ).resolves.toBeUndefined();
+
+            expect(prisma.usageCounter.upsert).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('totals', () => {
+        it('sums a metric grouped by a bounded dimension since a timestamp', async () => {
+            prisma.usageCounter.groupBy.mockResolvedValue([
+                { integrationType: 'hubspot', _sum: { value: 12 } },
+                { integrationType: 'salesforce', _sum: { value: 4 } },
+            ]);
+            const since = new Date('2026-07-01T00:00:00Z');
+
+            const result = await repo.totals({
+                metric: 'records.synced',
+                groupBy: 'integrationType',
+                since,
+            });
+
+            const arg = prisma.usageCounter.groupBy.mock.calls[0][0];
+            expect(arg.by).toEqual(['integrationType']);
+            expect(arg.where).toEqual({
+                metric: 'records.synced',
+                updatedAt: { gte: since },
+            });
+            expect(result).toEqual([
+                { integrationType: 'hubspot', value: 12 },
+                { integrationType: 'salesforce', value: 4 },
+            ]);
+        });
+    });
+
+    describe('series', () => {
+        it('returns ordered buckets for one integration type at a granularity', async () => {
+            prisma.usageCounter.findMany.mockResolvedValue([
+                { window: 'day:2026-07-04', value: 5 },
+                { window: 'day:2026-07-05', value: 9 },
+            ]);
+
+            const result = await repo.series({
+                metric: 'records.synced',
+                integrationType: 'hubspot',
+                bucket: 'day',
+            });
+
+            const arg = prisma.usageCounter.findMany.mock.calls[0][0];
+            expect(arg.where).toMatchObject({
+                metric: 'records.synced',
+                integrationType: 'hubspot',
+                window: { startsWith: 'day:' },
+            });
+            expect(result).toEqual([
+                { bucket: 'day:2026-07-04', value: 5 },
+                { bucket: 'day:2026-07-05', value: 9 },
+            ]);
+        });
+    });
+});
