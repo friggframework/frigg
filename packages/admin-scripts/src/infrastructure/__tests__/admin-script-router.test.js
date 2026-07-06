@@ -10,16 +10,13 @@ jest.mock('../admin-auth-middleware', () => ({
     },
 }));
 
-jest.mock('../../application/script-factory');
 jest.mock('../../application/script-runner');
 jest.mock('@friggframework/core/application/commands/admin-script-commands');
 jest.mock('@friggframework/core/queues');
 jest.mock('../../adapters/scheduler-adapter-factory');
-jest.mock('../bootstrap', () => ({
-    bootstrapAdminScripts: () => ({ integrationFactory: {} }),
-}));
+jest.mock('../bootstrap');
 
-const { getScriptFactory } = require('../../application/script-factory');
+const { bootstrapAdminScripts } = require('../bootstrap');
 const { createScriptRunner } = require('../../application/script-runner');
 const {
     createAdminScriptCommands,
@@ -72,7 +69,10 @@ describe('Admin Script Router', () => {
             setScheduleEnabled: jest.fn(),
         };
 
-        getScriptFactory.mockReturnValue(mockFactory);
+        bootstrapAdminScripts.mockReturnValue({
+            scriptFactory: mockFactory,
+            integrationFactory: {},
+        });
         createScriptRunner.mockReturnValue(mockRunner);
         createAdminScriptCommands.mockReturnValue(mockCommands);
         createSchedulerAdapter.mockReturnValue(mockSchedulerAdapter);
@@ -174,6 +174,10 @@ describe('Admin Script Router', () => {
                     mode: 'sync',
                 })
             );
+            expect(createScriptRunner).toHaveBeenCalledWith({
+                scriptFactory: mockFactory,
+                integrationFactory: {},
+            });
         });
 
         it('should queue script for async execution', async () => {

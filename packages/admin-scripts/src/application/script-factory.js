@@ -4,11 +4,18 @@
  * Registry and factory for admin scripts.
  * Manages script registration, validation, and instantiation.
  *
+ * Instances are created and owned by the caller (see bootstrap.js, which builds
+ * one per process and injects it into the runner and router). There is no global
+ * instance — pass a factory explicitly wherever one is needed.
+ *
  * Usage:
  * ```javascript
- * const factory = new ScriptFactory();
- * factory.register(MyScript);
- * const script = factory.createInstance('my-script', { executionId: '123' });
+ * const factory = new ScriptFactory([MyScript]);
+ * const script = factory.createInstance('my-script', {
+ *     context,
+ *     executionId,
+ *     integrationFactory,
+ * });
  * ```
  */
 class ScriptFactory {
@@ -137,18 +144,4 @@ class ScriptFactory {
     }
 }
 
-// Singleton instance for global use
-let globalFactory = null;
-
-/**
- * Get global script factory instance
- * @returns {ScriptFactory} Global factory
- */
-function getScriptFactory() {
-    if (!globalFactory) {
-        globalFactory = new ScriptFactory();
-    }
-    return globalFactory;
-}
-
-module.exports = { ScriptFactory, getScriptFactory };
+module.exports = { ScriptFactory };

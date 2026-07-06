@@ -292,12 +292,13 @@ describe('ScriptRunner', () => {
     });
 
     describe('createScriptRunner()', () => {
-        it('should create runner with default factory', () => {
-            const runner = createScriptRunner();
-            expect(runner).toBeInstanceOf(ScriptRunner);
+        it('should throw when no scriptFactory is provided', () => {
+            expect(() => createScriptRunner()).toThrow(
+                'ScriptRunner requires a scriptFactory'
+            );
         });
 
-        it('should create runner with custom params', () => {
+        it('should create runner with an injected factory', () => {
             const customFactory = new ScriptFactory();
             const runner = createScriptRunner({ scriptFactory: customFactory });
             expect(runner).toBeInstanceOf(ScriptRunner);

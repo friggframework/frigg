@@ -1,18 +1,20 @@
-const { getScriptFactory } = require('../application/script-factory');
+const { ScriptFactory } = require('../application/script-factory');
 
 /**
  * Admin Script Bootstrap
  *
- * Loads the host app's definition at Lambda runtime and registers its admin
- * scripts (and the built-ins, when enabled) into the global ScriptFactory, so
- * the router and SQS worker can resolve scripts by name. Also constructs the
- * integrationFactory used by scripts that need hydrated integration instances.
+ * Composition root for the admin-scripts runtime. Loads the host app's
+ * definition at Lambda runtime, builds a ScriptFactory, and registers the app's
+ * admin scripts into it so the router and SQS worker can resolve scripts by
+ * name. Also constructs the integrationFactory used by scripts that need
+ * hydrated integration instances. Both are returned for the caller to inject.
  *
  * Runs once per process (memoized) and never throws — a missing/unloadable app
  * definition is logged and leaves the factory empty rather than crashing the
  * Lambda cold start.
  */
 let bootstrapped = false;
+let scriptFactory = null;
 let integrationFactory = null;
 
 function registerScripts(factory, scriptClasses) {
@@ -43,13 +45,18 @@ function createIntegrationFactory() {
 }
 
 /**
- * @returns {{ integrationFactory: object }}
+ * @returns {{ scriptFactory: ScriptFactory, integrationFactory: object }}
  */
 function bootstrapAdminScripts() {
     if (bootstrapped) {
-        return { integrationFactory };
+        return { scriptFactory, integrationFactory };
     }
     bootstrapped = true;
+
+    // Create the registry up front so consumers always get a (possibly empty)
+    // factory even when the app definition can't be loaded — mirrors the
+    // never-throw contract above.
+    scriptFactory = new ScriptFactory();
 
     try {
         const {
@@ -57,8 +64,7 @@ function bootstrapAdminScripts() {
         } = require('@friggframework/core/handlers/app-definition-loader');
         const { adminScripts = [] } = loadAppDefinition();
 
-        const factory = getScriptFactory();
-        registerScripts(factory, adminScripts);
+        registerScripts(scriptFactory, adminScripts);
     } catch (error) {
         console.error(
             '[admin-scripts] bootstrap: could not load app definition:',
@@ -67,12 +73,13 @@ function bootstrapAdminScripts() {
     }
 
     integrationFactory = createIntegrationFactory();
-    return { integrationFactory };
+    return { scriptFactory, integrationFactory };
 }
 
 /** Test-only: reset memoized bootstrap state. */
 function _resetBootstrapForTests() {
     bootstrapped = false;
+    scriptFactory = null;
     integrationFactory = null;
 }
 

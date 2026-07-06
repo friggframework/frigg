@@ -1,4 +1,4 @@
-const { ScriptFactory, getScriptFactory } = require('../script-factory');
+const { ScriptFactory } = require('../script-factory');
 const { AdminScriptBase } = require('../admin-script-base');
 
 describe('ScriptFactory', () => {
@@ -333,15 +333,32 @@ describe('ScriptFactory', () => {
         });
     });
 
-    describe('Global factory functions', () => {
-        it('getScriptFactory() should return singleton instance', () => {
-            const factory1 = getScriptFactory();
-            const factory2 = getScriptFactory();
+    describe('constructor', () => {
+        it('registers scripts passed to the constructor', () => {
+            class ScriptOne extends AdminScriptBase {
+                static Definition = {
+                    name: 'script-one',
+                    version: '1.0.0',
+                    description: 'One',
+                };
+            }
+            class ScriptTwo extends AdminScriptBase {
+                static Definition = {
+                    name: 'script-two',
+                    version: '1.0.0',
+                    description: 'Two',
+                };
+            }
 
-            expect(factory1).toBe(factory2);
-            expect(factory1).toBeInstanceOf(ScriptFactory);
+            const factory = new ScriptFactory([ScriptOne, ScriptTwo]);
+
+            expect(factory.size).toBe(2);
+            expect(factory.has('script-one')).toBe(true);
+            expect(factory.has('script-two')).toBe(true);
         });
+    });
 
+    describe('Instance independence', () => {
         it('new ScriptFactory() creates independent instances', () => {
             const factory1 = new ScriptFactory();
             const factory2 = new ScriptFactory();
@@ -351,7 +368,7 @@ describe('ScriptFactory', () => {
             expect(factory2).toBeInstanceOf(ScriptFactory);
         });
 
-        it('global factory should be independent from created instances', () => {
+        it('registering into one factory does not affect another', () => {
             class TestScript extends AdminScriptBase {
                 static Definition = {
                     name: 'test',
@@ -360,18 +377,12 @@ describe('ScriptFactory', () => {
                 };
             }
 
-            const customFactory = new ScriptFactory();
-            customFactory.register(TestScript);
+            const factoryA = new ScriptFactory();
+            const factoryB = new ScriptFactory();
+            factoryA.register(TestScript);
 
-            const globalFactory = getScriptFactory();
-
-            // Custom factory has the script
-            expect(customFactory.has('test')).toBe(true);
-
-            // Global factory doesn't (assuming it's empty or has different scripts)
-            // We can't make assumptions about global factory state in tests
-            // so we just verify they're different instances
-            expect(customFactory).not.toBe(globalFactory);
+            expect(factoryA.has('test')).toBe(true);
+            expect(factoryB.has('test')).toBe(false);
         });
     });
 

@@ -6,10 +6,7 @@
  */
 
 // Application Services
-const {
-    ScriptFactory,
-    getScriptFactory,
-} = require('./src/application/script-factory');
+const { ScriptFactory } = require('./src/application/script-factory');
 const { AdminScriptBase } = require('./src/application/admin-script-base');
 const {
     AdminScriptContext,
@@ -47,7 +44,6 @@ module.exports = {
     // Application layer
     AdminScriptBase,
     ScriptFactory,
-    getScriptFactory,
     AdminScriptContext,
     createAdminScriptContext,
     ScriptRunner,

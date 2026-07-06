@@ -2,7 +2,6 @@ const express = require('express');
 const serverless = require('serverless-http');
 const Boom = require('@hapi/boom');
 const { validateAdminApiKey } = require('./admin-auth-middleware');
-const { getScriptFactory } = require('../application/script-factory');
 const { createScriptRunner } = require('../application/script-runner');
 const {
     validateScriptInput,
@@ -27,10 +26,13 @@ const router = express.Router();
 // Apply auth middleware to all admin routes
 router.use(validateAdminApiKey);
 
-// Register the host app's admin scripts before handling requests.
-// Memoized, so this only does work on the first request per process.
-router.use((_req, _res, next) => {
-    bootstrapAdminScripts();
+// Build (once, memoized) and inject the per-process dependencies onto the
+// request, so route handlers consume them explicitly instead of reaching for a
+// global. Registers the host app's admin scripts on the first request.
+router.use((req, _res, next) => {
+    const { scriptFactory, integrationFactory } = bootstrapAdminScripts();
+    req.scriptFactory = scriptFactory;
+    req.integrationFactory = integrationFactory;
     next();
 });
 
@@ -42,7 +44,9 @@ router.use((_req, _res, next) => {
  */
 function sendError(res, error, fallbackMessage) {
     if (error.isBoom) {
-        return res.status(error.output.statusCode).json({ error: error.message });
+        return res
+            .status(error.output.statusCode)
+            .json({ error: error.message });
     }
     console.error(fallbackMessage, error);
     return res.status(500).json({ error: fallbackMessage });
@@ -65,9 +69,10 @@ function buildAudit(req) {
 
 /**
  * Create schedule use case instances
+ * @param {ScriptFactory} scriptFactory - Registry injected from the request.
  * @private
  */
-function createScheduleUseCases() {
+function createScheduleUseCases(scriptFactory) {
     const commands = createAdminScriptCommands();
 
     // The local adapter is in-memory only (schedules vanish on cold start), so it
@@ -88,7 +93,6 @@ function createScheduleUseCases() {
         scheduleGroupName: process.env.ADMIN_SCRIPT_SCHEDULE_GROUP,
         roleArn: process.env.SCHEDULER_ROLE_ARN,
     });
-    const scriptFactory = getScriptFactory();
 
     return {
         getEffectiveSchedule: new GetEffectiveScheduleUseCase({
@@ -114,7 +118,7 @@ function createScheduleUseCases() {
  */
 router.get('/scripts', async (req, res) => {
     try {
-        const factory = getScriptFactory();
+        const factory = req.scriptFactory;
         const scripts = factory.getAll();
 
         res.json({
@@ -140,7 +144,7 @@ router.get('/scripts', async (req, res) => {
 router.get('/scripts/:scriptName', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const factory = getScriptFactory();
+        const factory = req.scriptFactory;
 
         if (!factory.has(scriptName)) {
             return res.status(404).json({
@@ -175,7 +179,7 @@ router.post('/scripts/:scriptName/validate', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { params = {} } = req.body;
-        const factory = getScriptFactory();
+        const factory = req.scriptFactory;
 
         if (!factory.has(scriptName)) {
             return res.status(404).json({
@@ -200,7 +204,7 @@ router.post('/scripts/:scriptName', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { params = {}, mode = 'async' } = req.body;
-        const factory = getScriptFactory();
+        const factory = req.scriptFactory;
 
         if (!factory.has(scriptName)) {
             return res.status(404).json({
@@ -237,8 +241,10 @@ router.post('/scripts/:scriptName', async (req, res) => {
                 });
             }
 
-            const { integrationFactory } = bootstrapAdminScripts();
-            const runner = createScriptRunner({ integrationFactory });
+            const runner = createScriptRunner({
+                scriptFactory: req.scriptFactory,
+                integrationFactory: req.integrationFactory,
+            });
             const result = await runner.execute(scriptName, params, {
                 trigger: 'MANUAL',
                 mode: 'sync',
@@ -355,7 +361,9 @@ router.get('/scripts/:scriptName/executions', async (req, res) => {
 router.get('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const { getEffectiveSchedule } = createScheduleUseCases();
+        const { getEffectiveSchedule } = createScheduleUseCases(
+            req.scriptFactory
+        );
 
         const result = await getEffectiveSchedule.execute(scriptName);
 
@@ -377,7 +385,7 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { enabled, cronExpression, timezone } = req.body;
-        const { upsertSchedule } = createScheduleUseCases();
+        const { upsertSchedule } = createScheduleUseCases(req.scriptFactory);
 
         const result = await upsertSchedule.execute(scriptName, {
             enabled,
@@ -407,7 +415,7 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
 router.delete('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const { deleteSchedule } = createScheduleUseCases();
+        const { deleteSchedule } = createScheduleUseCases(req.scriptFactory);
 
         const result = await deleteSchedule.execute(scriptName);
 

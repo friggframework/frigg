@@ -1,4 +1,3 @@
-const { getScriptFactory } = require('./script-factory');
 const { createAdminScriptContext } = require('./admin-script-context');
 const {
     createAdminScriptCommands,
@@ -14,8 +13,20 @@ const {
  * - Status updates
  */
 class ScriptRunner {
+    /**
+     * @param {Object} params
+     * @param {ScriptFactory} params.scriptFactory - Required. The registry used
+     *   to resolve and instantiate scripts by name (built by bootstrap.js).
+     * @param {Object} [params.commands] - Admin process command layer; defaults
+     *   to a fresh createAdminScriptCommands().
+     * @param {Object} [params.integrationFactory] - Hydrates integration
+     *   instances for scripts that need them.
+     */
     constructor(params = {}) {
-        this.scriptFactory = params.scriptFactory || getScriptFactory();
+        if (!params.scriptFactory) {
+            throw new Error('ScriptRunner requires a scriptFactory');
+        }
+        this.scriptFactory = params.scriptFactory;
         this.commands = params.commands || createAdminScriptCommands();
         this.integrationFactory = params.integrationFactory || null;
     }
