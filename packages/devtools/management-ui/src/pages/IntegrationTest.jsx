@@ -1,44 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Play, Send, Copy, Check, AlertCircle, Code, Database, Clock, Activity } from 'lucide-react'
+import { ArrowLeft, Play, Send, Copy, Check, CheckCircle, AlertCircle, Code, Database, Clock, Activity, Settings } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import LoadingSpinner from '../components/LoadingSpinner'
 import api from '../services/api'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { cn } from '../lib/utils'
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-import { cn } from '../lib/utils'
-=======
-import { cn } from '../utils/cn'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-import { cn } from '../lib/utils'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-import { cn } from '../lib/utils'
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
 const IntegrationTest = () => {
   const { integrationName } = useParams()
   const navigate = useNavigate()
-<<<<<<< HEAD
-<<<<<<< HEAD
-  
-=======
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-  
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   const [loading, setLoading] = useState(true)
   const [integration, setIntegration] = useState(null)
   const [endpoints, setEndpoints] = useState([])
@@ -57,68 +29,23 @@ const IntegrationTest = () => {
   const fetchIntegrationData = async () => {
     try {
       setLoading(true)
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
 
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       // Fetch integration details and available endpoints
       const [detailsRes, endpointsRes, historyRes] = await Promise.all([
         api.get(`/api/discovery/integrations/${integrationName}`),
         api.get(`/api/integrations/${integrationName}/endpoints`),
         api.get(`/api/integrations/${integrationName}/test-history`)
       ])
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
 
       setIntegration(detailsRes.data.data)
       setEndpoints(endpointsRes.data.endpoints || [])
       setTestHistory(historyRes.data.history || [])
 
-=======
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-      
-      setIntegration(detailsRes.data.data)
-      setEndpoints(endpointsRes.data.endpoints || [])
-      setTestHistory(historyRes.data.history || [])
-      
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       // Select first endpoint by default
       if (endpointsRes.data.endpoints?.length > 0) {
         setSelectedEndpoint(endpointsRes.data.endpoints[0])
         initializeParams(endpointsRes.data.endpoints[0])
       }
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
-
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (err) {
       console.error('Failed to fetch integration data:', err)
     } finally {
@@ -128,38 +55,14 @@ const IntegrationTest = () => {
 
   const initializeParams = (endpoint) => {
     const params = {}
-<<<<<<< HEAD
-<<<<<<< HEAD
-    
-=======
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-    
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     // Initialize required parameters
     endpoint.parameters?.forEach(param => {
       if (param.required) {
         params[param.name] = param.default || ''
       }
     })
-<<<<<<< HEAD
-<<<<<<< HEAD
-    
-=======
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-    
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     setTestParams(params)
   }
 
@@ -182,56 +85,20 @@ const IntegrationTest = () => {
     try {
       setTesting(true)
       setTestResult(null)
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
 
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       const response = await api.post(`/api/integrations/${integrationName}/test-endpoint`, {
         endpoint: selectedEndpoint.id,
         parameters: testParams,
         useMockData
       })
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
 
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       setTestResult({
         success: true,
         data: response.data.result,
         timing: response.data.timing,
         timestamp: new Date().toISOString()
       })
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
 
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       // Add to history
       setTestHistory(prev => [{
         endpoint: selectedEndpoint.name,
@@ -239,19 +106,6 @@ const IntegrationTest = () => {
         success: true,
         timing: response.data.timing
       }, ...prev.slice(0, 9)])
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
-
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     } catch (err) {
       console.error('Test failed:', err)
       setTestResult({
@@ -260,19 +114,7 @@ const IntegrationTest = () => {
         details: err.response?.data?.details,
         timestamp: new Date().toISOString()
       })
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
 
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       // Add failure to history
       setTestHistory(prev => [{
         endpoint: selectedEndpoint.name,
@@ -293,31 +135,11 @@ const IntegrationTest = () => {
 
   const generateCodeSnippet = () => {
     if (!selectedEndpoint) return ''
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
 
     const params = Object.entries(testParams)
       .map(([key, value]) => `  ${key}: '${value}'`)
       .join(',\n')
 
-=======
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-    
-    const params = Object.entries(testParams)
-      .map(([key, value]) => `  ${key}: '${value}'`)
-      .join(',\n')
-    
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     return `// ${selectedEndpoint.name}
 const result = await frigg.integration('${integrationName}')
   .${selectedEndpoint.method}('${selectedEndpoint.path}', {
@@ -329,19 +151,7 @@ console.log(result);`
 
   const renderParameterInput = (param) => {
     const value = testParams[param.name] || ''
-<<<<<<< HEAD
-<<<<<<< HEAD
-    
-=======
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-    
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     switch (param.type) {
       case 'boolean':
         return (
@@ -354,19 +164,7 @@ console.log(result);`
             <option value="true">true</option>
           </select>
         )
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
 
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       case 'number':
         return (
           <input
@@ -377,19 +175,7 @@ console.log(result);`
             placeholder={param.placeholder || `Enter ${param.name}`}
           />
         )
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
 
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       case 'select':
         return (
           <select
@@ -405,19 +191,7 @@ console.log(result);`
             ))}
           </select>
         )
-<<<<<<< HEAD
-<<<<<<< HEAD
-      
-=======
-<<<<<<< HEAD
 
-=======
-      
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       default:
         return (
           <input
@@ -501,19 +275,7 @@ console.log(result);`
                   </option>
                 ))}
               </select>
-<<<<<<< HEAD
-<<<<<<< HEAD
-              
-=======
-<<<<<<< HEAD
 
-=======
-              
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-              
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               {selectedEndpoint && (
                 <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">{selectedEndpoint.description}</p>
@@ -657,19 +419,7 @@ console.log(result);`
                     )}
                   </div>
                 )}
-<<<<<<< HEAD
-<<<<<<< HEAD
-                
-=======
-<<<<<<< HEAD
 
-=======
-                
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-                
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                 {testResult.data && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
