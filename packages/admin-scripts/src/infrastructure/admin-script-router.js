@@ -308,7 +308,7 @@ router.get('/scripts/:scriptName/executions', async (req, res) => {
 
 /**
  * GET /admin/scripts/:scriptName/schedule
- * Get effective schedule (DB override > Definition default > none)
+ * Get the effective schedule (the DB override, or none)
  */
 router.get('/scripts/:scriptName/schedule', async (req, res) => {
     try {
@@ -372,7 +372,7 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
 
 /**
  * DELETE /admin/scripts/:scriptName/schedule
- * Remove schedule override (revert to Definition default)
+ * Remove the schedule override
  */
 router.delete('/scripts/:scriptName/schedule', async (req, res) => {
     try {

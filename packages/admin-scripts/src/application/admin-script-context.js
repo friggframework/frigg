@@ -11,8 +11,8 @@ const { QueuerUtil } = require('@friggframework/core/queues');
  *   `commands.entities`, and `commands.integrations` expose the framework's
  *   command layer. Each command returns data on success or an `{ error }`
  *   object on failure — scripts check `.error` themselves.
- * - **Admin bypass**: `instantiate()` passes `_isAdminContext: true` to
- *   skip user-ownership checks when loading integration instances
+ * - **Integration instantiation**: `instantiate(integrationId)` hydrates a live
+ *   integration instance (system-scoped load) for calling external APIs
  * - **Script chaining**: `queueScript()` / `queueScriptBatch()` let scripts
  *   enqueue follow-up work with parent execution tracking
  * - **Execution-scoped logging**: `log()` collects structured entries tied
@@ -52,7 +52,6 @@ class AdminScriptContext {
         }
         return this.integrationFactory.getInstanceFromIntegrationId({
             integrationId,
-            _isAdminContext: true, // Bypass user ownership check
         });
     }
 

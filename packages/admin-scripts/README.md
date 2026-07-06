@@ -6,7 +6,7 @@ Typical use cases:
 
 -   **Healing scripts** — repair broken integration state (e.g. corrupted config).
 -   **Recurring maintenance** — refresh webhooks/subscriptions before they expire.
--   **Built-in utilities** — OAuth token refresh, integration health checks.
+-   **Operational tasks** — OAuth token refresh, integration health checks, one-off data backfills. (You write these — none ship built-in.)
 
 > Admin scripts are a **high-privilege** surface. Every endpoint is protected by an admin API key (`x-frigg-admin-api-key`), scripts run in your private VPC subnets, and every execution is tracked in the `AdminScriptExecution` table. Never expose the admin API key to browsers or end users.
 

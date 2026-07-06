@@ -253,6 +253,70 @@ describe('Admin Script Router', () => {
             expect(response.status).toBe(404);
             expect(response.body.code).toBe('SCRIPT_NOT_FOUND');
         });
+
+        it('rejects a sync script whose timeout exceeds the API budget on AWS', async () => {
+            // TestScript.Definition.config.timeout is 300000 (> 25000)
+            process.env.AWS_LAMBDA_FUNCTION_NAME = 'admin-script-router';
+
+            const response = await request(app)
+                .post('/admin/scripts/test-script')
+                .send({ params: {}, mode: 'sync' });
+
+            expect(response.status).toBe(400);
+            expect(response.body.code).toBe('SYNC_TIMEOUT_TOO_LONG');
+            expect(mockRunner.execute).not.toHaveBeenCalled();
+            delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+        });
+
+        it('allows a sync script within the budget on AWS (25000 boundary)', async () => {
+            process.env.AWS_LAMBDA_FUNCTION_NAME = 'admin-script-router';
+            class ShortScript extends AdminScriptBase {
+                static Definition = {
+                    name: 'short-script',
+                    version: '1.0.0',
+                    description: 'within budget',
+                    config: { timeout: 25000 },
+                };
+                async execute() {
+                    return {};
+                }
+            }
+            mockFactory.get.mockReturnValue(ShortScript);
+            mockRunner.execute.mockResolvedValue({
+                executionId: 'exec-1',
+                status: 'COMPLETED',
+                scriptName: 'short-script',
+                output: {},
+                metrics: { durationMs: 1 },
+            });
+
+            const response = await request(app)
+                .post('/admin/scripts/short-script')
+                .send({ params: {}, mode: 'sync' });
+
+            expect(response.status).toBe(200);
+            expect(mockRunner.execute).toHaveBeenCalled();
+            delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+        });
+
+        it('does not queue and surfaces the error when createExecution fails (async)', async () => {
+            process.env.ADMIN_SCRIPT_QUEUE_URL =
+                'https://sqs.us-east-1.amazonaws.com/123/test-queue';
+            mockCommands.createExecution.mockResolvedValue({
+                error: 500,
+                reason: 'DB down',
+                code: 'DB_ERROR',
+            });
+
+            const response = await request(app)
+                .post('/admin/scripts/test-script')
+                .send({ params: { foo: 'bar' }, mode: 'async' });
+
+            expect(response.status).toBe(500);
+            expect(response.body.error).toBe('DB down');
+            expect(QueuerUtil.send).not.toHaveBeenCalled();
+            delete process.env.ADMIN_SCRIPT_QUEUE_URL;
+        });
     });
 
     describe('GET /admin/scripts/:scriptName/executions/:executionId', () => {

@@ -111,26 +111,7 @@ describe('AdminScriptContext', () => {
                 mockFactory.getInstanceFromIntegrationId
             ).toHaveBeenCalledWith({
                 integrationId: 'int_123',
-                _isAdminContext: true,
             });
-        });
-
-        it('passes _isAdminContext: true', async () => {
-            const mockInstance = { primary: { api: {} } };
-            const mockFactory = {
-                getInstanceFromIntegrationId: jest
-                    .fn()
-                    .mockResolvedValue(mockInstance),
-            };
-            const ctx = new AdminScriptContext({
-                integrationFactory: mockFactory,
-            });
-
-            await ctx.instantiate('int_123');
-
-            const callArgs =
-                mockFactory.getInstanceFromIntegrationId.mock.calls[0][0];
-            expect(callArgs._isAdminContext).toBe(true);
         });
     });
 
