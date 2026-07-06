@@ -15,9 +15,6 @@ const { AdminScriptBase } = require('./src/application/admin-script-base');
 const {
     AdminScriptContext,
     createAdminScriptContext,
-    // Legacy aliases (deprecated)
-    AdminFriggCommands,
-    createAdminFriggCommands,
 } = require('./src/application/admin-frigg-commands');
 const {
     ScriptRunner,
@@ -55,9 +52,6 @@ module.exports = {
     createScriptFactory,
     AdminScriptContext,
     createAdminScriptContext,
-    // Legacy aliases (deprecated)
-    AdminFriggCommands,
-    createAdminFriggCommands,
     ScriptRunner,
     createScriptRunner,
 

@@ -171,14 +171,7 @@ function createAdminScriptContext(params = {}) {
     return new AdminScriptContext(params);
 }
 
-// Legacy aliases for backwards compatibility
-const AdminFriggCommands = AdminScriptContext;
-const createAdminFriggCommands = createAdminScriptContext;
-
 module.exports = {
     AdminScriptContext,
     createAdminScriptContext,
-    // Legacy exports (deprecated)
-    AdminFriggCommands,
-    createAdminFriggCommands,
 };
