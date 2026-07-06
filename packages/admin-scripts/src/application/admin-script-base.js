@@ -8,9 +8,6 @@ class AdminScriptBase {
         inputSchema: null,
         outputSchema: null,
 
-        // Scheduling is not declared here — a script is a capability. Admins
-        // activate a schedule at runtime via PUT /admin/scripts/:name/schedule.
-
         config: {
             timeout: 300000,
             requireIntegrationInstance: false,

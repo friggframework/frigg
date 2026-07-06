@@ -5,12 +5,7 @@ const Boom = require('@hapi/boom');
  *
  * Application Layer - Hexagonal Architecture
  *
- * Resolves the effective schedule for a script:
- * 1. Database override (activated at runtime via PUT /schedule)
- * 2. None (script is declared but not actively scheduled)
- *
- * Schedules are never derived from the script Definition — a script declares
- * a capability; an admin activates a schedule explicitly via the API.
+ * Returns the script's database schedule, or a disabled schedule when none exists.
  */
 class GetEffectiveScheduleUseCase {
     constructor({ commands, scriptFactory }) {
@@ -26,7 +21,6 @@ class GetEffectiveScheduleUseCase {
     async execute(scriptName) {
         this._validateScriptExists(scriptName);
 
-        // Priority 1: Database override
         const dbSchedule = await this.commands.getScheduleByScriptName(
             scriptName
         );
@@ -37,8 +31,6 @@ class GetEffectiveScheduleUseCase {
             };
         }
 
-        // No database override: the script is declared but not actively
-        // scheduled. Admins activate scheduling explicitly via PUT /schedule.
         return {
             source: 'none',
             schedule: {

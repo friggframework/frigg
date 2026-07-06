@@ -6,8 +6,6 @@ const Boom = require('@hapi/boom');
  * Application Layer - Hexagonal Architecture
  *
  * Deletes a schedule override and cleans up external scheduler resources.
- * After deletion the script has no active schedule — schedules are never
- * derived from the Definition; an admin re-activates one via PUT /schedule.
  */
 class DeleteScheduleUseCase {
     constructor({ commands, schedulerAdapter, scriptFactory }) {
@@ -33,8 +31,6 @@ class DeleteScheduleUseCase {
             deleteResult.deleted?.externalScheduleId
         );
 
-        // Nothing derives a schedule from the Definition, so once the DB
-        // override is removed the script has no active schedule.
         const effectiveSchedule = { source: 'none', enabled: false };
 
         return {
