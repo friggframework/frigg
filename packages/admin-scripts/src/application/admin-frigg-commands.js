@@ -16,11 +16,15 @@ const { QueuerUtil } = require('@friggframework/core/queues');
  *   so scripts can query any data they need without wrapper indirection
  */
 class AdminScriptContext {
+    /**
+     * @param {Object} [params={}] - Context configuration
+     * @param {string|number|null} [params.executionId] - ID of the AdminProcess record this context is scoped to (used for log persistence and script chaining)
+     * @param {Object|null} [params.integrationFactory] - Factory used to hydrate integration instances; required for scripts that call instantiate()
+     */
     constructor(params = {}) {
         this.executionId = params.executionId || null;
         this.logs = [];
 
-        // OPTIONAL: Integration factory for scripts that need external API access
         this.integrationFactory = params.integrationFactory || null;
 
         // Lazy-load repositories to avoid circular deps
