@@ -151,13 +151,4 @@ function getScriptFactory() {
     return globalFactory;
 }
 
-/**
- * Create a new script factory instance
- * @param {Array} scripts - Initial scripts to register
- * @returns {ScriptFactory} New factory
- */
-function createScriptFactory(scripts = []) {
-    return new ScriptFactory(scripts);
-}
-
-module.exports = { ScriptFactory, getScriptFactory, createScriptFactory };
+module.exports = { ScriptFactory, getScriptFactory };

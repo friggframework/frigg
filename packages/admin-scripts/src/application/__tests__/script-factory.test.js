@@ -1,8 +1,4 @@
-const {
-    ScriptFactory,
-    createScriptFactory,
-    getScriptFactory,
-} = require('../script-factory');
+const { ScriptFactory, getScriptFactory } = require('../script-factory');
 const { AdminScriptBase } = require('../admin-script-base');
 
 describe('ScriptFactory', () => {
@@ -346,9 +342,9 @@ describe('ScriptFactory', () => {
             expect(factory1).toBeInstanceOf(ScriptFactory);
         });
 
-        it('createScriptFactory() should create new instance', () => {
-            const factory1 = createScriptFactory();
-            const factory2 = createScriptFactory();
+        it('new ScriptFactory() creates independent instances', () => {
+            const factory1 = new ScriptFactory();
+            const factory2 = new ScriptFactory();
 
             expect(factory1).not.toBe(factory2);
             expect(factory1).toBeInstanceOf(ScriptFactory);
@@ -364,7 +360,7 @@ describe('ScriptFactory', () => {
                 };
             }
 
-            const customFactory = createScriptFactory();
+            const customFactory = new ScriptFactory();
             customFactory.register(TestScript);
 
             const globalFactory = getScriptFactory();

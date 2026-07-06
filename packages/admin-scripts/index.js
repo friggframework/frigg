@@ -9,7 +9,6 @@
 const {
     ScriptFactory,
     getScriptFactory,
-    createScriptFactory,
 } = require('./src/application/script-factory');
 const { AdminScriptBase } = require('./src/application/admin-script-base');
 const {
@@ -49,7 +48,6 @@ module.exports = {
     AdminScriptBase,
     ScriptFactory,
     getScriptFactory,
-    createScriptFactory,
     AdminScriptContext,
     createAdminScriptContext,
     ScriptRunner,
