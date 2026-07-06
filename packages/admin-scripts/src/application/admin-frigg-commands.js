@@ -27,7 +27,8 @@ class AdminScriptContext {
 
         this.integrationFactory = params.integrationFactory || null;
 
-        // Lazy-load repositories to avoid circular deps
+        // Repositories are created on first use so the Prisma client is only
+        // initialized (and only for the repos a script actually touches) when needed.
         this._integrationRepository = null;
         this._userRepository = null;
         this._moduleRepository = null;
