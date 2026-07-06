@@ -1,7 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const {
-    AdminProcessRepositoryInterface,
-} = require('./admin-process-repository-interface');
+    AdminScriptExecutionRepositoryInterface,
+} = require('./admin-script-execution-repository-interface');
 
 /**
  * MongoDB Admin Process Repository Adapter
@@ -12,7 +12,7 @@ const {
  * - context and results are Json objects
  * - Stores logs in results.logs array
  */
-class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
+class AdminScriptExecutionRepositoryMongo extends AdminScriptExecutionRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
@@ -27,7 +27,7 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @param {Object} [params.context] - Context data
      * @returns {Promise<Object>} The created process record
      */
-    async createProcess({ name, type, context = {} }) {
+    async createExecution({ name, type, context = {} }) {
         const data = {
             name,
             type,
@@ -35,7 +35,7 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
             results: { logs: [] },
         };
 
-        const process = await this.prisma.adminProcess.create({
+        const process = await this.prisma.adminScriptExecution.create({
             data,
         });
 
@@ -48,8 +48,8 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @param {string} id - The process ID
      * @returns {Promise<Object|null>} The process record or null if not found
      */
-    async findProcessById(id) {
-        const process = await this.prisma.adminProcess.findUnique({
+    async findExecutionById(id) {
+        const process = await this.prisma.adminScriptExecution.findUnique({
             where: { id },
         });
 
@@ -67,7 +67,7 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @param {string} [options.sortOrder] - Sort order ('asc' or 'desc')
      * @returns {Promise<Array>} Array of process records
      */
-    async findProcessesByName(name, options = {}) {
+    async findExecutionsByName(name, options = {}) {
         const {
             limit,
             offset,
@@ -79,7 +79,7 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
         const where = { name };
         if (state) where.state = state;
 
-        const processes = await this.prisma.adminProcess.findMany({
+        const processes = await this.prisma.adminScriptExecution.findMany({
             where,
             orderBy: { [sortBy]: sortOrder },
             take: limit,
@@ -100,7 +100,7 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @param {string} [options.sortOrder] - Sort order ('asc' or 'desc')
      * @returns {Promise<Array>} Array of process records
      */
-    async findProcessesByState(state, options = {}) {
+    async findExecutionsByState(state, options = {}) {
         const {
             limit,
             offset,
@@ -108,7 +108,7 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
             sortOrder = 'desc',
         } = options;
 
-        const processes = await this.prisma.adminProcess.findMany({
+        const processes = await this.prisma.adminScriptExecution.findMany({
             where: { state },
             orderBy: { [sortBy]: sortOrder },
             take: limit,
@@ -125,8 +125,8 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @param {string} state - New state value
      * @returns {Promise<Object>} Updated process record
      */
-    async updateProcessState(id, state) {
-        const process = await this.prisma.adminProcess.update({
+    async updateExecutionState(id, state) {
+        const process = await this.prisma.adminScriptExecution.update({
             where: { id },
             data: { state },
         });
@@ -142,14 +142,14 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @param {Object} results - Results data to merge
      * @returns {Promise<Object>} Updated process record
      */
-    async updateProcessResults(id, results) {
+    async updateExecutionResults(id, results) {
         // Get current process to merge results
-        const currentProcess = await this.prisma.adminProcess.findUnique({
+        const currentProcess = await this.prisma.adminScriptExecution.findUnique({
             where: { id },
         });
 
         if (!currentProcess) {
-            throw new Error(`AdminProcess ${id} not found`);
+            throw new Error(`AdminScriptExecution ${id} not found`);
         }
 
         // Merge new results with existing results
@@ -158,7 +158,7 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
             ...results,
         };
 
-        const process = await this.prisma.adminProcess.update({
+        const process = await this.prisma.adminScriptExecution.update({
             where: { id },
             data: { results: mergedResults },
         });
@@ -177,14 +177,14 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @param {string} logEntry.timestamp - ISO timestamp
      * @returns {Promise<Object>} Updated process record
      */
-    async appendProcessLog(id, logEntry) {
+    async appendExecutionLog(id, logEntry) {
         // Get current process
-        const process = await this.prisma.adminProcess.findUnique({
+        const process = await this.prisma.adminScriptExecution.findUnique({
             where: { id },
         });
 
         if (!process) {
-            throw new Error(`AdminProcess ${id} not found`);
+            throw new Error(`AdminScriptExecution ${id} not found`);
         }
 
         // Get current results and logs
@@ -193,7 +193,7 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
         logs.push(logEntry);
 
         // Update with new logs array in results
-        const updated = await this.prisma.adminProcess.update({
+        const updated = await this.prisma.adminScriptExecution.update({
             where: { id },
             data: { results: { ...results, logs } },
         });
@@ -208,8 +208,8 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @param {Date} date - Delete processes older than this date
      * @returns {Promise<Object>} Deletion result with count
      */
-    async deleteProcessesOlderThan(date) {
-        const result = await this.prisma.adminProcess.deleteMany({
+    async deleteExecutionsOlderThan(date) {
+        const result = await this.prisma.adminScriptExecution.deleteMany({
             where: {
                 createdAt: {
                     lt: date,
@@ -224,4 +224,4 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
     }
 }
 
-module.exports = { AdminProcessRepositoryMongo };
+module.exports = { AdminScriptExecutionRepositoryMongo };

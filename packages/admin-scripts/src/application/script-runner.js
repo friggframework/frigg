@@ -17,7 +17,7 @@ class ScriptRunner {
      * @param {Object} params
      * @param {ScriptFactory} params.scriptFactory - Required. The registry used
      *   to resolve and instantiate scripts by name (built by bootstrap.js).
-     * @param {Object} [params.commands] - Admin process command layer; defaults
+     * @param {Object} [params.commands] - Admin script execution command layer; defaults
      *   to a fresh createAdminScriptCommands().
      * @param {Object} [params.integrationFactory] - Hydrates integration
      *   instances for scripts that need them.
@@ -42,8 +42,8 @@ class ScriptRunner {
      * @param {string} options.trigger - 'MANUAL' | 'SCHEDULED' | 'QUEUE'
      * @param {string} options.mode - 'sync' | 'async'
      * @param {Object} options.audit - Audit info { apiKeyName, apiKeyLast4, ipAddress }
-     * @param {string} options.executionId - Reuse existing AdminProcess record ID (NOT the Lambda execution ID).
-     *   This is the database ID from the AdminProcess collection/table that tracks script executions.
+     * @param {string} options.executionId - Reuse existing AdminScriptExecution record ID (NOT the Lambda execution ID).
+     *   This is the database ID from the AdminScriptExecution collection/table that tracks script executions.
      *   Pass this when resuming a queued execution to continue using the same execution record.
      */
     async execute(scriptName, params = {}, options = {}) {
@@ -78,7 +78,7 @@ class ScriptRunner {
 
         // Create execution record if not provided
         if (!executionId) {
-            const execution = await this.commands.createAdminProcess({
+            const execution = await this.commands.createExecution({
                 scriptName,
                 scriptVersion: definition.version,
                 trigger,
@@ -91,7 +91,8 @@ class ScriptRunner {
             // than tracking an `undefined` execution id.
             if (execution.error) {
                 throw new Error(
-                    execution.reason || 'Failed to create admin process record'
+                    execution.reason ||
+                        'Failed to create admin script execution record'
                 );
             }
             executionId = execution.id;
@@ -108,7 +109,7 @@ class ScriptRunner {
 
         let output;
         try {
-            await this.commands.updateAdminProcessState(executionId, 'RUNNING');
+            await this.commands.updateExecutionState(executionId, 'RUNNING');
 
             // Create script instance with context injected via constructor
             const script = this.scriptFactory.createInstance(scriptName, {
@@ -122,7 +123,7 @@ class ScriptRunner {
         } catch (error) {
             const durationMs = new Date() - startTime;
 
-            const completion = await this.commands.completeAdminProcess(
+            const completion = await this.commands.completeExecution(
                 executionId,
                 {
                     state: 'FAILED',
@@ -169,7 +170,7 @@ class ScriptRunner {
             metrics: { durationMs },
         };
 
-        const completion = await this.commands.completeAdminProcess(
+        const completion = await this.commands.completeExecution(
             executionId,
             {
                 state: 'COMPLETED',

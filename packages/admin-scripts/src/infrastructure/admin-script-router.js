@@ -261,7 +261,7 @@ router.post('/scripts/:scriptName', async (req, res) => {
         }
 
         const commands = createAdminScriptCommands();
-        const execution = await commands.createAdminProcess({
+        const execution = await commands.createExecution({
             scriptName,
             scriptVersion: definition.version,
             trigger: 'MANUAL',
@@ -309,7 +309,7 @@ router.get('/scripts/:scriptName/executions/:executionId', async (req, res) => {
     try {
         const { executionId } = req.params;
         const commands = createAdminScriptCommands();
-        const execution = await commands.findAdminProcessById(executionId);
+        const execution = await commands.findExecutionById(executionId);
 
         if (execution.error) {
             return res.status(execution.error).json({
@@ -340,7 +340,7 @@ router.get('/scripts/:scriptName/executions', async (req, res) => {
             ? 50
             : Math.min(Math.max(parsedLimit, 1), 200);
 
-        const executions = await commands.findAdminProcessesByName(scriptName, {
+        const executions = await commands.findExecutionsByName(scriptName, {
             limit: safeLimit,
             ...(status && { state: status }),
         });

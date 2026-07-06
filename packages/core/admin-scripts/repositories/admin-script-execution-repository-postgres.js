@@ -1,7 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const {
-    AdminProcessRepositoryInterface,
-} = require('./admin-process-repository-interface');
+    AdminScriptExecutionRepositoryInterface,
+} = require('./admin-script-execution-repository-interface');
 
 /**
  * PostgreSQL Admin Process Repository Adapter
@@ -13,7 +13,7 @@ const {
  * - All returned IDs are converted to strings for application layer consistency
  * - context and results are Json objects
  */
-class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
+class AdminScriptExecutionRepositoryPostgres extends AdminScriptExecutionRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
@@ -41,12 +41,12 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
      * @param {Object|null} process - Process object from database
      * @returns {Object|null} Process with string IDs
      */
-    _convertProcessIds(process) {
+    _convertExecutionIds(process) {
         if (!process) return process;
         return {
             ...process,
             id: process.id?.toString(),
-            parentProcessId: process.parentProcessId?.toString(),
+            parentExecutionId: process.parentExecutionId?.toString(),
         };
     }
 
@@ -59,7 +59,7 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
      * @param {Object} [params.context] - Context data
      * @returns {Promise<Object>} The created process record with string ID
      */
-    async createProcess({ name, type, context = {} }) {
+    async createExecution({ name, type, context = {} }) {
         const data = {
             name,
             type,
@@ -67,11 +67,11 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
             results: { logs: [] },
         };
 
-        const process = await this.prisma.adminProcess.create({
+        const process = await this.prisma.adminScriptExecution.create({
             data,
         });
 
-        return this._convertProcessIds(process);
+        return this._convertExecutionIds(process);
     }
 
     /**
@@ -80,13 +80,13 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
      * @param {string|number} id - The process ID
      * @returns {Promise<Object|null>} The process record with string ID or null if not found
      */
-    async findProcessById(id) {
+    async findExecutionById(id) {
         const intId = this._convertId(id);
-        const process = await this.prisma.adminProcess.findUnique({
+        const process = await this.prisma.adminScriptExecution.findUnique({
             where: { id: intId },
         });
 
-        return this._convertProcessIds(process);
+        return this._convertExecutionIds(process);
     }
 
     /**
@@ -100,7 +100,7 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
      * @param {string} [options.sortOrder] - Sort order ('asc' or 'desc')
      * @returns {Promise<Array>} Array of process records with string IDs
      */
-    async findProcessesByName(name, options = {}) {
+    async findExecutionsByName(name, options = {}) {
         const {
             limit,
             offset,
@@ -112,14 +112,14 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
         const where = { name };
         if (state) where.state = state;
 
-        const processes = await this.prisma.adminProcess.findMany({
+        const processes = await this.prisma.adminScriptExecution.findMany({
             where,
             orderBy: { [sortBy]: sortOrder },
             take: limit,
             skip: offset,
         });
 
-        return processes.map((process) => this._convertProcessIds(process));
+        return processes.map((process) => this._convertExecutionIds(process));
     }
 
     /**
@@ -133,7 +133,7 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
      * @param {string} [options.sortOrder] - Sort order ('asc' or 'desc')
      * @returns {Promise<Array>} Array of process records with string IDs
      */
-    async findProcessesByState(state, options = {}) {
+    async findExecutionsByState(state, options = {}) {
         const {
             limit,
             offset,
@@ -141,14 +141,14 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
             sortOrder = 'desc',
         } = options;
 
-        const processes = await this.prisma.adminProcess.findMany({
+        const processes = await this.prisma.adminScriptExecution.findMany({
             where: { state },
             orderBy: { [sortBy]: sortOrder },
             take: limit,
             skip: offset,
         });
 
-        return processes.map((process) => this._convertProcessIds(process));
+        return processes.map((process) => this._convertExecutionIds(process));
     }
 
     /**
@@ -158,14 +158,14 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
      * @param {string} state - New state value
      * @returns {Promise<Object>} Updated process record with string ID
      */
-    async updateProcessState(id, state) {
+    async updateExecutionState(id, state) {
         const intId = this._convertId(id);
-        const process = await this.prisma.adminProcess.update({
+        const process = await this.prisma.adminScriptExecution.update({
             where: { id: intId },
             data: { state },
         });
 
-        return this._convertProcessIds(process);
+        return this._convertExecutionIds(process);
     }
 
     /**
@@ -176,16 +176,16 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
      * @param {Object} results - Results data to merge
      * @returns {Promise<Object>} Updated process record with string ID
      */
-    async updateProcessResults(id, results) {
+    async updateExecutionResults(id, results) {
         const intId = this._convertId(id);
 
         // Get current process to merge results
-        const currentProcess = await this.prisma.adminProcess.findUnique({
+        const currentProcess = await this.prisma.adminScriptExecution.findUnique({
             where: { id: intId },
         });
 
         if (!currentProcess) {
-            throw new Error(`AdminProcess ${id} not found`);
+            throw new Error(`AdminScriptExecution ${id} not found`);
         }
 
         // Merge new results with existing results
@@ -194,12 +194,12 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
             ...results,
         };
 
-        const process = await this.prisma.adminProcess.update({
+        const process = await this.prisma.adminScriptExecution.update({
             where: { id: intId },
             data: { results: mergedResults },
         });
 
-        return this._convertProcessIds(process);
+        return this._convertExecutionIds(process);
     }
 
     /**
@@ -213,16 +213,16 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
      * @param {string} logEntry.timestamp - ISO timestamp
      * @returns {Promise<Object>} Updated process record with string ID
      */
-    async appendProcessLog(id, logEntry) {
+    async appendExecutionLog(id, logEntry) {
         const intId = this._convertId(id);
 
         // Get current process
-        const process = await this.prisma.adminProcess.findUnique({
+        const process = await this.prisma.adminScriptExecution.findUnique({
             where: { id: intId },
         });
 
         if (!process) {
-            throw new Error(`AdminProcess ${id} not found`);
+            throw new Error(`AdminScriptExecution ${id} not found`);
         }
 
         // Get current results and logs
@@ -231,12 +231,12 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
         logs.push(logEntry);
 
         // Update with new logs array in results
-        const updated = await this.prisma.adminProcess.update({
+        const updated = await this.prisma.adminScriptExecution.update({
             where: { id: intId },
             data: { results: { ...results, logs } },
         });
 
-        return this._convertProcessIds(updated);
+        return this._convertExecutionIds(updated);
     }
 
     /**
@@ -246,8 +246,8 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
      * @param {Date} date - Delete processes older than this date
      * @returns {Promise<Object>} Deletion result with count
      */
-    async deleteProcessesOlderThan(date) {
-        const result = await this.prisma.adminProcess.deleteMany({
+    async deleteExecutionsOlderThan(date) {
+        const result = await this.prisma.adminScriptExecution.deleteMany({
             where: {
                 createdAt: {
                     lt: date,
@@ -262,4 +262,4 @@ class AdminProcessRepositoryPostgres extends AdminProcessRepositoryInterface {
     }
 }
 
-module.exports = { AdminProcessRepositoryPostgres };
+module.exports = { AdminScriptExecutionRepositoryPostgres };

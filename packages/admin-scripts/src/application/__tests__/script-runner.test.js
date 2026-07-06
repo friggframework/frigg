@@ -38,9 +38,9 @@ describe('ScriptRunner', () => {
         scriptFactory = new ScriptFactory([TestScript]);
 
         mockCommands = {
-            createAdminProcess: jest.fn(),
-            updateAdminProcessState: jest.fn(),
-            completeAdminProcess: jest.fn(),
+            createExecution: jest.fn(),
+            updateExecutionState: jest.fn(),
+            completeExecution: jest.fn(),
         };
 
         mockContext = {
@@ -52,11 +52,11 @@ describe('ScriptRunner', () => {
         createAdminScriptCommands.mockReturnValue(mockCommands);
         createAdminScriptContext.mockReturnValue(mockContext);
 
-        mockCommands.createAdminProcess.mockResolvedValue({
+        mockCommands.createExecution.mockResolvedValue({
             id: 'exec-123',
         });
-        mockCommands.updateAdminProcessState.mockResolvedValue({});
-        mockCommands.completeAdminProcess.mockResolvedValue({ success: true });
+        mockCommands.updateExecutionState.mockResolvedValue({});
+        mockCommands.completeExecution.mockResolvedValue({ success: true });
     });
 
     afterEach(() => {
@@ -89,7 +89,7 @@ describe('ScriptRunner', () => {
             expect(result.executionId).toBe('exec-123');
             expect(result.metrics.durationMs).toBeGreaterThanOrEqual(0);
 
-            expect(mockCommands.createAdminProcess).toHaveBeenCalledWith({
+            expect(mockCommands.createExecution).toHaveBeenCalledWith({
                 scriptName: 'test-script',
                 scriptVersion: '1.0.0',
                 trigger: 'MANUAL',
@@ -98,12 +98,12 @@ describe('ScriptRunner', () => {
                 audit: { apiKeyName: 'test-key' },
             });
 
-            expect(mockCommands.updateAdminProcessState).toHaveBeenCalledWith(
+            expect(mockCommands.updateExecutionState).toHaveBeenCalledWith(
                 'exec-123',
                 'RUNNING'
             );
 
-            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
+            expect(mockCommands.completeExecution).toHaveBeenCalledWith(
                 'exec-123',
                 expect.objectContaining({
                     state: 'COMPLETED',
@@ -170,7 +170,7 @@ describe('ScriptRunner', () => {
             expect(result.scriptName).toBe('failing-script');
             expect(result.error.message).toBe('Script failed');
 
-            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
+            expect(mockCommands.completeExecution).toHaveBeenCalledWith(
                 'exec-123',
                 expect.objectContaining({
                     state: 'FAILED',
@@ -227,8 +227,8 @@ describe('ScriptRunner', () => {
             );
 
             expect(result.executionId).toBe('existing-exec-456');
-            expect(mockCommands.createAdminProcess).not.toHaveBeenCalled();
-            expect(mockCommands.updateAdminProcessState).toHaveBeenCalledWith(
+            expect(mockCommands.createExecution).not.toHaveBeenCalled();
+            expect(mockCommands.updateExecutionState).toHaveBeenCalledWith(
                 'existing-exec-456',
                 'RUNNING'
             );
@@ -237,7 +237,7 @@ describe('ScriptRunner', () => {
         it('reports COMPLETED even when persisting completion fails', async () => {
             // Commands return an error object (never throw). A successful script
             // must not be misreported as FAILED if the completion write fails.
-            mockCommands.completeAdminProcess.mockResolvedValue({
+            mockCommands.completeExecution.mockResolvedValue({
                 error: 500,
                 reason: 'DB write failed',
             });
@@ -257,7 +257,7 @@ describe('ScriptRunner', () => {
         });
 
         it('throws when the execution record cannot be created', async () => {
-            mockCommands.createAdminProcess.mockResolvedValue({
+            mockCommands.createExecution.mockResolvedValue({
                 error: 500,
                 reason: 'DB down',
             });
@@ -282,7 +282,7 @@ describe('ScriptRunner', () => {
 
             await runner.execute('test-script', {}, { trigger: 'MANUAL' });
 
-            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
+            expect(mockCommands.completeExecution).toHaveBeenCalledWith(
                 'exec-123',
                 expect.objectContaining({
                     logs: [{ level: 'info', message: 'hi' }],

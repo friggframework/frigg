@@ -1,8 +1,8 @@
-const { AdminProcessRepositoryMongo } = require('./admin-process-repository-mongo');
-const { AdminProcessRepositoryPostgres } = require('./admin-process-repository-postgres');
+const { AdminScriptExecutionRepositoryMongo } = require('./admin-script-execution-repository-mongo');
+const { AdminScriptExecutionRepositoryPostgres } = require('./admin-script-execution-repository-postgres');
 const {
-    AdminProcessRepositoryDocumentDB,
-} = require('./admin-process-repository-documentdb');
+    AdminScriptExecutionRepositoryDocumentDB,
+} = require('./admin-script-execution-repository-documentdb');
 const config = require('../../database/config');
 
 /**
@@ -16,24 +16,24 @@ const config = require('../../database/config');
  *
  * Usage:
  * ```javascript
- * const repository = createAdminProcessRepository();
+ * const repository = createAdminScriptExecutionRepository();
  * ```
  *
- * @returns {AdminProcessRepositoryInterface} Configured repository adapter
+ * @returns {AdminScriptExecutionRepositoryInterface} Configured repository adapter
  * @throws {Error} If database type is not supported
  */
-function createAdminProcessRepository() {
+function createAdminScriptExecutionRepository() {
     const dbType = config.DB_TYPE;
 
     switch (dbType) {
         case 'mongodb':
-            return new AdminProcessRepositoryMongo();
+            return new AdminScriptExecutionRepositoryMongo();
 
         case 'postgresql':
-            return new AdminProcessRepositoryPostgres();
+            return new AdminScriptExecutionRepositoryPostgres();
 
         case 'documentdb':
-            return new AdminProcessRepositoryDocumentDB();
+            return new AdminScriptExecutionRepositoryDocumentDB();
 
         default:
             throw new Error(
@@ -43,9 +43,9 @@ function createAdminProcessRepository() {
 }
 
 module.exports = {
-    createAdminProcessRepository,
+    createAdminScriptExecutionRepository,
     // Export adapters for direct testing
-    AdminProcessRepositoryMongo,
-    AdminProcessRepositoryPostgres,
-    AdminProcessRepositoryDocumentDB,
+    AdminScriptExecutionRepositoryMongo,
+    AdminScriptExecutionRepositoryPostgres,
+    AdminScriptExecutionRepositoryDocumentDB,
 };

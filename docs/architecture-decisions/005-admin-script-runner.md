@@ -88,7 +88,7 @@ class MyScript extends AdminScriptBase {
    - EventBridge Scheduler resources
 
 2. **Repository Layer**:
-   - `AdminProcessRepository` - Execution history (shared `AdminProcess` model, `type: 'ADMIN_SCRIPT'`)
+   - `AdminScriptExecutionRepository` - Execution history (`AdminScriptExecution` model, `type: 'ADMIN_SCRIPT'`)
    - `ScriptScheduleRepository` - Schedule overrides (Phase 2)
    - Admin API keys are validated from the `ADMIN_API_KEY` environment variable — there is no database-backed key table.
 
@@ -148,7 +148,7 @@ POST /admin/scripts/:name/validate
 - **Admin API Key**: A single shared key from the `ADMIN_API_KEY` environment variable, sent as the `x-frigg-admin-api-key` header and checked with a constant-time comparison. Shared across all `/admin/*` endpoints (scripts + db-migrate). Separate from user OAuth credentials.
 - **VPC Deployment**: Lambda functions in private subnets
 - **Encryption**: Sensitive credential fields encrypted via the Prisma extension
-- **Audit Logging**: Every execution is tracked in `AdminProcess` (trigger, input, results, metrics, and `ipAddress`/`apiKeyLast4`)
+- **Audit Logging**: Every execution is tracked in `AdminScriptExecution` (trigger, input, results, metrics, and `ipAddress`/`apiKeyLast4`)
 
 ### API Endpoints
 

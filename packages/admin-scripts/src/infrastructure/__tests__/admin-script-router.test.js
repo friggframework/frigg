@@ -58,9 +58,9 @@ describe('Admin Script Router', () => {
         };
 
         mockCommands = {
-            createAdminProcess: jest.fn(),
-            findAdminProcessById: jest.fn(),
-            findAdminProcessesByName: jest.fn(),
+            createExecution: jest.fn(),
+            findExecutionById: jest.fn(),
+            findExecutionsByName: jest.fn(),
         };
 
         mockSchedulerAdapter = {
@@ -185,7 +185,7 @@ describe('Admin Script Router', () => {
         it('should queue script for async execution', async () => {
             process.env.ADMIN_SCRIPT_QUEUE_URL =
                 'https://sqs.us-east-1.amazonaws.com/123/test-queue';
-            mockCommands.createAdminProcess.mockResolvedValue({
+            mockCommands.createExecution.mockResolvedValue({
                 id: 'exec-456',
             });
 
@@ -212,7 +212,7 @@ describe('Admin Script Router', () => {
         it('should default to async mode', async () => {
             process.env.ADMIN_SCRIPT_QUEUE_URL =
                 'https://sqs.us-east-1.amazonaws.com/123/test-queue';
-            mockCommands.createAdminProcess.mockResolvedValue({
+            mockCommands.createExecution.mockResolvedValue({
                 id: 'exec-789',
             });
 
@@ -257,7 +257,7 @@ describe('Admin Script Router', () => {
 
     describe('GET /admin/scripts/:scriptName/executions/:executionId', () => {
         it('should return execution details', async () => {
-            mockCommands.findAdminProcessById.mockResolvedValue({
+            mockCommands.findExecutionById.mockResolvedValue({
                 id: 'exec-123',
                 scriptName: 'test-script',
                 status: 'COMPLETED',
@@ -273,7 +273,7 @@ describe('Admin Script Router', () => {
         });
 
         it('should return 404 for non-existent execution', async () => {
-            mockCommands.findAdminProcessById.mockResolvedValue({
+            mockCommands.findExecutionById.mockResolvedValue({
                 error: 404,
                 reason: 'Execution not found',
                 code: 'EXECUTION_NOT_FOUND',
@@ -290,7 +290,7 @@ describe('Admin Script Router', () => {
 
     describe('GET /admin/scripts/:scriptName/executions', () => {
         it('should list executions for specific script', async () => {
-            mockCommands.findAdminProcessesByName.mockResolvedValue([
+            mockCommands.findExecutionsByName.mockResolvedValue([
                 { id: 'exec-1', name: 'test-script', state: 'COMPLETED' },
                 { id: 'exec-2', name: 'test-script', state: 'RUNNING' },
             ]);
@@ -301,7 +301,7 @@ describe('Admin Script Router', () => {
 
             expect(response.status).toBe(200);
             expect(response.body.executions).toHaveLength(2);
-            expect(mockCommands.findAdminProcessesByName).toHaveBeenCalledWith(
+            expect(mockCommands.findExecutionsByName).toHaveBeenCalledWith(
                 'test-script',
                 {
                     limit: 50,
@@ -310,13 +310,13 @@ describe('Admin Script Router', () => {
         });
 
         it('should accept query parameters (status maps to state, limit is bounded)', async () => {
-            mockCommands.findAdminProcessesByName.mockResolvedValue([]);
+            mockCommands.findExecutionsByName.mockResolvedValue([]);
 
             await request(app).get(
                 '/admin/scripts/test-script/executions?status=COMPLETED&limit=10'
             );
 
-            expect(mockCommands.findAdminProcessesByName).toHaveBeenCalledWith(
+            expect(mockCommands.findExecutionsByName).toHaveBeenCalledWith(
                 'test-script',
                 {
                     limit: 10,

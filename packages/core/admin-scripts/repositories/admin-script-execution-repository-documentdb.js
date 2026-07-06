@@ -1,6 +1,6 @@
 const {
-    AdminProcessRepositoryMongo,
-} = require('./admin-process-repository-mongo');
+    AdminScriptExecutionRepositoryMongo,
+} = require('./admin-script-execution-repository-mongo');
 
 /**
  * DocumentDB Admin Process Repository Adapter
@@ -12,10 +12,10 @@ const {
  * - IDs are strings with ObjectId format
  * - All operations identical to MongoDB implementation
  */
-class AdminProcessRepositoryDocumentDB extends AdminProcessRepositoryMongo {
+class AdminScriptExecutionRepositoryDocumentDB extends AdminScriptExecutionRepositoryMongo {
     constructor() {
         super();
     }
 }
 
-module.exports = { AdminProcessRepositoryDocumentDB };
+module.exports = { AdminScriptExecutionRepositoryDocumentDB };

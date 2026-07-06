@@ -8,7 +8,7 @@ Typical use cases:
 -   **Recurring maintenance** — refresh webhooks/subscriptions before they expire.
 -   **Built-in utilities** — OAuth token refresh, integration health checks.
 
-> Admin scripts are a **high-privilege** surface. Every endpoint is protected by an admin API key (`x-frigg-admin-api-key`), scripts run in your private VPC subnets, and every execution is tracked in the `AdminProcess` table. Never expose the admin API key to browsers or end users.
+> Admin scripts are a **high-privilege** surface. Every endpoint is protected by an admin API key (`x-frigg-admin-api-key`), scripts run in your private VPC subnets, and every execution is tracked in the `AdminScriptExecution` table. Never expose the admin API key to browsers or end users.
 
 ---
 
@@ -129,7 +129,7 @@ module.exports = { AttioHealingScript };
 | `instantiate(integrationId)` | Returns a hydrated integration instance for calling external APIs. Requires `config.requireIntegrationInstance: true`.         |
 | `queueScript(name, params?)` | Enqueue another script as a follow-up (tracked as a child of the current execution).                                           |
 | `queueScriptBatch(entries)`  | Enqueue many follow-up scripts at once.                                                                                        |
-| `getExecutionId()`           | The current `AdminProcess` record id.                                                                                          |
+| `getExecutionId()`           | The current `AdminScriptExecution` record id.                                                                                  |
 
 Commands return **plain, decrypted data** on success (field-level encryption is handled transparently) or an `{ error, reason, code }` object on failure — scripts check `.error` themselves. Scripts have no direct repository access; all database interaction goes through the command layer.
 
@@ -247,7 +247,7 @@ async execute(params) {
 -   **Sync** (`mode: 'sync'`) — runs in the API Lambda, result returned in the response. Capped by the API timeout.
 -   **Async** (`mode: 'async'`, default) — queued to SQS and run by the worker Lambda (15-min budget). The SQS queue has a redrive policy (up to 3 receives) to a dead-letter queue, so a crashed invocation is retried at the infrastructure level. There is no application-level per-script retry — model idempotency accordingly.
 
-Every execution is persisted as an `AdminProcess` record with its `state` (`PENDING` → `RUNNING` → `COMPLETED`/`FAILED`), input, output, metrics, and logs.
+Every execution is persisted as an `AdminScriptExecution` record with its `state` (`PENDING` → `RUNNING` → `COMPLETED`/`FAILED`), input, output, metrics, and logs.
 
 ---
 

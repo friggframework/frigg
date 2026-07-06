@@ -1,12 +1,12 @@
-const { AdminProcessRepositoryMongo } = require('../admin-process-repository-mongo');
+const { AdminScriptExecutionRepositoryMongo } = require('../admin-script-execution-repository-mongo');
 
-describe('AdminProcessRepositoryMongo', () => {
+describe('AdminScriptExecutionRepositoryMongo', () => {
     let repository;
     let mockPrisma;
 
     beforeEach(() => {
         mockPrisma = {
-            adminProcess: {
+            adminScriptExecution: {
                 create: jest.fn(),
                 findUnique: jest.fn(),
                 findMany: jest.fn(),
@@ -15,11 +15,11 @@ describe('AdminProcessRepositoryMongo', () => {
             },
         };
 
-        repository = new AdminProcessRepositoryMongo();
+        repository = new AdminScriptExecutionRepositoryMongo();
         repository.prisma = mockPrisma;
     });
 
-    describe('createProcess()', () => {
+    describe('createExecution()', () => {
         it('should create process with all fields', async () => {
             const params = {
                 name: 'test-script',
@@ -48,12 +48,12 @@ describe('AdminProcessRepositoryMongo', () => {
                 updatedAt: new Date(),
             };
 
-            mockPrisma.adminProcess.create.mockResolvedValue(mockProcess);
+            mockPrisma.adminScriptExecution.create.mockResolvedValue(mockProcess);
 
-            const result = await repository.createProcess(params);
+            const result = await repository.createExecution(params);
 
             expect(result).toEqual(mockProcess);
-            expect(mockPrisma.adminProcess.create).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.create).toHaveBeenCalledWith({
                 data: {
                     name: params.name,
                     type: params.type,
@@ -83,12 +83,12 @@ describe('AdminProcessRepositoryMongo', () => {
                 updatedAt: new Date(),
             };
 
-            mockPrisma.adminProcess.create.mockResolvedValue(mockProcess);
+            mockPrisma.adminScriptExecution.create.mockResolvedValue(mockProcess);
 
-            const result = await repository.createProcess(params);
+            const result = await repository.createExecution(params);
 
             expect(result).toEqual(mockProcess);
-            expect(mockPrisma.adminProcess.create).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.create).toHaveBeenCalledWith({
                 data: {
                     name: params.name,
                     type: params.type,
@@ -99,7 +99,7 @@ describe('AdminProcessRepositoryMongo', () => {
         });
     });
 
-    describe('findProcessById()', () => {
+    describe('findExecutionById()', () => {
         it('should find process by ID', async () => {
             const id = '507f1f77bcf86cd799439011';
             const mockProcess = {
@@ -109,26 +109,26 @@ describe('AdminProcessRepositoryMongo', () => {
                 state: 'COMPLETED',
             };
 
-            mockPrisma.adminProcess.findUnique.mockResolvedValue(mockProcess);
+            mockPrisma.adminScriptExecution.findUnique.mockResolvedValue(mockProcess);
 
-            const result = await repository.findProcessById(id);
+            const result = await repository.findExecutionById(id);
 
             expect(result).toEqual(mockProcess);
-            expect(mockPrisma.adminProcess.findUnique).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.findUnique).toHaveBeenCalledWith({
                 where: { id },
             });
         });
 
         it('should return null if process not found', async () => {
-            mockPrisma.adminProcess.findUnique.mockResolvedValue(null);
+            mockPrisma.adminScriptExecution.findUnique.mockResolvedValue(null);
 
-            const result = await repository.findProcessById('nonexistent');
+            const result = await repository.findExecutionById('nonexistent');
 
             expect(result).toBeNull();
         });
     });
 
-    describe('findProcessesByName()', () => {
+    describe('findExecutionsByName()', () => {
         it('should find processes by name with default options', async () => {
             const name = 'test-script';
             const mockProcesses = [
@@ -136,12 +136,12 @@ describe('AdminProcessRepositoryMongo', () => {
                 { id: '2', name, type: 'ADMIN_SCRIPT', state: 'RUNNING' },
             ];
 
-            mockPrisma.adminProcess.findMany.mockResolvedValue(mockProcesses);
+            mockPrisma.adminScriptExecution.findMany.mockResolvedValue(mockProcesses);
 
-            const result = await repository.findProcessesByName(name);
+            const result = await repository.findExecutionsByName(name);
 
             expect(result).toEqual(mockProcesses);
-            expect(mockPrisma.adminProcess.findMany).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.findMany).toHaveBeenCalledWith({
                 where: { name },
                 orderBy: { createdAt: 'desc' },
                 take: undefined,
@@ -159,12 +159,12 @@ describe('AdminProcessRepositoryMongo', () => {
             };
             const mockProcesses = [{ id: '1', name, type: 'ADMIN_SCRIPT', state: 'COMPLETED' }];
 
-            mockPrisma.adminProcess.findMany.mockResolvedValue(mockProcesses);
+            mockPrisma.adminScriptExecution.findMany.mockResolvedValue(mockProcesses);
 
-            const result = await repository.findProcessesByName(name, options);
+            const result = await repository.findExecutionsByName(name, options);
 
             expect(result).toEqual(mockProcesses);
-            expect(mockPrisma.adminProcess.findMany).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.findMany).toHaveBeenCalledWith({
                 where: { name },
                 orderBy: { state: 'asc' },
                 take: 10,
@@ -173,7 +173,7 @@ describe('AdminProcessRepositoryMongo', () => {
         });
     });
 
-    describe('findProcessesByState()', () => {
+    describe('findExecutionsByState()', () => {
         it('should find processes by state', async () => {
             const state = 'RUNNING';
             const mockProcesses = [
@@ -181,12 +181,12 @@ describe('AdminProcessRepositoryMongo', () => {
                 { id: '2', name: 'script2', type: 'ADMIN_SCRIPT', state },
             ];
 
-            mockPrisma.adminProcess.findMany.mockResolvedValue(mockProcesses);
+            mockPrisma.adminScriptExecution.findMany.mockResolvedValue(mockProcesses);
 
-            const result = await repository.findProcessesByState(state);
+            const result = await repository.findExecutionsByState(state);
 
             expect(result).toEqual(mockProcesses);
-            expect(mockPrisma.adminProcess.findMany).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.findMany).toHaveBeenCalledWith({
                 where: { state },
                 orderBy: { createdAt: 'desc' },
                 take: undefined,
@@ -195,25 +195,25 @@ describe('AdminProcessRepositoryMongo', () => {
         });
     });
 
-    describe('updateProcessState()', () => {
+    describe('updateExecutionState()', () => {
         it('should update process state', async () => {
             const id = '507f1f77bcf86cd799439011';
             const state = 'COMPLETED';
             const mockProcess = { id, state };
 
-            mockPrisma.adminProcess.update.mockResolvedValue(mockProcess);
+            mockPrisma.adminScriptExecution.update.mockResolvedValue(mockProcess);
 
-            const result = await repository.updateProcessState(id, state);
+            const result = await repository.updateExecutionState(id, state);
 
             expect(result).toEqual(mockProcess);
-            expect(mockPrisma.adminProcess.update).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.update).toHaveBeenCalledWith({
                 where: { id },
                 data: { state },
             });
         });
     });
 
-    describe('updateProcessResults()', () => {
+    describe('updateExecutionResults()', () => {
         it('should merge new results with existing results', async () => {
             const id = '507f1f77bcf86cd799439011';
             const existingProcess = {
@@ -226,13 +226,13 @@ describe('AdminProcessRepositoryMongo', () => {
                 results: { logs: ['log1'], output: { result: 'success', data: [1, 2, 3] } },
             };
 
-            mockPrisma.adminProcess.findUnique.mockResolvedValue(existingProcess);
-            mockPrisma.adminProcess.update.mockResolvedValue(mockProcess);
+            mockPrisma.adminScriptExecution.findUnique.mockResolvedValue(existingProcess);
+            mockPrisma.adminScriptExecution.update.mockResolvedValue(mockProcess);
 
-            const result = await repository.updateProcessResults(id, newResults);
+            const result = await repository.updateExecutionResults(id, newResults);
 
             expect(result).toEqual(mockProcess);
-            expect(mockPrisma.adminProcess.update).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.update).toHaveBeenCalledWith({
                 where: { id },
                 data: {
                     results: { logs: ['log1'], output: { result: 'success', data: [1, 2, 3] } },
@@ -258,10 +258,10 @@ describe('AdminProcessRepositoryMongo', () => {
                 results: { logs: [], error: errorResults.error },
             };
 
-            mockPrisma.adminProcess.findUnique.mockResolvedValue(existingProcess);
-            mockPrisma.adminProcess.update.mockResolvedValue(mockProcess);
+            mockPrisma.adminScriptExecution.findUnique.mockResolvedValue(existingProcess);
+            mockPrisma.adminScriptExecution.update.mockResolvedValue(mockProcess);
 
-            const result = await repository.updateProcessResults(id, errorResults);
+            const result = await repository.updateExecutionResults(id, errorResults);
 
             expect(result).toEqual(mockProcess);
         });
@@ -284,16 +284,16 @@ describe('AdminProcessRepositoryMongo', () => {
                 results: { logs: [], metrics: metricsResults.metrics },
             };
 
-            mockPrisma.adminProcess.findUnique.mockResolvedValue(existingProcess);
-            mockPrisma.adminProcess.update.mockResolvedValue(mockProcess);
+            mockPrisma.adminScriptExecution.findUnique.mockResolvedValue(existingProcess);
+            mockPrisma.adminScriptExecution.update.mockResolvedValue(mockProcess);
 
-            const result = await repository.updateProcessResults(id, metricsResults);
+            const result = await repository.updateExecutionResults(id, metricsResults);
 
             expect(result).toEqual(mockProcess);
         });
     });
 
-    describe('appendProcessLog()', () => {
+    describe('appendExecutionLog()', () => {
         it('should append log entry to existing logs in results', async () => {
             const id = '507f1f77bcf86cd799439011';
             const logEntry = {
@@ -317,13 +317,13 @@ describe('AdminProcessRepositoryMongo', () => {
                 },
             };
 
-            mockPrisma.adminProcess.findUnique.mockResolvedValue(existingProcess);
-            mockPrisma.adminProcess.update.mockResolvedValue(updatedProcess);
+            mockPrisma.adminScriptExecution.findUnique.mockResolvedValue(existingProcess);
+            mockPrisma.adminScriptExecution.update.mockResolvedValue(updatedProcess);
 
-            const result = await repository.appendProcessLog(id, logEntry);
+            const result = await repository.appendExecutionLog(id, logEntry);
 
             expect(result).toEqual(updatedProcess);
-            expect(mockPrisma.adminProcess.update).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.update).toHaveBeenCalledWith({
                 where: { id },
                 data: { results: { logs: [...existingProcess.results.logs, logEntry] } },
             });
@@ -345,10 +345,10 @@ describe('AdminProcessRepositoryMongo', () => {
                 results: { logs: [logEntry] },
             };
 
-            mockPrisma.adminProcess.findUnique.mockResolvedValue(existingProcess);
-            mockPrisma.adminProcess.update.mockResolvedValue(updatedProcess);
+            mockPrisma.adminScriptExecution.findUnique.mockResolvedValue(existingProcess);
+            mockPrisma.adminScriptExecution.update.mockResolvedValue(updatedProcess);
 
-            const result = await repository.appendProcessLog(id, logEntry);
+            const result = await repository.appendExecutionLog(id, logEntry);
 
             expect(result).toEqual(updatedProcess);
         });
@@ -369,10 +369,10 @@ describe('AdminProcessRepositoryMongo', () => {
                 results: { logs: [logEntry] },
             };
 
-            mockPrisma.adminProcess.findUnique.mockResolvedValue(existingProcess);
-            mockPrisma.adminProcess.update.mockResolvedValue(updatedProcess);
+            mockPrisma.adminScriptExecution.findUnique.mockResolvedValue(existingProcess);
+            mockPrisma.adminScriptExecution.update.mockResolvedValue(updatedProcess);
 
-            const result = await repository.appendProcessLog(id, logEntry);
+            const result = await repository.appendExecutionLog(id, logEntry);
 
             expect(result).toEqual(updatedProcess);
         });
@@ -385,28 +385,28 @@ describe('AdminProcessRepositoryMongo', () => {
                 timestamp: new Date().toISOString(),
             };
 
-            mockPrisma.adminProcess.findUnique.mockResolvedValue(null);
+            mockPrisma.adminScriptExecution.findUnique.mockResolvedValue(null);
 
-            await expect(repository.appendProcessLog(id, logEntry)).rejects.toThrow(
-                `AdminProcess ${id} not found`
+            await expect(repository.appendExecutionLog(id, logEntry)).rejects.toThrow(
+                `AdminScriptExecution ${id} not found`
             );
         });
     });
 
-    describe('deleteProcessesOlderThan()', () => {
+    describe('deleteExecutionsOlderThan()', () => {
         it('should delete old processes and return count', async () => {
             const date = new Date('2024-01-01');
             const mockResult = { count: 42 };
 
-            mockPrisma.adminProcess.deleteMany.mockResolvedValue(mockResult);
+            mockPrisma.adminScriptExecution.deleteMany.mockResolvedValue(mockResult);
 
-            const result = await repository.deleteProcessesOlderThan(date);
+            const result = await repository.deleteExecutionsOlderThan(date);
 
             expect(result).toEqual({
                 acknowledged: true,
                 deletedCount: 42,
             });
-            expect(mockPrisma.adminProcess.deleteMany).toHaveBeenCalledWith({
+            expect(mockPrisma.adminScriptExecution.deleteMany).toHaveBeenCalledWith({
                 where: {
                     createdAt: {
                         lt: date,
@@ -419,9 +419,9 @@ describe('AdminProcessRepositoryMongo', () => {
             const date = new Date('2024-01-01');
             const mockResult = { count: 0 };
 
-            mockPrisma.adminProcess.deleteMany.mockResolvedValue(mockResult);
+            mockPrisma.adminScriptExecution.deleteMany.mockResolvedValue(mockResult);
 
-            const result = await repository.deleteProcessesOlderThan(date);
+            const result = await repository.deleteExecutionsOlderThan(date);
 
             expect(result).toEqual({
                 acknowledged: true,

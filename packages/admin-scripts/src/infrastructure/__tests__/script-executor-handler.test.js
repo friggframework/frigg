@@ -22,7 +22,7 @@ describe('Admin Script Executor Handler', () => {
         mockScriptCommands = { id: 'script-commands' };
         mockRunner = { execute: jest.fn() };
         mockCommands = {
-            completeAdminProcess: jest.fn().mockResolvedValue({}),
+            completeExecution: jest.fn().mockResolvedValue({}),
         };
 
         bootstrapAdminScripts.mockReturnValue({
@@ -89,7 +89,7 @@ describe('Admin Script Executor Handler', () => {
             expect(response.statusCode).toBe(200);
             const body = JSON.parse(response.body);
             expect(body.results[0].status).toBe('FAILED');
-            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
+            expect(mockCommands.completeExecution).toHaveBeenCalledWith(
                 'exec-2',
                 expect.objectContaining({ state: 'FAILED' })
             );
@@ -159,7 +159,7 @@ describe('Admin Script Executor Handler', () => {
             expect(body.processed).toBe(2);
             expect(body.results[0].status).toBe('FAILED');
             expect(body.results[1].status).toBe('COMPLETED');
-            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
+            expect(mockCommands.completeExecution).toHaveBeenCalledWith(
                 'exec-bad',
                 expect.objectContaining({ state: 'FAILED' })
             );

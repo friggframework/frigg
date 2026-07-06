@@ -12,13 +12,13 @@
  * - Database migrations
  * - Scheduled maintenance tasks
  *
- * The AdminProcess model uses a flexible JSON storage pattern:
+ * The AdminScriptExecution model uses a flexible JSON storage pattern:
  * - context: Input parameters, trigger info, audit data, script version
  * - results: Output data, logs, metrics, error details
  *
  * @abstract
  */
-class AdminProcessRepositoryInterface {
+class AdminScriptExecutionRepositoryInterface {
     /**
      * Create a new admin process record
      *
@@ -37,8 +37,8 @@ class AdminProcessRepositoryInterface {
      * @returns {Promise<Object>} The created process record
      * @abstract
      */
-    async createProcess({ name, type, context }) {
-        throw new Error('Method createProcess must be implemented by subclass');
+    async createExecution({ name, type, context }) {
+        throw new Error('Method createExecution must be implemented by subclass');
     }
 
     /**
@@ -48,9 +48,9 @@ class AdminProcessRepositoryInterface {
      * @returns {Promise<Object|null>} The process record or null if not found
      * @abstract
      */
-    async findProcessById(id) {
+    async findExecutionById(id) {
         throw new Error(
-            'Method findProcessById must be implemented by subclass'
+            'Method findExecutionById must be implemented by subclass'
         );
     }
 
@@ -67,9 +67,9 @@ class AdminProcessRepositoryInterface {
      * @returns {Promise<Array>} Array of process records
      * @abstract
      */
-    async findProcessesByName(name, options = {}) {
+    async findExecutionsByName(name, options = {}) {
         throw new Error(
-            'Method findProcessesByName must be implemented by subclass'
+            'Method findExecutionsByName must be implemented by subclass'
         );
     }
 
@@ -85,9 +85,9 @@ class AdminProcessRepositoryInterface {
      * @returns {Promise<Array>} Array of process records
      * @abstract
      */
-    async findProcessesByState(state, options = {}) {
+    async findExecutionsByState(state, options = {}) {
         throw new Error(
-            'Method findProcessesByState must be implemented by subclass'
+            'Method findExecutionsByState must be implemented by subclass'
         );
     }
 
@@ -99,9 +99,9 @@ class AdminProcessRepositoryInterface {
      * @returns {Promise<Object>} Updated process record
      * @abstract
      */
-    async updateProcessState(id, state) {
+    async updateExecutionState(id, state) {
         throw new Error(
-            'Method updateProcessState must be implemented by subclass'
+            'Method updateExecutionState must be implemented by subclass'
         );
     }
 
@@ -123,9 +123,9 @@ class AdminProcessRepositoryInterface {
      * @returns {Promise<Object>} Updated process record
      * @abstract
      */
-    async updateProcessResults(id, results) {
+    async updateExecutionResults(id, results) {
         throw new Error(
-            'Method updateProcessResults must be implemented by subclass'
+            'Method updateExecutionResults must be implemented by subclass'
         );
     }
 
@@ -141,9 +141,9 @@ class AdminProcessRepositoryInterface {
      * @returns {Promise<Object>} Updated process record
      * @abstract
      */
-    async appendProcessLog(id, logEntry) {
+    async appendExecutionLog(id, logEntry) {
         throw new Error(
-            'Method appendProcessLog must be implemented by subclass'
+            'Method appendExecutionLog must be implemented by subclass'
         );
     }
 
@@ -155,11 +155,11 @@ class AdminProcessRepositoryInterface {
      * @returns {Promise<Object>} Deletion result with count
      * @abstract
      */
-    async deleteProcessesOlderThan(date) {
+    async deleteExecutionsOlderThan(date) {
         throw new Error(
-            'Method deleteProcessesOlderThan must be implemented by subclass'
+            'Method deleteExecutionsOlderThan must be implemented by subclass'
         );
     }
 }
 
-module.exports = { AdminProcessRepositoryInterface };
+module.exports = { AdminScriptExecutionRepositoryInterface };

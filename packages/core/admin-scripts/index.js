@@ -16,16 +16,16 @@
  */
 
 // Repository Interfaces
-const { AdminProcessRepositoryInterface } = require('./repositories/admin-process-repository-interface');
+const { AdminScriptExecutionRepositoryInterface } = require('./repositories/admin-script-execution-repository-interface');
 const { ScriptScheduleRepositoryInterface } = require('./repositories/script-schedule-repository-interface');
 
 // Repository Factories
 const {
-    createAdminProcessRepository,
-    AdminProcessRepositoryMongo,
-    AdminProcessRepositoryPostgres,
-    AdminProcessRepositoryDocumentDB,
-} = require('./repositories/admin-process-repository-factory');
+    createAdminScriptExecutionRepository,
+    AdminScriptExecutionRepositoryMongo,
+    AdminScriptExecutionRepositoryPostgres,
+    AdminScriptExecutionRepositoryDocumentDB,
+} = require('./repositories/admin-script-execution-repository-factory');
 const {
     createScriptScheduleRepository,
     ScriptScheduleRepositoryMongo,
@@ -35,17 +35,17 @@ const {
 
 module.exports = {
     // Repository Interfaces
-    AdminProcessRepositoryInterface,
+    AdminScriptExecutionRepositoryInterface,
     ScriptScheduleRepositoryInterface,
 
     // Repository Factories (primary exports for use cases)
-    createAdminProcessRepository,
+    createAdminScriptExecutionRepository,
     createScriptScheduleRepository,
 
     // Concrete Implementations (for testing)
-    AdminProcessRepositoryMongo,
-    AdminProcessRepositoryPostgres,
-    AdminProcessRepositoryDocumentDB,
+    AdminScriptExecutionRepositoryMongo,
+    AdminScriptExecutionRepositoryPostgres,
+    AdminScriptExecutionRepositoryDocumentDB,
     ScriptScheduleRepositoryMongo,
     ScriptScheduleRepositoryPostgres,
     ScriptScheduleRepositoryDocumentDB,

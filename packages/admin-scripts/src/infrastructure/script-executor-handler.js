@@ -8,7 +8,7 @@ const { bootstrapAdminScripts } = require('./bootstrap');
  * Run a single execution message through the ScriptRunner.
  * @param {Object} message - Parsed execution message.
  * @param {string} message.scriptName - Name of the registered script to run (required).
- * @param {string} [message.executionId] - Existing AdminProcess id to resume; when
+ * @param {string} [message.executionId] - Existing AdminScriptExecution id to resume; when
  *   absent, ScriptRunner creates a new record.
  * @param {string} [message.trigger] - Execution trigger; defaults to 'QUEUE'.
  * @param {Object} [message.params] - Parameters passed to the script.
@@ -59,7 +59,7 @@ async function runMessage(
 }
 
 /**
- * Mark an admin process FAILED when the worker itself blows up (parse error,
+ * Mark an admin script execution FAILED when the worker itself blows up (parse error,
  * runner construction), so the record doesn't stay stuck in a non-terminal
  * state. No-op when there is no execution id.
  * @private
@@ -68,7 +68,7 @@ async function markFailed(executionId, error) {
     if (!executionId) return;
     try {
         const commands = createAdminScriptCommands();
-        await commands.completeAdminProcess(executionId, {
+        await commands.completeExecution(executionId, {
             state: 'FAILED',
             error: {
                 name: error.name,

@@ -21,7 +21,7 @@ const { QueuerUtil } = require('@friggframework/core/queues');
 class AdminScriptContext {
     /**
      * @param {Object} [params={}] - Context configuration
-     * @param {string|number|null} [params.executionId] - ID of the AdminProcess record this context is scoped to (used for log persistence and script chaining)
+     * @param {string|number|null} [params.executionId] - ID of the AdminScriptExecution record this context is scoped to (used for log persistence and script chaining)
      * @param {Object|null} [params.integrationFactory] - Factory used to hydrate integration instances; required for scripts that call instantiate()
      * @param {Object|null} [params.commands] - Frigg command bundle ({ users, credentials, entities, integrations }) injected by the composition root and exposed to scripts as context.commands
      */
