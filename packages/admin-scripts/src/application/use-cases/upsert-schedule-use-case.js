@@ -28,7 +28,6 @@ class UpsertScheduleUseCase {
         this._validateScriptExists(scriptName);
         this._validateInput(enabled, cronExpression);
 
-        // Save to database
         const schedule = await this.commands.upsertSchedule({
             scriptName,
             enabled,
@@ -36,7 +35,6 @@ class UpsertScheduleUseCase {
             timezone: timezone || 'UTC',
         });
 
-        // Sync with external scheduler (AWS EventBridge, etc.)
         const schedulerResult = await this._syncExternalScheduler(
             scriptName,
             enabled,
@@ -87,8 +85,6 @@ class UpsertScheduleUseCase {
     }
 
     /**
-     * Sync with external scheduler service
-     * Abstracts AWS EventBridge or other scheduler providers
      * @private
      */
     async _syncExternalScheduler(
@@ -106,7 +102,6 @@ class UpsertScheduleUseCase {
 
         try {
             if (enabled && cronExpression) {
-                // Create/update external schedule
                 const schedulerInfo =
                     await this.schedulerAdapter.createSchedule({
                         scriptName,
@@ -123,7 +118,6 @@ class UpsertScheduleUseCase {
                     result.externalScheduleName = schedulerInfo.scheduleName;
                 }
             } else if (!enabled && existingId) {
-                // Delete external schedule
                 await this.schedulerAdapter.deleteSchedule(scriptName);
                 await this.commands.updateScheduleExternalInfo(scriptName, {
                     externalScheduleId: null,
