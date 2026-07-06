@@ -23,7 +23,7 @@ const {
 } = require('@friggframework/core/application/commands/admin-script-commands');
 const { QueuerUtil } = require('@friggframework/core/queues');
 const {
-    createSchedulerAdapter,
+    createSchedulerAdapterFromEnv,
 } = require('../../adapters/scheduler-adapter-factory');
 
 describe('Admin Script Router', () => {
@@ -76,7 +76,7 @@ describe('Admin Script Router', () => {
         });
         createScriptRunner.mockReturnValue(mockRunner);
         createAdminScriptCommands.mockReturnValue(mockCommands);
-        createSchedulerAdapter.mockReturnValue(mockSchedulerAdapter);
+        createSchedulerAdapterFromEnv.mockReturnValue(mockSchedulerAdapter);
         QueuerUtil.send = jest.fn().mockResolvedValue({});
 
         // Default mock implementations

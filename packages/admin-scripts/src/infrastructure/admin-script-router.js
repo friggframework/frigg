@@ -1,6 +1,5 @@
 const express = require('express');
 const serverless = require('serverless-http');
-const Boom = require('@hapi/boom');
 const { validateAdminApiKey } = require('./admin-auth-middleware');
 const { createScriptRunner } = require('../application/script-runner');
 const {
@@ -12,7 +11,7 @@ const {
 } = require('@friggframework/core/application/commands/admin-script-commands');
 const { QueuerUtil } = require('@friggframework/core/queues');
 const {
-    createSchedulerAdapter,
+    createSchedulerAdapterFromEnv,
 } = require('../adapters/scheduler-adapter-factory');
 const { bootstrapAdminScripts } = require('./bootstrap');
 const {
@@ -57,51 +56,6 @@ function buildAudit(req) {
     return {
         ipAddress: forwardedFor || req.ip || null,
         apiKeyLast4: apiKey ? String(apiKey).slice(-4) : null,
-    };
-}
-
-/**
- * Create schedule use case instances
- * @param {ScriptFactory} scriptFactory - Registry injected from the request.
- * @private
- */
-function createScheduleUseCases(scriptFactory) {
-    const commands = createAdminScriptCommands();
-
-    // The local adapter is in-memory only (schedules vanish on cold start), so it
-    // must never be the silent default in a deployed Lambda. Require an explicit
-    // provider when running on AWS; fall back to 'local' only for local dev/tests.
-    const schedulerType =
-        process.env.SCHEDULER_PROVIDER ||
-        (process.env.AWS_LAMBDA_FUNCTION_NAME ? null : 'local');
-    if (!schedulerType) {
-        throw Boom.serverUnavailable(
-            'SCHEDULER_PROVIDER is not configured. Set it (e.g. "aws") via appDefinition.admin.enableScheduling.'
-        );
-    }
-
-    const schedulerAdapter = createSchedulerAdapter({
-        type: schedulerType,
-        targetLambdaArn: process.env.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN,
-        scheduleGroupName: process.env.ADMIN_SCRIPT_SCHEDULE_GROUP,
-        roleArn: process.env.SCHEDULER_ROLE_ARN,
-    });
-
-    return {
-        getEffectiveSchedule: new GetEffectiveScheduleUseCase({
-            commands,
-            scriptFactory,
-        }),
-        upsertSchedule: new UpsertScheduleUseCase({
-            commands,
-            schedulerAdapter,
-            scriptFactory,
-        }),
-        deleteSchedule: new DeleteScheduleUseCase({
-            commands,
-            schedulerAdapter,
-            scriptFactory,
-        }),
     };
 }
 
@@ -360,7 +314,11 @@ router.get('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { scriptFactory } = bootstrapAdminScripts();
-        const { getEffectiveSchedule } = createScheduleUseCases(scriptFactory);
+        const commands = createAdminScriptCommands();
+        const getEffectiveSchedule = new GetEffectiveScheduleUseCase({
+            commands,
+            scriptFactory,
+        });
 
         const result = await getEffectiveSchedule.execute(scriptName);
 
@@ -383,7 +341,13 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
         const { scriptName } = req.params;
         const { enabled, cronExpression, timezone } = req.body;
         const { scriptFactory } = bootstrapAdminScripts();
-        const { upsertSchedule } = createScheduleUseCases(scriptFactory);
+        const commands = createAdminScriptCommands();
+        const schedulerAdapter = createSchedulerAdapterFromEnv();
+        const upsertSchedule = new UpsertScheduleUseCase({
+            commands,
+            schedulerAdapter,
+            scriptFactory,
+        });
 
         const result = await upsertSchedule.execute(scriptName, {
             enabled,
@@ -414,7 +378,13 @@ router.delete('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { scriptFactory } = bootstrapAdminScripts();
-        const { deleteSchedule } = createScheduleUseCases(scriptFactory);
+        const commands = createAdminScriptCommands();
+        const schedulerAdapter = createSchedulerAdapterFromEnv();
+        const deleteSchedule = new DeleteScheduleUseCase({
+            commands,
+            schedulerAdapter,
+            scriptFactory,
+        });
 
         const result = await deleteSchedule.execute(scriptName);
 

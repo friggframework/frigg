@@ -1,13 +1,16 @@
+const Boom = require('@hapi/boom');
 const { AWSSchedulerAdapter } = require('./aws-scheduler-adapter');
 const { LocalSchedulerAdapter } = require('./local-scheduler-adapter');
 
 /**
  * Scheduler Adapter Factory
  *
- * Application Layer - Hexagonal Architecture
+ * Infrastructure Layer - Hexagonal Architecture
  *
- * Creates the appropriate scheduler adapter based on explicit configuration
- * from appDefinition. Does not auto-detect or read environment variables.
+ * `createSchedulerAdapter` builds an adapter from an explicit `type` (no env
+ * reads). `createSchedulerAdapterFromEnv` resolves the type from the runtime
+ * environment and enforces that a deployed Lambda never silently falls back to
+ * the in-memory local adapter.
  */
 
 /**
@@ -46,6 +49,37 @@ function createSchedulerAdapter(options = {}) {
     }
 }
 
+/**
+ * Resolve and build the scheduler adapter from the runtime environment.
+ *
+ * The local adapter is in-memory only (schedules vanish on cold start), so it
+ * must never be the silent default in a deployed Lambda: require an explicit
+ * SCHEDULER_PROVIDER when running on AWS, and fall back to 'local' only for
+ * local dev/tests.
+ *
+ * @returns {SchedulerAdapter}
+ * @throws {Boom.Boom} 503 (serverUnavailable) when SCHEDULER_PROVIDER is unset
+ *   in a deployed Lambda.
+ */
+function createSchedulerAdapterFromEnv() {
+    const type =
+        process.env.SCHEDULER_PROVIDER ||
+        (process.env.AWS_LAMBDA_FUNCTION_NAME ? null : 'local');
+    if (!type) {
+        throw Boom.serverUnavailable(
+            'SCHEDULER_PROVIDER is not configured. Set it (e.g. "aws") via appDefinition.admin.enableScheduling.'
+        );
+    }
+
+    return createSchedulerAdapter({
+        type,
+        targetLambdaArn: process.env.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN,
+        scheduleGroupName: process.env.ADMIN_SCRIPT_SCHEDULE_GROUP,
+        roleArn: process.env.SCHEDULER_ROLE_ARN,
+    });
+}
+
 module.exports = {
     createSchedulerAdapter,
+    createSchedulerAdapterFromEnv,
 };

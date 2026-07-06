@@ -55,44 +55,43 @@ function createIntegrationCommands({ integrationClass } = {}) {
     // Always use Frigg's default repositories and use cases
     const integrationRepository = createIntegrationRepository();
 
-    // Class-agnostic read commands. Available without an integrationClass so
-    // callers that operate across integration types (e.g. admin scripts) can
+    // Class-agnostic read commands. Available with or without an integrationClass
+    // so callers that operate across integration types (e.g. admin scripts) can
     // look up integrations by id or list them by type/status.
-    const readCommands = {
-        /**
-         * Find a single integration record by id.
-         * @param {string} integrationId
-         * @returns {Promise<Object>} Integration record, or an error object.
-         */
-        async findIntegrationById(integrationId) {
-            try {
-                return await integrationRepository.findIntegrationById(
-                    integrationId
-                );
-            } catch (error) {
-                return mapErrorToResponse(error);
-            }
-        },
 
-        /**
-         * List integrations, optionally filtered by config type and/or status.
-         * @param {Object} [filter={}]
-         * @param {string} [filter.type] - Integration type (config.type)
-         * @param {string} [filter.status] - Integration status
-         * @returns {Promise<Array|Object>} Array of integrations, or an error object.
-         */
-        async listIntegrations(filter = {}) {
-            try {
-                return await integrationRepository.findIntegrations(filter);
-            } catch (error) {
-                return mapErrorToResponse(error);
-            }
-        },
-    };
+    /**
+     * Find a single integration record by id.
+     * @param {string} integrationId
+     * @returns {Promise<Object>} Integration record, or an error object.
+     */
+    async function findIntegrationById(integrationId) {
+        try {
+            return await integrationRepository.findIntegrationById(
+                integrationId
+            );
+        } catch (error) {
+            return mapErrorToResponse(error);
+        }
+    }
+
+    /**
+     * List integrations, optionally filtered by config type and/or status.
+     * @param {Object} [filter={}]
+     * @param {string} [filter.type] - Integration type (config.type)
+     * @param {string} [filter.status] - Integration status
+     * @returns {Promise<Array|Object>} Array of integrations, or an error object.
+     */
+    async function listIntegrations(filter = {}) {
+        try {
+            return await integrationRepository.findIntegrations(filter);
+        } catch (error) {
+            return mapErrorToResponse(error);
+        }
+    }
 
     // The remaining commands hydrate/modify integrations for a specific class.
     if (!integrationClass) {
-        return readCommands;
+        return { findIntegrationById, listIntegrations };
     }
 
     const moduleRepository = createModuleRepository();
@@ -153,7 +152,8 @@ function createIntegrationCommands({ integrationClass } = {}) {
     });
 
     return {
-        ...readCommands,
+        findIntegrationById,
+        listIntegrations,
 
         /**
          * Find integration context by external entity ID and type

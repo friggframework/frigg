@@ -1,4 +1,7 @@
-const { createSchedulerAdapter } = require('../scheduler-adapter-factory');
+const {
+    createSchedulerAdapter,
+    createSchedulerAdapterFromEnv,
+} = require('../scheduler-adapter-factory');
 const { AWSSchedulerAdapter } = require('../aws-scheduler-adapter');
 const { LocalSchedulerAdapter } = require('../local-scheduler-adapter');
 
@@ -133,6 +136,53 @@ describe('Scheduler Adapter Factory', () => {
             expect(() =>
                 createSchedulerAdapter({ type: 'unknown-type' })
             ).toThrow();
+        });
+    });
+
+    describe('createSchedulerAdapterFromEnv()', () => {
+        it('falls back to the local adapter off-AWS when SCHEDULER_PROVIDER is unset', () => {
+            delete process.env.SCHEDULER_PROVIDER;
+            delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+            const adapter = createSchedulerAdapterFromEnv();
+
+            expect(adapter).toBeInstanceOf(LocalSchedulerAdapter);
+        });
+
+        it('throws 503 when SCHEDULER_PROVIDER is unset in a deployed Lambda', () => {
+            delete process.env.SCHEDULER_PROVIDER;
+            process.env.AWS_LAMBDA_FUNCTION_NAME = 'admin-script-router';
+
+            let error;
+            try {
+                createSchedulerAdapterFromEnv();
+            } catch (e) {
+                error = e;
+            }
+
+            expect(error).toBeDefined();
+            expect(error.isBoom).toBe(true);
+            expect(error.output.statusCode).toBe(503);
+        });
+
+        it('builds the AWS adapter from SCHEDULER_PROVIDER + ADMIN_SCRIPT_* env', () => {
+            process.env.SCHEDULER_PROVIDER = 'aws';
+            process.env.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN =
+                awsAdapterParams.targetLambdaArn;
+            process.env.ADMIN_SCRIPT_SCHEDULE_GROUP =
+                awsAdapterParams.scheduleGroupName;
+            process.env.SCHEDULER_ROLE_ARN = awsAdapterParams.roleArn;
+
+            const adapter = createSchedulerAdapterFromEnv();
+
+            expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
+            expect(adapter.targetLambdaArn).toBe(
+                awsAdapterParams.targetLambdaArn
+            );
+            expect(adapter.scheduleGroupName).toBe(
+                awsAdapterParams.scheduleGroupName
+            );
+            expect(adapter.roleArn).toBe(awsAdapterParams.roleArn);
         });
     });
 });
