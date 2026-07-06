@@ -6,7 +6,8 @@ const Boom = require('@hapi/boom');
  * Application Layer - Hexagonal Architecture
  *
  * Deletes a schedule override and cleans up external scheduler resources.
- * Returns the effective schedule after deletion (may fall back to definition).
+ * After deletion the script has no active schedule — schedules are never
+ * derived from the Definition; an admin re-activates one via PUT /schedule.
  */
 class DeleteScheduleUseCase {
     constructor({ commands, schedulerAdapter, scriptFactory }) {
@@ -32,9 +33,9 @@ class DeleteScheduleUseCase {
             deleteResult.deleted?.externalScheduleId
         );
 
-        // Determine effective schedule after deletion
-        const effectiveSchedule =
-            this._getEffectiveScheduleAfterDeletion(scriptName);
+        // Nothing derives a schedule from the Definition, so once the DB
+        // override is removed the script has no active schedule.
+        const effectiveSchedule = { source: 'none', enabled: false };
 
         return {
             success: true,
@@ -55,37 +56,6 @@ class DeleteScheduleUseCase {
         if (!this.scriptFactory.has(scriptName)) {
             throw Boom.notFound(`Script "${scriptName}" not found`);
         }
-    }
-
-    /**
-     * Get the definition schedule from a script class
-     * @private
-     */
-    _getDefinitionSchedule(scriptName) {
-        const scriptClass = this.scriptFactory.get(scriptName);
-        return scriptClass.Definition?.schedule || null;
-    }
-
-    /**
-     * Determine effective schedule after deletion
-     * @private
-     */
-    _getEffectiveScheduleAfterDeletion(scriptName) {
-        const definitionSchedule = this._getDefinitionSchedule(scriptName);
-
-        if (definitionSchedule?.enabled) {
-            return {
-                source: 'definition',
-                enabled: definitionSchedule.enabled,
-                cronExpression: definitionSchedule.cronExpression,
-                timezone: definitionSchedule.timezone || 'UTC',
-            };
-        }
-
-        return {
-            source: 'none',
-            enabled: false,
-        };
     }
 
     /**

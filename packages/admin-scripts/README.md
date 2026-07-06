@@ -76,8 +76,8 @@ class AttioHealingScript extends AdminScriptBase {
             requireIntegrationInstance: true, // needs this.context.instantiate()
         },
 
-        // Optional default schedule (can be overridden at runtime via the API)
-        schedule: { enabled: false, cronExpression: 'cron(0 12 * * ? *)' },
+        // No schedule here — a script is a capability. An admin activates a
+        // recurring run at runtime via PUT /admin/scripts/:name/schedule.
 
         display: { category: 'maintenance' },
     };
@@ -203,7 +203,7 @@ curl "https://<your-app>/admin/scripts/attio-healing/executions?status=FAILED&li
 
 ## Scheduling
 
-A script can ship a default schedule in its `Definition.schedule`, and operators can override it at runtime. The **effective** schedule resolves as: runtime override (DB) → definition default → none.
+Scripts don't declare a schedule — a script is a capability. An admin activates a recurring run at runtime via `PUT .../schedule`, which persists the schedule and provisions it in EventBridge. The **effective** schedule is therefore either the runtime override (DB) or none — there is no code-defined default that fires on its own.
 
 ```bash
 # Enable a daily 6am UTC run

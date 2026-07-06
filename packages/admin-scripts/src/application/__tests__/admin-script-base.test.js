@@ -18,16 +18,11 @@ describe('AdminScriptBase', () => {
                     name: 'test-script',
                     version: '1.0.0',
                     description: 'A test script',
-                    source: 'BUILTIN',
+                    source: 'USER_DEFINED',
                     inputSchema: { type: 'object' },
                     outputSchema: { type: 'object' },
-                    schedule: {
-                        enabled: true,
-                        cronExpression: 'cron(0 12 * * ? *)',
-                    },
                     config: {
                         timeout: 600000,
-                        maxRetries: 3,
                         requireIntegrationInstance: true,
                     },
                     display: {
@@ -40,8 +35,7 @@ describe('AdminScriptBase', () => {
             expect(TestScript.Definition.name).toBe('test-script');
             expect(TestScript.Definition.version).toBe('1.0.0');
             expect(TestScript.Definition.description).toBe('A test script');
-            expect(TestScript.Definition.source).toBe('BUILTIN');
-            expect(TestScript.Definition.schedule.enabled).toBe(true);
+            expect(TestScript.Definition.source).toBe('USER_DEFINED');
             expect(TestScript.Definition.config.timeout).toBe(600000);
         });
 

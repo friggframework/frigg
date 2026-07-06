@@ -88,33 +88,7 @@ describe('DeleteScheduleUseCase', () => {
             expect(result.schedulerWarning).toBe('Scheduler delete failed');
         });
 
-        it('should return definition schedule as effective after deletion', async () => {
-            const definitionSchedule = {
-                enabled: true,
-                cronExpression: '0 6 * * *',
-                timezone: 'America/Los_Angeles',
-            };
-
-            mockScriptFactory.has.mockReturnValue(true);
-            mockScriptFactory.get.mockReturnValue({
-                Definition: { schedule: definitionSchedule },
-            });
-            mockCommands.deleteSchedule.mockResolvedValue({
-                deletedCount: 1,
-                deleted: { scriptName: 'test-script' },
-            });
-
-            const result = await useCase.execute('test-script');
-
-            expect(result.effectiveSchedule.source).toBe('definition');
-            expect(result.effectiveSchedule.enabled).toBe(true);
-            expect(result.effectiveSchedule.cronExpression).toBe('0 6 * * *');
-            expect(result.effectiveSchedule.timezone).toBe(
-                'America/Los_Angeles'
-            );
-        });
-
-        it('should default timezone to UTC when not in definition', async () => {
+        it('always returns none after deletion, ignoring any Definition schedule', async () => {
             mockScriptFactory.has.mockReturnValue(true);
             mockScriptFactory.get.mockReturnValue({
                 Definition: {
@@ -128,10 +102,11 @@ describe('DeleteScheduleUseCase', () => {
 
             const result = await useCase.execute('test-script');
 
-            expect(result.effectiveSchedule.timezone).toBe('UTC');
+            expect(result.effectiveSchedule.source).toBe('none');
+            expect(result.effectiveSchedule.enabled).toBe(false);
         });
 
-        it('should return none as effective when no definition schedule', async () => {
+        it('should return none as effective after deletion', async () => {
             mockScriptFactory.has.mockReturnValue(true);
             mockScriptFactory.get.mockReturnValue({ Definition: {} });
             mockCommands.deleteSchedule.mockResolvedValue({

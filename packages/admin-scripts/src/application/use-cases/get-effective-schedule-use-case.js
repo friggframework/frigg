@@ -5,10 +5,12 @@ const Boom = require('@hapi/boom');
  *
  * Application Layer - Hexagonal Architecture
  *
- * Resolves the effective schedule for a script following priority:
- * 1. Database override (runtime configuration)
- * 2. Definition default (code-defined schedule)
- * 3. None (manual execution only)
+ * Resolves the effective schedule for a script:
+ * 1. Database override (activated at runtime via PUT /schedule)
+ * 2. None (script is declared but not actively scheduled)
+ *
+ * Schedules are never derived from the script Definition — a script declares
+ * a capability; an admin activates a schedule explicitly via the API.
  */
 class GetEffectiveScheduleUseCase {
     constructor({ commands, scriptFactory }) {
@@ -19,7 +21,7 @@ class GetEffectiveScheduleUseCase {
     /**
      * Get effective schedule for a script
      * @param {string} scriptName - Name of the script
-     * @returns {Promise<{source: 'database'|'definition'|'none', schedule: Object}>}
+     * @returns {Promise<{source: 'database'|'none', schedule: Object}>}
      */
     async execute(scriptName) {
         this._validateScriptExists(scriptName);
@@ -35,21 +37,8 @@ class GetEffectiveScheduleUseCase {
             };
         }
 
-        // Priority 2: Definition default
-        const definitionSchedule = this._getDefinitionSchedule(scriptName);
-        if (definitionSchedule?.enabled) {
-            return {
-                source: 'definition',
-                schedule: {
-                    scriptName,
-                    enabled: definitionSchedule.enabled,
-                    cronExpression: definitionSchedule.cronExpression,
-                    timezone: definitionSchedule.timezone || 'UTC',
-                },
-            };
-        }
-
-        // Priority 3: No schedule
+        // No database override: the script is declared but not actively
+        // scheduled. Admins activate scheduling explicitly via PUT /schedule.
         return {
             source: 'none',
             schedule: {
@@ -66,14 +55,6 @@ class GetEffectiveScheduleUseCase {
         if (!this.scriptFactory.has(scriptName)) {
             throw Boom.notFound(`Script "${scriptName}" not found`);
         }
-    }
-
-    /**
-     * @private
-     */
-    _getDefinitionSchedule(scriptName) {
-        const scriptClass = this.scriptFactory.get(scriptName);
-        return scriptClass.Definition?.schedule || null;
     }
 }
 

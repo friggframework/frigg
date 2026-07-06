@@ -81,8 +81,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         // Log registered scripts
         appDefinition.adminScripts.forEach(script => {
             const name = script.Definition?.name || 'unknown';
-            const schedule = script.Definition?.schedule;
-            console.log(`    ✓ Registered: ${name}${schedule?.enabled ? ' (scheduled)' : ''}`);
+            console.log(`    ✓ Registered: ${name}`);
         });
 
         console.log(`[${this.name}] ✅ Admin script configuration completed`);

@@ -42,41 +42,6 @@ describe('GetEffectiveScheduleUseCase', () => {
             expect(result.schedule).toEqual(dbSchedule);
         });
 
-        it('should return definition schedule when no database override', async () => {
-            const definitionSchedule = {
-                enabled: true,
-                cronExpression: '0 12 * * *',
-                timezone: 'America/New_York',
-            };
-
-            mockScriptFactory.has.mockReturnValue(true);
-            mockScriptFactory.get.mockReturnValue({
-                Definition: { schedule: definitionSchedule },
-            });
-            mockCommands.getScheduleByScriptName.mockResolvedValue(null);
-
-            const result = await useCase.execute('test-script');
-
-            expect(result.source).toBe('definition');
-            expect(result.schedule.enabled).toBe(true);
-            expect(result.schedule.cronExpression).toBe('0 12 * * *');
-            expect(result.schedule.timezone).toBe('America/New_York');
-        });
-
-        it('should default timezone to UTC when not specified in definition', async () => {
-            mockScriptFactory.has.mockReturnValue(true);
-            mockScriptFactory.get.mockReturnValue({
-                Definition: {
-                    schedule: { enabled: true, cronExpression: '0 12 * * *' },
-                },
-            });
-            mockCommands.getScheduleByScriptName.mockResolvedValue(null);
-
-            const result = await useCase.execute('test-script');
-
-            expect(result.schedule.timezone).toBe('UTC');
-        });
-
         it('should return none when no schedule configured', async () => {
             mockScriptFactory.has.mockReturnValue(true);
             mockScriptFactory.get.mockReturnValue({ Definition: {} });
@@ -89,10 +54,12 @@ describe('GetEffectiveScheduleUseCase', () => {
             expect(result.schedule.scriptName).toBe('test-script');
         });
 
-        it('should return none when definition schedule is disabled', async () => {
+        it('ignores any schedule declared in the Definition (DB override is the only source)', async () => {
             mockScriptFactory.has.mockReturnValue(true);
             mockScriptFactory.get.mockReturnValue({
-                Definition: { schedule: { enabled: false } },
+                Definition: {
+                    schedule: { enabled: true, cronExpression: '0 12 * * *' },
+                },
             });
             mockCommands.getScheduleByScriptName.mockResolvedValue(null);
 

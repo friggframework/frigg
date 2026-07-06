@@ -107,7 +107,6 @@ describe('Admin Script Router', () => {
                 description: 'Test script',
                 category: 'test',
                 requireIntegrationInstance: false,
-                schedule: null,
             });
         });
 
@@ -352,12 +351,13 @@ describe('Admin Script Router', () => {
             expect(response.body.timezone).toBe('America/New_York');
         });
 
-        it('should return definition schedule when no database override', async () => {
+        it('ignores a schedule declared in the Definition (no DB override → none)', async () => {
             mockCommands.getScheduleByScriptName = jest
                 .fn()
                 .mockResolvedValue(null);
 
-            // Update test script to include schedule
+            // A script may still carry a schedule field, but it is never used —
+            // only a DB override (set via PUT) activates a schedule.
             class ScheduledTestScript extends TestScript {
                 static Definition = {
                     ...TestScript.Definition,
@@ -376,10 +376,8 @@ describe('Admin Script Router', () => {
             );
 
             expect(response.status).toBe(200);
-            expect(response.body.source).toBe('definition');
-            expect(response.body.enabled).toBe(true);
-            expect(response.body.cronExpression).toBe('0 0 * * *');
-            expect(response.body.timezone).toBe('UTC');
+            expect(response.body.source).toBe('none');
+            expect(response.body.enabled).toBe(false);
         });
 
         it('should return none when no schedule configured', async () => {
@@ -656,13 +654,14 @@ describe('Admin Script Router', () => {
             );
         });
 
-        it('should return definition schedule after deleting override', async () => {
+        it('reports no active schedule after deleting the override', async () => {
             mockCommands.deleteSchedule = jest.fn().mockResolvedValue({
                 acknowledged: true,
                 deletedCount: 1,
             });
 
-            // Update test script to include schedule
+            // Even if the script carries a schedule field, it is ignored —
+            // after removing the DB override there is no active schedule.
             class ScheduledTestScript extends TestScript {
                 static Definition = {
                     ...TestScript.Definition,
@@ -681,8 +680,8 @@ describe('Admin Script Router', () => {
             );
 
             expect(response.status).toBe(200);
-            expect(response.body.effectiveSchedule.source).toBe('definition');
-            expect(response.body.effectiveSchedule.enabled).toBe(true);
+            expect(response.body.effectiveSchedule.source).toBe('none');
+            expect(response.body.effectiveSchedule.enabled).toBe(false);
         });
 
         it('should handle no schedule found', async () => {

@@ -125,7 +125,6 @@ router.get('/scripts', async (req, res) => {
                 category: s.definition.display?.category || 'custom',
                 requireIntegrationInstance:
                     s.definition.config?.requireIntegrationInstance || false,
-                schedule: s.definition.schedule || null,
             })),
         });
     } catch (error) {
@@ -161,7 +160,6 @@ router.get('/scripts/:scriptName', async (req, res) => {
             outputSchema: definition.outputSchema,
             config: definition.config,
             display: definition.display,
-            schedule: definition.schedule,
         });
     } catch (error) {
         console.error('Error getting script:', error);

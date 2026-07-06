@@ -56,7 +56,8 @@ class MyScript extends AdminScriptBase {
         version: '1.0.0',
         description: 'What this script does',
         config: { timeout: 300000, requireIntegrationInstance: false },
-        schedule: { enabled: true, cronExpression: 'cron(0 12 * * ? *)' },
+        // No schedule here — scripts are capabilities; an admin activates a
+        // recurring run at runtime via PUT /admin/scripts/:name/schedule.
     };
 
     /**
@@ -107,15 +108,16 @@ class MyScript extends AdminScriptBase {
 
 ### Scheduling Architecture (Phase 2)
 
-Hybrid scheduling with database override capability:
+Scheduling is a runtime, admin-driven decision — a script declares a capability,
+and an admin activates a recurring run explicitly via `PUT .../schedule`. There
+is no code-defined schedule; nothing fires unless it was activated.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Schedule Resolution (Priority Order)                   │
+│ Schedule Resolution                                    │
 ├─────────────────────────────────────────────────────────┤
-│ 1. Database ScriptSchedule (runtime override)          │
-│ 2. Script Definition schedule (code default)           │
-│ 3. No schedule (manual execution only)                 │
+│ 1. Database ScriptSchedule (activated via PUT)         │
+│ 2. No schedule (manual execution only)                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
