@@ -21,7 +21,9 @@ class SchedulerAdapter {
      * @returns {Promise<Object>} Created schedule { scheduleArn, scheduleName }
      */
     async createSchedule(config) {
-        throw new Error('SchedulerAdapter.createSchedule() must be implemented');
+        throw new Error(
+            'SchedulerAdapter.createSchedule() must be implemented'
+        );
     }
 
     /**
@@ -30,7 +32,9 @@ class SchedulerAdapter {
      * @returns {Promise<void>}
      */
     async deleteSchedule(scriptName) {
-        throw new Error('SchedulerAdapter.deleteSchedule() must be implemented');
+        throw new Error(
+            'SchedulerAdapter.deleteSchedule() must be implemented'
+        );
     }
 
     /**
@@ -40,7 +44,9 @@ class SchedulerAdapter {
      * @returns {Promise<void>}
      */
     async setScheduleEnabled(scriptName, enabled) {
-        throw new Error('SchedulerAdapter.setScheduleEnabled() must be implemented');
+        throw new Error(
+            'SchedulerAdapter.setScheduleEnabled() must be implemented'
+        );
     }
 
     /**

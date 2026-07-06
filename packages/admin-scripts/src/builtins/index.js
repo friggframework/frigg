@@ -7,10 +7,7 @@ const { IntegrationHealthCheckScript } = require('./integration-health-check');
  * These scripts ship with @friggframework/admin-scripts and provide
  * common maintenance and monitoring functionality.
  */
-const builtinScripts = [
-    OAuthTokenRefreshScript,
-    IntegrationHealthCheckScript,
-];
+const builtinScripts = [OAuthTokenRefreshScript, IntegrationHealthCheckScript];
 
 /**
  * Register all built-in scripts with a factory

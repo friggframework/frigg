@@ -34,7 +34,9 @@ class AdminScriptContext {
 
     get integrationRepository() {
         if (!this._integrationRepository) {
-            const { createIntegrationRepository } = require('@friggframework/core/integrations/repositories/integration-repository-factory');
+            const {
+                createIntegrationRepository,
+            } = require('@friggframework/core/integrations/repositories/integration-repository-factory');
             this._integrationRepository = createIntegrationRepository();
         }
         return this._integrationRepository;
@@ -42,7 +44,9 @@ class AdminScriptContext {
 
     get userRepository() {
         if (!this._userRepository) {
-            const { createUserRepository } = require('@friggframework/core/user/repositories/user-repository-factory');
+            const {
+                createUserRepository,
+            } = require('@friggframework/core/user/repositories/user-repository-factory');
             this._userRepository = createUserRepository();
         }
         return this._userRepository;
@@ -50,7 +54,9 @@ class AdminScriptContext {
 
     get moduleRepository() {
         if (!this._moduleRepository) {
-            const { createModuleRepository } = require('@friggframework/core/modules/repositories/module-repository-factory');
+            const {
+                createModuleRepository,
+            } = require('@friggframework/core/modules/repositories/module-repository-factory');
             this._moduleRepository = createModuleRepository();
         }
         return this._moduleRepository;
@@ -58,7 +64,9 @@ class AdminScriptContext {
 
     get credentialRepository() {
         if (!this._credentialRepository) {
-            const { createCredentialRepository } = require('@friggframework/core/credential/repositories/credential-repository-factory');
+            const {
+                createCredentialRepository,
+            } = require('@friggframework/core/credential/repositories/credential-repository-factory');
             this._credentialRepository = createCredentialRepository();
         }
         return this._credentialRepository;
@@ -74,12 +82,12 @@ class AdminScriptContext {
         if (!this.integrationFactory) {
             throw new Error(
                 'instantiate() requires integrationFactory. ' +
-                'Set Definition.config.requireIntegrationInstance = true'
+                    'Set Definition.config.requireIntegrationInstance = true'
             );
         }
         return this.integrationFactory.getInstanceFromIntegrationId({
             integrationId,
-            _isAdminContext: true,  // Bypass user ownership check
+            _isAdminContext: true, // Bypass user ownership check
         });
     }
 
@@ -88,7 +96,9 @@ class AdminScriptContext {
     async queueScript(scriptName, params = {}) {
         const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
         if (!queueUrl) {
-            throw new Error('ADMIN_SCRIPT_QUEUE_URL environment variable not set');
+            throw new Error(
+                'ADMIN_SCRIPT_QUEUE_URL environment variable not set'
+            );
         }
 
         await QueuerUtil.send(
@@ -107,10 +117,12 @@ class AdminScriptContext {
     async queueScriptBatch(entries) {
         const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
         if (!queueUrl) {
-            throw new Error('ADMIN_SCRIPT_QUEUE_URL environment variable not set');
+            throw new Error(
+                'ADMIN_SCRIPT_QUEUE_URL environment variable not set'
+            );
         }
 
-        const messages = entries.map(entry => ({
+        const messages = entries.map((entry) => ({
             scriptName: entry.scriptName,
             trigger: 'QUEUE',
             params: entry.params || {},

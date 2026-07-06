@@ -301,11 +301,18 @@ describe('AdminScriptBuilder', () => {
                 // Get script details
                 { httpApi: { path: '/admin/scripts/{scriptName}', method: 'GET' } },
                 // Execute script (sync or async)
-                { httpApi: { path: '/admin/scripts/{scriptName}/execute', method: 'POST' } },
-                // Get execution status
-                { httpApi: { path: '/admin/executions/{executionId}', method: 'GET' } },
-                // List executions
-                { httpApi: { path: '/admin/executions', method: 'GET' } },
+                { httpApi: { path: '/admin/scripts/{scriptName}', method: 'POST' } },
+                // Validate script input (dry-run preview)
+                { httpApi: { path: '/admin/scripts/{scriptName}/validate', method: 'POST' } },
+                // List executions for a script
+                { httpApi: { path: '/admin/scripts/{scriptName}/executions', method: 'GET' } },
+                // Get a single execution
+                {
+                    httpApi: {
+                        path: '/admin/scripts/{scriptName}/executions/{executionId}',
+                        method: 'GET',
+                    },
+                },
                 // Schedule management (Phase 2)
                 { httpApi: { path: '/admin/scripts/{scriptName}/schedule', method: 'GET' } },
                 { httpApi: { path: '/admin/scripts/{scriptName}/schedule', method: 'PUT' } },
@@ -359,12 +366,16 @@ describe('AdminScriptBuilder', () => {
             expect(result.resources.AdminScriptScheduleGroup).toBeDefined();
             expect(result.resources.AdminScriptScheduleGroup.Type).toBe('AWS::Scheduler::ScheduleGroup');
 
-            // Check for environment variables
+            // Check for environment variables consumed by the router's scheduler adapter
+            expect(result.environment.SCHEDULER_PROVIDER).toBe('aws');
             expect(result.environment.SCHEDULER_ROLE_ARN).toEqual({
                 'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'],
             });
-            expect(result.environment.SCHEDULE_GROUP_NAME).toEqual({
+            expect(result.environment.ADMIN_SCRIPT_SCHEDULE_GROUP).toEqual({
                 Ref: 'AdminScriptScheduleGroup',
+            });
+            expect(result.environment.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN).toEqual({
+                'Fn::GetAtt': ['AdminScriptExecutorLambdaFunction', 'Arn'],
             });
         });
 
@@ -383,7 +394,7 @@ describe('AdminScriptBuilder', () => {
             expect(result.resources.AdminScriptSchedulerRole).toBeUndefined();
             expect(result.resources.AdminScriptScheduleGroup).toBeUndefined();
             expect(result.environment.SCHEDULER_ROLE_ARN).toBeUndefined();
-            expect(result.environment.SCHEDULE_GROUP_NAME).toBeUndefined();
+            expect(result.environment.ADMIN_SCRIPT_SCHEDULE_GROUP).toBeUndefined();
         });
 
         it('should not create scheduler resources when admin config is not provided', async () => {

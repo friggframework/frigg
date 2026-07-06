@@ -31,7 +31,8 @@ describe('DeleteScheduleUseCase', () => {
         it('should delete schedule and cleanup external scheduler', async () => {
             const deletedSchedule = {
                 scriptName: 'test-script',
-                externalScheduleId: 'arn:aws:scheduler:us-east-1:123:schedule/test',
+                externalScheduleId:
+                    'arn:aws:scheduler:us-east-1:123:schedule/test',
             };
 
             mockScriptFactory.has.mockReturnValue(true);
@@ -47,7 +48,9 @@ describe('DeleteScheduleUseCase', () => {
             expect(result.success).toBe(true);
             expect(result.deletedCount).toBe(1);
             expect(result.message).toBe('Schedule override removed');
-            expect(mockSchedulerAdapter.deleteSchedule).toHaveBeenCalledWith('test-script');
+            expect(mockSchedulerAdapter.deleteSchedule).toHaveBeenCalledWith(
+                'test-script'
+            );
         });
 
         it('should not call scheduler when no external rule exists', async () => {
@@ -71,7 +74,8 @@ describe('DeleteScheduleUseCase', () => {
                 deletedCount: 1,
                 deleted: {
                     scriptName: 'test-script',
-                    externalScheduleId: 'arn:aws:scheduler:us-east-1:123:schedule/test',
+                    externalScheduleId:
+                        'arn:aws:scheduler:us-east-1:123:schedule/test',
                 },
             });
             mockSchedulerAdapter.deleteSchedule.mockRejectedValue(
@@ -105,13 +109,17 @@ describe('DeleteScheduleUseCase', () => {
             expect(result.effectiveSchedule.source).toBe('definition');
             expect(result.effectiveSchedule.enabled).toBe(true);
             expect(result.effectiveSchedule.cronExpression).toBe('0 6 * * *');
-            expect(result.effectiveSchedule.timezone).toBe('America/Los_Angeles');
+            expect(result.effectiveSchedule.timezone).toBe(
+                'America/Los_Angeles'
+            );
         });
 
         it('should default timezone to UTC when not in definition', async () => {
             mockScriptFactory.has.mockReturnValue(true);
             mockScriptFactory.get.mockReturnValue({
-                Definition: { schedule: { enabled: true, cronExpression: '0 6 * * *' } },
+                Definition: {
+                    schedule: { enabled: true, cronExpression: '0 6 * * *' },
+                },
             });
             mockCommands.deleteSchedule.mockResolvedValue({
                 deletedCount: 1,
@@ -155,8 +163,9 @@ describe('DeleteScheduleUseCase', () => {
         it('should throw SCRIPT_NOT_FOUND error when script does not exist', async () => {
             mockScriptFactory.has.mockReturnValue(false);
 
-            await expect(useCase.execute('non-existent'))
-                .rejects.toThrow('Script "non-existent" not found');
+            await expect(useCase.execute('non-existent')).rejects.toThrow(
+                'Script "non-existent" not found'
+            );
 
             try {
                 await useCase.execute('non-existent');

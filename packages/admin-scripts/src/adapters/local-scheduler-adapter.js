@@ -33,7 +33,7 @@ class LocalSchedulerAdapter extends SchedulerAdapter {
         });
 
         return {
-            scheduleName: scriptName,
+            scheduleName: `frigg-script-${scriptName}`,
             scheduleArn: `local:schedule:${scriptName}`,
         };
     }
@@ -72,7 +72,7 @@ class LocalSchedulerAdapter extends SchedulerAdapter {
         }
 
         return {
-            Name: scriptName,
+            Name: `frigg-script-${scriptName}`,
             State: schedule.enabled ? 'ENABLED' : 'DISABLED',
             ScheduleExpression: schedule.cronExpression,
             ScheduleExpressionTimezone: schedule.timezone,

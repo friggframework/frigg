@@ -47,10 +47,16 @@ class UpsertScheduleUseCase {
             success: true,
             schedule: {
                 ...schedule,
-                externalScheduleId: schedulerResult.externalScheduleId || schedule.externalScheduleId,
-                externalScheduleName: schedulerResult.externalScheduleName || schedule.externalScheduleName,
+                externalScheduleId:
+                    schedulerResult.externalScheduleId ||
+                    schedule.externalScheduleId,
+                externalScheduleName:
+                    schedulerResult.externalScheduleName ||
+                    schedule.externalScheduleName,
             },
-            ...(schedulerResult.warning && { schedulerWarning: schedulerResult.warning }),
+            ...(schedulerResult.warning && {
+                schedulerWarning: schedulerResult.warning,
+            }),
         };
     }
 
@@ -76,7 +82,9 @@ class UpsertScheduleUseCase {
         }
 
         if (enabled && !cronExpression) {
-            const error = new Error('cronExpression is required when enabled is true');
+            const error = new Error(
+                'cronExpression is required when enabled is true'
+            );
             error.code = 'INVALID_INPUT';
             throw error;
         }
@@ -87,17 +95,28 @@ class UpsertScheduleUseCase {
      * Abstracts AWS EventBridge or other scheduler providers
      * @private
      */
-    async _syncExternalScheduler(scriptName, enabled, cronExpression, timezone, existingId) {
-        const result = { externalScheduleId: null, externalScheduleName: null, warning: null };
+    async _syncExternalScheduler(
+        scriptName,
+        enabled,
+        cronExpression,
+        timezone,
+        existingId
+    ) {
+        const result = {
+            externalScheduleId: null,
+            externalScheduleName: null,
+            warning: null,
+        };
 
         try {
             if (enabled && cronExpression) {
                 // Create/update external schedule
-                const schedulerInfo = await this.schedulerAdapter.createSchedule({
-                    scriptName,
-                    cronExpression,
-                    timezone: timezone || 'UTC',
-                });
+                const schedulerInfo =
+                    await this.schedulerAdapter.createSchedule({
+                        scriptName,
+                        cronExpression,
+                        timezone: timezone || 'UTC',
+                    });
 
                 if (schedulerInfo?.scheduleArn) {
                     await this.commands.updateScheduleExternalInfo(scriptName, {

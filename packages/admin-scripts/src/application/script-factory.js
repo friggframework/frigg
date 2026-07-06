@@ -26,7 +26,9 @@ class ScriptFactory {
      */
     register(ScriptClass) {
         if (!ScriptClass || !ScriptClass.Definition) {
-            throw new Error('Script class must have a static Definition property');
+            throw new Error(
+                'Script class must have a static Definition property'
+            );
         }
 
         const definition = ScriptClass.Definition;

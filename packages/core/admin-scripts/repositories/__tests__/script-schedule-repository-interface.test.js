@@ -31,13 +31,13 @@ describe('ScriptScheduleRepositoryInterface', () => {
             ).rejects.toThrow('Method deleteSchedule must be implemented by subclass');
         });
 
-        it('should throw error when updateScheduleAwsInfo is not implemented', async () => {
+        it('should throw error when updateScheduleExternalInfo is not implemented', async () => {
             await expect(
-                repository.updateScheduleAwsInfo('test-script', {
-                    awsScheduleArn: 'arn:aws:events:us-east-1:123456789012:rule/test-rule',
-                    awsScheduleName: 'test-rule',
+                repository.updateScheduleExternalInfo('test-script', {
+                    externalScheduleId: 'arn:aws:events:us-east-1:123456789012:rule/test-rule',
+                    externalScheduleName: 'test-rule',
                 })
-            ).rejects.toThrow('Method updateScheduleAwsInfo must be implemented by subclass');
+            ).rejects.toThrow('Method updateScheduleExternalInfo must be implemented by subclass');
         });
 
         it('should throw error when updateScheduleLastTriggered is not implemented', async () => {
@@ -72,8 +72,8 @@ describe('ScriptScheduleRepositoryInterface', () => {
                 enabled: true,
                 cronExpression: '0 0 * * *',
                 timezone: 'America/New_York',
-                awsScheduleArn: 'arn:aws:events:us-east-1:123456789012:rule/test',
-                awsScheduleName: 'test-rule',
+                externalScheduleId: 'arn:aws:events:us-east-1:123456789012:rule/test',
+                externalScheduleName: 'test-rule',
             };
 
             await expect(repository.upsertSchedule(params)).rejects.toThrow();
@@ -85,11 +85,11 @@ describe('ScriptScheduleRepositoryInterface', () => {
             ).rejects.toThrow();
         });
 
-        it('should accept scriptName and awsInfo in updateScheduleAwsInfo', async () => {
+        it('should accept scriptName and externalInfo in updateScheduleExternalInfo', async () => {
             await expect(
-                repository.updateScheduleAwsInfo('test-script', {
-                    awsScheduleArn: 'arn:aws:events:us-east-1:123456789012:rule/test',
-                    awsScheduleName: 'test-rule',
+                repository.updateScheduleExternalInfo('test-script', {
+                    externalScheduleId: 'arn:aws:events:us-east-1:123456789012:rule/test',
+                    externalScheduleName: 'test-rule',
                 })
             ).rejects.toThrow();
         });

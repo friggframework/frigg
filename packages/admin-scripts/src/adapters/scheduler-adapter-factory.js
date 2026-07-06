@@ -23,7 +23,9 @@ const { LocalSchedulerAdapter } = require('./local-scheduler-adapter');
  */
 function createSchedulerAdapter(options = {}) {
     if (!options.type) {
-        throw new Error('Scheduler adapter type is required. Configure in appDefinition.adminScripts.scheduler.type');
+        throw new Error(
+            'Scheduler adapter type is required. Configure in appDefinition.adminScripts.scheduler.type'
+        );
     }
 
     switch (options.type.toLowerCase()) {

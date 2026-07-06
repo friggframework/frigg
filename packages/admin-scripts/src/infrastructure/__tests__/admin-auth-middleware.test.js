@@ -1,4 +1,8 @@
+const crypto = require('node:crypto');
 const { validateAdminApiKey } = require('../admin-auth-middleware');
+
+// Generated at runtime so no credential-like literal is committed
+const TEST_ADMIN_KEY = crypto.randomBytes(16).toString('hex');
 
 describe('validateAdminApiKey', () => {
     let mockReq;
@@ -8,7 +12,7 @@ describe('validateAdminApiKey', () => {
 
     beforeEach(() => {
         originalEnv = process.env.ADMIN_API_KEY;
-        process.env.ADMIN_API_KEY = 'test-admin-key-123';
+        process.env.ADMIN_API_KEY = TEST_ADMIN_KEY;
 
         mockReq = {
             headers: {},
@@ -61,7 +65,9 @@ describe('validateAdminApiKey', () => {
 
     describe('API key validation', () => {
         it('should reject request with invalid API key', () => {
-            mockReq.headers['x-frigg-admin-api-key'] = 'invalid-key';
+            mockReq.headers[
+                'x-frigg-admin-api-key'
+            ] = `${TEST_ADMIN_KEY}-wrong`;
 
             validateAdminApiKey(mockReq, mockRes, mockNext);
 
@@ -74,7 +80,7 @@ describe('validateAdminApiKey', () => {
         });
 
         it('should accept request with valid API key', () => {
-            mockReq.headers['x-frigg-admin-api-key'] = 'test-admin-key-123';
+            mockReq.headers['x-frigg-admin-api-key'] = TEST_ADMIN_KEY;
 
             validateAdminApiKey(mockReq, mockRes, mockNext);
 

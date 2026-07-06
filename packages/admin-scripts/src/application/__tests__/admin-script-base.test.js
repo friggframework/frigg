@@ -47,9 +47,13 @@ describe('AdminScriptBase', () => {
 
         it('should have clean display object without redundant fields', () => {
             expect(AdminScriptBase.Definition.display).toBeDefined();
-            expect(AdminScriptBase.Definition.display.category).toBe('maintenance');
+            expect(AdminScriptBase.Definition.display.category).toBe(
+                'maintenance'
+            );
             expect(AdminScriptBase.Definition.display.label).toBeUndefined();
-            expect(AdminScriptBase.Definition.display.description).toBeUndefined();
+            expect(
+                AdminScriptBase.Definition.display.description
+            ).toBeUndefined();
         });
     });
 
@@ -170,7 +174,10 @@ describe('AdminScriptBase', () => {
                     this.context.log('debug', 'Processing', params);
 
                     if (this.integrationFactory) {
-                        this.context.log('info', 'Integration factory available');
+                        this.context.log(
+                            'info',
+                            'Integration factory available'
+                        );
                     }
 
                     return { processed: true };
@@ -190,9 +197,19 @@ describe('AdminScriptBase', () => {
             expect(result).toEqual({ processed: true });
 
             expect(mockContext.log).toHaveBeenCalledTimes(3);
-            expect(mockContext.log).toHaveBeenCalledWith('info', 'Starting execution');
-            expect(mockContext.log).toHaveBeenCalledWith('debug', 'Processing', { test: 'data' });
-            expect(mockContext.log).toHaveBeenCalledWith('info', 'Integration factory available');
+            expect(mockContext.log).toHaveBeenCalledWith(
+                'info',
+                'Starting execution'
+            );
+            expect(mockContext.log).toHaveBeenCalledWith(
+                'debug',
+                'Processing',
+                { test: 'data' }
+            );
+            expect(mockContext.log).toHaveBeenCalledWith(
+                'info',
+                'Integration factory available'
+            );
         });
     });
 });

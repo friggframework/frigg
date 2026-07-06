@@ -6,6 +6,8 @@
  * Expects: x-frigg-admin-api-key header
  */
 
-const { validateAdminApiKey } = require('@friggframework/core/handlers/middleware/admin-auth');
+const {
+    validateAdminApiKey,
+} = require('@friggframework/core/handlers/middleware/admin-auth');
 
 module.exports = { validateAdminApiKey };

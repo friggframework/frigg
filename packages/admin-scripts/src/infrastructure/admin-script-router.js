@@ -3,10 +3,18 @@ const serverless = require('serverless-http');
 const { validateAdminApiKey } = require('./admin-auth-middleware');
 const { getScriptFactory } = require('../application/script-factory');
 const { createScriptRunner } = require('../application/script-runner');
-const { validateScriptInput } = require('../application/validate-script-input');
-const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
+const {
+    validateScriptInput,
+    validateParams,
+} = require('../application/validate-script-input');
+const {
+    createAdminScriptCommands,
+} = require('@friggframework/core/application/commands/admin-script-commands');
 const { QueuerUtil } = require('@friggframework/core/queues');
-const { createSchedulerAdapter } = require('../adapters/scheduler-adapter-factory');
+const {
+    createSchedulerAdapter,
+} = require('../adapters/scheduler-adapter-factory');
+const { bootstrapAdminScripts } = require('./bootstrap');
 const {
     GetEffectiveScheduleUseCase,
     UpsertScheduleUseCase,
@@ -18,14 +26,51 @@ const router = express.Router();
 // Apply auth middleware to all admin routes
 router.use(validateAdminApiKey);
 
+// Register the host app's admin scripts (and built-ins) before handling requests.
+// Memoized, so this only does work on the first request per process.
+router.use((_req, _res, next) => {
+    bootstrapAdminScripts();
+    next();
+});
+
+/**
+ * Build audit metadata for an execution from the request.
+ * @private
+ */
+function buildAudit(req) {
+    const apiKey = req.headers['x-frigg-admin-api-key'];
+    const forwardedFor = (req.headers['x-forwarded-for'] || '')
+        .split(',')[0]
+        .trim();
+    return {
+        ipAddress: forwardedFor || req.ip || null,
+        apiKeyLast4: apiKey ? String(apiKey).slice(-4) : null,
+    };
+}
+
 /**
  * Create schedule use case instances
  * @private
  */
 function createScheduleUseCases() {
     const commands = createAdminScriptCommands();
+
+    // The local adapter is in-memory only (schedules vanish on cold start), so it
+    // must never be the silent default in a deployed Lambda. Require an explicit
+    // provider when running on AWS; fall back to 'local' only for local dev/tests.
+    const schedulerType =
+        process.env.SCHEDULER_PROVIDER ||
+        (process.env.AWS_LAMBDA_FUNCTION_NAME ? null : 'local');
+    if (!schedulerType) {
+        const error = new Error(
+            'SCHEDULER_PROVIDER is not configured. Set it (e.g. "aws") via appDefinition.admin.enableScheduling.'
+        );
+        error.code = 'SCHEDULER_NOT_CONFIGURED';
+        throw error;
+    }
+
     const schedulerAdapter = createSchedulerAdapter({
-        type: process.env.SCHEDULER_PROVIDER || 'local',
+        type: schedulerType,
         targetLambdaArn: process.env.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN,
         scheduleGroupName: process.env.ADMIN_SCRIPT_SCHEDULE_GROUP,
         roleArn: process.env.SCHEDULER_ROLE_ARN,
@@ -33,9 +78,20 @@ function createScheduleUseCases() {
     const scriptFactory = getScriptFactory();
 
     return {
-        getEffectiveSchedule: new GetEffectiveScheduleUseCase({ commands, scriptFactory }),
-        upsertSchedule: new UpsertScheduleUseCase({ commands, schedulerAdapter, scriptFactory }),
-        deleteSchedule: new DeleteScheduleUseCase({ commands, schedulerAdapter, scriptFactory }),
+        getEffectiveSchedule: new GetEffectiveScheduleUseCase({
+            commands,
+            scriptFactory,
+        }),
+        upsertSchedule: new UpsertScheduleUseCase({
+            commands,
+            schedulerAdapter,
+            scriptFactory,
+        }),
+        deleteSchedule: new DeleteScheduleUseCase({
+            commands,
+            schedulerAdapter,
+            scriptFactory,
+        }),
     };
 }
 
@@ -142,11 +198,40 @@ router.post('/scripts/:scriptName', async (req, res) => {
             });
         }
 
+        const definition = factory.get(scriptName).Definition;
+
+        // Fail fast on invalid input instead of starting an execution that will error
+        const validation = validateParams(definition, params);
+        if (!validation.valid) {
+            return res.status(400).json({
+                error: `Invalid input: ${validation.errors.join(', ')}`,
+                code: 'INVALID_INPUT',
+                details: validation.errors,
+            });
+        }
+
+        const audit = buildAudit(req);
+
         if (mode === 'sync') {
-            const runner = createScriptRunner();
+            // Sync runs inside the 30s API Lambda; long scripts must use async
+            const timeout = definition.config?.timeout;
+            if (
+                process.env.AWS_LAMBDA_FUNCTION_NAME &&
+                timeout &&
+                timeout > 25000
+            ) {
+                return res.status(400).json({
+                    error: `Script "${scriptName}" timeout (${timeout}ms) exceeds the sync API limit. Use mode: "async".`,
+                    code: 'SYNC_TIMEOUT_TOO_LONG',
+                });
+            }
+
+            const { integrationFactory } = bootstrapAdminScripts();
+            const runner = createScriptRunner({ integrationFactory });
             const result = await runner.execute(scriptName, params, {
                 trigger: 'MANUAL',
                 mode: 'sync',
+                audit,
             });
             return res.json(result);
         }
@@ -163,11 +248,20 @@ router.post('/scripts/:scriptName', async (req, res) => {
         const commands = createAdminScriptCommands();
         const execution = await commands.createAdminProcess({
             scriptName,
-            scriptVersion: factory.get(scriptName).Definition.version,
+            scriptVersion: definition.version,
             trigger: 'MANUAL',
             mode: 'async',
             input: params,
+            audit,
         });
+
+        // Commands return an error object (never throw) — don't queue a broken execution
+        if (execution.error) {
+            return res.status(execution.error).json({
+                error: execution.reason || 'Failed to create execution record',
+                code: execution.code,
+            });
+        }
 
         // Queue the execution
         await QueuerUtil.send(
@@ -226,10 +320,14 @@ router.get('/scripts/:scriptName/executions', async (req, res) => {
         const { status, limit = 50 } = req.query;
         const commands = createAdminScriptCommands();
 
-        const executions = await commands.findRecentExecutions({
-            scriptName,
-            status,
-            limit: Number.parseInt(limit, 10),
+        const parsedLimit = Number.parseInt(limit, 10);
+        const safeLimit = Number.isNaN(parsedLimit)
+            ? 50
+            : Math.min(Math.max(parsedLimit, 1), 200);
+
+        const executions = await commands.findAdminProcessesByName(scriptName, {
+            limit: safeLimit,
+            ...(status && { state: status }),
         });
 
         res.json({ executions });
@@ -262,6 +360,11 @@ router.get('/scripts/:scriptName/schedule', async (req, res) => {
                 code: error.code,
             });
         }
+        if (error.code === 'SCHEDULER_NOT_CONFIGURED') {
+            return res
+                .status(503)
+                .json({ error: error.message, code: error.code });
+        }
         console.error('Error getting schedule:', error);
         res.status(500).json({ error: 'Failed to get schedule' });
     }
@@ -289,7 +392,9 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
                 source: 'database',
                 ...result.schedule,
             },
-            ...(result.schedulerWarning && { schedulerWarning: result.schedulerWarning }),
+            ...(result.schedulerWarning && {
+                schedulerWarning: result.schedulerWarning,
+            }),
         });
     } catch (error) {
         if (error.code === 'SCRIPT_NOT_FOUND') {
@@ -303,6 +408,11 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
                 error: error.message,
                 code: error.code,
             });
+        }
+        if (error.code === 'SCHEDULER_NOT_CONFIGURED') {
+            return res
+                .status(503)
+                .json({ error: error.message, code: error.code });
         }
         console.error('Error updating schedule:', error);
         res.status(500).json({ error: 'Failed to update schedule' });
@@ -327,6 +437,11 @@ router.delete('/scripts/:scriptName/schedule', async (req, res) => {
                 error: error.message,
                 code: error.code,
             });
+        }
+        if (error.code === 'SCHEDULER_NOT_CONFIGURED') {
+            return res
+                .status(503)
+                .json({ error: error.message, code: error.code });
         }
         console.error('Error deleting schedule:', error);
         res.status(500).json({ error: 'Failed to delete schedule' });

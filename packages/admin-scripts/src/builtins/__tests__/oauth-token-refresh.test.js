@@ -3,10 +3,15 @@ const { OAuthTokenRefreshScript } = require('../oauth-token-refresh');
 describe('OAuthTokenRefreshScript', () => {
     describe('Definition', () => {
         it('should have correct name and metadata', () => {
-            expect(OAuthTokenRefreshScript.Definition.name).toBe('oauth-token-refresh');
+            expect(OAuthTokenRefreshScript.Definition.name).toBe(
+                'oauth-token-refresh'
+            );
             expect(OAuthTokenRefreshScript.Definition.version).toBe('1.0.0');
             expect(OAuthTokenRefreshScript.Definition.source).toBe('BUILTIN');
-            expect(OAuthTokenRefreshScript.Definition.config.requireIntegrationInstance).toBe(true);
+            expect(
+                OAuthTokenRefreshScript.Definition.config
+                    .requireIntegrationInstance
+            ).toBe(true);
         });
 
         it('should have valid input schema', () => {
@@ -27,15 +32,23 @@ describe('OAuthTokenRefreshScript', () => {
         });
 
         it('should have appropriate timeout configuration', () => {
-            expect(OAuthTokenRefreshScript.Definition.config.timeout).toBe(600000); // 10 minutes
+            expect(OAuthTokenRefreshScript.Definition.config.timeout).toBe(
+                600000
+            ); // 10 minutes
         });
 
         it('should have clean display object without redundant fields', () => {
             expect(OAuthTokenRefreshScript.Definition.display).toBeDefined();
-            expect(OAuthTokenRefreshScript.Definition.display.category).toBe('maintenance');
+            expect(OAuthTokenRefreshScript.Definition.display.category).toBe(
+                'maintenance'
+            );
             // Should NOT have redundant label/description
-            expect(OAuthTokenRefreshScript.Definition.display.label).toBeUndefined();
-            expect(OAuthTokenRefreshScript.Definition.display.description).toBeUndefined();
+            expect(
+                OAuthTokenRefreshScript.Definition.display.label
+            ).toBeUndefined();
+            expect(
+                OAuthTokenRefreshScript.Definition.display.description
+            ).toBeUndefined();
         });
     });
 
@@ -56,7 +69,9 @@ describe('OAuthTokenRefreshScript', () => {
         });
 
         it('should return empty results when no integrations found', async () => {
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                []
+            );
 
             const result = await script.execute({});
 
@@ -64,15 +79,21 @@ describe('OAuthTokenRefreshScript', () => {
             expect(result.failed).toBe(0);
             expect(result.skipped).toBe(0);
             expect(result.details).toEqual([]);
-            expect(mockContext.log).toHaveBeenCalledWith('info', expect.any(String), expect.any(Object));
+            expect(mockContext.log).toHaveBeenCalledWith(
+                'info',
+                expect.any(String),
+                expect.any(Object)
+            );
         });
 
         it('should skip integrations without OAuth credentials', async () => {
             const integration = {
                 id: 'int-1',
-                config: {} // No credentials
+                config: {}, // No credentials
             };
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
 
             const result = await script.execute({});
 
@@ -81,7 +102,7 @@ describe('OAuthTokenRefreshScript', () => {
             expect(result.details[0]).toMatchObject({
                 integrationId: 'int-1',
                 action: 'skipped',
-                reason: 'No OAuth credentials found'
+                reason: 'No OAuth credentials found',
             });
         });
 
@@ -90,12 +111,14 @@ describe('OAuthTokenRefreshScript', () => {
                 id: 'int-1',
                 config: {
                     credentials: {
-                        access_token: 'token123'
+                        access_token: 'token123',
                         // No expires_at
-                    }
-                }
+                    },
+                },
             };
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
 
             const result = await script.execute({});
 
@@ -103,7 +126,7 @@ describe('OAuthTokenRefreshScript', () => {
             expect(result.details[0]).toMatchObject({
                 integrationId: 'int-1',
                 action: 'skipped',
-                reason: 'No expiry time found'
+                reason: 'No expiry time found',
             });
         });
 
@@ -114,21 +137,23 @@ describe('OAuthTokenRefreshScript', () => {
                 config: {
                     credentials: {
                         access_token: 'token123',
-                        expires_at: farFutureExpiry.toISOString()
-                    }
-                }
+                        expires_at: farFutureExpiry.toISOString(),
+                    },
+                },
             };
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
 
             const result = await script.execute({
-                expiryThresholdHours: 24
+                expiryThresholdHours: 24,
             });
 
             expect(result.skipped).toBe(1);
             expect(result.details[0]).toMatchObject({
                 integrationId: 'int-1',
                 action: 'skipped',
-                reason: 'Token not near expiry'
+                reason: 'Token not near expiry',
             });
         });
 
@@ -139,32 +164,38 @@ describe('OAuthTokenRefreshScript', () => {
                 config: {
                     credentials: {
                         access_token: 'token123',
-                        expires_at: soonExpiry.toISOString()
-                    }
-                }
+                        expires_at: soonExpiry.toISOString(),
+                    },
+                },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        refreshAccessToken: jest.fn().mockResolvedValue(undefined)
-                    }
-                }
+                        refreshAccessToken: jest
+                            .fn()
+                            .mockResolvedValue(undefined),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
-                expiryThresholdHours: 24
+                expiryThresholdHours: 24,
             });
 
             expect(result.refreshed).toBe(1);
             expect(result.skipped).toBe(0);
-            expect(mockInstance.primary.api.refreshAccessToken).toHaveBeenCalled();
+            expect(
+                mockInstance.primary.api.refreshAccessToken
+            ).toHaveBeenCalled();
             expect(result.details[0]).toMatchObject({
                 integrationId: 'int-1',
-                action: 'refreshed'
+                action: 'refreshed',
             });
         });
 
@@ -175,16 +206,18 @@ describe('OAuthTokenRefreshScript', () => {
                 config: {
                     credentials: {
                         access_token: 'token123',
-                        expires_at: soonExpiry.toISOString()
-                    }
-                }
+                        expires_at: soonExpiry.toISOString(),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
 
             const result = await script.execute({
                 expiryThresholdHours: 24,
-                dryRun: true
+                dryRun: true,
             });
 
             expect(result.refreshed).toBe(0);
@@ -193,7 +226,7 @@ describe('OAuthTokenRefreshScript', () => {
             expect(result.details[0]).toMatchObject({
                 integrationId: 'int-1',
                 action: 'skipped',
-                reason: 'Dry run - would have refreshed'
+                reason: 'Dry run - would have refreshed',
             });
         });
 
@@ -204,24 +237,28 @@ describe('OAuthTokenRefreshScript', () => {
                 config: {
                     credentials: {
                         access_token: 'token123',
-                        expires_at: soonExpiry.toISOString()
-                    }
-                }
+                        expires_at: soonExpiry.toISOString(),
+                    },
+                },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        refreshAccessToken: jest.fn().mockRejectedValue(new Error('API Error'))
-                    }
-                }
+                        refreshAccessToken: jest
+                            .fn()
+                            .mockRejectedValue(new Error('API Error')),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
-                expiryThresholdHours: 24
+                expiryThresholdHours: 24,
             });
 
             expect(result.failed).toBe(1);
@@ -229,7 +266,7 @@ describe('OAuthTokenRefreshScript', () => {
             expect(result.details[0]).toMatchObject({
                 integrationId: 'int-1',
                 action: 'failed',
-                reason: 'API Error'
+                reason: 'API Error',
             });
         });
 
@@ -240,57 +277,67 @@ describe('OAuthTokenRefreshScript', () => {
                 config: {
                     credentials: {
                         access_token: 'token123',
-                        expires_at: soonExpiry.toISOString()
-                    }
-                }
+                        expires_at: soonExpiry.toISOString(),
+                    },
+                },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
                         // No refreshAccessToken method
-                    }
-                }
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
-                expiryThresholdHours: 24
+                expiryThresholdHours: 24,
             });
 
             expect(result.skipped).toBe(1);
             expect(result.details[0]).toMatchObject({
                 integrationId: 'int-1',
                 action: 'skipped',
-                reason: 'API does not support token refresh'
+                reason: 'API does not support token refresh',
             });
         });
 
         it('should filter by specific integration IDs', async () => {
             const integration1 = {
                 id: 'int-1',
-                config: { credentials: { access_token: 'token1' } }
+                config: { credentials: { access_token: 'token1' } },
             };
             const integration2 = {
                 id: 'int-2',
-                config: { credentials: { access_token: 'token2' } }
+                config: { credentials: { access_token: 'token2' } },
             };
 
-            mockContext.integrationRepository.findIntegrationById.mockImplementation((id) => {
-                if (id === 'int-1') return Promise.resolve(integration1);
-                if (id === 'int-2') return Promise.resolve(integration2);
-                return Promise.reject(new Error('Not found'));
-            });
+            mockContext.integrationRepository.findIntegrationById.mockImplementation(
+                (id) => {
+                    if (id === 'int-1') return Promise.resolve(integration1);
+                    if (id === 'int-2') return Promise.resolve(integration2);
+                    return Promise.reject(new Error('Not found'));
+                }
+            );
 
             const result = await script.execute({
-                integrationIds: ['int-1', 'int-2']
+                integrationIds: ['int-1', 'int-2'],
             });
 
-            expect(mockContext.integrationRepository.findIntegrationById).toHaveBeenCalledWith('int-1');
-            expect(mockContext.integrationRepository.findIntegrationById).toHaveBeenCalledWith('int-2');
-            expect(mockContext.integrationRepository.findIntegrations).not.toHaveBeenCalled();
+            expect(
+                mockContext.integrationRepository.findIntegrationById
+            ).toHaveBeenCalledWith('int-1');
+            expect(
+                mockContext.integrationRepository.findIntegrationById
+            ).toHaveBeenCalledWith('int-2');
+            expect(
+                mockContext.integrationRepository.findIntegrations
+            ).not.toHaveBeenCalled();
             expect(result.details).toHaveLength(2);
         });
 
@@ -300,23 +347,29 @@ describe('OAuthTokenRefreshScript', () => {
                 config: {
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
-                    }
-                }
+                        expires_at: new Date(
+                            Date.now() + 12 * 60 * 60 * 1000
+                        ).toISOString(),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
-            mockContext.instantiate.mockRejectedValue(new Error('Instantiation failed'));
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
+            mockContext.instantiate.mockRejectedValue(
+                new Error('Instantiation failed')
+            );
 
             const result = await script.execute({
-                expiryThresholdHours: 24
+                expiryThresholdHours: 24,
             });
 
             expect(result.failed).toBe(1);
             expect(result.details[0]).toMatchObject({
                 integrationId: 'int-1',
                 action: 'failed',
-                reason: 'Instantiation failed'
+                reason: 'Instantiation failed',
             });
         });
     });
@@ -338,12 +391,12 @@ describe('OAuthTokenRefreshScript', () => {
             // This test validates the method can be called directly
             const integration = {
                 id: 'int-1',
-                config: {}
+                config: {},
             };
 
             const result = await script.processIntegration(integration, {
                 expiryThresholdHours: 24,
-                dryRun: false
+                dryRun: false,
             });
 
             expect(result).toHaveProperty('integrationId');

@@ -9,17 +9,33 @@ jest.mock('@aws-sdk/client-scheduler', () => {
         SchedulerClient: jest.fn(() => ({
             send: mockSend,
         })),
-        CreateScheduleCommand: jest.fn((params) => ({ _type: 'CreateScheduleCommand', params })),
-        DeleteScheduleCommand: jest.fn((params) => ({ _type: 'DeleteScheduleCommand', params })),
-        GetScheduleCommand: jest.fn((params) => ({ _type: 'GetScheduleCommand', params })),
-        UpdateScheduleCommand: jest.fn((params) => ({ _type: 'UpdateScheduleCommand', params })),
-        ListSchedulesCommand: jest.fn((params) => ({ _type: 'ListSchedulesCommand', params })),
+        CreateScheduleCommand: jest.fn((params) => ({
+            _type: 'CreateScheduleCommand',
+            params,
+        })),
+        DeleteScheduleCommand: jest.fn((params) => ({
+            _type: 'DeleteScheduleCommand',
+            params,
+        })),
+        GetScheduleCommand: jest.fn((params) => ({
+            _type: 'GetScheduleCommand',
+            params,
+        })),
+        UpdateScheduleCommand: jest.fn((params) => ({
+            _type: 'UpdateScheduleCommand',
+            params,
+        })),
+        ListSchedulesCommand: jest.fn((params) => ({
+            _type: 'ListSchedulesCommand',
+            params,
+        })),
         _mockSend: mockSend,
     };
 });
 
 const defaultParams = {
-    targetLambdaArn: 'arn:aws:lambda:us-east-1:123456789012:function:admin-script-executor',
+    targetLambdaArn:
+        'arn:aws:lambda:us-east-1:123456789012:function:admin-script-executor',
     scheduleGroupName: 'frigg-admin-scripts',
     roleArn: 'arn:aws:iam::123456789012:role/test-role',
 };
@@ -57,50 +73,70 @@ describe('AWSSchedulerAdapter', () => {
         it('should use provided configuration and AWS_REGION from env', () => {
             process.env.AWS_REGION = 'eu-west-1';
             const customAdapter = new AWSSchedulerAdapter({
-                targetLambdaArn: 'arn:aws:lambda:eu-west-1:123456789012:function:custom',
+                targetLambdaArn:
+                    'arn:aws:lambda:eu-west-1:123456789012:function:custom',
                 scheduleGroupName: 'custom-group',
                 roleArn: 'arn:aws:iam::123456789012:role/custom-role',
             });
 
             expect(customAdapter.region).toBe('eu-west-1');
-            expect(customAdapter.targetLambdaArn).toBe('arn:aws:lambda:eu-west-1:123456789012:function:custom');
+            expect(customAdapter.targetLambdaArn).toBe(
+                'arn:aws:lambda:eu-west-1:123456789012:function:custom'
+            );
             expect(customAdapter.scheduleGroupName).toBe('custom-group');
-            expect(customAdapter.roleArn).toBe('arn:aws:iam::123456789012:role/custom-role');
+            expect(customAdapter.roleArn).toBe(
+                'arn:aws:iam::123456789012:role/custom-role'
+            );
         });
 
         it('should throw if AWS_REGION is not set', () => {
             delete process.env.AWS_REGION;
-            expect(() => new AWSSchedulerAdapter({
-                ...defaultParams,
-            })).toThrow('AWSSchedulerAdapter requires AWS_REGION environment variable');
+            expect(
+                () =>
+                    new AWSSchedulerAdapter({
+                        ...defaultParams,
+                    })
+            ).toThrow(
+                'AWSSchedulerAdapter requires AWS_REGION environment variable'
+            );
         });
 
         it('should throw if targetLambdaArn is missing', () => {
-            expect(() => new AWSSchedulerAdapter({
-                scheduleGroupName: defaultParams.scheduleGroupName,
-                roleArn: defaultParams.roleArn,
-            })).toThrow('AWSSchedulerAdapter requires targetLambdaArn');
+            expect(
+                () =>
+                    new AWSSchedulerAdapter({
+                        scheduleGroupName: defaultParams.scheduleGroupName,
+                        roleArn: defaultParams.roleArn,
+                    })
+            ).toThrow('AWSSchedulerAdapter requires targetLambdaArn');
         });
 
         it('should throw if scheduleGroupName is missing', () => {
-            expect(() => new AWSSchedulerAdapter({
-                targetLambdaArn: defaultParams.targetLambdaArn,
-                roleArn: defaultParams.roleArn,
-            })).toThrow('AWSSchedulerAdapter requires scheduleGroupName');
+            expect(
+                () =>
+                    new AWSSchedulerAdapter({
+                        targetLambdaArn: defaultParams.targetLambdaArn,
+                        roleArn: defaultParams.roleArn,
+                    })
+            ).toThrow('AWSSchedulerAdapter requires scheduleGroupName');
         });
 
         it('should throw if roleArn is missing', () => {
-            expect(() => new AWSSchedulerAdapter({
-                targetLambdaArn: defaultParams.targetLambdaArn,
-                scheduleGroupName: defaultParams.scheduleGroupName,
-            })).toThrow('AWSSchedulerAdapter requires roleArn');
+            expect(
+                () =>
+                    new AWSSchedulerAdapter({
+                        targetLambdaArn: defaultParams.targetLambdaArn,
+                        scheduleGroupName: defaultParams.scheduleGroupName,
+                    })
+            ).toThrow('AWSSchedulerAdapter requires roleArn');
         });
     });
 
     describe('createSchedule()', () => {
         it('should create a schedule with required fields', async () => {
             mockSend.mockResolvedValue({
-                ScheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                ScheduleArn:
+                    'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
             });
 
             const result = await adapter.createSchedule({
@@ -109,7 +145,8 @@ describe('AWSSchedulerAdapter', () => {
             });
 
             expect(result).toEqual({
-                scheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                scheduleArn:
+                    'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
                 scheduleName: 'frigg-script-test-script',
             });
 
@@ -123,7 +160,8 @@ describe('AWSSchedulerAdapter', () => {
 
         it('should create a schedule with all optional fields', async () => {
             mockSend.mockResolvedValue({
-                ScheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                ScheduleArn:
+                    'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
             });
 
             await adapter.createSchedule({
@@ -134,7 +172,9 @@ describe('AWSSchedulerAdapter', () => {
             });
 
             const command = mockSend.mock.calls[0][0];
-            expect(command.params.ScheduleExpressionTimezone).toBe('America/New_York');
+            expect(command.params.ScheduleExpressionTimezone).toBe(
+                'America/New_York'
+            );
 
             const targetInput = JSON.parse(command.params.Target.Input);
             expect(targetInput).toEqual({
@@ -146,7 +186,8 @@ describe('AWSSchedulerAdapter', () => {
 
         it('should configure target with Lambda ARN and constructor roleArn', async () => {
             mockSend.mockResolvedValue({
-                ScheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                ScheduleArn:
+                    'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
             });
 
             await adapter.createSchedule({
@@ -155,19 +196,25 @@ describe('AWSSchedulerAdapter', () => {
             });
 
             const command = mockSend.mock.calls[0][0];
-            expect(command.params.Target.Arn).toBe('arn:aws:lambda:us-east-1:123456789012:function:admin-script-executor');
-            expect(command.params.Target.RoleArn).toBe('arn:aws:iam::123456789012:role/test-role');
+            expect(command.params.Target.Arn).toBe(
+                'arn:aws:lambda:us-east-1:123456789012:function:admin-script-executor'
+            );
+            expect(command.params.Target.RoleArn).toBe(
+                'arn:aws:iam::123456789012:role/test-role'
+            );
         });
 
         it('should use roleArn from constructor, not process.env', async () => {
-            const customRoleArn = 'arn:aws:iam::999999999999:role/custom-scheduler-role';
+            const customRoleArn =
+                'arn:aws:iam::999999999999:role/custom-scheduler-role';
             const customAdapter = new AWSSchedulerAdapter({
                 ...defaultParams,
                 roleArn: customRoleArn,
             });
 
             mockSend.mockResolvedValue({
-                ScheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                ScheduleArn:
+                    'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
             });
 
             await customAdapter.createSchedule({
@@ -181,7 +228,8 @@ describe('AWSSchedulerAdapter', () => {
 
         it('should enable schedule by default', async () => {
             mockSend.mockResolvedValue({
-                ScheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                ScheduleArn:
+                    'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
             });
 
             await adapter.createSchedule({
@@ -195,7 +243,8 @@ describe('AWSSchedulerAdapter', () => {
 
         it('should set flexible time window to OFF', async () => {
             mockSend.mockResolvedValue({
-                ScheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                ScheduleArn:
+                    'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
             });
 
             await adapter.createSchedule({
@@ -214,7 +263,8 @@ describe('AWSSchedulerAdapter', () => {
             mockSend
                 .mockRejectedValueOnce(conflictError)
                 .mockResolvedValueOnce({
-                    ScheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                    ScheduleArn:
+                        'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
                 });
 
             const result = await adapter.createSchedule({
@@ -223,13 +273,18 @@ describe('AWSSchedulerAdapter', () => {
             });
 
             expect(result).toEqual({
-                scheduleArn: 'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
+                scheduleArn:
+                    'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-script-test-script',
                 scheduleName: 'frigg-script-test-script',
             });
 
             expect(mockSend).toHaveBeenCalledTimes(2);
-            expect(mockSend.mock.calls[0][0]._type).toBe('CreateScheduleCommand');
-            expect(mockSend.mock.calls[1][0]._type).toBe('UpdateScheduleCommand');
+            expect(mockSend.mock.calls[0][0]._type).toBe(
+                'CreateScheduleCommand'
+            );
+            expect(mockSend.mock.calls[1][0]._type).toBe(
+                'UpdateScheduleCommand'
+            );
         });
 
         it('should rethrow non-conflict errors', async () => {
@@ -238,10 +293,12 @@ describe('AWSSchedulerAdapter', () => {
 
             mockSend.mockRejectedValue(otherError);
 
-            await expect(adapter.createSchedule({
-                scriptName: 'test-script',
-                cronExpression: 'cron(0 0 * * ? *)',
-            })).rejects.toThrow('Access denied');
+            await expect(
+                adapter.createSchedule({
+                    scriptName: 'test-script',
+                    cronExpression: 'cron(0 0 * * ? *)',
+                })
+            ).rejects.toThrow('Access denied');
         });
     });
 
@@ -304,9 +361,13 @@ describe('AWSSchedulerAdapter', () => {
             await adapter.setScheduleEnabled('test-script', false);
 
             const updateCommand = mockSend.mock.calls[1][0];
-            expect(updateCommand.params.ScheduleExpression).toBe('cron(0 0 * * ? *)');
+            expect(updateCommand.params.ScheduleExpression).toBe(
+                'cron(0 0 * * ? *)'
+            );
             expect(updateCommand.params.ScheduleExpressionTimezone).toBe('UTC');
-            expect(updateCommand.params.FlexibleTimeWindow).toEqual({ Mode: 'OFF' });
+            expect(updateCommand.params.FlexibleTimeWindow).toEqual({
+                Mode: 'OFF',
+            });
             expect(updateCommand.params.Target).toBeDefined();
         });
     });

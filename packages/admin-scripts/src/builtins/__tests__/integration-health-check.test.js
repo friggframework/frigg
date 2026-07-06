@@ -3,10 +3,19 @@ const { IntegrationHealthCheckScript } = require('../integration-health-check');
 describe('IntegrationHealthCheckScript', () => {
     describe('Definition', () => {
         it('should have correct name and metadata', () => {
-            expect(IntegrationHealthCheckScript.Definition.name).toBe('integration-health-check');
-            expect(IntegrationHealthCheckScript.Definition.version).toBe('1.0.0');
-            expect(IntegrationHealthCheckScript.Definition.source).toBe('BUILTIN');
-            expect(IntegrationHealthCheckScript.Definition.config.requireIntegrationInstance).toBe(true);
+            expect(IntegrationHealthCheckScript.Definition.name).toBe(
+                'integration-health-check'
+            );
+            expect(IntegrationHealthCheckScript.Definition.version).toBe(
+                '1.0.0'
+            );
+            expect(IntegrationHealthCheckScript.Definition.source).toBe(
+                'BUILTIN'
+            );
+            expect(
+                IntegrationHealthCheckScript.Definition.config
+                    .requireIntegrationInstance
+            ).toBe(true);
         });
 
         it('should have valid input schema', () => {
@@ -35,12 +44,16 @@ describe('IntegrationHealthCheckScript', () => {
         });
 
         it('should have appropriate timeout configuration', () => {
-            expect(IntegrationHealthCheckScript.Definition.config.timeout).toBe(900000); // 15 minutes
+            expect(IntegrationHealthCheckScript.Definition.config.timeout).toBe(
+                900000
+            ); // 15 minutes
         });
 
         it('should have clean display object', () => {
             // Display should only have UI-specific fields
-            expect(IntegrationHealthCheckScript.Definition.display.category).toBe('maintenance');
+            expect(
+                IntegrationHealthCheckScript.Definition.display.category
+            ).toBe('maintenance');
             // Should NOT have redundant label/description - they're derived from top-level
         });
     });
@@ -63,7 +76,9 @@ describe('IntegrationHealthCheckScript', () => {
         });
 
         it('should return empty results when no integrations found', async () => {
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                []
+            );
 
             const result = await script.execute({});
 
@@ -80,25 +95,31 @@ describe('IntegrationHealthCheckScript', () => {
                     type: 'hubspot',
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                    }
-                }
+                        expires_at: new Date(
+                            Date.now() + 24 * 60 * 60 * 1000
+                        ).toISOString(),
+                    },
+                },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        getAuthenticationInfo: jest.fn().mockResolvedValue({ user: 'test' })
-                    }
-                }
+                        getAuthenticationInfo: jest
+                            .fn()
+                            .mockResolvedValue({ user: 'test' }),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
                 checkCredentials: true,
-                checkConnectivity: true
+                checkConnectivity: true,
             });
 
             expect(result.healthy).toBe(1);
@@ -106,9 +127,11 @@ describe('IntegrationHealthCheckScript', () => {
             expect(result.results[0]).toMatchObject({
                 integrationId: 'int-1',
                 status: 'healthy',
-                issues: []
+                issues: [],
             });
-            expect(mockInstance.primary.api.getAuthenticationInfo).toHaveBeenCalled();
+            expect(
+                mockInstance.primary.api.getAuthenticationInfo
+            ).toHaveBeenCalled();
         });
 
         it('should return unhealthy for missing access token', async () => {
@@ -116,15 +139,17 @@ describe('IntegrationHealthCheckScript', () => {
                 id: 'int-1',
                 config: {
                     type: 'hubspot',
-                    credentials: {} // No access_token
-                }
+                    credentials: {}, // No access_token
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
 
             const result = await script.execute({
                 checkCredentials: true,
-                checkConnectivity: false
+                checkConnectivity: false,
             });
 
             expect(result.healthy).toBe(0);
@@ -132,7 +157,7 @@ describe('IntegrationHealthCheckScript', () => {
             expect(result.results[0]).toMatchObject({
                 integrationId: 'int-1',
                 status: 'unhealthy',
-                issues: ['Missing access token']
+                issues: ['Missing access token'],
             });
         });
 
@@ -144,23 +169,25 @@ describe('IntegrationHealthCheckScript', () => {
                     type: 'hubspot',
                     credentials: {
                         access_token: 'token123',
-                        expires_at: pastDate.toISOString()
-                    }
-                }
+                        expires_at: pastDate.toISOString(),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
 
             const result = await script.execute({
                 checkCredentials: true,
-                checkConnectivity: false
+                checkConnectivity: false,
             });
 
             expect(result.unhealthy).toBe(1);
             expect(result.results[0]).toMatchObject({
                 integrationId: 'int-1',
                 status: 'unhealthy',
-                issues: ['Access token expired']
+                issues: ['Access token expired'],
             });
         });
 
@@ -171,30 +198,38 @@ describe('IntegrationHealthCheckScript', () => {
                     type: 'hubspot',
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                    }
-                }
+                        expires_at: new Date(
+                            Date.now() + 24 * 60 * 60 * 1000
+                        ).toISOString(),
+                    },
+                },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        getAuthenticationInfo: jest.fn().mockRejectedValue(new Error('Network error'))
-                    }
-                }
+                        getAuthenticationInfo: jest
+                            .fn()
+                            .mockRejectedValue(new Error('Network error')),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
                 checkCredentials: true,
-                checkConnectivity: true
+                checkConnectivity: true,
             });
 
             expect(result.unhealthy).toBe(1);
             expect(result.results[0].status).toBe('unhealthy');
-            expect(result.results[0].issues).toContainEqual(expect.stringContaining('API connectivity failed'));
+            expect(result.results[0].issues).toContainEqual(
+                expect.stringContaining('API connectivity failed')
+            );
         });
 
         it('should update integration status when updateStatus is true', async () => {
@@ -204,31 +239,41 @@ describe('IntegrationHealthCheckScript', () => {
                     type: 'hubspot',
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                    }
-                }
+                        expires_at: new Date(
+                            Date.now() + 24 * 60 * 60 * 1000
+                        ).toISOString(),
+                    },
+                },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        getAuthenticationInfo: jest.fn().mockResolvedValue({ user: 'test' })
-                    }
-                }
+                        getAuthenticationInfo: jest
+                            .fn()
+                            .mockResolvedValue({ user: 'test' }),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
             mockContext.instantiate.mockResolvedValue(mockInstance);
-            mockContext.integrationRepository.updateIntegrationStatus.mockResolvedValue(undefined);
+            mockContext.integrationRepository.updateIntegrationStatus.mockResolvedValue(
+                undefined
+            );
 
             const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: true,
-                updateStatus: true
+                updateStatus: true,
             });
 
             expect(result.healthy).toBe(1);
-            expect(mockContext.integrationRepository.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ACTIVE');
+            expect(
+                mockContext.integrationRepository.updateIntegrationStatus
+            ).toHaveBeenCalledWith('int-1', 'ACTIVE');
         });
 
         it('should update integration status to ERROR for unhealthy integrations', async () => {
@@ -236,21 +281,27 @@ describe('IntegrationHealthCheckScript', () => {
                 id: 'int-1',
                 config: {
                     type: 'hubspot',
-                    credentials: {} // Missing credentials
-                }
+                    credentials: {}, // Missing credentials
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
-            mockContext.integrationRepository.updateIntegrationStatus.mockResolvedValue(undefined);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
+            mockContext.integrationRepository.updateIntegrationStatus.mockResolvedValue(
+                undefined
+            );
 
             const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: false,
-                updateStatus: true
+                updateStatus: true,
             });
 
             expect(result.unhealthy).toBe(1);
-            expect(mockContext.integrationRepository.updateIntegrationStatus).toHaveBeenCalledWith('int-1', 'ERROR');
+            expect(
+                mockContext.integrationRepository.updateIntegrationStatus
+            ).toHaveBeenCalledWith('int-1', 'ERROR');
         });
 
         it('should not update status when updateStatus is false', async () => {
@@ -260,29 +311,37 @@ describe('IntegrationHealthCheckScript', () => {
                     type: 'hubspot',
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                    }
-                }
+                        expires_at: new Date(
+                            Date.now() + 24 * 60 * 60 * 1000
+                        ).toISOString(),
+                    },
+                },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        getAuthenticationInfo: jest.fn().mockResolvedValue({ user: 'test' })
-                    }
-                }
+                        getAuthenticationInfo: jest
+                            .fn()
+                            .mockResolvedValue({ user: 'test' }),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             await script.execute({
                 checkCredentials: true,
                 checkConnectivity: true,
-                updateStatus: false
+                updateStatus: false,
             });
 
-            expect(mockContext.integrationRepository.updateIntegrationStatus).not.toHaveBeenCalled();
+            expect(
+                mockContext.integrationRepository.updateIntegrationStatus
+            ).not.toHaveBeenCalled();
         });
 
         it('should handle status update failures gracefully', async () => {
@@ -292,27 +351,35 @@ describe('IntegrationHealthCheckScript', () => {
                     type: 'hubspot',
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                    }
-                }
+                        expires_at: new Date(
+                            Date.now() + 24 * 60 * 60 * 1000
+                        ).toISOString(),
+                    },
+                },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        getAuthenticationInfo: jest.fn().mockResolvedValue({ user: 'test' })
-                    }
-                }
+                        getAuthenticationInfo: jest
+                            .fn()
+                            .mockResolvedValue({ user: 'test' }),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
             mockContext.instantiate.mockResolvedValue(mockInstance);
-            mockContext.integrationRepository.updateIntegrationStatus.mockRejectedValue(new Error('Update failed'));
+            mockContext.integrationRepository.updateIntegrationStatus.mockRejectedValue(
+                new Error('Update failed')
+            );
 
             const result = await script.execute({
                 checkCredentials: true,
                 checkConnectivity: true,
-                updateStatus: true
+                updateStatus: true,
             });
 
             expect(result.healthy).toBe(1); // Should still report healthy
@@ -326,28 +393,42 @@ describe('IntegrationHealthCheckScript', () => {
         it('should filter by specific integration IDs', async () => {
             const integration1 = {
                 id: 'int-1',
-                config: { type: 'hubspot', credentials: { access_token: 'token1' } }
+                config: {
+                    type: 'hubspot',
+                    credentials: { access_token: 'token1' },
+                },
             };
             const integration2 = {
                 id: 'int-2',
-                config: { type: 'salesforce', credentials: { access_token: 'token2' } }
+                config: {
+                    type: 'salesforce',
+                    credentials: { access_token: 'token2' },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrationById.mockImplementation((id) => {
-                if (id === 'int-1') return Promise.resolve(integration1);
-                if (id === 'int-2') return Promise.resolve(integration2);
-                return Promise.reject(new Error('Not found'));
-            });
+            mockContext.integrationRepository.findIntegrationById.mockImplementation(
+                (id) => {
+                    if (id === 'int-1') return Promise.resolve(integration1);
+                    if (id === 'int-2') return Promise.resolve(integration2);
+                    return Promise.reject(new Error('Not found'));
+                }
+            );
 
             const result = await script.execute({
                 integrationIds: ['int-1', 'int-2'],
                 checkCredentials: true,
-                checkConnectivity: false
+                checkConnectivity: false,
             });
 
-            expect(mockContext.integrationRepository.findIntegrationById).toHaveBeenCalledWith('int-1');
-            expect(mockContext.integrationRepository.findIntegrationById).toHaveBeenCalledWith('int-2');
-            expect(mockContext.integrationRepository.findIntegrations).not.toHaveBeenCalled();
+            expect(
+                mockContext.integrationRepository.findIntegrationById
+            ).toHaveBeenCalledWith('int-1');
+            expect(
+                mockContext.integrationRepository.findIntegrationById
+            ).toHaveBeenCalledWith('int-2');
+            expect(
+                mockContext.integrationRepository.findIntegrations
+            ).not.toHaveBeenCalled();
             expect(result.results).toHaveLength(2);
         });
 
@@ -358,17 +439,23 @@ describe('IntegrationHealthCheckScript', () => {
                     type: 'hubspot',
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                    }
-                }
+                        expires_at: new Date(
+                            Date.now() + 24 * 60 * 60 * 1000
+                        ).toISOString(),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
-            mockContext.instantiate.mockRejectedValue(new Error('Instantiation failed'));
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
+            mockContext.instantiate.mockRejectedValue(
+                new Error('Instantiation failed')
+            );
 
             const result = await script.execute({
                 checkCredentials: true,
-                checkConnectivity: true
+                checkConnectivity: true,
             });
 
             // Should still complete but mark as unknown or unhealthy
@@ -381,24 +468,28 @@ describe('IntegrationHealthCheckScript', () => {
                 id: 'int-1',
                 config: {
                     type: 'hubspot',
-                    credentials: {} // Missing credentials, but check is disabled
-                }
+                    credentials: {}, // Missing credentials, but check is disabled
+                },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        getAuthenticationInfo: jest.fn().mockResolvedValue({ user: 'test' })
-                    }
-                }
+                        getAuthenticationInfo: jest
+                            .fn()
+                            .mockResolvedValue({ user: 'test' }),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
             mockContext.instantiate.mockResolvedValue(mockInstance);
 
             const result = await script.execute({
                 checkCredentials: false,
-                checkConnectivity: true
+                checkConnectivity: true,
             });
 
             expect(result.results[0].checks.credentials).toBeUndefined();
@@ -412,16 +503,20 @@ describe('IntegrationHealthCheckScript', () => {
                     type: 'hubspot',
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                    }
-                }
+                        expires_at: new Date(
+                            Date.now() + 24 * 60 * 60 * 1000
+                        ).toISOString(),
+                    },
+                },
             };
 
-            mockContext.integrationRepository.findIntegrations.mockResolvedValue([integration]);
+            mockContext.integrationRepository.findIntegrations.mockResolvedValue(
+                [integration]
+            );
 
             const result = await script.execute({
                 checkCredentials: true,
-                checkConnectivity: false
+                checkConnectivity: false,
             });
 
             expect(result.results[0].checks.credentials).toBeDefined();
@@ -434,7 +529,9 @@ describe('IntegrationHealthCheckScript', () => {
         let script;
 
         beforeEach(() => {
-            script = new IntegrationHealthCheckScript({ context: { log: jest.fn() } });
+            script = new IntegrationHealthCheckScript({
+                context: { log: jest.fn() },
+            });
         });
 
         it('should return valid for integrations with valid credentials', () => {
@@ -443,9 +540,11 @@ describe('IntegrationHealthCheckScript', () => {
                 config: {
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                    }
-                }
+                        expires_at: new Date(
+                            Date.now() + 24 * 60 * 60 * 1000
+                        ).toISOString(),
+                    },
+                },
             };
 
             const result = script.checkCredentialValidity(integration);
@@ -458,8 +557,8 @@ describe('IntegrationHealthCheckScript', () => {
             const integration = {
                 id: 'int-1',
                 config: {
-                    credentials: {}
-                }
+                    credentials: {},
+                },
             };
 
             const result = script.checkCredentialValidity(integration);
@@ -474,9 +573,9 @@ describe('IntegrationHealthCheckScript', () => {
                 config: {
                     credentials: {
                         access_token: 'token123',
-                        expires_at: new Date(Date.now() - 1000).toISOString() // Expired
-                    }
-                }
+                        expires_at: new Date(Date.now() - 1000).toISOString(), // Expired
+                    },
+                },
             };
 
             const result = script.checkCredentialValidity(integration);
@@ -490,10 +589,10 @@ describe('IntegrationHealthCheckScript', () => {
                 id: 'int-1',
                 config: {
                     credentials: {
-                        access_token: 'token123'
+                        access_token: 'token123',
                         // No expires_at
-                    }
-                }
+                    },
+                },
             };
 
             const result = script.checkCredentialValidity(integration);
@@ -518,15 +617,17 @@ describe('IntegrationHealthCheckScript', () => {
         it('should return valid for successful API calls', async () => {
             const integration = {
                 id: 'int-1',
-                config: { type: 'hubspot' }
+                config: { type: 'hubspot' },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        getAuthenticationInfo: jest.fn().mockResolvedValue({ user: 'test' })
-                    }
-                }
+                        getAuthenticationInfo: jest
+                            .fn()
+                            .mockResolvedValue({ user: 'test' }),
+                    },
+                },
             };
 
             mockContext.instantiate.mockResolvedValue(mockInstance);
@@ -541,15 +642,17 @@ describe('IntegrationHealthCheckScript', () => {
         it('should try getCurrentUser if getAuthenticationInfo is not available', async () => {
             const integration = {
                 id: 'int-1',
-                config: { type: 'hubspot' }
+                config: { type: 'hubspot' },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        getCurrentUser: jest.fn().mockResolvedValue({ user: 'test' })
-                    }
-                }
+                        getCurrentUser: jest
+                            .fn()
+                            .mockResolvedValue({ user: 'test' }),
+                    },
+                },
             };
 
             mockContext.instantiate.mockResolvedValue(mockInstance);
@@ -563,13 +666,13 @@ describe('IntegrationHealthCheckScript', () => {
         it('should return note when no health check endpoint is available', async () => {
             const integration = {
                 id: 'int-1',
-                config: { type: 'hubspot' }
+                config: { type: 'hubspot' },
             };
 
             const mockInstance = {
                 primary: {
-                    api: {} // No health check methods
-                }
+                    api: {}, // No health check methods
+                },
             };
 
             mockContext.instantiate.mockResolvedValue(mockInstance);
@@ -584,15 +687,17 @@ describe('IntegrationHealthCheckScript', () => {
         it('should return invalid for API failures', async () => {
             const integration = {
                 id: 'int-1',
-                config: { type: 'hubspot' }
+                config: { type: 'hubspot' },
             };
 
             const mockInstance = {
                 primary: {
                     api: {
-                        getAuthenticationInfo: jest.fn().mockRejectedValue(new Error('Network error'))
-                    }
-                }
+                        getAuthenticationInfo: jest
+                            .fn()
+                            .mockRejectedValue(new Error('Network error')),
+                    },
+                },
             };
 
             mockContext.instantiate.mockResolvedValue(mockInstance);

@@ -140,11 +140,18 @@ class AdminScriptBuilder extends InfrastructureBuilder {
                 // Get script details
                 { httpApi: { path: '/admin/scripts/{scriptName}', method: 'GET' } },
                 // Execute script (sync or async)
-                { httpApi: { path: '/admin/scripts/{scriptName}/execute', method: 'POST' } },
-                // Get execution status
-                { httpApi: { path: '/admin/executions/{executionId}', method: 'GET' } },
-                // List executions
-                { httpApi: { path: '/admin/executions', method: 'GET' } },
+                { httpApi: { path: '/admin/scripts/{scriptName}', method: 'POST' } },
+                // Validate script input (dry-run preview)
+                { httpApi: { path: '/admin/scripts/{scriptName}/validate', method: 'POST' } },
+                // List executions for a script
+                { httpApi: { path: '/admin/scripts/{scriptName}/executions', method: 'GET' } },
+                // Get a single execution
+                {
+                    httpApi: {
+                        path: '/admin/scripts/{scriptName}/executions/{executionId}',
+                        method: 'GET',
+                    },
+                },
                 // Schedule management (Phase 2)
                 { httpApi: { path: '/admin/scripts/{scriptName}/schedule', method: 'GET' } },
                 { httpApi: { path: '/admin/scripts/{scriptName}/schedule', method: 'PUT' } },
@@ -190,8 +197,14 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             },
         };
 
+        // Env vars consumed by the admin-script router when building the AWS
+        // scheduler adapter. Names must match admin-script-router.js exactly.
+        result.environment.SCHEDULER_PROVIDER = 'aws';
         result.environment.SCHEDULER_ROLE_ARN = { 'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'] };
-        result.environment.SCHEDULE_GROUP_NAME = { Ref: 'AdminScriptScheduleGroup' };
+        result.environment.ADMIN_SCRIPT_SCHEDULE_GROUP = { Ref: 'AdminScriptScheduleGroup' };
+        result.environment.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN = {
+            'Fn::GetAtt': ['AdminScriptExecutorLambdaFunction', 'Arn'],
+        };
 
         console.log('  ✓ Created EventBridge Scheduler resources');
     }

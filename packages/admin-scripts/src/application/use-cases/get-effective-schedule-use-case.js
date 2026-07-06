@@ -23,7 +23,9 @@ class GetEffectiveScheduleUseCase {
         this._validateScriptExists(scriptName);
 
         // Priority 1: Database override
-        const dbSchedule = await this.commands.getScheduleByScriptName(scriptName);
+        const dbSchedule = await this.commands.getScheduleByScriptName(
+            scriptName
+        );
         if (dbSchedule) {
             return {
                 source: 'database',

@@ -21,24 +21,25 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
                 integrationIds: {
                     type: 'array',
                     items: { type: 'string' },
-                    description: 'Specific integration IDs to check (optional, defaults to all)'
+                    description:
+                        'Specific integration IDs to check (optional, defaults to all)',
                 },
                 checkCredentials: {
                     type: 'boolean',
                     default: true,
-                    description: 'Verify credential validity'
+                    description: 'Verify credential validity',
                 },
                 checkConnectivity: {
                     type: 'boolean',
                     default: true,
-                    description: 'Test API connectivity'
+                    description: 'Test API connectivity',
                 },
                 updateStatus: {
                     type: 'boolean',
                     default: false,
-                    description: 'Update integration status based on health'
-                }
-            }
+                    description: 'Update integration status based on health',
+                },
+            },
         },
 
         outputSchema: {
@@ -47,18 +48,17 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
                 healthy: { type: 'number' },
                 unhealthy: { type: 'number' },
                 unknown: { type: 'number' },
-                results: { type: 'array' }
-            }
+                results: { type: 'array' },
+            },
         },
 
         config: {
             timeout: 900000, // 15 minutes
-            maxRetries: 0,
             requireIntegrationInstance: true,
         },
 
         schedule: {
-            enabled: false,  // Can be enabled via API
+            enabled: false, // Can be enabled via API
             cronExpression: 'cron(0 6 * * ? *)', // Daily at 6 AM UTC
         },
 
@@ -73,40 +73,47 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
             integrationIds = null,
             checkCredentials = true,
             checkConnectivity = true,
-            updateStatus = false
+            updateStatus = false,
         } = params;
 
         const summary = {
             healthy: 0,
             unhealthy: 0,
             unknown: 0,
-            results: []
+            results: [],
         };
 
         this.context.log('info', 'Starting integration health check', {
             checkCredentials,
             checkConnectivity,
             updateStatus,
-            specificIds: integrationIds?.length || 'all'
+            specificIds: integrationIds?.length || 'all',
         });
 
         // Get integrations to check
         let integrations;
         if (integrationIds && integrationIds.length > 0) {
             integrations = await Promise.all(
-                integrationIds.map(id => this.context.integrationRepository.findIntegrationById(id).catch(() => null))
+                integrationIds.map((id) =>
+                    this.context.integrationRepository
+                        .findIntegrationById(id)
+                        .catch(() => null)
+                )
             );
             integrations = integrations.filter(Boolean);
         } else {
             integrations = await this.getAllIntegrations();
         }
 
-        this.context.log('info', `Checking ${integrations.length} integrations`);
+        this.context.log(
+            'info',
+            `Checking ${integrations.length} integrations`
+        );
 
         for (const integration of integrations) {
             const result = await this.checkIntegration(integration, {
                 checkCredentials,
-                checkConnectivity
+                checkConnectivity,
             });
 
             summary.results.push(result);
@@ -122,13 +129,24 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
             // Optionally update integration status
             if (updateStatus && result.status !== 'unknown') {
                 try {
-                    const newStatus = result.status === 'healthy' ? 'ACTIVE' : 'ERROR';
-                    await this.context.integrationRepository.updateIntegrationStatus(integration.id, newStatus);
-                    this.context.log('info', `Updated status for ${integration.id} to ${newStatus}`);
+                    const newStatus =
+                        result.status === 'healthy' ? 'ACTIVE' : 'ERROR';
+                    await this.context.integrationRepository.updateIntegrationStatus(
+                        integration.id,
+                        newStatus
+                    );
+                    this.context.log(
+                        'info',
+                        `Updated status for ${integration.id} to ${newStatus}`
+                    );
                 } catch (error) {
-                    this.context.log('warn', `Failed to update status for ${integration.id}`, {
-                        error: error.message
-                    });
+                    this.context.log(
+                        'warn',
+                        `Failed to update status for ${integration.id}`,
+                        {
+                            error: error.message,
+                        }
+                    );
                 }
             }
         }
@@ -136,7 +154,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         this.context.log('info', 'Health check completed', {
             healthy: summary.healthy,
             unhealthy: summary.unhealthy,
-            unknown: summary.unknown
+            unknown: summary.unknown,
         });
 
         return summary;
@@ -151,7 +169,10 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         const result = this._createCheckResult(integration);
 
         try {
-            await this._runChecks(integration, result, { checkCredentials, checkConnectivity });
+            await this._runChecks(integration, result, {
+                checkCredentials,
+                checkConnectivity,
+            });
             this._determineOverallStatus(result);
         } catch (error) {
             this._handleCheckError(integration, result, error);
@@ -170,7 +191,7 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
             integrationType: integration.config?.type || 'unknown',
             status: 'unknown',
             checks: {},
-            issues: []
+            issues: [],
         };
     }
 
@@ -182,11 +203,19 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
         const { checkCredentials, checkConnectivity } = options;
 
         if (checkCredentials) {
-            this._addCheckResult(result, 'credentials', this.checkCredentialValidity(integration));
+            this._addCheckResult(
+                result,
+                'credentials',
+                this.checkCredentialValidity(integration)
+            );
         }
 
         if (checkConnectivity) {
-            this._addCheckResult(result, 'connectivity', await this.checkApiConnectivity(integration));
+            this._addCheckResult(
+                result,
+                'connectivity',
+                await this.checkApiConnectivity(integration)
+            );
         }
     }
 
@@ -214,9 +243,13 @@ class IntegrationHealthCheckScript extends AdminScriptBase {
      * @private
      */
     _handleCheckError(integration, result, error) {
-        this.context.log('error', `Error checking integration ${integration.id}`, {
-            error: error.message
-        });
+        this.context.log(
+            'error',
+            `Error checking integration ${integration.id}`,
+            {
+                error: error.message,
+            }
+        );
         result.status = 'unknown';
         result.issues.push(`Check failed: ${error.message}`);
     }

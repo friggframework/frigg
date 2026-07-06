@@ -27,7 +27,8 @@ function validateScriptInput(scriptFactory, scriptName, params = {}) {
                 name: definition.name,
                 version: definition.version,
                 description: definition.description,
-                requireIntegrationInstance: definition.config?.requireIntegrationInstance || false,
+                requireIntegrationInstance:
+                    definition.config?.requireIntegrationInstance || false,
             },
             input: params,
             inputSchema: definition.inputSchema || null,
@@ -91,7 +92,10 @@ function validateType(key, value, schema) {
     const expectedType = schema.type;
     if (!expectedType) return null;
 
-    if (expectedType === 'integer' && (typeof value !== 'number' || !Number.isInteger(value))) {
+    if (
+        expectedType === 'integer' &&
+        (typeof value !== 'number' || !Number.isInteger(value))
+    ) {
         return `Parameter "${key}" must be an integer`;
     }
     if (expectedType === 'number' && typeof value !== 'number') {
@@ -106,7 +110,10 @@ function validateType(key, value, schema) {
     if (expectedType === 'array' && !Array.isArray(value)) {
         return `Parameter "${key}" must be an array`;
     }
-    if (expectedType === 'object' && (typeof value !== 'object' || Array.isArray(value))) {
+    if (
+        expectedType === 'object' &&
+        (typeof value !== 'object' || Array.isArray(value))
+    ) {
         return `Parameter "${key}" must be an object`;
     }
 

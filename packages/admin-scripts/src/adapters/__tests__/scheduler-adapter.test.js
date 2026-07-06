@@ -27,7 +27,9 @@ describe('SchedulerAdapter', () => {
         });
 
         it('should throw error for setScheduleEnabled()', async () => {
-            await expect(adapter.setScheduleEnabled('test', true)).rejects.toThrow(
+            await expect(
+                adapter.setScheduleEnabled('test', true)
+            ).rejects.toThrow(
                 'SchedulerAdapter.setScheduleEnabled() must be implemented'
             );
         });
@@ -95,7 +97,9 @@ describe('SchedulerAdapter', () => {
             // Should throw for missing methods
             await expect(incomplete.createSchedule({})).rejects.toThrow();
             await expect(incomplete.deleteSchedule('test')).rejects.toThrow();
-            await expect(incomplete.setScheduleEnabled('test', true)).rejects.toThrow();
+            await expect(
+                incomplete.setScheduleEnabled('test', true)
+            ).rejects.toThrow();
             await expect(incomplete.listSchedules()).rejects.toThrow();
             await expect(incomplete.getSchedule('test')).rejects.toThrow();
         });

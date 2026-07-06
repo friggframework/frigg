@@ -6,17 +6,15 @@ jest.mock('../../../database/config', () => ({
     PRISMA_QUERY_LOGGING: false,
 }));
 
-// Mock repository factories
+// Mock repository factory — commands delegate to the consolidated AdminProcess API
 const mockAdminProcessRepo = {
-    createAdminProcess: jest.fn(),
-    findAdminProcessById: jest.fn(),
-    findAdminProcessesByName: jest.fn(),
-    findAdminProcessesByState: jest.fn(),
-    updateAdminProcessState: jest.fn(),
-    updateAdminProcessOutput: jest.fn(),
-    updateAdminProcessError: jest.fn(),
-    updateAdminProcessMetrics: jest.fn(),
-    appendAdminProcessLog: jest.fn(),
+    createProcess: jest.fn(),
+    findProcessById: jest.fn(),
+    findProcessesByName: jest.fn(),
+    findProcessesByState: jest.fn(),
+    updateProcessState: jest.fn(),
+    updateProcessResults: jest.fn(),
+    appendProcessLog: jest.fn(),
 };
 
 jest.mock('../../../admin-scripts/repositories/admin-process-repository-factory', () => ({
@@ -34,28 +32,18 @@ describe('createAdminScriptCommands', () => {
     });
 
     describe('createAdminProcess', () => {
-        it('creates admin process with all fields', async () => {
+        it('maps to repo.createProcess with name/type/context', async () => {
             const mockProcess = {
                 id: 'proc-1',
                 name: 'test-script',
                 type: 'ADMIN_SCRIPT',
                 state: 'PENDING',
-                context: {
-                    scriptVersion: '1.0.0',
-                    trigger: 'MANUAL',
-                    mode: 'async',
-                    input: { param: 'value' },
-                    audit: {
-                        apiKeyName: 'Admin Key',
-                        apiKeyLast4: '1234',
-                        ipAddress: '127.0.0.1',
-                    },
-                },
+                context: {},
                 results: {},
                 createdAt: new Date(),
             };
 
-            mockAdminProcessRepo.createAdminProcess.mockResolvedValue(mockProcess);
+            mockAdminProcessRepo.createProcess.mockResolvedValue(mockProcess);
 
             const result = await commands.createAdminProcess({
                 scriptName: 'test-script',
@@ -64,112 +52,85 @@ describe('createAdminScriptCommands', () => {
                 mode: 'async',
                 input: { param: 'value' },
                 audit: {
-                    apiKeyName: 'Admin Key',
                     apiKeyLast4: '1234',
                     ipAddress: '127.0.0.1',
                 },
             });
 
-            expect(mockAdminProcessRepo.createAdminProcess).toHaveBeenCalledWith({
-                scriptName: 'test-script',
-                scriptVersion: '1.0.0',
-                trigger: 'MANUAL',
-                mode: 'async',
-                input: { param: 'value' },
-                audit: {
-                    apiKeyName: 'Admin Key',
-                    apiKeyLast4: '1234',
-                    ipAddress: '127.0.0.1',
+            expect(mockAdminProcessRepo.createProcess).toHaveBeenCalledWith({
+                name: 'test-script',
+                type: 'ADMIN_SCRIPT',
+                context: {
+                    scriptVersion: '1.0.0',
+                    trigger: 'MANUAL',
+                    mode: 'async',
+                    input: { param: 'value' },
+                    audit: {
+                        apiKeyLast4: '1234',
+                        ipAddress: '127.0.0.1',
+                    },
                 },
             });
             expect(result).toEqual(mockProcess);
         });
 
         it('sets default mode to async if not provided', async () => {
-            const mockProcess = {
-                id: 'proc-1',
-                name: 'test',
-                type: 'ADMIN_SCRIPT',
-                state: 'PENDING',
-                context: {
-                    trigger: 'MANUAL',
-                    mode: 'async',
-                },
-                results: {},
-            };
-
-            mockAdminProcessRepo.createAdminProcess.mockResolvedValue(mockProcess);
+            mockAdminProcessRepo.createProcess.mockResolvedValue({ id: 'proc-1' });
 
             await commands.createAdminProcess({
                 scriptName: 'test',
                 trigger: 'MANUAL',
             });
 
-            expect(mockAdminProcessRepo.createAdminProcess).toHaveBeenCalledWith(
+            expect(mockAdminProcessRepo.createProcess).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    mode: 'async',
+                    context: expect.objectContaining({ mode: 'async' }),
                 })
             );
         });
 
-        it('stores audit info correctly', async () => {
-            mockAdminProcessRepo.createAdminProcess.mockResolvedValue({
-                id: 'proc-1',
-                name: 'test',
-                type: 'ADMIN_SCRIPT',
-                context: {
-                    audit: {
-                        apiKeyName: 'Test Key',
-                        apiKeyLast4: 'abcd',
-                        ipAddress: '192.168.1.1',
-                    },
-                },
-                results: {},
-            });
+        it('records parentExecutionId in context when provided', async () => {
+            mockAdminProcessRepo.createProcess.mockResolvedValue({ id: 'proc-1' });
 
             await commands.createAdminProcess({
                 scriptName: 'test',
-                trigger: 'MANUAL',
-                audit: {
-                    apiKeyName: 'Test Key',
-                    apiKeyLast4: 'abcd',
-                    ipAddress: '192.168.1.1',
-                },
+                trigger: 'QUEUE',
+                parentExecutionId: 'parent-1',
             });
 
-            expect(mockAdminProcessRepo.createAdminProcess).toHaveBeenCalledWith(
+            expect(mockAdminProcessRepo.createProcess).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    audit: {
-                        apiKeyName: 'Test Key',
-                        apiKeyLast4: 'abcd',
-                        ipAddress: '192.168.1.1',
-                    },
+                    context: expect.objectContaining({ parentExecutionId: 'parent-1' }),
                 })
             );
+        });
+
+        it('maps repository errors to an error response', async () => {
+            mockAdminProcessRepo.createProcess.mockRejectedValue(new Error('DB down'));
+
+            const result = await commands.createAdminProcess({
+                scriptName: 'test',
+                trigger: 'MANUAL',
+            });
+
+            expect(result).toHaveProperty('error', 500);
+            expect(result.reason).toBe('DB down');
         });
     });
 
     describe('findAdminProcessById', () => {
         it('returns admin process if found', async () => {
-            const mockProcess = {
-                id: 'proc-1',
-                name: 'test',
-                type: 'ADMIN_SCRIPT',
-                state: 'COMPLETED',
-                context: {},
-                results: {},
-            };
-
-            mockAdminProcessRepo.findAdminProcessById.mockResolvedValue(mockProcess);
+            const mockProcess = { id: 'proc-1', name: 'test', type: 'ADMIN_SCRIPT' };
+            mockAdminProcessRepo.findProcessById.mockResolvedValue(mockProcess);
 
             const result = await commands.findAdminProcessById('proc-1');
 
-            expect(mockAdminProcessRepo.findAdminProcessById).toHaveBeenCalledWith('proc-1');
+            expect(mockAdminProcessRepo.findProcessById).toHaveBeenCalledWith('proc-1');
             expect(result).toEqual(mockProcess);
         });
 
         it('returns error if not found', async () => {
-            mockAdminProcessRepo.findAdminProcessById.mockResolvedValue(null);
+            mockAdminProcessRepo.findProcessById.mockResolvedValue(null);
 
             const result = await commands.findAdminProcessById('non-existent');
 
@@ -182,48 +143,33 @@ describe('createAdminScriptCommands', () => {
     describe('findAdminProcessesByName', () => {
         it('finds admin processes by script name', async () => {
             const mockProcesses = [
-                { id: 'proc-1', name: 'test', type: 'ADMIN_SCRIPT', state: 'COMPLETED', context: {}, results: {} },
-                { id: 'proc-2', name: 'test', type: 'ADMIN_SCRIPT', state: 'FAILED', context: {}, results: {} },
+                { id: 'proc-1', name: 'test', state: 'COMPLETED' },
+                { id: 'proc-2', name: 'test', state: 'FAILED' },
             ];
-
-            mockAdminProcessRepo.findAdminProcessesByName.mockResolvedValue(
-                mockProcesses
-            );
+            mockAdminProcessRepo.findProcessesByName.mockResolvedValue(mockProcesses);
 
             const result = await commands.findAdminProcessesByName('test');
 
-            expect(mockAdminProcessRepo.findAdminProcessesByName).toHaveBeenCalledWith(
-                'test',
-                {}
-            );
+            expect(mockAdminProcessRepo.findProcessesByName).toHaveBeenCalledWith('test', {});
             expect(result).toEqual(mockProcesses);
         });
 
-        it('passes options to repository', async () => {
-            mockAdminProcessRepo.findAdminProcessesByName.mockResolvedValue([]);
+        it('passes options (including state filter) to repository', async () => {
+            mockAdminProcessRepo.findProcessesByName.mockResolvedValue([]);
 
             await commands.findAdminProcessesByName('test', {
                 limit: 10,
-                offset: 5,
-                sortBy: 'createdAt',
-                sortOrder: 'desc',
+                state: 'FAILED',
             });
 
-            expect(mockAdminProcessRepo.findAdminProcessesByName).toHaveBeenCalledWith(
-                'test',
-                {
-                    limit: 10,
-                    offset: 5,
-                    sortBy: 'createdAt',
-                    sortOrder: 'desc',
-                }
-            );
+            expect(mockAdminProcessRepo.findProcessesByName).toHaveBeenCalledWith('test', {
+                limit: 10,
+                state: 'FAILED',
+            });
         });
 
         it('returns empty array on error', async () => {
-            mockAdminProcessRepo.findAdminProcessesByName.mockRejectedValue(
-                new Error('DB error')
-            );
+            mockAdminProcessRepo.findProcessesByName.mockRejectedValue(new Error('DB error'));
 
             const result = await commands.findAdminProcessesByName('test');
 
@@ -233,278 +179,122 @@ describe('createAdminScriptCommands', () => {
 
     describe('updateAdminProcessState', () => {
         it('updates state correctly', async () => {
-            const mockUpdated = {
-                id: 'proc-1',
-                name: 'test',
-                type: 'ADMIN_SCRIPT',
-                state: 'RUNNING',
-                context: {},
-                results: {},
-            };
+            const mockUpdated = { id: 'proc-1', state: 'RUNNING' };
+            mockAdminProcessRepo.updateProcessState.mockResolvedValue(mockUpdated);
 
-            mockAdminProcessRepo.updateAdminProcessState.mockResolvedValue(mockUpdated);
+            const result = await commands.updateAdminProcessState('proc-1', 'RUNNING');
 
-            const result = await commands.updateAdminProcessState(
-                'proc-1',
-                'RUNNING'
-            );
-
-            expect(mockAdminProcessRepo.updateAdminProcessState).toHaveBeenCalledWith(
-                'proc-1',
-                'RUNNING'
-            );
+            expect(mockAdminProcessRepo.updateProcessState).toHaveBeenCalledWith('proc-1', 'RUNNING');
             expect(result).toEqual(mockUpdated);
         });
 
         it('handles all state values', async () => {
-            const states = [
-                'PENDING',
-                'RUNNING',
-                'COMPLETED',
-                'FAILED',
-            ];
+            const states = ['PENDING', 'RUNNING', 'COMPLETED', 'FAILED'];
 
             for (const state of states) {
-                mockAdminProcessRepo.updateAdminProcessState.mockResolvedValue({
-                    id: 'proc-1',
-                    name: 'test',
-                    type: 'ADMIN_SCRIPT',
-                    state,
-                    context: {},
-                    results: {},
-                });
-
-                const result = await commands.updateAdminProcessState(
-                    'proc-1',
-                    state
-                );
-
+                mockAdminProcessRepo.updateProcessState.mockResolvedValue({ id: 'proc-1', state });
+                const result = await commands.updateAdminProcessState('proc-1', state);
                 expect(result.state).toBe(state);
             }
         });
     });
 
     describe('appendAdminProcessLog', () => {
-        it('appends log entry to results.logs array', async () => {
+        it('appends log entry via repo.appendProcessLog', async () => {
             const logEntry = {
                 level: 'info',
                 message: 'Test log',
                 data: { detail: 'test' },
                 timestamp: new Date().toISOString(),
             };
-
-            const mockUpdated = {
+            mockAdminProcessRepo.appendProcessLog.mockResolvedValue({
                 id: 'proc-1',
-                name: 'test',
-                type: 'ADMIN_SCRIPT',
-                state: 'RUNNING',
-                context: {},
-                results: {
-                    logs: [logEntry],
-                },
-            };
-
-            mockAdminProcessRepo.appendAdminProcessLog.mockResolvedValue(mockUpdated);
+                results: { logs: [logEntry] },
+            });
 
             const result = await commands.appendAdminProcessLog('proc-1', logEntry);
 
-            expect(mockAdminProcessRepo.appendAdminProcessLog).toHaveBeenCalledWith(
-                'proc-1',
-                logEntry
-            );
+            expect(mockAdminProcessRepo.appendProcessLog).toHaveBeenCalledWith('proc-1', logEntry);
             expect(result.results.logs).toContain(logEntry);
-        });
-
-        it('handles different log levels', async () => {
-            const levels = ['debug', 'info', 'warn', 'error'];
-
-            for (const level of levels) {
-                const logEntry = {
-                    level,
-                    message: `${level} message`,
-                    timestamp: new Date().toISOString(),
-                };
-
-                mockAdminProcessRepo.appendAdminProcessLog.mockResolvedValue({
-                    id: 'proc-1',
-                    name: 'test',
-                    type: 'ADMIN_SCRIPT',
-                    state: 'RUNNING',
-                    context: {},
-                    results: {
-                        logs: [logEntry],
-                    },
-                });
-
-                await commands.appendAdminProcessLog('proc-1', logEntry);
-
-                expect(mockAdminProcessRepo.appendAdminProcessLog).toHaveBeenCalledWith(
-                    'proc-1',
-                    expect.objectContaining({ level })
-                );
-            }
         });
     });
 
     describe('completeAdminProcess', () => {
-        it('updates state, output, error, and metrics', async () => {
-            mockAdminProcessRepo.updateAdminProcessState.mockResolvedValue({});
-            mockAdminProcessRepo.updateAdminProcessOutput.mockResolvedValue({});
-            mockAdminProcessRepo.updateAdminProcessError.mockResolvedValue({});
-            mockAdminProcessRepo.updateAdminProcessMetrics.mockResolvedValue({});
+        it('updates state then merges output/metrics into results', async () => {
+            mockAdminProcessRepo.updateProcessState.mockResolvedValue({});
+            mockAdminProcessRepo.updateProcessResults.mockResolvedValue({});
 
             const result = await commands.completeAdminProcess('proc-1', {
                 state: 'COMPLETED',
                 output: { result: 'success' },
                 error: null,
-                metrics: {
-                    startTime: new Date(),
-                    endTime: new Date(),
-                    durationMs: 1234,
-                },
+                metrics: { durationMs: 1234 },
             });
 
-            expect(mockAdminProcessRepo.updateAdminProcessState).toHaveBeenCalledWith(
+            expect(mockAdminProcessRepo.updateProcessState).toHaveBeenCalledWith('proc-1', 'COMPLETED');
+            expect(mockAdminProcessRepo.updateProcessResults).toHaveBeenCalledWith(
                 'proc-1',
-                'COMPLETED'
-            );
-            expect(mockAdminProcessRepo.updateAdminProcessOutput).toHaveBeenCalledWith(
-                'proc-1',
-                { result: 'success' }
-            );
-            expect(mockAdminProcessRepo.updateAdminProcessMetrics).toHaveBeenCalledWith(
-                'proc-1',
-                expect.objectContaining({ durationMs: 1234 })
+                expect.objectContaining({
+                    output: { result: 'success' },
+                    metrics: expect.objectContaining({ durationMs: 1234 }),
+                })
             );
             expect(result).toEqual({ success: true });
         });
 
-        it('handles partial updates', async () => {
-            mockAdminProcessRepo.updateAdminProcessState.mockResolvedValue({});
+        it('persists logs when provided', async () => {
+            mockAdminProcessRepo.updateProcessState.mockResolvedValue({});
+            mockAdminProcessRepo.updateProcessResults.mockResolvedValue({});
 
-            await commands.completeAdminProcess('proc-1', {
-                state: 'FAILED',
-                // No output, error, or metrics
-            });
+            const logs = [{ level: 'info', message: 'hi' }];
+            await commands.completeAdminProcess('proc-1', { state: 'COMPLETED', logs });
 
-            expect(mockAdminProcessRepo.updateAdminProcessState).toHaveBeenCalled();
-            expect(mockAdminProcessRepo.updateAdminProcessOutput).not.toHaveBeenCalled();
-            expect(mockAdminProcessRepo.updateAdminProcessError).not.toHaveBeenCalled();
-            expect(mockAdminProcessRepo.updateAdminProcessMetrics).not.toHaveBeenCalled();
-        });
-
-        it('updates error details on failure', async () => {
-            mockAdminProcessRepo.updateAdminProcessState.mockResolvedValue({});
-            mockAdminProcessRepo.updateAdminProcessError.mockResolvedValue({});
-
-            await commands.completeAdminProcess('proc-1', {
-                state: 'FAILED',
-                error: {
-                    name: 'ValidationError',
-                    message: 'Invalid input',
-                    stack: 'Error: ...\n  at ...',
-                },
-            });
-
-            expect(mockAdminProcessRepo.updateAdminProcessError).toHaveBeenCalledWith(
+            expect(mockAdminProcessRepo.updateProcessResults).toHaveBeenCalledWith(
                 'proc-1',
-                {
-                    name: 'ValidationError',
-                    message: 'Invalid input',
-                    stack: 'Error: ...\n  at ...',
-                }
+                expect.objectContaining({ logs })
             );
         });
 
-        it('allows output to be null or undefined', async () => {
-            mockAdminProcessRepo.updateAdminProcessState.mockResolvedValue({});
-            mockAdminProcessRepo.updateAdminProcessOutput.mockResolvedValue({});
+        it('updates state only when no results fields are provided', async () => {
+            mockAdminProcessRepo.updateProcessState.mockResolvedValue({});
 
-            // Test with null
-            await commands.completeAdminProcess('proc-1', {
-                state: 'COMPLETED',
-                output: null,
-            });
+            await commands.completeAdminProcess('proc-1', { state: 'FAILED' });
 
-            expect(mockAdminProcessRepo.updateAdminProcessOutput).toHaveBeenCalledWith(
+            expect(mockAdminProcessRepo.updateProcessState).toHaveBeenCalledWith('proc-1', 'FAILED');
+            expect(mockAdminProcessRepo.updateProcessResults).not.toHaveBeenCalled();
+        });
+
+        it('merges error details on failure', async () => {
+            mockAdminProcessRepo.updateProcessState.mockResolvedValue({});
+            mockAdminProcessRepo.updateProcessResults.mockResolvedValue({});
+
+            const error = {
+                name: 'ValidationError',
+                message: 'Invalid input',
+                stack: 'Error: ...\n  at ...',
+            };
+            await commands.completeAdminProcess('proc-1', { state: 'FAILED', error });
+
+            expect(mockAdminProcessRepo.updateProcessResults).toHaveBeenCalledWith(
                 'proc-1',
-                null
+                expect.objectContaining({ error })
+            );
+        });
+
+        it('includes null output but skips undefined output', async () => {
+            mockAdminProcessRepo.updateProcessState.mockResolvedValue({});
+            mockAdminProcessRepo.updateProcessResults.mockResolvedValue({});
+
+            await commands.completeAdminProcess('proc-1', { state: 'COMPLETED', output: null });
+            expect(mockAdminProcessRepo.updateProcessResults).toHaveBeenCalledWith(
+                'proc-1',
+                expect.objectContaining({ output: null })
             );
 
             jest.clearAllMocks();
 
-            // Test with undefined (should not call update)
-            await commands.completeAdminProcess('proc-2', {
-                state: 'COMPLETED',
-                // output is undefined
-            });
-
-            expect(mockAdminProcessRepo.updateAdminProcessOutput).not.toHaveBeenCalled();
-        });
-    });
-
-    describe('findRecentAdminProcesses', () => {
-        it('finds admin processes by state', async () => {
-            const mockProcesses = [
-                { id: 'proc-1', name: 'test', type: 'ADMIN_SCRIPT', state: 'FAILED', context: {}, results: {} },
-                { id: 'proc-2', name: 'test', type: 'ADMIN_SCRIPT', state: 'FAILED', context: {}, results: {} },
-            ];
-
-            mockAdminProcessRepo.findAdminProcessesByState.mockResolvedValue(mockProcesses);
-
-            const result = await commands.findRecentAdminProcesses({ state: 'FAILED' });
-
-            expect(mockAdminProcessRepo.findAdminProcessesByState).toHaveBeenCalledWith(
-                'FAILED',
-                {
-                    limit: 20,
-                    sortBy: 'createdAt',
-                    sortOrder: 'desc',
-                }
-            );
-            expect(result).toEqual(mockProcesses);
-        });
-
-        it('uses default limit of 20', async () => {
-            mockAdminProcessRepo.findAdminProcessesByState.mockResolvedValue([]);
-
-            await commands.findRecentAdminProcesses({ state: 'COMPLETED' });
-
-            expect(mockAdminProcessRepo.findAdminProcessesByState).toHaveBeenCalledWith(
-                'COMPLETED',
-                expect.objectContaining({ limit: 20 })
-            );
-        });
-
-        it('allows custom limit', async () => {
-            mockAdminProcessRepo.findAdminProcessesByState.mockResolvedValue([]);
-
-            await commands.findRecentAdminProcesses({
-                state: 'RUNNING',
-                limit: 50,
-            });
-
-            expect(mockAdminProcessRepo.findAdminProcessesByState).toHaveBeenCalledWith(
-                'RUNNING',
-                expect.objectContaining({ limit: 50 })
-            );
-        });
-
-        it('returns empty array if no state filter', async () => {
-            const result = await commands.findRecentAdminProcesses({});
-
-            expect(result).toEqual([]);
-            expect(mockAdminProcessRepo.findAdminProcessesByState).not.toHaveBeenCalled();
-        });
-
-        it('returns empty array on error', async () => {
-            mockAdminProcessRepo.findAdminProcessesByState.mockRejectedValue(
-                new Error('DB error')
-            );
-
-            const result = await commands.findRecentAdminProcesses({ state: 'FAILED' });
-
-            expect(result).toEqual([]);
+            await commands.completeAdminProcess('proc-2', { state: 'COMPLETED' });
+            expect(mockAdminProcessRepo.updateProcessResults).not.toHaveBeenCalled();
         });
     });
 });

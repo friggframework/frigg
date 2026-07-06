@@ -1,0 +1,277 @@
+# @friggframework/admin-scripts
+
+Admin Script Runner for Frigg — write and run operational/maintenance scripts inside your deployed Frigg app, with VPC/KMS-secured database access, the same repositories your integrations use, sync or async (queued) execution, dry-run validation, and optional cron scheduling via AWS EventBridge Scheduler.
+
+Typical use cases:
+
+-   **Healing scripts** — repair broken integration state (e.g. corrupted config).
+-   **Recurring maintenance** — refresh webhooks/subscriptions before they expire.
+-   **Built-in utilities** — OAuth token refresh, integration health checks.
+
+> Admin scripts are a **high-privilege** surface. Every endpoint is protected by an admin API key (`x-frigg-admin-api-key`), scripts run in your private VPC subnets, and every execution is tracked in the `AdminProcess` table. Never expose the admin API key to browsers or end users.
+
+---
+
+## Installation
+
+```bash
+npm install @friggframework/admin-scripts
+```
+
+Then register scripts in your app definition (`backend/index.js`):
+
+```javascript
+const {
+    Definition: HubSpotIntegration,
+} = require('./src/integrations/HubSpotIntegration');
+const {
+    AttioHealingScript,
+} = require('./src/admin-scripts/AttioHealingScript');
+
+const Definition = {
+    name: 'my-frigg-app',
+    integrations: [HubSpotIntegration],
+
+    // Admin scripts (optional)
+    adminScripts: [AttioHealingScript],
+
+    admin: {
+        includeBuiltinScripts: true, // register oauth-token-refresh + integration-health-check
+        enableScheduling: true, // provision EventBridge Scheduler resources
+    },
+};
+
+module.exports = { Definition };
+```
+
+At deploy time the framework's `AdminScriptBuilder` provisions the SQS queue, the router + worker Lambdas, and (when `enableScheduling` is set) the EventBridge Scheduler group and IAM role. At runtime the router/worker load this app definition and register your scripts (plus the built-ins) into the script registry.
+
+---
+
+## Writing a script
+
+Extend `AdminScriptBase`, declare a static `Definition`, and implement `execute(params)`. The execution context is injected for you and available as `this.context`.
+
+```javascript
+const { AdminScriptBase } = require('@friggframework/admin-scripts');
+
+class AttioHealingScript extends AdminScriptBase {
+    static Definition = {
+        name: 'attio-healing',
+        version: '1.0.0',
+        description: 'Repairs corrupted Attio integration config',
+        source: 'USER_DEFINED',
+
+        // JSON Schema — validated on /validate and before every execution
+        inputSchema: {
+            type: 'object',
+            required: ['integrationId'],
+            properties: {
+                integrationId: { type: 'string' },
+                dryRun: { type: 'boolean', default: false },
+            },
+        },
+
+        config: {
+            timeout: 300000, // ms; sync mode is capped (see below)
+            requireIntegrationInstance: true, // needs this.context.instantiate()
+        },
+
+        // Optional default schedule (can be overridden at runtime via the API)
+        schedule: { enabled: false, cronExpression: 'cron(0 12 * * ? *)' },
+
+        display: { category: 'maintenance' },
+    };
+
+    async execute(params) {
+        const { integrationId } = params;
+
+        this.context.log('info', 'Starting Attio healing', { integrationId });
+
+        const integration =
+            await this.context.integrationRepository.findIntegrationById(
+                integrationId
+            );
+        if (!integration) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+
+        // Call the live integration/API when you need it
+        const instance = await this.context.instantiate(integrationId);
+        await instance.primary.api.refreshMetadata();
+
+        this.context.log('info', 'Healing complete', { integrationId });
+        return { healed: true, integrationId };
+    }
+}
+
+module.exports = { AttioHealingScript };
+```
+
+### The execution context (`this.context`)
+
+| Member                       | Description                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `log(level, message, data?)` | Records a structured log entry (`level`: `debug`/`info`/`warn`/`error`). Logs are persisted to the execution's `results.logs`. |
+| `integrationRepository`      | Read/query integrations.                                                                                                       |
+| `userRepository`             | Read/query users.                                                                                                              |
+| `moduleRepository`           | Read/query modules.                                                                                                            |
+| `credentialRepository`       | Read credentials (decrypted transparently).                                                                                    |
+| `instantiate(integrationId)` | Returns a hydrated integration instance for calling external APIs. Requires `config.requireIntegrationInstance: true`.         |
+| `queueScript(name, params?)` | Enqueue another script as a follow-up (tracked as a child of the current execution).                                           |
+| `queueScriptBatch(entries)`  | Enqueue many follow-up scripts at once.                                                                                        |
+| `getExecutionId()`           | The current `AdminProcess` record id.                                                                                          |
+
+Repositories return **plain, decrypted data** — field-level encryption is handled transparently.
+
+---
+
+## HTTP API
+
+All routes are mounted under `/admin` and require the `x-frigg-admin-api-key` header.
+
+| Method   | Path                                             | Description                                      |
+| -------- | ------------------------------------------------ | ------------------------------------------------ |
+| `GET`    | `/admin/scripts`                                 | List registered scripts                          |
+| `GET`    | `/admin/scripts/{name}`                          | Get a script's details/schema                    |
+| `POST`   | `/admin/scripts/{name}`                          | Execute a script (`sync` or `async`)             |
+| `POST`   | `/admin/scripts/{name}/validate`                 | Validate input against the schema (no execution) |
+| `GET`    | `/admin/scripts/{name}/executions`               | List recent executions (`?status=`, `?limit=`)   |
+| `GET`    | `/admin/scripts/{name}/executions/{executionId}` | Get one execution                                |
+| `GET`    | `/admin/scripts/{name}/schedule`                 | Get the effective schedule                       |
+| `PUT`    | `/admin/scripts/{name}/schedule`                 | Create/update a schedule override                |
+| `DELETE` | `/admin/scripts/{name}/schedule`                 | Remove the schedule override                     |
+
+### Execute a script
+
+**Async (default)** — queued to SQS, returns immediately with an execution id to poll:
+
+```bash
+curl -X POST https://<your-app>/admin/scripts/attio-healing \
+  -H "x-frigg-admin-api-key: $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "params": { "integrationId": "abc123" }, "mode": "async" }'
+
+# 202 Accepted
+# { "executionId": "665f...", "status": "QUEUED", "scriptName": "attio-healing" }
+```
+
+**Sync** — runs inline and returns the result. Only for fast scripts: in a deployed environment, sync is rejected (`400 SYNC_TIMEOUT_TOO_LONG`) when the script's `config.timeout` exceeds the API Lambda budget (~25s). Use `async` for anything longer.
+
+```bash
+curl -X POST https://<your-app>/admin/scripts/integration-health-check \
+  -H "x-frigg-admin-api-key: $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "params": {}, "mode": "sync" }'
+
+# 200 OK
+# { "executionId": "...", "status": "COMPLETED", "output": { ... }, "metrics": { "durationMs": 812 } }
+```
+
+Invalid input is rejected up front:
+
+```bash
+# 400 Bad Request → { "error": "Invalid input: Missing required parameter: integrationId", "code": "INVALID_INPUT" }
+```
+
+### Validate without executing
+
+```bash
+curl -X POST https://<your-app>/admin/scripts/attio-healing/validate \
+  -H "x-frigg-admin-api-key: $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "params": { "integrationId": "abc123" } }'
+
+# { "status": "VALID", "preview": { ... }, "message": "Validation passed. ..." }
+```
+
+### Poll an execution
+
+```bash
+curl https://<your-app>/admin/scripts/attio-healing/executions/665f... \
+  -H "x-frigg-admin-api-key: $ADMIN_API_KEY"
+
+curl "https://<your-app>/admin/scripts/attio-healing/executions?status=FAILED&limit=20" \
+  -H "x-frigg-admin-api-key: $ADMIN_API_KEY"
+```
+
+---
+
+## Scheduling
+
+A script can ship a default schedule in its `Definition.schedule`, and operators can override it at runtime. The **effective** schedule resolves as: runtime override (DB) → definition default → none.
+
+```bash
+# Enable a daily 6am UTC run
+curl -X PUT https://<your-app>/admin/scripts/integration-health-check/schedule \
+  -H "x-frigg-admin-api-key: $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "enabled": true, "cronExpression": "cron(0 6 * * ? *)", "timezone": "UTC" }'
+
+# Inspect / remove
+curl https://<your-app>/admin/scripts/integration-health-check/schedule -H "x-frigg-admin-api-key: $ADMIN_API_KEY"
+curl -X DELETE https://<your-app>/admin/scripts/integration-health-check/schedule -H "x-frigg-admin-api-key: $ADMIN_API_KEY"
+```
+
+Scheduling requires `admin.enableScheduling: true` in the app definition (so the EventBridge Scheduler group, IAM role, and env vars are provisioned). In a deployed environment the router refuses to fall back to the in-memory local scheduler, returning `503 SCHEDULER_NOT_CONFIGURED` if the provider isn't wired.
+
+---
+
+## Built-in scripts
+
+Set `admin.includeBuiltinScripts: true` to register:
+
+-   **`oauth-token-refresh`** — refreshes OAuth tokens for integrations nearing expiry. Params: `integrationIds?`, `expiryThresholdHours` (default 24), `dryRun`.
+-   **`integration-health-check`** — checks credential validity and API connectivity. Params: `integrationIds?`, `checkCredentials` (default true), `checkConnectivity` (default true), `updateStatus` (default false).
+
+---
+
+## Script chaining
+
+Long or fan-out work can enqueue follow-up scripts. Continuations are tracked with `parentExecutionId` so you can trace the lineage:
+
+```javascript
+async execute(params) {
+    const ids = await this.getWorkBatch();
+    await this.context.queueScriptBatch(
+        ids.map((integrationId) => ({ scriptName: 'attio-healing', params: { integrationId } }))
+    );
+    return { queued: ids.length };
+}
+```
+
+---
+
+## Execution modes & reliability
+
+-   **Sync** (`mode: 'sync'`) — runs in the API Lambda, result returned in the response. Capped by the API timeout.
+-   **Async** (`mode: 'async'`, default) — queued to SQS and run by the worker Lambda (15-min budget). The SQS queue has a redrive policy (up to 3 receives) to a dead-letter queue, so a crashed invocation is retried at the infrastructure level. There is no application-level per-script retry — model idempotency accordingly.
+
+Every execution is persisted as an `AdminProcess` record with its `state` (`PENDING` → `RUNNING` → `COMPLETED`/`FAILED`), input, output, metrics, and logs.
+
+---
+
+## Environment variables
+
+| Variable                           | Set by                             | Purpose                                                                    |
+| ---------------------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
+| `ADMIN_API_KEY`                    | **Operator** (SSM/Secrets Manager) | Shared admin API key checked by the auth middleware. Required.             |
+| `ADMIN_SCRIPT_QUEUE_URL`           | `AdminScriptBuilder`               | SQS queue URL for async execution.                                         |
+| `SCHEDULER_PROVIDER`               | `AdminScriptBuilder` (`'aws'`)     | Scheduler adapter type. Falls back to `local` only outside AWS (dev/test). |
+| `ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN` | `AdminScriptBuilder`               | Worker Lambda ARN that EventBridge Scheduler invokes.                      |
+| `ADMIN_SCRIPT_SCHEDULE_GROUP`      | `AdminScriptBuilder`               | EventBridge Scheduler group name.                                          |
+| `SCHEDULER_ROLE_ARN`               | `AdminScriptBuilder`               | IAM role EventBridge assumes to invoke the worker.                         |
+
+You must provision `ADMIN_API_KEY` yourself (e.g. via SSM Parameter Store or Secrets Manager) — the builder does not generate it.
+
+---
+
+## Local development
+
+Without AWS, the scheduler uses an in-memory `LocalSchedulerAdapter` (schedules do not persist across restarts) and async execution needs a queue URL. Set `ADMIN_API_KEY` in your local env to exercise the endpoints.
+
+---
+
+## Architecture
+
+See [ADR-005: Admin Script Runner Service](../../docs/architecture-decisions/005-admin-script-runner.md) for the full design (layering, security model, scheduling, and validation). The package follows Frigg's hexagonal architecture: HTTP handlers → `ScriptRunner` (application) → command layer → repositories, with the scheduler as a swappable port (`SchedulerAdapter` → AWS/local adapters).

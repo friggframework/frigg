@@ -13,7 +13,8 @@
  * - Repositories are infrastructure adapters (tested separately)
  */
 
-process.env.ADMIN_API_KEY = 'test-admin-key';
+// Generated at runtime so no credential-like literal is committed
+process.env.ADMIN_API_KEY = require('node:crypto').randomBytes(16).toString('hex');
 process.env.DB_MIGRATION_QUEUE_URL = 'https://sqs.test/queue';
 
 // Mock infrastructure dependencies to prevent app definition loading

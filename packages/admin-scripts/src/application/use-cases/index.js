@@ -7,7 +7,9 @@
  * - DeleteScheduleUseCase: Delete schedule with scheduler cleanup
  */
 
-const { GetEffectiveScheduleUseCase } = require('./get-effective-schedule-use-case');
+const {
+    GetEffectiveScheduleUseCase,
+} = require('./get-effective-schedule-use-case');
 const { UpsertScheduleUseCase } = require('./upsert-schedule-use-case');
 const { DeleteScheduleUseCase } = require('./delete-schedule-use-case');
 

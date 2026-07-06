@@ -162,11 +162,19 @@ describe('ScriptFactory', () => {
     describe('getNames()', () => {
         it('should return array of all registered script names', () => {
             class Script1 extends AdminScriptBase {
-                static Definition = { name: 'script-1', version: '1.0.0', description: 'One' };
+                static Definition = {
+                    name: 'script-1',
+                    version: '1.0.0',
+                    description: 'One',
+                };
             }
 
             class Script2 extends AdminScriptBase {
-                static Definition = { name: 'script-2', version: '1.0.0', description: 'Two' };
+                static Definition = {
+                    name: 'script-2',
+                    version: '1.0.0',
+                    description: 'Two',
+                };
             }
 
             factory.registerAll([Script1, Script2]);
@@ -272,11 +280,19 @@ describe('ScriptFactory', () => {
     describe('clear()', () => {
         it('should remove all registered scripts', () => {
             class Script1 extends AdminScriptBase {
-                static Definition = { name: 'script-1', version: '1.0.0', description: 'One' };
+                static Definition = {
+                    name: 'script-1',
+                    version: '1.0.0',
+                    description: 'One',
+                };
             }
 
             class Script2 extends AdminScriptBase {
-                static Definition = { name: 'script-2', version: '1.0.0', description: 'Two' };
+                static Definition = {
+                    name: 'script-2',
+                    version: '1.0.0',
+                    description: 'Two',
+                };
             }
 
             factory.registerAll([Script1, Script2]);
@@ -295,14 +311,22 @@ describe('ScriptFactory', () => {
             expect(factory.size).toBe(0);
 
             class Script1 extends AdminScriptBase {
-                static Definition = { name: 'script-1', version: '1.0.0', description: 'One' };
+                static Definition = {
+                    name: 'script-1',
+                    version: '1.0.0',
+                    description: 'One',
+                };
             }
 
             factory.register(Script1);
             expect(factory.size).toBe(1);
 
             class Script2 extends AdminScriptBase {
-                static Definition = { name: 'script-2', version: '1.0.0', description: 'Two' };
+                static Definition = {
+                    name: 'script-2',
+                    version: '1.0.0',
+                    description: 'Two',
+                };
             }
 
             factory.register(Script2);

@@ -1,8 +1,12 @@
 const { SchedulerAdapter } = require('./scheduler-adapter');
 
 // Lazy-loaded AWS SDK clients (following AWSProviderAdapter pattern)
-let SchedulerClient, CreateScheduleCommand, DeleteScheduleCommand,
-    GetScheduleCommand, UpdateScheduleCommand, ListSchedulesCommand;
+let SchedulerClient,
+    CreateScheduleCommand,
+    DeleteScheduleCommand,
+    GetScheduleCommand,
+    UpdateScheduleCommand,
+    ListSchedulesCommand;
 
 function loadSchedulerSDK() {
     if (!SchedulerClient) {
@@ -25,14 +29,24 @@ function loadSchedulerSDK() {
  * Supports cron expressions, timezone configuration, and Lambda invocation.
  */
 class AWSSchedulerAdapter extends SchedulerAdapter {
-    constructor({ credentials, targetLambdaArn, scheduleGroupName, roleArn } = {}) {
+    constructor({
+        credentials,
+        targetLambdaArn,
+        scheduleGroupName,
+        roleArn,
+    } = {}) {
         super();
-        if (!targetLambdaArn) throw new Error('AWSSchedulerAdapter requires targetLambdaArn');
-        if (!scheduleGroupName) throw new Error('AWSSchedulerAdapter requires scheduleGroupName');
+        if (!targetLambdaArn)
+            throw new Error('AWSSchedulerAdapter requires targetLambdaArn');
+        if (!scheduleGroupName)
+            throw new Error('AWSSchedulerAdapter requires scheduleGroupName');
         if (!roleArn) throw new Error('AWSSchedulerAdapter requires roleArn');
         // Region inherits from the service (set by Lambda runtime, same for all AWS resources)
         const region = process.env.AWS_REGION;
-        if (!region) throw new Error('AWSSchedulerAdapter requires AWS_REGION environment variable');
+        if (!region)
+            throw new Error(
+                'AWSSchedulerAdapter requires AWS_REGION environment variable'
+            );
         this.region = region;
         this.credentials = credentials;
         this.targetLambdaArn = targetLambdaArn;
@@ -79,14 +93,18 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
         };
 
         try {
-            const response = await client.send(new CreateScheduleCommand(scheduleParams));
+            const response = await client.send(
+                new CreateScheduleCommand(scheduleParams)
+            );
             return {
                 scheduleArn: response.ScheduleArn,
                 scheduleName: scheduleName,
             };
         } catch (error) {
             if (error.name === 'ConflictException') {
-                const response = await client.send(new UpdateScheduleCommand(scheduleParams));
+                const response = await client.send(
+                    new UpdateScheduleCommand(scheduleParams)
+                );
                 return {
                     scheduleArn: response.ScheduleArn,
                     scheduleName: scheduleName,
@@ -100,10 +118,12 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
         const client = this.getSchedulerClient();
         const scheduleName = `frigg-script-${scriptName}`;
 
-        await client.send(new DeleteScheduleCommand({
-            Name: scheduleName,
-            GroupName: this.scheduleGroupName,
-        }));
+        await client.send(
+            new DeleteScheduleCommand({
+                Name: scheduleName,
+                GroupName: this.scheduleGroupName,
+            })
+        );
     }
 
     async setScheduleEnabled(scriptName, enabled) {
@@ -119,23 +139,28 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
         const currentSchedule = await client.send(getCommand);
 
         // Update with the new state
-        await client.send(new UpdateScheduleCommand({
-            Name: scheduleName,
-            GroupName: this.scheduleGroupName,
-            ScheduleExpression: currentSchedule.ScheduleExpression,
-            ScheduleExpressionTimezone: currentSchedule.ScheduleExpressionTimezone,
-            FlexibleTimeWindow: currentSchedule.FlexibleTimeWindow,
-            Target: currentSchedule.Target,
-            State: enabled ? 'ENABLED' : 'DISABLED',
-        }));
+        await client.send(
+            new UpdateScheduleCommand({
+                Name: scheduleName,
+                GroupName: this.scheduleGroupName,
+                ScheduleExpression: currentSchedule.ScheduleExpression,
+                ScheduleExpressionTimezone:
+                    currentSchedule.ScheduleExpressionTimezone,
+                FlexibleTimeWindow: currentSchedule.FlexibleTimeWindow,
+                Target: currentSchedule.Target,
+                State: enabled ? 'ENABLED' : 'DISABLED',
+            })
+        );
     }
 
     async listSchedules() {
         const client = this.getSchedulerClient();
 
-        const response = await client.send(new ListSchedulesCommand({
-            GroupName: this.scheduleGroupName,
-        }));
+        const response = await client.send(
+            new ListSchedulesCommand({
+                GroupName: this.scheduleGroupName,
+            })
+        );
 
         return response.Schedules || [];
     }
@@ -144,10 +169,12 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
         const client = this.getSchedulerClient();
         const scheduleName = `frigg-script-${scriptName}`;
 
-        const response = await client.send(new GetScheduleCommand({
-            Name: scheduleName,
-            GroupName: this.scheduleGroupName,
-        }));
+        const response = await client.send(
+            new GetScheduleCommand({
+                Name: scheduleName,
+                GroupName: this.scheduleGroupName,
+            })
+        );
 
         return response;
     }

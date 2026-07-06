@@ -6,13 +6,15 @@ const { AdminScriptBase } = require('../admin-script-base');
 jest.mock('../admin-frigg-commands');
 jest.mock('@friggframework/core/application/commands/admin-script-commands');
 
-const { createAdminFriggCommands } = require('../admin-frigg-commands');
-const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
+const { createAdminScriptContext } = require('../admin-frigg-commands');
+const {
+    createAdminScriptCommands,
+} = require('@friggframework/core/application/commands/admin-script-commands');
 
 describe('ScriptRunner', () => {
     let scriptFactory;
     let mockCommands;
-    let mockFrigg;
+    let mockContext;
     let testScript;
 
     class TestScript extends AdminScriptBase {
@@ -41,13 +43,14 @@ describe('ScriptRunner', () => {
             completeAdminProcess: jest.fn(),
         };
 
-        mockFrigg = {
+        mockContext = {
             log: jest.fn(),
             getExecutionId: jest.fn(),
+            getLogs: jest.fn(() => []),
         };
 
         createAdminScriptCommands.mockReturnValue(mockCommands);
-        createAdminFriggCommands.mockReturnValue(mockFrigg);
+        createAdminScriptContext.mockReturnValue(mockContext);
 
         mockCommands.createAdminProcess.mockResolvedValue({
             id: 'exec-123',
@@ -62,17 +65,27 @@ describe('ScriptRunner', () => {
 
     describe('execute()', () => {
         it('should execute script successfully', async () => {
-            const runner = new ScriptRunner({ scriptFactory, commands: mockCommands });
-
-            const result = await runner.execute('test-script', { foo: 'bar' }, {
-                trigger: 'MANUAL',
-                mode: 'async',
-                audit: { apiKeyName: 'test-key' },
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
             });
+
+            const result = await runner.execute(
+                'test-script',
+                { foo: 'bar' },
+                {
+                    trigger: 'MANUAL',
+                    mode: 'async',
+                    audit: { apiKeyName: 'test-key' },
+                }
+            );
 
             expect(result.status).toBe('COMPLETED');
             expect(result.scriptName).toBe('test-script');
-            expect(result.output).toEqual({ success: true, params: { foo: 'bar' } });
+            expect(result.output).toEqual({
+                success: true,
+                params: { foo: 'bar' },
+            });
             expect(result.executionId).toBe('exec-123');
             expect(result.metrics.durationMs).toBeGreaterThanOrEqual(0);
 
@@ -103,7 +116,10 @@ describe('ScriptRunner', () => {
         });
 
         it('should throw error if trigger is not provided', async () => {
-            const runner = new ScriptRunner({ scriptFactory, commands: mockCommands });
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
 
             await expect(
                 runner.execute('test-script', { foo: 'bar' }, {})
@@ -111,7 +127,10 @@ describe('ScriptRunner', () => {
         });
 
         it('should throw error if options are omitted entirely', async () => {
-            const runner = new ScriptRunner({ scriptFactory, commands: mockCommands });
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
 
             await expect(
                 runner.execute('test-script', { foo: 'bar' })
@@ -133,12 +152,19 @@ describe('ScriptRunner', () => {
             }
 
             scriptFactory.register(FailingScript);
-            const runner = new ScriptRunner({ scriptFactory, commands: mockCommands });
-
-            const result = await runner.execute('failing-script', {}, {
-                trigger: 'MANUAL',
-                mode: 'sync',
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
             });
+
+            const result = await runner.execute(
+                'failing-script',
+                {},
+                {
+                    trigger: 'MANUAL',
+                    mode: 'sync',
+                }
+            );
 
             expect(result.status).toBe('FAILED');
             expect(result.scriptName).toBe('failing-script');
@@ -186,18 +212,81 @@ describe('ScriptRunner', () => {
         });
 
         it('should reuse existing execution ID when provided', async () => {
-            const runner = new ScriptRunner({ scriptFactory, commands: mockCommands });
-
-            const result = await runner.execute('test-script', { foo: 'bar' }, {
-                trigger: 'QUEUE',
-                executionId: 'existing-exec-456',
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
             });
+
+            const result = await runner.execute(
+                'test-script',
+                { foo: 'bar' },
+                {
+                    trigger: 'QUEUE',
+                    executionId: 'existing-exec-456',
+                }
+            );
 
             expect(result.executionId).toBe('existing-exec-456');
             expect(mockCommands.createAdminProcess).not.toHaveBeenCalled();
             expect(mockCommands.updateAdminProcessState).toHaveBeenCalledWith(
                 'existing-exec-456',
                 'RUNNING'
+            );
+        });
+
+        it('reports COMPLETED even when persisting completion fails', async () => {
+            // Commands return an error object (never throw). A successful script
+            // must not be misreported as FAILED if the completion write fails.
+            mockCommands.completeAdminProcess.mockResolvedValue({
+                error: 500,
+                reason: 'DB write failed',
+            });
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            const result = await runner.execute(
+                'test-script',
+                {},
+                { trigger: 'MANUAL' }
+            );
+
+            expect(result.status).toBe('COMPLETED');
+            expect(result.stateUpdateFailed).toBe(true);
+        });
+
+        it('throws when the execution record cannot be created', async () => {
+            mockCommands.createAdminProcess.mockResolvedValue({
+                error: 500,
+                reason: 'DB down',
+            });
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            await expect(
+                runner.execute('test-script', {}, { trigger: 'MANUAL' })
+            ).rejects.toThrow('DB down');
+        });
+
+        it('persists collected logs on completion', async () => {
+            mockContext.getLogs.mockReturnValue([
+                { level: 'info', message: 'hi' },
+            ]);
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            await runner.execute('test-script', {}, { trigger: 'MANUAL' });
+
+            expect(mockCommands.completeAdminProcess).toHaveBeenCalledWith(
+                'exec-123',
+                expect.objectContaining({
+                    logs: [{ level: 'info', message: 'hi' }],
+                })
             );
         });
     });

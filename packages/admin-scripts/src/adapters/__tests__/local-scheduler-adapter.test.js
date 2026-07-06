@@ -32,7 +32,7 @@ describe('LocalSchedulerAdapter', () => {
             const result = await adapter.createSchedule(config);
 
             expect(result).toEqual({
-                scheduleName: 'test-script',
+                scheduleName: 'frigg-script-test-script',
                 scheduleArn: 'local:schedule:test-script',
             });
             expect(adapter.size).toBe(1);
@@ -49,13 +49,17 @@ describe('LocalSchedulerAdapter', () => {
             const result = await adapter.createSchedule(config);
 
             expect(result).toEqual({
-                scheduleName: 'test-script',
+                scheduleName: 'frigg-script-test-script',
                 scheduleArn: 'local:schedule:test-script',
             });
 
             const schedule = await adapter.getSchedule('test-script');
-            expect(schedule.ScheduleExpressionTimezone).toBe('America/New_York');
-            expect(JSON.parse(schedule.Target.Input).params).toEqual({ key: 'value' });
+            expect(schedule.ScheduleExpressionTimezone).toBe(
+                'America/New_York'
+            );
+            expect(JSON.parse(schedule.Target.Input).params).toEqual({
+                key: 'value',
+            });
         });
 
         it('should default timezone to UTC', async () => {
@@ -119,7 +123,9 @@ describe('LocalSchedulerAdapter', () => {
         });
 
         it('should not throw error when deleting non-existent schedule', async () => {
-            await expect(adapter.deleteSchedule('non-existent')).resolves.toBeUndefined();
+            await expect(
+                adapter.deleteSchedule('non-existent')
+            ).resolves.toBeUndefined();
         });
 
         it('should clear intervals if they exist', async () => {
@@ -210,9 +216,15 @@ describe('LocalSchedulerAdapter', () => {
             const schedules = await adapter.listSchedules();
 
             expect(schedules).toHaveLength(3);
-            expect(schedules.map((s) => s.Name)).toContain('frigg-script-script-1');
-            expect(schedules.map((s) => s.Name)).toContain('frigg-script-script-2');
-            expect(schedules.map((s) => s.Name)).toContain('frigg-script-script-3');
+            expect(schedules.map((s) => s.Name)).toContain(
+                'frigg-script-script-1'
+            );
+            expect(schedules.map((s) => s.Name)).toContain(
+                'frigg-script-script-2'
+            );
+            expect(schedules.map((s) => s.Name)).toContain(
+                'frigg-script-script-3'
+            );
         });
 
         it('should include all schedule properties in normalized format', async () => {
@@ -247,10 +259,12 @@ describe('LocalSchedulerAdapter', () => {
         it('should return schedule details', async () => {
             const schedule = await adapter.getSchedule('test-script');
 
-            expect(schedule.Name).toBe('test-script');
+            expect(schedule.Name).toBe('frigg-script-test-script');
             expect(schedule.State).toBe('ENABLED');
             expect(schedule.ScheduleExpression).toBe('0 0 * * *');
-            expect(schedule.ScheduleExpressionTimezone).toBe('America/New_York');
+            expect(schedule.ScheduleExpressionTimezone).toBe(
+                'America/New_York'
+            );
         });
 
         it('should include target configuration', async () => {

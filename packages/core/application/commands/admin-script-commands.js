@@ -39,8 +39,12 @@ function mapErrorToResponse(error) {
  */
 function createAdminScriptCommands() {
     // Lazy-load repository factories to avoid circular dependencies
-    const { createAdminProcessRepository } = require('../../admin-scripts/repositories/admin-process-repository-factory');
-    const { createScriptScheduleRepository } = require('../../admin-scripts/repositories/script-schedule-repository-factory');
+    const {
+        createAdminProcessRepository,
+    } = require('../../admin-scripts/repositories/admin-process-repository-factory');
+    const {
+        createScriptScheduleRepository,
+    } = require('../../admin-scripts/repositories/script-schedule-repository-factory');
 
     const adminProcessRepository = createAdminProcessRepository();
     const scheduleRepository = createScriptScheduleRepository();
@@ -67,15 +71,20 @@ function createAdminScriptCommands() {
             mode,
             input,
             audit,
+            parentExecutionId,
         }) {
             try {
-                const process = await adminProcessRepository.createAdminProcess({
-                    scriptName,
-                    scriptVersion,
-                    trigger,
-                    mode: mode || 'async',
-                    input,
-                    audit,
+                const process = await adminProcessRepository.createProcess({
+                    name: scriptName,
+                    type: 'ADMIN_SCRIPT',
+                    context: {
+                        scriptVersion,
+                        trigger,
+                        mode: mode || 'async',
+                        input,
+                        audit,
+                        ...(parentExecutionId && { parentExecutionId }),
+                    },
                 });
                 return process;
             } catch (error) {
@@ -91,7 +100,9 @@ function createAdminScriptCommands() {
          */
         async findAdminProcessById(processId) {
             try {
-                const process = await adminProcessRepository.findAdminProcessById(processId);
+                const process = await adminProcessRepository.findProcessById(
+                    processId
+                );
                 if (!process) {
                     const error = new Error(`Execution ${processId} not found`);
                     error.code = 'EXECUTION_NOT_FOUND';
@@ -112,10 +123,11 @@ function createAdminScriptCommands() {
          */
         async findAdminProcessesByName(scriptName, options = {}) {
             try {
-                const processes = await adminProcessRepository.findAdminProcessesByName(
-                    scriptName,
-                    options
-                );
+                const processes =
+                    await adminProcessRepository.findProcessesByName(
+                        scriptName,
+                        options
+                    );
                 return processes;
             } catch (error) {
                 // Return empty array on error (non-critical)
@@ -132,7 +144,7 @@ function createAdminScriptCommands() {
          */
         async updateAdminProcessState(processId, state) {
             try {
-                const updated = await adminProcessRepository.updateAdminProcessState(
+                const updated = await adminProcessRepository.updateProcessState(
                     processId,
                     state
                 );
@@ -151,7 +163,7 @@ function createAdminScriptCommands() {
          */
         async appendAdminProcessLog(processId, logEntry) {
             try {
-                const updated = await adminProcessRepository.appendAdminProcessLog(
+                const updated = await adminProcessRepository.appendProcessLog(
                     processId,
                     logEntry
                 );
@@ -171,57 +183,37 @@ function createAdminScriptCommands() {
          * @param {Object} [params.output] - Script output/result (stored in results.output)
          * @param {Object} [params.error] - Error details { name, message, stack } (stored in results.error)
          * @param {Object} [params.metrics] - Performance metrics { startTime, endTime, durationMs } (stored in results.metrics)
+         * @param {Array} [params.logs] - Execution log entries (stored in results.logs)
          * @returns {Promise<Object>} { success: true } or error
          */
-        async completeAdminProcess(processId, { state, output, error, metrics }) {
+        async completeAdminProcess(
+            processId,
+            { state, output, error, metrics, logs }
+        ) {
             try {
-                // Update each field independently (partial updates allowed)
                 if (state) {
-                    await adminProcessRepository.updateAdminProcessState(processId, state);
+                    await adminProcessRepository.updateProcessState(
+                        processId,
+                        state
+                    );
                 }
-                if (output !== undefined) {
-                    await adminProcessRepository.updateAdminProcessOutput(processId, output);
-                }
-                if (error) {
-                    await adminProcessRepository.updateAdminProcessError(processId, error);
-                }
-                if (metrics) {
-                    await adminProcessRepository.updateAdminProcessMetrics(processId, metrics);
+
+                // Merge output/error/metrics/logs into the results JSON in one write
+                const resultsUpdate = {};
+                if (output !== undefined) resultsUpdate.output = output;
+                if (error) resultsUpdate.error = error;
+                if (metrics) resultsUpdate.metrics = metrics;
+                if (logs) resultsUpdate.logs = logs;
+                if (Object.keys(resultsUpdate).length > 0) {
+                    await adminProcessRepository.updateProcessResults(
+                        processId,
+                        resultsUpdate
+                    );
                 }
 
                 return { success: true };
             } catch (err) {
                 return mapErrorToResponse(err);
-            }
-        },
-
-        /**
-         * Find recent admin processes across all scripts
-         *
-         * @param {Object} [options] - Query options
-         * @param {number} [options.limit] - Maximum results (default 20)
-         * @param {string} [options.state] - Filter by state
-         * @param {Date} [options.since] - Filter by created date
-         * @returns {Promise<Array>} Array of recent admin processes
-         */
-        async findRecentAdminProcesses(options = {}) {
-            try {
-                const { limit = 20, state, since } = options;
-
-                // If state filter provided, use state query
-                if (state) {
-                    return await adminProcessRepository.findAdminProcessesByState(state, {
-                        limit,
-                        sortBy: 'createdAt',
-                        sortOrder: 'desc',
-                    });
-                }
-
-                // Otherwise, use generic recent query (would need to be added to interface)
-                // For now, fall back to empty array if no state filter
-                return [];
-            } catch (error) {
-                return [];
             }
         },
 
@@ -236,7 +228,10 @@ function createAdminScriptCommands() {
          */
         async getScheduleByScriptName(scriptName) {
             try {
-                const schedule = await scheduleRepository.findScheduleByScriptName(scriptName);
+                const schedule =
+                    await scheduleRepository.findScheduleByScriptName(
+                        scriptName
+                    );
                 return schedule;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -253,7 +248,12 @@ function createAdminScriptCommands() {
          * @param {string} [params.timezone] - Timezone (default 'UTC')
          * @returns {Promise<Object>} Created or updated schedule
          */
-        async upsertSchedule({ scriptName, enabled, cronExpression, timezone }) {
+        async upsertSchedule({
+            scriptName,
+            enabled,
+            cronExpression,
+            timezone,
+        }) {
             try {
                 const schedule = await scheduleRepository.upsertSchedule({
                     scriptName,
@@ -275,7 +275,9 @@ function createAdminScriptCommands() {
          */
         async deleteSchedule(scriptName) {
             try {
-                const result = await scheduleRepository.deleteSchedule(scriptName);
+                const result = await scheduleRepository.deleteSchedule(
+                    scriptName
+                );
                 return result;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -291,12 +293,19 @@ function createAdminScriptCommands() {
          * @param {string} [externalInfo.externalScheduleName] - External scheduler name
          * @returns {Promise<Object>} Updated schedule
          */
-        async updateScheduleExternalInfo(scriptName, { externalScheduleId, externalScheduleName }) {
+        async updateScheduleExternalInfo(
+            scriptName,
+            { externalScheduleId, externalScheduleName }
+        ) {
             try {
-                const schedule = await scheduleRepository.updateScheduleExternalInfo(scriptName, {
-                    externalScheduleId,
-                    externalScheduleName,
-                });
+                const schedule =
+                    await scheduleRepository.updateScheduleExternalInfo(
+                        scriptName,
+                        {
+                            externalScheduleId,
+                            externalScheduleName,
+                        }
+                    );
                 return schedule;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -313,10 +322,11 @@ function createAdminScriptCommands() {
          */
         async updateScheduleLastTriggered(scriptName, timestamp) {
             try {
-                const schedule = await scheduleRepository.updateScheduleLastTriggered(
-                    scriptName,
-                    timestamp
-                );
+                const schedule =
+                    await scheduleRepository.updateScheduleLastTriggered(
+                        scriptName,
+                        timestamp
+                    );
                 return schedule;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -332,7 +342,9 @@ function createAdminScriptCommands() {
          */
         async listSchedules(options = {}) {
             try {
-                const schedules = await scheduleRepository.listSchedules(options);
+                const schedules = await scheduleRepository.listSchedules(
+                    options
+                );
                 return schedules;
             } catch (error) {
                 return [];

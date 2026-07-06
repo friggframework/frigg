@@ -7,7 +7,7 @@ const fs = require('fs-extra');
  * @function loadAppDefinition
  * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
  * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null}} An object containing the application definition.
+ * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, admin: object}} An object containing the application definition.
  * @throws {Error} Throws error if backend package.json cannot be found.
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
  * @example
@@ -29,10 +29,15 @@ function loadAppDefinition() {
     const backendJsFile = require(backendFilePath);
     const appDefinition = backendJsFile.Definition;
 
-    const { integrations = [], user: userConfig = null } = appDefinition;
-    return { integrations, userConfig };
+    const {
+        integrations = [],
+        user: userConfig = null,
+        adminScripts = [],
+        admin = {},
+    } = appDefinition;
+    return { integrations, userConfig, adminScripts, admin };
 }
 
 module.exports = {
     loadAppDefinition,
-}; 
+};

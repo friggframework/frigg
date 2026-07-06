@@ -48,22 +48,34 @@ describe('Scheduler Adapter Factory', () => {
         });
 
         it('should create AWS adapter when type is "aws"', () => {
-            const adapter = createSchedulerAdapter({ type: 'aws', ...awsAdapterParams });
+            const adapter = createSchedulerAdapter({
+                type: 'aws',
+                ...awsAdapterParams,
+            });
 
             expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
             expect(adapter.getName()).toBe('aws-eventbridge-scheduler');
         });
 
         it('should create AWS adapter when type is "eventbridge"', () => {
-            const adapter = createSchedulerAdapter({ type: 'eventbridge', ...awsAdapterParams });
+            const adapter = createSchedulerAdapter({
+                type: 'eventbridge',
+                ...awsAdapterParams,
+            });
 
             expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
         });
 
         it('should handle case-insensitive type values', () => {
-            const adapter1 = createSchedulerAdapter({ type: 'AWS', ...awsAdapterParams });
+            const adapter1 = createSchedulerAdapter({
+                type: 'AWS',
+                ...awsAdapterParams,
+            });
             const adapter2 = createSchedulerAdapter({ type: 'LOCAL' });
-            const adapter3 = createSchedulerAdapter({ type: 'EventBridge', ...awsAdapterParams });
+            const adapter3 = createSchedulerAdapter({
+                type: 'EventBridge',
+                ...awsAdapterParams,
+            });
 
             expect(adapter1).toBeInstanceOf(AWSSchedulerAdapter);
             expect(adapter2).toBeInstanceOf(LocalSchedulerAdapter);
@@ -73,7 +85,8 @@ describe('Scheduler Adapter Factory', () => {
         it('should pass AWS configuration to AWS adapter', () => {
             const config = {
                 type: 'aws',
-                targetLambdaArn: 'arn:aws:lambda:eu-west-1:123456789012:function:test',
+                targetLambdaArn:
+                    'arn:aws:lambda:eu-west-1:123456789012:function:test',
                 scheduleGroupName: 'custom-group',
                 roleArn: 'arn:aws:iam::123456789012:role/custom-role',
             };
@@ -82,9 +95,13 @@ describe('Scheduler Adapter Factory', () => {
 
             expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
             expect(adapter.region).toBe('us-east-1'); // From process.env.AWS_REGION
-            expect(adapter.targetLambdaArn).toBe('arn:aws:lambda:eu-west-1:123456789012:function:test');
+            expect(adapter.targetLambdaArn).toBe(
+                'arn:aws:lambda:eu-west-1:123456789012:function:test'
+            );
             expect(adapter.scheduleGroupName).toBe('custom-group');
-            expect(adapter.roleArn).toBe('arn:aws:iam::123456789012:role/custom-role');
+            expect(adapter.roleArn).toBe(
+                'arn:aws:iam::123456789012:role/custom-role'
+            );
         });
 
         it('should pass roleArn through to AWS adapter', () => {
@@ -95,7 +112,9 @@ describe('Scheduler Adapter Factory', () => {
             });
 
             expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
-            expect(adapter.roleArn).toBe('arn:aws:iam::999999999999:role/scheduler-role');
+            expect(adapter.roleArn).toBe(
+                'arn:aws:iam::999999999999:role/scheduler-role'
+            );
         });
 
         it('should ignore AWS config for local adapter', () => {
@@ -111,7 +130,9 @@ describe('Scheduler Adapter Factory', () => {
         });
 
         it('should throw for unknown adapter type', () => {
-            expect(() => createSchedulerAdapter({ type: 'unknown-type' })).toThrow();
+            expect(() =>
+                createSchedulerAdapter({ type: 'unknown-type' })
+            ).toThrow();
         });
     });
 });

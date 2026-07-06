@@ -46,7 +46,8 @@ describe('UpsertScheduleUseCase', () => {
             });
             mockCommands.updateScheduleExternalInfo.mockResolvedValue({
                 ...savedSchedule,
-                externalScheduleId: 'arn:aws:scheduler:us-east-1:123:schedule/test',
+                externalScheduleId:
+                    'arn:aws:scheduler:us-east-1:123:schedule/test',
             });
 
             const result = await useCase.execute('test-script', {
@@ -96,7 +97,8 @@ describe('UpsertScheduleUseCase', () => {
                 enabled: false,
                 cronExpression: null,
                 timezone: 'UTC',
-                externalScheduleId: 'arn:aws:scheduler:us-east-1:123:schedule/test',
+                externalScheduleId:
+                    'arn:aws:scheduler:us-east-1:123:schedule/test',
             };
 
             mockScriptFactory.has.mockReturnValue(true);
@@ -112,7 +114,9 @@ describe('UpsertScheduleUseCase', () => {
             });
 
             expect(result.success).toBe(true);
-            expect(mockSchedulerAdapter.deleteSchedule).toHaveBeenCalledWith('test-script');
+            expect(mockSchedulerAdapter.deleteSchedule).toHaveBeenCalledWith(
+                'test-script'
+            );
         });
 
         it('should handle scheduler errors gracefully with warning', async () => {
@@ -142,8 +146,9 @@ describe('UpsertScheduleUseCase', () => {
         it('should throw SCRIPT_NOT_FOUND error when script does not exist', async () => {
             mockScriptFactory.has.mockReturnValue(false);
 
-            await expect(useCase.execute('non-existent', { enabled: true }))
-                .rejects.toThrow('Script "non-existent" not found');
+            await expect(
+                useCase.execute('non-existent', { enabled: true })
+            ).rejects.toThrow('Script "non-existent" not found');
 
             try {
                 await useCase.execute('non-existent', { enabled: true });
@@ -155,8 +160,9 @@ describe('UpsertScheduleUseCase', () => {
         it('should throw INVALID_INPUT error when enabled is not a boolean', async () => {
             mockScriptFactory.has.mockReturnValue(true);
 
-            await expect(useCase.execute('test-script', { enabled: 'yes' }))
-                .rejects.toThrow('enabled must be a boolean');
+            await expect(
+                useCase.execute('test-script', { enabled: 'yes' })
+            ).rejects.toThrow('enabled must be a boolean');
 
             try {
                 await useCase.execute('test-script', { enabled: 'yes' });
@@ -168,8 +174,11 @@ describe('UpsertScheduleUseCase', () => {
         it('should throw INVALID_INPUT error when enabled without cronExpression', async () => {
             mockScriptFactory.has.mockReturnValue(true);
 
-            await expect(useCase.execute('test-script', { enabled: true }))
-                .rejects.toThrow('cronExpression is required when enabled is true');
+            await expect(
+                useCase.execute('test-script', { enabled: true })
+            ).rejects.toThrow(
+                'cronExpression is required when enabled is true'
+            );
 
             try {
                 await useCase.execute('test-script', { enabled: true });
@@ -187,7 +196,9 @@ describe('UpsertScheduleUseCase', () => {
                 timezone: 'UTC',
             });
 
-            const result = await useCase.execute('test-script', { enabled: false });
+            const result = await useCase.execute('test-script', {
+                enabled: false,
+            });
 
             expect(result.success).toBe(true);
             expect(mockCommands.upsertSchedule).toHaveBeenCalledWith({

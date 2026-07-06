@@ -1,4 +1,6 @@
-const { GetEffectiveScheduleUseCase } = require('../get-effective-schedule-use-case');
+const {
+    GetEffectiveScheduleUseCase,
+} = require('../get-effective-schedule-use-case');
 
 describe('GetEffectiveScheduleUseCase', () => {
     let useCase;
@@ -64,7 +66,9 @@ describe('GetEffectiveScheduleUseCase', () => {
         it('should default timezone to UTC when not specified in definition', async () => {
             mockScriptFactory.has.mockReturnValue(true);
             mockScriptFactory.get.mockReturnValue({
-                Definition: { schedule: { enabled: true, cronExpression: '0 12 * * *' } },
+                Definition: {
+                    schedule: { enabled: true, cronExpression: '0 12 * * *' },
+                },
             });
             mockCommands.getScheduleByScriptName.mockResolvedValue(null);
 
@@ -101,8 +105,9 @@ describe('GetEffectiveScheduleUseCase', () => {
         it('should throw SCRIPT_NOT_FOUND error when script does not exist', async () => {
             mockScriptFactory.has.mockReturnValue(false);
 
-            await expect(useCase.execute('non-existent'))
-                .rejects.toThrow('Script "non-existent" not found');
+            await expect(useCase.execute('non-existent')).rejects.toThrow(
+                'Script "non-existent" not found'
+            );
 
             try {
                 await useCase.execute('non-existent');

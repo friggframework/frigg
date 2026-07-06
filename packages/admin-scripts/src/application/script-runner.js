@@ -1,6 +1,8 @@
 const { getScriptFactory } = require('./script-factory');
 const { createAdminScriptContext } = require('./admin-frigg-commands');
-const { createAdminScriptCommands } = require('@friggframework/core/application/commands/admin-script-commands');
+const {
+    createAdminScriptCommands,
+} = require('@friggframework/core/application/commands/admin-script-commands');
 
 /**
  * Script Runner
@@ -31,10 +33,17 @@ class ScriptRunner {
      *   Pass this when resuming a queued execution to continue using the same execution record.
      */
     async execute(scriptName, params = {}, options = {}) {
-        const { trigger, audit = {}, executionId: existingExecutionId } = options;
+        const {
+            trigger,
+            audit = {},
+            executionId: existingExecutionId,
+            parentExecutionId,
+        } = options;
 
         if (!trigger) {
-            throw new Error('options.trigger is required (MANUAL | SCHEDULED | QUEUE)');
+            throw new Error(
+                'options.trigger is required (MANUAL | SCHEDULED | QUEUE)'
+            );
         }
 
         // Get script class
@@ -42,7 +51,10 @@ class ScriptRunner {
         const definition = scriptClass.Definition;
 
         // Validate integrationFactory requirement
-        if (definition.config?.requireIntegrationInstance && !this.integrationFactory) {
+        if (
+            definition.config?.requireIntegrationInstance &&
+            !this.integrationFactory
+        ) {
             throw new Error(
                 `Script "${scriptName}" requires integrationFactory but none was provided`
             );
@@ -59,20 +71,29 @@ class ScriptRunner {
                 mode: options.mode || 'async',
                 input: params,
                 audit,
+                parentExecutionId,
             });
+            // Commands return an error object (never throw) — fail loudly rather
+            // than tracking an `undefined` execution id.
+            if (execution.error) {
+                throw new Error(
+                    execution.reason || 'Failed to create admin process record'
+                );
+            }
             executionId = execution.id;
         }
 
         const startTime = new Date();
 
+        // Created up front so collected logs can be persisted on both paths.
+        const context = createAdminScriptContext({
+            executionId,
+            integrationFactory: this.integrationFactory,
+        });
+
+        let output;
         try {
             await this.commands.updateAdminProcessState(executionId, 'RUNNING');
-
-            // Create context for the script (facade over repositories, queue, logging)
-            const context = createAdminScriptContext({
-                executionId,
-                integrationFactory: this.integrationFactory,
-            });
 
             // Create script instance with context injected via constructor
             const script = this.scriptFactory.createInstance(scriptName, {
@@ -82,46 +103,33 @@ class ScriptRunner {
             });
 
             // Execute the script
-            const output = await script.execute(params);
-
-            // Calculate metrics
-            const endTime = new Date();
-            const durationMs = endTime - startTime;
-
-            await this.commands.completeAdminProcess(executionId, {
-                state: 'COMPLETED',
-                output,
-                metrics: {
-                    startTime: startTime.toISOString(),
-                    endTime: endTime.toISOString(),
-                    durationMs,
-                },
-            });
-
-            return {
-                executionId,
-                status: 'COMPLETED',
-                scriptName,
-                output,
-                metrics: { durationMs },
-            };
+            output = await script.execute(params);
         } catch (error) {
-            const endTime = new Date();
-            const durationMs = endTime - startTime;
+            const durationMs = new Date() - startTime;
 
-            await this.commands.completeAdminProcess(executionId, {
-                state: 'FAILED',
-                error: {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack,
-                },
-                metrics: {
-                    startTime: startTime.toISOString(),
-                    endTime: endTime.toISOString(),
-                    durationMs,
-                },
-            });
+            const completion = await this.commands.completeAdminProcess(
+                executionId,
+                {
+                    state: 'FAILED',
+                    error: {
+                        name: error.name,
+                        message: error.message,
+                        stack: error.stack,
+                    },
+                    metrics: {
+                        startTime: startTime.toISOString(),
+                        endTime: new Date().toISOString(),
+                        durationMs,
+                    },
+                    logs: context.getLogs(),
+                }
+            );
+            if (completion?.error) {
+                console.error(
+                    `Failed to persist FAILED state for execution ${executionId}:`,
+                    completion.reason
+                );
+            }
 
             return {
                 executionId,
@@ -134,6 +142,40 @@ class ScriptRunner {
                 metrics: { durationMs },
             };
         }
+
+        // Script succeeded. Persist completion OUTSIDE the try above so a
+        // persistence failure here is never misreported as a script failure.
+        const durationMs = new Date() - startTime;
+        const result = {
+            executionId,
+            status: 'COMPLETED',
+            scriptName,
+            output,
+            metrics: { durationMs },
+        };
+
+        const completion = await this.commands.completeAdminProcess(
+            executionId,
+            {
+                state: 'COMPLETED',
+                output,
+                metrics: {
+                    startTime: startTime.toISOString(),
+                    endTime: new Date().toISOString(),
+                    durationMs,
+                },
+                logs: context.getLogs(),
+            }
+        );
+        if (completion?.error) {
+            console.error(
+                `Script "${scriptName}" ran successfully but persisting COMPLETED state failed for execution ${executionId}:`,
+                completion.reason
+            );
+            result.stateUpdateFailed = true;
+        }
+
+        return result;
     }
 }
 

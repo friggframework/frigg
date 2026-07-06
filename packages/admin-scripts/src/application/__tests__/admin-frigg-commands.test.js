@@ -1,10 +1,19 @@
-const { AdminFriggCommands, createAdminFriggCommands } = require('../admin-frigg-commands');
+const {
+    AdminFriggCommands,
+    createAdminFriggCommands,
+} = require('../admin-frigg-commands');
 
 // Mock all repository factories
-jest.mock('@friggframework/core/integrations/repositories/integration-repository-factory');
+jest.mock(
+    '@friggframework/core/integrations/repositories/integration-repository-factory'
+);
 jest.mock('@friggframework/core/user/repositories/user-repository-factory');
-jest.mock('@friggframework/core/modules/repositories/module-repository-factory');
-jest.mock('@friggframework/core/credential/repositories/credential-repository-factory');
+jest.mock(
+    '@friggframework/core/modules/repositories/module-repository-factory'
+);
+jest.mock(
+    '@friggframework/core/credential/repositories/credential-repository-factory'
+);
 jest.mock('@friggframework/core/queues');
 
 describe('AdminScriptContext', () => {
@@ -47,10 +56,18 @@ describe('AdminScriptContext', () => {
             batchSend: jest.fn().mockResolvedValue(undefined),
         };
 
-        const { createIntegrationRepository } = require('@friggframework/core/integrations/repositories/integration-repository-factory');
-        const { createUserRepository } = require('@friggframework/core/user/repositories/user-repository-factory');
-        const { createModuleRepository } = require('@friggframework/core/modules/repositories/module-repository-factory');
-        const { createCredentialRepository } = require('@friggframework/core/credential/repositories/credential-repository-factory');
+        const {
+            createIntegrationRepository,
+        } = require('@friggframework/core/integrations/repositories/integration-repository-factory');
+        const {
+            createUserRepository,
+        } = require('@friggframework/core/user/repositories/user-repository-factory');
+        const {
+            createModuleRepository,
+        } = require('@friggframework/core/modules/repositories/module-repository-factory');
+        const {
+            createCredentialRepository,
+        } = require('@friggframework/core/credential/repositories/credential-repository-factory');
         const { QueuerUtil } = require('@friggframework/core/queues');
 
         createIntegrationRepository.mockReturnValue(mockIntegrationRepo);
@@ -73,7 +90,9 @@ describe('AdminScriptContext', () => {
 
         it('creates with integrationFactory', () => {
             const mockFactory = { getInstanceFromIntegrationId: jest.fn() };
-            const ctx = new AdminFriggCommands({ integrationFactory: mockFactory });
+            const ctx = new AdminFriggCommands({
+                integrationFactory: mockFactory,
+            });
 
             expect(ctx.integrationFactory).toBe(mockFactory);
         });
@@ -90,7 +109,9 @@ describe('AdminScriptContext', () => {
     describe('Lazy Repository Loading', () => {
         it('creates integrationRepository on first access', () => {
             const ctx = new AdminFriggCommands();
-            const { createIntegrationRepository } = require('@friggframework/core/integrations/repositories/integration-repository-factory');
+            const {
+                createIntegrationRepository,
+            } = require('@friggframework/core/integrations/repositories/integration-repository-factory');
 
             expect(createIntegrationRepository).not.toHaveBeenCalled();
 
@@ -112,7 +133,9 @@ describe('AdminScriptContext', () => {
 
         it('creates userRepository on first access', () => {
             const ctx = new AdminFriggCommands();
-            const { createUserRepository } = require('@friggframework/core/user/repositories/user-repository-factory');
+            const {
+                createUserRepository,
+            } = require('@friggframework/core/user/repositories/user-repository-factory');
 
             expect(createUserRepository).not.toHaveBeenCalled();
 
@@ -124,7 +147,9 @@ describe('AdminScriptContext', () => {
 
         it('creates moduleRepository on first access', () => {
             const ctx = new AdminFriggCommands();
-            const { createModuleRepository } = require('@friggframework/core/modules/repositories/module-repository-factory');
+            const {
+                createModuleRepository,
+            } = require('@friggframework/core/modules/repositories/module-repository-factory');
 
             expect(createModuleRepository).not.toHaveBeenCalled();
 
@@ -136,7 +161,9 @@ describe('AdminScriptContext', () => {
 
         it('creates credentialRepository on first access', () => {
             const ctx = new AdminFriggCommands();
-            const { createCredentialRepository } = require('@friggframework/core/credential/repositories/credential-repository-factory');
+            const {
+                createCredentialRepository,
+            } = require('@friggframework/core/credential/repositories/credential-repository-factory');
 
             expect(createCredentialRepository).not.toHaveBeenCalled();
 
@@ -153,21 +180,27 @@ describe('AdminScriptContext', () => {
 
             await expect(ctx.instantiate('int_123')).rejects.toThrow(
                 'instantiate() requires integrationFactory. ' +
-                'Set Definition.config.requireIntegrationInstance = true'
+                    'Set Definition.config.requireIntegrationInstance = true'
             );
         });
 
         it('calls integrationFactory.getInstanceFromIntegrationId', async () => {
             const mockInstance = { primary: { api: {} } };
             const mockFactory = {
-                getInstanceFromIntegrationId: jest.fn().mockResolvedValue(mockInstance),
+                getInstanceFromIntegrationId: jest
+                    .fn()
+                    .mockResolvedValue(mockInstance),
             };
-            const ctx = new AdminFriggCommands({ integrationFactory: mockFactory });
+            const ctx = new AdminFriggCommands({
+                integrationFactory: mockFactory,
+            });
 
             const result = await ctx.instantiate('int_123');
 
             expect(result).toEqual(mockInstance);
-            expect(mockFactory.getInstanceFromIntegrationId).toHaveBeenCalledWith({
+            expect(
+                mockFactory.getInstanceFromIntegrationId
+            ).toHaveBeenCalledWith({
                 integrationId: 'int_123',
                 _isAdminContext: true,
             });
@@ -176,13 +209,18 @@ describe('AdminScriptContext', () => {
         it('passes _isAdminContext: true', async () => {
             const mockInstance = { primary: { api: {} } };
             const mockFactory = {
-                getInstanceFromIntegrationId: jest.fn().mockResolvedValue(mockInstance),
+                getInstanceFromIntegrationId: jest
+                    .fn()
+                    .mockResolvedValue(mockInstance),
             };
-            const ctx = new AdminFriggCommands({ integrationFactory: mockFactory });
+            const ctx = new AdminFriggCommands({
+                integrationFactory: mockFactory,
+            });
 
             await ctx.instantiate('int_123');
 
-            const callArgs = mockFactory.getInstanceFromIntegrationId.mock.calls[0][0];
+            const callArgs =
+                mockFactory.getInstanceFromIntegrationId.mock.calls[0][0];
             expect(callArgs._isAdminContext).toBe(true);
         });
     });
@@ -208,7 +246,8 @@ describe('AdminScriptContext', () => {
         });
 
         it('calls QueuerUtil.send with correct params', async () => {
-            process.env.ADMIN_SCRIPT_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789012/admin-scripts';
+            process.env.ADMIN_SCRIPT_QUEUE_URL =
+                'https://sqs.us-east-1.amazonaws.com/123456789012/admin-scripts';
             const ctx = new AdminFriggCommands({ executionId: 'exec_123' });
             const params = { integrationId: 'int_456' };
 
@@ -226,7 +265,8 @@ describe('AdminScriptContext', () => {
         });
 
         it('includes parentExecutionId from constructor', async () => {
-            process.env.ADMIN_SCRIPT_QUEUE_URL = 'https://sqs.example.com/queue';
+            process.env.ADMIN_SCRIPT_QUEUE_URL =
+                'https://sqs.example.com/queue';
             const ctx = new AdminFriggCommands({ executionId: 'exec_parent' });
 
             await ctx.queueScript('my-script', {});
@@ -236,7 +276,8 @@ describe('AdminScriptContext', () => {
         });
 
         it('logs queuing operation', async () => {
-            process.env.ADMIN_SCRIPT_QUEUE_URL = 'https://sqs.example.com/queue';
+            process.env.ADMIN_SCRIPT_QUEUE_URL =
+                'https://sqs.example.com/queue';
             const ctx = new AdminFriggCommands();
             const params = { batchId: 'batch_1' };
 
@@ -271,7 +312,8 @@ describe('AdminScriptContext', () => {
         });
 
         it('calls QueuerUtil.batchSend', async () => {
-            process.env.ADMIN_SCRIPT_QUEUE_URL = 'https://sqs.example.com/queue';
+            process.env.ADMIN_SCRIPT_QUEUE_URL =
+                'https://sqs.example.com/queue';
             const ctx = new AdminFriggCommands({ executionId: 'exec_123' });
             const entries = [
                 { scriptName: 'script-1', params: { id: '1' } },
@@ -300,7 +342,8 @@ describe('AdminScriptContext', () => {
         });
 
         it('maps entries correctly', async () => {
-            process.env.ADMIN_SCRIPT_QUEUE_URL = 'https://sqs.example.com/queue';
+            process.env.ADMIN_SCRIPT_QUEUE_URL =
+                'https://sqs.example.com/queue';
             const ctx = new AdminFriggCommands();
             const entries = [
                 { scriptName: 'test-script', params: { value: 'abc' } },
@@ -316,11 +359,10 @@ describe('AdminScriptContext', () => {
         });
 
         it('handles entries without params', async () => {
-            process.env.ADMIN_SCRIPT_QUEUE_URL = 'https://sqs.example.com/queue';
+            process.env.ADMIN_SCRIPT_QUEUE_URL =
+                'https://sqs.example.com/queue';
             const ctx = new AdminFriggCommands();
-            const entries = [
-                { scriptName: 'no-params-script' },
-            ];
+            const entries = [{ scriptName: 'no-params-script' }];
 
             await ctx.queueScriptBatch(entries);
 
@@ -329,7 +371,8 @@ describe('AdminScriptContext', () => {
         });
 
         it('logs batch queuing operation', async () => {
-            process.env.ADMIN_SCRIPT_QUEUE_URL = 'https://sqs.example.com/queue';
+            process.env.ADMIN_SCRIPT_QUEUE_URL =
+                'https://sqs.example.com/queue';
             const ctx = new AdminFriggCommands();
             const entries = [
                 { scriptName: 'script-1', params: {} },

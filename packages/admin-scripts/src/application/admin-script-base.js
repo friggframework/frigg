@@ -15,7 +15,6 @@ class AdminScriptBase {
 
         config: {
             timeout: 300000,
-            maxRetries: 0,
             requireIntegrationInstance: false,
         },
 
@@ -32,7 +31,9 @@ class AdminScriptBase {
     }
 
     async execute(params) {
-        throw new Error('AdminScriptBase.execute() must be implemented by subclass');
+        throw new Error(
+            'AdminScriptBase.execute() must be implemented by subclass'
+        );
     }
 }
 

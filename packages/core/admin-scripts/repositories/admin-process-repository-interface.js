@@ -49,7 +49,9 @@ class AdminProcessRepositoryInterface {
      * @abstract
      */
     async findProcessById(id) {
-        throw new Error('Method findProcessById must be implemented by subclass');
+        throw new Error(
+            'Method findProcessById must be implemented by subclass'
+        );
     }
 
     /**
@@ -61,11 +63,14 @@ class AdminProcessRepositoryInterface {
      * @param {number} [options.offset] - Number of results to skip
      * @param {string} [options.sortBy] - Field to sort by
      * @param {string} [options.sortOrder] - Sort order ('asc' or 'desc')
+     * @param {string} [options.state] - Optional state filter ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED')
      * @returns {Promise<Array>} Array of process records
      * @abstract
      */
     async findProcessesByName(name, options = {}) {
-        throw new Error('Method findProcessesByName must be implemented by subclass');
+        throw new Error(
+            'Method findProcessesByName must be implemented by subclass'
+        );
     }
 
     /**
@@ -81,7 +86,9 @@ class AdminProcessRepositoryInterface {
      * @abstract
      */
     async findProcessesByState(state, options = {}) {
-        throw new Error('Method findProcessesByState must be implemented by subclass');
+        throw new Error(
+            'Method findProcessesByState must be implemented by subclass'
+        );
     }
 
     /**
@@ -93,7 +100,9 @@ class AdminProcessRepositoryInterface {
      * @abstract
      */
     async updateProcessState(id, state) {
-        throw new Error('Method updateProcessState must be implemented by subclass');
+        throw new Error(
+            'Method updateProcessState must be implemented by subclass'
+        );
     }
 
     /**
@@ -115,7 +124,9 @@ class AdminProcessRepositoryInterface {
      * @abstract
      */
     async updateProcessResults(id, results) {
-        throw new Error('Method updateProcessResults must be implemented by subclass');
+        throw new Error(
+            'Method updateProcessResults must be implemented by subclass'
+        );
     }
 
     /**
@@ -131,7 +142,9 @@ class AdminProcessRepositoryInterface {
      * @abstract
      */
     async appendProcessLog(id, logEntry) {
-        throw new Error('Method appendProcessLog must be implemented by subclass');
+        throw new Error(
+            'Method appendProcessLog must be implemented by subclass'
+        );
     }
 
     /**
@@ -143,7 +156,9 @@ class AdminProcessRepositoryInterface {
      * @abstract
      */
     async deleteProcessesOlderThan(date) {
-        throw new Error('Method deleteProcessesOlderThan must be implemented by subclass');
+        throw new Error(
+            'Method deleteProcessesOlderThan must be implemented by subclass'
+        );
     }
 }
 

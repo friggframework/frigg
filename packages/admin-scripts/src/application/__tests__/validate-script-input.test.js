@@ -1,4 +1,8 @@
-const { validateScriptInput, validateParams, validateType } = require('../validate-script-input');
+const {
+    validateScriptInput,
+    validateParams,
+    validateType,
+} = require('../validate-script-input');
 const { ScriptFactory } = require('../script-factory');
 const { AdminScriptBase } = require('../admin-script-base');
 
@@ -61,12 +65,18 @@ describe('validateScriptInput', () => {
     }
 
     beforeEach(() => {
-        scriptFactory = new ScriptFactory([TestScript, SchemaScript, TypedScript]);
+        scriptFactory = new ScriptFactory([
+            TestScript,
+            SchemaScript,
+            TypedScript,
+        ]);
     });
 
     describe('validateScriptInput()', () => {
         it('should return VALID for script without schema', () => {
-            const result = validateScriptInput(scriptFactory, 'test-script', { foo: 'bar' });
+            const result = validateScriptInput(scriptFactory, 'test-script', {
+                foo: 'bar',
+            });
 
             expect(result.status).toBe('VALID');
             expect(result.scriptName).toBe('test-script');
@@ -77,11 +87,17 @@ describe('validateScriptInput', () => {
         });
 
         it('should return INVALID when required parameters are missing', () => {
-            const result = validateScriptInput(scriptFactory, 'schema-script', {});
+            const result = validateScriptInput(
+                scriptFactory,
+                'schema-script',
+                {}
+            );
 
             expect(result.status).toBe('INVALID');
             expect(result.preview.validation.valid).toBe(false);
-            expect(result.preview.validation.errors).toContain('Missing required parameter: requiredParam');
+            expect(result.preview.validation.errors).toContain(
+                'Missing required parameter: requiredParam'
+            );
         });
 
         it('should return INVALID for wrong parameter types', () => {
@@ -122,7 +138,11 @@ describe('validateScriptInput', () => {
         });
 
         it('should return null inputSchema when script has no schema', () => {
-            const result = validateScriptInput(scriptFactory, 'test-script', {});
+            const result = validateScriptInput(
+                scriptFactory,
+                'test-script',
+                {}
+            );
 
             expect(result.preview.inputSchema).toBeNull();
         });
@@ -130,7 +150,10 @@ describe('validateScriptInput', () => {
 
     describe('validateParams()', () => {
         it('should return valid when no schema defined', () => {
-            const result = validateParams({ name: 'test' }, { anything: 'goes' });
+            const result = validateParams(
+                { name: 'test' },
+                { anything: 'goes' }
+            );
 
             expect(result.valid).toBe(true);
             expect(result.errors).toHaveLength(0);
@@ -158,35 +181,51 @@ describe('validateScriptInput', () => {
     describe('validateType()', () => {
         it('should validate integer type', () => {
             expect(validateType('x', 42, { type: 'integer' })).toBeNull();
-            expect(validateType('x', 3.14, { type: 'integer' })).toContain('must be an integer');
-            expect(validateType('x', 'foo', { type: 'integer' })).toContain('must be an integer');
+            expect(validateType('x', 3.14, { type: 'integer' })).toContain(
+                'must be an integer'
+            );
+            expect(validateType('x', 'foo', { type: 'integer' })).toContain(
+                'must be an integer'
+            );
         });
 
         it('should validate number type', () => {
             expect(validateType('x', 3.14, { type: 'number' })).toBeNull();
             expect(validateType('x', 42, { type: 'number' })).toBeNull();
-            expect(validateType('x', 'foo', { type: 'number' })).toContain('must be a number');
+            expect(validateType('x', 'foo', { type: 'number' })).toContain(
+                'must be a number'
+            );
         });
 
         it('should validate string type', () => {
             expect(validateType('x', 'hello', { type: 'string' })).toBeNull();
-            expect(validateType('x', 123, { type: 'string' })).toContain('must be a string');
+            expect(validateType('x', 123, { type: 'string' })).toContain(
+                'must be a string'
+            );
         });
 
         it('should validate boolean type', () => {
             expect(validateType('x', true, { type: 'boolean' })).toBeNull();
-            expect(validateType('x', 'true', { type: 'boolean' })).toContain('must be a boolean');
+            expect(validateType('x', 'true', { type: 'boolean' })).toContain(
+                'must be a boolean'
+            );
         });
 
         it('should validate array type', () => {
             expect(validateType('x', [1, 2], { type: 'array' })).toBeNull();
-            expect(validateType('x', 'not-array', { type: 'array' })).toContain('must be an array');
+            expect(validateType('x', 'not-array', { type: 'array' })).toContain(
+                'must be an array'
+            );
         });
 
         it('should validate object type', () => {
             expect(validateType('x', { a: 1 }, { type: 'object' })).toBeNull();
-            expect(validateType('x', [1, 2], { type: 'object' })).toContain('must be an object');
-            expect(validateType('x', 'string', { type: 'object' })).toContain('must be an object');
+            expect(validateType('x', [1, 2], { type: 'object' })).toContain(
+                'must be an object'
+            );
+            expect(validateType('x', 'string', { type: 'object' })).toContain(
+                'must be an object'
+            );
         });
 
         it('should return null when no type specified', () => {

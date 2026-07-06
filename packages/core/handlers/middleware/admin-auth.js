@@ -1,3 +1,5 @@
+const crypto = require('node:crypto');
+
 /**
  * Admin Auth Middleware
  *
@@ -8,6 +10,24 @@
  * Uses simple ENV-based API key validation.
  * Expects: x-frigg-admin-api-key header
  */
+
+/**
+ * Constant-time comparison of two secrets. Hashing both to a fixed-length
+ * digest first means timingSafeEqual never throws on length mismatch and the
+ * comparison leaks neither the key nor its length.
+ * @private
+ */
+function secretsMatch(provided, expected) {
+    const providedHash = crypto
+        .createHash('sha256')
+        .update(String(provided))
+        .digest();
+    const expectedHash = crypto
+        .createHash('sha256')
+        .update(String(expected))
+        .digest();
+    return crypto.timingSafeEqual(providedHash, expectedHash);
+}
 
 /**
  * Validate admin API key from request header
@@ -23,7 +43,7 @@ function validateAdminApiKey(req, res, next) {
         console.error('ADMIN_API_KEY environment variable not configured');
         return res.status(401).json({
             error: 'Unauthorized',
-            message: 'Admin API key not configured'
+            message: 'Admin API key not configured',
         });
     }
 
@@ -34,16 +54,16 @@ function validateAdminApiKey(req, res, next) {
         console.error('Missing x-frigg-admin-api-key header');
         return res.status(401).json({
             error: 'Unauthorized',
-            message: 'x-frigg-admin-api-key header required'
+            message: 'x-frigg-admin-api-key header required',
         });
     }
 
-    // Validate key
-    if (apiKey !== expectedKey) {
+    // Validate key using a constant-time comparison
+    if (!secretsMatch(apiKey, expectedKey)) {
         console.error('Invalid admin API key provided');
         return res.status(401).json({
             error: 'Unauthorized',
-            message: 'Invalid admin API key'
+            message: 'Invalid admin API key',
         });
     }
 

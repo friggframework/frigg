@@ -31,14 +31,16 @@ class DeleteScheduleUseCase {
         );
 
         // Determine effective schedule after deletion
-        const effectiveSchedule = this._getEffectiveScheduleAfterDeletion(scriptName);
+        const effectiveSchedule =
+            this._getEffectiveScheduleAfterDeletion(scriptName);
 
         return {
             success: true,
             deletedCount: deleteResult.deletedCount,
-            message: deleteResult.deletedCount > 0
-                ? 'Schedule override removed'
-                : 'No schedule override found',
+            message:
+                deleteResult.deletedCount > 0
+                    ? 'Schedule override removed'
+                    : 'No schedule override found',
             effectiveSchedule,
             ...(schedulerWarning && { schedulerWarning }),
         };

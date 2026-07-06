@@ -4,6 +4,11 @@
  * Shared middleware for all admin endpoints (db-migrate, scripts, etc.)
  */
 
+const crypto = require('node:crypto');
+
+// Generated at runtime so no credential-like literal is committed
+const TEST_ADMIN_KEY = crypto.randomBytes(16).toString('hex');
+
 describe('Admin Auth Middleware', () => {
     let validateAdminApiKey;
     let mockReq;
@@ -12,7 +17,7 @@ describe('Admin Auth Middleware', () => {
 
     beforeEach(() => {
         jest.resetModules();
-        process.env.ADMIN_API_KEY = 'test-admin-key-12345';
+        process.env.ADMIN_API_KEY = TEST_ADMIN_KEY;
 
         validateAdminApiKey = require('../admin-auth').validateAdminApiKey;
 
@@ -32,7 +37,7 @@ describe('Admin Auth Middleware', () => {
 
     describe('validateAdminApiKey', () => {
         it('should call next() when valid API key is provided', () => {
-            mockReq.headers['x-frigg-admin-api-key'] = 'test-admin-key-12345';
+            mockReq.headers['x-frigg-admin-api-key'] = TEST_ADMIN_KEY;
 
             validateAdminApiKey(mockReq, mockRes, mockNext);
 
@@ -52,7 +57,7 @@ describe('Admin Auth Middleware', () => {
         });
 
         it('should return 401 when API key is invalid', () => {
-            mockReq.headers['x-frigg-admin-api-key'] = 'wrong-key';
+            mockReq.headers['x-frigg-admin-api-key'] = `${TEST_ADMIN_KEY}-wrong`;
 
             validateAdminApiKey(mockReq, mockRes, mockNext);
 
@@ -66,7 +71,7 @@ describe('Admin Auth Middleware', () => {
 
         it('should return 401 when ADMIN_API_KEY env var is not set', () => {
             delete process.env.ADMIN_API_KEY;
-            mockReq.headers['x-frigg-admin-api-key'] = 'any-key';
+            mockReq.headers['x-frigg-admin-api-key'] = `${TEST_ADMIN_KEY}-any`;
 
             validateAdminApiKey(mockReq, mockRes, mockNext);
 

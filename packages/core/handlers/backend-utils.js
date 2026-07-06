@@ -93,8 +93,9 @@ const loadIntegrationForWebhook = async (integrationId) => {
 
     let integrationRecord;
     try {
-        integrationRecord =
-            await integrationRepository.findIntegrationById(integrationId);
+        integrationRecord = await integrationRepository.findIntegrationById(
+            integrationId
+        );
     } catch (error) {
         if (error.message?.includes('not found')) {
             return null;
@@ -115,8 +116,9 @@ const loadIntegrationForWebhook = async (integrationId) => {
 const integrationExists = async (integrationId) => {
     const integrationRepository = createIntegrationRepository();
     try {
-        const record =
-            await integrationRepository.findIntegrationById(integrationId);
+        const record = await integrationRepository.findIntegrationById(
+            integrationId
+        );
         return Boolean(record);
     } catch (error) {
         if (error.message?.includes('not found')) {
@@ -127,7 +129,6 @@ const integrationExists = async (integrationId) => {
 };
 
 const loadIntegrationForProcess = async (processId, integrationClass) => {
-
     const { processRepository, integrationRepository, moduleRepository } =
         initializeRepositories();
 
@@ -178,10 +179,7 @@ const createQueueWorker = (integrationClass) => {
                 // then integrationId (for ANY event type that needs hydration),
                 // fallback to unhydrated instance
                 if (params.data?.processId) {
-                    console.log(
-                        `[QueueWorker] hydrating by processId`,
-                        logCtx
-                    );
+                    console.log(`[QueueWorker] hydrating by processId`, logCtx);
                     integrationInstance = await loadIntegrationForProcess(
                         params.data.processId,
                         integrationClass
@@ -191,7 +189,11 @@ const createQueueWorker = (integrationClass) => {
                         integrationStatus: integrationInstance?.status,
                         hydratedIntegrationId: integrationInstance?.id,
                     });
-                    if (['DISABLED', 'ERROR', 'IN_DELETION'].includes(integrationInstance?.status)) {
+                    if (
+                        ['DISABLED', 'ERROR', 'IN_DELETION'].includes(
+                            integrationInstance?.status
+                        )
+                    ) {
                         console.warn(
                             `[${integrationName}] Integration for process ${params.data.processId} is ${integrationInstance.status}. Discarding ${params.event} message.`
                         );
@@ -215,7 +217,11 @@ const createQueueWorker = (integrationClass) => {
                         ...logCtx,
                         integrationStatus: integrationInstance?.status,
                     });
-                    if (['DISABLED', 'ERROR', 'IN_DELETION'].includes(integrationInstance.status)) {
+                    if (
+                        ['DISABLED', 'ERROR', 'IN_DELETION'].includes(
+                            integrationInstance.status
+                        )
+                    ) {
                         console.warn(
                             `[${integrationName}] Integration ${params.data.integrationId} is ${integrationInstance.status}. Discarding ${params.event} message.`
                         );
@@ -240,13 +246,19 @@ const createQueueWorker = (integrationClass) => {
                     integrationInstance
                 );
 
-                console.log(`[QueueWorker] dispatching ${params.event}`, logCtx);
+                console.log(
+                    `[QueueWorker] dispatching ${params.event}`,
+                    logCtx
+                );
                 const result = await dispatcher.dispatchJob({
                     event: params.event,
                     data: params.data,
                     context: context,
                 });
-                console.log(`[QueueWorker] ${params.event} dispatched ok`, logCtx);
+                console.log(
+                    `[QueueWorker] ${params.event} dispatched ok`,
+                    logCtx
+                );
                 return result;
             } catch (error) {
                 // Integration deleted mid-flight: no retry can succeed once
@@ -271,7 +283,13 @@ const createQueueWorker = (integrationClass) => {
                 // By the time a 4xx reaches here, retrying won't help.
                 // 408 (timeout) and 429 (rate limit) are excluded — both are transient.
                 const status = error.statusCode;
-                if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+                if (
+                    status &&
+                    status >= 400 &&
+                    status < 500 &&
+                    status !== 408 &&
+                    status !== 429
+                ) {
                     error.isHaltError = true;
                     console.warn(
                         `[${integrationName}] Permanent ${status} error for ${params.event} — message will be discarded (no retry)`,
@@ -294,4 +312,5 @@ module.exports = {
     loadRouterFromObject,
     createQueueWorker,
     integrationExists,
+    loadIntegrationForWebhook,
 };

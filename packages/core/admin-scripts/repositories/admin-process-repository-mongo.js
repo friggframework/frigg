@@ -68,10 +68,19 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @returns {Promise<Array>} Array of process records
      */
     async findProcessesByName(name, options = {}) {
-        const { limit, offset, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+        const {
+            limit,
+            offset,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+            state,
+        } = options;
+
+        const where = { name };
+        if (state) where.state = state;
 
         const processes = await this.prisma.adminProcess.findMany({
-            where: { name },
+            where,
             orderBy: { [sortBy]: sortOrder },
             take: limit,
             skip: offset,
@@ -92,7 +101,12 @@ class AdminProcessRepositoryMongo extends AdminProcessRepositoryInterface {
      * @returns {Promise<Array>} Array of process records
      */
     async findProcessesByState(state, options = {}) {
-        const { limit, offset, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+        const {
+            limit,
+            offset,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+        } = options;
 
         const processes = await this.prisma.adminProcess.findMany({
             where: { state },
