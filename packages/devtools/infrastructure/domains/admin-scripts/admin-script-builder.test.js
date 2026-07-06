@@ -366,17 +366,33 @@ describe('AdminScriptBuilder', () => {
             expect(result.resources.AdminScriptScheduleGroup).toBeDefined();
             expect(result.resources.AdminScriptScheduleGroup.Type).toBe('AWS::Scheduler::ScheduleGroup');
 
-            // Check for environment variables consumed by the router's scheduler adapter
+            // SCHEDULER_PROVIDER is a constant and stays on the shared env.
             expect(result.environment.SCHEDULER_PROVIDER).toBe('aws');
-            expect(result.environment.SCHEDULER_ROLE_ARN).toEqual({
+
+            // Resource-reference env vars are scoped to the router function (not
+            // the shared provider env) to avoid CloudFormation circular deps.
+            const routerEnv = result.functions.adminScriptRouter.environment;
+            expect(routerEnv.SCHEDULER_ROLE_ARN).toEqual({
                 'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'],
             });
-            expect(result.environment.ADMIN_SCRIPT_SCHEDULE_GROUP).toEqual({
+            expect(routerEnv.ADMIN_SCRIPT_SCHEDULE_GROUP).toEqual({
                 Ref: 'AdminScriptScheduleGroup',
             });
-            expect(result.environment.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN).toEqual({
-                'Fn::GetAtt': ['AdminScriptExecutorLambdaFunction', 'Arn'],
+            // Executor referenced by constructed ARN (Fn::Sub), not Fn::GetAtt,
+            // so it creates no dependency edge.
+            expect(routerEnv.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN).toEqual({
+                'Fn::Sub':
+                    'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-adminScriptExecutor',
             });
+
+            // Regression guard: these must NOT leak onto the shared provider env
+            // (that is what produced the circular dependency, incl. the executor
+            // self-reference).
+            expect(result.environment.SCHEDULER_ROLE_ARN).toBeUndefined();
+            expect(result.environment.ADMIN_SCRIPT_SCHEDULE_GROUP).toBeUndefined();
+            expect(
+                result.environment.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN
+            ).toBeUndefined();
         });
 
         it('should not create scheduler resources when enableScheduling is false', async () => {
@@ -494,10 +510,15 @@ describe('AdminScriptBuilder', () => {
             const policies = result.resources.AdminScriptSchedulerRole.Properties.Policies;
 
             expect(policies[0].PolicyName).toBe('InvokeLambda');
+            // Constructed ARN (Fn::Sub), not Fn::GetAtt — a GetAtt here closes a
+            // circular dependency through the shared Lambda execution role.
             expect(policies[0].PolicyDocument.Statement[0]).toEqual({
                 Effect: 'Allow',
                 Action: 'lambda:InvokeFunction',
-                Resource: { 'Fn::GetAtt': ['AdminScriptExecutorLambdaFunction', 'Arn'] },
+                Resource: {
+                    'Fn::Sub':
+                        'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-adminScriptExecutor',
+                },
             });
         });
 

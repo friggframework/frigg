@@ -178,6 +178,16 @@ class AdminScriptBuilder extends InfrastructureBuilder {
     }
 
     createSchedulerResources(appDefinition, result) {
+        // Reference the executor by a constructed ARN (Fn::Sub) rather than
+        // Fn::GetAtt. GetAtt creates a CloudFormation dependency edge, and an
+        // edge from the scheduler role to the executor closed a cycle through the
+        // shared Lambda execution role (role → executor → IamRoleLambdaExecution
+        // → PassRole → role). The name is deterministic, so a Sub is safe.
+        const executorArn = {
+            'Fn::Sub':
+                'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-adminScriptExecutor',
+        };
+
         // Create IAM role for EventBridge Scheduler
         result.resources.AdminScriptSchedulerRole = {
             Type: 'AWS::IAM::Role',
@@ -198,7 +208,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
                         Statement: [{
                             Effect: 'Allow',
                             Action: 'lambda:InvokeFunction',
-                            Resource: { 'Fn::GetAtt': ['AdminScriptExecutorLambdaFunction', 'Arn'] },
+                            Resource: executorArn,
                         }],
                     },
                 }],
@@ -213,13 +223,25 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             },
         };
 
-        // Env vars consumed by the admin-script router when building the AWS
-        // scheduler adapter. Names must match admin-script-router.js exactly.
+        // SCHEDULER_PROVIDER is a constant, so it's safe on the shared provider
+        // environment inherited by every function.
         result.environment.SCHEDULER_PROVIDER = 'aws';
-        result.environment.SCHEDULER_ROLE_ARN = { 'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'] };
-        result.environment.ADMIN_SCRIPT_SCHEDULE_GROUP = { Ref: 'AdminScriptScheduleGroup' };
-        result.environment.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN = {
-            'Fn::GetAtt': ['AdminScriptExecutorLambdaFunction', 'Arn'],
+
+        // The remaining vars carry resource references and are consumed ONLY by
+        // the router (it builds the AWS scheduler adapter in the schedule
+        // handlers). Scope them to the router function rather than the shared
+        // provider environment: broadcasting the executor's own ARN into every
+        // function's env made the executor depend on itself, and the role/group
+        // refs made every function depend on the scheduler role — both closed
+        // CloudFormation circular dependencies on deploy. Names must match
+        // admin-script-router.js exactly.
+        result.functions.adminScriptRouter.environment = {
+            ...(result.functions.adminScriptRouter.environment || {}),
+            SCHEDULER_ROLE_ARN: {
+                'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'],
+            },
+            ADMIN_SCRIPT_SCHEDULE_GROUP: { Ref: 'AdminScriptScheduleGroup' },
+            ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN: executorArn,
         };
 
         // The router manages schedules through the AWS scheduler adapter, so it
