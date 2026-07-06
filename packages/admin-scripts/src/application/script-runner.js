@@ -1,5 +1,5 @@
 const { getScriptFactory } = require('./script-factory');
-const { createAdminScriptContext } = require('./admin-frigg-commands');
+const { createAdminScriptContext } = require('./admin-script-context');
 const {
     createAdminScriptCommands,
 } = require('@friggframework/core/application/commands/admin-script-commands');

@@ -1,7 +1,7 @@
 const {
     AdminScriptContext,
     createAdminScriptContext,
-} = require('../admin-frigg-commands');
+} = require('../admin-script-context');
 
 // Mock all repository factories
 jest.mock(

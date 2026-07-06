@@ -3,10 +3,10 @@ const { ScriptFactory } = require('../script-factory');
 const { AdminScriptBase } = require('../admin-script-base');
 
 // Mock dependencies
-jest.mock('../admin-frigg-commands');
+jest.mock('../admin-script-context');
 jest.mock('@friggframework/core/application/commands/admin-script-commands');
 
-const { createAdminScriptContext } = require('../admin-frigg-commands');
+const { createAdminScriptContext } = require('../admin-script-context');
 const {
     createAdminScriptCommands,
 } = require('@friggframework/core/application/commands/admin-script-commands');

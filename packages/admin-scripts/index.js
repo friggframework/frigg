@@ -14,7 +14,7 @@ const { AdminScriptBase } = require('./src/application/admin-script-base');
 const {
     AdminScriptContext,
     createAdminScriptContext,
-} = require('./src/application/admin-frigg-commands');
+} = require('./src/application/admin-script-context');
 const {
     ScriptRunner,
     createScriptRunner,
