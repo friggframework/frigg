@@ -121,7 +121,6 @@
 /**
  * Admin configuration
  * @typedef {Object} AdminConfig
- * @property {boolean} [includeBuiltinScripts] - Whether to include built-in scripts
  * @property {boolean} [enableScheduling] - Whether to enable EventBridge scheduling
  */
 

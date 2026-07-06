@@ -55,15 +55,10 @@ function bootstrapAdminScripts() {
         const {
             loadAppDefinition,
         } = require('@friggframework/core/handlers/app-definition-loader');
-        const { adminScripts = [], admin = {} } = loadAppDefinition();
+        const { adminScripts = [] } = loadAppDefinition();
 
         const factory = getScriptFactory();
         registerScripts(factory, adminScripts);
-
-        if (admin.includeBuiltinScripts) {
-            const { builtinScripts } = require('../builtins');
-            registerScripts(factory, builtinScripts);
-        }
     } catch (error) {
         console.error(
             '[admin-scripts] bootstrap: could not load app definition:',

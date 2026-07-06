@@ -37,14 +37,6 @@ const {
     handler: executorHandler,
 } = require('./src/infrastructure/script-executor-handler');
 
-// Built-in Scripts
-const {
-    OAuthTokenRefreshScript,
-    IntegrationHealthCheckScript,
-    builtinScripts,
-    registerBuiltinScripts,
-} = require('./src/builtins');
-
 // Adapters
 const { SchedulerAdapter } = require('./src/adapters/scheduler-adapter');
 const { AWSSchedulerAdapter } = require('./src/adapters/aws-scheduler-adapter');
@@ -75,12 +67,6 @@ module.exports = {
     app,
     routerHandler,
     executorHandler,
-
-    // Built-in scripts
-    OAuthTokenRefreshScript,
-    IntegrationHealthCheckScript,
-    builtinScripts,
-    registerBuiltinScripts,
 
     // Adapters
     SchedulerAdapter,

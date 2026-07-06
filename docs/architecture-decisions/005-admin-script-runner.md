@@ -9,7 +9,7 @@ Frigg adopters need to execute administrative scripts in hosted environments wit
 
 1. **Healing Scripts** - Fix broken integrations (e.g., Attio config corruption)
 2. **Recurring Maintenance** - Webhook refreshers (e.g., Zoho channel expiry)
-3. **Built-in Utilities** - OAuth token refresh, integration health checks
+3. **Common Utilities** - operations adopters commonly script, e.g. OAuth token refresh or integration health checks
 
 This is a high-risk, high-value feature requiring careful security controls. The implementation must align with the `next` branch architecture:
 
@@ -40,7 +40,7 @@ const Definition = {
     ],
 
     admin: {
-        includeBuiltinScripts: true,
+        enableScheduling: true,
     },
 };
 ```
@@ -137,8 +137,8 @@ POST /admin/scripts/:name/validate
 ```
 
 > The original repository-wrapper / HTTP-interceptor dry-run design was descoped
-> in favour of schema validation. Scripts that want a true preview accept their
-> own `dryRun` param (e.g. the built-in `oauth-token-refresh`).
+> in favour of schema validation. Scripts that want a true preview can accept
+> their own `dryRun` param.
 
 ### Security Model
 
@@ -163,14 +163,12 @@ POST /admin/scripts/:name/validate
 
 ### Built-in Scripts
 
-1. **oauth-token-refresh** - Refresh OAuth tokens nearing expiration
-2. **integration-health-check** - Verify integration connectivity
+None ship yet. The `AdminScriptBase` + registration mechanics support framework-provided scripts, but built-ins are descoped for now — apps register their own scripts via `adminScripts`.
 
 ## Consequences
 
 ### Positive
 - Enables runtime maintenance without redeployment
-- Built-in scripts reduce boilerplate for common operations
 - Hybrid scheduling allows runtime adjustments
 - Input-schema validation enables safe pre-flight checks
 - Follows established Frigg patterns (Command, Repository, Factory)
@@ -188,7 +186,7 @@ POST /admin/scripts/:name/validate
 
 ## Implementation Phases
 
-1. **Phase 1 (MVP)**: Core execution, repositories, built-in scripts ✅
+1. **Phase 1 (MVP)**: Core execution, repositories, script registration ✅
 2. **Phase 2 (Scheduling)**: ScriptSchedule model, EventBridge integration ✅
 3. **Phase 3 (Validation)**: Input-schema validation endpoint ✅
 4. **Phase 4 (Future)**: Management UI, advanced observability

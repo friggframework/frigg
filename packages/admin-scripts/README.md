@@ -36,7 +36,6 @@ const Definition = {
     adminScripts: [AttioHealingScript],
 
     admin: {
-        includeBuiltinScripts: true, // register oauth-token-refresh + integration-health-check
         enableScheduling: true, // provision EventBridge Scheduler resources
     },
 };
@@ -44,7 +43,7 @@ const Definition = {
 module.exports = { Definition };
 ```
 
-At deploy time the framework's `AdminScriptBuilder` provisions the SQS queue, the router + worker Lambdas, and (when `enableScheduling` is set) the EventBridge Scheduler group and IAM role. At runtime the router/worker load this app definition and register your scripts (plus the built-ins) into the script registry.
+At deploy time the framework's `AdminScriptBuilder` provisions the SQS queue, the router + worker Lambdas, and (when `enableScheduling` is set) the EventBridge Scheduler group and IAM role. At runtime the router/worker load this app definition and register your scripts into the script registry.
 
 ---
 
@@ -96,9 +95,14 @@ class AttioHealingScript extends AdminScriptBase {
             throw new Error(`Integration ${integrationId} not found`);
         }
 
-        // Call the live integration/API when you need it
+        // Call the live integration when you need to hit an external API.
+        // Modules are attached to the instance by their own name (from the
+        // module's getName(), e.g. `instance.attio`) and each module's `.api`
+        // is its authenticated client. Iterate `instance.modules` if you don't
+        // want to hard-code a module name. The methods on `.api` are defined by
+        // that specific API module.
         const instance = await this.context.instantiate(integrationId);
-        await instance.primary.api.refreshMetadata();
+        await instance.attio.api.refreshEntityConfig(); // example — use your module's real method
 
         this.context.log('info', 'Healing complete', { integrationId });
         return { healed: true, integrationId };
@@ -159,10 +163,10 @@ curl -X POST https://<your-app>/admin/scripts/attio-healing \
 **Sync** — runs inline and returns the result. Only for fast scripts: in a deployed environment, sync is rejected (`400 SYNC_TIMEOUT_TOO_LONG`) when the script's `config.timeout` exceeds the API Lambda budget (~25s). Use `async` for anything longer.
 
 ```bash
-curl -X POST https://<your-app>/admin/scripts/integration-health-check \
+curl -X POST https://<your-app>/admin/scripts/attio-healing \
   -H "x-frigg-admin-api-key: $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{ "params": {}, "mode": "sync" }'
+  -d '{ "params": { "integrationId": "abc123" }, "mode": "sync" }'
 
 # 200 OK
 # { "executionId": "...", "status": "COMPLETED", "output": { ... }, "metrics": { "durationMs": 812 } }
@@ -203,26 +207,17 @@ A script can ship a default schedule in its `Definition.schedule`, and operators
 
 ```bash
 # Enable a daily 6am UTC run
-curl -X PUT https://<your-app>/admin/scripts/integration-health-check/schedule \
+curl -X PUT https://<your-app>/admin/scripts/attio-healing/schedule \
   -H "x-frigg-admin-api-key: $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "enabled": true, "cronExpression": "cron(0 6 * * ? *)", "timezone": "UTC" }'
 
 # Inspect / remove
-curl https://<your-app>/admin/scripts/integration-health-check/schedule -H "x-frigg-admin-api-key: $ADMIN_API_KEY"
-curl -X DELETE https://<your-app>/admin/scripts/integration-health-check/schedule -H "x-frigg-admin-api-key: $ADMIN_API_KEY"
+curl https://<your-app>/admin/scripts/attio-healing/schedule -H "x-frigg-admin-api-key: $ADMIN_API_KEY"
+curl -X DELETE https://<your-app>/admin/scripts/attio-healing/schedule -H "x-frigg-admin-api-key: $ADMIN_API_KEY"
 ```
 
 Scheduling requires `admin.enableScheduling: true` in the app definition (so the EventBridge Scheduler group, IAM role, and env vars are provisioned). In a deployed environment the router refuses to fall back to the in-memory local scheduler, returning `503 SCHEDULER_NOT_CONFIGURED` if the provider isn't wired.
-
----
-
-## Built-in scripts
-
-Set `admin.includeBuiltinScripts: true` to register:
-
--   **`oauth-token-refresh`** — refreshes OAuth tokens for integrations nearing expiry. Params: `integrationIds?`, `expiryThresholdHours` (default 24), `dryRun`.
--   **`integration-health-check`** — checks credential validity and API connectivity. Params: `integrationIds?`, `checkCredentials` (default true), `checkConnectivity` (default true), `updateStatus` (default false).
 
 ---
 
