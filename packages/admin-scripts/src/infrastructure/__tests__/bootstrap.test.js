@@ -3,6 +3,27 @@ const { AdminScriptBase } = require('../../application/admin-script-base');
 
 jest.mock('@friggframework/core/handlers/app-definition-loader');
 
+// The command bundle is built from these factories; mock them so bootstrap
+// doesn't need a configured database to construct the command groups.
+jest.mock('@friggframework/core/application/commands/user-commands', () => ({
+    createUserCommands: jest.fn(() => ({ __kind: 'users' })),
+}));
+jest.mock(
+    '@friggframework/core/application/commands/credential-commands',
+    () => ({
+        createCredentialCommands: jest.fn(() => ({ __kind: 'credentials' })),
+    })
+);
+jest.mock('@friggframework/core/application/commands/entity-commands', () => ({
+    createEntityCommands: jest.fn(() => ({ __kind: 'entities' })),
+}));
+jest.mock(
+    '@friggframework/core/application/commands/integration-commands',
+    () => ({
+        createIntegrationCommands: jest.fn(() => ({ __kind: 'integrations' })),
+    })
+);
+
 const {
     loadAppDefinition,
 } = require('@friggframework/core/handlers/app-definition-loader');
@@ -64,7 +85,21 @@ describe('bootstrapAdminScripts', () => {
 
         expect(second.scriptFactory).toBe(first.scriptFactory);
         expect(second.integrationFactory).toBe(first.integrationFactory);
+        expect(second.scriptCommands).toBe(first.scriptCommands);
         expect(loadAppDefinition).toHaveBeenCalledTimes(1);
+    });
+
+    it('builds the injectable command bundle (users, credentials, entities, integrations)', () => {
+        loadAppDefinition.mockReturnValue({ adminScripts: [] });
+
+        const { scriptCommands } = bootstrapAdminScripts();
+
+        expect(scriptCommands).toEqual({
+            users: { __kind: 'users' },
+            credentials: { __kind: 'credentials' },
+            entities: { __kind: 'entities' },
+            integrations: { __kind: 'integrations' },
+        });
     });
 
     it('tolerates an app definition with no adminScripts', () => {

@@ -54,6 +54,42 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
     }
 
     /**
+     * Find integrations, optionally filtered by config type and/or status.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.type] - Integration type (config.type)
+     * @param {string} [filter.status] - Integration status
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     */
+    async findIntegrations({ type, status } = {}) {
+        const where = {};
+        if (type) {
+            where.config = { path: ['type'], equals: type };
+        }
+        if (status) {
+            where.status = status;
+        }
+
+        const integrations = await this.prisma.integration.findMany({
+            where,
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => ({
+            id: integration.id,
+            entitiesIds: integration.entities.map((e) => e.id),
+            userId: integration.userId,
+            config: integration.config,
+            version: integration.version,
+            status: integration.status,
+            messages: integration.messages,
+            createdAt: integration.createdAt,
+        }));
+    }
+
+    /**
      * Delete integration by ID
      * Replaces: IntegrationModel.deleteOne({ _id: integrationId })
      *

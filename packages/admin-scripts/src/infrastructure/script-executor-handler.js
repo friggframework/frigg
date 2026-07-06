@@ -16,10 +16,14 @@ const { bootstrapAdminScripts } = require('./bootstrap');
  * @param {Object} deps
  * @param {ScriptFactory} deps.scriptFactory - Registry used to resolve and instantiate the script.
  * @param {Object} deps.integrationFactory - Hydrates integration instances for scripts that need them.
+ * @param {Object} deps.scriptCommands - Frigg command bundle exposed to the script as context.commands.
  * @returns {Promise<{ scriptName: string, status: string, executionId: string }>}
  * @private
  */
-async function runMessage(message, { scriptFactory, integrationFactory }) {
+async function runMessage(
+    message,
+    { scriptFactory, integrationFactory, scriptCommands }
+) {
     const { scriptName, executionId, trigger, params, parentExecutionId } =
         message;
 
@@ -33,7 +37,11 @@ async function runMessage(message, { scriptFactory, integrationFactory }) {
         }`
     );
 
-    const runner = createScriptRunner({ scriptFactory, integrationFactory });
+    const runner = createScriptRunner({
+        scriptFactory,
+        integrationFactory,
+        scriptCommands,
+    });
     const result = await runner.execute(scriptName, params, {
         trigger: trigger || 'QUEUE',
         mode: 'async',
@@ -80,7 +88,7 @@ async function markFailed(executionId, error) {
  * Handle an EventBridge Scheduler direct invoke: the event itself is a single
  * execution message (no `Records` wrapper).
  * @param {Object} event - The execution message.
- * @param {{ scriptFactory: ScriptFactory, integrationFactory: object }} deps
+ * @param {{ scriptFactory: ScriptFactory, integrationFactory: object, scriptCommands: object }} deps
  * @returns {Promise<{ statusCode: number, body: string }>}
  * @private
  */
@@ -118,7 +126,7 @@ async function handleScheduledInvoke(event, deps) {
  * (manual async executions and queueScript continuations). Failures are isolated
  * per record so one bad message doesn't drop the rest of the batch.
  * @param {Object} event - The SQS event with a `Records` array.
- * @param {{ scriptFactory: ScriptFactory, integrationFactory: object }} deps
+ * @param {{ scriptFactory: ScriptFactory, integrationFactory: object, scriptCommands: object }} deps
  * @returns {Promise<{ statusCode: number, body: string }>}
  * @private
  */

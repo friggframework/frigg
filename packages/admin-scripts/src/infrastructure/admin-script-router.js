@@ -23,18 +23,11 @@ const {
 
 const router = express.Router();
 
-// Apply auth middleware to all admin routes
+// Apply auth middleware to all admin routes. Each handler then calls
+// bootstrapAdminScripts() (memoized, so it runs once per process) to obtain the
+// scriptFactory / integrationFactory / scriptCommands it needs — no global, and
+// endpoints that don't touch scripts skip the work entirely.
 router.use(validateAdminApiKey);
-
-// Build (once, memoized) and inject the per-process dependencies onto the
-// request, so route handlers consume them explicitly instead of reaching for a
-// global. Registers the host app's admin scripts on the first request.
-router.use((req, _res, next) => {
-    const { scriptFactory, integrationFactory } = bootstrapAdminScripts();
-    req.scriptFactory = scriptFactory;
-    req.integrationFactory = integrationFactory;
-    next();
-});
 
 /**
  * Translate a thrown error into an HTTP response. Boom errors (thrown by the
@@ -116,9 +109,9 @@ function createScheduleUseCases(scriptFactory) {
  * GET /admin/scripts
  * List all registered scripts
  */
-router.get('/scripts', async (req, res) => {
+router.get('/scripts', async (_req, res) => {
     try {
-        const factory = req.scriptFactory;
+        const { scriptFactory: factory } = bootstrapAdminScripts();
         const scripts = factory.getAll();
 
         res.json({
@@ -144,7 +137,7 @@ router.get('/scripts', async (req, res) => {
 router.get('/scripts/:scriptName', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const factory = req.scriptFactory;
+        const { scriptFactory: factory } = bootstrapAdminScripts();
 
         if (!factory.has(scriptName)) {
             return res.status(404).json({
@@ -179,7 +172,7 @@ router.post('/scripts/:scriptName/validate', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { params = {} } = req.body;
-        const factory = req.scriptFactory;
+        const { scriptFactory: factory } = bootstrapAdminScripts();
 
         if (!factory.has(scriptName)) {
             return res.status(404).json({
@@ -204,7 +197,11 @@ router.post('/scripts/:scriptName', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { params = {}, mode = 'async' } = req.body;
-        const factory = req.scriptFactory;
+        const {
+            scriptFactory: factory,
+            integrationFactory,
+            scriptCommands,
+        } = bootstrapAdminScripts();
 
         if (!factory.has(scriptName)) {
             return res.status(404).json({
@@ -242,8 +239,9 @@ router.post('/scripts/:scriptName', async (req, res) => {
             }
 
             const runner = createScriptRunner({
-                scriptFactory: req.scriptFactory,
-                integrationFactory: req.integrationFactory,
+                scriptFactory: factory,
+                integrationFactory,
+                scriptCommands,
             });
             const result = await runner.execute(scriptName, params, {
                 trigger: 'MANUAL',
@@ -361,9 +359,8 @@ router.get('/scripts/:scriptName/executions', async (req, res) => {
 router.get('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const { getEffectiveSchedule } = createScheduleUseCases(
-            req.scriptFactory
-        );
+        const { scriptFactory } = bootstrapAdminScripts();
+        const { getEffectiveSchedule } = createScheduleUseCases(scriptFactory);
 
         const result = await getEffectiveSchedule.execute(scriptName);
 
@@ -385,7 +382,8 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
         const { enabled, cronExpression, timezone } = req.body;
-        const { upsertSchedule } = createScheduleUseCases(req.scriptFactory);
+        const { scriptFactory } = bootstrapAdminScripts();
+        const { upsertSchedule } = createScheduleUseCases(scriptFactory);
 
         const result = await upsertSchedule.execute(scriptName, {
             enabled,
@@ -415,7 +413,8 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
 router.delete('/scripts/:scriptName/schedule', async (req, res) => {
     try {
         const { scriptName } = req.params;
-        const { deleteSchedule } = createScheduleUseCases(req.scriptFactory);
+        const { scriptFactory } = bootstrapAdminScripts();
+        const { deleteSchedule } = createScheduleUseCases(scriptFactory);
 
         const result = await deleteSchedule.execute(scriptName);
 

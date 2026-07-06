@@ -15,6 +15,7 @@ const { ScriptFactory } = require('../application/script-factory');
  */
 let bootstrapped = false;
 let scriptFactory = null;
+let scriptCommands = null;
 let integrationFactory = null;
 
 function registerScripts(factory, scriptClasses) {
@@ -45,11 +46,41 @@ function createIntegrationFactory() {
 }
 
 /**
- * @returns {{ scriptFactory: ScriptFactory, integrationFactory: object }}
+ * Build the command bundle injected into every AdminScriptContext. Scripts
+ * interact with the database only through these Frigg commands — never through
+ * repositories directly. The require is lazy so the package keeps no load-time
+ * coupling to core's command/repository modules.
+ */
+function buildScriptCommands() {
+    const {
+        createUserCommands,
+    } = require('@friggframework/core/application/commands/user-commands');
+    const {
+        createCredentialCommands,
+    } = require('@friggframework/core/application/commands/credential-commands');
+    const {
+        createEntityCommands,
+    } = require('@friggframework/core/application/commands/entity-commands');
+    const {
+        createIntegrationCommands,
+    } = require('@friggframework/core/application/commands/integration-commands');
+
+    return {
+        users: createUserCommands(),
+        credentials: createCredentialCommands(),
+        entities: createEntityCommands(),
+        // Class-agnostic reads (findIntegrationById, listIntegrations). Scripts
+        // that need class-scoped integration ops build their own commands.
+        integrations: createIntegrationCommands(),
+    };
+}
+
+/**
+ * @returns {{ scriptFactory: ScriptFactory, scriptCommands: object, integrationFactory: object }}
  */
 function bootstrapAdminScripts() {
     if (bootstrapped) {
-        return { scriptFactory, integrationFactory };
+        return { scriptFactory, scriptCommands, integrationFactory };
     }
     bootstrapped = true;
 
@@ -72,14 +103,26 @@ function bootstrapAdminScripts() {
         );
     }
 
+    // Built in its own try so a command-layer failure never blocks script
+    // registration (and vice versa) — both honor the never-throw contract.
+    try {
+        scriptCommands = buildScriptCommands();
+    } catch (error) {
+        console.error(
+            '[admin-scripts] bootstrap: could not build command bundle:',
+            error.message
+        );
+    }
+
     integrationFactory = createIntegrationFactory();
-    return { scriptFactory, integrationFactory };
+    return { scriptFactory, scriptCommands, integrationFactory };
 }
 
 /** Test-only: reset memoized bootstrap state. */
 function _resetBootstrapForTests() {
     bootstrapped = false;
     scriptFactory = null;
+    scriptCommands = null;
     integrationFactory = null;
 }
 

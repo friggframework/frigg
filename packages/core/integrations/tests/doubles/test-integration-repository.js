@@ -38,6 +38,17 @@ class TestIntegrationRepository {
         return results;
     }
 
+    async findIntegrations(filter = {}) {
+        const { type, status } = filter;
+        const results = Array.from(this.store.values()).filter((r) => {
+            if (type && r.config?.type !== type) return false;
+            if (status && r.status !== status) return false;
+            return true;
+        });
+        this.operationHistory.push({ operation: 'findAll', count: results.length });
+        return results;
+    }
+
     async findIntegrationByUserId(userId) {
         const record = Array.from(this.store.values()).find((r) => r.userId === userId);
         this.operationHistory.push({

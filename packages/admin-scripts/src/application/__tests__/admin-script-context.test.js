@@ -1,80 +1,24 @@
+const fs = require('fs');
+const path = require('path');
 const {
     AdminScriptContext,
     createAdminScriptContext,
 } = require('../admin-script-context');
 
-// Mock all repository factories
-jest.mock(
-    '@friggframework/core/integrations/repositories/integration-repository-factory'
-);
-jest.mock('@friggframework/core/user/repositories/user-repository-factory');
-jest.mock(
-    '@friggframework/core/modules/repositories/module-repository-factory'
-);
-jest.mock(
-    '@friggframework/core/credential/repositories/credential-repository-factory'
-);
 jest.mock('@friggframework/core/queues');
 
 describe('AdminScriptContext', () => {
-    let mockIntegrationRepo;
-    let mockUserRepo;
-    let mockModuleRepo;
-    let mockCredentialRepo;
     let mockQueuerUtil;
 
     beforeEach(() => {
         jest.clearAllMocks();
-
-        mockIntegrationRepo = {
-            findIntegrations: jest.fn(),
-            findIntegrationById: jest.fn(),
-            findIntegrationsByUserId: jest.fn(),
-            updateIntegrationConfig: jest.fn(),
-            updateIntegrationStatus: jest.fn(),
-        };
-
-        mockUserRepo = {
-            findIndividualUserById: jest.fn(),
-            findIndividualUserByAppUserId: jest.fn(),
-            findIndividualUserByUsername: jest.fn(),
-        };
-
-        mockModuleRepo = {
-            findEntity: jest.fn(),
-            findEntityById: jest.fn(),
-            findEntitiesByUserId: jest.fn(),
-        };
-
-        mockCredentialRepo = {
-            findCredential: jest.fn(),
-            updateCredential: jest.fn(),
-        };
 
         mockQueuerUtil = {
             send: jest.fn().mockResolvedValue(undefined),
             batchSend: jest.fn().mockResolvedValue(undefined),
         };
 
-        const {
-            createIntegrationRepository,
-        } = require('@friggframework/core/integrations/repositories/integration-repository-factory');
-        const {
-            createUserRepository,
-        } = require('@friggframework/core/user/repositories/user-repository-factory');
-        const {
-            createModuleRepository,
-        } = require('@friggframework/core/modules/repositories/module-repository-factory');
-        const {
-            createCredentialRepository,
-        } = require('@friggframework/core/credential/repositories/credential-repository-factory');
         const { QueuerUtil } = require('@friggframework/core/queues');
-
-        createIntegrationRepository.mockReturnValue(mockIntegrationRepo);
-        createUserRepository.mockReturnValue(mockUserRepo);
-        createModuleRepository.mockReturnValue(mockModuleRepo);
-        createCredentialRepository.mockReturnValue(mockCredentialRepo);
-
         QueuerUtil.send = mockQueuerUtil.send;
         QueuerUtil.batchSend = mockQueuerUtil.batchSend;
     });
@@ -86,6 +30,19 @@ describe('AdminScriptContext', () => {
             expect(ctx.executionId).toBe('exec_123');
             expect(ctx.logs).toEqual([]);
             expect(ctx.integrationFactory).toBeNull();
+            expect(ctx.commands).toBeNull();
+        });
+
+        it('exposes the injected command bundle as context.commands', () => {
+            const commands = {
+                users: {},
+                credentials: {},
+                entities: {},
+                integrations: {},
+            };
+            const ctx = new AdminScriptContext({ commands });
+
+            expect(ctx.commands).toBe(commands);
         });
 
         it('creates with integrationFactory', () => {
@@ -106,71 +63,23 @@ describe('AdminScriptContext', () => {
         });
     });
 
-    describe('Lazy Repository Loading', () => {
-        it('creates integrationRepository on first access', () => {
+    describe('command surface (no direct repository access)', () => {
+        it('does not expose repository getters', () => {
             const ctx = new AdminScriptContext();
-            const {
-                createIntegrationRepository,
-            } = require('@friggframework/core/integrations/repositories/integration-repository-factory');
 
-            expect(createIntegrationRepository).not.toHaveBeenCalled();
-
-            const repo = ctx.integrationRepository;
-
-            expect(createIntegrationRepository).toHaveBeenCalledTimes(1);
-            expect(repo).toBe(mockIntegrationRepo);
+            expect(ctx.integrationRepository).toBeUndefined();
+            expect(ctx.userRepository).toBeUndefined();
+            expect(ctx.moduleRepository).toBeUndefined();
+            expect(ctx.credentialRepository).toBeUndefined();
         });
 
-        it('returns same instance on subsequent access', () => {
-            const ctx = new AdminScriptContext();
+        it('the context module never imports a repository factory', () => {
+            const source = fs.readFileSync(
+                path.join(__dirname, '..', 'admin-script-context.js'),
+                'utf8'
+            );
 
-            const repo1 = ctx.integrationRepository;
-            const repo2 = ctx.integrationRepository;
-
-            expect(repo1).toBe(repo2);
-            expect(repo1).toBe(mockIntegrationRepo);
-        });
-
-        it('creates userRepository on first access', () => {
-            const ctx = new AdminScriptContext();
-            const {
-                createUserRepository,
-            } = require('@friggframework/core/user/repositories/user-repository-factory');
-
-            expect(createUserRepository).not.toHaveBeenCalled();
-
-            const repo = ctx.userRepository;
-
-            expect(createUserRepository).toHaveBeenCalledTimes(1);
-            expect(repo).toBe(mockUserRepo);
-        });
-
-        it('creates moduleRepository on first access', () => {
-            const ctx = new AdminScriptContext();
-            const {
-                createModuleRepository,
-            } = require('@friggframework/core/modules/repositories/module-repository-factory');
-
-            expect(createModuleRepository).not.toHaveBeenCalled();
-
-            const repo = ctx.moduleRepository;
-
-            expect(createModuleRepository).toHaveBeenCalledTimes(1);
-            expect(repo).toBe(mockModuleRepo);
-        });
-
-        it('creates credentialRepository on first access', () => {
-            const ctx = new AdminScriptContext();
-            const {
-                createCredentialRepository,
-            } = require('@friggframework/core/credential/repositories/credential-repository-factory');
-
-            expect(createCredentialRepository).not.toHaveBeenCalled();
-
-            const repo = ctx.credentialRepository;
-
-            expect(createCredentialRepository).toHaveBeenCalledTimes(1);
-            expect(repo).toBe(mockCredentialRepo);
+            expect(source).not.toMatch(/repository-factory/);
         });
     });
 

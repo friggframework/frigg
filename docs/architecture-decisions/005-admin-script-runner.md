@@ -63,7 +63,8 @@ class MyScript extends AdminScriptBase {
     /**
      * The execution context is injected via the constructor and available as
      * `this.context` (an AdminScriptContext), which provides:
-     *   - Repository access: integrationRepository, userRepository, credentialRepository, moduleRepository
+     *   - Frigg commands: commands.users, commands.credentials, commands.entities, commands.integrations
+     *     (database access only through the command layer — never repositories directly)
      *   - Logging: log(level, message, data) - persisted to the execution record
      *   - Queue operations: queueScript(), queueScriptBatch() - for the self-queuing pattern
      *   - Integration instantiation: instantiate(integrationId) - requires config.requireIntegrationInstance
@@ -71,8 +72,8 @@ class MyScript extends AdminScriptBase {
      * @returns {Promise<Object>} - Script results (persisted to the execution record)
      */
     async execute(params) {
-        // Example usage:
-        // const integrations = await this.context.integrationRepository.findIntegrations({});
+        // Example usage (commands return data on success or an { error } object):
+        // const integrations = await this.context.commands.integrations.listIntegrations({ type: 'attio' });
         // this.context.log('info', 'Processing integrations', { count: integrations.length });
         return { success: true };
     }

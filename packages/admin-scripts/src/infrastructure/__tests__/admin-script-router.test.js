@@ -72,6 +72,7 @@ describe('Admin Script Router', () => {
         bootstrapAdminScripts.mockReturnValue({
             scriptFactory: mockFactory,
             integrationFactory: {},
+            scriptCommands: {},
         });
         createScriptRunner.mockReturnValue(mockRunner);
         createAdminScriptCommands.mockReturnValue(mockCommands);
@@ -177,6 +178,7 @@ describe('Admin Script Router', () => {
             expect(createScriptRunner).toHaveBeenCalledWith({
                 scriptFactory: mockFactory,
                 integrationFactory: {},
+                scriptCommands: {},
             });
         });
 

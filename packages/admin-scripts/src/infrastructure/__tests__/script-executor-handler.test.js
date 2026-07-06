@@ -12,12 +12,14 @@ const { handler } = require('../script-executor-handler');
 describe('Admin Script Executor Handler', () => {
     let mockScriptFactory;
     let mockIntegrationFactory;
+    let mockScriptCommands;
     let mockRunner;
     let mockCommands;
 
     beforeEach(() => {
         mockScriptFactory = { id: 'script-factory' };
         mockIntegrationFactory = { id: 'integration-factory' };
+        mockScriptCommands = { id: 'script-commands' };
         mockRunner = { execute: jest.fn() };
         mockCommands = {
             completeAdminProcess: jest.fn().mockResolvedValue({}),
@@ -26,6 +28,7 @@ describe('Admin Script Executor Handler', () => {
         bootstrapAdminScripts.mockReturnValue({
             scriptFactory: mockScriptFactory,
             integrationFactory: mockIntegrationFactory,
+            scriptCommands: mockScriptCommands,
         });
         createScriptRunner.mockReturnValue(mockRunner);
         createAdminScriptCommands.mockReturnValue(mockCommands);
@@ -56,6 +59,7 @@ describe('Admin Script Executor Handler', () => {
             expect(createScriptRunner).toHaveBeenCalledWith({
                 scriptFactory: mockScriptFactory,
                 integrationFactory: mockIntegrationFactory,
+                scriptCommands: mockScriptCommands,
             });
             expect(mockRunner.execute).toHaveBeenCalledWith(
                 'my-script',
@@ -114,6 +118,7 @@ describe('Admin Script Executor Handler', () => {
             expect(createScriptRunner).toHaveBeenCalledWith({
                 scriptFactory: mockScriptFactory,
                 integrationFactory: mockIntegrationFactory,
+                scriptCommands: mockScriptCommands,
             });
             expect(mockRunner.execute).toHaveBeenCalledWith(
                 'my-script',

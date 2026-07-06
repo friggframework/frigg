@@ -21,6 +21,8 @@ class ScriptRunner {
      *   to a fresh createAdminScriptCommands().
      * @param {Object} [params.integrationFactory] - Hydrates integration
      *   instances for scripts that need them.
+     * @param {Object} [params.scriptCommands] - Frigg command bundle exposed to
+     *   scripts as context.commands (built by bootstrap.js).
      */
     constructor(params = {}) {
         if (!params.scriptFactory) {
@@ -29,6 +31,7 @@ class ScriptRunner {
         this.scriptFactory = params.scriptFactory;
         this.commands = params.commands || createAdminScriptCommands();
         this.integrationFactory = params.integrationFactory || null;
+        this.scriptCommands = params.scriptCommands || null;
     }
 
     /**
@@ -100,6 +103,7 @@ class ScriptRunner {
         const context = createAdminScriptContext({
             executionId,
             integrationFactory: this.integrationFactory,
+            commands: this.scriptCommands,
         });
 
         let output;

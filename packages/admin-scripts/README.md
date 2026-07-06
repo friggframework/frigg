@@ -1,6 +1,6 @@
 # @friggframework/admin-scripts
 
-Admin Script Runner for Frigg — write and run operational/maintenance scripts inside your deployed Frigg app, with VPC/KMS-secured database access, the same repositories your integrations use, sync or async (queued) execution, dry-run validation, and optional cron scheduling via AWS EventBridge Scheduler.
+Admin Script Runner for Frigg — write and run operational/maintenance scripts inside your deployed Frigg app, with VPC/KMS-secured database access through the same Frigg commands your integrations use, sync or async (queued) execution, dry-run validation, and optional cron scheduling via AWS EventBridge Scheduler.
 
 Typical use cases:
 
@@ -87,12 +87,17 @@ class AttioHealingScript extends AdminScriptBase {
 
         this.context.log('info', 'Starting Attio healing', { integrationId });
 
+        // Read persisted data through Frigg commands (never repositories).
+        // Commands return the data on success, or an { error, reason } object
+        // on failure — check `.error` yourself.
         const integration =
-            await this.context.integrationRepository.findIntegrationById(
+            await this.context.commands.integrations.findIntegrationById(
                 integrationId
             );
-        if (!integration) {
-            throw new Error(`Integration ${integrationId} not found`);
+        if (integration.error) {
+            throw new Error(
+                `Integration ${integrationId} not found: ${integration.reason}`
+            );
         }
 
         // Call the live integration when you need to hit an external API.
@@ -117,16 +122,16 @@ module.exports = { AttioHealingScript };
 | Member                       | Description                                                                                                                    |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `log(level, message, data?)` | Records a structured log entry (`level`: `debug`/`info`/`warn`/`error`). Logs are persisted to the execution's `results.logs`. |
-| `integrationRepository`      | Read/query integrations.                                                                                                       |
-| `userRepository`             | Read/query users.                                                                                                              |
-| `moduleRepository`           | Read/query modules.                                                                                                            |
-| `credentialRepository`       | Read credentials (decrypted transparently).                                                                                    |
+| `commands.users`             | User commands (`findIndividualUserById`, `createUser`, `updateUser`, …).                                                       |
+| `commands.credentials`       | Credential commands (`findCredential`, `updateCredential`, …); secrets decrypted transparently.                               |
+| `commands.entities`          | Entity/module commands (`findEntityById`, `findEntitiesByUserId`, …).                                                          |
+| `commands.integrations`      | Integration reads (`findIntegrationById`, `listIntegrations({ type, status })`).                                               |
 | `instantiate(integrationId)` | Returns a hydrated integration instance for calling external APIs. Requires `config.requireIntegrationInstance: true`.         |
 | `queueScript(name, params?)` | Enqueue another script as a follow-up (tracked as a child of the current execution).                                           |
 | `queueScriptBatch(entries)`  | Enqueue many follow-up scripts at once.                                                                                        |
 | `getExecutionId()`           | The current `AdminProcess` record id.                                                                                          |
 
-Repositories return **plain, decrypted data** — field-level encryption is handled transparently.
+Commands return **plain, decrypted data** on success (field-level encryption is handled transparently) or an `{ error, reason, code }` object on failure — scripts check `.error` themselves. Scripts have no direct repository access; all database interaction goes through the command layer.
 
 ---
 

@@ -3,23 +3,27 @@ const { QueuerUtil } = require('@friggframework/core/queues');
 /**
  * AdminScriptContext - Execution environment for admin scripts
  *
- * Provides a controlled surface area for scripts to interact with
- * the Frigg platform. Unique capabilities vs direct repo access:
+ * Provides a controlled surface area for scripts to interact with the Frigg
+ * platform. Scripts touch the database only through injected Frigg commands
+ * (`context.commands`) — never through repositories directly. Capabilities:
  *
+ * - **Frigg commands**: `commands.users`, `commands.credentials`,
+ *   `commands.entities`, and `commands.integrations` expose the framework's
+ *   command layer. Each command returns data on success or an `{ error }`
+ *   object on failure — scripts check `.error` themselves.
  * - **Admin bypass**: `instantiate()` passes `_isAdminContext: true` to
  *   skip user-ownership checks when loading integration instances
  * - **Script chaining**: `queueScript()` / `queueScriptBatch()` let scripts
  *   enqueue follow-up work with parent execution tracking
  * - **Execution-scoped logging**: `log()` collects structured entries tied
  *   to the current execution for post-run inspection
- * - **Lazy-loaded repositories**: Repos are exposed directly as getters
- *   so scripts can query any data they need without wrapper indirection
  */
 class AdminScriptContext {
     /**
      * @param {Object} [params={}] - Context configuration
      * @param {string|number|null} [params.executionId] - ID of the AdminProcess record this context is scoped to (used for log persistence and script chaining)
      * @param {Object|null} [params.integrationFactory] - Factory used to hydrate integration instances; required for scripts that call instantiate()
+     * @param {Object|null} [params.commands] - Frigg command bundle ({ users, credentials, entities, integrations }) injected by the composition root and exposed to scripts as context.commands
      */
     constructor(params = {}) {
         this.executionId = params.executionId || null;
@@ -27,54 +31,10 @@ class AdminScriptContext {
 
         this.integrationFactory = params.integrationFactory || null;
 
-        // Repositories are created on first use so the Prisma client is only
-        // initialized (and only for the repos a script actually touches) when needed.
-        this._integrationRepository = null;
-        this._userRepository = null;
-        this._moduleRepository = null;
-        this._credentialRepository = null;
-    }
-
-    // ==================== LAZY-LOADED REPOSITORIES ====================
-
-    get integrationRepository() {
-        if (!this._integrationRepository) {
-            const {
-                createIntegrationRepository,
-            } = require('@friggframework/core/integrations/repositories/integration-repository-factory');
-            this._integrationRepository = createIntegrationRepository();
-        }
-        return this._integrationRepository;
-    }
-
-    get userRepository() {
-        if (!this._userRepository) {
-            const {
-                createUserRepository,
-            } = require('@friggframework/core/user/repositories/user-repository-factory');
-            this._userRepository = createUserRepository();
-        }
-        return this._userRepository;
-    }
-
-    get moduleRepository() {
-        if (!this._moduleRepository) {
-            const {
-                createModuleRepository,
-            } = require('@friggframework/core/modules/repositories/module-repository-factory');
-            this._moduleRepository = createModuleRepository();
-        }
-        return this._moduleRepository;
-    }
-
-    get credentialRepository() {
-        if (!this._credentialRepository) {
-            const {
-                createCredentialRepository,
-            } = require('@friggframework/core/credential/repositories/credential-repository-factory');
-            this._credentialRepository = createCredentialRepository();
-        }
-        return this._credentialRepository;
+        // Scripts interact with the database only through these Frigg commands.
+        // Injected by bootstrap.js — the context never reaches for repositories
+        // or command factories itself.
+        this.commands = params.commands || null;
     }
 
     // ==================== INTEGRATION INSTANTIATION ====================

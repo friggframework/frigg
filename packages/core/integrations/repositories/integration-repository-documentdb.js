@@ -27,6 +27,18 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         return records.map((doc) => this._mapIntegration(doc));
     }
 
+    async findIntegrations({ type, status } = {}) {
+        const filter = {};
+        if (type) {
+            filter['config.type'] = type;
+        }
+        if (status) {
+            filter.status = status;
+        }
+        const records = await findMany(this.prisma, 'Integration', filter);
+        return records.map((doc) => this._mapIntegration(doc));
+    }
+
     async findIntegrationsByEntityId(entityId) {
         const objectId = toObjectId(entityId);
         if (!objectId) return [];
