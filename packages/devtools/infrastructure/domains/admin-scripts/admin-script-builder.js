@@ -9,6 +9,8 @@
  * - Creating Lambda function for admin API routes (router)
  * - Creating EventBridge Scheduler resources (Phase 2)
  * - Creating IAM roles for scheduler to invoke Lambda
+ * - Granting the router/executor Lambdas IAM permission to send to the queue
+ *   and (when scheduling is enabled) manage EventBridge schedules
  */
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
@@ -105,6 +107,21 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         };
 
         result.environment.ADMIN_SCRIPT_QUEUE_URL = { Ref: 'AdminScriptQueue' };
+
+        // The router enqueues async executions and scripts enqueue continuations
+        // via queueScript()/queueScriptBatch(). The base role's wildcard does not
+        // cover this queue's name, so grant SendMessage explicitly.
+        result.iamStatements.push({
+            Effect: 'Allow',
+            Action: [
+                'sqs:SendMessage',
+                'sqs:SendMessageBatch',
+                'sqs:GetQueueUrl',
+                'sqs:GetQueueAttributes',
+            ],
+            Resource: { 'Fn::GetAtt': ['AdminScriptQueue', 'Arn'] },
+        });
+
         console.log('  ✓ Created AdminScriptQueue');
     }
 
@@ -204,6 +221,37 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         result.environment.ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN = {
             'Fn::GetAtt': ['AdminScriptExecutorLambdaFunction', 'Arn'],
         };
+
+        // The router manages schedules through the AWS scheduler adapter, so it
+        // needs scheduler:* on this group plus iam:PassRole for the role it hands
+        // to EventBridge. (UpdateSchedule covers the upsert conflict path.)
+        result.iamStatements.push(
+            {
+                Effect: 'Allow',
+                Action: [
+                    'scheduler:CreateSchedule',
+                    'scheduler:UpdateSchedule',
+                    'scheduler:DeleteSchedule',
+                    'scheduler:GetSchedule',
+                ],
+                Resource: {
+                    'Fn::Sub': [
+                        'arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${GroupName}/*',
+                        { GroupName: { Ref: 'AdminScriptScheduleGroup' } },
+                    ],
+                },
+            },
+            {
+                Effect: 'Allow',
+                Action: ['iam:PassRole'],
+                Resource: { 'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'] },
+                Condition: {
+                    StringEquals: {
+                        'iam:PassedToService': 'scheduler.amazonaws.com',
+                    },
+                },
+            }
+        );
 
         console.log('  ✓ Created EventBridge Scheduler resources');
     }

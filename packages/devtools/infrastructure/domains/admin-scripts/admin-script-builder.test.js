@@ -500,6 +500,79 @@ describe('AdminScriptBuilder', () => {
                 Resource: { 'Fn::GetAtt': ['AdminScriptExecutorLambdaFunction', 'Arn'] },
             });
         });
+
+        it('should grant the router SendMessage on AdminScriptQueue', async () => {
+            const appDefinition = {
+                adminScripts: [{ Definition: { name: 'test-script' } }],
+            };
+
+            const result = await adminScriptBuilder.build(appDefinition, {});
+
+            const sqsGrant = result.iamStatements.find(
+                (s) =>
+                    Array.isArray(s.Action) &&
+                    s.Action.includes('sqs:SendMessage')
+            );
+            expect(sqsGrant).toBeDefined();
+            expect(sqsGrant.Action).toContain('sqs:SendMessageBatch');
+            expect(sqsGrant.Resource).toEqual({
+                'Fn::GetAtt': ['AdminScriptQueue', 'Arn'],
+            });
+        });
+
+        it('should grant scheduler:* + iam:PassRole when scheduling is enabled', async () => {
+            const appDefinition = {
+                adminScripts: [{ Definition: { name: 'test-script' } }],
+                admin: { enableScheduling: true },
+            };
+
+            const result = await adminScriptBuilder.build(appDefinition, {});
+
+            const schedulerGrant = result.iamStatements.find(
+                (s) =>
+                    Array.isArray(s.Action) &&
+                    s.Action.includes('scheduler:CreateSchedule')
+            );
+            expect(schedulerGrant).toBeDefined();
+            expect(schedulerGrant.Action).toEqual(
+                expect.arrayContaining([
+                    'scheduler:CreateSchedule',
+                    'scheduler:UpdateSchedule',
+                    'scheduler:DeleteSchedule',
+                    'scheduler:GetSchedule',
+                ])
+            );
+            expect(schedulerGrant.Resource['Fn::Sub'][1]).toEqual({
+                GroupName: { Ref: 'AdminScriptScheduleGroup' },
+            });
+
+            const passRole = result.iamStatements.find(
+                (s) =>
+                    Array.isArray(s.Action) && s.Action.includes('iam:PassRole')
+            );
+            expect(passRole).toBeDefined();
+            expect(passRole.Resource).toEqual({
+                'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'],
+            });
+            expect(passRole.Condition.StringEquals['iam:PassedToService']).toBe(
+                'scheduler.amazonaws.com'
+            );
+        });
+
+        it('should add no scheduler IAM statements when scheduling is disabled', async () => {
+            const appDefinition = {
+                adminScripts: [{ Definition: { name: 'test-script' } }],
+            };
+
+            const result = await adminScriptBuilder.build(appDefinition, {});
+
+            const schedulerGrant = result.iamStatements.find(
+                (s) =>
+                    Array.isArray(s.Action) &&
+                    s.Action.some((a) => a.startsWith('scheduler:'))
+            );
+            expect(schedulerGrant).toBeUndefined();
+        });
     });
 
     describe('getName()', () => {
