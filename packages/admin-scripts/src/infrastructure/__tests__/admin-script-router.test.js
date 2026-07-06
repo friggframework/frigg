@@ -27,10 +27,22 @@ const {
 } = require('../../adapters/scheduler-adapter-factory');
 
 describe('Admin Script Router', () => {
+    let server;
     let mockFactory;
     let mockRunner;
     let mockCommands;
     let mockSchedulerAdapter;
+
+    // One persistent HTTP server for the whole file. Using request(server) spins up
+    // a fresh ephemeral server per call (35+ here); under load that occasionally
+    // mis-serves (empty-body 404s), which is the source of the flake.
+    beforeAll((done) => {
+        server = app.listen(0, done);
+    });
+
+    afterAll((done) => {
+        server.close(done);
+    });
 
     class TestScript extends AdminScriptBase {
         static Definition = {
@@ -98,7 +110,7 @@ describe('Admin Script Router', () => {
 
     describe('GET /admin/scripts', () => {
         it('should list all registered scripts', async () => {
-            const response = await request(app).get('/admin/scripts');
+            const response = await request(server).get('/admin/scripts');
 
             expect(response.status).toBe(200);
             expect(response.body.scripts).toHaveLength(1);
@@ -116,7 +128,7 @@ describe('Admin Script Router', () => {
                 throw new Error('Factory error');
             });
 
-            const response = await request(app).get('/admin/scripts');
+            const response = await request(server).get('/admin/scripts');
 
             expect(response.status).toBe(500);
             expect(response.body.error).toBe('Failed to list scripts');
@@ -125,7 +137,7 @@ describe('Admin Script Router', () => {
 
     describe('GET /admin/scripts/:scriptName', () => {
         it('should return script details', async () => {
-            const response = await request(app).get(
+            const response = await request(server).get(
                 '/admin/scripts/test-script'
             );
 
@@ -138,7 +150,7 @@ describe('Admin Script Router', () => {
         it('should return 404 for non-existent script', async () => {
             mockFactory.has.mockReturnValue(false);
 
-            const response = await request(app).get(
+            const response = await request(server).get(
                 '/admin/scripts/non-existent-script'
             );
 
@@ -157,7 +169,7 @@ describe('Admin Script Router', () => {
                 metrics: { durationMs: 100 },
             });
 
-            const response = await request(app)
+            const response = await request(server)
                 .post('/admin/scripts/test-script')
                 .send({
                     params: { foo: 'bar' },
@@ -189,7 +201,7 @@ describe('Admin Script Router', () => {
                 id: 'exec-456',
             });
 
-            const response = await request(app)
+            const response = await request(server)
                 .post('/admin/scripts/test-script')
                 .send({
                     params: { foo: 'bar' },
@@ -216,7 +228,7 @@ describe('Admin Script Router', () => {
                 id: 'exec-789',
             });
 
-            const response = await request(app)
+            const response = await request(server)
                 .post('/admin/scripts/test-script')
                 .send({
                     params: { foo: 'bar' },
@@ -230,7 +242,7 @@ describe('Admin Script Router', () => {
         it('should return 503 when ADMIN_SCRIPT_QUEUE_URL is not set', async () => {
             delete process.env.ADMIN_SCRIPT_QUEUE_URL;
 
-            const response = await request(app)
+            const response = await request(server)
                 .post('/admin/scripts/test-script')
                 .send({
                     params: { foo: 'bar' },
@@ -244,7 +256,7 @@ describe('Admin Script Router', () => {
         it('should return 404 for non-existent script', async () => {
             mockFactory.has.mockReturnValue(false);
 
-            const response = await request(app)
+            const response = await request(server)
                 .post('/admin/scripts/non-existent')
                 .send({
                     params: {},
@@ -258,7 +270,7 @@ describe('Admin Script Router', () => {
             // TestScript.Definition.config.timeout is 300000 (> 25000)
             process.env.AWS_LAMBDA_FUNCTION_NAME = 'admin-script-router';
 
-            const response = await request(app)
+            const response = await request(server)
                 .post('/admin/scripts/test-script')
                 .send({ params: {}, mode: 'sync' });
 
@@ -290,7 +302,7 @@ describe('Admin Script Router', () => {
                 metrics: { durationMs: 1 },
             });
 
-            const response = await request(app)
+            const response = await request(server)
                 .post('/admin/scripts/short-script')
                 .send({ params: {}, mode: 'sync' });
 
@@ -308,7 +320,7 @@ describe('Admin Script Router', () => {
                 code: 'DB_ERROR',
             });
 
-            const response = await request(app)
+            const response = await request(server)
                 .post('/admin/scripts/test-script')
                 .send({ params: { foo: 'bar' }, mode: 'async' });
 
@@ -327,7 +339,7 @@ describe('Admin Script Router', () => {
                 status: 'COMPLETED',
             });
 
-            const response = await request(app).get(
+            const response = await request(server).get(
                 '/admin/scripts/test-script/executions/exec-123'
             );
 
@@ -343,7 +355,7 @@ describe('Admin Script Router', () => {
                 code: 'EXECUTION_NOT_FOUND',
             });
 
-            const response = await request(app).get(
+            const response = await request(server).get(
                 '/admin/scripts/test-script/executions/non-existent'
             );
 
@@ -359,7 +371,7 @@ describe('Admin Script Router', () => {
                 { id: 'exec-2', name: 'test-script', state: 'RUNNING' },
             ]);
 
-            const response = await request(app).get(
+            const response = await request(server).get(
                 '/admin/scripts/test-script/executions'
             );
 
@@ -376,7 +388,7 @@ describe('Admin Script Router', () => {
         it('should accept query parameters (status maps to state, limit is bounded)', async () => {
             mockCommands.findExecutionsByName.mockResolvedValue([]);
 
-            await request(app).get(
+            await request(server).get(
                 '/admin/scripts/test-script/executions?status=COMPLETED&limit=10'
             );
 
@@ -410,7 +422,7 @@ describe('Admin Script Router', () => {
                 .fn()
                 .mockResolvedValue(dbSchedule);
 
-            const response = await request(app).get(
+            const response = await request(server).get(
                 '/admin/scripts/test-script/schedule'
             );
 
@@ -441,7 +453,7 @@ describe('Admin Script Router', () => {
 
             mockFactory.get.mockReturnValue(ScheduledTestScript);
 
-            const response = await request(app).get(
+            const response = await request(server).get(
                 '/admin/scripts/test-script/schedule'
             );
 
@@ -455,7 +467,7 @@ describe('Admin Script Router', () => {
                 .fn()
                 .mockResolvedValue(null);
 
-            const response = await request(app).get(
+            const response = await request(server).get(
                 '/admin/scripts/test-script/schedule'
             );
 
@@ -467,7 +479,7 @@ describe('Admin Script Router', () => {
         it('should return 404 for non-existent script', async () => {
             mockFactory.has.mockReturnValue(false);
 
-            const response = await request(app).get(
+            const response = await request(server).get(
                 '/admin/scripts/non-existent/schedule'
             );
 
@@ -493,7 +505,7 @@ describe('Admin Script Router', () => {
                 .fn()
                 .mockResolvedValue(newSchedule);
 
-            const response = await request(app)
+            const response = await request(server)
                 .put('/admin/scripts/test-script/schedule')
                 .send({
                     enabled: true,
@@ -530,7 +542,7 @@ describe('Admin Script Router', () => {
                 .fn()
                 .mockResolvedValue(updatedSchedule);
 
-            const response = await request(app)
+            const response = await request(server)
                 .put('/admin/scripts/test-script/schedule')
                 .send({
                     enabled: false,
@@ -542,7 +554,7 @@ describe('Admin Script Router', () => {
         });
 
         it('should require enabled field', async () => {
-            const response = await request(app)
+            const response = await request(server)
                 .put('/admin/scripts/test-script/schedule')
                 .send({
                     cronExpression: '0 12 * * *',
@@ -553,7 +565,7 @@ describe('Admin Script Router', () => {
         });
 
         it('should require cronExpression when enabled is true', async () => {
-            const response = await request(app)
+            const response = await request(server)
                 .put('/admin/scripts/test-script/schedule')
                 .send({
                     enabled: true,
@@ -566,7 +578,7 @@ describe('Admin Script Router', () => {
         it('should return 404 for non-existent script', async () => {
             mockFactory.has.mockReturnValue(false);
 
-            const response = await request(app)
+            const response = await request(server)
                 .put('/admin/scripts/non-existent/schedule')
                 .send({
                     enabled: true,
@@ -601,7 +613,7 @@ describe('Admin Script Router', () => {
                 scheduleName: 'frigg-script-test-script',
             });
 
-            const response = await request(app)
+            const response = await request(server)
                 .put('/admin/scripts/test-script/schedule')
                 .send({
                     enabled: true,
@@ -648,7 +660,7 @@ describe('Admin Script Router', () => {
                 .mockResolvedValue(existingSchedule);
             mockSchedulerAdapter.deleteSchedule.mockResolvedValue();
 
-            const response = await request(app)
+            const response = await request(server)
                 .put('/admin/scripts/test-script/schedule')
                 .send({
                     enabled: false,
@@ -683,7 +695,7 @@ describe('Admin Script Router', () => {
                 new Error('AWS Scheduler API error')
             );
 
-            const response = await request(app)
+            const response = await request(server)
                 .put('/admin/scripts/test-script/schedule')
                 .send({
                     enabled: true,
@@ -711,7 +723,7 @@ describe('Admin Script Router', () => {
                 },
             });
 
-            const response = await request(app).delete(
+            const response = await request(server).delete(
                 '/admin/scripts/test-script/schedule'
             );
 
@@ -745,7 +757,7 @@ describe('Admin Script Router', () => {
 
             mockFactory.get.mockReturnValue(ScheduledTestScript);
 
-            const response = await request(app).delete(
+            const response = await request(server).delete(
                 '/admin/scripts/test-script/schedule'
             );
 
@@ -760,7 +772,7 @@ describe('Admin Script Router', () => {
                 deletedCount: 0,
             });
 
-            const response = await request(app).delete(
+            const response = await request(server).delete(
                 '/admin/scripts/test-script/schedule'
             );
 
@@ -774,7 +786,7 @@ describe('Admin Script Router', () => {
         it('should return 404 for non-existent script', async () => {
             mockFactory.has.mockReturnValue(false);
 
-            const response = await request(app).delete(
+            const response = await request(server).delete(
                 '/admin/scripts/non-existent/schedule'
             );
 
@@ -797,7 +809,7 @@ describe('Admin Script Router', () => {
             });
             mockSchedulerAdapter.deleteSchedule.mockResolvedValue();
 
-            const response = await request(app).delete(
+            const response = await request(server).delete(
                 '/admin/scripts/test-script/schedule'
             );
 
@@ -819,7 +831,7 @@ describe('Admin Script Router', () => {
                 },
             });
 
-            const response = await request(app).delete(
+            const response = await request(server).delete(
                 '/admin/scripts/test-script/schedule'
             );
 
@@ -843,7 +855,7 @@ describe('Admin Script Router', () => {
                 new Error('Scheduler delete failed')
             );
 
-            const response = await request(app).delete(
+            const response = await request(server).delete(
                 '/admin/scripts/test-script/schedule'
             );
 
