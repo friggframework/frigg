@@ -404,7 +404,7 @@ describe('Admin Script Router', () => {
             );
 
             expect(response.status).toBe(404);
-            expect(response.body.code).toBe('SCRIPT_NOT_FOUND');
+            expect(response.body.error).toMatch(/not found/i);
         });
     });
 
@@ -481,7 +481,6 @@ describe('Admin Script Router', () => {
                 });
 
             expect(response.status).toBe(400);
-            expect(response.body.code).toBe('INVALID_INPUT');
             expect(response.body.error).toContain('enabled');
         });
 
@@ -493,7 +492,6 @@ describe('Admin Script Router', () => {
                 });
 
             expect(response.status).toBe(400);
-            expect(response.body.code).toBe('INVALID_INPUT');
             expect(response.body.error).toContain('cronExpression');
         });
 
@@ -508,7 +506,7 @@ describe('Admin Script Router', () => {
                 });
 
             expect(response.status).toBe(404);
-            expect(response.body.code).toBe('SCRIPT_NOT_FOUND');
+            expect(response.body.error).toMatch(/not found/i);
         });
 
         it('should provision EventBridge schedule when enabled', async () => {
@@ -712,7 +710,7 @@ describe('Admin Script Router', () => {
             );
 
             expect(response.status).toBe(404);
-            expect(response.body.code).toBe('SCRIPT_NOT_FOUND');
+            expect(response.body.error).toMatch(/not found/i);
         });
 
         it('should delete EventBridge schedule when external rule exists', async () => {

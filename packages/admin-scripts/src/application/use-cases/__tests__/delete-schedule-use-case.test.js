@@ -170,7 +170,7 @@ describe('DeleteScheduleUseCase', () => {
             try {
                 await useCase.execute('non-existent');
             } catch (error) {
-                expect(error.code).toBe('SCRIPT_NOT_FOUND');
+                expect(error.output.statusCode).toBe(404);
             }
         });
     });

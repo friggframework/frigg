@@ -1,3 +1,5 @@
+const Boom = require('@hapi/boom');
+
 /**
  * Upsert Schedule Use Case
  *
@@ -65,9 +67,7 @@ class UpsertScheduleUseCase {
      */
     _validateScriptExists(scriptName) {
         if (!this.scriptFactory.has(scriptName)) {
-            const error = new Error(`Script "${scriptName}" not found`);
-            error.code = 'SCRIPT_NOT_FOUND';
-            throw error;
+            throw Boom.notFound(`Script "${scriptName}" not found`);
         }
     }
 
@@ -76,17 +76,13 @@ class UpsertScheduleUseCase {
      */
     _validateInput(enabled, cronExpression) {
         if (typeof enabled !== 'boolean') {
-            const error = new Error('enabled must be a boolean');
-            error.code = 'INVALID_INPUT';
-            throw error;
+            throw Boom.badRequest('enabled must be a boolean');
         }
 
         if (enabled && !cronExpression) {
-            const error = new Error(
+            throw Boom.badRequest(
                 'cronExpression is required when enabled is true'
             );
-            error.code = 'INVALID_INPUT';
-            throw error;
         }
     }
 

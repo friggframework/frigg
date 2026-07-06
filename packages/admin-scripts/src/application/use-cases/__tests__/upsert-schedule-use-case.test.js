@@ -153,7 +153,7 @@ describe('UpsertScheduleUseCase', () => {
             try {
                 await useCase.execute('non-existent', { enabled: true });
             } catch (error) {
-                expect(error.code).toBe('SCRIPT_NOT_FOUND');
+                expect(error.output.statusCode).toBe(404);
             }
         });
 
@@ -167,7 +167,7 @@ describe('UpsertScheduleUseCase', () => {
             try {
                 await useCase.execute('test-script', { enabled: 'yes' });
             } catch (error) {
-                expect(error.code).toBe('INVALID_INPUT');
+                expect(error.output.statusCode).toBe(400);
             }
         });
 
@@ -183,7 +183,7 @@ describe('UpsertScheduleUseCase', () => {
             try {
                 await useCase.execute('test-script', { enabled: true });
             } catch (error) {
-                expect(error.code).toBe('INVALID_INPUT');
+                expect(error.output.statusCode).toBe(400);
             }
         });
 

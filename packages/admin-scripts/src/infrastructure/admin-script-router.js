@@ -1,5 +1,6 @@
 const express = require('express');
 const serverless = require('serverless-http');
+const Boom = require('@hapi/boom');
 const { validateAdminApiKey } = require('./admin-auth-middleware');
 const { getScriptFactory } = require('../application/script-factory');
 const { createScriptRunner } = require('../application/script-runner');
@@ -26,12 +27,26 @@ const router = express.Router();
 // Apply auth middleware to all admin routes
 router.use(validateAdminApiKey);
 
-// Register the host app's admin scripts (and built-ins) before handling requests.
+// Register the host app's admin scripts before handling requests.
 // Memoized, so this only does work on the first request per process.
 router.use((_req, _res, next) => {
     bootstrapAdminScripts();
     next();
 });
+
+/**
+ * Translate a thrown error into an HTTP response. Boom errors (thrown by the
+ * schedule use cases) carry their own status code; anything else is an
+ * unexpected 500. Mirrors the framework's app-handler-helpers convention.
+ * @private
+ */
+function sendError(res, error, fallbackMessage) {
+    if (error.isBoom) {
+        return res.status(error.output.statusCode).json({ error: error.message });
+    }
+    console.error(fallbackMessage, error);
+    return res.status(500).json({ error: fallbackMessage });
+}
 
 /**
  * Build audit metadata for an execution from the request.
@@ -62,11 +77,9 @@ function createScheduleUseCases() {
         process.env.SCHEDULER_PROVIDER ||
         (process.env.AWS_LAMBDA_FUNCTION_NAME ? null : 'local');
     if (!schedulerType) {
-        const error = new Error(
+        throw Boom.serverUnavailable(
             'SCHEDULER_PROVIDER is not configured. Set it (e.g. "aws") via appDefinition.admin.enableScheduling.'
         );
-        error.code = 'SCHEDULER_NOT_CONFIGURED';
-        throw error;
     }
 
     const schedulerAdapter = createSchedulerAdapter({
@@ -354,19 +367,7 @@ router.get('/scripts/:scriptName/schedule', async (req, res) => {
             ...result.schedule,
         });
     } catch (error) {
-        if (error.code === 'SCRIPT_NOT_FOUND') {
-            return res.status(404).json({
-                error: error.message,
-                code: error.code,
-            });
-        }
-        if (error.code === 'SCHEDULER_NOT_CONFIGURED') {
-            return res
-                .status(503)
-                .json({ error: error.message, code: error.code });
-        }
-        console.error('Error getting schedule:', error);
-        res.status(500).json({ error: 'Failed to get schedule' });
+        return sendError(res, error, 'Failed to get schedule');
     }
 });
 
@@ -397,25 +398,7 @@ router.put('/scripts/:scriptName/schedule', async (req, res) => {
             }),
         });
     } catch (error) {
-        if (error.code === 'SCRIPT_NOT_FOUND') {
-            return res.status(404).json({
-                error: error.message,
-                code: error.code,
-            });
-        }
-        if (error.code === 'INVALID_INPUT') {
-            return res.status(400).json({
-                error: error.message,
-                code: error.code,
-            });
-        }
-        if (error.code === 'SCHEDULER_NOT_CONFIGURED') {
-            return res
-                .status(503)
-                .json({ error: error.message, code: error.code });
-        }
-        console.error('Error updating schedule:', error);
-        res.status(500).json({ error: 'Failed to update schedule' });
+        return sendError(res, error, 'Failed to update schedule');
     }
 });
 
@@ -432,19 +415,7 @@ router.delete('/scripts/:scriptName/schedule', async (req, res) => {
 
         res.json(result);
     } catch (error) {
-        if (error.code === 'SCRIPT_NOT_FOUND') {
-            return res.status(404).json({
-                error: error.message,
-                code: error.code,
-            });
-        }
-        if (error.code === 'SCHEDULER_NOT_CONFIGURED') {
-            return res
-                .status(503)
-                .json({ error: error.message, code: error.code });
-        }
-        console.error('Error deleting schedule:', error);
-        res.status(500).json({ error: 'Failed to delete schedule' });
+        return sendError(res, error, 'Failed to delete schedule');
     }
 });
 

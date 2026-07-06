@@ -1,3 +1,5 @@
+const Boom = require('@hapi/boom');
+
 /**
  * Delete Schedule Use Case
  *
@@ -51,9 +53,7 @@ class DeleteScheduleUseCase {
      */
     _validateScriptExists(scriptName) {
         if (!this.scriptFactory.has(scriptName)) {
-            const error = new Error(`Script "${scriptName}" not found`);
-            error.code = 'SCRIPT_NOT_FOUND';
-            throw error;
+            throw Boom.notFound(`Script "${scriptName}" not found`);
         }
     }
 
