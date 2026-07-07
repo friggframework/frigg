@@ -228,7 +228,7 @@ Scheduling requires `admin.enableScheduling: true` in the app definition (so the
 
 ## Script chaining
 
-Long or fan-out work can enqueue follow-up scripts. Continuations are tracked with `parentExecutionId` so you can trace the lineage:
+A script can enqueue follow-up scripts via `queueScript()` / `queueScriptBatch()`. Each continuation runs **asynchronously** in the executor Lambda (trigger `QUEUE`) with its `parentExecutionId` set to the queuing execution, so you can trace the lineage (and query children by `parentExecutionId`).
 
 ```javascript
 async execute(params) {
@@ -239,6 +239,24 @@ async execute(params) {
     return { queued: ids.length };
 }
 ```
+
+### When to reach for it
+
+Chaining is the escape hatch for work that doesn't fit a single execution. Use it to:
+
+-   **Beat the timeouts** — sync runs in the API Lambda (≈30s); async in the executor (15-min max). Split bigger jobs into children, each with its own 15-min budget.
+-   **Page / resume** — process one page, queue a continuation with the next cursor; a job of any length never hits the wall.
+-   **Fan out** — one child per item/batch runs concurrently (bounded by the queue) instead of one script grinding serially.
+-   **Isolate failures** — one bad item fails only that child's execution; siblings continue.
+-   **Stage pipelines** — script A finishes and queues script B with its output, each stage independently retried/timed.
+
+For small, bounded, fast work — or when you need the result in the response — just use a single sync/async execution instead.
+
+### Caveats
+
+-   **Fire-and-forget** — you don't get a child's result back; correlate via `parentExecutionId`.
+-   **At-least-once delivery** — a child may run more than once (SQS redrive on crash). **Make child scripts idempotent.**
+-   **No depth guard** — a script that queues itself fans out unbounded. Keep continuation targets terminal, or bound the chain yourself.
 
 ---
 

@@ -57,6 +57,24 @@ class AdminScriptContext {
 
     // ==================== QUEUE OPERATIONS ====================
 
+    /**
+     * Enqueue a follow-up script as an async continuation of this execution.
+     *
+     * Fire-and-forget: the child runs later in the executor Lambda (trigger
+     * `QUEUE`) with its `parentExecutionId` set to this execution — you do NOT
+     * get the child's result back here. Use it to split work that won't fit one
+     * execution (paging past the 15-min executor timeout, per-item fan-out,
+     * multi-stage pipelines).
+     *
+     * Caveats: delivery is at-least-once, so child scripts must be idempotent;
+     * and there is no recursion/depth guard, so a script that queues itself
+     * fans out unbounded — keep continuation targets terminal or bound the chain
+     * yourself.
+     *
+     * @param {string} scriptName - Registered name of the script to enqueue
+     * @param {Object} [params={}] - Params passed to the child's execute()
+     * @throws {Error} if ADMIN_SCRIPT_QUEUE_URL is not configured
+     */
     async queueScript(scriptName, params = {}) {
         const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
         if (!queueUrl) {
@@ -78,6 +96,14 @@ class AdminScriptContext {
         this.log('info', `Queued continuation for ${scriptName}`, { params });
     }
 
+    /**
+     * Enqueue many follow-up scripts at once (batched to SQS). Same semantics
+     * and caveats as {@link queueScript} — each child runs async with this
+     * execution as its parent; make children idempotent and keep them terminal.
+     *
+     * @param {Array<{scriptName: string, params?: Object}>} entries - Scripts to enqueue
+     * @throws {Error} if ADMIN_SCRIPT_QUEUE_URL is not configured
+     */
     async queueScriptBatch(entries) {
         const queueUrl = process.env.ADMIN_SCRIPT_QUEUE_URL;
         if (!queueUrl) {
