@@ -466,9 +466,23 @@ class MigrationBuilder extends InfrastructureBuilder {
                 // Note: Serverless will merge this with provider.environment
             },
             events: [
-                { httpApi: { path: '/db-migrate/status', method: 'GET' } },
-                { httpApi: { path: '/db-migrate', method: 'POST' } },
-                { httpApi: { path: '/db-migrate/{processId}', method: 'GET' } },
+                // Paths must match the Express router in core's db-migration.js,
+                // which mounts under /admin/db-migrate (consolidated with the
+                // other admin endpoints). A mismatch routes API Gateway to the
+                // Lambda but Express 404s ("Cannot POST /db-migrate").
+                {
+                    httpApi: {
+                        path: '/admin/db-migrate/status',
+                        method: 'GET',
+                    },
+                },
+                { httpApi: { path: '/admin/db-migrate', method: 'POST' } },
+                {
+                    httpApi: {
+                        path: '/admin/db-migrate/{processId}',
+                        method: 'GET',
+                    },
+                },
             ],
         };
         console.log('  ✓ Created dbMigrationRouter function');
