@@ -1,6 +1,6 @@
 ---
 name: frigg
-description: "Core reference and entry point for the Frigg integration framework: what Frigg is, hexagonal architecture and the golden rule, the integration definition pattern, the frigg CLI (install, start, build, deploy, doctor, repair, ui, generate-iam), AWS infrastructure (domain builders, scheduler, VPC, osls), field-level encryption, the monorepo layout, and anti-patterns. Use when working in a Frigg project or repo (friggframework packages, IntegrationBase, infrastructure.js), understanding Frigg's architecture, configuring infrastructure/VPC/encryption, or running frigg CLI commands. Links to the focused companion skills: frigg-api-modules, frigg-management-api, frigg-user-actions, and frigg-development-best-practices."
+description: "Core reference and entry point for the Frigg integration framework: what Frigg is, hexagonal architecture and the golden rule, the integration definition pattern, the frigg CLI (install, start, build, deploy, doctor, repair, ui, generate-iam), AWS infrastructure (domain builders, scheduler, VPC, osls), field-level encryption, the Admin Script Runner (admin scripts, sync/async execution, chaining, scheduling), the monorepo layout, and anti-patterns. Use when working in a Frigg project or repo (friggframework packages, IntegrationBase, infrastructure.js), understanding Frigg's architecture, configuring infrastructure/VPC/encryption, or running frigg CLI commands. Links to the focused companion skills: frigg-api-modules, frigg-management-api, frigg-user-actions, and frigg-development-best-practices."
 ---
 
 # Frigg Integration Framework Expert
@@ -79,6 +79,24 @@ class MyIntegration extends IntegrationBase {
 
 module.exports = MyIntegration;
 ```
+
+## Admin scripts
+
+Operational/maintenance scripts run in the hosted environment via the **Admin Script Runner** (`@friggframework/admin-scripts`). Enable by adding a non-empty `adminScripts: [MyScript]` to the app definition (that provisions the router + executor Lambdas + SQS queue); add `admin: { enableScheduling: true }` to also provision EventBridge Scheduler resources.
+
+A script extends `AdminScriptBase` with a static `Definition` (name, version, `inputSchema`, `config.timeout`, `config.requireIntegrationInstance`) and an `async execute(params)`. It runs behind `/admin/scripts/*` (auth: `x-frigg-admin-api-key` = `ADMIN_API_KEY`):
+
+- **Execute** `POST /admin/scripts/{name}` with `{ mode: 'sync' | 'async', params }` — sync runs in the router Lambda (~30s API cap); async (default) queues to SQS and runs in the executor Lambda (15-min budget). Also: `GET /admin/scripts[/{name}]`, `POST .../validate`, `GET .../executions[/{id}]`, and `GET|PUT|DELETE .../schedule`.
+- Every run persists an **`AdminScriptExecution`** record (`state`: `PENDING → RUNNING → COMPLETED`/`FAILED`, plus input/output/metrics/logs).
+- Inside `execute`, scripts use the injected **`context`** — never repositories directly: `context.commands.{users,credentials,entities,integrations}` (each returns data or a never-throw `{ error, reason, code }`), `context.instantiate(integrationId)` for a live integration instance (requires `config.requireIntegrationInstance: true`), and `context.log(level, msg, data)`.
+- **Scheduling** (`admin.enableScheduling`) creates real EventBridge schedules from `PUT .../schedule` (`SCHEDULER_PROVIDER=aws`). Locally the adapter is an in-memory no-op — scheduled *firing* only works on AWS.
+
+### Script chaining
+
+`context.queueScript(name, params)` / `context.queueScriptBatch(entries)` enqueue follow-up scripts as **async continuations** (trigger `QUEUE`, `parentExecutionId` set to the queuing execution, so lineage is queryable).
+
+- **When to use it:** work that won't fit one execution — beat the 15-min executor cap by paging/resuming; fan out one child per item/batch; isolate per-item failures; stage pipelines (A queues B with its output). For small bounded work, or when you need the result in the response, just use one sync/async execution.
+- **Caveats:** fire-and-forget (you don't get the child's result back — correlate via `parentExecutionId`); at-least-once delivery, so **make child scripts idempotent**; and there is **no depth guard**, so keep continuation targets terminal or a self-queuing script fans out unbounded.
 
 ## CLI Commands
 
