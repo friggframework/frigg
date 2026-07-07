@@ -389,12 +389,13 @@ describe('AdminScriptBuilder', () => {
             expect(result.resources.AdminScriptScheduleGroup).toBeDefined();
             expect(result.resources.AdminScriptScheduleGroup.Type).toBe('AWS::Scheduler::ScheduleGroup');
 
-            // SCHEDULER_PROVIDER is a constant and stays on the shared env.
-            expect(result.environment.SCHEDULER_PROVIDER).toBe('aws');
-
-            // Resource-reference env vars are scoped to the router function (not
-            // the shared provider env) to avoid CloudFormation circular deps.
+            // Scheduler env vars are scoped to the router function (not the
+            // shared provider env): resource refs would create CloudFormation
+            // circular deps, and SCHEDULER_PROVIDER='aws' would break core's
+            // scheduler factory (rejects 'aws') for every other Lambda.
             const routerEnv = result.functions.adminScriptRouter.environment;
+            expect(routerEnv.SCHEDULER_PROVIDER).toBe('aws');
+            expect(result.environment.SCHEDULER_PROVIDER).toBeUndefined();
             expect(routerEnv.SCHEDULER_ROLE_ARN).toEqual({
                 'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'],
             });

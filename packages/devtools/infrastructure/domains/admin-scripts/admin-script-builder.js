@@ -70,10 +70,10 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         this.createAdminScriptQueue(result);
 
         // Create Lambda function for script execution
-        this.createScriptExecutorFunction(result, usePrismaLayer);
+        this.createScriptExecutorFunction(appDefinition, result, usePrismaLayer);
 
         // Create API routes for script management
-        this.createAdminScriptRoutes(result, usePrismaLayer);
+        this.createAdminScriptRoutes(appDefinition, result, usePrismaLayer);
 
         // Phase 2: Create EventBridge Scheduler resources
         if (adminConfig.enableScheduling) {
@@ -125,11 +125,11 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         console.log('  ✓ Created AdminScriptQueue');
     }
 
-    createScriptExecutorFunction(result, usePrismaLayer) {
+    createScriptExecutorFunction(appDefinition, result, usePrismaLayer) {
         result.functions.adminScriptExecutor = {
             handler: 'node_modules/@friggframework/admin-scripts/src/infrastructure/script-executor-handler.handler',
             skipEsbuild: true,
-            package: this.skipEsbuildPackageConfig(usePrismaLayer),
+            package: this.skipEsbuildPackageConfig(appDefinition, usePrismaLayer),
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
             timeout: 900, // 15 minutes max
             memorySize: 1024,
@@ -145,11 +145,11 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         console.log('  ✓ Created adminScriptExecutor function');
     }
 
-    createAdminScriptRoutes(result, usePrismaLayer) {
+    createAdminScriptRoutes(appDefinition, result, usePrismaLayer) {
         result.functions.adminScriptRouter = {
             handler: 'node_modules/@friggframework/admin-scripts/src/infrastructure/admin-script-router.handler',
             skipEsbuild: true,
-            package: this.skipEsbuildPackageConfig(usePrismaLayer),
+            package: this.skipEsbuildPackageConfig(appDefinition, usePrismaLayer),
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
             timeout: 30,
             events: [
@@ -181,8 +181,14 @@ class AdminScriptBuilder extends InfrastructureBuilder {
 
     // Without this, the skipEsbuild functions package the whole node_modules
     // closure (aws-sdk, Prisma, dev deps) and blow past Lambda's 250 MB limit.
-    skipEsbuildPackageConfig(usePrismaLayer) {
+    // Mirrors the exclusions the framework's other node_modules handlers use.
+    skipEsbuildPackageConfig(appDefinition, usePrismaLayer) {
+        const tlsCAFile = appDefinition?.database?.documentDB?.tlsCAFile;
         return {
+            include: [
+                // Handlers connect to the DB, so ship the DocumentDB CA cert.
+                ...(tlsCAFile ? [tlsCAFile.replace(/^\.\//, '')] : []),
+            ],
             exclude: [
                 'node_modules/aws-sdk/**',
                 'node_modules/@aws-sdk/**',
@@ -212,10 +218,13 @@ class AdminScriptBuilder extends InfrastructureBuilder {
                 'node_modules/serverless-offline-sqs/**',
                 'node_modules/serverless-dotenv-plugin/**',
                 'node_modules/serverless-kms-grants/**',
+                // Never deploy secrets or the lockfile.
                 '.env',
                 '.env.*',
                 '**/.env',
                 '**/.env.*',
+                '.frigg-credentials.json',
+                'package-lock.json',
                 'test/**',
                 'layers/**',
                 'coverage/**',
@@ -268,12 +277,14 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             },
         };
 
-        result.environment.SCHEDULER_PROVIDER = 'aws';
-
-        // Router-scoped, not shared provider env: broadcasting these resource
-        // references to every function creates CloudFormation circular deps.
+        // Router-scoped, not shared provider env. Two reasons: broadcasting the
+        // resource references to every function creates CloudFormation circular
+        // deps; and SCHEDULER_PROVIDER='aws' is only valid for the admin-script
+        // adapter (the router's sole consumer) — core's scheduler factory, used
+        // by integration Lambdas, rejects 'aws', so it must not leak app-wide.
         result.functions.adminScriptRouter.environment = {
             ...(result.functions.adminScriptRouter.environment || {}),
+            SCHEDULER_PROVIDER: 'aws',
             SCHEDULER_ROLE_ARN: {
                 'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'],
             },
