@@ -97,6 +97,21 @@ describe('AdminScriptExecutionRepositoryMongo', () => {
                 },
             });
         });
+
+        it('should write parentExecutionId to the column when provided', async () => {
+            mockPrisma.adminScriptExecution.create.mockResolvedValue({ id: 'x' });
+
+            await repository.createExecution({
+                name: 'child',
+                type: 'ADMIN_SCRIPT',
+                context: { trigger: 'QUEUE' },
+                parentExecutionId: '507f1f77bcf86cd799439011',
+            });
+
+            const data =
+                mockPrisma.adminScriptExecution.create.mock.calls[0][0].data;
+            expect(data.parentExecutionId).toBe('507f1f77bcf86cd799439011');
+        });
     });
 
     describe('findExecutionById()', () => {

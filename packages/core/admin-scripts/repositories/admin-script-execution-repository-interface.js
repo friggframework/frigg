@@ -34,10 +34,11 @@ class AdminScriptExecutionRepositoryInterface {
      * @param {string} [params.context.audit.apiKeyName] - Name of API key used
      * @param {string} [params.context.audit.apiKeyLast4] - Last 4 chars of API key
      * @param {string} [params.context.audit.ipAddress] - IP address of requester
+     * @param {string|number} [params.parentExecutionId] - ID of the execution that queued this one; persisted to the parentExecutionId column (self-FK) for the parent/child hierarchy
      * @returns {Promise<Object>} The created process record
      * @abstract
      */
-    async createExecution({ name, type, context }) {
+    async createExecution({ name, type, context, parentExecutionId }) {
         throw new Error('Method createExecution must be implemented by subclass');
     }
 

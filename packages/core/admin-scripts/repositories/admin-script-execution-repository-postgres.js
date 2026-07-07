@@ -59,12 +59,15 @@ class AdminScriptExecutionRepositoryPostgres extends AdminScriptExecutionReposit
      * @param {Object} [params.context] - Context data
      * @returns {Promise<Object>} The created process record with string ID
      */
-    async createExecution({ name, type, context = {} }) {
+    async createExecution({ name, type, context = {}, parentExecutionId }) {
         const data = {
             name,
             type,
             context,
             results: { logs: [] },
+            ...(parentExecutionId != null && {
+                parentExecutionId: this._convertId(parentExecutionId),
+            }),
         };
 
         const process = await this.prisma.adminScriptExecution.create({

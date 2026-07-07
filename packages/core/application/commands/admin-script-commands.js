@@ -77,13 +77,15 @@ function createAdminScriptCommands() {
                 const process = await adminScriptExecutionRepository.createExecution({
                     name: scriptName,
                     type: 'ADMIN_SCRIPT',
+                    // Persisted to the parentExecutionId column (self-FK), not the
+                    // context blob, so the parent/child hierarchy is queryable.
+                    parentExecutionId,
                     context: {
                         scriptVersion,
                         trigger,
                         mode: mode || 'async',
                         input,
                         audit,
-                        ...(parentExecutionId && { parentExecutionId }),
                     },
                 });
                 return process;

@@ -89,7 +89,7 @@ describe('createAdminScriptCommands', () => {
             );
         });
 
-        it('records parentExecutionId in context when provided', async () => {
+        it('passes parentExecutionId as a top-level column value (not in context)', async () => {
             mockAdminScriptExecutionRepo.createExecution.mockResolvedValue({ id: 'proc-1' });
 
             await commands.createExecution({
@@ -98,11 +98,10 @@ describe('createAdminScriptCommands', () => {
                 parentExecutionId: 'parent-1',
             });
 
-            expect(mockAdminScriptExecutionRepo.createExecution).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    context: expect.objectContaining({ parentExecutionId: 'parent-1' }),
-                })
-            );
+            const arg = mockAdminScriptExecutionRepo.createExecution.mock.calls[0][0];
+            expect(arg.parentExecutionId).toBe('parent-1');
+            // Must NOT be buried in context — the self-FK column is the source of truth.
+            expect(arg.context.parentExecutionId).toBeUndefined();
         });
 
         it('maps repository errors to an error response', async () => {

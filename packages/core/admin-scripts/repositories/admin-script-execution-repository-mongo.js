@@ -27,12 +27,13 @@ class AdminScriptExecutionRepositoryMongo extends AdminScriptExecutionRepository
      * @param {Object} [params.context] - Context data
      * @returns {Promise<Object>} The created process record
      */
-    async createExecution({ name, type, context = {} }) {
+    async createExecution({ name, type, context = {}, parentExecutionId }) {
         const data = {
             name,
             type,
             context,
             results: { logs: [] },
+            ...(parentExecutionId != null && { parentExecutionId }),
         };
 
         const process = await this.prisma.adminScriptExecution.create({
