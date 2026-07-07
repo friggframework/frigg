@@ -19,26 +19,10 @@ import usersRouter from './api/users.js'
 import connectionsRouter from './api/connections.js'
 import cliRouter from './api/cli.js'
 import logsRouter from './api/logs.js'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import monitoringRouter from './api/monitoring.js'
 import codegenRouter from './api/codegen.js'
 import discoveryRouter from './api/discovery.js'
 import openIdeHandler from './api/open-ide.js'
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-import monitoringRouter from './api/monitoring.js'
-import codegenRouter from './api/codegen.js'
-import discoveryRouter from './api/discovery.js'
-import openIdeHandler from './api/open-ide.js'
-<<<<<<< HEAD
->>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -69,16 +53,6 @@ app.use((req, res, next) => {
   const timestamp = new Date().toISOString()
   console.log(`${timestamp} - ${req.method} ${req.path}`)
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   // Log API requests
   addLogEntry(LOG_LEVELS.INFO, `${req.method} ${req.path}`, 'api', {
     method: req.method,
@@ -87,16 +61,6 @@ app.use((req, res, next) => {
     userAgent: req.get('User-Agent')
   })
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   next()
 })
 
@@ -113,45 +77,14 @@ app.get('/health', (req, res) => {
   }))
 })
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 // Get initial repository info
 app.get('/api/repository/current', (req, res) => {
   const repoInfo = process.env.REPOSITORY_INFO ?
     JSON.parse(process.env.REPOSITORY_INFO) :
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
-// Get initial repository info
-app.get('/api/repository/current', (req, res) => {
-  const repoInfo = process.env.REPOSITORY_INFO ? 
-    JSON.parse(process.env.REPOSITORY_INFO) : 
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     null
   res.json(createStandardResponse({ repository: repoInfo }))
 })
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 // API endpoints
 app.use('/api/project', projectRouter)
 app.use('/api/integrations', integrationsRouter)
@@ -160,26 +93,10 @@ app.use('/api/users', usersRouter)
 app.use('/api/connections', connectionsRouter)
 app.use('/api/cli', cliRouter)
 app.use('/api/logs', logsRouter)
-<<<<<<< HEAD
-<<<<<<< HEAD
 app.use('/api/monitoring', monitoringRouter)
 app.use('/api/codegen', codegenRouter)
 app.use('/api/discovery', discoveryRouter)
 app.post('/api/open-in-ide', openIdeHandler)
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-app.use('/api/monitoring', monitoringRouter)
-app.use('/api/codegen', codegenRouter)
-app.use('/api/discovery', discoveryRouter)
-app.post('/api/open-in-ide', openIdeHandler)
-<<<<<<< HEAD
->>>>>>> d6114470 (feat: add comprehensive DDD/Hexagonal architecture RFC series)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -194,31 +111,9 @@ app.get('/api', (req, res) => {
       users: '/api/users',
       connections: '/api/connections',
       cli: '/api/cli',
-<<<<<<< HEAD
-<<<<<<< HEAD
       logs: '/api/logs',
       monitoring: '/api/monitoring',
       codegen: '/api/codegen'
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-      logs: '/api/logs',
-      monitoring: '/api/monitoring',
-      codegen: '/api/codegen'
-=======
-      logs: '/api/logs'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-      logs: '/api/logs',
-      monitoring: '/api/monitoring',
-      codegen: '/api/codegen'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-      logs: '/api/logs',
-      monitoring: '/api/monitoring',
-      codegen: '/api/codegen'
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
     },
     websocket: {
       url: 'ws://localhost:3001',
@@ -229,31 +124,9 @@ app.get('/api', (req, res) => {
         'environment:update',
         'cli:output',
         'cli:complete',
-<<<<<<< HEAD
-<<<<<<< HEAD
         'logs:new',
         'monitoring:metrics',
         'monitoring:error'
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-        'logs:new',
-        'monitoring:metrics',
-        'monitoring:error'
-=======
-        'logs:new'
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-        'logs:new',
-        'monitoring:metrics',
-        'monitoring:error'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-        'logs:new',
-        'monitoring:metrics',
-        'monitoring:error'
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       ]
     },
     documentation: '/api-contract.md'
@@ -284,16 +157,6 @@ httpServer.listen(PORT, () => {
   console.log(`📚 API documentation: http://localhost:${PORT}/api`)
   console.log(`🏥 Health check: http://localhost:${PORT}/health`)
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   // Log server startup
   addLogEntry(LOG_LEVELS.INFO, `Server started on port ${PORT}`, 'server', {
     port: PORT,
@@ -307,16 +170,6 @@ process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully...')
   addLogEntry(LOG_LEVELS.INFO, 'Server shutting down gracefully', 'server')
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   httpServer.close(() => {
     console.log('Server closed')
     process.exit(0)
@@ -327,16 +180,6 @@ process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully...')
   addLogEntry(LOG_LEVELS.INFO, 'Server interrupted, shutting down', 'server')
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   httpServer.close(() => {
     console.log('Server closed')
     process.exit(0)

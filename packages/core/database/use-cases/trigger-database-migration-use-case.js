@@ -99,7 +99,7 @@ class TriggerDatabaseMigrationUseCase {
             success: true,
             migrationId: migrationStatus.migrationId,
             state: migrationStatus.state,
-            statusUrl: `/db-migrate/${migrationStatus.migrationId}`,
+            statusUrl: `/admin/db-migrate/${migrationStatus.migrationId}`,
             s3Key: `migrations/${migrationStatus.stage}/${migrationStatus.migrationId}.json`,
             message: 'Database migration queued successfully',
         };

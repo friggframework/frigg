@@ -352,3 +352,63 @@ model WebsocketConnection {
 
   @@index([connectionId])
 }
+
+// ============================================================================
+// ADMIN PROCESS MODELS
+// ============================================================================
+
+/// Admin process state machine
+enum AdminScriptExecutionState {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// Admin process tracking (like Process but without user/integration FK)
+/// Used for: admin scripts, db migrations, system maintenance tasks
+model AdminScriptExecution {
+  id   Int    @id @default(autoincrement())
+  name String // e.g., "oauth-token-refresh", "db-migration-xyz"
+  type String // e.g., "ADMIN_SCRIPT", "DB_MIGRATION"
+
+  // State machine
+  state AdminScriptExecutionState @default(PENDING)
+
+  // Flexible storage (mirrors Process model pattern)
+  context Json @default("{}") // input, trigger, audit info, script version
+  results Json @default("{}") // output, logs, metrics, errors
+
+  // Hierarchy support - self-referential relation
+  parentExecutionId Int?
+  parentExecution   AdminScriptExecution?  @relation("AdminScriptExecutionHierarchy", fields: [parentExecutionId], references: [id], onDelete: SetNull)
+  childExecutions   AdminScriptExecution[] @relation("AdminScriptExecutionHierarchy")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name, createdAt(sort: Desc)])
+  @@index([state])
+  @@index([type])
+}
+
+/// Script scheduling configuration for hybrid scheduling (SQS + EventBridge)
+model ScriptSchedule {
+  id              Int       @id @default(autoincrement())
+  scriptName      String    @unique
+  enabled         Boolean   @default(false)
+  cronExpression  String?
+  timezone        String    @default("UTC")
+  lastTriggeredAt DateTime?
+  nextTriggerAt   DateTime?
+
+  // External Scheduler (e.g., AWS EventBridge Scheduler)
+  externalScheduleId   String?
+  externalScheduleName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled])
+}

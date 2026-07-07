@@ -58,10 +58,14 @@ describe('integration commands', () => {
         mockPatchConfigExecute.mockReset();
     });
 
-    it('requires an integrationClass when creating commands', () => {
-        expect(() => createIntegrationCommands()).toThrow(
-            'integrationClass is required',
-        );
+    it('returns class-agnostic read commands when no integrationClass is given', () => {
+        const commands = createIntegrationCommands();
+
+        expect(typeof commands.findIntegrationById).toBe('function');
+        expect(typeof commands.listIntegrations).toBe('function');
+        // Class-scoped commands require an integrationClass and are not built here
+        expect(commands.createIntegration).toBeUndefined();
+        expect(commands.updateIntegrationConfig).toBeUndefined();
     });
 
     it('creates use cases with default repositories', () => {

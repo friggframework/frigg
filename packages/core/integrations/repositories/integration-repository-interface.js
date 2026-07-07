@@ -22,6 +22,20 @@ class IntegrationRepositoryInterface {
     }
 
     /**
+     * Find integrations, optionally filtered by config type and/or status.
+     * With no filter, returns every integration.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.type] - Integration type (config.type)
+     * @param {string} [filter.status] - Integration status
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     * @abstract
+     */
+    async findIntegrations(filter = {}) {
+        throw new Error('Method findIntegrations must be implemented by subclass');
+    }
+
+    /**
      * Delete integration by ID
      *
      * @param {string|number} integrationId - Integration ID

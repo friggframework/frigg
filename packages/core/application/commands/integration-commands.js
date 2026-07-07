@@ -51,13 +51,49 @@ function mapErrorToResponse(error) {
     };
 }
 
-function createIntegrationCommands({ integrationClass }) {
-    if (!integrationClass) {
-        throw new Error('integrationClass is required');
-    }
-
+function createIntegrationCommands({ integrationClass } = {}) {
     // Always use Frigg's default repositories and use cases
     const integrationRepository = createIntegrationRepository();
+
+    // Class-agnostic read commands. Available with or without an integrationClass
+    // so callers that operate across integration types (e.g. admin scripts) can
+    // look up integrations by id or list them by type/status.
+
+    /**
+     * Find a single integration record by id.
+     * @param {string} integrationId
+     * @returns {Promise<Object>} Integration record, or an error object.
+     */
+    async function findIntegrationById(integrationId) {
+        try {
+            return await integrationRepository.findIntegrationById(
+                integrationId
+            );
+        } catch (error) {
+            return mapErrorToResponse(error);
+        }
+    }
+
+    /**
+     * List integrations, optionally filtered by config type and/or status.
+     * @param {Object} [filter={}]
+     * @param {string} [filter.type] - Integration type (config.type)
+     * @param {string} [filter.status] - Integration status
+     * @returns {Promise<Array|Object>} Array of integrations, or an error object.
+     */
+    async function listIntegrations(filter = {}) {
+        try {
+            return await integrationRepository.findIntegrations(filter);
+        } catch (error) {
+            return mapErrorToResponse(error);
+        }
+    }
+
+    // The remaining commands hydrate/modify integrations for a specific class.
+    if (!integrationClass) {
+        return { findIntegrationById, listIntegrations };
+    }
+
     const moduleRepository = createModuleRepository();
 
     const moduleDefinitions = getModulesDefinitionFromIntegrationClasses([
@@ -116,6 +152,9 @@ function createIntegrationCommands({ integrationClass }) {
     });
 
     return {
+        findIntegrationById,
+        listIntegrations,
+
         /**
          * Find integration context by external entity ID and type
          * @param {Object} params

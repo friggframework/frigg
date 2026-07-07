@@ -13,7 +13,8 @@
  * - Repositories are infrastructure adapters (tested separately)
  */
 
-process.env.ADMIN_API_KEY = 'test-admin-key';
+// Generated at runtime so no credential-like literal is committed
+process.env.ADMIN_API_KEY = require('node:crypto').randomBytes(16).toString('hex');
 process.env.DB_MIGRATION_QUEUE_URL = 'https://sqs.test/queue';
 
 // Mock infrastructure dependencies to prevent app definition loading
@@ -47,7 +48,7 @@ describe('Database Migration Router - Adapter Layer', () => {
         // Test will pass if handler doesn't crash when dbType is omitted from request
     });
 
-    describe('GET /db-migrate/status endpoint', () => {
+    describe('GET /admin/db-migrate/status endpoint', () => {
         it('should have status endpoint registered', () => {
             const router = require('./db-migration').router;
             const routes = router.stack
@@ -57,7 +58,7 @@ describe('Database Migration Router - Adapter Layer', () => {
                     methods: Object.keys(layer.route.methods),
                 }));
 
-            const statusRoute = routes.find(r => r.path === '/db-migrate/status');
+            const statusRoute = routes.find(r => r.path === '/admin/db-migrate/status');
             expect(statusRoute).toBeDefined();
             expect(statusRoute.methods).toContain('get');
         });

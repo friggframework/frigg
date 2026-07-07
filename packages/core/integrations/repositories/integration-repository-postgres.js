@@ -91,6 +91,45 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
     }
 
     /**
+     * Find integrations, optionally filtered by config type and/or status.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.type] - Integration type (config.type)
+     * @param {string} [filter.status] - Integration status
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     */
+    async findIntegrations({ type, status } = {}) {
+        const where = {};
+        if (type) {
+            where.config = { path: ['type'], equals: type };
+        }
+        if (status) {
+            where.status = status;
+        }
+
+        const integrations = await this.prisma.integration.findMany({
+            where,
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => {
+            const converted = this._convertIntegrationIds(integration);
+            return {
+                id: converted.id,
+                entitiesIds: converted.entities.map((e) => e.id),
+                userId: converted.userId,
+                config: converted.config,
+                version: converted.version,
+                status: converted.status,
+                messages: converted.messages,
+                createdAt: converted.createdAt,
+            };
+        });
+    }
+
+    /**
      * Delete integration by ID
      *
      * @param {string} integrationId - Integration ID (string from application layer)

@@ -230,14 +230,15 @@ describe('MigrationBuilder', () => {
             expect(result.functions.dbMigrationRouter.timeout).toBe(30);
             expect(result.functions.dbMigrationRouter.memorySize).toBe(512);
             expect(result.functions.dbMigrationRouter.events).toHaveLength(3);
+            // Must match core's Express router mounted under /admin/db-migrate.
             expect(result.functions.dbMigrationRouter.events).toContainEqual({
-                httpApi: { path: '/db-migrate/status', method: 'GET' },
+                httpApi: { path: '/admin/db-migrate/status', method: 'GET' },
             });
             expect(result.functions.dbMigrationRouter.events).toContainEqual({
-                httpApi: { path: '/db-migrate', method: 'POST' },
+                httpApi: { path: '/admin/db-migrate', method: 'POST' },
             });
             expect(result.functions.dbMigrationRouter.events).toContainEqual({
-                httpApi: { path: '/db-migrate/{processId}', method: 'GET' },
+                httpApi: { path: '/admin/db-migrate/{processId}', method: 'GET' },
             });
         });
 

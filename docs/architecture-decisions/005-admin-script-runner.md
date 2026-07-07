@@ -9,7 +9,7 @@ Frigg adopters need to execute administrative scripts in hosted environments wit
 
 1. **Healing Scripts** - Fix broken integrations (e.g., Attio config corruption)
 2. **Recurring Maintenance** - Webhook refreshers (e.g., Zoho channel expiry)
-3. **Built-in Utilities** - OAuth token refresh, integration health checks
+3. **Common Utilities** - operations adopters commonly script, e.g. OAuth token refresh or integration health checks
 
 This is a high-risk, high-value feature requiring careful security controls. The implementation must align with the `next` branch architecture:
 
@@ -40,7 +40,7 @@ const Definition = {
     ],
 
     admin: {
-        includeBuiltinScripts: true,
+        enableScheduling: true,
     },
 };
 ```
@@ -55,23 +55,26 @@ class MyScript extends AdminScriptBase {
         name: 'my-script',
         version: '1.0.0',
         description: 'What this script does',
-        config: { timeout: 300000 },
-        schedule: { enabled: true, cronExpression: 'cron(0 12 * * ? *)' },
+        config: { timeout: 300000, requireIntegrationInstance: false },
+        // No schedule here — scripts are capabilities; an admin activates a
+        // recurring run at runtime via PUT /admin/scripts/:name/schedule.
     };
 
     /**
-     * @param {AdminFriggCommands} frigg - Helper object providing:
-     *   - Repository access: listIntegrations(), findUserById(), findCredential(), etc.
-     *   - Logging: log(level, message, data) - persists to execution record
-     *   - Queue operations: queueScript(), queueScriptBatch() - for self-queuing pattern
+     * The execution context is injected via the constructor and available as
+     * `this.context` (an AdminScriptContext), which provides:
+     *   - Frigg commands: commands.users, commands.credentials, commands.entities, commands.integrations
+     *     (database access only through the command layer — never repositories directly)
+     *   - Logging: log(level, message, data) - persisted to the execution record
+     *   - Queue operations: queueScript(), queueScriptBatch() - for the self-queuing pattern
      *   - Integration instantiation: instantiate(integrationId) - requires config.requireIntegrationInstance
-     * @param {Object} params - Script parameters (validated against inputSchema if provided)
-     * @returns {Promise<Object>} - Script results (validated against outputSchema if provided)
+     * @param {Object} params - Script parameters (validated against inputSchema before execution)
+     * @returns {Promise<Object>} - Script results (persisted to the execution record)
      */
-    async execute(frigg, params) {
-        // Example usage:
-        // const integrations = await frigg.listIntegrations({ userId: params.userId });
-        // frigg.log('info', 'Processing integrations', { count: integrations.length });
+    async execute(params) {
+        // Example usage (commands return data on success or an { error } object):
+        // const integrations = await this.context.commands.integrations.listIntegrations({ type: 'attio' });
+        // this.context.log('info', 'Processing integrations', { count: integrations.length });
         return { success: true };
     }
 }
@@ -84,20 +87,20 @@ class MyScript extends AdminScriptBase {
    - Lambda functions (router + queue worker)
    - EventBridge Scheduler resources
 
-2. **Repository Layer** (Phase 1):
-   - `AdminApiKeyRepository` - API key management
-   - `ScriptExecutionRepository` - Execution history
+2. **Repository Layer**:
+   - `AdminScriptExecutionRepository` - Execution history (`AdminScriptExecution` model, `type: 'ADMIN_SCRIPT'`)
    - `ScriptScheduleRepository` - Schedule overrides (Phase 2)
+   - Admin API keys are validated from the `ADMIN_API_KEY` environment variable — there is no database-backed key table.
 
 3. **Application Layer**:
    - `ScriptFactory` - Script registration/instantiation
    - `ScriptRunner` - Execution orchestration
-   - `AdminFriggCommands` - Helper API for scripts
+   - `AdminScriptContext` - Execution context injected into scripts (`this.context`)
 
 4. **Infrastructure Layer**:
    - `admin-script-router.js` - HTTP endpoints
-   - `script-executor-handler.js` - SQS queue worker
-   - `admin-auth-middleware.js` - API key authentication
+   - `script-executor-handler.js` - SQS worker + scheduled direct-invoke entry point
+   - `@friggframework/core/handlers/middleware/admin-auth.js` - shared API key authentication
 
 ### Execution Modes
 
@@ -106,15 +109,16 @@ class MyScript extends AdminScriptBase {
 
 ### Scheduling Architecture (Phase 2)
 
-Hybrid scheduling with database override capability:
+Scheduling is a runtime, admin-driven decision — a script declares a capability,
+and an admin activates a recurring run explicitly via `PUT .../schedule`. There
+is no code-defined schedule; nothing fires unless it was activated.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Schedule Resolution (Priority Order)                   │
+│ Schedule Resolution                                    │
 ├─────────────────────────────────────────────────────────┤
-│ 1. Database ScriptSchedule (runtime override)          │
-│ 2. Script Definition schedule (code default)           │
-│ 3. No schedule (manual execution only)                 │
+│ 1. Database ScriptSchedule (activated via PUT)         │
+│ 2. No schedule (manual execution only)                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -124,23 +128,27 @@ AWS EventBridge Scheduler (not EventBridge Rules) provides:
 - Schedule groups for organization
 - Flexible time windows
 
-### Dry-Run Mode (Phase 3)
+### Input Validation (Phase 3)
 
-Scripts can be executed in dry-run mode for testing:
+Scripts declare an `inputSchema` (JSON Schema). A dedicated validation endpoint
+previews what would run without executing, and the same schema is enforced up
+front before every execution:
 
 ```javascript
-POST /admin/scripts/:name/execute
-{ "params": {...}, "mode": "sync", "dryRun": true }
+POST /admin/scripts/:name/validate
+{ "params": {...} }
 ```
 
-Dry-run wraps repositories to intercept writes and mocks HTTP calls.
+> The original repository-wrapper / HTTP-interceptor dry-run design was descoped
+> in favour of schema validation. Scripts that want a true preview can accept
+> their own `dryRun` param.
 
 ### Security Model
 
-- **Admin API Keys**: Separate from OAuth credentials
+- **Admin API Key**: A single shared key from the `ADMIN_API_KEY` environment variable, sent as the `x-frigg-admin-api-key` header and checked with a constant-time comparison. Shared across all `/admin/*` endpoints (scripts + db-migrate). Separate from user OAuth credentials.
 - **VPC Deployment**: Lambda functions in private subnets
-- **Encryption**: Sensitive fields encrypted via Prisma extension
-- **Audit Logging**: All executions tracked with API key info
+- **Encryption**: Sensitive credential fields encrypted via the Prisma extension
+- **Audit Logging**: Every execution is tracked in `AdminScriptExecution` (trigger, input, results, metrics, and `ipAddress`/`apiKeyLast4`)
 
 ### API Endpoints
 
@@ -148,43 +156,42 @@ Dry-run wraps repositories to intercept writes and mocks HTTP calls.
 |--------|------|-------------|
 | GET | `/admin/scripts` | List registered scripts |
 | GET | `/admin/scripts/:name` | Get script details |
-| POST | `/admin/scripts/:name/execute` | Execute script |
-| GET | `/admin/executions` | List recent executions |
-| GET | `/admin/executions/:id` | Get execution details |
+| POST | `/admin/scripts/:name` | Execute script (sync or async) |
+| POST | `/admin/scripts/:name/validate` | Validate input without executing |
+| GET | `/admin/scripts/:name/executions` | List recent executions for a script |
+| GET | `/admin/scripts/:name/executions/:id` | Get execution details |
 | GET | `/admin/scripts/:name/schedule` | Get effective schedule |
 | PUT | `/admin/scripts/:name/schedule` | Set schedule override |
 | DELETE | `/admin/scripts/:name/schedule` | Remove override |
 
 ### Built-in Scripts
 
-1. **oauth-token-refresh** - Refresh OAuth tokens nearing expiration
-2. **integration-health-check** - Verify integration connectivity
+None ship yet. The `AdminScriptBase` + registration mechanics support framework-provided scripts, but built-ins are descoped for now — apps register their own scripts via `adminScripts`.
 
 ## Consequences
 
 ### Positive
 - Enables runtime maintenance without redeployment
-- Built-in scripts reduce boilerplate for common operations
 - Hybrid scheduling allows runtime adjustments
-- Dry-run mode enables safe testing
+- Input-schema validation enables safe pre-flight checks
 - Follows established Frigg patterns (Command, Repository, Factory)
 
 ### Negative
 - Additional infrastructure (SQS queue, Lambda functions)
-- API key management complexity
+- Shared admin API key must be provisioned and rotated by the operator
 - EventBridge Scheduler has regional limits
-- Dry-run mode can't capture all side effects
+- Input validation covers schema shape only, not runtime side effects
 
 ### Risks Mitigated
 - **Privilege Escalation**: Admin API keys are separate from user OAuth
 - **Resource Exhaustion**: Timeout limits, async execution for long scripts
-- **Data Corruption**: Dry-run mode for testing, execution logging
+- **Data Corruption**: Input validation before execution, full execution logging
 
 ## Implementation Phases
 
-1. **Phase 1 (MVP)**: Core execution, repositories, built-in scripts ✅
+1. **Phase 1 (MVP)**: Core execution, repositories, script registration ✅
 2. **Phase 2 (Scheduling)**: ScriptSchedule model, EventBridge integration ✅
-3. **Phase 3 (Dry-Run)**: Repository wrapper, HTTP interceptor ✅
+3. **Phase 3 (Validation)**: Input-schema validation endpoint ✅
 4. **Phase 4 (Future)**: Management UI, advanced observability
 
 ## Related
