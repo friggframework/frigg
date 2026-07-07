@@ -129,6 +129,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         result.functions.adminScriptExecutor = {
             handler: 'node_modules/@friggframework/admin-scripts/src/infrastructure/script-executor-handler.handler',
             skipEsbuild: true,
+            package: this.skipEsbuildPackageConfig(usePrismaLayer),
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
             timeout: 900, // 15 minutes max
             memorySize: 1024,
@@ -148,6 +149,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         result.functions.adminScriptRouter = {
             handler: 'node_modules/@friggframework/admin-scripts/src/infrastructure/admin-script-router.handler',
             skipEsbuild: true,
+            package: this.skipEsbuildPackageConfig(usePrismaLayer),
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
             timeout: 30,
             events: [
@@ -175,6 +177,52 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             ],
         };
         console.log('  ✓ Created adminScriptRouter function');
+    }
+
+    // Without this, the skipEsbuild functions package the whole node_modules
+    // closure (aws-sdk, Prisma, dev deps) and blow past Lambda's 250 MB limit.
+    skipEsbuildPackageConfig(usePrismaLayer) {
+        return {
+            exclude: [
+                'node_modules/aws-sdk/**',
+                'node_modules/@aws-sdk/**',
+                ...(usePrismaLayer
+                    ? [
+                          'node_modules/@prisma/**',
+                          'node_modules/.prisma/**',
+                          'node_modules/prisma/**',
+                          'node_modules/@friggframework/core/generated/**',
+                      ]
+                    : []),
+                'node_modules/**/node_modules/**',
+                'node_modules/@friggframework/test/**',
+                'node_modules/@friggframework/eslint-config/**',
+                'node_modules/@friggframework/prettier-config/**',
+                'node_modules/jest/**',
+                'node_modules/prettier/**',
+                'node_modules/eslint/**',
+                'node_modules/esbuild/**',
+                'node_modules/@esbuild/**',
+                'node_modules/typescript/**',
+                'node_modules/webpack/**',
+                'node_modules/osls/**',
+                'node_modules/serverless-esbuild/**',
+                'node_modules/serverless-jetpack/**',
+                'node_modules/serverless-offline/**',
+                'node_modules/serverless-offline-sqs/**',
+                'node_modules/serverless-dotenv-plugin/**',
+                'node_modules/serverless-kms-grants/**',
+                '.env',
+                '.env.*',
+                '**/.env',
+                '**/.env.*',
+                'test/**',
+                'layers/**',
+                'coverage/**',
+                '**/*.test.js',
+                '**/*.spec.js',
+            ],
+        };
     }
 
     createSchedulerResources(appDefinition, result) {

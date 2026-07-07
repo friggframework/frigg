@@ -257,6 +257,29 @@ describe('AdminScriptBuilder', () => {
             expect(result.functions.adminScriptExecutor.memorySize).toBe(1024);
         });
 
+        it('should exclude aws-sdk/Prisma from the skipEsbuild function packages', async () => {
+            const appDefinition = {
+                adminScripts: [{ Definition: { name: 'test-script' } }],
+            };
+
+            const result = await adminScriptBuilder.build(appDefinition, {});
+
+            // Regression: without a package config the skipEsbuild functions
+            // package the whole node_modules and exceed Lambda's 250 MB limit.
+            for (const fn of [
+                result.functions.adminScriptExecutor,
+                result.functions.adminScriptRouter,
+            ]) {
+                expect(fn.package.exclude).toEqual(
+                    expect.arrayContaining([
+                        'node_modules/aws-sdk/**',
+                        'node_modules/@aws-sdk/**',
+                        'node_modules/@prisma/**',
+                    ])
+                );
+            }
+        });
+
         it('should attach Prisma layer to adminScriptExecutor', async () => {
             const appDefinition = {
                 adminScripts: [
