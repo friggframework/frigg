@@ -24,6 +24,11 @@ const {
     CANONICAL_COUNTERS,
     isCanonicalCounter,
 } = require('./canonical-counters');
+const { wireTelemetrySubscribers } = require('./plugin-subscribers');
+const {
+    getPluginTelemetrySubscribers,
+    resetPluginTelemetrySubscribersForTests,
+} = require('./plugin-subscribers-singleton');
 
 module.exports = {
     createTelemetry,
@@ -45,4 +50,7 @@ module.exports = {
     createNorthStarDerivationSubscriber,
     CANONICAL_COUNTERS,
     isCanonicalCounter,
+    wireTelemetrySubscribers,
+    getPluginTelemetrySubscribers,
+    resetPluginTelemetrySubscribersForTests,
 };

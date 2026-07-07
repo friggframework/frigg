@@ -105,3 +105,38 @@ describe('resolveTelemetryConfig — northStar', () => {
         ).toThrow(/northStar/i);
     });
 });
+
+describe('resolveTelemetryConfig — subscribers (Decision 6 plugin/extension taps)', () => {
+    it('defaults subscribers to an empty array when absent', () => {
+        const cfg = resolveTelemetryConfig({}, { stage: 'production' });
+        expect(cfg.subscribers).toEqual([]);
+    });
+
+    it('passes through function and { handler } subscribers unchanged', () => {
+        const fn = () => {};
+        const obj = { event: 'metric', handler: () => {} };
+        const cfg = resolveTelemetryConfig(
+            { telemetry: { subscribers: [fn, obj] } },
+            { stage: 'production' }
+        );
+        expect(cfg.subscribers).toEqual([fn, obj]);
+    });
+
+    it('rejects a non-array subscribers value', () => {
+        expect(() =>
+            resolveTelemetryConfig(
+                { telemetry: { subscribers: {} } },
+                { stage: 'production' }
+            )
+        ).toThrow(/subscribers/i);
+    });
+
+    it('rejects a subscriber that is neither a function nor a { handler }', () => {
+        expect(() =>
+            resolveTelemetryConfig(
+                { telemetry: { subscribers: [{ event: 'metric' }] } },
+                { stage: 'production' }
+            )
+        ).toThrow(/subscriber/i);
+    });
+});

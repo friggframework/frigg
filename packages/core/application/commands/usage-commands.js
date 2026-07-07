@@ -14,8 +14,9 @@ const {
     createUsageRepository,
 } = require('../../usage/repositories/usage-repository-factory');
 const { computeUsageWindows } = require('../../telemetry/usage-windows');
+const { resolveNorthStarEntry } = require('../../telemetry/north-star');
 
-function createUsageCommands({ usageRepository } = {}) {
+function createUsageCommands({ usageRepository, northStar = null } = {}) {
     const repository = usageRepository || createUsageRepository();
 
     return {
@@ -49,6 +50,25 @@ function createUsageCommands({ usageRepository } = {}) {
 
         async series(args) {
             return repository.series(args);
+        },
+
+        /**
+         * First-class North Star read (ADR-011 Decision 5). Resolves the
+         * configured counter for an integration type (byType wins over default),
+         * then returns its totals from the durable usage store. Returns `null`
+         * when no North Star is configured, so callers can branch without
+         * knowing the counter key. Trends read via `series({ metric })`.
+         */
+        async northStar({ integrationType, since, groupBy = 'integrationType', bucket } = {}) {
+            const entry = resolveNorthStarEntry(northStar, integrationType);
+            if (!entry) return null;
+            const totals = await repository.totals({
+                metric: entry.name,
+                groupBy,
+                since,
+                bucket,
+            });
+            return { metric: entry.name, totals };
         },
     };
 }

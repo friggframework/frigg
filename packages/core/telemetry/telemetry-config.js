@@ -60,6 +60,31 @@ function validateNorthStarEntry(entry, where) {
     }
 }
 
+/**
+ * Adopter-declared telemetry subscribers (Decision 6). Each is either a factory
+ * function `fn(telemetry)` or a declarative `{ event?, handler }` object. Kept as
+ * an array so `wireTelemetrySubscribers` can attach them to the bus at runtime.
+ */
+function resolveSubscribers(subscribers) {
+    if (subscribers === undefined || subscribers === null) return [];
+    if (!Array.isArray(subscribers)) {
+        throw new Error(
+            '[Frigg][telemetry] subscribers must be an array of functions or { handler } objects'
+        );
+    }
+    for (const subscriber of subscribers) {
+        const ok =
+            typeof subscriber === 'function' ||
+            (subscriber && typeof subscriber.handler === 'function');
+        if (!ok) {
+            throw new Error(
+                '[Frigg][telemetry] each subscriber must be a function or an object with a handler function'
+            );
+        }
+    }
+    return subscribers;
+}
+
 function resolveNorthStar(northStar) {
     if (!northStar) return null;
     if (northStar.default) validateNorthStarEntry(northStar.default, 'default');
@@ -86,6 +111,7 @@ function resolveTelemetryConfig(appDefinition = {}, ctx = {}) {
         exporter: resolveExporter(telemetry.exporter, stage),
         northStar: resolveNorthStar(telemetry.northStar),
         sampleRatio: resolveSampleRatio(telemetry.sampleRatio),
+        subscribers: resolveSubscribers(telemetry.subscribers),
     };
 }
 

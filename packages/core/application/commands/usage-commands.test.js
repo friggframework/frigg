@@ -73,3 +73,55 @@ describe('createUsageCommands (ADR-011 §5 read contract)', () => {
         });
     });
 });
+
+describe('createUsageCommands — North Star read (ADR-011 Decision 5)', () => {
+    it('northStar() resolves the configured default counter and returns its totals', async () => {
+        const repo = fakeRepo();
+        const cmds = createUsageCommands({
+            usageRepository: repo,
+            northStar: { default: { name: 'records.synced' } },
+        });
+
+        const since = new Date('2026-01-01T00:00:00.000Z');
+        const result = await cmds.northStar({
+            integrationType: 'hubspot',
+            since,
+        });
+
+        expect(repo.totals).toHaveBeenCalledWith(
+            expect.objectContaining({ metric: 'records.synced', since })
+        );
+        expect(result).toEqual({
+            metric: 'records.synced',
+            totals: [{ integrationType: 'hubspot', value: 5 }],
+        });
+    });
+
+    it('northStar() prefers a byType counter over the default for that type', async () => {
+        const repo = fakeRepo();
+        const cmds = createUsageCommands({
+            usageRepository: repo,
+            northStar: {
+                default: { name: 'records.synced' },
+                byType: { crm: { name: 'contacts.synced' } },
+            },
+        });
+
+        const result = await cmds.northStar({ integrationType: 'crm' });
+
+        expect(repo.totals).toHaveBeenCalledWith(
+            expect.objectContaining({ metric: 'contacts.synced' })
+        );
+        expect(result.metric).toBe('contacts.synced');
+    });
+
+    it('northStar() returns null when no North Star is configured', async () => {
+        const repo = fakeRepo();
+        const cmds = createUsageCommands({ usageRepository: repo });
+
+        const result = await cmds.northStar({ integrationType: 'hubspot' });
+
+        expect(result).toBeNull();
+        expect(repo.totals).not.toHaveBeenCalled();
+    });
+});

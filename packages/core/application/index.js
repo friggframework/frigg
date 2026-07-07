@@ -8,6 +8,21 @@ const { createCredentialCommands } = require('./commands/credential-commands');
 const { createProcessCommands } = require('./commands/process-commands');
 const { createSchedulerCommands } = require('./commands/scheduler-commands');
 const { createUsageCommands } = require('./commands/usage-commands');
+const { loadAppDefinition } = require('../handlers/app-definition-loader');
+
+/**
+ * Resolve the adopter's North Star config from the app definition so
+ * `frigg.usage.northStar(...)` can read it (ADR-011 Decision 5). Guarded: a
+ * missing/unloadable app definition (e.g. in unit tests) must never break the
+ * command factory — usage reads simply have no North Star.
+ */
+function resolveNorthStarConfig() {
+    try {
+        return loadAppDefinition().telemetry?.northStar ?? null;
+    } catch (_) {
+        return null;
+    }
+}
 
 /**
  * Create a unified command factory with all CRUD operations
@@ -53,7 +68,7 @@ function createFriggCommands({ integrationClass }) {
         ...processCommands,
 
         // Usage read/write (ADR-011) — nested to match `frigg.usage.*`
-        usage: createUsageCommands(),
+        usage: createUsageCommands({ northStar: resolveNorthStarConfig() }),
     };
 }
 

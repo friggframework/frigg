@@ -200,12 +200,45 @@ telemetry: {
 }
 ```
 
-Read it like any counter: `frigg.usage.totals({ metric: 'contacts_synced' })`.
+Read it as a first-class metric without knowing the configured key — the North
+Star resolves per integration type (`byType` wins over `default`):
+
+```js
+// Resolves the configured counter for the type, then returns its totals.
+await frigg.usage.northStar({ integrationType: 'hubspot', since: daysAgo(30) });
+// → { metric: 'contacts_synced', totals: [{ integrationType: 'hubspot', value: 900 }] }
+// → null when no North Star is configured (caller branches without knowing keys)
+```
+
+Or read it like any counter once you know the key:
+`frigg.usage.totals({ metric: 'contacts_synced' })`; trends via `frigg.usage.series({ metric })`.
 
 ## Plugin / extension tap
 
-Telemetry flows onto an internal event stream. Subscribe to forward to a custom
-sink or compute aggregates:
+Telemetry flows onto an internal event stream (independent of OTel export, so
+taps fire even with `exporter: none`). Two ways to subscribe:
+
+**Declarative (app definition)** — the framework wires these once per cold start,
+each guarded so a bad subscriber can't break emission or its siblings:
+
+```js
+// backend/index.js
+const Definition = {
+    telemetry: {
+        subscribers: [
+            // (a) declarative object — `event` optional; omit to receive both:
+            { event: 'metric', handler: ({ name, value, attributes, context }) => {
+                forwardToStatsd(name, value, attributes);
+            } },
+            // (b) factory — gets the telemetry service, registers itself, may
+            //     return an unsubscribe:
+            (telemetry) => telemetry.on('event', (payload) => auditSink.write(payload)),
+        ],
+    },
+};
+```
+
+**Imperative** — subscribe from anywhere that runs at startup:
 
 ```js
 const { getTelemetry } = require('@friggframework/core');

@@ -54,6 +54,7 @@ function loadAppDefinition() {
             exporter: { type: 'none' },
             northStar: null,
             sampleRatio: 1,
+            subscribers: [],
         };
     }
 

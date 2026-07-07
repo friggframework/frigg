@@ -8,6 +8,9 @@ const { getTelemetry } = require('../telemetry/telemetry-singleton');
 const {
     getUsageRollupSubscriber,
 } = require('../telemetry/usage-rollup-singleton');
+const {
+    getPluginTelemetrySubscribers,
+} = require('../telemetry/plugin-subscribers-singleton');
 
 // Bounds the tail latency telemetry adds to every warm invocation. Kept low so
 // an unreachable OTLP endpoint (e.g. a VPC Lambda with no NAT/egress) costs at
@@ -138,6 +141,11 @@ const createHandler = (optionByName = {}) => {
             usageRollup !== undefined
                 ? usageRollup
                 : getUsageRollupSubscriber();
+
+        // Wire adopter-declared telemetry subscribers once per cold start
+        // (ADR-011 Decision 6). Memoized in the singleton, so this is a cheap
+        // no-op after the first invocation.
+        getPluginTelemetrySubscribers();
 
         try {
             console.info(`[createHandler] ${eventName}: handler entry`, {
