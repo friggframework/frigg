@@ -123,6 +123,7 @@ program
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .option('-v, --verbose', 'enable verbose output')
     .option('-f, --force', 'force deployment (bypasses caching for layers and functions)')
+    .option('--skip-pre-check', 'skip pre-deployment health check')
     .option('--skip-doctor', 'skip post-deployment health check')
     .action(deployCommand);
 

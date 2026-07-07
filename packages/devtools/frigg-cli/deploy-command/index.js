@@ -2,8 +2,13 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-// Import doctor command for post-deployment health check
 const { doctorCommand } = require('../doctor-command');
+
+const RunPreDeploymentHealthCheckUseCase = require('@friggframework/devtools/infrastructure/domains/health/application/use-cases/run-pre-deployment-health-check-use-case');
+const AWSResourceDetector = require('@friggframework/devtools/infrastructure/domains/health/infrastructure/adapters/aws-resource-detector');
+const PreDeploymentCategorizer = require('@friggframework/devtools/infrastructure/domains/health/domain/services/pre-deployment-categorizer');
+const { TemplateParser } = require('@friggframework/devtools/infrastructure/domains/health/domain/services/template-parser');
+const StackIdentifier = require('@friggframework/devtools/infrastructure/domains/health/domain/value-objects/stack-identifier');
 
 // Configuration constants
 const PATHS = {
@@ -212,6 +217,98 @@ function getStackName(appDefinition, options) {
 }
 
 /**
+ * Run pre-deployment health check
+ * @param {string} stackName - CloudFormation stack name
+ * @param {Object} options - Deploy options
+ * @returns {Promise<boolean>} True if deployment can proceed, false if blocked
+ */
+async function runPreDeploymentHealthCheck(stackName, options) {
+    console.log('\n' + '═'.repeat(80));
+    console.log('Running pre-deployment health check...');
+    console.log('═'.repeat(80));
+
+    try {
+        const region = options.region || process.env.AWS_REGION || 'us-east-1';
+        const stackIdentifier = new StackIdentifier({ stackName, region });
+
+        const templatePath = TemplateParser.getBuildTemplatePath(process.cwd());
+
+        if (!TemplateParser.buildTemplateExists(process.cwd())) {
+            console.log('\n⚠️  Build template not found - run build first');
+            console.log('   Skipping pre-deployment health check');
+            return true;
+        }
+
+        const AWSStackRepository = require('@friggframework/devtools/infrastructure/domains/health/infrastructure/adapters/aws-stack-repository');
+
+        const stackRepository = new AWSStackRepository({ region });
+        const resourceDetector = new AWSResourceDetector({ region });
+        const categorizer = new PreDeploymentCategorizer();
+        const templateParser = new TemplateParser();
+
+        const useCase = new RunPreDeploymentHealthCheckUseCase({
+            stackRepository,
+            resourceDetector,
+            preDeploymentCategorizer: categorizer,
+            templateParser,
+        });
+
+        const result = await useCase.execute({
+            stackIdentifier,
+            templatePath,
+            onProgress: (step, message) => console.log(step, message),
+        });
+
+        console.log('\n📊 Pre-Deployment Health Check Results:');
+        console.log(`   Total issues: ${result.summary.total}`);
+        console.log(`   🚫 Blocking: ${result.summary.blocking}`);
+        console.log(`   ⚠️  Warnings: ${result.summary.warnings}`);
+
+        if (result.blockingIssues.length > 0) {
+            console.log('\n🚫 BLOCKING ISSUES (deployment will fail):');
+            result.blockingIssues.forEach((item, index) => {
+                console.log(`\n   ${index + 1}. ${item.issue.description}`);
+                console.log(`      Type: ${item.issue.resourceType}`);
+                if (item.issue.resolution) {
+                    console.log(`      Resolution: ${item.issue.resolution}`);
+                }
+                if (item.issue.canAutoFix) {
+                    console.log(`      ✓ Can be auto-fixed with: frigg repair --import`);
+                }
+            });
+
+            console.log('\n✗ Deployment blocked due to critical issues');
+            console.log('  Fix these issues and run deploy again');
+            return false;
+        }
+
+        if (result.warningIssues.length > 0) {
+            console.log('\n⚠️  WARNINGS (non-blocking):');
+            result.warningIssues.forEach((item, index) => {
+                console.log(`\n   ${index + 1}. ${item.issue.description}`);
+                console.log(`      Type: ${item.issue.resourceType}`);
+            });
+
+            console.log('\n⚠️  Warnings detected but deployment can proceed');
+            console.log('   Run "frigg doctor" after deployment to address warnings');
+        } else {
+            console.log('\n✓ No issues detected - deployment can proceed');
+        }
+
+        return true;
+
+    } catch (error) {
+        console.log(`\n⚠️  Pre-deployment health check failed: ${error.message}`);
+        if (options.verbose) {
+            console.error(error.stack);
+        }
+
+        console.log('   Proceeding with deployment...');
+        return true;
+    }
+}
+
+/**
  * Run post-deployment health check
  * @param {string} stackName - CloudFormation stack name
  * @param {Object} options - Deploy options
@@ -271,9 +368,21 @@ async function deployCommand(options) {
     console.log('Deploying the serverless application...');
 
     const appDefinition = loadAppDefinition();
+    const stackName = getStackName(appDefinition, options);
+
+    if (!options.skipPreCheck && stackName) {
+        const canDeploy = await runPreDeploymentHealthCheck(stackName, options);
+
+        if (!canDeploy) {
+            console.error('\n✗ Deployment aborted due to blocking issues');
+            process.exit(1);
+        }
+    } else if (options.skipPreCheck) {
+        console.log('\n⏭️  Skipping pre-deployment health check (--skip-pre-check)');
+    }
+
     const environment = validateAndBuildEnvironment(appDefinition, options);
 
-    // Execute deployment
     const exitCode = await executeServerlessDeployment(environment, options);
 
     // Check if deployment was successful
