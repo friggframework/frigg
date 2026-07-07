@@ -178,11 +178,8 @@ class AdminScriptBuilder extends InfrastructureBuilder {
     }
 
     createSchedulerResources(appDefinition, result) {
-        // Reference the executor by a constructed ARN (Fn::Sub) rather than
-        // Fn::GetAtt. GetAtt creates a CloudFormation dependency edge, and an
-        // edge from the scheduler role to the executor closed a cycle through the
-        // shared Lambda execution role (role → executor → IamRoleLambdaExecution
-        // → PassRole → role). The name is deterministic, so a Sub is safe.
+        // Constructed ARN, not Fn::GetAtt: a GetAtt edge to the executor closes a
+        // CloudFormation circular dependency via the shared Lambda execution role.
         const executorArn = {
             'Fn::Sub':
                 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-adminScriptExecutor',
@@ -223,18 +220,10 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             },
         };
 
-        // SCHEDULER_PROVIDER is a constant, so it's safe on the shared provider
-        // environment inherited by every function.
         result.environment.SCHEDULER_PROVIDER = 'aws';
 
-        // The remaining vars carry resource references and are consumed ONLY by
-        // the router (it builds the AWS scheduler adapter in the schedule
-        // handlers). Scope them to the router function rather than the shared
-        // provider environment: broadcasting the executor's own ARN into every
-        // function's env made the executor depend on itself, and the role/group
-        // refs made every function depend on the scheduler role — both closed
-        // CloudFormation circular dependencies on deploy. Names must match
-        // admin-script-router.js exactly.
+        // Router-scoped, not shared provider env: broadcasting these resource
+        // references to every function creates CloudFormation circular deps.
         result.functions.adminScriptRouter.environment = {
             ...(result.functions.adminScriptRouter.environment || {}),
             SCHEDULER_ROLE_ARN: {
