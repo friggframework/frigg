@@ -2,7 +2,7 @@ const fetch = require('node-fetch');
 const { Delegate } = require('../../core');
 const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
-const { getTelemetry } = require('../../telemetry/telemetry-singleton');
+const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 

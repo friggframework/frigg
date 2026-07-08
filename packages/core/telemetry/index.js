@@ -7,16 +7,15 @@ const { createTelemetryEventBus } = require('./telemetry-event-bus');
 const { resolveTelemetryConfig } = require('./telemetry-config');
 const {
     getTelemetry,
-    resetTelemetryForTests,
-} = require('./telemetry-singleton');
+    getUsageRollupSubscriber,
+    getPluginTelemetrySubscribers,
+    resetTelemetryRuntimeForTests,
+    setTelemetryForTests,
+} = require('./telemetry-runtime');
 const { resolveExporter } = require('./exporters');
 const { instrumentHandler } = require('./instrument-handler');
 const { bindTelemetryContext } = require('./bind-telemetry-context');
 const { createUsageRollupSubscriber } = require('./usage-rollup-subscriber');
-const {
-    getUsageRollupSubscriber,
-    resetUsageRollupForTests,
-} = require('./usage-rollup-singleton');
 const { computeUsageWindows } = require('../usage/usage-windows');
 const {
     resolveNorthStarEntry,
@@ -28,10 +27,6 @@ const {
     isCanonicalCounter,
 } = require('./canonical-counters');
 const { wireTelemetrySubscribers } = require('./plugin-subscribers');
-const {
-    getPluginTelemetrySubscribers,
-    resetPluginTelemetrySubscribersForTests,
-} = require('./plugin-subscribers-singleton');
 
 module.exports = {
     createTelemetry,
@@ -40,14 +35,15 @@ module.exports = {
     createTelemetryEventBus,
     resolveTelemetryConfig,
     getTelemetry,
-    resetTelemetryForTests,
+    getUsageRollupSubscriber,
+    getPluginTelemetrySubscribers,
+    resetTelemetryRuntimeForTests,
+    setTelemetryForTests,
     isNoOpExporter,
     resolveExporter,
     instrumentHandler,
     bindTelemetryContext,
     createUsageRollupSubscriber,
-    getUsageRollupSubscriber,
-    resetUsageRollupForTests,
     computeUsageWindows,
     resolveNorthStarEntry,
     northStarKeys,
@@ -55,6 +51,4 @@ module.exports = {
     CANONICAL_COUNTERS,
     isCanonicalCounter,
     wireTelemetrySubscribers,
-    getPluginTelemetrySubscribers,
-    resetPluginTelemetrySubscribersForTests,
 };

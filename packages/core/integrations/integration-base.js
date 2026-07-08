@@ -18,7 +18,7 @@ const {
     UpdateIntegrationConfig,
 } = require('./use-cases/update-integration-config');
 const { validateExtensionBinding } = require('./extension');
-const { getTelemetry } = require('../telemetry/telemetry-singleton');
+const { getTelemetry } = require('../telemetry/telemetry-runtime');
 const { instrumentHandler } = require('../telemetry/instrument-handler');
 const { bindTelemetryContext } = require('../telemetry/bind-telemetry-context');
 

@@ -12,8 +12,8 @@ const { NoOpTelemetry } = require('../telemetry/no-op-telemetry');
 const { createTelemetryEventBus } = require('../telemetry/telemetry-event-bus');
 const {
     setTelemetryForTests,
-    resetTelemetryForTests,
-} = require('../telemetry/telemetry-singleton');
+    resetTelemetryRuntimeForTests,
+} = require('../telemetry/telemetry-runtime');
 
 class TestIntegration extends IntegrationBase {
     static Definition = { name: 'hubspot', version: '1.2.3', modules: {} };
@@ -21,7 +21,7 @@ class TestIntegration extends IntegrationBase {
 
 // IntegrationBase reads the telemetry singleton at construction, so tests
 // install their instance there and reset it afterward.
-afterEach(() => resetTelemetryForTests());
+afterEach(() => resetTelemetryRuntimeForTests());
 
 function metricHarness() {
     const bus = createTelemetryEventBus();

@@ -4,13 +4,11 @@
 
 const { initDebugLog, flushDebugLog } = require('../logs');
 const { secretsToEnv } = require('./secrets-to-env');
-const { getTelemetry } = require('../telemetry/telemetry-singleton');
 const {
+    getTelemetry,
     getUsageRollupSubscriber,
-} = require('../telemetry/usage-rollup-singleton');
-const {
     getPluginTelemetrySubscribers,
-} = require('../telemetry/plugin-subscribers-singleton');
+} = require('../telemetry/telemetry-runtime');
 
 // Bounds the tail latency telemetry adds to every warm invocation. Kept low so
 // an unreachable OTLP endpoint (e.g. a VPC Lambda with no NAT/egress) costs at
