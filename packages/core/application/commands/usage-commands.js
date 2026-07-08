@@ -2,7 +2,7 @@
 const {
     createUsageRepository,
 } = require('../../usage/repositories/usage-repository-factory');
-const { computeUsageWindows } = require('../../telemetry/usage-windows');
+const { computeUsageWindows } = require('../../usage/usage-windows');
 const { resolveNorthStarEntry } = require('../../telemetry/north-star');
 
 function createUsageCommands({ usageRepository } = {}) {

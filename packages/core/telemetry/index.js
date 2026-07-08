@@ -17,7 +17,7 @@ const {
     getUsageRollupSubscriber,
     resetUsageRollupForTests,
 } = require('./usage-rollup-singleton');
-const { computeUsageWindows } = require('./usage-windows');
+const { computeUsageWindows } = require('../usage/usage-windows');
 const {
     resolveNorthStarEntry,
     northStarKeys,

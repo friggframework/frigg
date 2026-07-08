@@ -1,4 +1,4 @@
-const { computeUsageWindows } = require('./usage-windows');
+const { computeUsageWindows } = require('../usage/usage-windows');
 
 const WEBHOOK_EVENT_NAMES = new Set(['ON_WEBHOOK']);
 

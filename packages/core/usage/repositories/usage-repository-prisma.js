@@ -1,5 +1,6 @@
 const { prisma } = require('../../database/prisma');
 const { UsageRepositoryInterface } = require('./usage-repository-interface');
+const { windowKey } = require('../usage-windows');
 
 /**
  * Prisma-backed usage store — the single implementation for both mongodb and
@@ -140,14 +141,6 @@ function assertBucket(bucket) {
             )}`
         );
     }
-}
-
-/** Window key for a date at a granularity (mirrors telemetry/usage-windows). */
-function windowKey(bucket, date) {
-    const iso = new Date(date).toISOString();
-    return `${bucket}:${
-        bucket === 'hour' ? iso.slice(0, 13) : iso.slice(0, 10)
-    }`;
 }
 
 module.exports = { UsageRepositoryPrisma };

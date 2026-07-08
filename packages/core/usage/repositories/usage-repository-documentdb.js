@@ -1,6 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const { updateOne } = require('../../database/documentdb-utils');
 const { UsageRepositoryPrisma } = require('./usage-repository-prisma');
+const { windowKey } = require('../usage-windows');
 
 const COLLECTION = 'UsageCounter';
 const DRAIN_BATCH_SIZE = 1000;
@@ -119,12 +120,6 @@ function windowMatch(bucket, { gte, lte } = {}) {
     if (gte) clause.$gte = gte;
     if (lte) clause.$lte = lte;
     return clause;
-}
-
-/** Window key for a date at a granularity (mirrors telemetry/usage-windows). */
-function windowKey(bucket, date) {
-    const iso = new Date(date).toISOString();
-    return `${bucket}:${bucket === 'hour' ? iso.slice(0, 13) : iso.slice(0, 10)}`;
 }
 
 /**
