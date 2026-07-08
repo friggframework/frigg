@@ -46,7 +46,9 @@ class UsageRepositoryInterface {
 - **`series`** aggregates across integration instances (`groupBy(window) + sum`)
   and range-filters on the window key. Requires an `integrationType`.
 
-> **DocumentDB:** the adapter currently inherits the Mongo (Prisma) implementation
-> and is **not yet verified** against a real DocumentDB cluster (every other
-> DocumentDB adapter in this repo needed raw commands). Verify before relying on
-> it in production.
+> **DocumentDB:** the adapter overrides increment/totals/series with raw commands
+> (`$runCommandRaw`: a `$inc` upsert via `documentdb-utils.updateOne`, and a
+> cursor-drained `$aggregate` `$group/$sum`) — matching every other DocumentDB
+> adapter, since Prisma's Mongo engine emits upsert/groupBy shapes DocumentDB
+> rejects and cursor reads truncate at ~101 docs. Command shapes are unit-tested;
+> run an end-to-end check against a real cluster before GA.
