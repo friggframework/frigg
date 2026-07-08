@@ -14,7 +14,7 @@ const { resourceFromAttributes } = require('@opentelemetry/resources');
 const {
     TelemetryServiceInterface,
 } = require('./telemetry-service-interface');
-const { resolveExporter } = require('./exporters/resolve-exporter');
+const { resolveExporter } = require('./exporters');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
 const {
     runWithTelemetryContext,
@@ -65,8 +65,7 @@ class OtelTelemetry extends TelemetryServiceInterface {
     } = {}) {
         super();
         ensureContextManager();
-        const { traceExporter, metricExporter } =
-            resolveExporter(exporter).build();
+        const { traceExporter, metricExporter } = resolveExporter(exporter);
 
         const resourceAttrs = { 'service.name': resource.service || 'frigg' };
         if (resource.stage) {

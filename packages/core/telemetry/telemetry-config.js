@@ -18,7 +18,7 @@ const VALID_EXPORTER_TYPES = [
     'datadog',
 ];
 
-function resolveExporter(exporter, stage) {
+function normalizeExporterConfig(exporter, stage) {
     if (!exporter) {
         return stage === 'local' ? { type: 'console' } : { type: 'none' };
     }
@@ -110,7 +110,7 @@ function resolveTelemetryConfig(appDefinition = {}, ctx = {}) {
     const telemetry = appDefinition.telemetry || {};
 
     return {
-        exporter: resolveExporter(telemetry.exporter, stage),
+        exporter: normalizeExporterConfig(telemetry.exporter, stage),
         northStar: resolveNorthStar(telemetry.northStar),
         sampleRatio: resolveSampleRatio(telemetry.sampleRatio),
         subscribers: resolveSubscribers(telemetry.subscribers),

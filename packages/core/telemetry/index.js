@@ -9,7 +9,7 @@ const {
     getTelemetry,
     resetTelemetryForTests,
 } = require('./telemetry-singleton');
-const { resolveExporter } = require('./exporters/resolve-exporter');
+const { resolveExporter } = require('./exporters');
 const { instrumentHandler } = require('./instrument-handler');
 const { bindTelemetryContext } = require('./bind-telemetry-context');
 const { createUsageRollupSubscriber } = require('./usage-rollup-subscriber');
