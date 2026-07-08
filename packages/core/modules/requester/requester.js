@@ -44,18 +44,9 @@ class Requester extends Delegate {
         // Instance methods can use this.fetch without differentiating
         this.fetch = get(params, 'fetch', fetch);
 
-        // Telemetry. Defaults to the process singleton; overridable
-        // for tests. Outbound requests are instrumented in `_request`.
-        //
-        // Attribution boundary: the `frigg.apimodule.requests` OTel metric fires
-        // for EVERY request (observability is complete). The durable per-
-        // integration `api.requests` usage counter, however, only rolls up
-        // requests carrying an integration context — set by the handler seams via
-        // AsyncLocalStorage (dispatched USER_ACTION/CRON/QUEUE/WEBHOOK paths). A
-        // request made before an integration exists (OAuth/token exchange, entity
-        // discovery during connection setup) has no integration to attribute to,
-        // so it is observable but not rolled up. Pass a context-bound `telemetry`
-        // (an integration's `this.telemetry`) to attribute out-of-band requests.
+        // Defaults to the process singleton. Pass an integration's bound
+        // `this.telemetry` to attribute out-of-band requests — setup/OAuth calls
+        // made before an integration context exists aren't rolled up otherwise.
         this.telemetry = (params && params.telemetry) || getTelemetry();
     }
 

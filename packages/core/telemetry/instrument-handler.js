@@ -10,16 +10,21 @@
  * baggage via `telemetry.withContext`, never metric attributes. The full event
  * name is kept on the span only.
  *
- * @param {object|null} telemetry Telemetry service (no-op-safe; null → just runs fn).
- * @param {object} context Standard identifiers from `getTelemetryContext()`.
+ * @param {object|null} telemetry Bound telemetry service (no-op-safe; null → just
+ *   runs fn). The context is read from `telemetry.getContext()` — the per-instance
+ *   bound wrapper carries it; a raw service degrades to 'unknown'.
  * @param {{event: string, eventType: string}} descriptor Event name + bounded type.
  * @param {Function} fn The handler invocation.
  */
-async function instrumentHandler(telemetry, context = {}, descriptor = {}, fn) {
+async function instrumentHandler(telemetry, descriptor = {}, fn) {
     if (!telemetry || typeof telemetry.span !== 'function') {
         return fn();
     }
 
+    const context =
+        typeof telemetry.getContext === 'function'
+            ? telemetry.getContext()
+            : {};
     const integrationType = context.integrationType || 'unknown';
     const eventType = descriptor.eventType || 'unknown';
     const eventName = descriptor.event;

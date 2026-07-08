@@ -14,7 +14,7 @@ function baseSpy() {
 }
 
 describe('bindTelemetryContext', () => {
-    it('injects integration_type into count attributes from the bound context', () => {
+    it('injects integration_type into attributes and the full context onto the bus arg', () => {
         const base = baseSpy();
         const bound = bindTelemetryContext(base, () => ({
             integrationType: 'hubspot',
@@ -27,8 +27,20 @@ describe('bindTelemetryContext', () => {
             'records.synced',
             3,
             { integration_type: 'hubspot', entity: 'contact' },
-            undefined
+            { integrationType: 'hubspot', integrationId: 'int_1' }
         );
+    });
+
+    it('lets an explicitly passed context win over the bound context', () => {
+        const base = baseSpy();
+        const bound = bindTelemetryContext(base, () => ({
+            integrationType: 'hubspot',
+            integrationId: 'int_1',
+        }));
+
+        bound.count('m', 1, { a: 1 }, { url: '/x' });
+
+        expect(base.count.mock.calls[0][3]).toEqual({ url: '/x' });
     });
 
     it('does not clobber an explicitly provided integration_type', () => {

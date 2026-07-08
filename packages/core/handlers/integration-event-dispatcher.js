@@ -40,14 +40,9 @@ class IntegrationEventDispatcher {
         }
 
         const eventDef = this.findEventDef(instance, event);
-        const context =
-            typeof instance.getTelemetryContext === 'function'
-                ? instance.getTelemetryContext()
-                : {};
 
         return instrumentHandler(
             instance.telemetry,
-            context,
             { event, eventType: eventDef?.type },
             () => invoke(instance, handler)
         );

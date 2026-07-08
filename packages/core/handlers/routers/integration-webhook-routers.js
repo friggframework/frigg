@@ -8,11 +8,8 @@ const {
 const handlers = {};
 const { integrations: integrationClasses } = loadAppDefinition();
 
-// NOTE: the canonical `webhooks.received` usage counter is emitted at the
-// DB-connected `ON_WEBHOOK` queue dispatch (see usage-rollup-subscriber's
-// METRIC_TO_CANONICAL), NOT here — this receipt handler is DB-free, so a usage
-// write is impossible and would be discarded. Counting at ON_WEBHOOK also yields
-// proper per-integration attribution (the instance is hydrated by then).
+// `webhooks.received` is counted at the DB-connected ON_WEBHOOK dispatch (see
+// usage-rollup-subscriber), not in this DB-free receipt handler.
 
 for (const IntegrationClass of integrationClasses) {
     const webhookConfig = IntegrationClass.Definition.webhooks;

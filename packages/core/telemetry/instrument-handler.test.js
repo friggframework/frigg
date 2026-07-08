@@ -1,14 +1,7 @@
 const { instrumentHandler } = require('./instrument-handler');
 const { NoOpTelemetry } = require('./no-op-telemetry');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
-
-function harness() {
-    const bus = createTelemetryEventBus();
-    const telemetry = new NoOpTelemetry({ bus });
-    const metrics = [];
-    bus.on('metric', (m) => metrics.push(m));
-    return { telemetry, metrics };
-}
+const { bindTelemetryContext } = require('./bind-telemetry-context');
 
 const CTX = {
     integrationId: 'int_1',
@@ -17,12 +10,21 @@ const CTX = {
     version: '1.0.0',
 };
 
+// Compose telemetry the way production does — a bound wrapper carrying the
+// instance context — so instrumentHandler reads context from it.
+function harness() {
+    const bus = createTelemetryEventBus();
+    const telemetry = bindTelemetryContext(new NoOpTelemetry({ bus }), () => CTX);
+    const metrics = [];
+    bus.on('metric', (m) => metrics.push(m));
+    return { telemetry, metrics };
+}
+
 describe('instrumentHandler (ADR-011 P6)', () => {
     it('runs the handler and returns its result', async () => {
         const { telemetry } = harness();
         const result = await instrumentHandler(
             telemetry,
-            CTX,
             { event: 'GET_CONFIG_OPTIONS', eventType: 'LIFE_CYCLE_EVENT' },
             async () => 'done'
         );
@@ -34,7 +36,6 @@ describe('instrumentHandler (ADR-011 P6)', () => {
 
         await instrumentHandler(
             telemetry,
-            CTX,
             { event: 'my_custom_action', eventType: 'USER_ACTION' },
             async () => 'ok'
         );
@@ -59,7 +60,6 @@ describe('instrumentHandler (ADR-011 P6)', () => {
         await expect(
             instrumentHandler(
                 telemetry,
-                CTX,
                 { event: 'x', eventType: 'QUEUE' },
                 async () => {
                     throw boom;
@@ -84,7 +84,6 @@ describe('instrumentHandler (ADR-011 P6)', () => {
         const { telemetry, metrics } = harness();
         await instrumentHandler(
             telemetry,
-            CTX,
             { event: 'a', eventType: 'CRON' },
             async () => 'ok'
         );
@@ -93,10 +92,24 @@ describe('instrumentHandler (ADR-011 P6)', () => {
         expect(attrs).not.toHaveProperty('userId');
     });
 
+    it('degrades to integration_type "unknown" for a raw (unbound) telemetry', async () => {
+        const bus = createTelemetryEventBus();
+        const telemetry = new NoOpTelemetry({ bus }); // unbound: no getContext
+        const metrics = [];
+        bus.on('metric', (m) => metrics.push(m));
+
+        await instrumentHandler(
+            telemetry,
+            { event: 'x', eventType: 'USER_ACTION' },
+            async () => 'ok'
+        );
+
+        expect(metrics[0].attributes.integration_type).toBe('unknown');
+    });
+
     it('still runs the handler when telemetry is absent', async () => {
         const result = await instrumentHandler(
             null,
-            {},
             { event: 'x', eventType: 'USER_ACTION' },
             async () => 'ran'
         );

@@ -3,20 +3,22 @@ const {
 } = require('./integration-event-dispatcher');
 const { NoOpTelemetry } = require('../telemetry/no-op-telemetry');
 const { createTelemetryEventBus } = require('../telemetry/telemetry-event-bus');
+const { bindTelemetryContext } = require('../telemetry/bind-telemetry-context');
 
 function fakeInstance(events) {
     const bus = createTelemetryEventBus();
-    const telemetry = new NoOpTelemetry({ bus });
+    // Compose telemetry as production does: a bound wrapper carrying the
+    // instance context, which is what instrumentHandler reads.
+    const telemetry = bindTelemetryContext(new NoOpTelemetry({ bus }), () => ({
+        integrationId: 'i1',
+        integrationType: 'hubspot',
+        userId: 'u1',
+        version: '1.0.0',
+    }));
     const metrics = [];
     bus.on('metric', (m) => metrics.push(m));
     const instance = {
         telemetry,
-        getTelemetryContext: () => ({
-            integrationId: 'i1',
-            integrationType: 'hubspot',
-            userId: 'u1',
-            version: '1.0.0',
-        }),
         events,
         constructor: { Definition: { name: 'hubspot' } },
     };

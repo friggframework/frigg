@@ -59,6 +59,11 @@ class IntegrationBase {
         integrationRepository: this.integrationRepository,
     });
 
+    // this.telemetry.count('records.synced', n, { entity: 'contact' })
+    telemetry = bindTelemetryContext(getTelemetry(), () =>
+        this.getTelemetryContext()
+    );
+
     static getOptionDetails() {
         const options = new Options({
             module: Object.values(this.Definition.modules)[0], // This is a placeholder until we revamp the frontend
@@ -79,10 +84,7 @@ class IntegrationBase {
         // Tier 3 Integration Extensions — see packages/core/integrations/EXTENSIONS.md
         // Shape: { [bindingName]: { extension, handlers?: { [eventName]: methodName } } }
         extensions: {},
-        // Usage-counter opt-in. Declaring a canonical key opts into the
-        // cross-integration comparison report + durable rollup; custom keys are
-        // comparable within this integration type. Shape:
-        //   usage: { canonical: ['records.synced', ...], custom: { 'deals.enriched': { unit, label } } }
+        // usage: { canonical: ['records.synced'], custom: { 'deals.enriched': { unit, label } } }
         usage: {},
         display: {
             name: 'Integration Name',
@@ -108,28 +110,18 @@ class IntegrationBase {
         this.messages = { errors: [], warnings: [] };
         this._isHydrated = false;
 
-        // Telemetry: every instance carries the service so integration
-        // code can call `this.telemetry.*`. Extracted before the record check so
-        // passing only `telemetry` never triggers a hollow hydration. Bound to
-        // this instance so emissions auto-carry `integration_type` for the usage
-        // rollup (see bind-telemetry-context).
-        const { telemetry, ...recordParams } = params;
-        this.telemetry = bindTelemetryContext(telemetry || getTelemetry(), () =>
-            this.getTelemetryContext()
-        );
-
-        if (Object.keys(recordParams).length > 0) {
+        if (Object.keys(params).length > 0) {
             this.setIntegrationRecord({
                 record: {
-                    id: recordParams.id,
-                    userId: recordParams.userId,
-                    entities: recordParams.entities,
-                    config: recordParams.config,
-                    status: recordParams.status,
-                    version: recordParams.version,
-                    messages: recordParams.messages,
+                    id: params.id,
+                    userId: params.userId,
+                    entities: params.entities,
+                    config: params.config,
+                    status: params.status,
+                    version: params.version,
+                    messages: params.messages,
                 },
-                modules: recordParams.modules || [],
+                modules: params.modules || [],
             });
         }
 
@@ -223,19 +215,14 @@ class IntegrationBase {
 
         this._isHydrated = Boolean(this.id);
 
-        // Log the instance-open exactly once per hydrated
-        // instance, carrying the standard identifier set — so an integration is
-        // visible in telemetry even on a path that never dispatches a handler.
-        // High-cardinality ids ride the bus context (3rd arg), never metric
-        // labels; only the bounded integration_type is an attribute.
+        // Log the instance-open exactly once per hydrated instance, so an
+        // integration is visible in telemetry even on a path that never
+        // dispatches a handler. integration_type + the full id context are
+        // attached automatically by the bound telemetry service.
         if (this._isHydrated && !this._instantiationLogged) {
             this._instantiationLogged = true;
             try {
-                this.telemetry.event(
-                    'frigg.integration.instantiated',
-                    { integration_type: this.constructor?.Definition?.name },
-                    this.getTelemetryContext()
-                );
+                this.telemetry.event('frigg.integration.instantiated');
             } catch (_) {
                 // Telemetry must never break integration hydration.
             }
@@ -817,7 +804,6 @@ class IntegrationBase {
         // (the queue/webhook/route paths go through IntegrationEventDispatcher).
         return instrumentHandler(
             this.telemetry,
-            this.getTelemetryContext(),
             { event, eventType: this.on[event].type },
             () => this.on[event].handler.call(this, object)
         );

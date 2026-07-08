@@ -1,39 +1,61 @@
 /**
  * Wrap a telemetry service so an integration instance's emissions automatically
- * carry its `integration_type`. This lets developers write
- * `this.telemetry.count('records.synced', n, { entity })` with no per-call
- * boilerplate, while the usage rollup still attributes the counter to the right
- * integration type.
+ * carry its context — with no per-call boilerplate. Two channels are filled:
+ *  - `integration_type` onto attributes (the one bounded, low-cardinality label);
+ *  - the full identifier set onto the bus `context` arg (integrationId, userId,
+ *    version, …), which the usage rollup and traces read.
  *
- * Only the bounded `integration_type` is injected onto attributes — high-
- * cardinality ids stay off metric labels (Cardinality note). All other methods
- * delegate unchanged.
+ * So integration code writes `this.telemetry.count('records.synced', n, { entity })`
+ * or `this.telemetry.event('thing')` and both channels are populated. An
+ * explicitly passed context still wins (e.g. a requester attaching a per-call
+ * `url`), and high-cardinality ids ride the bus context only, never metric
+ * labels (Cardinality note).
  *
  * @param {object} base The underlying telemetry service.
- * @param {() => {integrationType?: string}} getContext Lazy context accessor.
+ * @param {() => object} getContext Lazy accessor for the instance's context.
  */
 function bindTelemetryContext(base, getContext) {
     if (!base) return base;
 
-    const withType = (attributes = {}) => {
-        let integrationType;
+    const readContext = () => {
         try {
-            integrationType = getContext && getContext().integrationType;
+            return (getContext && getContext()) || undefined;
         } catch (_) {
-            integrationType = undefined;
+            return undefined;
         }
+    };
+
+    const withType = (attributes, ctx) => {
+        const integrationType = ctx && ctx.integrationType;
         if (!integrationType || 'integration_type' in attributes) {
             return attributes;
         }
         return { integration_type: integrationType, ...attributes };
     };
 
+    const resolveContext = (context, ctx) =>
+        context !== undefined ? context : ctx;
+
     return {
+        // Single source of truth for the instance context, so callers (e.g.
+        // instrumentHandler) read it here instead of gathering it separately.
+        getContext: () => readContext() || {},
         count(name, value = 1, attributes = {}, context) {
-            return base.count(name, value, withType(attributes), context);
+            const ctx = readContext();
+            return base.count(
+                name,
+                value,
+                withType(attributes, ctx),
+                resolveContext(context, ctx)
+            );
         },
         event(name, attributes = {}, context) {
-            return base.event(name, withType(attributes), context);
+            const ctx = readContext();
+            return base.event(
+                name,
+                withType(attributes, ctx),
+                resolveContext(context, ctx)
+            );
         },
         span: (...args) => base.span(...args),
         startSpan: (...args) => base.startSpan(...args),

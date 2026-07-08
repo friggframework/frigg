@@ -38,4 +38,13 @@ function resetTelemetryForTests() {
     instance = null;
 }
 
-module.exports = { getTelemetry, resetTelemetryForTests };
+/** Test-only: install a specific telemetry instance for the next getTelemetry. */
+function setTelemetryForTests(telemetry) {
+    instance = telemetry;
+}
+
+module.exports = {
+    getTelemetry,
+    resetTelemetryForTests,
+    setTelemetryForTests,
+};
