@@ -110,7 +110,7 @@ class IntegrationBase {
         this.messages = { errors: [], warnings: [] };
         this._isHydrated = false;
 
-        if (Object.keys(params).length > 0) {
+        if (params && Object.keys(params).length > 0) {
             this.setIntegrationRecord({
                 record: {
                     id: params.id,

@@ -70,6 +70,10 @@ describe('IntegrationBase — telemetry context (ADR-011 P5)', () => {
         expect(integration.id).toBeUndefined();
     });
 
+    it('does not crash when constructed with an explicit null', () => {
+        expect(() => new TestIntegration(null)).not.toThrow();
+    });
+
     it('builds the standard identifier context from the record + Definition', () => {
         const integration = new TestIntegration();
         integration.setIntegrationRecord({
