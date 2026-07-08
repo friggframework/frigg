@@ -1,4 +1,4 @@
-const { createNoOpTelemetry } = require('./no-op-telemetry');
+const { NoOpTelemetry } = require('./no-op-telemetry');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
 
 /**
@@ -12,12 +12,10 @@ function isNoOpExporter(exporter) {
 }
 
 /**
- * Create the vendor-neutral telemetry service.
- *
- * Integration code uses the returned object (`this.telemetry`) and never imports
- * a backend SDK. When no exporter is configured the service is a pure no-op that
- * loads zero OpenTelemetry modules; a real exporter lazily initialises the OTel
- * SDK (see `./otel-telemetry`).
+ * Create the vendor-neutral telemetry service — the adapter selector. Integration
+ * code uses the returned instance (`this.telemetry`) and never imports a backend
+ * SDK. With no exporter configured it returns `NoOpTelemetry` (loads zero OTel);
+ * a real exporter lazily constructs `OtelTelemetry`.
  *
  * @param {object} [options]
  * @param {object} [options.exporter] Exporter descriptor, e.g. `{ type: 'otlp', endpoint }`.
@@ -33,12 +31,12 @@ function createTelemetry(options = {}) {
     const bus = options.bus || createTelemetryEventBus();
 
     if (isNoOpExporter(options.exporter)) {
-        return createNoOpTelemetry({ bus });
+        return new NoOpTelemetry({ bus });
     }
 
     // Lazy-required so the no-op path never loads the OTel SDK.
-    const { createOtelTelemetry } = require('./otel-telemetry');
-    return createOtelTelemetry({ ...options, bus });
+    const { OtelTelemetry } = require('./otel-telemetry');
+    return new OtelTelemetry({ ...options, bus });
 }
 
 module.exports = { createTelemetry, isNoOpExporter };

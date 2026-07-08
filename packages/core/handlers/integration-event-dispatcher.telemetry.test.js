@@ -1,12 +1,12 @@
 const {
     IntegrationEventDispatcher,
 } = require('./integration-event-dispatcher');
-const { createNoOpTelemetry } = require('../telemetry/no-op-telemetry');
+const { NoOpTelemetry } = require('../telemetry/no-op-telemetry');
 const { createTelemetryEventBus } = require('../telemetry/telemetry-event-bus');
 
 function fakeInstance(events) {
     const bus = createTelemetryEventBus();
-    const telemetry = createNoOpTelemetry({ bus });
+    const telemetry = new NoOpTelemetry({ bus });
     const metrics = [];
     bus.on('metric', (m) => metrics.push(m));
     const instance = {

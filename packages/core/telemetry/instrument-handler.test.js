@@ -1,10 +1,10 @@
 const { instrumentHandler } = require('./instrument-handler');
-const { createNoOpTelemetry } = require('./no-op-telemetry');
+const { NoOpTelemetry } = require('./no-op-telemetry');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
 
 function harness() {
     const bus = createTelemetryEventBus();
-    const telemetry = createNoOpTelemetry({ bus });
+    const telemetry = new NoOpTelemetry({ bus });
     const metrics = [];
     bus.on('metric', (m) => metrics.push(m));
     return { telemetry, metrics };

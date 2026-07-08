@@ -1,3 +1,6 @@
+const {
+    TelemetryServiceInterface,
+} = require('./telemetry-service-interface');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
 const {
     runWithTelemetryContext,
@@ -5,62 +8,64 @@ const {
 } = require('./telemetry-context');
 
 /**
- * No-op telemetry implementation.
- *
- * This is the default when no OTel exporter is configured, so telemetry "rides
- * for free": integration code can call `this.telemetry.*`
- * unconditionally and it costs nothing on the OTel side. Critically, this module
- * imports **zero** OpenTelemetry packages — the no-op path never loads the OTel
- * SDK (guarded by a require-graph test), protecting Lambda cold-start.
- *
- * The internal event bus is still active here (Decision 7): `count`/`event` are
- * mirrored onto it so the durable usage rollup and plugin/extension taps work
- * even with OTel export disabled. Emitting to a bus with no subscribers is a
- * cheap no-op.
- *
- * @param {object} [options]
- * @param {object} [options.bus] Event bus to mirror emissions onto.
+ * No-op telemetry adapter: the default when no exporter is configured, so
+ * telemetry "rides for free". Imports **zero** OpenTelemetry packages (guarded by
+ * a require-graph test) — the no-op path never loads the OTel SDK, protecting
+ * Lambda cold-start. The internal event bus is still active: `count`/`event` are
+ * mirrored onto it so the durable usage rollup + plugin taps work even with
+ * export off (emitting to a bus with no subscribers is cheap).
  */
-function createNoOpTelemetry({ bus = createTelemetryEventBus() } = {}) {
-    const noop = {
-        count(name, value = 1, attributes = {}, context) {
-            const merged = mergeTelemetryContext(context);
-            const payload = { name, value, attributes };
-            if (merged) payload.context = merged;
-            bus.emit('metric', payload);
-        },
-        event(name, attributes = {}, context) {
-            const merged = mergeTelemetryContext(context);
-            const payload = { name, attributes };
-            if (merged) payload.context = merged;
-            bus.emit('event', payload);
-        },
-        async span(_name, fn) {
-            return typeof fn === 'function' ? fn() : undefined;
-        },
-        startSpan() {
-            return {
-                setAttributes() {},
-                setAttribute() {},
-                recordException() {},
-                setStatus() {},
-                end() {},
-            };
-        },
-        async withContext(context, fn) {
-            return runWithTelemetryContext(context, () =>
-                typeof fn === 'function' ? fn() : undefined
-            );
-        },
-        on(eventType, callback) {
-            return bus.on(eventType, callback);
-        },
-        async forceFlush() {},
-        isEnabled() {
-            return false;
-        },
-    };
-    return noop;
+class NoOpTelemetry extends TelemetryServiceInterface {
+    constructor({ bus = createTelemetryEventBus() } = {}) {
+        super();
+        this._bus = bus;
+    }
+
+    count(name, value = 1, attributes = {}, context) {
+        const merged = mergeTelemetryContext(context);
+        const payload = { name, value, attributes };
+        if (merged) payload.context = merged;
+        this._bus.emit('metric', payload);
+    }
+
+    event(name, attributes = {}, context) {
+        const merged = mergeTelemetryContext(context);
+        const payload = { name, attributes };
+        if (merged) payload.context = merged;
+        this._bus.emit('event', payload);
+    }
+
+    async span(_name, fn) {
+        return typeof fn === 'function' ? fn() : undefined;
+    }
+
+    startSpan() {
+        return {
+            setAttributes() {},
+            setAttribute() {},
+            recordException() {},
+            setStatus() {},
+            end() {},
+        };
+    }
+
+    async withContext(context, fn) {
+        return runWithTelemetryContext(context, () =>
+            typeof fn === 'function' ? fn() : undefined
+        );
+    }
+
+    on(eventType, callback) {
+        return this._bus.on(eventType, callback);
+    }
+
+    async forceFlush() {}
+
+    async shutdown() {}
+
+    isEnabled() {
+        return false;
+    }
 }
 
-module.exports = { createNoOpTelemetry };
+module.exports = { NoOpTelemetry };

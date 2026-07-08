@@ -37,6 +37,8 @@ function resolveExporter(exporter, stage) {
     return exporter;
 }
 
+// Fraction of TRACES exported (0..1, default 1) — a cost knob wired to the OTel
+// sampler in otel-telemetry. Does NOT thin usage counters; those stay exact.
 function resolveSampleRatio(sampleRatio) {
     if (sampleRatio === undefined || sampleRatio === null) return 1;
     if (
@@ -61,7 +63,7 @@ function validateNorthStarEntry(entry, where) {
 }
 
 /**
- * Adopter-declared telemetry subscribers (Decision 6). Each is either a factory
+ * Adopter-declared telemetry subscribers. Each is either a factory
  * function `fn(telemetry)` or a declarative `{ event?, handler }` object. Kept as
  * an array so `wireTelemetrySubscribers` can attach them to the bus at runtime.
  */

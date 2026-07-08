@@ -1,8 +1,8 @@
 const { createUsageRollupSubscriber } = require('./usage-rollup-subscriber');
-const { createNoOpTelemetry } = require('./no-op-telemetry');
+const { NoOpTelemetry } = require('./no-op-telemetry');
 
 function harness(trackedMetrics) {
-    const telemetry = createNoOpTelemetry();
+    const telemetry = new NoOpTelemetry();
     const increments = [];
     const usageRepository = {
         increment: jest.fn(async (args) => {

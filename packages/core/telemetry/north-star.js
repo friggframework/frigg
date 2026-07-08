@@ -1,7 +1,7 @@
 /**
  * Adopter North Star metric. A North Star simply references
  * a usage-counter key (canonical or custom); its value is then read like any
- * other counter via `frigg.usage.totals({ metric: northStarKey })`. It is
+ * other counter via `frigg.usage.getTotalsByDimension({ metric: northStarKey })`. It is
  * populated either by (a) direct emission of that counter, or (b) derived from a
  * framework trace signal — this module implements (b) as a small bus subscriber
  * that emits the North Star counter when a configured signal matches.

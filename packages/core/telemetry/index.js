@@ -1,12 +1,15 @@
 const { createTelemetry, isNoOpExporter } = require('./telemetry-service');
-const { createNoOpTelemetry } = require('./no-op-telemetry');
+const {
+    TelemetryServiceInterface,
+} = require('./telemetry-service-interface');
+const { NoOpTelemetry } = require('./no-op-telemetry');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
 const { resolveTelemetryConfig } = require('./telemetry-config');
 const {
     getTelemetry,
     resetTelemetryForTests,
 } = require('./telemetry-singleton');
-const { buildExporters } = require('./exporters/exporter-factory');
+const { resolveExporter } = require('./exporters/resolve-exporter');
 const { instrumentHandler } = require('./instrument-handler');
 const { bindTelemetryContext } = require('./bind-telemetry-context');
 const { createUsageRollupSubscriber } = require('./usage-rollup-subscriber');
@@ -32,13 +35,14 @@ const {
 
 module.exports = {
     createTelemetry,
-    createNoOpTelemetry,
+    TelemetryServiceInterface,
+    NoOpTelemetry,
     createTelemetryEventBus,
     resolveTelemetryConfig,
     getTelemetry,
     resetTelemetryForTests,
     isNoOpExporter,
-    buildExporters,
+    resolveExporter,
     instrumentHandler,
     bindTelemetryContext,
     createUsageRollupSubscriber,

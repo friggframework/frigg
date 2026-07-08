@@ -8,7 +8,7 @@ jest.mock('../database/config', () => ({
 }));
 
 const { IntegrationBase } = require('./integration-base');
-const { createNoOpTelemetry } = require('../telemetry/no-op-telemetry');
+const { NoOpTelemetry } = require('../telemetry/no-op-telemetry');
 const { createTelemetryEventBus } = require('../telemetry/telemetry-event-bus');
 
 class TestIntegration extends IntegrationBase {
@@ -17,7 +17,7 @@ class TestIntegration extends IntegrationBase {
 
 function metricHarness() {
     const bus = createTelemetryEventBus();
-    const telemetry = createNoOpTelemetry({ bus });
+    const telemetry = new NoOpTelemetry({ bus });
     const metrics = [];
     bus.on('metric', (m) => metrics.push(m));
     return { telemetry, metrics };
@@ -87,7 +87,7 @@ describe('IntegrationBase — telemetry context (ADR-011 P5)', () => {
     describe('instantiation event (ADR-011 Decision 2 — logged once)', () => {
         function eventHarness() {
             const bus = createTelemetryEventBus();
-            const telemetry = createNoOpTelemetry({ bus });
+            const telemetry = new NoOpTelemetry({ bus });
             const events = [];
             bus.on('event', (e) => events.push(e));
             return { telemetry, events };

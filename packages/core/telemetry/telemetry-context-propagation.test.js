@@ -1,10 +1,10 @@
-const { createNoOpTelemetry } = require('./no-op-telemetry');
+const { NoOpTelemetry } = require('./no-op-telemetry');
 const { InMemorySpanExporter } = require('@opentelemetry/sdk-trace-base');
 const { createTelemetry } = require('./telemetry-service');
 
 describe('ambient telemetry context propagation (ADR-011 attribution fix)', () => {
     it('attaches the handler context to a deep emission that passes only its own fields (no-op path)', async () => {
-        const telemetry = createNoOpTelemetry();
+        const telemetry = new NoOpTelemetry();
         const metrics = [];
         telemetry.on('metric', (m) => metrics.push(m));
 
@@ -59,7 +59,7 @@ describe('ambient telemetry context propagation (ADR-011 attribution fix)', () =
     });
 
     it('leaves emissions outside any withContext scope uncontextualized', () => {
-        const telemetry = createNoOpTelemetry();
+        const telemetry = new NoOpTelemetry();
         const metrics = [];
         telemetry.on('metric', (m) => metrics.push(m));
 

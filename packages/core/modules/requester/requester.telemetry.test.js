@@ -1,5 +1,5 @@
 const { Requester } = require('./requester');
-const { createNoOpTelemetry } = require('../../telemetry/no-op-telemetry');
+const { NoOpTelemetry } = require('../../telemetry/no-op-telemetry');
 const {
     createTelemetryEventBus,
 } = require('../../telemetry/telemetry-event-bus');
@@ -12,7 +12,7 @@ class TestRequester extends Requester {
 
 function harness(fetchImpl) {
     const bus = createTelemetryEventBus();
-    const telemetry = createNoOpTelemetry({ bus });
+    const telemetry = new NoOpTelemetry({ bus });
     const metrics = [];
     bus.on('metric', (m) => metrics.push(m));
     const requester = new TestRequester({

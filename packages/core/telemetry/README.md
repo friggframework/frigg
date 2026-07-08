@@ -55,6 +55,15 @@ const Definition = {
 defaults to `none` (no per-event cost, no data written to CloudWatch). Point
 `exporter` at an OTLP backend to turn export on.
 
+**Sampling (`sampleRatio`, `0..1`, default `1`):** the fraction of **traces**
+exported — a cost knob for high-traffic fleets (`0.1` ≈ keep 10%). Whole traces
+are sampled (trace-ID-based + parent-based, so a distributed trace is never
+half-kept), and it does **not** thin the durable **usage counters** — those stay
+exact at any ratio (they ride the event bus, not the sampled trace pipeline). It
+is **not** error-aware: a low ratio drops failed-run traces too, so for "keep all
+errors, sample the rest" use tail-based sampling at an OTel Collector, not this
+knob. Typical: `1.0` in dev, lower (e.g. `0.1`) in high-volume prod.
+
 ### Environment variables
 
 | Variable | Purpose |
@@ -154,7 +163,7 @@ const { createFriggCommands } = require('@friggframework/core');
 const frigg = createFriggCommands({ integrationClass: HubSpotIntegration });
 
 // Apples-to-apples comparison across integration types:
-await frigg.usage.totals({
+await frigg.usage.getTotalsByDimension({
     metric: 'records.synced',
     groupBy: 'integrationType', // or 'metric'
     since: daysAgo(30),
@@ -163,7 +172,7 @@ await frigg.usage.totals({
 // → [{ integrationType: 'hubspot', value: 4200 }, { integrationType: 'salesforce', value: 1180 }]
 
 // Trend series for one type (aggregated across its instances):
-await frigg.usage.series({
+await frigg.usage.getTimeSeries({
     metric: 'records.synced',
     integrationType: 'hubspot',
     from: daysAgo(7),
@@ -211,19 +220,24 @@ Read it as a first-class metric without knowing the configured key — the North
 Star resolves per integration type (`byType` wins over `default`):
 
 ```js
-// Resolves the configured counter for the type, then returns its totals.
-await frigg.usage.northStar({ integrationType: 'hubspot', since: daysAgo(30) });
+// The caller passes the North Star config it already holds (from the app
+// definition); this resolves the counter for the type and returns its totals.
+await frigg.usage.getNorthStarTotals({
+    northStar: definition.telemetry.northStar,
+    integrationType: 'hubspot',
+    since: daysAgo(30),
+});
 // → { metric: 'contacts_synced', totals: [{ integrationType: 'hubspot', value: 900 }] }
-// → null when no North Star is configured (caller branches without knowing keys)
+// → null when `northStar` is absent or has no entry for the type
 ```
 
 Or read it like any counter once you know the key:
-`frigg.usage.totals({ metric: 'contacts_synced' })`; trends via `frigg.usage.series({ metric })`.
+`frigg.usage.getTotalsByDimension({ metric: 'contacts_synced' })`; trends via `frigg.usage.getTimeSeries({ metric })`.
 
-> `northStar` config is injected at the composition root — the caller that owns
-> the app definition passes it in: `createFriggCommands({ integrationClass, northStar })`
-> (the application layer never reaches up to load it). Omitted → `northStar()`
-> returns `null`.
+> The North Star read takes its config as a **call argument** — nothing
+> telemetry-specific is threaded through `createFriggCommands`. The caller that
+> owns the app definition (e.g. a report runner) passes `telemetry.northStar` in;
+> omit it and `getNorthStarTotals()` returns `null`.
 
 ## Plugin / extension tap
 
@@ -286,7 +300,7 @@ this.telemetry.count / auto-instrumented seam
                               │     (discards on SQS redelivery — approximate contract)
                               └─ your plugin taps
 
-frigg.usage.totals / series ◄── UsageCounter store ──► reporting usage columns
+frigg.usage.getTotalsByDimension / getTimeSeries ◄── UsageCounter store ──► reporting usage columns
 ```
 
 - **Flush is Lambda-safe:** `create-handler` awaits a bounded `forceFlush` in a

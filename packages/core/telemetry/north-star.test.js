@@ -3,7 +3,7 @@ const {
     northStarKeys,
     createNorthStarDerivationSubscriber,
 } = require('./north-star');
-const { createNoOpTelemetry } = require('./no-op-telemetry');
+const { NoOpTelemetry } = require('./no-op-telemetry');
 
 describe('resolveNorthStarEntry', () => {
     const northStar = {
@@ -36,7 +36,7 @@ describe('northStarKeys', () => {
 
 describe('createNorthStarDerivationSubscriber', () => {
     function harness(northStar) {
-        const telemetry = createNoOpTelemetry();
+        const telemetry = new NoOpTelemetry();
         const emitted = [];
         telemetry.on('metric', (m) => emitted.push(m));
         createNorthStarDerivationSubscriber({ telemetry, northStar });

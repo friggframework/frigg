@@ -1,9 +1,9 @@
-const { createNoOpTelemetry } = require('./no-op-telemetry');
+const { NoOpTelemetry } = require('./no-op-telemetry');
 const { wireTelemetrySubscribers } = require('./plugin-subscribers');
 
 describe('wireTelemetrySubscribers (ADR-011 Decision 6 — plugin/extension taps)', () => {
     it('delivers metric emissions to a declarative { event, handler } subscriber', () => {
-        const telemetry = createNoOpTelemetry();
+        const telemetry = new NoOpTelemetry();
         const seen = [];
 
         wireTelemetrySubscribers({
@@ -18,7 +18,7 @@ describe('wireTelemetrySubscribers (ADR-011 Decision 6 — plugin/extension taps
     });
 
     it('lets a factory subscriber register itself against the telemetry service', () => {
-        const telemetry = createNoOpTelemetry();
+        const telemetry = new NoOpTelemetry();
         const seen = [];
 
         wireTelemetrySubscribers({
@@ -33,7 +33,7 @@ describe('wireTelemetrySubscribers (ADR-011 Decision 6 — plugin/extension taps
     });
 
     it('isolates a throwing subscriber so siblings still receive events', () => {
-        const telemetry = createNoOpTelemetry();
+        const telemetry = new NoOpTelemetry();
         const seen = [];
 
         wireTelemetrySubscribers({

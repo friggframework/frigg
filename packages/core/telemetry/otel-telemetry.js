@@ -11,7 +11,10 @@ const {
     PeriodicExportingMetricReader,
 } = require('@opentelemetry/sdk-metrics');
 const { resourceFromAttributes } = require('@opentelemetry/resources');
-const { buildExporters } = require('./exporters/exporter-factory');
+const {
+    TelemetryServiceInterface,
+} = require('./telemetry-service-interface');
+const { resolveExporter } = require('./exporters/resolve-exporter');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
 const {
     runWithTelemetryContext,
@@ -47,169 +50,169 @@ function ensureContextManager() {
 }
 
 /**
- * The OpenTelemetry-backed telemetry service. Reached only
- * when a real exporter is configured; `createTelemetry` returns the no-op
- * otherwise. `BatchSpanProcessor` is used uniformly — spans are delivered by the
- * bounded `forceFlush()` the Lambda handler awaits before the container freezes
- * (`callbackWaitsForEmptyEventLoop=false`), never by background timers.
+ * OpenTelemetry-backed telemetry adapter. Constructed only when a real exporter
+ * is configured (`createTelemetry` returns the no-op otherwise). `BatchSpanProcessor`
+ * is used uniformly — spans are delivered by the bounded `forceFlush()` the Lambda
+ * handler awaits before the container freezes (`callbackWaitsForEmptyEventLoop=false`),
+ * never by background timers.
  */
-function createOtelTelemetry({
-    exporter,
-    resource = {},
-    sampleRatio,
-    bus = createTelemetryEventBus(),
-} = {}) {
-    ensureContextManager();
-    const { traceExporter, metricExporter } = buildExporters(exporter);
+class OtelTelemetry extends TelemetryServiceInterface {
+    constructor({
+        exporter,
+        resource = {},
+        sampleRatio,
+        bus = createTelemetryEventBus(),
+    } = {}) {
+        super();
+        ensureContextManager();
+        const { traceExporter, metricExporter } =
+            resolveExporter(exporter).build();
 
-    const resourceAttrs = {
-        'service.name': resource.service || 'frigg',
-    };
-    if (resource.stage) {
-        resourceAttrs['deployment.environment'] = resource.stage;
-        resourceAttrs.stage = resource.stage;
-    }
-    if (resource.appName) resourceAttrs.appName = resource.appName;
-    const res = resourceFromAttributes(resourceAttrs);
+        const resourceAttrs = { 'service.name': resource.service || 'frigg' };
+        if (resource.stage) {
+            resourceAttrs['deployment.environment'] = resource.stage;
+            resourceAttrs.stage = resource.stage;
+        }
+        if (resource.appName) resourceAttrs.appName = resource.appName;
+        const res = resourceFromAttributes(resourceAttrs);
 
-    const sampler =
-        typeof sampleRatio === 'number' && sampleRatio < 1
-            ? new ParentBasedSampler({
-                  root: new TraceIdRatioBasedSampler(sampleRatio),
+        const sampler =
+            typeof sampleRatio === 'number' && sampleRatio < 1
+                ? new ParentBasedSampler({
+                      root: new TraceIdRatioBasedSampler(sampleRatio),
+                  })
+                : new AlwaysOnSampler();
+
+        this._tracerProvider = new BasicTracerProvider({
+            resource: res,
+            sampler,
+            spanProcessors: traceExporter
+                ? [new BatchSpanProcessor(traceExporter)]
+                : [],
+        });
+
+        const metricReader = metricExporter
+            ? new PeriodicExportingMetricReader({
+                  exporter: metricExporter,
+                  exportIntervalMillis: METRIC_EXPORT_INTERVAL_MS,
               })
-            : new AlwaysOnSampler();
+            : null;
+        this._meterProvider = new MeterProvider({
+            resource: res,
+            readers: metricReader ? [metricReader] : [],
+        });
 
-    const tracerProvider = new BasicTracerProvider({
-        resource: res,
-        sampler,
-        spanProcessors: traceExporter
-            ? [new BatchSpanProcessor(traceExporter)]
-            : [],
-    });
-
-    const metricReader = metricExporter
-        ? new PeriodicExportingMetricReader({
-              exporter: metricExporter,
-              exportIntervalMillis: METRIC_EXPORT_INTERVAL_MS,
-          })
-        : null;
-    const meterProvider = new MeterProvider({
-        resource: res,
-        readers: metricReader ? [metricReader] : [],
-    });
-
-    const tracer = tracerProvider.getTracer(TRACER_NAME);
-    const meter = meterProvider.getMeter(TRACER_NAME);
-
-    // Counters/UpDownCounters are cached — OTel requires one instrument instance
-    // per metric name, and re-creating them would drop data points.
-    const counters = new Map();
-    function getCounter(name) {
-        if (!counters.has(name)) counters.set(name, meter.createCounter(name));
-        return counters.get(name);
+        this._bus = bus;
+        this._tracer = this._tracerProvider.getTracer(TRACER_NAME);
+        this._meter = this._meterProvider.getMeter(TRACER_NAME);
+        // One instrument instance per metric name — OTel requires it, and
+        // re-creating a counter would drop data points.
+        this._counters = new Map();
     }
 
-    const service = {
-        count(name, value = 1, attributes = {}, context) {
+    _getCounter(name) {
+        if (!this._counters.has(name)) {
+            this._counters.set(name, this._meter.createCounter(name));
+        }
+        return this._counters.get(name);
+    }
+
+    count(name, value = 1, attributes = {}, context) {
+        try {
+            this._getCounter(name).add(value, attributes);
+        } catch (_) {
+            // Telemetry must never break the wrapped path.
+        }
+        // Mirror onto the internal stream for the usage rollup + plugin taps; the
+        // bus context (incl. high-cardinality ids) rides the bus only, never the
+        // OTel metric attributes.
+        const merged = mergeTelemetryContext(context);
+        const payload = { name, value, attributes };
+        if (merged) payload.context = merged;
+        this._bus.emit('metric', payload);
+    }
+
+    event(name, attributes = {}, context) {
+        try {
+            const active = otelApi.trace.getActiveSpan();
+            if (active) active.addEvent(name, attributes);
+        } catch (_) {}
+        const merged = mergeTelemetryContext(context);
+        const payload = { name, attributes };
+        if (merged) payload.context = merged;
+        this._bus.emit('event', payload);
+    }
+
+    startSpan(name, options) {
+        return this._tracer.startSpan(name, options);
+    }
+
+    async span(name, fn, options = {}) {
+        return this._tracer.startActiveSpan(name, options, async (span) => {
             try {
-                getCounter(name).add(value, attributes);
-            } catch (_) {
-                // Telemetry must never break the wrapped path.
+                const result =
+                    typeof fn === 'function' ? await fn(span) : undefined;
+                span.setStatus({ code: otelApi.SpanStatusCode.OK });
+                return result;
+            } catch (err) {
+                span.recordException(err);
+                span.setStatus({
+                    code: otelApi.SpanStatusCode.ERROR,
+                    message: err && err.message,
+                });
+                throw err;
+            } finally {
+                span.end();
             }
-            // Mirror onto the internal stream for the usage rollup + plugin taps.
-            // The bus `context` merges the ambient handler context (incl.
-            // high-cardinality ids) with any explicit per-call context — it rides
-            // the bus only, never the OTel metric attributes (Cardinality note).
-            const merged = mergeTelemetryContext(context);
-            const payload = { name, value, attributes };
-            if (merged) payload.context = merged;
-            bus.emit('metric', payload);
-        },
+        });
+    }
 
-        event(name, attributes = {}, context) {
-            try {
-                const active = otelApi.trace.getActiveSpan();
-                if (active) active.addEvent(name, attributes);
-            } catch (_) {}
-            const merged = mergeTelemetryContext(context);
-            const payload = { name, attributes };
-            if (merged) payload.context = merged;
-            bus.emit('event', payload);
-        },
-
-        startSpan(name, options) {
-            return tracer.startSpan(name, options);
-        },
-
-        async span(name, fn, options = {}) {
-            return tracer.startActiveSpan(name, options, async (span) => {
-                try {
-                    const result =
-                        typeof fn === 'function' ? await fn(span) : undefined;
-                    span.setStatus({ code: otelApi.SpanStatusCode.OK });
-                    return result;
-                } catch (err) {
-                    span.recordException(err);
-                    span.setStatus({
-                        code: otelApi.SpanStatusCode.ERROR,
-                        message: err && err.message,
-                    });
-                    throw err;
-                } finally {
-                    span.end();
-                }
-            });
-        },
-
-        /**
-         * Run `fn` with the given identifiers on (a) the AsyncLocalStorage
-         * telemetry context — which the usage rollup reads to attribute emissions
-         * per-integration on ANY path — and (b) OTel baggage for trace
-         * propagation. High-cardinality ids ride here, never on metric labels.
-         */
-        async withContext(attributes = {}, fn) {
-            const entries = {};
-            for (const [key, value] of Object.entries(attributes)) {
-                if (value !== undefined && value !== null) {
-                    entries[key] = { value: String(value) };
-                }
+    /**
+     * Run `fn` with the given identifiers on (a) the AsyncLocalStorage telemetry
+     * context — which the usage rollup reads to attribute emissions per-integration
+     * on ANY path — and (b) OTel baggage for trace propagation. High-cardinality
+     * ids ride here, never on metric labels.
+     */
+    async withContext(attributes = {}, fn) {
+        const entries = {};
+        for (const [key, value] of Object.entries(attributes)) {
+            if (value !== undefined && value !== null) {
+                entries[key] = { value: String(value) };
             }
-            const baggage = otelApi.propagation.createBaggage(entries);
-            const ctx = otelApi.propagation.setBaggage(
-                otelApi.context.active(),
-                baggage
-            );
-            return runWithTelemetryContext(attributes, () =>
-                otelApi.context.with(ctx, () =>
-                    typeof fn === 'function' ? fn() : undefined
-                )
-            );
-        },
+        }
+        const baggage = otelApi.propagation.createBaggage(entries);
+        const ctx = otelApi.propagation.setBaggage(
+            otelApi.context.active(),
+            baggage
+        );
+        return runWithTelemetryContext(attributes, () =>
+            otelApi.context.with(ctx, () =>
+                typeof fn === 'function' ? fn() : undefined
+            )
+        );
+    }
 
-        on(eventType, callback) {
-            return bus.on(eventType, callback);
-        },
+    on(eventType, callback) {
+        return this._bus.on(eventType, callback);
+    }
 
-        async forceFlush() {
-            await Promise.allSettled([
-                tracerProvider.forceFlush(),
-                meterProvider.forceFlush(),
-            ]);
-        },
+    async forceFlush() {
+        await Promise.allSettled([
+            this._tracerProvider.forceFlush(),
+            this._meterProvider.forceFlush(),
+        ]);
+    }
 
-        async shutdown() {
-            await Promise.allSettled([
-                tracerProvider.shutdown(),
-                meterProvider.shutdown(),
-            ]);
-        },
+    async shutdown() {
+        await Promise.allSettled([
+            this._tracerProvider.shutdown(),
+            this._meterProvider.shutdown(),
+        ]);
+    }
 
-        isEnabled() {
-            return true;
-        },
-    };
-
-    return service;
+    isEnabled() {
+        return true;
+    }
 }
 
-module.exports = { createOtelTelemetry };
+module.exports = { OtelTelemetry };

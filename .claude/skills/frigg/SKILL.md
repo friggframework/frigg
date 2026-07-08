@@ -123,12 +123,13 @@ await this.telemetry.span("delta_sync", async () => {
 });
 
 // Read the durable usage store (reporting reads the same store — never an APM)
-await frigg.usage.totals({ metric: "records.synced", groupBy: "integrationType", since });
-await frigg.usage.series({ metric: "records.synced", integrationType: "hubspot", from, to, bucket: "day" });
+await frigg.usage.getTotalsByDimension({ metric: "records.synced", groupBy: "integrationType", since });
+await frigg.usage.getTimeSeries({ metric: "records.synced", integrationType: "hubspot", from, to, bucket: "day" });
 ```
 
 - **Canonical counters**: `api.requests`, `user_actions`, `webhooks.received` (auto); `records.synced`, `workflows.invoked` (explicit via `this.telemetry.count`). Declare in `Definition.usage.canonical` to persist + compare across types; `custom` keys compare within a type.
 - **Cardinality rule**: high-cardinality ids (integrationId, userId, url) ride span baggage / bus context — NEVER metric labels (bounded to integration_type/event/status/method/module).
+- **Sampling**: `telemetry.sampleRatio` (0..1, default 1) sets the fraction of **traces** exported (a cost knob) — whole-trace + parent-based, and **not** applied to usage counters (they stay exact). Not error-aware; for keep-all-errors use collector tail-sampling.
 - Public tap: `getTelemetry().on("metric", cb)`. Full guide: `packages/core/telemetry/README.md`.
 
 ## CLI Commands

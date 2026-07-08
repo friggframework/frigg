@@ -1,5 +1,5 @@
 const { createTelemetry } = require('./telemetry-service');
-const { createNoOpTelemetry } = require('./no-op-telemetry');
+const { NoOpTelemetry } = require('./no-op-telemetry');
 
 /**
  * Process-wide telemetry singleton. Created lazily on first use and
@@ -28,7 +28,7 @@ function getTelemetry() {
             },
         });
     } catch (_) {
-        instance = createNoOpTelemetry();
+        instance = new NoOpTelemetry();
     }
     return instance;
 }
