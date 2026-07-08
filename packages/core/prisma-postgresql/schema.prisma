@@ -413,10 +413,9 @@ model ScriptSchedule {
   @@index([enabled])
 }
 
-/// ADR-011 durable usage counters. Deliberately isolated (ADR-010 Decision 3):
-/// NO userId and NO foreign key to Integration, so a user-scoped query can never
-/// return a usage row and usage history survives integration deletion. Not in
-/// the encryption registry — dimensions are bounded, non-sensitive.
+/// Durable usage counters, deliberately isolated: no userId and no foreign key
+/// to Integration, so a user-scoped query can never return a usage row and usage
+/// history survives integration deletion.
 model UsageCounter {
   id Int @id @default(autoincrement())
 

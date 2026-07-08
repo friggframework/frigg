@@ -40,15 +40,7 @@ function buildTypeLabels() {
 
 function createReportingRouter() {
     const reportingRepository = createReportingRepository();
-    // Enrich the report with feature-usage columns read from
-    // the Frigg-owned usage store. Best-effort — a failure to construct it never
-    // blocks the structural report.
-    let usageRepository = null;
-    try {
-        usageRepository = createUsageRepository();
-    } catch (_) {
-        usageRepository = null;
-    }
+    const usageRepository = createUsageRepository();
     const listIntegrationsReport = new ListIntegrationsReport({
         reportingRepository,
         usageRepository,

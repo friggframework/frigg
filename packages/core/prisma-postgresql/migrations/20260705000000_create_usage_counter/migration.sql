@@ -1,8 +1,8 @@
 -- CreateTable
--- ADR-011 durable usage counters. Deliberately isolated from the
--- user/integration-scoped tables (no userId, no FK to Integration) so usage
--- history survives integration deletion and can never surface in a user-scoped
--- query. "window" is quoted throughout — it is a reserved SQL keyword.
+-- Durable usage counters, isolated from the user/integration-scoped tables (no
+-- userId, no FK to Integration) so usage history survives integration deletion
+-- and can never surface in a user-scoped query. "window" is quoted throughout —
+-- it is a reserved SQL keyword.
 CREATE TABLE "UsageCounter" (
     "id" SERIAL NOT NULL,
     "integrationId" TEXT NOT NULL,

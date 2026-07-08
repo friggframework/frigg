@@ -5,7 +5,11 @@ const makeRepo = (rows, mappingCounts = new Map()) => ({
     countMappingsByIntegrationIds: jest.fn().mockResolvedValue(mappingCounts),
 });
 
-describe('ListIntegrationsReport — usage columns (ADR-011/ADR-010 hand-off)', () => {
+const noUsage = () => ({
+    getTotalsByDimension: jest.fn().mockResolvedValue([]),
+});
+
+describe('ListIntegrationsReport — usage columns', () => {
     const rows = [
         { id: '1', type: 'hubspot', status: 'ENABLED', userId: 'u1' },
         { id: '2', type: 'salesforce', status: 'ENABLED', userId: 'u2' },
@@ -44,18 +48,11 @@ describe('ListIntegrationsReport — usage columns (ADR-011/ADR-010 hand-off)', 
         );
     });
 
-    it('omits usage columns entirely when no usageRepository is injected (backward compatible)', async () => {
-        const useCase = new ListIntegrationsReport({
-            reportingRepository: makeRepo(rows),
-        });
-        const result = await useCase.execute();
-        expect(result.metrics.byType[0].usage).toBeUndefined();
-        expect(result.schemaVersion).toBe(1);
-    });
-
     it('never lets a usage-store failure break the structural report', async () => {
         const usageRepository = {
-            getTotalsByDimension: jest.fn().mockRejectedValue(new Error('usage db down')),
+            getTotalsByDimension: jest
+                .fn()
+                .mockRejectedValue(new Error('usage db down')),
         };
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
@@ -75,10 +72,20 @@ describe('ListIntegrationsReport', () => {
         );
     });
 
+    it('requires a usageRepository', () => {
+        expect(
+            () =>
+                new ListIntegrationsReport({
+                    reportingRepository: makeRepo([]),
+                })
+        ).toThrow(/usageRepository is required/);
+    });
+
     it('rejects an unknown status with a 400 (Boom) error', async () => {
         const repo = makeRepo([]);
         const useCase = new ListIntegrationsReport({
             reportingRepository: repo,
+            usageRepository: noUsage(),
         });
         await expect(
             useCase.execute({ status: 'BOGUS' })
@@ -93,6 +100,7 @@ describe('ListIntegrationsReport', () => {
         const repo = makeRepo([]);
         const useCase = new ListIntegrationsReport({
             reportingRepository: repo,
+            usageRepository: noUsage(),
         });
         await expect(
             useCase.execute({ userId: { $oid: 'x' } })
@@ -138,6 +146,7 @@ describe('ListIntegrationsReport', () => {
         ]);
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows, counts),
+            usageRepository: noUsage(),
         });
 
         const out = await useCase.execute({});
@@ -198,6 +207,7 @@ describe('ListIntegrationsReport', () => {
         const repo = makeRepo(rows, new Map([['1', 10]]));
         const useCase = new ListIntegrationsReport({
             reportingRepository: repo,
+            usageRepository: noUsage(),
         });
 
         const out = await useCase.execute({ type: 'hubspot' });
@@ -212,6 +222,7 @@ describe('ListIntegrationsReport', () => {
         const repo = makeRepo([]);
         const useCase = new ListIntegrationsReport({
             reportingRepository: repo,
+            usageRepository: noUsage(),
         });
 
         const out = await useCase.execute({ status: 'ERROR', userId: '7' });
@@ -241,6 +252,7 @@ describe('ListIntegrationsReport', () => {
         ];
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
+            usageRepository: noUsage(),
         });
 
         const out = await useCase.execute({});
@@ -261,6 +273,7 @@ describe('ListIntegrationsReport', () => {
         ];
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
+            usageRepository: noUsage(),
         });
 
         const out = await useCase.execute({});
@@ -275,6 +288,7 @@ describe('ListIntegrationsReport', () => {
         ];
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
+            usageRepository: noUsage(),
         });
 
         const out = await useCase.execute({});
@@ -304,6 +318,7 @@ describe('ListIntegrationsReport', () => {
         ];
         const out = await new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
+            usageRepository: noUsage(),
         }).execute({});
 
         expect(out.metrics.byType).toHaveLength(2);
@@ -343,6 +358,7 @@ describe('ListIntegrationsReport', () => {
         ];
         const out = await new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
+            usageRepository: noUsage(),
         }).execute({});
 
         const r1 = out.metrics.integrations.find((i) => i.id === '1');
@@ -373,6 +389,7 @@ describe('ListIntegrationsReport', () => {
         const typeLabels = { hubspot: 'HubSpot CRM', salesforce: 'Salesforce' };
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
+            usageRepository: noUsage(),
             typeLabels,
         });
 
@@ -404,6 +421,7 @@ describe('ListIntegrationsReport', () => {
         ];
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),
+            usageRepository: noUsage(),
         });
 
         const out = await useCase.execute({});

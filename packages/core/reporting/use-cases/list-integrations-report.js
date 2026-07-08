@@ -25,11 +25,11 @@ class ListIntegrationsReport {
         if (!reportingRepository) {
             throw new Error('reportingRepository is required');
         }
+        if (!usageRepository) {
+            throw new Error('usageRepository is required');
+        }
         this.reportingRepository = reportingRepository;
-        // Optional usage store (the ADR-010 hand-off). When present, the
-        // report's byType buckets are enriched with feature-usage columns read
-        // ONLY from this store — never an external APM.
-        this.usageRepository = usageRepository || null;
+        this.usageRepository = usageRepository;
         this.typeLabels = typeLabels;
     }
 
@@ -87,12 +87,7 @@ class ListIntegrationsReport {
             bucket.byStatus[statusKey] = (bucket.byStatus[statusKey] ?? 0) + 1;
         }
 
-        // Additive usage columns. Read per-type totals for each
-        // canonical counter; a type with no rows reads as 0. Guarded so a usage
-        // store failure never breaks the structural report.
-        if (this.usageRepository) {
-            await this._attachUsageColumns(byTypeMap);
-        }
+        await this._attachUsageColumns(byTypeMap);
 
         return {
             schemaVersion: SCHEMA_VERSION,
@@ -136,9 +131,6 @@ class ListIntegrationsReport {
                 }
             }
         } catch (error) {
-            // Usage is a supplement; a read failure must not fail the report,
-            // but it is worth surfacing (silent all-zeros usage columns hide
-            // data-quality issues).
             console.warn(
                 `[Frigg][reporting] usage columns unavailable: ${
                     error && error.message
