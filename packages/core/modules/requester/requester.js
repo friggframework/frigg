@@ -152,8 +152,27 @@ class Requester extends Delegate {
 
             if (status === 401) {
                 if (!this.isRefreshable) {
-                    await this.notify(this.DLGT_INVALID_AUTH);
-                    return;
+                    // A non-refreshable requester (ApiKeyRequester,
+                    // BasicAuthRequester) has no token to renew, but a single
+                    // 401 is not necessarily proof the credential itself is
+                    // bad — it may be a transient edge/gateway hiccup. Grant
+                    // one grace retry of the same request before concluding
+                    // the credential is truly invalid, mirroring the single
+                    // refresh attempt OAuth2Requester gets below.
+                    if (i === 0) {
+                        clearRequestTimer();
+                        const delay = this.backOff[0] * 1000;
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, delay)
+                        );
+                        return this._request(url, options, i + 1);
+                    }
+
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
                 }
 
                 if (this.refreshCount === 0) {
@@ -164,8 +183,11 @@ class Requester extends Delegate {
                         return this._request(url, options, i + 1);
                     }
 
-                    await this.notify(this.DLGT_INVALID_AUTH);
-                    return;
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
                 }
             }
 
@@ -202,6 +224,22 @@ class Requester extends Delegate {
         } finally {
             clearRequestTimer();
         }
+    }
+
+    // Builds a diagnostic FetchError from the failed 401 response, notifies
+    // delegates with it attached (so the credential-invalidation chain can
+    // log real detail instead of a bare "invalid credentials" with no
+    // evidence), and returns the error for the caller to throw. Notifying
+    // and throwing are split so notify() always fires even though `await`ing
+    // it happens before the throw.
+    async _invalidateAuth(encodedUrl, options, response) {
+        const fetchError = await FetchError.create({
+            resource: encodedUrl,
+            init: options,
+            response,
+        });
+        await this.notify(this.DLGT_INVALID_AUTH, fetchError);
+        return fetchError;
     }
 
     _maybeFlagTimeoutDuringBodyRead(err, timeoutMs) {

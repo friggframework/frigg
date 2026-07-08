@@ -292,8 +292,9 @@ describe('Requester', () => {
                 if (!next) throw new Error('unexpected fetch call');
                 return {
                     status: next.status,
-                    headers: { get: () => 'application/json' },
+                    headers: new Map([['Content-Type', 'application/json']]),
                     json: async () => next.body ?? {},
+                    text: async () => JSON.stringify(next.body ?? {}),
                 };
             });
         }
@@ -311,17 +312,46 @@ describe('Requester', () => {
             }
         }
 
-        it('fires INVALID_AUTH when the requester is not refreshable', async () => {
-            const fetchMock = oauthFetch([{ status: 401, body: { error: 'unauthorized' } }]);
-            const requester = new TestRequester({ fetch: fetchMock });
+        it('grants one grace retry on a 401 before firing INVALID_AUTH when the requester is not refreshable', async () => {
+            const fetchMock = oauthFetch([
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 401, body: { error: 'unauthorized' } },
+            ]);
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [0],
+            });
             requester.notify = jest.fn();
 
             await expect(
                 requester._get({ url: 'https://example.com/protected' })
             ).rejects.toThrow();
 
-            expect(requester.notify).toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(requester.notify).toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH,
+                expect.objectContaining({ statusCode: 401 })
+            );
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('does NOT fire INVALID_AUTH when the grace retry succeeds', async () => {
+            const fetchMock = oauthFetch([
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 200, body: { ok: true } },
+            ]);
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [0],
+            });
+            requester.notify = jest.fn();
+
+            const result = await requester._get({
+                url: 'https://example.com/protected',
+            });
+
+            expect(result).toEqual({ ok: true });
+            expect(requester.notify).not.toHaveBeenCalled();
+            expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
         it('does NOT fire INVALID_AUTH when refresh succeeds and retry returns 200', async () => {
@@ -341,8 +371,10 @@ describe('Requester', () => {
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
-        it('does NOT fire INVALID_AUTH from the requester when refresh fails (refreshAuth owns the notify)', async () => {
-            const fetchMock = oauthFetch([{ status: 401 }]);
+        it('fires INVALID_AUTH with diagnostic detail and throws when refresh fails', async () => {
+            const fetchMock = oauthFetch([
+                { status: 401, body: { error: 'unauthorized' } },
+            ]);
             const requester = new RefreshableRequester({ fetch: fetchMock });
             requester.refreshAuth = jest.fn().mockResolvedValue(false);
             requester.notify = jest.fn();
@@ -352,7 +384,10 @@ describe('Requester', () => {
             ).rejects.toThrow();
 
             expect(requester.refreshAuth).toHaveBeenCalledTimes(1);
-            expect(requester.notify).not.toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+            expect(requester.notify).toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH,
+                expect.objectContaining({ statusCode: 401 })
+            );
             expect(fetchMock).toHaveBeenCalledTimes(1);
         });
 
