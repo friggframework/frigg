@@ -1,6 +1,6 @@
 const { prisma } = require('../../database/prisma');
 const { updateOne } = require('../../database/documentdb-utils');
-const { UsageRepositoryMongo } = require('./usage-repository-mongo');
+const { UsageRepositoryPrisma } = require('./usage-repository-prisma');
 
 const COLLECTION = 'UsageCounter';
 const DRAIN_BATCH_SIZE = 1000;
@@ -17,7 +17,7 @@ const VALID_BUCKETS = new Set(['day', 'hour']);
  * a drained aggregate cursor. No timestamps are managed: getTotalsByDimension/getTimeSeries filter on
  * the window KEY (not write-time), so createdAt/updatedAt are unnecessary here.
  */
-class UsageRepositoryDocumentDB extends UsageRepositoryMongo {
+class UsageRepositoryDocumentDB extends UsageRepositoryPrisma {
     constructor() {
         super();
         this.prisma = prisma;

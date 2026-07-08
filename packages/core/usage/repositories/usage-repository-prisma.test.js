@@ -9,13 +9,13 @@ jest.mock('../../database/prisma', () => ({
 }));
 
 const { prisma } = require('../../database/prisma');
-const { UsageRepositoryPostgres } = require('./usage-repository-postgres');
+const { UsageRepositoryPrisma } = require('./usage-repository-prisma');
 
-describe('UsageRepositoryPostgres', () => {
+describe('UsageRepositoryPrisma', () => {
     let repo;
     beforeEach(() => {
         jest.clearAllMocks();
-        repo = new UsageRepositoryPostgres();
+        repo = new UsageRepositoryPrisma();
     });
 
     describe('increment', () => {

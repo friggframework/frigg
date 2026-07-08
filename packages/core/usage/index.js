@@ -1,7 +1,6 @@
 const {
     createUsageRepository,
-    UsageRepositoryMongo,
-    UsageRepositoryPostgres,
+    UsageRepositoryPrisma,
     UsageRepositoryDocumentDB,
 } = require('./repositories/usage-repository-factory');
 const {
@@ -13,7 +12,6 @@ module.exports = {
     createUsageRepository,
     computeTrackedMetrics,
     UsageRepositoryInterface,
-    UsageRepositoryMongo,
-    UsageRepositoryPostgres,
+    UsageRepositoryPrisma,
     UsageRepositoryDocumentDB,
 };

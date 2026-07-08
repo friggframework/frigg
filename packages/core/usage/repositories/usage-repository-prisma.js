@@ -2,12 +2,13 @@ const { prisma } = require('../../database/prisma');
 const { UsageRepositoryInterface } = require('./usage-repository-interface');
 
 /**
- * Prisma-backed usage store. This is the canonical implementation;
- * because Prisma abstracts the underlying database, the Mongo and DocumentDB
- * adapters extend this class unchanged (see their files). All queries touch only
- * the isolated `UsageCounter` model — never user/integration-scoped tables.
+ * Prisma-backed usage store — the single implementation for both mongodb and
+ * postgresql (Prisma abstracts the store; integrationId is a plain string in
+ * both). DocumentDB extends this but overrides the write/read ops with raw
+ * commands. All queries touch only the isolated `UsageCounter` model — never
+ * user/integration-scoped tables.
  */
-class UsageRepositoryPostgres extends UsageRepositoryInterface {
+class UsageRepositoryPrisma extends UsageRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
@@ -149,4 +150,4 @@ function windowKey(bucket, date) {
     }`;
 }
 
-module.exports = { UsageRepositoryPostgres };
+module.exports = { UsageRepositoryPrisma };
