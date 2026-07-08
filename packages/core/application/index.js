@@ -8,21 +8,6 @@ const { createCredentialCommands } = require('./commands/credential-commands');
 const { createProcessCommands } = require('./commands/process-commands');
 const { createSchedulerCommands } = require('./commands/scheduler-commands');
 const { createUsageCommands } = require('./commands/usage-commands');
-const { loadAppDefinition } = require('../handlers/app-definition-loader');
-
-/**
- * Resolve the adopter's North Star config from the app definition so
- * `frigg.usage.northStar(...)` can read it (ADR-011 Decision 5). Guarded: a
- * missing/unloadable app definition (e.g. in unit tests) must never break the
- * command factory — usage reads simply have no North Star.
- */
-function resolveNorthStarConfig() {
-    try {
-        return loadAppDefinition().telemetry?.northStar ?? null;
-    } catch (_) {
-        return null;
-    }
-}
 
 /**
  * Create a unified command factory with all CRUD operations
@@ -32,6 +17,11 @@ function resolveNorthStarConfig() {
  *
  * @param {Object} params
  * @param {Object} params.integrationClass - Integration class (required)
+ * @param {Object} [params.northStar] - Resolved North Star config
+ *   (`Definition.telemetry.northStar`) so `frigg.usage.northStar(...)` can read
+ *   it (ADR-011 Decision 5). Injected by the caller that owns the app definition
+ *   (the handler/report runner) — the application layer never reaches up to load
+ *   it. Omitted → usage reads report no North Star.
  * @returns {Object} Unified commands object with all CRUD operations
  *
  * @example
@@ -39,7 +29,7 @@ function resolveNorthStarConfig() {
  * const user = await commands.createUser({ username: 'user@example.com' });
  * const credential = await commands.createCredential({ userId: user.id, ... });
  */
-function createFriggCommands({ integrationClass }) {
+function createFriggCommands({ integrationClass, northStar = null }) {
     // All commands use Frigg's default repositories and use cases
     const integrationCommands = createIntegrationCommands({ integrationClass });
 
@@ -67,8 +57,9 @@ function createFriggCommands({ integrationClass }) {
         // Process commands
         ...processCommands,
 
-        // Usage read/write (ADR-011) — nested to match `frigg.usage.*`
-        usage: createUsageCommands({ northStar: resolveNorthStarConfig() }),
+        // Usage read/write (ADR-011) — nested to match `frigg.usage.*`.
+        // northStar injected by the caller (composition root), not loaded here.
+        usage: createUsageCommands({ northStar }),
     };
 }
 

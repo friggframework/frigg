@@ -84,6 +84,63 @@ describe('IntegrationBase — telemetry context (ADR-011 P5)', () => {
         expect(ctx.userId).toBeNull();
     });
 
+    describe('instantiation event (ADR-011 Decision 2 — logged once)', () => {
+        function eventHarness() {
+            const bus = createTelemetryEventBus();
+            const telemetry = createNoOpTelemetry({ bus });
+            const events = [];
+            bus.on('event', (e) => events.push(e));
+            return { telemetry, events };
+        }
+
+        it('emits frigg.integration.instantiated once, carrying the standard id set, when hydrated', () => {
+            const { telemetry, events } = eventHarness();
+            const integration = new TestIntegration({ telemetry });
+            integration.setIntegrationRecord({
+                record: { id: 'i1', userId: 'u1', version: '1.2.3' },
+                modules: [],
+            });
+
+            const opened = events.filter(
+                (e) => e.name === 'frigg.integration.instantiated'
+            );
+            expect(opened).toHaveLength(1);
+            expect(opened[0].attributes).toMatchObject({
+                integration_type: 'hubspot',
+            });
+            expect(opened[0].context).toMatchObject({
+                integrationId: 'i1',
+                integrationType: 'hubspot',
+                userId: 'u1',
+            });
+        });
+
+        it('does not emit for an unhydrated (telemetry-only) instance', () => {
+            const { telemetry, events } = eventHarness();
+            new TestIntegration({ telemetry });
+            expect(
+                events.find(
+                    (e) => e.name === 'frigg.integration.instantiated'
+                )
+            ).toBeUndefined();
+        });
+
+        it('emits at most once even if setIntegrationRecord runs again', () => {
+            const { telemetry, events } = eventHarness();
+            const integration = new TestIntegration({ telemetry });
+            const rec = {
+                record: { id: 'i1', userId: 'u1', version: '1.2.3' },
+                modules: [],
+            };
+            integration.setIntegrationRecord(rec);
+            integration.setIntegrationRecord(rec);
+            const opened = events.filter(
+                (e) => e.name === 'frigg.integration.instantiated'
+            );
+            expect(opened).toHaveLength(1);
+        });
+    });
+
     describe('send() auto-instrumentation', () => {
         it('emits a handler-invocation metric keyed by event type and returns the result', async () => {
             const { telemetry, metrics } = metricHarness();

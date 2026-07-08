@@ -34,17 +34,21 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
             update: { value: { increment: value } },
         };
 
-        try {
-            await this.prisma.usageCounter.upsert(upsertArgs);
-        } catch (err) {
-            // Concurrent first-insert race: two workers both INSERT and one
-            // hits the unique constraint. Retry once — the row now exists so
-            // the retry takes the atomic UPDATE (increment) path.
-            if (err && err.code === 'P2002') {
+        // Concurrent first-insert race: two workers both INSERT and one hits the
+        // unique constraint (P2002). After the winner's insert the row exists, so
+        // a retry takes the atomic UPDATE (increment) path. Bounded so a
+        // pathological repeated race can't throw unexpectedly out of the public
+        // `recordUsageCounter` write; non-conflict errors surface immediately.
+        for (let attempt = 1; ; attempt++) {
+            try {
                 await this.prisma.usageCounter.upsert(upsertArgs);
                 return;
+            } catch (err) {
+                if (err && err.code === 'P2002' && attempt < MAX_UPSERT_ATTEMPTS) {
+                    continue;
+                }
+                throw err;
             }
-            throw err;
         }
     }
 
@@ -63,8 +67,11 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
         // Filter to ONE window granularity — every event is written to both a
         // day: and an hour: row, so summing across granularities would double
         // (or worse) the true count.
+        // Bound `since` on the WINDOW key (mirrors series) — write-time
+        // updatedAt would misplace a late/redelivered increment for an earlier
+        // window, over- or under-counting the time-bounded total.
         const where = { metric, window: { startsWith: `${bucket}:` } };
-        if (since) where.updatedAt = { gte: since };
+        if (since) where.window.gte = windowKey(bucket, since);
 
         const groups = await this.prisma.usageCounter.groupBy({
             by: [groupBy],
@@ -72,9 +79,11 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
             _sum: { value: true },
         });
 
+        // value is a BigInt column — coerce the sum to a JSON-safe Number
+        // (JSON.stringify throws on BigInt; counts never approach 2^53).
         return groups.map((group) => ({
             [groupBy]: group[groupBy],
-            value: group._sum?.value ?? 0,
+            value: Number(group._sum?.value ?? 0),
         }));
     }
 
@@ -103,11 +112,12 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
 
         return groups.map((group) => ({
             bucket: group.window,
-            value: group._sum?.value ?? 0,
+            value: Number(group._sum?.value ?? 0),
         }));
     }
 }
 
+const MAX_UPSERT_ATTEMPTS = 3;
 const VALID_GROUP_BY = new Set(['integrationType', 'metric']);
 const VALID_BUCKETS = new Set(['day', 'hour']);
 

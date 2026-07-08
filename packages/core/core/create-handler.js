@@ -34,10 +34,21 @@ async function flushUsageRollup(subscriber, eventSummary, shouldUseDatabase) {
             subscriber.discard();
             return;
         }
-        const redelivered =
-            Array.isArray(eventSummary?.records) &&
-            eventSummary.records.some((r) => Number(r.receiveCount) > 1);
-        if (redelivered) {
+        // Discard only when EVERY record in the batch is a redelivery. The buffer
+        // is invocation-scoped (not per-message), so discarding on *any*
+        // redelivery would drop the fresh records' counts too (silent
+        // under-count). For a mixed batch we flush: preserving fresh counts and
+        // at worst re-counting the one redelivered record is strictly better than
+        // losing fresh data for an approximate store. (Integration queue workers
+        // are batchSize:1 today, so a batch is all-or-nothing; this keeps it
+        // correct if batchSize is ever raised.)
+        const records = Array.isArray(eventSummary?.records)
+            ? eventSummary.records
+            : [];
+        const allRedelivered =
+            records.length > 0 &&
+            records.every((r) => Number(r.receiveCount) > 1);
+        if (allRedelivered) {
             subscriber.discard();
         } else {
             await subscriber.flush();

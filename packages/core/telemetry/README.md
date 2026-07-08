@@ -83,6 +83,13 @@ context only.
 Request URLs are redacted (query string + userinfo stripped) before they touch a
 span, so credentials in query params never leak.
 
+> **Usage-attribution boundary.** The OTel metrics above fire for *every* seam
+> invocation. The durable per-integration **usage** rollup, though, only counts
+> emissions that carry an integration context — set by the handler seams. Requests
+> an API module makes *before an integration exists* (OAuth/token exchange, entity
+> discovery during connection setup) are observable in traces but not attributed to
+> an `api.requests` usage counter (there is no integration to attribute them to).
+
 ## Custom metrics (integration code)
 
 Every integration instance carries `this.telemetry` (auto-tagged with its
@@ -213,6 +220,11 @@ await frigg.usage.northStar({ integrationType: 'hubspot', since: daysAgo(30) });
 Or read it like any counter once you know the key:
 `frigg.usage.totals({ metric: 'contacts_synced' })`; trends via `frigg.usage.series({ metric })`.
 
+> `northStar` config is injected at the composition root — the caller that owns
+> the app definition passes it in: `createFriggCommands({ integrationClass, northStar })`
+> (the application layer never reaches up to load it). Omitted → `northStar()`
+> returns `null`.
+
 ## Plugin / extension tap
 
 Telemetry flows onto an internal event stream (independent of OTel export, so
@@ -280,19 +292,23 @@ frigg.usage.totals / series ◄── UsageCounter store ──► reporting usa
 - **Flush is Lambda-safe:** `create-handler` awaits a bounded `forceFlush` in a
   `finally` (background timers can't fire once the container freezes).
 - **Usage accuracy is approximate:** at-least-once delivery means a retried
-  handler could double-count; obvious SQS redeliveries (`ApproximateReceiveCount
-  > 1`) are discarded.
+  handler could double-count. The invocation buffer is discarded only when the
+  **whole** SQS batch is a redelivery (`ApproximateReceiveCount > 1`); a mixed
+  batch flushes so a redelivered sibling never drops a fresh record's counts.
 
 ## Caveats / current limitations
 
 - **Usage persistence requires a DB-connected handler.** DB-free handlers (e.g.
   the raw webhook-receipt route) can't write; `webhooks.received` is counted at
   the DB-connected `ON_WEBHOOK` queue dispatch instead.
-- **DocumentDB** usage adapter inherits the Mongo (Prisma) implementation and is
-  not yet verified against a real cluster.
+- **DocumentDB** uses a raw-command adapter (`$runCommandRaw`) for increment and
+  aggregate; command shapes are unit-tested but not yet run against a real cluster.
 - **Retention:** the `UsageCounter` table has no pruning yet — hour-grain rows
-  accumulate. Add a scheduled prune for high-volume deployments.
-- Metric `value` is a 32-bit int per `(integrationId, metric, window)` row.
+  accumulate. Add a scheduled prune for high-volume deployments. (Read paths are
+  covered by composite indexes `(metric, window)` and `(metric, integrationType,
+  window)`.)
+- Metric `value` is a `BigInt` per `(integrationId, integrationType, metric,
+  window)` row; reads coerce the sum to a JS Number (safe below 2^53).
 
 ## See also
 

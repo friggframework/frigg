@@ -9,7 +9,7 @@ CREATE TABLE "UsageCounter" (
     "integrationType" TEXT NOT NULL,
     "metric" TEXT NOT NULL,
     "window" TEXT NOT NULL,
-    "value" INTEGER NOT NULL DEFAULT 0,
+    "value" BIGINT NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -20,7 +20,7 @@ CREATE TABLE "UsageCounter" (
 CREATE UNIQUE INDEX "UsageCounter_integrationId_integrationType_metric_window_key" ON "UsageCounter"("integrationId", "integrationType", "metric", "window");
 
 -- CreateIndex
-CREATE INDEX "UsageCounter_metric_idx" ON "UsageCounter"("metric");
+CREATE INDEX "UsageCounter_metric_window_idx" ON "UsageCounter"("metric", "window");
 
 -- CreateIndex
-CREATE INDEX "UsageCounter_integrationType_idx" ON "UsageCounter"("integrationType");
+CREATE INDEX "UsageCounter_metric_integrationType_window_idx" ON "UsageCounter"("metric", "integrationType", "window");

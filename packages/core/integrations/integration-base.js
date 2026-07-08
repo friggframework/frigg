@@ -222,6 +222,25 @@ class IntegrationBase {
         };
 
         this._isHydrated = Boolean(this.id);
+
+        // ADR-011 Decision 2: log the instance-open exactly once per hydrated
+        // instance, carrying the standard identifier set — so an integration is
+        // visible in telemetry even on a path that never dispatches a handler.
+        // High-cardinality ids ride the bus context (3rd arg), never metric
+        // labels; only the bounded integration_type is an attribute.
+        if (this._isHydrated && !this._instantiationLogged) {
+            this._instantiationLogged = true;
+            try {
+                this.telemetry.event(
+                    'frigg.integration.instantiated',
+                    { integration_type: this.constructor?.Definition?.name },
+                    this.getTelemetryContext()
+                );
+            } catch (_) {
+                // Telemetry must never break integration hydration.
+            }
+        }
+
         return this;
     }
 

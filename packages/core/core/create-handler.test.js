@@ -211,6 +211,54 @@ describe('createHandler — usage rollup flush (ADR-011 P9)', () => {
         expect(usageRollup.flush).toHaveBeenCalledTimes(1);
     });
 
+    it('flushes a MIXED batch (some redelivered, some fresh) so fresh records are not dropped', async () => {
+        const usageRollup = makeRollup();
+        await dbHandler(usageRollup)(
+            {
+                Records: [
+                    {
+                        messageId: 'm1',
+                        body: '{}',
+                        attributes: { ApproximateReceiveCount: '2' },
+                    },
+                    {
+                        messageId: 'm2',
+                        body: '{}',
+                        attributes: { ApproximateReceiveCount: '1' },
+                    },
+                ],
+            },
+            { ...ctx }
+        );
+
+        expect(usageRollup.flush).toHaveBeenCalledTimes(1);
+        expect(usageRollup.discard).not.toHaveBeenCalled();
+    });
+
+    it('discards only when the WHOLE batch is a redelivery', async () => {
+        const usageRollup = makeRollup();
+        await dbHandler(usageRollup)(
+            {
+                Records: [
+                    {
+                        messageId: 'm1',
+                        body: '{}',
+                        attributes: { ApproximateReceiveCount: '2' },
+                    },
+                    {
+                        messageId: 'm2',
+                        body: '{}',
+                        attributes: { ApproximateReceiveCount: '3' },
+                    },
+                ],
+            },
+            { ...ctx }
+        );
+
+        expect(usageRollup.discard).toHaveBeenCalledTimes(1);
+        expect(usageRollup.flush).not.toHaveBeenCalled();
+    });
+
     it('discards (never persists) for a DB-free handler — no connectionless Prisma write', async () => {
         const usageRollup = makeRollup();
         const handler = createHandler({

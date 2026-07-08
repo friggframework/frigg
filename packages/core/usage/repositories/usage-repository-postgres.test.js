@@ -83,6 +83,45 @@ describe('UsageRepositoryPostgres', () => {
 
             expect(prisma.usageCounter.upsert).toHaveBeenCalledTimes(2);
         });
+
+        it('survives a second consecutive P2002 (double-race) without throwing to the caller', async () => {
+            const p2002 = Object.assign(new Error('unique'), {
+                code: 'P2002',
+            });
+            prisma.usageCounter.upsert
+                .mockRejectedValueOnce(p2002)
+                .mockRejectedValueOnce(p2002)
+                .mockResolvedValueOnce({});
+
+            await expect(
+                repo.increment({
+                    integrationId: 'i',
+                    integrationType: 't',
+                    metric: 'm',
+                    window: 'w',
+                })
+            ).resolves.toBeUndefined();
+
+            expect(prisma.usageCounter.upsert).toHaveBeenCalledTimes(3);
+        });
+
+        it('rethrows a non-conflict error immediately (no retry)', async () => {
+            const other = Object.assign(new Error('db down'), {
+                code: 'P1001',
+            });
+            prisma.usageCounter.upsert.mockRejectedValueOnce(other);
+
+            await expect(
+                repo.increment({
+                    integrationId: 'i',
+                    integrationType: 't',
+                    metric: 'm',
+                    window: 'w',
+                })
+            ).rejects.toThrow(/db down/);
+
+            expect(prisma.usageCounter.upsert).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('totals', () => {
@@ -101,16 +140,29 @@ describe('UsageRepositoryPostgres', () => {
 
             const arg = prisma.usageCounter.groupBy.mock.calls[0][0];
             expect(arg.by).toEqual(['integrationType']);
-            // default bucket 'day' — the double-count fix
+            // `since` filters on the WINDOW key (same as series), not write-time
+            // updatedAt — a late/redelivered increment must not move a row's
+            // window in or out of the time bound.
             expect(arg.where).toEqual({
                 metric: 'records.synced',
-                window: { startsWith: 'day:' },
-                updatedAt: { gte: since },
+                window: { startsWith: 'day:', gte: 'day:2026-07-01' },
             });
+            expect(arg.where.updatedAt).toBeUndefined();
             expect(result).toEqual([
                 { integrationType: 'hubspot', value: 12 },
                 { integrationType: 'salesforce', value: 4 },
             ]);
+        });
+
+        it('coerces a BigInt _sum to a JSON-safe Number (value column is BigInt)', async () => {
+            prisma.usageCounter.groupBy.mockResolvedValue([
+                { integrationType: 'hubspot', _sum: { value: 12n } },
+            ]);
+
+            const result = await repo.totals({ metric: 'records.synced' });
+
+            expect(result).toEqual([{ integrationType: 'hubspot', value: 12 }]);
+            expect(typeof result[0].value).toBe('number');
         });
 
         it('rejects an un-allowlisted groupBy', async () => {
@@ -157,6 +209,20 @@ describe('UsageRepositoryPostgres', () => {
                 { bucket: 'day:2026-07-04', value: 5 },
                 { bucket: 'day:2026-07-05', value: 14 },
             ]);
+        });
+
+        it('coerces a BigInt _sum to a JSON-safe Number', async () => {
+            prisma.usageCounter.groupBy.mockResolvedValue([
+                { window: 'day:2026-07-05', _sum: { value: 99n } },
+            ]);
+
+            const result = await repo.series({
+                metric: 'records.synced',
+                integrationType: 'hubspot',
+            });
+
+            expect(result).toEqual([{ bucket: 'day:2026-07-05', value: 99 }]);
+            expect(typeof result[0].value).toBe('number');
         });
 
         it('rejects a missing integrationType (would silently mix types)', async () => {

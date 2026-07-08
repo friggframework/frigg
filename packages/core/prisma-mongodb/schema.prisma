@@ -442,13 +442,15 @@ model UsageCounter {
   integrationType String
   metric          String
   window          String // e.g. "day:2026-07-05" or "hour:2026-07-05T14"
-  value           Int    @default(0)
+  value           BigInt @default(0) // BigInt: a busy day/hour counter can exceed 32-bit
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([integrationId, integrationType, metric, window])
-  @@index([metric])
-  @@index([integrationType])
+  // Covers totals() (metric + window prefix/range, no integrationType filter).
+  @@index([metric, window])
+  // Covers series() (metric + integrationType + window range).
+  @@index([metric, integrationType, window])
   @@map("UsageCounter")
 }
