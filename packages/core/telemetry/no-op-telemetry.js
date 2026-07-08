@@ -1,6 +1,3 @@
-const {
-    TelemetryServiceInterface,
-} = require('./telemetry-service-interface');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
 const {
     runWithTelemetryContext,
@@ -15,9 +12,8 @@ const {
  * mirrored onto it so the durable usage rollup + plugin taps work even with
  * export off (emitting to a bus with no subscribers is cheap).
  */
-class NoOpTelemetry extends TelemetryServiceInterface {
+class NoOpTelemetry {
     constructor({ bus = createTelemetryEventBus() } = {}) {
-        super();
         this._bus = bus;
     }
 

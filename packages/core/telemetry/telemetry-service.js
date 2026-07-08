@@ -2,6 +2,15 @@ const { NoOpTelemetry } = require('./no-op-telemetry');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
 
 /**
+ * @typedef {object} TelemetryService The vendor-neutral telemetry port. Both
+ * NoOpTelemetry and OtelTelemetry implement it (duck-typed; the bound wrapper
+ * from bindTelemetryContext is a plain object that also satisfies it):
+ *   count(name, value?, attributes?, context?) · event(name, attributes?, context?)
+ *   span(name, fn) · startSpan(name?) · withContext(context, fn)
+ *   on(eventType, cb) · forceFlush() · shutdown() · isEnabled()
+ */
+
+/**
  * Determine whether an exporter descriptor means "emit nothing".
  * Absent config or `{ type: 'none' }` (or `'noop'`) → no-op.
  */

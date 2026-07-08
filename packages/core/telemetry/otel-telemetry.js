@@ -11,9 +11,6 @@ const {
     PeriodicExportingMetricReader,
 } = require('@opentelemetry/sdk-metrics');
 const { resourceFromAttributes } = require('@opentelemetry/resources');
-const {
-    TelemetryServiceInterface,
-} = require('./telemetry-service-interface');
 const { resolveExporter } = require('./exporters');
 const { createTelemetryEventBus } = require('./telemetry-event-bus');
 const {
@@ -56,14 +53,13 @@ function ensureContextManager() {
  * handler awaits before the container freezes (`callbackWaitsForEmptyEventLoop=false`),
  * never by background timers.
  */
-class OtelTelemetry extends TelemetryServiceInterface {
+class OtelTelemetry {
     constructor({
         exporter,
         resource = {},
         sampleRatio,
         bus = createTelemetryEventBus(),
     } = {}) {
-        super();
         ensureContextManager();
         const { traceExporter, metricExporter } = resolveExporter(exporter);
 

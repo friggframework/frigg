@@ -69,7 +69,11 @@ const {
     createReportingRouter,
     createReportingRepository,
 } = require('./reporting/index');
-const { createTelemetry, getTelemetry } = require('./telemetry/index');
+const {
+    createTelemetry,
+    getTelemetry,
+    CANONICAL_COUNTERS,
+} = require('./telemetry/index');
 const { createUsageRepository } = require('./usage/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
@@ -146,6 +150,7 @@ module.exports = {
     // telemetry
     createTelemetry,
     getTelemetry,
+    CANONICAL_COUNTERS,
     createUsageRepository,
 
     // application - Command factories for integration developers
