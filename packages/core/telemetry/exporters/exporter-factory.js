@@ -1,6 +1,6 @@
 /**
- * Builds OpenTelemetry span/metric exporters from an app-definition descriptor
- * (ADR-011 Decision 1). All OTel packages are lazy-`require`d here so the no-op
+ * Builds OpenTelemetry span/metric exporters from an app-definition descriptor.
+ * All OTel packages are lazy-`require`d here so the no-op
  * path (which never calls this) loads zero OTel modules.
  *
  * Supported descriptor `type`s:

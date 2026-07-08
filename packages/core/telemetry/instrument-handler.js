@@ -1,6 +1,6 @@
 /**
  * Wraps a single integration handler invocation with a span + the
- * `frigg.handler.invocations` counter (ADR-011 Decision 2). Shared by the two
+ * `frigg.handler.invocations` counter. Shared by the two
  * dispatch seams — `IntegrationBase.send()` and `IntegrationEventDispatcher` —
  * so both paths are instrumented identically.
  *

@@ -1,6 +1,6 @@
 /**
  * Wrap a telemetry service so an integration instance's emissions automatically
- * carry its `integration_type` (ADR-011). This lets developers write
+ * carry its `integration_type`. This lets developers write
  * `this.telemetry.count('records.synced', n, { entity })` with no per-call
  * boilerplate, while the usage rollup still attributes the counter to the right
  * integration type.

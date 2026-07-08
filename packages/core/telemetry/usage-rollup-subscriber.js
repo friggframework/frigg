@@ -3,8 +3,8 @@ const { computeUsageWindows } = require('./usage-windows');
 const WEBHOOK_EVENT_NAMES = new Set(['ON_WEBHOOK']);
 
 /**
- * Framework auto-signal metric names → the canonical usage key they feed
- * (ADR-011 §3). Resolvers receive (attributes, context) and may return null to
+ * Framework auto-signal metric names → the canonical usage key they feed.
+ * Resolvers receive (attributes, context) and may return null to
  * decline. Handler invocations map by event: USER_ACTION → user_actions; the
  * DB-connected `ON_WEBHOOK` queue dispatch → webhooks.received (per-integration,
  * and where a durable write is actually possible — the HTTP receipt handler is
@@ -22,7 +22,7 @@ const METRIC_TO_CANONICAL = {
 };
 
 /**
- * The built-in usage-rollup subscriber (ADR-011 Decision 7). Subscribes to the
+ * The built-in usage-rollup subscriber. Subscribes to the
  * telemetry event bus and folds *declared* counters (canonical or custom) into
  * the durable usage store. It buffers within an invocation and writes on
  * `flush()` (no timers — Lambda-safe), or drops the buffer on `discard()` for an

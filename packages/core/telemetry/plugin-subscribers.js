@@ -1,5 +1,5 @@
 /**
- * Declarative plugin/extension telemetry taps (ADR-011 Decision 6).
+ * Declarative plugin/extension telemetry taps.
  *
  * The built-in usage rollup and North Star derivation subscribe to the telemetry
  * bus in framework code; this lets an ADOPTER subscribe declaratively from the

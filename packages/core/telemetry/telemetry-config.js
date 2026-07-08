@@ -1,6 +1,6 @@
 /**
  * Resolves and validates the telemetry section of an app definition
- * (ADR-011 Decisions 1 & 5) into a normalized config the TelemetryService and
+ * into a normalized config the TelemetryService and
  * usage rollup consume: `{ exporter, northStar, sampleRatio }`.
  *
  * Exporter default is keyed off STAGE: only a genuinely LOCAL run (STAGE=local)

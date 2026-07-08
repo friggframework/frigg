@@ -2,7 +2,7 @@ const { createTelemetry } = require('./telemetry-service');
 const { createNoOpTelemetry } = require('./no-op-telemetry');
 
 /**
- * Process-wide telemetry singleton (ADR-011 P4). Created lazily on first use and
+ * Process-wide telemetry singleton. Created lazily on first use and
  * reused for the life of the Lambda container, so the OTel SDK initialises at
  * most once per cold start. Building it never throws — any failure (e.g. no app
  * definition on disk in a unit test) falls back to the no-op so a handler is

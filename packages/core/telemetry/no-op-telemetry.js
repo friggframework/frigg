@@ -8,7 +8,7 @@ const {
  * No-op telemetry implementation.
  *
  * This is the default when no OTel exporter is configured, so telemetry "rides
- * for free" (ADR-011): integration code can call `this.telemetry.*`
+ * for free": integration code can call `this.telemetry.*`
  * unconditionally and it costs nothing on the OTel side. Critically, this module
  * imports **zero** OpenTelemetry packages — the no-op path never loads the OTel
  * SDK (guarded by a require-graph test), protecting Lambda cold-start.

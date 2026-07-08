@@ -1,6 +1,6 @@
 /**
- * TelemetryEventBus — the internal event stream telemetry flows onto
- * (ADR-011 Decision 6). Plugins/extensions and the built-in usage rollup
+ * TelemetryEventBus — the internal event stream telemetry flows onto.
+ * Plugins/extensions and the built-in usage rollup
  * subscribe here; it is deliberately independent of OTel export (Decision 7),
  * so usage counters persist even when the OTel exporter is a no-op.
  *

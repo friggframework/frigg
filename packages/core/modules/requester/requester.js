@@ -44,7 +44,7 @@ class Requester extends Delegate {
         // Instance methods can use this.fetch without differentiating
         this.fetch = get(params, 'fetch', fetch);
 
-        // Telemetry (ADR-011). Defaults to the process singleton; overridable
+        // Telemetry. Defaults to the process singleton; overridable
         // for tests. Outbound requests are instrumented in `_request`.
         //
         // Attribution boundary: the `frigg.apimodule.requests` OTel metric fires
@@ -103,7 +103,7 @@ class Requester extends Delegate {
     };
 
     /**
-     * Instrumenting entry point (ADR-011 P7). Wraps the whole logical request —
+     * Instrumenting entry point. Wraps the whole logical request —
      * including retry/refresh recursion — in a single span + one
      * `frigg.apimodule.requests` counter, emitted on the `i === 0` boundary so
      * retries are never double-counted. The full URL rides the span only; the

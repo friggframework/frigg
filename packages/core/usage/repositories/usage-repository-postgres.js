@@ -2,7 +2,7 @@ const { prisma } = require('../../database/prisma');
 const { UsageRepositoryInterface } = require('./usage-repository-interface');
 
 /**
- * Prisma-backed usage store (ADR-011 §4). This is the canonical implementation;
+ * Prisma-backed usage store. This is the canonical implementation;
  * because Prisma abstracts the underlying database, the Mongo and DocumentDB
  * adapters extend this class unchanged (see their files). All queries touch only
  * the isolated `UsageCounter` model — never user/integration-scoped tables.

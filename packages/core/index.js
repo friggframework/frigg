@@ -143,7 +143,7 @@ module.exports = {
     createReportingRouter,
     createReportingRepository,
 
-    // telemetry (ADR-011)
+    // telemetry
     createTelemetry,
     getTelemetry,
     createUsageRepository,

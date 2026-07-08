@@ -1,5 +1,5 @@
 /**
- * Canonical usage-counter vocabulary (ADR-011 Usage-Counter Contract §1).
+ * Canonical usage-counter vocabulary.
  *
  * These core-owned, versioned keys are the ONLY metrics guaranteed comparable
  * *across* integration types — they power ADR-010's apples-to-apples comparison

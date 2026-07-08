@@ -2,7 +2,7 @@ const { isCanonicalCounter } = require('../telemetry/canonical-counters');
 
 /**
  * Compute the set of usage-counter keys the rollup should persist, from each
- * integration's `Definition.usage` opt-in (ADR-011 Usage-Counter Contract §2).
+ * integration's `Definition.usage` opt-in.
  * Declaring a canonical key opts into cross-type comparison + the rollup; custom
  * keys are tracked per integration type. Unknown canonical keys are dropped with
  * a warning (lazy validation, matching how Definition is treated elsewhere).

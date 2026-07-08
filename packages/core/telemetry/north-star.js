@@ -1,5 +1,5 @@
 /**
- * Adopter North Star metric (ADR-011 Decision 5). A North Star simply references
+ * Adopter North Star metric. A North Star simply references
  * a usage-counter key (canonical or custom); its value is then read like any
  * other counter via `frigg.usage.totals({ metric: northStarKey })`. It is
  * populated either by (a) direct emission of that counter, or (b) derived from a

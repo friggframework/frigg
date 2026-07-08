@@ -1,7 +1,7 @@
 const { AsyncLocalStorage } = require('node:async_hooks');
 
 /**
- * Ambient telemetry context (ADR-011). A single process-wide AsyncLocalStorage
+ * Ambient telemetry context. A single process-wide AsyncLocalStorage
  * holds the standard identifiers ({integrationId, integrationType, userId,
  * version, ...}) for the duration of a handler, set once at the handler seam via
  * `telemetry.withContext(...)`. Any emission during that async scope — including

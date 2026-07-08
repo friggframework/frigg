@@ -40,7 +40,7 @@ function buildTypeLabels() {
 
 function createReportingRouter() {
     const reportingRepository = createReportingRepository();
-    // ADR-011 hand-off: enrich the report with feature-usage columns read from
+    // Enrich the report with feature-usage columns read from
     // the Frigg-owned usage store. Best-effort — a failure to construct it never
     // blocks the structural report.
     let usageRepository = null;

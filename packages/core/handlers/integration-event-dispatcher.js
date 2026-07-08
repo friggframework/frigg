@@ -25,7 +25,7 @@ class IntegrationEventDispatcher {
     }
 
     /**
-     * Resolve + invoke a handler, auto-instrumented (ADR-011 Decision 2). This
+     * Resolve + invoke a handler, auto-instrumented. This
      * is the seam for queue/webhook/defined-route dispatch; the `this.on` path
      * (user actions, lifecycle) is instrumented in IntegrationBase.send().
      */

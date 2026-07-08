@@ -1,5 +1,5 @@
 /**
- * Port for the durable usage-counter store (ADR-011 Usage-Counter Contract §4).
+ * Port for the durable usage-counter store.
  *
  * The store is deliberately isolated (ADR-010 Decision 3): its fact rows carry
  * NO userId and NO foreign key to Integration, so a user-scoped query can never

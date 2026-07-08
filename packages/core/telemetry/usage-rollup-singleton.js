@@ -1,7 +1,7 @@
 const { createUsageRollupSubscriber } = require('./usage-rollup-subscriber');
 
 /**
- * Process-wide usage-rollup subscriber (ADR-011 P9). Built once per cold start,
+ * Process-wide usage-rollup subscriber. Built once per cold start,
  * subscribed to the telemetry singleton's bus, and reused across invocations.
  * Returns null when usage is disabled (no integration declares Definition.usage)
  * or when the app definition can't be loaded — the handler then skips the flush.

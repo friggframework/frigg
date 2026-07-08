@@ -12,7 +12,7 @@ function isNoOpExporter(exporter) {
 }
 
 /**
- * Create the vendor-neutral telemetry service (ADR-011 Decision 1).
+ * Create the vendor-neutral telemetry service.
  *
  * Integration code uses the returned object (`this.telemetry`) and never imports
  * a backend SDK. When no exporter is configured the service is a pure no-op that
@@ -26,8 +26,8 @@ function isNoOpExporter(exporter) {
  * @param {object} [options.bus] Event bus to reuse (defaults to a fresh one).
  */
 function createTelemetry(options = {}) {
-    // The internal event stream is always on and independent of OTel export
-    // (ADR-011 Decision 7): the usage rollup + plugin taps must work even when
+    // The internal event stream is always on and independent of OTel export:
+    // the usage rollup + plugin taps must work even when
     // the OTel exporter is a no-op. The bus is pure JS, so this does not load
     // any OTel module on the no-op path.
     const bus = options.bus || createTelemetryEventBus();

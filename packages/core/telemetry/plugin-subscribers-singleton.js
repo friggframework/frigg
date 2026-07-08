@@ -1,8 +1,8 @@
 const { wireTelemetrySubscribers } = require('./plugin-subscribers');
 
 /**
- * Process-wide wiring of adopter-declared telemetry subscribers (ADR-011
- * Decision 6). Built once per cold start and reused for the life of the Lambda
+ * Process-wide wiring of adopter-declared telemetry subscribers. Built once per
+ * cold start and reused for the life of the Lambda
  * container, mirroring the usage-rollup singleton. Independent of the usage
  * rollup: adopter taps wire even when no integration declares `Definition.usage`.
  * Never throws — a bad/absent app definition just means no adopter taps.

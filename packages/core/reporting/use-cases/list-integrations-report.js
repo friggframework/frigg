@@ -26,7 +26,7 @@ class ListIntegrationsReport {
             throw new Error('reportingRepository is required');
         }
         this.reportingRepository = reportingRepository;
-        // Optional ADR-011 usage store (the ADR-010 hand-off). When present, the
+        // Optional usage store (the ADR-010 hand-off). When present, the
         // report's byType buckets are enriched with feature-usage columns read
         // ONLY from this store — never an external APM.
         this.usageRepository = usageRepository || null;
@@ -87,7 +87,7 @@ class ListIntegrationsReport {
             bucket.byStatus[statusKey] = (bucket.byStatus[statusKey] ?? 0) + 1;
         }
 
-        // Additive usage columns (ADR-011). Read per-type totals for each
+        // Additive usage columns. Read per-type totals for each
         // canonical counter; a type with no rows reads as 0. Guarded so a usage
         // store failure never breaks the structural report.
         if (this.usageRepository) {

@@ -1,8 +1,8 @@
 /**
  * Usage Commands
  *
- * Application Layer — the read/write surface over the durable usage store
- * (ADR-011 §5). Exposed as `frigg.usage.*` on the unified command object so
+ * Application Layer — the read/write surface over the durable usage store.
+ * Exposed as `frigg.usage.*` on the unified command object so
  * reports and integration code query usage without touching the repository.
  *
  * @example
@@ -33,7 +33,8 @@ function createUsageCommands({ usageRepository, northStar = null } = {}) {
             value = 1,
             at = new Date(),
         }) {
-            for (const window of computeUsageWindows(at)) {
+            const windows = computeUsageWindows(at);
+            for (const window of windows) {
                 await repository.increment({
                     integrationId,
                     integrationType,
@@ -53,7 +54,7 @@ function createUsageCommands({ usageRepository, northStar = null } = {}) {
         },
 
         /**
-         * First-class North Star read (ADR-011 Decision 5). Resolves the
+         * First-class North Star read. Resolves the
          * configured counter for an integration type (byType wins over default),
          * then returns its totals from the durable usage store. Returns `null`
          * when no North Star is configured, so callers can branch without

@@ -47,7 +47,7 @@ function ensureContextManager() {
 }
 
 /**
- * The OpenTelemetry-backed telemetry service (ADR-011 Decision 1). Reached only
+ * The OpenTelemetry-backed telemetry service. Reached only
  * when a real exporter is configured; `createTelemetry` returns the no-op
  * otherwise. `BatchSpanProcessor` is used uniformly — spans are delivered by the
  * bounded `forceFlush()` the Lambda handler awaits before the container freezes

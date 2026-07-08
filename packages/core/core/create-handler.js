@@ -153,8 +153,8 @@ const createHandler = (optionByName = {}) => {
                 ? usageRollup
                 : getUsageRollupSubscriber();
 
-        // Wire adopter-declared telemetry subscribers once per cold start
-        // (ADR-011 Decision 6). Memoized in the singleton, so this is a cheap
+        // Wire adopter-declared telemetry subscribers once per cold start.
+        // Memoized in the singleton, so this is a cheap
         // no-op after the first invocation.
         getPluginTelemetrySubscribers();
 

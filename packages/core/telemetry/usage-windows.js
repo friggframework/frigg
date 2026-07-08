@@ -1,5 +1,5 @@
 /**
- * Compute the rollup window keys a usage event falls into (ADR-011 §4).
+ * Compute the rollup window keys a usage event falls into.
  * Windows are UTC and prefixed by their granularity so the store can filter a
  * series by bucket (`window startsWith 'day:'`).
  *

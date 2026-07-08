@@ -79,7 +79,7 @@ class IntegrationBase {
         // Tier 3 Integration Extensions — see packages/core/integrations/EXTENSIONS.md
         // Shape: { [bindingName]: { extension, handlers?: { [eventName]: methodName } } }
         extensions: {},
-        // Usage-counter opt-in (ADR-011). Declaring a canonical key opts into the
+        // Usage-counter opt-in. Declaring a canonical key opts into the
         // cross-integration comparison report + durable rollup; custom keys are
         // comparable within this integration type. Shape:
         //   usage: { canonical: ['records.synced', ...], custom: { 'deals.enriched': { unit, label } } }
@@ -108,7 +108,7 @@ class IntegrationBase {
         this.messages = { errors: [], warnings: [] };
         this._isHydrated = false;
 
-        // Telemetry (ADR-011): every instance carries the service so integration
+        // Telemetry: every instance carries the service so integration
         // code can call `this.telemetry.*`. Extracted before the record check so
         // passing only `telemetry` never triggers a hollow hydration. Bound to
         // this instance so emissions auto-carry `integration_type` for the usage
@@ -223,7 +223,7 @@ class IntegrationBase {
 
         this._isHydrated = Boolean(this.id);
 
-        // ADR-011 Decision 2: log the instance-open exactly once per hydrated
+        // Log the instance-open exactly once per hydrated
         // instance, carrying the standard identifier set — so an integration is
         // visible in telemetry even on a path that never dispatches a handler.
         // High-cardinality ids ride the bus context (3rd arg), never metric
@@ -249,7 +249,7 @@ class IntegrationBase {
     }
 
     /**
-     * Standard telemetry identifier set (ADR-011 Decision 3). Assembled from the
+     * Standard telemetry identifier set. Assembled from the
      * hydrated record (integrationId, userId, version), the static Definition
      * (integrationType, version fallback), and the environment (stage, appName).
      * High-cardinality ids (integrationId, userId) ride span baggage only — never
@@ -812,7 +812,7 @@ class IntegrationBase {
                 `Event ${event} is not defined in the Integration event object`
             );
         }
-        // Auto-instrument (ADR-011 Decision 2). This is the seam for user
+        // Auto-instrument. This is the seam for user
         // actions, config-options, and lifecycle events dispatched via `this.on`
         // (the queue/webhook/route paths go through IntegrationEventDispatcher).
         return instrumentHandler(
