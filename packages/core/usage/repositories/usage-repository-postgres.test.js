@@ -132,7 +132,7 @@ describe('UsageRepositoryPostgres', () => {
             ]);
             const since = new Date('2026-07-01T00:00:00Z');
 
-            const result = await repo.totals({
+            const result = await repo.getTotalsByDimension({
                 metric: 'records.synced',
                 groupBy: 'integrationType',
                 since,
@@ -159,7 +159,7 @@ describe('UsageRepositoryPostgres', () => {
                 { integrationType: 'hubspot', _sum: { value: 12n } },
             ]);
 
-            const result = await repo.totals({ metric: 'records.synced' });
+            const result = await repo.getTotalsByDimension({ metric: 'records.synced' });
 
             expect(result).toEqual([{ integrationType: 'hubspot', value: 12 }]);
             expect(typeof result[0].value).toBe('number');
@@ -167,13 +167,13 @@ describe('UsageRepositoryPostgres', () => {
 
         it('rejects an un-allowlisted groupBy', async () => {
             await expect(
-                repo.totals({ metric: 'm', groupBy: 'userId' })
+                repo.getTotalsByDimension({ metric: 'm', groupBy: 'userId' })
             ).rejects.toThrow(/groupBy/i);
         });
 
         it('rejects an un-allowlisted bucket', async () => {
             await expect(
-                repo.totals({ metric: 'm', bucket: 'year' })
+                repo.getTotalsByDimension({ metric: 'm', bucket: 'year' })
             ).rejects.toThrow(/bucket/i);
         });
     });
@@ -185,7 +185,7 @@ describe('UsageRepositoryPostgres', () => {
                 { window: 'day:2026-07-05', _sum: { value: 14 } },
             ]);
 
-            const result = await repo.series({
+            const result = await repo.getTimeSeries({
                 metric: 'records.synced',
                 integrationType: 'hubspot',
                 from: new Date('2026-07-01T00:00:00Z'),
@@ -216,7 +216,7 @@ describe('UsageRepositoryPostgres', () => {
                 { window: 'day:2026-07-05', _sum: { value: 99n } },
             ]);
 
-            const result = await repo.series({
+            const result = await repo.getTimeSeries({
                 metric: 'records.synced',
                 integrationType: 'hubspot',
             });
@@ -227,13 +227,13 @@ describe('UsageRepositoryPostgres', () => {
 
         it('rejects a missing integrationType (would silently mix types)', async () => {
             await expect(
-                repo.series({ metric: 'm', bucket: 'day' })
+                repo.getTimeSeries({ metric: 'm', bucket: 'day' })
             ).rejects.toThrow(/integrationType/i);
         });
 
         it('rejects an un-allowlisted bucket', async () => {
             await expect(
-                repo.series({
+                repo.getTimeSeries({
                     metric: 'm',
                     integrationType: 't',
                     bucket: 'week',
@@ -244,7 +244,7 @@ describe('UsageRepositoryPostgres', () => {
 
     describe('totals — requires a metric', () => {
         it('rejects an absent metric (would sum across mixed-unit metrics)', async () => {
-            await expect(repo.totals({})).rejects.toThrow(/metric/i);
+            await expect(repo.getTotalsByDimension({})).rejects.toThrow(/metric/i);
         });
     });
 });

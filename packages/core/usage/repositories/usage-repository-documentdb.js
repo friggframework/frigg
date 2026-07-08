@@ -14,7 +14,7 @@ const VALID_BUCKETS = new Set(['day', 'hour']);
  * and `groupBy({ _sum })`, and cursor reads truncate at ~101 docs — so, like
  * every other DocumentDB adapter in this repo, these operations are issued as
  * raw commands (`$runCommandRaw`) via the validated documentdb-utils helpers and
- * a drained aggregate cursor. No timestamps are managed: totals/series filter on
+ * a drained aggregate cursor. No timestamps are managed: getTotalsByDimension/getTimeSeries filter on
  * the window KEY (not write-time), so createdAt/updatedAt are unnecessary here.
  */
 class UsageRepositoryDocumentDB extends UsageRepositoryMongo {
@@ -44,20 +44,20 @@ class UsageRepositoryDocumentDB extends UsageRepositoryMongo {
         );
     }
 
-    async totals({
+    async getTotalsByDimension({
         metric,
         groupBy = 'integrationType',
         since,
         bucket = 'day',
     } = {}) {
         if (!metric) {
-            throw new Error('totals requires a metric (units are per-metric)');
+            throw new Error('getTotalsByDimension requires a metric (units are per-metric)');
         }
         assertGroupBy(groupBy);
         assertBucket(bucket);
 
         // Single window granularity (day: OR hour:) — never sum across both.
-        // `since` bounds on the window KEY (mirrors series / the Prisma adapter).
+        // `since` bounds on the window KEY (mirrors getTimeSeries / the Prisma adapter).
         const rows = await this._aggregateDrained([
             {
                 $match: {
@@ -76,10 +76,10 @@ class UsageRepositoryDocumentDB extends UsageRepositoryMongo {
         }));
     }
 
-    async series({ metric, integrationType, from, to, bucket = 'day' } = {}) {
+    async getTimeSeries({ metric, integrationType, from, to, bucket = 'day' } = {}) {
         assertBucket(bucket);
         if (!integrationType) {
-            throw new Error('series requires an integrationType');
+            throw new Error('getTimeSeries requires an integrationType');
         }
 
         const rows = await this._aggregateDrained([

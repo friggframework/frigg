@@ -32,21 +32,21 @@ const { createUsageRepository } = require('@friggframework/core'); // usage-repo
 
 class UsageRepositoryInterface {
     async increment({ integrationId, integrationType, metric, window, value }) {} // atomic upsert
-    async totals({ metric, groupBy, since, bucket }) {}   // comparison (one window granularity)
-    async series({ metric, integrationType, from, to, bucket }) {} // trend (aggregated across instances)
+    async getTotalsByDimension({ metric, groupBy, since, bucket }) {}   // comparison (one window granularity)
+    async getTimeSeries({ metric, integrationType, from, to, bucket }) {} // trend (aggregated across instances)
 }
 ```
 
 - **`increment`** is atomic: PostgreSQL uses Prisma `upsert` with
   `{ value: { increment } }`; a concurrent first-insert race (`P2002`) retries
   once onto the atomic update path.
-- **`totals`** filters to a single window granularity (default `day`) so day and
+- **`getTotalsByDimension`** filters to a single window granularity (default `day`) so day and
   hour rows are never double-summed. Requires a `metric`; `groupBy` is
   allow-listed to `integrationType` / `metric`.
-- **`series`** aggregates across integration instances (`groupBy(window) + sum`)
+- **`getTimeSeries`** aggregates across integration instances (`groupBy(window) + sum`)
   and range-filters on the window key. Requires an `integrationType`.
 
-> **DocumentDB:** the adapter overrides increment/totals/series with raw commands
+> **DocumentDB:** the adapter overrides increment/getTotalsByDimension/getTimeSeries with raw commands
 > (`$runCommandRaw`: a `$inc` upsert via `documentdb-utils.updateOne`, and a
 > cursor-drained `$aggregate` `$group/$sum`) — matching every other DocumentDB
 > adapter, since Prisma's Mongo engine emits upsert/groupBy shapes DocumentDB

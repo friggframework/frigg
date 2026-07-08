@@ -14,7 +14,7 @@ describe('ListIntegrationsReport — usage columns (ADR-011/ADR-010 hand-off)', 
     it('enriches byType with usage columns read from the usage store', async () => {
         const reportingRepository = makeRepo(rows);
         const usageRepository = {
-            totals: jest.fn(async ({ metric }) => {
+            getTotalsByDimension: jest.fn(async ({ metric }) => {
                 if (metric === 'records.synced') {
                     return [{ integrationType: 'hubspot', value: 42 }];
                 }
@@ -36,7 +36,7 @@ describe('ListIntegrationsReport — usage columns (ADR-011/ADR-010 hand-off)', 
         // absent usage reads as 0, not undefined
         expect(salesforce.usage['records.synced']).toBe(0);
         expect(hubspot.usage['webhooks.received']).toBe(0);
-        expect(usageRepository.totals).toHaveBeenCalledWith(
+        expect(usageRepository.getTotalsByDimension).toHaveBeenCalledWith(
             expect.objectContaining({
                 metric: 'records.synced',
                 groupBy: 'integrationType',
@@ -55,7 +55,7 @@ describe('ListIntegrationsReport — usage columns (ADR-011/ADR-010 hand-off)', 
 
     it('never lets a usage-store failure break the structural report', async () => {
         const usageRepository = {
-            totals: jest.fn().mockRejectedValue(new Error('usage db down')),
+            getTotalsByDimension: jest.fn().mockRejectedValue(new Error('usage db down')),
         };
         const useCase = new ListIntegrationsReport({
             reportingRepository: makeRepo(rows),

@@ -62,7 +62,7 @@ describe('UsageRepositoryDocumentDB (raw-command adapter)', () => {
                 },
             });
 
-            const result = await repo.totals({
+            const result = await repo.getTotalsByDimension({
                 metric: 'records.synced',
                 groupBy: 'integrationType',
                 since: new Date('2026-07-01T00:00:00Z'),
@@ -86,7 +86,7 @@ describe('UsageRepositoryDocumentDB (raw-command adapter)', () => {
 
         it('rejects an un-allowlisted groupBy', async () => {
             await expect(
-                repo.totals({ metric: 'm', groupBy: 'userId' })
+                repo.getTotalsByDimension({ metric: 'm', groupBy: 'userId' })
             ).rejects.toThrow(/groupBy/i);
         });
     });
@@ -109,7 +109,7 @@ describe('UsageRepositoryDocumentDB (raw-command adapter)', () => {
                     },
                 });
 
-            const result = await repo.series({
+            const result = await repo.getTimeSeries({
                 metric: 'records.synced',
                 integrationType: 'hubspot',
                 from: new Date('2026-07-01T00:00:00Z'),
@@ -142,7 +142,7 @@ describe('UsageRepositoryDocumentDB (raw-command adapter)', () => {
 
         it('rejects a missing integrationType', async () => {
             await expect(
-                repo.series({ metric: 'm', bucket: 'day' })
+                repo.getTimeSeries({ metric: 'm', bucket: 'day' })
             ).rejects.toThrow(/integrationType/i);
         });
     });

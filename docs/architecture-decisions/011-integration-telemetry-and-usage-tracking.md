@@ -189,8 +189,8 @@ traces.
 ```js
 class UsageRepositoryInterface {                 // port; adapters mirror reporting/process
   async increment({ integrationId, integrationType, metric, value, window }) {}
-  async totals({ metric, groupBy, since }) {}                     // comparison
-  async series({ metric, integrationType, from, to, bucket }) {}  // trend
+  async getTotalsByDimension({ metric, groupBy, since }) {}                     // comparison
+  async getTimeSeries({ metric, integrationType, from, to, bucket }) {}  // trend
 }
 // fact row: { integrationId, integrationType, metric, window, value, updatedAt }
 ```
@@ -198,9 +198,9 @@ class UsageRepositoryInterface {                 // port; adapters mirror report
 **5. Read contract (what reports call).**
 
 ```js
-frigg.usage.totals({ metric: 'records.synced', groupBy: 'integrationType', since })
+frigg.usage.getTotalsByDimension({ metric: 'records.synced', groupBy: 'integrationType', since })
   // → [{ integrationType, value }]                    powers the apples-to-apples comparison
-frigg.usage.series({ metric: 'records.synced', integrationType: 'hubspot', from, to, bucket: 'day' })
+frigg.usage.getTimeSeries({ metric: 'records.synced', integrationType: 'hubspot', from, to, bucket: 'day' })
   // → [{ bucket, value }]                             powers snapshot / trend
 ```
 

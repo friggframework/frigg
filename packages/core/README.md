@@ -232,7 +232,7 @@ class HubSpotIntegration extends IntegrationBase {
 
 // Read the durable usage store (never an APM):
 const frigg = createFriggCommands({ integrationClass: HubSpotIntegration });
-await frigg.usage.totals({ metric: 'records.synced', groupBy: 'integrationType' });
+await frigg.usage.getTotalsByDimension({ metric: 'records.synced', groupBy: 'integrationType' });
 ```
 
 **See:** [`telemetry/README.md`](telemetry/README.md) for the full guide

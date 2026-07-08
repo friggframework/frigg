@@ -17,11 +17,6 @@ const { createUsageCommands } = require('./commands/usage-commands');
  *
  * @param {Object} params
  * @param {Object} params.integrationClass - Integration class (required)
- * @param {Object} [params.northStar] - Resolved North Star config
- *   (`Definition.telemetry.northStar`) so `frigg.usage.northStar(...)` can read
- *   it. Injected by the caller that owns the app definition
- *   (the handler/report runner) — the application layer never reaches up to load
- *   it. Omitted → usage reads report no North Star.
  * @returns {Object} Unified commands object with all CRUD operations
  *
  * @example
@@ -29,7 +24,7 @@ const { createUsageCommands } = require('./commands/usage-commands');
  * const user = await commands.createUser({ username: 'user@example.com' });
  * const credential = await commands.createCredential({ userId: user.id, ... });
  */
-function createFriggCommands({ integrationClass, northStar = null }) {
+function createFriggCommands({ integrationClass }) {
     // All commands use Frigg's default repositories and use cases
     const integrationCommands = createIntegrationCommands({ integrationClass });
 
@@ -57,9 +52,10 @@ function createFriggCommands({ integrationClass, northStar = null }) {
         // Process commands
         ...processCommands,
 
-        // Usage read/write — nested to match `frigg.usage.*`.
-        // northStar injected by the caller (composition root), not loaded here.
-        usage: createUsageCommands({ northStar }),
+        // Usage read/write — nested to match `frigg.usage.*`. The North Star
+        // read takes its config as a call argument, so nothing telemetry-specific
+        // is threaded through this general factory.
+        usage: createUsageCommands(),
     };
 }
 

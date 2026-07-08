@@ -21,16 +21,16 @@ class UsageRepositoryInterface {
      * Sum a metric grouped by a bounded dimension since an optional timestamp.
      * @returns {Promise<Array<{[groupBy]: string, value: number}>>}
      */
-    async totals(/* { metric, groupBy, since } */) {
-        throw new Error('totals must be implemented by subclass');
+    async getTotalsByDimension(/* { metric, groupBy, since } */) {
+        throw new Error('getTotalsByDimension must be implemented by subclass');
     }
 
     /**
      * Time series of a metric for one integration type.
      * @returns {Promise<Array<{bucket: string, value: number}>>}
      */
-    async series(/* { metric, integrationType, from, to, bucket } */) {
-        throw new Error('series must be implemented by subclass');
+    async getTimeSeries(/* { metric, integrationType, from, to, bucket } */) {
+        throw new Error('getTimeSeries must be implemented by subclass');
     }
 }
 

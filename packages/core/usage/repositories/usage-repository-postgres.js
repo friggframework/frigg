@@ -52,14 +52,14 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
         }
     }
 
-    async totals({
+    async getTotalsByDimension({
         metric,
         groupBy = 'integrationType',
         since,
         bucket = 'day',
     } = {}) {
         if (!metric) {
-            throw new Error('totals requires a metric (units are per-metric)');
+            throw new Error('getTotalsByDimension requires a metric (units are per-metric)');
         }
         assertGroupBy(groupBy);
         assertBucket(bucket);
@@ -67,7 +67,7 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
         // Filter to ONE window granularity — every event is written to both a
         // day: and an hour: row, so summing across granularities would double
         // (or worse) the true count.
-        // Bound `since` on the WINDOW key (mirrors series) — write-time
+        // Bound `since` on the WINDOW key (mirrors getTimeSeries) — write-time
         // updatedAt would misplace a late/redelivered increment for an earlier
         // window, over- or under-counting the time-bounded total.
         const where = { metric, window: { startsWith: `${bucket}:` } };
@@ -87,10 +87,10 @@ class UsageRepositoryPostgres extends UsageRepositoryInterface {
         }));
     }
 
-    async series({ metric, integrationType, from, to, bucket = 'day' } = {}) {
+    async getTimeSeries({ metric, integrationType, from, to, bucket = 'day' } = {}) {
         assertBucket(bucket);
         if (!integrationType) {
-            throw new Error('series requires an integrationType');
+            throw new Error('getTimeSeries requires an integrationType');
         }
 
         // Range-filter on the WINDOW key (write-time `updatedAt` would misplace a

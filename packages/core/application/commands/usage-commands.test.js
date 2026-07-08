@@ -3,10 +3,10 @@ const { createUsageCommands } = require('./usage-commands');
 function fakeRepo() {
     return {
         increment: jest.fn().mockResolvedValue(undefined),
-        totals: jest
+        getTotalsByDimension: jest
             .fn()
             .mockResolvedValue([{ integrationType: 'hubspot', value: 5 }]),
-        series: jest
+        getTimeSeries: jest
             .fn()
             .mockResolvedValue([{ bucket: 'day:2026-07-05', value: 5 }]),
     };
@@ -44,12 +44,12 @@ describe('createUsageCommands (ADR-011 §5 read contract)', () => {
         const repo = fakeRepo();
         const cmds = createUsageCommands({ usageRepository: repo });
 
-        const result = await cmds.totals({
+        const result = await cmds.getTotalsByDimension({
             metric: 'records.synced',
             groupBy: 'integrationType',
         });
 
-        expect(repo.totals).toHaveBeenCalledWith({
+        expect(repo.getTotalsByDimension).toHaveBeenCalledWith({
             metric: 'records.synced',
             groupBy: 'integrationType',
         });
@@ -60,13 +60,13 @@ describe('createUsageCommands (ADR-011 §5 read contract)', () => {
         const repo = fakeRepo();
         const cmds = createUsageCommands({ usageRepository: repo });
 
-        await cmds.series({
+        await cmds.getTimeSeries({
             metric: 'records.synced',
             integrationType: 'hubspot',
             bucket: 'day',
         });
 
-        expect(repo.series).toHaveBeenCalledWith({
+        expect(repo.getTimeSeries).toHaveBeenCalledWith({
             metric: 'records.synced',
             integrationType: 'hubspot',
             bucket: 'day',
@@ -75,20 +75,18 @@ describe('createUsageCommands (ADR-011 §5 read contract)', () => {
 });
 
 describe('createUsageCommands — North Star read (ADR-011 Decision 5)', () => {
-    it('northStar() resolves the configured default counter and returns its totals', async () => {
+    it('getNorthStarTotals() resolves the configured default counter and returns its totals', async () => {
         const repo = fakeRepo();
-        const cmds = createUsageCommands({
-            usageRepository: repo,
-            northStar: { default: { name: 'records.synced' } },
-        });
+        const cmds = createUsageCommands({ usageRepository: repo });
 
         const since = new Date('2026-01-01T00:00:00.000Z');
-        const result = await cmds.northStar({
+        const result = await cmds.getNorthStarTotals({
+            northStar: { default: { name: 'records.synced' } },
             integrationType: 'hubspot',
             since,
         });
 
-        expect(repo.totals).toHaveBeenCalledWith(
+        expect(repo.getTotalsByDimension).toHaveBeenCalledWith(
             expect.objectContaining({ metric: 'records.synced', since })
         );
         expect(result).toEqual({
@@ -97,31 +95,31 @@ describe('createUsageCommands — North Star read (ADR-011 Decision 5)', () => {
         });
     });
 
-    it('northStar() prefers a byType counter over the default for that type', async () => {
+    it('getNorthStarTotals() prefers a byType counter over the default for that type', async () => {
         const repo = fakeRepo();
-        const cmds = createUsageCommands({
-            usageRepository: repo,
+        const cmds = createUsageCommands({ usageRepository: repo });
+
+        const result = await cmds.getNorthStarTotals({
             northStar: {
                 default: { name: 'records.synced' },
                 byType: { crm: { name: 'contacts.synced' } },
             },
+            integrationType: 'crm',
         });
 
-        const result = await cmds.northStar({ integrationType: 'crm' });
-
-        expect(repo.totals).toHaveBeenCalledWith(
+        expect(repo.getTotalsByDimension).toHaveBeenCalledWith(
             expect.objectContaining({ metric: 'contacts.synced' })
         );
         expect(result.metric).toBe('contacts.synced');
     });
 
-    it('northStar() returns null when no North Star is configured', async () => {
+    it('getNorthStarTotals() returns null when no North Star is configured', async () => {
         const repo = fakeRepo();
         const cmds = createUsageCommands({ usageRepository: repo });
 
-        const result = await cmds.northStar({ integrationType: 'hubspot' });
+        const result = await cmds.getNorthStarTotals({ integrationType: 'hubspot' });
 
         expect(result).toBeNull();
-        expect(repo.totals).not.toHaveBeenCalled();
+        expect(repo.getTotalsByDimension).not.toHaveBeenCalled();
     });
 });

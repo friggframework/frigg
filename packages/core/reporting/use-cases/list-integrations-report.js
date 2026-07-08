@@ -118,7 +118,7 @@ class ListIntegrationsReport {
         try {
             const totalsByMetric = await Promise.all(
                 metrics.map(async (metric) => {
-                    const totals = await this.usageRepository.totals({
+                    const totals = await this.usageRepository.getTotalsByDimension({
                         metric,
                         groupBy: 'integrationType',
                     });
