@@ -61,7 +61,7 @@ class Requester extends Delegate {
         return resp.text();
     };
 
-    async _request(url, options, i = 0) {
+    async _request(url, options, attempt = 0) {
         let encodedUrl = encodeURI(url);
         if (options.query) {
             let queryBuild = '?';
@@ -119,11 +119,11 @@ class Requester extends Delegate {
                 // stall at batch scale.
                 const isTimeout =
                     e?.name === 'AbortError' || e?.type === 'aborted';
-                if (e?.code === 'ECONNRESET' && i < this.backOff.length) {
+                if (e?.code === 'ECONNRESET' && attempt < this.backOff.length) {
                     clearRequestTimer();
-                    const delay = this.backOff[i] * 1000;
+                    const delay = this.backOff[attempt] * 1000;
                     await new Promise((resolve) => setTimeout(resolve, delay));
-                    return this._request(url, options, i + 1);
+                    return this._request(url, options, attempt + 1);
                 }
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
@@ -146,11 +146,14 @@ class Requester extends Delegate {
             const { status } = response;
 
             // If the status is retriable and there are back off requests left, retry the request
-            if ((status === 429 || status >= 500) && i < this.backOff.length) {
+            if (
+                (status === 429 || status >= 500) &&
+                attempt < this.backOff.length
+            ) {
                 clearRequestTimer();
-                const delay = this.backOff[i] * 1000;
+                const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
-                return this._request(url, options, i + 1);
+                return this._request(url, options, attempt + 1);
             }
 
             if (status === 401) {
@@ -164,7 +167,7 @@ class Requester extends Delegate {
                         await new Promise((resolve) =>
                             setTimeout(resolve, delay)
                         );
-                        return this._request(url, options, i + 1);
+                        return this._request(url, options, attempt + 1);
                     }
 
                     throw await this._invalidateAuth(
@@ -179,7 +182,7 @@ class Requester extends Delegate {
                     const refreshSucceeded = await this.refreshAuth();
                     if (refreshSucceeded) {
                         clearRequestTimer();
-                        return this._request(url, options, i + 1);
+                        return this._request(url, options, attempt + 1);
                     }
 
                     throw await this._invalidateAuth(
