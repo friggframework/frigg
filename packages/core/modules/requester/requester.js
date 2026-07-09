@@ -168,7 +168,10 @@ class Requester extends Delegate {
                 if (!this.isRefreshable) {
                     // Up to MAX_AUTH_RETRIES grace retries before invalidating
                     // — a 401 alone isn't proof the credential is bad.
-                    if (this.authGraceRetryCount < MAX_AUTH_RETRIES) {
+                    if (
+                        this.authGraceRetryCount < MAX_AUTH_RETRIES &&
+                        this.authGraceRetryCount < this.backOff.length
+                    ) {
                         const delay =
                             this.backOff[this.authGraceRetryCount] * 1000;
                         this.authGraceRetryCount++;

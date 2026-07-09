@@ -336,6 +336,28 @@ describe('Requester', () => {
             expect(fetchMock).toHaveBeenCalledTimes(4);
         });
 
+        it('caps grace retries at the backOff array length even when MAX_AUTH_RETRIES allows more', async () => {
+            const fetchMock = oauthFetch([
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 401, body: { error: 'unauthorized' } },
+            ]);
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [0],
+            });
+            requester.notify = jest.fn();
+
+            await expect(
+                requester._get({ url: 'https://example.com/protected' })
+            ).rejects.toThrow();
+
+            expect(requester.notify).toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH,
+                expect.objectContaining({ statusCode: 401 })
+            );
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
         it('does NOT fire INVALID_AUTH when a later grace retry succeeds', async () => {
             const fetchMock = oauthFetch([
                 { status: 401, body: { error: 'unauthorized' } },
