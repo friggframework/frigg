@@ -12,8 +12,6 @@ class Requester extends Delegate {
         this.backOff = get(params, 'backOff', [1, 3, 10, 30, 60, 180]);
         this.isRefreshable = false;
         this.refreshCount = 0;
-        // Deliberately separate from `i` — a 429/5xx retry must not consume
-        // the 401 grace retry budget below.
         this.authGraceRetryCount = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
@@ -63,6 +61,10 @@ class Requester extends Delegate {
     };
 
     /**
+     * @param {string} url - The request URL, relative or absolute.
+     * @param {Object} options - Fetch options (method, headers, body, query,
+     *   returnFullRes, etc.) built by the `_get`/`_post`/`_patch`/`_put`/
+     *   `_delete` wrappers.
      * @param {number} attempt - 0-based count of retries already made for
      *   this call. Indexes `this.backOff` for the next delay and is passed
      *   back in on each recursive retry.
