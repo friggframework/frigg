@@ -354,11 +354,12 @@ describe('OAuth2Requester', () => {
             expect(mockFetch.mock.calls[0][1].headers.Authorization).toBeUndefined();
         });
 
-        it('should not retry more than once for consecutive 401s and should NOT notify on the second 401', async () => {
+        it('retries consecutive 401s up to 3 times, then notifies INVALID_AUTH once the budget is exhausted', async () => {
             const mockFetch = jest.fn().mockResolvedValue({
                 status: 401,
-                headers: { get: () => 'application/json' },
+                headers: new Map([['Content-Type', 'application/json']]),
                 json: async () => ({ error: 'Unauthorized' }),
+                text: async () => JSON.stringify({ error: 'Unauthorized' }),
             });
 
             const requester = new OAuth2Requester({
@@ -377,8 +378,11 @@ describe('OAuth2Requester', () => {
             await expect(requester._get({ url: 'https://api.example.com/data' }))
                 .rejects.toThrow();
 
-            expect(mockFetch).toHaveBeenCalledTimes(2);
-            expect(requester.notify).not.toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+            expect(mockFetch).toHaveBeenCalledTimes(4);
+            expect(requester.notify).toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH,
+                expect.objectContaining({ statusCode: 401 })
+            );
         });
 
         it('should use getTokenFromClientCredentials for client_credentials grant type on 401', async () => {

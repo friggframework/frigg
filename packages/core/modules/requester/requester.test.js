@@ -312,14 +312,16 @@ describe('Requester', () => {
             }
         }
 
-        it('grants one grace retry on a 401 before firing INVALID_AUTH when the requester is not refreshable', async () => {
+        it('grants 3 grace retries on a 401 before firing INVALID_AUTH when the requester is not refreshable', async () => {
             const fetchMock = oauthFetch([
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 401, body: { error: 'unauthorized' } },
                 { status: 401, body: { error: 'unauthorized' } },
                 { status: 401, body: { error: 'unauthorized' } },
             ]);
             const requester = new TestRequester({
                 fetch: fetchMock,
-                backOff: [0],
+                backOff: [0, 0, 0],
             });
             requester.notify = jest.fn();
 
@@ -331,38 +333,18 @@ describe('Requester', () => {
                 requester.DLGT_INVALID_AUTH,
                 expect.objectContaining({ statusCode: 401 })
             );
-            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(fetchMock).toHaveBeenCalledTimes(4);
         });
 
-        it('does NOT fire INVALID_AUTH when the grace retry succeeds', async () => {
+        it('does NOT fire INVALID_AUTH when a later grace retry succeeds', async () => {
             const fetchMock = oauthFetch([
+                { status: 401, body: { error: 'unauthorized' } },
                 { status: 401, body: { error: 'unauthorized' } },
                 { status: 200, body: { ok: true } },
             ]);
             const requester = new TestRequester({
                 fetch: fetchMock,
-                backOff: [0],
-            });
-            requester.notify = jest.fn();
-
-            const result = await requester._get({
-                url: 'https://example.com/protected',
-            });
-
-            expect(result).toEqual({ ok: true });
-            expect(requester.notify).not.toHaveBeenCalled();
-            expect(fetchMock).toHaveBeenCalledTimes(2);
-        });
-
-        it('still grants the 401 grace retry after an earlier 429 already consumed a backoff attempt', async () => {
-            const fetchMock = oauthFetch([
-                { status: 429 },
-                { status: 401, body: { error: 'unauthorized' } },
-                { status: 200, body: { ok: true } },
-            ]);
-            const requester = new TestRequester({
-                fetch: fetchMock,
-                backOff: [0, 0],
+                backOff: [0, 0, 0],
             });
             requester.notify = jest.fn();
 
@@ -373,6 +355,59 @@ describe('Requester', () => {
             expect(result).toEqual({ ok: true });
             expect(requester.notify).not.toHaveBeenCalled();
             expect(fetchMock).toHaveBeenCalledTimes(3);
+        });
+
+        it('waits an escalating backOff delay for each successive grace retry', async () => {
+            const fetchMock = oauthFetch([
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 200, body: { ok: true } },
+            ]);
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [10, 20, 30],
+                requestTimeoutMs: 0,
+            });
+            requester.notify = jest.fn();
+            const sleptDelays = [];
+            const originalSetTimeout = global.setTimeout;
+            jest.spyOn(global, 'setTimeout').mockImplementation((fn, delay) => {
+                sleptDelays.push(delay);
+                return originalSetTimeout(fn, 0);
+            });
+
+            try {
+                await requester._get({
+                    url: 'https://example.com/protected',
+                });
+            } finally {
+                global.setTimeout.mockRestore();
+            }
+
+            expect(sleptDelays).toEqual([10_000, 20_000, 30_000]);
+        });
+
+        it('still grants the 401 grace retries after an earlier 429 already consumed a backoff attempt', async () => {
+            const fetchMock = oauthFetch([
+                { status: 429 },
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 200, body: { ok: true } },
+            ]);
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [0, 0, 0, 0],
+            });
+            requester.notify = jest.fn();
+
+            const result = await requester._get({
+                url: 'https://example.com/protected',
+            });
+
+            expect(result).toEqual({ ok: true });
+            expect(requester.notify).not.toHaveBeenCalled();
+            expect(fetchMock).toHaveBeenCalledTimes(4);
         });
 
         it('does NOT fire INVALID_AUTH when refresh succeeds and retry returns 200', async () => {
@@ -412,8 +447,31 @@ describe('Requester', () => {
             expect(fetchMock).toHaveBeenCalledTimes(1);
         });
 
-        it('does NOT fire INVALID_AUTH on a second 401 after a successful refresh', async () => {
+        it('keeps refreshing and retrying across up to 3 consecutive 401s, then succeeds', async () => {
             const fetchMock = oauthFetch([
+                { status: 401 },
+                { status: 401 },
+                { status: 401 },
+                { status: 200, body: { ok: true } },
+            ]);
+            const requester = new RefreshableRequester({ fetch: fetchMock });
+            requester.refreshAuth = jest.fn().mockResolvedValue(true);
+            requester.notify = jest.fn();
+
+            const result = await requester._get({
+                url: 'https://example.com/protected',
+            });
+
+            expect(result).toEqual({ ok: true });
+            expect(requester.refreshAuth).toHaveBeenCalledTimes(3);
+            expect(requester.notify).not.toHaveBeenCalled();
+            expect(fetchMock).toHaveBeenCalledTimes(4);
+        });
+
+        it('fires INVALID_AUTH once the refresh budget is exhausted even though every refresh succeeded', async () => {
+            const fetchMock = oauthFetch([
+                { status: 401 },
+                { status: 401 },
                 { status: 401 },
                 { status: 401 },
             ]);
@@ -425,9 +483,12 @@ describe('Requester', () => {
                 requester._get({ url: 'https://example.com/protected' })
             ).rejects.toThrow();
 
-            expect(requester.refreshAuth).toHaveBeenCalledTimes(1);
-            expect(requester.notify).not.toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
-            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(requester.refreshAuth).toHaveBeenCalledTimes(3);
+            expect(requester.notify).toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH,
+                expect.objectContaining({ statusCode: 401 })
+            );
+            expect(fetchMock).toHaveBeenCalledTimes(4);
         });
 
         it('resets refreshCount after a successful 2xx so a later 401 can attempt refresh again', async () => {

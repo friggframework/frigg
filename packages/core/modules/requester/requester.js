@@ -4,6 +4,7 @@ const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
+const MAX_AUTH_RETRIES = 3;
 
 class Requester extends Delegate {
     constructor(params) {
@@ -163,12 +164,13 @@ class Requester extends Delegate {
 
             if (status === 401) {
                 if (!this.isRefreshable) {
-                    // One grace retry before invalidating — a single 401
-                    // isn't proof the credential is bad.
-                    if (this.authGraceRetryCount === 0) {
+                    // Up to MAX_AUTH_RETRIES grace retries before invalidating
+                    // — a 401 alone isn't proof the credential is bad.
+                    if (this.authGraceRetryCount < MAX_AUTH_RETRIES) {
+                        const delay =
+                            this.backOff[this.authGraceRetryCount] * 1000;
                         this.authGraceRetryCount++;
                         clearRequestTimer();
-                        const delay = this.backOff[0] * 1000;
                         await new Promise((resolve) =>
                             setTimeout(resolve, delay)
                         );
@@ -182,7 +184,7 @@ class Requester extends Delegate {
                     );
                 }
 
-                if (this.refreshCount === 0) {
+                if (this.refreshCount < MAX_AUTH_RETRIES) {
                     this.refreshCount++;
                     const refreshSucceeded = await this.refreshAuth();
                     if (refreshSucceeded) {
@@ -196,6 +198,8 @@ class Requester extends Delegate {
                         response
                     );
                 }
+
+                throw await this._invalidateAuth(encodedUrl, options, response);
             }
 
             // If the error wasn't retried, throw. FetchError.create reads
