@@ -11,10 +11,8 @@ class Requester extends Delegate {
         this.backOff = get(params, 'backOff', [1, 3, 10, 30, 60, 180]);
         this.isRefreshable = false;
         this.refreshCount = 0;
-        // Independent from the `i` backoff-attempt counter passed through
-        // _request's recursion — a 429/5xx retry earlier in the same call
-        // already advances `i`, and gating the 401 grace retry on `i === 0`
-        // would skip it whenever a 401 follows any prior backoff response.
+        // Deliberately separate from `i` — a 429/5xx retry must not consume
+        // the 401 grace retry budget below.
         this.authGraceRetryCount = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
@@ -157,16 +155,8 @@ class Requester extends Delegate {
 
             if (status === 401) {
                 if (!this.isRefreshable) {
-                    // A non-refreshable requester (ApiKeyRequester,
-                    // BasicAuthRequester) has no token to renew, but a single
-                    // 401 is not necessarily proof the credential itself is
-                    // bad — it may be a transient edge/gateway hiccup. Grant
-                    // one grace retry of the same request before concluding
-                    // the credential is truly invalid, mirroring the single
-                    // refresh attempt OAuth2Requester gets below. Gated on
-                    // authGraceRetryCount rather than `i` so an earlier
-                    // 429/5xx backoff on the same call doesn't consume the
-                    // grace retry before a 401 is even seen.
+                    // One grace retry before invalidating — a single 401
+                    // isn't proof the credential is bad.
                     if (this.authGraceRetryCount === 0) {
                         this.authGraceRetryCount++;
                         clearRequestTimer();
@@ -215,10 +205,9 @@ class Requester extends Delegate {
                 );
             }
 
-            // Successful response: reset the per-instance refresh/grace
-            // budgets so a later 401 in the same Requester lifetime can
-            // attempt refresh (or another grace retry) again instead of
-            // silently falling through.
+            // Successful response: reset the per-instance refresh budget so
+            // a later 401 in the same Requester lifetime can attempt refresh
+            // again instead of silently falling through.
             this.refreshCount = 0;
             this.authGraceRetryCount = 0;
 
@@ -237,12 +226,6 @@ class Requester extends Delegate {
         }
     }
 
-    // Builds a diagnostic FetchError from the failed 401 response, notifies
-    // delegates with it attached (so the credential-invalidation chain can
-    // log real detail instead of a bare "invalid credentials" with no
-    // evidence), and returns the error for the caller to throw. Notifying
-    // and throwing are split so notify() always fires even though `await`ing
-    // it happens before the throw.
     async _invalidateAuth(encodedUrl, options, response) {
         const fetchError = await FetchError.create({
             resource: encodedUrl,
