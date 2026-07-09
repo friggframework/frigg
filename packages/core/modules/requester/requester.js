@@ -61,6 +61,11 @@ class Requester extends Delegate {
         return resp.text();
     };
 
+    /**
+     * @param {number} attempt - 0-based count of retries already made for
+     *   this call. Indexes `this.backOff` for the next delay and is passed
+     *   back in on each recursive retry.
+     */
     async _request(url, options, attempt = 0) {
         let encodedUrl = encodeURI(url);
         if (options.query) {
