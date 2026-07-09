@@ -220,11 +220,11 @@ class IntegrationBase {
     /**
      * Returns the modules as object with keys as module names.
      * Uses the keys from Definition.modules to attach modules correctly.
-     * 
+     *
      * Example:
      *   Definition.modules = { attio: {...}, quo: { definition: { getName: () => 'quo-attio' } } }
      *   Module with getName()='quo-attio' gets attached as this.quo (not this['quo-attio'])
-     * 
+     *
      * @private
      * @param {Array} integrationModules - Array of module instances
      * @returns {Object} The modules object
@@ -791,8 +791,18 @@ class IntegrationBase {
         if (!this.id) return;
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            const detail =
+                object?.reason || object?.statusCode
+                    ? ` (status ${object?.statusCode ?? '?'}: ${
+                          object?.reason ?? 'no reason given'
+                      })`
+                    : '';
             console.log(
-                `[Frigg] Module ${notifier?.name || '?'} reported invalid credentials for integration ${this.id} — marking ERROR`
+                `[Frigg] Module ${
+                    notifier?.name || '?'
+                } reported invalid credentials for integration ${
+                    this.id
+                } — marking ERROR${detail}`
             );
             await this.persistStatus('ERROR');
             return;
@@ -801,7 +811,11 @@ class IntegrationBase {
         if (delegateString === 'CREDENTIAL_VALIDATED') {
             if (this.status !== 'ERROR') return;
             console.log(
-                `[Frigg] Module ${notifier?.name || '?'} reported valid credentials for integration ${this.id} — clearing ERROR → ENABLED`
+                `[Frigg] Module ${
+                    notifier?.name || '?'
+                } reported valid credentials for integration ${
+                    this.id
+                } — clearing ERROR → ENABLED`
             );
             await this.persistStatus('ENABLED');
         }

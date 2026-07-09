@@ -83,4 +83,54 @@ describe('Module.markCredentialsInvalid delegate propagation', () => {
             })
         );
     });
+
+    it('includes diagnostic detail in the CREDENTIAL_INVALIDATED payload when provided', async () => {
+        const mockDelegate = {
+            receiveNotification: jest.fn().mockResolvedValue(undefined),
+        };
+        module.delegate = mockDelegate;
+
+        await module.markCredentialsInvalid({
+            message: 'Unauthorized',
+            statusCode: 401,
+        });
+
+        expect(mockDelegate.receiveNotification).toHaveBeenCalledWith(
+            module,
+            'CREDENTIAL_INVALIDATED',
+            expect.objectContaining({
+                credentialId: 'cred-1',
+                moduleName: 'testmodule',
+                reason: 'Unauthorized',
+                statusCode: 401,
+            })
+        );
+    });
+
+    it('omits reason/statusCode from the payload when no diagnostic detail is given', async () => {
+        const mockDelegate = {
+            receiveNotification: jest.fn().mockResolvedValue(undefined),
+        };
+        module.delegate = mockDelegate;
+
+        await module.markCredentialsInvalid();
+
+        const [, , payload] = mockDelegate.receiveNotification.mock.calls[0];
+        expect(payload).not.toHaveProperty('reason');
+        expect(payload).not.toHaveProperty('statusCode');
+    });
+
+    it('forwards the diagnostic object from receiveNotification through to markCredentialsInvalid', async () => {
+        module.api = { DLGT_INVALID_AUTH: 'INVALID_AUTH' };
+        const diagnosticInfo = { message: 'Unauthorized', statusCode: 401 };
+        jest.spyOn(module, 'markCredentialsInvalid').mockResolvedValue(
+            undefined
+        );
+
+        await module.receiveNotification({}, 'INVALID_AUTH', diagnosticInfo);
+
+        expect(module.markCredentialsInvalid).toHaveBeenCalledWith(
+            diagnosticInfo
+        );
+    });
 });

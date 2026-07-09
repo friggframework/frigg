@@ -4,6 +4,7 @@ const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
+const MAX_AUTH_RETRIES = 3;
 
 class Requester extends Delegate {
     constructor(params) {
@@ -11,6 +12,7 @@ class Requester extends Delegate {
         this.backOff = get(params, 'backOff', [1, 3, 10, 30, 60, 180]);
         this.isRefreshable = false;
         this.refreshCount = 0;
+        this.authGraceRetryCount = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
         this.agent = get(params, 'agent', null);
@@ -58,7 +60,16 @@ class Requester extends Delegate {
         return resp.text();
     };
 
-    async _request(url, options, i = 0) {
+    /**
+     * @param {string} url - The request URL, relative or absolute.
+     * @param {Object} options - Fetch options (method, headers, body, query,
+     *   returnFullRes, etc.) built by the `_get`/`_post`/`_patch`/`_put`/
+     *   `_delete` wrappers.
+     * @param {number} attempt - 0-based count of retries already made for
+     *   this call. Indexes `this.backOff` for the next delay and is passed
+     *   back in on each recursive retry.
+     */
+    async _request(url, options, attempt = 0) {
         let encodedUrl = encodeURI(url);
         if (options.query) {
             let queryBuild = '?';
@@ -116,11 +127,11 @@ class Requester extends Delegate {
                 // stall at batch scale.
                 const isTimeout =
                     e?.name === 'AbortError' || e?.type === 'aborted';
-                if (e?.code === 'ECONNRESET' && i < this.backOff.length) {
+                if (e?.code === 'ECONNRESET' && attempt < this.backOff.length) {
                     clearRequestTimer();
-                    const delay = this.backOff[i] * 1000;
+                    const delay = this.backOff[attempt] * 1000;
                     await new Promise((resolve) => setTimeout(resolve, delay));
-                    return this._request(url, options, i + 1);
+                    return this._request(url, options, attempt + 1);
                 }
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
@@ -143,30 +154,57 @@ class Requester extends Delegate {
             const { status } = response;
 
             // If the status is retriable and there are back off requests left, retry the request
-            if ((status === 429 || status >= 500) && i < this.backOff.length) {
+            if (
+                (status === 429 || status >= 500) &&
+                attempt < this.backOff.length
+            ) {
                 clearRequestTimer();
-                const delay = this.backOff[i] * 1000;
+                const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
-                return this._request(url, options, i + 1);
+                return this._request(url, options, attempt + 1);
             }
 
             if (status === 401) {
                 if (!this.isRefreshable) {
-                    await this.notify(this.DLGT_INVALID_AUTH);
-                    return;
+                    // Up to MAX_AUTH_RETRIES grace retries before invalidating
+                    // — a 401 alone isn't proof the credential is bad.
+                    if (
+                        this.authGraceRetryCount < MAX_AUTH_RETRIES &&
+                        this.authGraceRetryCount < this.backOff.length
+                    ) {
+                        const delay =
+                            this.backOff[this.authGraceRetryCount] * 1000;
+                        this.authGraceRetryCount++;
+                        clearRequestTimer();
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, delay)
+                        );
+                        return this._request(url, options, attempt + 1);
+                    }
+
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
                 }
 
-                if (this.refreshCount === 0) {
+                if (this.refreshCount < MAX_AUTH_RETRIES) {
                     this.refreshCount++;
                     const refreshSucceeded = await this.refreshAuth();
                     if (refreshSucceeded) {
                         clearRequestTimer();
-                        return this._request(url, options, i + 1);
+                        return this._request(url, options, attempt + 1);
                     }
 
-                    await this.notify(this.DLGT_INVALID_AUTH);
-                    return;
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
                 }
+
+                throw await this._invalidateAuth(encodedUrl, options, response);
             }
 
             // If the error wasn't retried, throw. FetchError.create reads
@@ -188,6 +226,7 @@ class Requester extends Delegate {
             // a later 401 in the same Requester lifetime can attempt refresh
             // again instead of silently falling through.
             this.refreshCount = 0;
+            this.authGraceRetryCount = 0;
 
             // parsedBody consumes the response body stream. If the server
             // stalls mid-stream the timer (still armed) aborts it.
@@ -202,6 +241,16 @@ class Requester extends Delegate {
         } finally {
             clearRequestTimer();
         }
+    }
+
+    async _invalidateAuth(encodedUrl, options, response) {
+        const fetchError = await FetchError.create({
+            resource: encodedUrl,
+            init: options,
+            response,
+        });
+        await this.notify(this.DLGT_INVALID_AUTH, fetchError);
+        return fetchError;
     }
 
     _maybeFlagTimeoutDuringBodyRead(err, timeoutMs) {
