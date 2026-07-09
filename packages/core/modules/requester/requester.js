@@ -11,6 +11,11 @@ class Requester extends Delegate {
         this.backOff = get(params, 'backOff', [1, 3, 10, 30, 60, 180]);
         this.isRefreshable = false;
         this.refreshCount = 0;
+        // Independent from the `i` backoff-attempt counter passed through
+        // _request's recursion — a 429/5xx retry earlier in the same call
+        // already advances `i`, and gating the 401 grace retry on `i === 0`
+        // would skip it whenever a 401 follows any prior backoff response.
+        this.authGraceRetryCount = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
         this.agent = get(params, 'agent', null);
@@ -158,8 +163,12 @@ class Requester extends Delegate {
                     // bad — it may be a transient edge/gateway hiccup. Grant
                     // one grace retry of the same request before concluding
                     // the credential is truly invalid, mirroring the single
-                    // refresh attempt OAuth2Requester gets below.
-                    if (i === 0) {
+                    // refresh attempt OAuth2Requester gets below. Gated on
+                    // authGraceRetryCount rather than `i` so an earlier
+                    // 429/5xx backoff on the same call doesn't consume the
+                    // grace retry before a 401 is even seen.
+                    if (this.authGraceRetryCount === 0) {
+                        this.authGraceRetryCount++;
                         clearRequestTimer();
                         const delay = this.backOff[0] * 1000;
                         await new Promise((resolve) =>
@@ -206,10 +215,12 @@ class Requester extends Delegate {
                 );
             }
 
-            // Successful response: reset the per-instance refresh budget so
-            // a later 401 in the same Requester lifetime can attempt refresh
-            // again instead of silently falling through.
+            // Successful response: reset the per-instance refresh/grace
+            // budgets so a later 401 in the same Requester lifetime can
+            // attempt refresh (or another grace retry) again instead of
+            // silently falling through.
             this.refreshCount = 0;
+            this.authGraceRetryCount = 0;
 
             // parsedBody consumes the response body stream. If the server
             // stalls mid-stream the timer (still armed) aborts it.

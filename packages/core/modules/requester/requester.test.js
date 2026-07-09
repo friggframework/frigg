@@ -354,6 +354,27 @@ describe('Requester', () => {
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
+        it('still grants the 401 grace retry after an earlier 429 already consumed a backoff attempt', async () => {
+            const fetchMock = oauthFetch([
+                { status: 429 },
+                { status: 401, body: { error: 'unauthorized' } },
+                { status: 200, body: { ok: true } },
+            ]);
+            const requester = new TestRequester({
+                fetch: fetchMock,
+                backOff: [0, 0],
+            });
+            requester.notify = jest.fn();
+
+            const result = await requester._get({
+                url: 'https://example.com/protected',
+            });
+
+            expect(result).toEqual({ ok: true });
+            expect(requester.notify).not.toHaveBeenCalled();
+            expect(fetchMock).toHaveBeenCalledTimes(3);
+        });
+
         it('does NOT fire INVALID_AUTH when refresh succeeds and retry returns 200', async () => {
             const fetchMock = oauthFetch([
                 { status: 401 },
