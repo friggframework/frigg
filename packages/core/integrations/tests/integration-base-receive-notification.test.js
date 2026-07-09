@@ -59,6 +59,44 @@ describe('IntegrationBase.receiveNotification', () => {
         expect(integration.status).toBe('ERROR');
     });
 
+    it('includes the diagnostic reason and status code in the log line when present', async () => {
+        const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+        try {
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_INVALIDATED',
+                {
+                    credentialId: 'cred-1',
+                    moduleName: 'testmodule',
+                    reason: 'Unauthorized',
+                    statusCode: 401,
+                }
+            );
+            expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('401'));
+            expect(logSpy).toHaveBeenCalledWith(
+                expect.stringContaining('Unauthorized')
+            );
+        } finally {
+            logSpy.mockRestore();
+        }
+    });
+
+    it('logs the plain message with no diagnostic suffix when none is provided', async () => {
+        const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+        try {
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_INVALIDATED',
+                { credentialId: 'cred-1', moduleName: 'testmodule' }
+            );
+            expect(logSpy).toHaveBeenCalledWith(
+                '[Frigg] Module testmodule reported invalid credentials for integration int-1 — marking ERROR'
+            );
+        } finally {
+            logSpy.mockRestore();
+        }
+    });
+
     describe('CREDENTIAL_VALIDATED self-heal', () => {
         const validatedPayload = {
             credentialId: 'cred-1',

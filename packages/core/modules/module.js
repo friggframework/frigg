@@ -147,14 +147,23 @@ class Module extends Delegate {
         } else if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
             await this.deauthorize();
         } else if (delegateString === this.api.DLGT_INVALID_AUTH) {
-            await this.markCredentialsInvalid();
+            await this.markCredentialsInvalid(object);
         }
     }
 
-    async markCredentialsInvalid() {
+    async markCredentialsInvalid(diagnosticInfo = null) {
         if (!this.credential) return;
 
         if (!this.credential.id) return;
+
+        if (diagnosticInfo) {
+            console.error(
+                `[Frigg] Module ${this.name} credentials rejected (status ${
+                    diagnosticInfo.statusCode ?? '?'
+                }):`,
+                diagnosticInfo.message ?? diagnosticInfo
+            );
+        }
 
         await this.credentialRepository.updateAuthenticationStatus(
             this.credential.id,
@@ -181,6 +190,10 @@ class Module extends Delegate {
             await this.notify(this.DLGT_CREDENTIAL_INVALIDATED, {
                 credentialId: this.credential.id,
                 moduleName: this.name,
+                ...(diagnosticInfo && {
+                    reason: diagnosticInfo.message,
+                    statusCode: diagnosticInfo.statusCode,
+                }),
             });
         } catch (err) {
             console.error(

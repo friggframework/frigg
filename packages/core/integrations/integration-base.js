@@ -848,12 +848,18 @@ class IntegrationBase {
         if (!this.id) return;
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            const detail =
+                object?.reason || object?.statusCode
+                    ? ` (status ${object?.statusCode ?? '?'}: ${
+                          object?.reason ?? 'no reason given'
+                      })`
+                    : '';
             console.log(
                 `[Frigg] Module ${
                     notifier?.name || '?'
                 } reported invalid credentials for integration ${
                     this.id
-                } — marking ERROR`
+                } — marking ERROR${detail}`
             );
             await this.persistStatus('ERROR');
             return;
