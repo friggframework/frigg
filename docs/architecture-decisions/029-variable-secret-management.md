@@ -48,6 +48,20 @@ CLI (it would diverge from any future GUI).
   set / IAM from the integration→module graph (ADR-027) — the management layer never hand-maintains
   per-function manifests.
 
+```
+   CLI       curl       GUI / UI          (thin clients — no routing logic)
+     └─────────┼──────────┘
+               ▼
+     ┌──────────────── Admin API ─────────────────┐
+     │  reads routing map (tier × env → backend);  │
+     │  places / resolves each value once          │
+     └───┬──────────────┬─────────────────┬────────┘
+     platform        app-module        per-connection
+     provider store   ModuleCredential/   DB Credential /
+     (SSM/Secrets/    provider            Integration.config
+      1Password/local)
+```
+
 **Illustrative CLI (thin wrappers over admin routes):**
 ```
 frigg config set FEATURE_X=on --stage prod            # platform config  → SSM / App Config

@@ -56,6 +56,21 @@ Mode also selects how **variable scoping** (ADR-027) is realized: `materialized`
 manifest (`global ∪ creds(modules the function serves)`); `direct` → per-function IAM scoped to those
 paths, creds pulled at module instantiation.
 
+```
+    write (ADR-029)                                   runtime read
+         │                                                 ▲
+         ▼                                                 │
+ ┌──────────────────── SecretsConfigProvider (port) ──────────────────┐
+ │   resolve()      write()      runtimeMode()      refreshPolicy()    │
+ └───┬──────────┬──────────┬───────────┬──────────────┬───────────────┘
+    aws        gcp       azure     1password         database
+  (SSM+SM)  (Secret Mgr)(Key Vault)(Connect/SA)  (ModuleCredential / Credential)
+
+  materialized (default, external mgrs): write ─► sync into runtime store ─► process.env
+  direct:                                function ─► provider at cold start
+                                         (needs bootstrap token; cloud-native uses IAM)
+```
+
 - **AWS adapter** = the existing SSM Parameter Store + Secrets Manager work, consolidated. The draft
   runtime loader collapses into **one** core loader behind the port (`parametersToEnv` /
   `secretsToEnv` via the Parameters & Secrets Lambda extension); `SsmBuilder` becomes its IAM half.
@@ -97,9 +112,14 @@ Two modes, both behind the same interface:
   `credentialSource` adapter so an adopter can resolve tier-3 from their own store — is a considered,
   overridable extension point, **deferred, not built now.**
 
+- **Precedence (resolved):** the routing map (ADR-029) fixes **one backend per (tier, env)** → no
+  in-tier collision by construction. For genuine overlaps (e.g. legacy build-time env vs the
+  routing-map backend), the **provider/routing-map source wins**; the **local** provider overrides
+  for the local env only; deploy validation **warns** (opt-in strict mode fails).
+
 ## Open questions
-- Precedence when the same key resolves from multiple sources (e.g. Secrets Manager vs SSM vs env)?
-- Layer/extension **default-on vs opt-in** (ties to ADR-027 function-granularity).
+- Layer/extension **default-on vs opt-in** (minor; with per-function scoping confirmed, the extension
+  attaches only to functions that need `direct` reads).
 
 ## Related
 - [ADR-027: Configuration & Secrets — Model & Tiers](./027-configuration-and-secrets-model.md)

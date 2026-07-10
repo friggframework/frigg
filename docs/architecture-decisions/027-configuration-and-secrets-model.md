@@ -61,6 +61,16 @@ serve one or both: e.g. an adopter can make **1Password the system of record** f
 the runtime reads from a cloud store (materialized) or from 1Password directly. Tier 3 is authored by
 the *running app* (at connect time), not by an admin — so it lives in the DB by default.
 
+```
+ SCOPE                MANAGEMENT PLANE          STORE (routing map, ADR-029/028)         RUNTIME PLANE
+                      admin API / CLI / UI
+ Tier 1 platform      ──write──►                SSM / Secrets / 1Password / local  ──►   process.env  (every function)
+ Tier 2 app-module    ──write──►                ModuleCredential/Config | provider ──►   env of functions running
+                                                                                          that module (scoped)
+ Tier 3 per-conn.     (written by running app)  DB Credential / Integration.config ──►   injected on demand,
+                                                                                          never in process.env
+```
+
 **The new concept is tier 2** — an app-level, per-module credential/config store, distinct from the
 instance `Credential`/`config`. Two ways to realize it (open decision):
 - **Option A — mirror models:** new `ModuleCredential` / `ModuleConfig` tables/collections, scoped by
@@ -103,6 +113,19 @@ This maps onto the two runtime modes (ADR-028):
 - **`direct`** → each function's role/identity is scoped to `global ∪ module-cred paths for modules
   it serves`; modules pull creds at instantiation — which also **eliminates env-overload** (nothing
   sits in env).
+
+**Boundary rule — derive by default, annotate the edge cases.** Tier-2 module creds are derived from
+the module's auth definition + the graph (no annotation); per-connection is inherently distinct;
+everything else defaults to platform-global. The app definition can override scope for
+adopter-specific values the graph can't infer:
+
+```js
+environment: {
+  DATABASE_URL: true,                          // platform (global) — inferred
+  MY_HUBSPOT_ONLY_FLAG: { scope: 'hubspot' },  // override: only functions running the hubspot module
+}
+// HUBSPOT_CLIENT_ID/SECRET/scopes (tier-2) need no annotation — derived from the module + graph.
+```
 
 **Confirmed against the code — the granularity is already there.** The infra builder emits
 **per-integration functions**: `integration-builder.js` creates, per integration, an HTTP handler
@@ -148,12 +171,17 @@ creds out of env entirely.
   `individually` packaged, so `materialized` per-function env/IAM is a wiring change (emit per-function
   env from the graph), not a bundling restructure.
 - **Terminology:** the instance tier is **per-connection** (not "tenant").
+- **Scope boundary:** **derive by default, annotate the edge cases** — tier-2 from module + graph,
+  per-connection inherently distinct, everything else platform-global; app definition can override a
+  variable's scope.
+- **Precedence:** tiers are separate namespaces (most-specific wins: per-connection > app-module >
+  platform); the routing map fixes **one backend per (tier, env)** so there's no in-tier collision by
+  construction; genuine overlaps → provider/routing-map source wins, local overrides for local env,
+  deploy validation **warns** (opt-in strict mode fails).
 
-## Open questions (to resolve)
-- Rule for what counts as **platform** vs **app-level-module** vs **per-connection** — always
-  derivable from the integration→module graph, or does the app definition need explicit
-  categorization for edge cases?
-- Key-collision **precedence** when a value resolves from more than one source (shared with ADR-028).
+## Open questions (implementation detail, non-blocking)
+- Exact **annotation syntax** for scope overrides in the app definition.
+- Whether collision detection defaults to **warn** or **strict**.
 
 ## Related
 - [ADR-028: Secrets & Config Provider Plugin](./028-secrets-config-provider-plugin.md)
