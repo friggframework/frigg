@@ -33,14 +33,28 @@ plugins: {
 }
 ```
 
-**Port (illustrative):**
+**Port (illustrative) — read *and* write, so any provider can be system-of-record and/or runtime source:**
 ```js
 class SecretsConfigProvider {                 // Port — ADR-PLUGINS plugin interface
-  async resolve(keysOrPrefix, { scope, env }) {}  // read → { KEY: value }
-  async write(key, value, { scope, env, secret }) {}  // used by ADR-029 management
-  refreshPolicy() {}                          // e.g. { mode: 'per-invocation', ttlSeconds: 300 }
+  async resolve(keysOrPrefix, { scope, env }) {}  // runtime read → { KEY: value }
+  async write(key, value, { scope, env, secret }) {}  // management-plane write (ADR-029)
+  runtimeMode() {}                            // 'materialized' | 'direct'
+  refreshPolicy() {}                          // e.g. { ttlSeconds: 300 }
 }
 ```
+
+**Runtime mode (decided): support both, `materialized` is the default for external managers.**
+- **`materialized`** — values are synced into the function's runtime store (cloud env/SSM/Secrets or
+  the DB tier) at write/deploy; the function never calls the external manager at runtime. Default for
+  1Password/Vault on serverless, because `direct` needs a **bootstrap secret** (a Service-Account
+  token) living in platform env — chicken-and-egg — whereas cloud-native stores authorize via the
+  function's IAM role with no stored token.
+- **`direct`** — the function reads from the provider at cold start (Connect / Service Account / SDK).
+  Available for adopters who want the store to *literally be* 1Password/Vault at runtime.
+
+Mode also selects how **variable scoping** (ADR-027) is realized: `materialized` → per-function env
+manifest (`global ∪ creds(modules the function serves)`); `direct` → per-function IAM scoped to those
+paths, creds pulled at module instantiation.
 
 - **AWS adapter** = the existing SSM Parameter Store + Secrets Manager work, consolidated. The draft
   runtime loader collapses into **one** core loader behind the port (`parametersToEnv` /
@@ -76,11 +90,16 @@ Two modes, both behind the same interface:
 ### Neutral
 - Establishes provider selection in `appDefinition.plugins` alongside database/encryption/etc.
 
+### Resolved
+- **Runtime mode:** support both; **`materialized` default** for external managers (see above).
+- **1Password/Vault:** both modes (source-of-truth-sync **and** runtime adapter); sync is the default.
+- **Per-connection (tier-3):** **DB by default.** A **pluggable non-Frigg credential source** — a
+  `credentialSource` adapter so an adopter can resolve tier-3 from their own store — is a considered,
+  overridable extension point, **deferred, not built now.**
+
 ## Open questions
 - Precedence when the same key resolves from multiple sources (e.g. Secrets Manager vs SSM vs env)?
-- Layer/extension **default-on vs opt-in**.
-- Do per-integration (tier-3) secrets stay **DB-only**, or may they target a provider store?
-- 1Password: source-of-truth-sync only, runtime adapter only, or both?
+- Layer/extension **default-on vs opt-in** (ties to ADR-027 function-granularity).
 
 ## Related
 - [ADR-027: Configuration & Secrets — Model & Tiers](./027-configuration-and-secrets-model.md)

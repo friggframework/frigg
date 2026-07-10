@@ -41,11 +41,25 @@ Configuration/secrets sort into **three scopes**, each crossed with **{config, s
 | Scope | Config | Secret | Where today |
 |---|---|---|---|
 | **1. Platform / app-wide** (per env) | infra, framework behavior, feature/dev flags | platform secrets | build-time `environment` → env; Secrets Manager → env (live); SSM (draft) |
-| **2. App-level per-API-module** (per env, shared across tenants) | module settings/scopes | **module client id/secret** | ❌ **no home — dumped into flat env (the overload)** |
-| **3. Instance / per-tenant** | `Integration.config` | `Credential.data` (field-encrypted) | ✅ exists; injected on demand |
+| **2. App-level per-API-module** (per env, shared across all connections) | module settings/scopes | **module client id/secret** | ❌ **no home — dumped into flat env (the overload)** |
+| **3. Per-connection** (instance) | `Integration.config` | `Credential.data` (field-encrypted) | ✅ exists; injected on demand |
 
-**Invariant (keep):** tier-3 secrets are **never** promoted to `process.env` — they're decrypted and
-injected into the module instance on demand. This isolation already holds and must stay.
+> **Terminology:** tier 3 is **per-connection** — one `Credential` per `Entity`, i.e. the tokens a
+> specific end user gets when they authorize *their* account (`User → Integration → Entity →
+> Credential`). Not to be confused with **deployment tenancy** (one Frigg instance per adopter
+> customer), a separate axis. Tier 2 is the **app-level** OAuth *application* credential (one per
+> module per environment, shared by all connections) — e.g. the HubSpot `client_id`/`secret` you
+> register once. Tier 3 is what Jane gets when she clicks "Connect HubSpot."
+
+**Invariant (keep):** tier-3 (per-connection) secrets are **never** promoted to `process.env` —
+they're decrypted and injected into the module instance on demand. This isolation already holds and
+must stay.
+
+**Two planes.** Every tier has a **management plane** (where values are authored — the admin API /
+CLI / UI, ADR-029) and a **runtime plane** (where the app reads them). Any provider (ADR-028) can
+serve one or both: e.g. an adopter can make **1Password the system of record** for tiers 1–2 while
+the runtime reads from a cloud store (materialized) or from 1Password directly. Tier 3 is authored by
+the *running app* (at connect time), not by an admin — so it lives in the DB by default.
 
 **The new concept is tier 2** — an app-level, per-module credential/config store, distinct from the
 instance `Credential`/`config`. Two ways to realize it (open decision):
@@ -70,12 +84,30 @@ No adopter should pay for a tier they don't use; each level is opt-in and backwa
 - **L3:** multi-provider (GCP / Azure / 1Password / Vault, ADR-028), **per-function scoping**
   (least privilege), and a hosted management GUI.
 
-### Least-privilege scoping (gap to close)
+### Variable scoping — deliver only what a function needs
 
-Today env is **global to every function** and IAM sits on one shared role — a function gets *all*
-envs, not only what it needs. The target (phased, likely L3): a **per-function env manifest** +
-**per-function role**, so each function receives only its declared keys/paths. Tier-2's per-module
-injection is a step toward this.
+**Principle: a variable reaches only the bundled functions that need it.** Three scoping levels,
+which Frigg can **derive from the app definition's integration→module graph** (it already knows which
+integration uses which modules — no hand-authored manifest):
+
+- **Global** — `DATABASE_URL`, `KMS_KEY_ARN`, `STAGE`, framework-behavior settings → every function.
+- **Module-scoped** — tier-2 creds like `HUBSPOT_CLIENT_ID`/`SECRET`/scopes → **only functions that
+  run the HubSpot module.** The Asana function never sees them *unless* it also runs HubSpot — the
+  rule is **usage-based, not name-based**, so the graph handles the "adopter runs HubSpot through
+  their Asana app" case correctly.
+- **Per-connection** — tier-3 → never in env; fetched on demand for the specific connection.
+
+This maps onto the two runtime modes (ADR-028):
+- **`materialized`** → each function's env = `global ∪ creds(modules it serves)` (a per-function env
+  manifest).
+- **`direct`** → each function's role/identity is scoped to `global ∪ module-cred paths for modules
+  it serves`; modules pull creds at instantiation — which also **eliminates env-overload** (nothing
+  sits in env).
+
+**Today this is a gap:** env is global to every function on one shared IAM role. Realizing true
+least-privilege depends on **function-bundling granularity** — split functions by module usage, or
+lean on `direct` on-demand fetch so a multiplexing function only reads what it instantiates. (Open
+question below.)
 
 ## Consequences
 
@@ -92,12 +124,21 @@ injection is a step toward this.
 ### Neutral
 - Establishes scope × sensitivity as the vocabulary the CLI/API and docs are organized around.
 
+### Resolved so far
+- **Runtime modes:** support **both** `materialized` and `direct`; **`materialized` is the default**
+  for external managers on serverless (avoids a bootstrap token in functions). (ADR-028.)
+- **Per-connection creds:** **DB by default.** A pluggable **non-Frigg credential source** (resolve
+  tier-3 from an adopter's own store) is a considered, overridable **extension point — deferred, not
+  built now.**
+- **Terminology:** the instance tier is **per-connection** (not "tenant").
+
 ## Open questions (to resolve)
 - **Tier-2 storage:** Option A (mirror models) vs Option B (repurpose existing at app-level filter)?
-- Do app-level module secrets live in the **DB** or in a **provider store** (or either, per adopter)?
-- **Least-privilege scoping:** commit to per-function manifest + per-function role, and when (L3)?
-- Rule for what counts as **platform** vs **app-level-module** vs **instance** — is the boundary
-  always obvious, or do we need explicit categorization in the app definition?
+- **Function-bundling granularity:** split functions per integration/module to get env-injection
+  scoping, or rely on `direct` on-demand fetch for multiplexing functions? (Gates true
+  least-privilege.)
+- Rule for what counts as **platform** vs **app-level-module** vs **per-connection** — always obvious
+  from the graph, or does the app definition need explicit categorization for edge cases?
 
 ## Related
 - [ADR-028: Secrets & Config Provider Plugin](./028-secrets-config-provider-plugin.md)

@@ -27,9 +27,26 @@ CLI (it would diverge from any future GUI).
   **curl-able** and a **hosted GUI/UI** can drive all layers of variables and secrets through the
   identical API. One API, many front-ends, no duplicated logic.
 - **Smart routing** = a function of (sensitivity: config vs secret) × (scope: platform /
-  app-level-module / instance) × (environment) × (configured provider). The caller states intent;
-  the API places it: platform → provider store; app-level module cred → tier-2 store (DB/provider);
-  instance → `Integration.config` / `Credential`.
+  app-level-module / per-connection) × (environment) × (configured provider). The caller states
+  intent; the API places it: platform → provider store; app-level module cred → tier-2 store
+  (DB/provider); per-connection → `Integration.config` / `Credential`.
+- **Routing map (per tier × environment → backend).** The placement rules live in a declared map so
+  the same intent routes differently per env, and **"unified 1Password" = set every tier's backend to
+  `1password`** (persona: "manage all of it in one place"). Mixed setups are just a different map.
+  ```js
+  // app definition (illustrative)
+  secretsRouting: {
+    prod:  { platform: '1password', appModule: '1password', perConnection: 'database' },
+    local: { platform: 'local',     appModule: 'local',     perConnection: 'database' },
+  }
+  ```
+- **Local parity.** A first-class **`local` provider** (gitignored file / docker DB) is the default
+  backend for local envs, so `frigg start` + the CLI/UI work with **zero cloud**. Because backend is
+  per-environment, a dev who lives in 1Password can point `local` at it too (via `op`), ideally
+  `materialized` so there's no runtime dependency.
+- **Scoping is emitted, not manual.** On deploy/build the API + infra derive each function's variable
+  set / IAM from the integration→module graph (ADR-027) — the management layer never hand-maintains
+  per-function manifests.
 
 **Illustrative CLI (thin wrappers over admin routes):**
 ```
