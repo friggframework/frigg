@@ -104,10 +104,20 @@ This maps onto the two runtime modes (ADR-028):
   it serves`; modules pull creds at instantiation — which also **eliminates env-overload** (nothing
   sits in env).
 
-**Today this is a gap:** env is global to every function on one shared IAM role. Realizing true
-least-privilege depends on **function-bundling granularity** — split functions by module usage, or
-lean on `direct` on-demand fetch so a multiplexing function only reads what it instantiates. (Open
-question below.)
+**Confirmed against the code — the granularity is already there.** The infra builder emits
+**per-integration functions**: `integration-builder.js` creates, per integration, an HTTP handler
+(`functions[integrationName]`), a webhook handler (`{name}Webhook`), a queue worker, and one function
+per extension binding (`{name}__{binding}`) — and packaging is **`package: { individually: true }`**
+(`base-definition-factory.js`), so each is a discrete, separately-packaged Lambda. Per-function
+env/IAM scoping therefore needs **no bundling restructure**.
+
+Env is global today only by **wiring**: the composer does
+`Object.assign(provider.environment, merged.environment)` (`infrastructure-composer.js`), dumping all
+vars onto the shared provider block. The fix (`materialized` mode) is to emit
+`functions[name].environment` = `global ∪ creds(that integration's modules)` from the
+integration→module graph instead of onto the global block; shared/non-integration functions (auth,
+health, reporting, db-migrate) get `global` only. `direct` mode remains the alternative that keeps
+creds out of env entirely.
 
 ## Consequences
 
@@ -125,20 +135,25 @@ question below.)
 - Establishes scope × sensitivity as the vocabulary the CLI/API and docs are organized around.
 
 ### Resolved so far
+- **Tier-2 storage: Option A — mirror models.** New `ModuleCredential` / `ModuleConfig`
+  tables/collections scoped by **app + environment + module** (not by `Entity`), secrets
+  field-encrypted via the existing registry. Chosen for clarity/cleanliness over overloading
+  `Credential`/`config`.
 - **Runtime modes:** support **both** `materialized` and `direct`; **`materialized` is the default**
   for external managers on serverless (avoids a bootstrap token in functions). (ADR-028.)
 - **Per-connection creds:** **DB by default.** A pluggable **non-Frigg credential source** (resolve
   tier-3 from an adopter's own store) is a considered, overridable **extension point — deferred, not
   built now.**
+- **Function scoping is feasible now** (confirmed in code): functions are already per-integration and
+  `individually` packaged, so `materialized` per-function env/IAM is a wiring change (emit per-function
+  env from the graph), not a bundling restructure.
 - **Terminology:** the instance tier is **per-connection** (not "tenant").
 
 ## Open questions (to resolve)
-- **Tier-2 storage:** Option A (mirror models) vs Option B (repurpose existing at app-level filter)?
-- **Function-bundling granularity:** split functions per integration/module to get env-injection
-  scoping, or rely on `direct` on-demand fetch for multiplexing functions? (Gates true
-  least-privilege.)
-- Rule for what counts as **platform** vs **app-level-module** vs **per-connection** — always obvious
-  from the graph, or does the app definition need explicit categorization for edge cases?
+- Rule for what counts as **platform** vs **app-level-module** vs **per-connection** — always
+  derivable from the integration→module graph, or does the app definition need explicit
+  categorization for edge cases?
+- Key-collision **precedence** when a value resolves from more than one source (shared with ADR-028).
 
 ## Related
 - [ADR-028: Secrets & Config Provider Plugin](./028-secrets-config-provider-plugin.md)
