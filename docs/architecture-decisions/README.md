@@ -28,7 +28,9 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [009](./009-e2e-test-package.md) | E2E Test Package | Accepted | 2025-12-15 |
 | [010](./010-reporting-as-admin-operation.md) | Reporting as an Admin Operation | Proposed | 2026-06-30 |
 | [011](./011-integration-telemetry-and-usage-tracking.md) | Integration Telemetry, Eventing & Feature-Usage Tracking | Proposed | 2026-06-30 |
-| [027](./027-ssm-runtime-environment-loading.md) | SSM-Based Runtime Environment Loading | Proposed | 2026-07-10 |
+| [027](./027-configuration-and-secrets-model.md) | Configuration & Secrets — Model & Tiers | Draft | 2026-07-10 |
+| [028](./028-secrets-config-provider-plugin.md) | Secrets & Config Provider Plugin | Draft | 2026-07-10 |
+| [029](./029-variable-secret-management.md) | Variable & Secret Management (Admin API / CLI / GUI) | Draft | 2026-07-10 |
 
 ## ADR Template
 
