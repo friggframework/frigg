@@ -9,6 +9,12 @@
  */
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
+const {
+    getOffloadedKeys,
+    getParameterPrefix,
+    isSsmOffloadActive,
+    validateOffloadConfig,
+} = require('./offload-utils');
 
 class SsmBuilder extends InfrastructureBuilder {
     constructor() {
@@ -41,6 +47,10 @@ class SsmBuilder extends InfrastructureBuilder {
             }
         }
 
+        for (const error of validateOffloadConfig(appDefinition).errors) {
+            result.addError(error);
+        }
+
         return result;
     }
 
@@ -55,20 +65,56 @@ class SsmBuilder extends InfrastructureBuilder {
             environment: {},
         };
 
-        // Add IAM permissions for SSM Parameter Store
-        result.iamStatements.push({
-            Effect: 'Allow',
-            Action: [
-                'ssm:GetParameter',
-                'ssm:GetParameters',
-                'ssm:GetParametersByPath',
-            ],
-            Resource: {
-                'Fn::Sub': 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*',
-            },
-        });
+        const ssmActions = [
+            'ssm:GetParameter',
+            'ssm:GetParameters',
+            'ssm:GetParametersByPath',
+        ];
 
-        console.log('  ✅ SSM Parameter Store IAM permissions added');
+        const offloadActive = isSsmOffloadActive(appDefinition);
+
+        // Broad read grant, unless the app opts into prefix-only access while
+        // offload is active.
+        if (!(appDefinition.ssm.restrictIamToPrefix === true && offloadActive)) {
+            result.iamStatements.push({
+                Effect: 'Allow',
+                Action: ssmActions,
+                Resource: {
+                    'Fn::Sub': 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*',
+                },
+            });
+            console.log('  ✅ SSM Parameter Store IAM permissions added');
+        }
+
+        if (offloadActive) {
+            const prefix = getParameterPrefix(appDefinition);
+            const offloadedKeys = getOffloadedKeys(appDefinition);
+
+            result.environment.SSM_PARAMETER_PREFIX = prefix;
+            result.environment.FRIGG_SSM_OFFLOADED_KEYS = offloadedKeys.join(',');
+
+            // Prefix-scoped read grant. Built as a plain serverless string (not
+            // Fn::Sub) because the prefix contains serverless variables like
+            // ${self:service} that Fn::Sub would reject as bad substitution keys.
+            result.iamStatements.push({
+                Effect: 'Allow',
+                Action: ssmActions,
+                Resource: `arn:aws:ssm:\${self:provider.region}:\${aws:accountId}:parameter${prefix}/*`,
+            });
+            console.log(
+                `  ✅ SSM offload enabled for ${offloadedKeys.length} variable(s) under ${prefix}`
+            );
+
+            if (appDefinition.ssm.kmsKeyArn) {
+                result.iamStatements.push({
+                    Effect: 'Allow',
+                    Action: ['kms:Decrypt'],
+                    Resource: appDefinition.ssm.kmsKeyArn,
+                });
+                console.log('  ✅ KMS decrypt permission added for offloaded parameters');
+            }
+        }
+
         console.log(`[${this.name}] ✅ SSM configuration completed`);
 
         return result;

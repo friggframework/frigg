@@ -9,12 +9,19 @@
  * 3. Generated resource references
  */
 
+const { isSsmOffloadActive } = require('../parameters/offload-utils');
+
 /**
  * Get environment variables from AppDefinition
- * 
+ *
  * Extracts environment variable definitions where value is true,
  * and creates Serverless variable references.
- * 
+ *
+ * A value of 'ssm' offloads the variable to Parameter Store when offload is
+ * active (see SsmBuilder), keeping it out of the Lambda env map. When offload
+ * is not active (local mode / ssm disabled) it falls back to the same
+ * `${env:KEY, ''}` reference as `true` so `frigg start` + dotenv keeps working.
+ *
  * @param {Object} appDefinition - Application definition
  * @returns {Object} Environment variable mappings
  */
@@ -45,9 +52,15 @@ function getAppEnvironmentVars(appDefinition) {
     console.log('📋 Loading environment variables from appDefinition...');
     const envKeys = [];
     const skippedKeys = [];
+    const offloadedKeys = [];
+    const offloadActive = isSsmOffloadActive(appDefinition);
 
     for (const [key, value] of Object.entries(appDefinition.environment)) {
-        if (value !== true) continue;
+        if (value === 'ssm' && offloadActive) {
+            offloadedKeys.push(key);
+            continue;
+        }
+        if (value !== true && value !== 'ssm') continue;
         if (reservedVars.has(key)) {
             skippedKeys.push(key);
             continue;
@@ -67,6 +80,13 @@ function getAppEnvironmentVars(appDefinition) {
         console.log(
             `   ⚠️  Skipped ${skippedKeys.length
             } reserved AWS Lambda variables: ${skippedKeys.join(', ')}`
+        );
+    }
+    if (offloadedKeys.length > 0) {
+        console.log(
+            `   🔒 Offloaded ${offloadedKeys.length} variables to SSM: ${offloadedKeys.join(
+                ', '
+            )}`
         );
     }
 

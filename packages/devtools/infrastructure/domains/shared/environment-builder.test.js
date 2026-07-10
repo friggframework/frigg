@@ -38,7 +38,7 @@ describe('Environment Builder', () => {
             expect(result.DISABLED_VAR).toBeUndefined();
         });
 
-        it('should ignore environment variables with non-boolean values', () => {
+        it("ignores non-boolean values other than the meaningful 'ssm' marker", () => {
             const appDefinition = {
                 environment: {
                     VALID: true,
@@ -105,6 +105,55 @@ describe('Environment Builder', () => {
 
             // Should use serverless variable syntax with empty string fallback
             expect(result.MY_VAR).toBe("${env:MY_VAR, ''}");
+        });
+    });
+
+    describe("getAppEnvironmentVars() - 'ssm' offload", () => {
+        const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+        afterEach(() => {
+            if (originalSkipDiscovery === undefined) {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            } else {
+                process.env.FRIGG_SKIP_AWS_DISCOVERY = originalSkipDiscovery;
+            }
+        });
+
+        it("excludes 'ssm' keys when offload is active", () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { FOO: 'ssm', BAR: true },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.FOO).toBeUndefined();
+            expect(result.BAR).toBe("${env:BAR, ''}");
+        });
+
+        it("falls back to env reference for 'ssm' keys when FRIGG_SKIP_AWS_DISCOVERY is set", () => {
+            process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { FOO: 'ssm' },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.FOO).toBe("${env:FOO, ''}");
+        });
+
+        it("falls back to env reference for 'ssm' keys when ssm is disabled", () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                ssm: { enable: false },
+                environment: { FOO: 'ssm' },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.FOO).toBe("${env:FOO, ''}");
         });
     });
 

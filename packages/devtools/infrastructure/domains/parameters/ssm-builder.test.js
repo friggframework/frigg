@@ -72,7 +72,7 @@ describe('SsmBuilder', () => {
                 ssm: {
                     enable: true,
                     parameters: {
-                        DATABASE_URL: '/my-app/database-url',
+                        SERVICE_TOKEN: '/my-app/service-token',
                         API_KEY: '/my-app/api-key',
                     },
                 },
@@ -118,6 +118,42 @@ describe('SsmBuilder', () => {
 
             expect(result.valid).toBe(false);
             expect(result.errors.some(e => e.includes('ssm.parameters must be an object'))).toBe(true);
+        });
+
+        it('should error when keys are marked for offload but ssm.enable is not true', () => {
+            const appDefinition = {
+                ssm: { enable: false },
+                environment: { FOO: 'ssm' },
+            };
+
+            const result = ssmBuilder.validate(appDefinition);
+
+            expect(result.valid).toBe(false);
+            expect(result.errors.some(e => e.includes('ssm.enable is not true'))).toBe(true);
+        });
+
+        it('should error when a blocklisted key is marked for offload', () => {
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { DATABASE_URL: 'ssm' },
+            };
+
+            const result = ssmBuilder.validate(appDefinition);
+
+            expect(result.valid).toBe(false);
+            expect(result.errors.some(e => e.includes('DATABASE_URL'))).toBe(true);
+        });
+
+        it('should error when an invalid env name is marked for offload', () => {
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { 'bad-name': 'ssm' },
+            };
+
+            const result = ssmBuilder.validate(appDefinition);
+
+            expect(result.valid).toBe(false);
+            expect(result.errors.some(e => e.includes('bad-name'))).toBe(true);
         });
     });
 
@@ -169,6 +205,114 @@ describe('SsmBuilder', () => {
             const result2 = await ssmBuilder.build(appDefinition, { someResource: 'value' });
 
             expect(result1.iamStatements).toEqual(result2.iamStatements);
+        });
+
+        it('should return empty environment when no keys are offloaded', async () => {
+            const appDefinition = {
+                ssm: { enable: true },
+            };
+
+            const result = await ssmBuilder.build(appDefinition, {});
+
+            expect(result.environment).toEqual({});
+            expect(result.iamStatements).toHaveLength(1);
+        });
+    });
+
+    describe('build() - offload active', () => {
+        it('should add prefix and offloaded keys env vars', async () => {
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { FOO: 'ssm', BAR: 'ssm' },
+            };
+
+            const result = await ssmBuilder.build(appDefinition, {});
+
+            expect(result.environment.SSM_PARAMETER_PREFIX).toBe(
+                '/frigg/${self:service}/${self:provider.stage}'
+            );
+            expect(result.environment.FRIGG_SSM_OFFLOADED_KEYS).toBe('BAR,FOO');
+        });
+
+        it('should add a prefix-scoped read statement while retaining the broad grant by default', async () => {
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { FOO: 'ssm' },
+            };
+
+            const result = await ssmBuilder.build(appDefinition, {});
+
+            const broad = result.iamStatements.find(
+                s => s.Resource && s.Resource['Fn::Sub'] === 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*'
+            );
+            expect(broad).toBeDefined();
+
+            const scoped = result.iamStatements.find(
+                s => s.Resource === 'arn:aws:ssm:${self:provider.region}:${aws:accountId}:parameter/frigg/${self:service}/${self:provider.stage}/*'
+            );
+            expect(scoped).toBeDefined();
+            expect(scoped.Action).toEqual([
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+            ]);
+        });
+
+        it('should drop the broad grant when restrictIamToPrefix is set', async () => {
+            const appDefinition = {
+                ssm: { enable: true, restrictIamToPrefix: true },
+                environment: { FOO: 'ssm' },
+            };
+
+            const result = await ssmBuilder.build(appDefinition, {});
+
+            const broad = result.iamStatements.find(
+                s => s.Resource && s.Resource['Fn::Sub']
+            );
+            expect(broad).toBeUndefined();
+
+            const scoped = result.iamStatements.find(
+                s => s.Resource === 'arn:aws:ssm:${self:provider.region}:${aws:accountId}:parameter/frigg/${self:service}/${self:provider.stage}/*'
+            );
+            expect(scoped).toBeDefined();
+        });
+
+        it('should add kms:Decrypt when kmsKeyArn is set', async () => {
+            const appDefinition = {
+                ssm: {
+                    enable: true,
+                    kmsKeyArn: 'arn:aws:kms:us-east-1:123456789012:key/abc-123',
+                },
+                environment: { FOO: 'ssm' },
+            };
+
+            const result = await ssmBuilder.build(appDefinition, {});
+
+            const decrypt = result.iamStatements.find(
+                s => Array.isArray(s.Action) && s.Action.includes('kms:Decrypt')
+            );
+            expect(decrypt).toEqual({
+                Effect: 'Allow',
+                Action: ['kms:Decrypt'],
+                Resource: 'arn:aws:kms:us-east-1:123456789012:key/abc-123',
+            });
+        });
+
+        it('should honor a custom parameterPrefix', async () => {
+            const appDefinition = {
+                ssm: { enable: true, parameterPrefix: '/custom/${self:provider.stage}' },
+                environment: { FOO: 'ssm' },
+            };
+
+            const result = await ssmBuilder.build(appDefinition, {});
+
+            expect(result.environment.SSM_PARAMETER_PREFIX).toBe(
+                '/custom/${self:provider.stage}'
+            );
+            const scoped = result.iamStatements.find(
+                s => s.Resource === 'arn:aws:ssm:${self:provider.region}:${aws:accountId}:parameter/custom/${self:provider.stage}/*'
+            );
+            expect(scoped).toBeDefined();
         });
     });
 

@@ -1062,7 +1062,18 @@ describe('composeServerlessDefinition', () => {
     });
 
     describe('SSM Configuration', () => {
-        it('should add SSM configuration when ssm.enable is true', async () => {
+        const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+        afterEach(() => {
+            if (originalSkipDiscovery === undefined) {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            } else {
+                process.env.FRIGG_SKIP_AWS_DISCOVERY = originalSkipDiscovery;
+            }
+        });
+
+        it('should add the broad SSM read grant when ssm.enable is true without offload', async () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
             const appDefinition = {
                 ssm: { enable: true },
                 integrations: []
@@ -1070,12 +1081,10 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            // Check lambda layers
-            expect(result.provider.layers).toEqual([
-                'arn:aws:lambda:${self:provider.region}:177933569100:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11'
-            ]);
+            // We deliberately do NOT use the AWS Parameters-and-Secrets extension layer
+            expect(result.provider.layers).toBeUndefined();
 
-            // Check IAM permissions
+            // Broad read grant present
             const ssmPermission = result.provider.iamRoleStatements.find(
                 statement => statement.Action.includes('ssm:GetParameter')
             );
@@ -1086,13 +1095,56 @@ describe('composeServerlessDefinition', () => {
                     'ssm:GetParameters',
                     'ssm:GetParametersByPath'
                 ],
-                Resource: [
-                    'arn:aws:ssm:${self:provider.region}:*:parameter/${self:service}/${self:provider.stage}/*'
-                ]
+                Resource: {
+                    'Fn::Sub': 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*'
+                }
             });
 
-            // Check environment variable
-            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBe('/${self:service}/${self:provider.stage}');
+            // No offload markers -> no offload env vars
+            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBeUndefined();
+            expect(result.provider.environment.FRIGG_SSM_OFFLOADED_KEYS).toBeUndefined();
+        });
+
+        it('should offload marked keys and expose prefix + offloaded keys env vars', async () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { FOO: 'ssm', BAR: true },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // BAR stays in the Lambda env, FOO is offloaded out of it
+            expect(result.provider.environment.BAR).toBe("${env:BAR, ''}");
+            expect(result.provider.environment.FOO).toBeUndefined();
+
+            // Offload env contract
+            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBe(
+                '/frigg/${self:service}/${self:provider.stage}'
+            );
+            expect(result.provider.environment.FRIGG_SSM_OFFLOADED_KEYS).toBe('FOO');
+
+            // Prefix-scoped read grant present alongside the broad grant
+            const scoped = result.provider.iamRoleStatements.find(
+                statement => statement.Resource === 'arn:aws:ssm:${self:provider.region}:${aws:accountId}:parameter/frigg/${self:service}/${self:provider.stage}/*'
+            );
+            expect(scoped).toBeDefined();
+        });
+
+        it('should not add offload env vars when ssm.enable is true but nothing is marked', async () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { BAR: true },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.provider.environment.BAR).toBe("${env:BAR, ''}");
+            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBeUndefined();
+            expect(result.provider.environment.FRIGG_SSM_OFFLOADED_KEYS).toBeUndefined();
         });
 
         it('should not add SSM configuration when ssm.enable is false', async () => {
@@ -1397,9 +1449,12 @@ describe('composeServerlessDefinition', () => {
             expect(result.provider.environment.KMS_KEY_ARN).toBeDefined();
             expect(result.custom.kmsGrants).toBeDefined();
 
-            // SSM
-            expect(result.provider.layers).toBeDefined();
-            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBeDefined();
+            // SSM (enabled without offload markers -> broad grant only, no offload env vars)
+            const ssmPermission = result.provider.iamRoleStatements.find(
+                statement => statement.Action && statement.Action.includes('ssm:GetParameter')
+            );
+            expect(ssmPermission).toBeDefined();
+            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBeUndefined();
 
             // Integration
             expect(result.functions.testIntegration).toBeDefined();
