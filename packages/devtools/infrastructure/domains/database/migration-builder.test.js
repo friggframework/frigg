@@ -318,5 +318,45 @@ describe('MigrationBuilder', () => {
             );
         });
     });
+
+    describe('scoped environment (lambda.scopedEnvironment)', () => {
+        beforeEach(() => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+        });
+
+        it('scopes migration vars to the migration functions, keeping DB_TYPE global', async () => {
+            const result = await builder.build(
+                { lambda: { scopedEnvironment: true } },
+                {}
+            );
+
+            expect(result.environment.S3_BUCKET_NAME).toBeUndefined();
+            expect(result.environment.MIGRATION_STATUS_BUCKET).toBeUndefined();
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toBeUndefined();
+            expect(result.environment.DB_TYPE).toBe('postgresql');
+
+            for (const fnName of ['dbMigrationRouter', 'dbMigrationWorker']) {
+                expect(result.functionEnvironments[fnName]).toMatchObject({
+                    S3_BUCKET_NAME: { Ref: 'FriggMigrationStatusBucket' },
+                    MIGRATION_STATUS_BUCKET: {
+                        Ref: 'FriggMigrationStatusBucket',
+                    },
+                    DB_MIGRATION_QUEUE_URL: { Ref: 'DbMigrationQueue' },
+                });
+            }
+        });
+
+        it('broadcasts app-wide when the flag is off', async () => {
+            const result = await builder.build({}, {});
+
+            expect(result.environment.S3_BUCKET_NAME).toEqual({
+                Ref: 'FriggMigrationStatusBucket',
+            });
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toEqual({
+                Ref: 'DbMigrationQueue',
+            });
+            expect(result.functionEnvironments).toBeUndefined();
+        });
+    });
 });
 

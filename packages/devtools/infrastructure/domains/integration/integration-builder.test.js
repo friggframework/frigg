@@ -935,5 +935,100 @@ describe('IntegrationBuilder', () => {
             );
         });
     });
+
+    describe('scoped environment (lambda.scopedEnvironment)', () => {
+        const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+        beforeEach(() => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+        });
+
+        afterEach(() => {
+            if (originalSkipDiscovery === undefined) {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            } else {
+                process.env.FRIGG_SKIP_AWS_DISCOVERY = originalSkipDiscovery;
+            }
+        });
+
+        const scopedApp = {
+            lambda: { scopedEnvironment: true },
+            adminScripts: [{ Definition: { name: 'fix-things' } }],
+            integrations: [
+                { Definition: { name: 'hubspot', webhooks: true } },
+                { Definition: { name: 'slack' } },
+            ],
+        };
+
+        it('scopes queue URLs to auth, admin functions, and the owning integration only', async () => {
+            const result = await integrationBuilder.build(scopedApp, {});
+
+            expect(result.environment.HUBSPOT_QUEUE_URL).toBeUndefined();
+            expect(result.environment.SLACK_QUEUE_URL).toBeUndefined();
+
+            const scoped = result.functionEnvironments;
+            // auth and admin functions can enqueue to any integration
+            expect(scoped.auth).toEqual({
+                HUBSPOT_QUEUE_URL: { Ref: 'HubspotQueue' },
+                SLACK_QUEUE_URL: { Ref: 'SlackQueue' },
+            });
+            expect(scoped.adminScriptRouter.HUBSPOT_QUEUE_URL).toBeDefined();
+            expect(scoped.adminScriptExecutor.SLACK_QUEUE_URL).toBeDefined();
+
+            // owning integration's full function set
+            expect(scoped.hubspot.HUBSPOT_QUEUE_URL).toBeDefined();
+            expect(scoped.hubspotWebhook.HUBSPOT_QUEUE_URL).toBeDefined();
+            expect(scoped.hubspotQueueWorker.HUBSPOT_QUEUE_URL).toBeDefined();
+
+            // cross-integration isolation
+            expect(scoped.hubspotQueueWorker.SLACK_QUEUE_URL).toBeUndefined();
+            expect(scoped.slackQueueWorker.HUBSPOT_QUEUE_URL).toBeUndefined();
+        });
+
+        it('targets extension handler functions too', async () => {
+            const withExtension = {
+                lambda: { scopedEnvironment: true },
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'hubspot',
+                            extensions: {
+                                'my-ext': {
+                                    extension: {
+                                        routes: [{ path: '/x', method: 'GET' }],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+            };
+            const result = await integrationBuilder.build(withExtension, {});
+
+            expect(
+                result.functionEnvironments.hubspot__myext.HUBSPOT_QUEUE_URL
+            ).toBeDefined();
+        });
+
+        it('broadcasts app-wide when the flag is off', async () => {
+            const result = await integrationBuilder.build(
+                { integrations: scopedApp.integrations },
+                {}
+            );
+
+            expect(result.environment.HUBSPOT_QUEUE_URL).toEqual({
+                Ref: 'HubspotQueue',
+            });
+            expect(result.functionEnvironments).toBeUndefined();
+        });
+
+        it('broadcasts in local mode even with the flag on', async () => {
+            process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
+            const result = await integrationBuilder.build(scopedApp, {});
+
+            expect(result.environment.HUBSPOT_QUEUE_URL).toBeDefined();
+            expect(result.functionEnvironments).toBeUndefined();
+        });
+    });
 });
 

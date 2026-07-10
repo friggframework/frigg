@@ -20,6 +20,7 @@ const { SchedulerBuilder } = require('./domains/scheduler/scheduler-builder');
 const { AdminScriptBuilder } = require('./domains/admin-scripts/admin-script-builder');
 
 // Utilities
+const { applyFunctionEnvironments } = require('./domains/shared/function-environments');
 const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-resolver');
 const { createBaseDefinition } = require('./domains/shared/utilities/base-definition-factory');
 const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
@@ -75,6 +76,10 @@ const composeServerlessDefinition = async (AppDefinition) => {
     definition.provider.iamRoleStatements.push(...merged.iamStatements);
     Object.assign(definition.provider.environment, merged.environment);
     Object.assign(definition.functions, merged.functions);
+    applyFunctionEnvironments(
+        definition.functions,
+        merged.functionEnvironments
+    );
 
     if (merged.vpcConfig) {
         definition.provider.vpc = merged.vpcConfig;
