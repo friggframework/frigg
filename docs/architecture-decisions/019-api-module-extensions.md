@@ -1,12 +1,12 @@
-# Architecture Decision Record: API Module Extensions
+# ADR-019: API Module Extensions
 
 **Status**: Proposed (the Integration Extension mechanism shipped in #590 and #596; this ADR formalizes the api-module-side authoring story)
 **Date**: 2026-06-09
-**Author**: Sean Matthews
+**Deciders**: Sean Matthews
 
 ## Context
 
-[Integration Extensions](./ADR-INTEGRATION-EXTENSIONS.md) describes the consumer side: an integration class binds an extension bundle and gets routes, events, queues, and workers merged into its surface. This ADR describes the producer side: how an API module ships those bundles.
+[Integration Extensions](./018-integration-extensions.md) describes the consumer side: an integration class binds an extension bundle and gets routes, events, queues, and workers merged into its surface. This ADR describes the producer side: how an API module ships those bundles.
 
 An API module is the typed wrapper around one external provider's API (HubSpot, Slack, Asana, Salesforce). Provider-specific concerns (webhook signature schemes, OAuth refresh quirks, rate limits, paginated listing) belong in the API module, not in every integration that uses it. **API Module Extensions** are the namespace where an API module exposes these bundled patterns for any integration to consume.
 
@@ -103,10 +103,10 @@ Bundling these per module keeps the platform vocabulary in one place and lets ea
 
 ## Cross-references
 
-- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md): API Module Extensions in context
-- [INTEGRATION-EXTENSIONS](./ADR-INTEGRATION-EXTENSIONS.md): the consumer side of the same contract
-- [ARTIFACTS](./ADR-ARTIFACTS.md): API modules also ship Artifact scaffolds; some API Module Extensions are the Frigg-side bridge that pairs with a deployed Artifact
-- [CAPABILITIES](./ADR-CAPABILITIES.md): API Module Extensions are `implementedBy` targets for capabilities at the API module level
+- [EXTENSIONS-TAXONOMY](./015-extensions-taxonomy.md): API Module Extensions in context
+- [INTEGRATION-EXTENSIONS](./018-integration-extensions.md): the consumer side of the same contract
+- [ARTIFACTS](./022-artifacts.md): API modules also ship Artifact scaffolds; some API Module Extensions are the Frigg-side bridge that pairs with a deployed Artifact
+- [CAPABILITIES](./020-capabilities.md): API Module Extensions are `implementedBy` targets for capabilities at the API module level
 
 ## Open questions
 
@@ -118,4 +118,4 @@ Bundling these per module keeps the platform vocabulary in one place and lets ea
 ## References
 
 - The Frigg core and API module boundary example from the original ADR-EXTENSIONS now lives here. `findIntegrationByPortalId` is the HubSpot vocabulary wrapper around core's `findIntegrationByEntityExternalId`.
-- HubSpot Developer Projects (see [ADR-ARTIFACTS](./ADR-ARTIFACTS.md)) is an example of an Artifact paired with an API Module Extension bridge.
+- HubSpot Developer Projects (see [ADR-ARTIFACTS](./022-artifacts.md)) is an example of an Artifact paired with an API Module Extension bridge.

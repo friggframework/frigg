@@ -1,8 +1,8 @@
-# Architecture Decision Record: Plugins
+# ADR-016: Plugins
 
 **Status**: Proposed
 **Date**: 2026-06-09
-**Author**: Sean Matthews
+**Deciders**: Sean Matthews
 
 ## Context
 
@@ -19,7 +19,7 @@ Plugins let adopters swap required infrastructure pieces without forking core.
 
 A **Plugin** is a package that satisfies a core-defined interface so the framework can run on top of it. Plugins are required-with-defaults: core needs some plugin of each type to function, but the adopter picks which.
 
-Plugins differ from [Extensions](./ADR-EXTENSIONS-TAXONOMY.md) in two ways:
+Plugins differ from [Extensions](./015-extensions-taxonomy.md) in two ways:
 
 - **Required vs optional.** Without a database plugin selected, the framework cannot run. Without an alerting extension, the framework does not alert.
 - **Infrastructure vs functionality.** Plugins swap infrastructure under the framework (deploy target, persistence, encryption). Extensions add functionality on top of the framework (alerting, sync engines, provider webhooks).
@@ -84,15 +84,15 @@ Adding a new deployment target (Cloudflare Workers, Fly.io) means publishing a p
 
 ## Relationship to capabilities and the harness
 
-[Capabilities](./ADR-CAPABILITIES.md) can declare `requires` against plugin types. A capability that uses signed S3 URLs declares `requires: { provider: 'aws' }`. The capability resolver warns at boot if the selected provider plugin does not support a required capability, instead of failing at runtime.
+[Capabilities](./020-capabilities.md) can declare `requires` against plugin types. A capability that uses signed S3 URLs declares `requires: { provider: 'aws' }`. The capability resolver warns at boot if the selected provider plugin does not support a required capability, instead of failing at runtime.
 
-The [Agent Harness](./ADR-AGENT-HARNESS.md) reads the selected plugins at session start and uses them to constrain its planning. An agent working in a Netlify-deployed Frigg app does not suggest AWS-specific primitives.
+The [Agent Harness](./025-agent-harness.md) reads the selected plugins at session start and uses them to constrain its planning. An agent working in a Netlify-deployed Frigg app does not suggest AWS-specific primitives.
 
 ## Cross-references
 
-- [CAPABILITIES](./ADR-CAPABILITIES.md): capabilities may declare plugin-type requirements
-- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md): extensions are optional and add functionality; plugins are required and swap infrastructure
-- [AGENT-HARNESS](./ADR-AGENT-HARNESS.md): the harness reads selected plugins to constrain agent planning
+- [CAPABILITIES](./020-capabilities.md): capabilities may declare plugin-type requirements
+- [EXTENSIONS-TAXONOMY](./015-extensions-taxonomy.md): extensions are optional and add functionality; plugins are required and swap infrastructure
+- [AGENT-HARNESS](./025-agent-harness.md): the harness reads selected plugins to constrain agent planning
 
 ## Open questions
 
