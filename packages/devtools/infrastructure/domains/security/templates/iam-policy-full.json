@@ -266,7 +266,8 @@
         "StringEquals": {
           "kms:ViaService": [
             "lambda.*.amazonaws.com",
-            "s3.*.amazonaws.com"
+            "s3.*.amazonaws.com",
+            "ssm.*.amazonaws.com"
           ]
         }
       }

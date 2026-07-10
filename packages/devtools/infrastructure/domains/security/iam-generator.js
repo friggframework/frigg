@@ -7,6 +7,7 @@ const path = require('path');
  * @param {Object} [options.features={}] - Enabled features { vpc, kms, ssm, websockets }
  * @param {string} [options.userPrefix='frigg-deployment-user'] - IAM user name prefix
  * @param {string} [options.stackName='frigg-deployment-iam'] - CloudFormation stack name
+ * @param {string} [options.ssmKmsKeyArn] - Customer-managed KMS key ARN for SecureString offload (appDefinition.ssm.kmsKeyArn)
  * @returns {string} CloudFormation YAML template
  */
 function generateIAMCloudFormation(options = {}) {
@@ -14,7 +15,8 @@ function generateIAMCloudFormation(options = {}) {
         appName = 'Frigg',
         features = {},
         userPrefix = 'frigg-deployment-user',
-        stackName = 'frigg-deployment-iam'
+        stackName = 'frigg-deployment-iam',
+        ssmKmsKeyArn
     } = options;
 
     const deploymentUserName = userPrefix;
@@ -681,6 +683,32 @@ function generateIAMCloudFormation(options = {}) {
                                         'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*/*',
                                 },
                             ],
+                        },
+                        {
+                            // SecureString offload: SSM performs the KMS encrypt/decrypt
+                            // on the caller's behalf, so the grant is scoped to ViaService ssm.*
+                            Sid: 'FriggSSMParameterKMSEncryption',
+                            Effect: 'Allow',
+                            Action: [
+                                'kms:Encrypt',
+                                'kms:GenerateDataKey',
+                                'kms:Decrypt',
+                            ],
+                            Resource: ssmKmsKeyArn
+                                ? [ssmKmsKeyArn]
+                                : [
+                                      {
+                                          'Fn::Sub':
+                                              'arn:aws:kms:*:${AWS::AccountId}:key/*',
+                                      },
+                                  ],
+                            Condition: {
+                                StringEquals: {
+                                    'kms:ViaService': [
+                                        'ssm.*.amazonaws.com',
+                                    ],
+                                },
+                            },
                         },
                     ],
                 },

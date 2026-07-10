@@ -86,6 +86,57 @@ describe('app-definition schema: SSM offload surface', () => {
             });
             expect(result.valid).toBe(false);
         });
+
+        it('accepts a per-key parameter tier', () => {
+            const result = validateAppDefinition({
+                ...baseDefinition,
+                ssm: {
+                    enable: true,
+                    parameters: {
+                        MY_SECRET: {
+                            type: 'SecureString',
+                            tier: 'advanced',
+                        },
+                    },
+                },
+            });
+            expect(result.valid).toBe(true);
+        });
+
+        it('rejects an invalid parameter tier', () => {
+            const result = validateAppDefinition({
+                ...baseDefinition,
+                ssm: {
+                    enable: true,
+                    parameters: {
+                        MY_SECRET: { tier: 'premium' },
+                    },
+                },
+            });
+            expect(result.valid).toBe(false);
+        });
+
+        it('rejects lowercase parameter keys', () => {
+            const result = validateAppDefinition({
+                ...baseDefinition,
+                ssm: {
+                    enable: true,
+                    parameters: { 'my-secret': { type: 'String' } },
+                },
+            });
+            expect(result.valid).toBe(false);
+        });
+
+        it('rejects parameter keys containing slashes', () => {
+            const result = validateAppDefinition({
+                ...baseDefinition,
+                ssm: {
+                    enable: true,
+                    parameters: { 'path/to/secret': { type: 'String' } },
+                },
+            });
+            expect(result.valid).toBe(false);
+        });
     });
 
     describe('lambda section', () => {

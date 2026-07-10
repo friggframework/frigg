@@ -158,7 +158,7 @@ ssm: {
 
 ```bash
 frigg ssm push --stage prod          # write offloaded values from env/.env to SSM
-frigg ssm push --stage prod --allow-empty   # permit empty values (default: error)
+frigg ssm push --stage prod --allow-empty   # skip keys with empty values (warn instead of error)
 ```
 
 `frigg deploy` runs the push automatically before deploying whenever the

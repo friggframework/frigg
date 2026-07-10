@@ -476,13 +476,19 @@
           "type": "object",
           "description": "SSM parameter definitions",
           "patternProperties": {
-            "^[a-zA-Z0-9/_.-]+$": {
+            "^[A-Z][A-Z0-9_]*$": {
               "type": "object",
               "properties": {
                 "type": {
                   "type": "string",
                   "enum": ["String", "StringList", "SecureString"],
                   "default": "String"
+                },
+                "tier": {
+                  "type": "string",
+                  "description": "Parameter Store tier for this key: 'standard' caps the value at 4KB, 'advanced' at 8KB (billed by AWS)",
+                  "enum": ["standard", "advanced"],
+                  "default": "standard"
                 },
                 "description": {
                   "type": "string"

@@ -21,9 +21,28 @@ const TIER_LIMITS = {
 };
 
 /**
+ * Resolve the tier for a single offloaded key. An explicit `--tier` CLI
+ * option overrides every key; otherwise each key uses its own
+ * ssm.parameters[KEY].tier, defaulting to 'standard'.
+ */
+function resolveKeyTier(appDefinition, key, options = {}) {
+    const raw =
+        options.tier ||
+        appDefinition.ssm?.parameters?.[key]?.tier ||
+        'standard';
+    const tier = String(raw).toLowerCase();
+    if (!TIER_LIMITS[tier]) {
+        throw new Error(
+            `Unknown parameter tier '${raw}' for ${key}. Use 'standard' or 'advanced'.`
+        );
+    }
+    return tier;
+}
+
+/**
  * Build the PutParameter specs for every offloaded key, reading values
  * from process.env. Throws on invalid config, missing values (unless
- * allowEmpty), or oversized values.
+ * allowEmpty), or values that exceed their own tier limit.
  */
 function collectParameterSpecs(appDefinition, stage, options = {}) {
     const { errors: configErrors } = validateOffloadConfig(appDefinition);
@@ -38,14 +57,6 @@ function collectParameterSpecs(appDefinition, stage, options = {}) {
     const keys = getOffloadedKeys(appDefinition);
     if (keys.length === 0) {
         return { specs: [], skipped: [] };
-    }
-
-    const tier = (options.tier || 'standard').toLowerCase();
-    const maxBytes = TIER_LIMITS[tier];
-    if (!maxBytes) {
-        throw new Error(
-            `Unknown parameter tier '${options.tier}'. Use 'standard' or 'advanced'.`
-        );
     }
 
     const prefix = resolveParameterPrefix(appDefinition, stage);
@@ -66,9 +77,13 @@ function collectParameterSpecs(appDefinition, stage, options = {}) {
             continue;
         }
 
+        const tier = resolveKeyTier(appDefinition, key, options);
+        const maxBytes = TIER_LIMITS[tier];
         const bytes = Buffer.byteLength(value, 'utf8');
         if (bytes > maxBytes) {
-            oversized.push(`${key} (${bytes} bytes)`);
+            oversized.push(
+                `${key} (${bytes} bytes > ${tier} tier limit ${maxBytes})`
+            );
             continue;
         }
 
@@ -90,18 +105,24 @@ function collectParameterSpecs(appDefinition, stage, options = {}) {
     }
 
     if (oversized.length > 0) {
-        const hint =
-            tier === 'standard'
-                ? ` Values over ${TIER_LIMITS.standard} bytes need --tier advanced (up to ${TIER_LIMITS.advanced} bytes, billed by AWS).`
-                : ` The advanced tier caps values at ${TIER_LIMITS.advanced} bytes.`;
         throw new Error(
-            `Offloaded values exceed the ${tier} parameter tier limit: ${oversized.join(
+            `Offloaded values exceed their parameter tier limit: ${oversized.join(
                 ', '
-            )}.${hint}`
+            )}. Values over ${TIER_LIMITS.standard} bytes need the advanced tier (up to ${TIER_LIMITS.advanced} bytes, billed by AWS): set ssm.parameters.<KEY>.tier: 'advanced' in the app definition, or pass --tier advanced to 'frigg ssm push'.`
         );
     }
 
     return { specs, skipped };
+}
+
+/**
+ * Resolve the region parameters are pushed to. An explicit `--region`
+ * option wins; otherwise fall back to AWS_REGION and finally to the same
+ * default the composed stack uses ('us-east-1'), so pushes and cold-start
+ * reads always target the same region.
+ */
+function resolvePushRegion(options = {}) {
+    return options.region || process.env.AWS_REGION || 'us-east-1';
 }
 
 /**
@@ -127,7 +148,7 @@ async function pushOffloadedParameters(appDefinition, stage, options = {}) {
 
     const { SSMClient, PutParameterCommand } = require('@aws-sdk/client-ssm');
     const client = new SSMClient({
-        region: process.env.AWS_REGION || options.region,
+        region: resolvePushRegion(options),
     });
 
     const pushed = [];
@@ -212,4 +233,5 @@ module.exports = {
     ssmPushCommand,
     pushOffloadedParameters,
     collectParameterSpecs,
+    resolvePushRegion,
 };

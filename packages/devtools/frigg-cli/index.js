@@ -179,8 +179,9 @@ ssmProgram
     .command('push')
     .description('Push SSM-offloaded environment values to Parameter Store')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
+    .option('-r, --region <region>', 'AWS region (defaults to AWS_REGION env var or us-east-1)')
     .option('--allow-empty', 'skip (instead of fail on) keys with missing or empty values')
-    .option('--tier <tier>', 'parameter tier: standard (4KB values) or advanced (8KB, billed)', 'standard')
+    .option('--tier <tier>', 'override tier for all keys: standard (4KB values) or advanced (8KB, billed)')
     .action(ssmPushCommand);
 
 // Auth command group for testing API module authentication

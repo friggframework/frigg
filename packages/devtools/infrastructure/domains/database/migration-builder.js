@@ -673,9 +673,29 @@ class MigrationBuilder extends InfrastructureBuilder {
                                   .replace(/\//g, ':');
 
         // Add environment variables (using external resource names/URLs)
-        result.environment.S3_BUCKET_NAME = bucketName;
-        result.environment.MIGRATION_STATUS_BUCKET = bucketName;
-        result.environment.DB_MIGRATION_QUEUE_URL = queueUrl;
+        const migrationEnvironment = {
+            S3_BUCKET_NAME: bucketName,
+            MIGRATION_STATUS_BUCKET: bucketName,
+            DB_MIGRATION_QUEUE_URL: queueUrl,
+        };
+
+        if (isScopedEnvironmentActive(appDefinition)) {
+            // Only the migration functions read these
+            result.functionEnvironments = result.functionEnvironments || {};
+            for (const fnName of ['dbMigrationRouter', 'dbMigrationWorker']) {
+                result.functionEnvironments[fnName] = {
+                    ...result.functionEnvironments[fnName],
+                    ...migrationEnvironment,
+                };
+            }
+        } else {
+            Object.assign(result.environment, migrationEnvironment);
+        }
+
+        // Hardcode DB_TYPE for PostgreSQL-only migrations. Stays app-wide
+        // even when scoping: it is tiny and broadly consumed, and scoping it
+        // would push every function through the app-definition fallback in
+        // core's getDatabaseType() at cold start.
         result.environment.DB_TYPE = 'postgresql';
 
         console.log('  ✓ Added S3_BUCKET_NAME, DB_MIGRATION_QUEUE_URL, and DB_TYPE environment variables');
