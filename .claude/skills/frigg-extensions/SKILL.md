@@ -5,7 +5,7 @@ description: "Frigg Tier 3 Integration Extensions — reusable handler bundles (
 
 # Frigg Integration Extensions
 
-Tier 3 **Integration Extensions** let an API module ship reusable handler bundles — receiver routes, event handlers, queues, workers — that an integration consumes declaratively via `Definition.extensions`. Canonical docs: `packages/core/integrations/EXTENSIONS.md` and `docs/architecture/ADR-EXTENSIONS.md` (the three-tier taxonomy). For the per-account `Definition.webhooks: true` pattern, see `packages/core/integrations/WEBHOOK-QUICKSTART.md`.
+Tier 3 **Integration Extensions** let an API module ship reusable handler bundles — receiver routes, event handlers, queues, workers — that an integration consumes declaratively via `Definition.extensions`. Canonical docs: `packages/core/integrations/EXTENSIONS.md` and `docs/architecture-decisions/015-extensions-taxonomy.md` (the extensions taxonomy). For the per-account `Definition.webhooks: true` pattern, see `packages/core/integrations/WEBHOOK-QUICKSTART.md`.
 
 ## Extensions vs `Definition.webhooks: true`
 

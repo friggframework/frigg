@@ -1,8 +1,8 @@
-# Architecture Decision Record: Evals
+# ADR-026: Evals
 
 **Status**: Proposed
 **Date**: 2026-06-09
-**Author**: Sean Matthews
+**Deciders**: Sean Matthews
 
 ## Context
 
@@ -115,8 +115,8 @@ The precursor is a cheap upstream check: three arms (Raw, Skill, Skill+Ontology+
 
 ## Cross-references
 
-- [CAPABILITIES](./ADR-CAPABILITIES.md), [ONTOLOGY](./ADR-ONTOLOGY.md), [AGENT-HARNESS](./ADR-AGENT-HARNESS.md): the three variables under test
-- [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md), [PLUGINS](./ADR-PLUGINS.md), [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md): additional pieces the harness composes. Tested as part of the harness condition rather than as independent variables (their lift is mechanistically tied to the harness wiring them in).
+- [CAPABILITIES](./020-capabilities.md), [ONTOLOGY](./021-ontology.md), [AGENT-HARNESS](./025-agent-harness.md): the three variables under test
+- [INTEGRATION-TEMPLATES](./023-integration-templates.md), [PLUGINS](./016-plugins.md), [EXTENSIONS-TAXONOMY](./015-extensions-taxonomy.md): additional pieces the harness composes. Tested as part of the harness condition rather than as independent variables (their lift is mechanistically tied to the harness wiring them in).
 
 ## Open questions
 

@@ -1,14 +1,14 @@
-# Architecture Decision Record: Artifacts
+# ADR-022: Artifacts
 
 **Status**: Proposed
 **Date**: 2026-06-09
-**Author**: Sean Matthews
+**Deciders**: Sean Matthews
 
 ## Context
 
 Some Frigg integrations only work when a piece of code or configuration is deployed outside the Frigg runtime, on the provider's platform. A HubSpot UI Extension requires a deployed HubSpot Developer Project. A Slack app requires a published Slack App Manifest. A Salesforce-installed package requires a managed-package upload. None of this code runs in Frigg. Frigg often acts as the backend the deployed code talks to.
 
-These outside-Frigg deliverables do not fit any of the [Extensions](./ADR-EXTENSIONS-TAXONOMY.md) types (extensions run inside the Frigg runtime) and are not [Plugins](./ADR-PLUGINS.md). They are a distinct category.
+These outside-Frigg deliverables do not fit any of the [Extensions](./015-extensions-taxonomy.md) types (extensions run inside the Frigg runtime) and are not [Plugins](./016-plugins.md). They are a distinct category.
 
 ## Decision
 
@@ -16,7 +16,7 @@ An **Artifact** is code or configuration that an API module helps a developer ge
 
 1. Point at the provider's scaffolding mechanism (typically a vendor CLI like `hs project add` or `slack scaffold`)
 2. Optionally ship a starter template the developer copies into their artifact
-3. Provide the Frigg-side bridge (typically an [API Module Extension](./ADR-API-MODULE-EXTENSIONS.md)) that serves the artifact at runtime
+3. Provide the Frigg-side bridge (typically an [API Module Extension](./019-api-module-extensions.md)) that serves the artifact at runtime
 
 Artifacts live on the API module's Definition under `apiModule.Definition.artifacts`.
 
@@ -36,7 +36,7 @@ Three reasons:
 
 1. **Different runtime location.** Extensions run inside Frigg's Lambda. Artifacts run on the provider's platform. Different deployment story, different security boundary, different debugging surface.
 2. **Different developer workflow.** Extensions are imported and bound. Artifacts are scaffolded via vendor CLI and deployed to the provider. The Frigg CLI points at the vendor CLI rather than running anything itself.
-3. **Required-or-optional varies per capability.** Some [Capabilities](./ADR-CAPABILITIES.md) (HubSpot CRM Card UI) require the artifact to be deployed. Others can use a different mechanism. The capability declaration surfaces this requirement so the agent and adopter know ahead of time.
+3. **Required-or-optional varies per capability.** Some [Capabilities](./020-capabilities.md) (HubSpot CRM Card UI) require the artifact to be deployed. Others can use a different mechanism. The capability declaration surfaces this requirement so the agent and adopter know ahead of time.
 
 ## Shape (worked example)
 
@@ -98,10 +98,10 @@ The artifact is produced, deployed, and runs outside Frigg. It talks to Frigg vi
 
 ## Cross-references
 
-- [API-MODULE-EXTENSIONS](./ADR-API-MODULE-EXTENSIONS.md): bridge extensions (the Frigg-side runtime that serves an artifact) are typically API Module Extensions
-- [CAPABILITIES](./ADR-CAPABILITIES.md): capabilities can declare `requires: { artifact: ... }` to surface deployment dependencies
-- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md): Artifacts are a sibling, not a fourth extension type
-- [AGENT-HARNESS](./ADR-AGENT-HARNESS.md): the harness knows which capabilities require artifact deployment and surfaces that as a planning constraint
+- [API-MODULE-EXTENSIONS](./019-api-module-extensions.md): bridge extensions (the Frigg-side runtime that serves an artifact) are typically API Module Extensions
+- [CAPABILITIES](./020-capabilities.md): capabilities can declare `requires: { artifact: ... }` to surface deployment dependencies
+- [EXTENSIONS-TAXONOMY](./015-extensions-taxonomy.md): Artifacts are a sibling, not a fourth extension type
+- [AGENT-HARNESS](./025-agent-harness.md): the harness knows which capabilities require artifact deployment and surfaces that as a planning constraint
 
 ## Open questions
 

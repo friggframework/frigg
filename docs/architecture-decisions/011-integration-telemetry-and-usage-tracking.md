@@ -1,7 +1,7 @@
 # ADR-011: Integration Telemetry, Eventing & Feature-Usage Tracking
 
-**Status**: Proposed
-**Date**: 2026-06-30
+**Status**: Accepted
+**Date**: 2026-07-03
 **Deciders**: Sean Matthews, Daniel Klotz
 
 ## Context

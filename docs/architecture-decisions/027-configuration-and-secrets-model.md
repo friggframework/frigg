@@ -94,6 +94,8 @@ No adopter should pay for a tier they don't use; each level is opt-in and backwa
 - **L3:** multi-provider (GCP / Azure / 1Password / Vault, ADR-028), **per-function scoping**
   (least privilege), and a hosted management GUI.
 
+The adopter-facing narrative of this journey — plus a cross-pattern worked example — is **ADR-030**.
+
 ### Variable scoping — deliver only what a function needs
 
 **Principle: a variable reaches only the bundled functions that need it.** Three scoping levels,

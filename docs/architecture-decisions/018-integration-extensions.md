@@ -1,8 +1,8 @@
-# Architecture Decision Record: Integration Extensions
+# ADR-018: Integration Extensions
 
 **Status**: Implemented ([PR #590](https://github.com/friggframework/frigg/pull/590) and [PR #596](https://github.com/friggframework/frigg/pull/596)). Authoritative quick-start: [`packages/core/integrations/EXTENSIONS.md`](../../packages/core/integrations/EXTENSIONS.md).
 **Date**: 2026-06-09 (decision ratified retroactively)
-**Author**: Sean Matthews (decision), Daniel Klotz (implementation)
+**Deciders**: Sean Matthews (decision), Daniel Klotz (implementation)
 
 ## Context
 
@@ -121,10 +121,10 @@ Each is a candidate for a published extension package.
 
 ## Cross-references
 
-- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md): Integration Extensions in context
-- [API-MODULE-EXTENSIONS](./ADR-API-MODULE-EXTENSIONS.md): Integration Extensions are typically consumed from an API Module Extension (e.g. `hubspot.extensions.webhooks`)
-- [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md): templates often pre-wire Integration Extensions for a category (a CRM sync template binds a sync-engine extension)
-- [CAPABILITIES](./ADR-CAPABILITIES.md): capabilities can be `implementedBy: { kind: 'extension', ref: 'extensions.webhooks' }`
+- [EXTENSIONS-TAXONOMY](./015-extensions-taxonomy.md): Integration Extensions in context
+- [API-MODULE-EXTENSIONS](./019-api-module-extensions.md): Integration Extensions are typically consumed from an API Module Extension (e.g. `hubspot.extensions.webhooks`)
+- [INTEGRATION-TEMPLATES](./023-integration-templates.md): templates often pre-wire Integration Extensions for a category (a CRM sync template binds a sync-engine extension)
+- [CAPABILITIES](./020-capabilities.md): capabilities can be `implementedBy: { kind: 'extension', ref: 'extensions.webhooks' }`
 - Quick-start in code: [`packages/core/integrations/EXTENSIONS.md`](../../packages/core/integrations/EXTENSIONS.md) is authoritative for current shape
 
 ## Open questions and deferred items
