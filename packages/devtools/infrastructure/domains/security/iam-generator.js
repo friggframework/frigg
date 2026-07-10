@@ -667,6 +667,9 @@ function generateIAMCloudFormation(options = {}) {
                                 'ssm:GetParameter',
                                 'ssm:GetParameters',
                                 'ssm:GetParametersByPath',
+                                'ssm:PutParameter',
+                                'ssm:DeleteParameter',
+                                'ssm:AddTagsToResource',
                             ],
                             Resource: [
                                 {

@@ -360,6 +360,9 @@ Resources:
               - 'ssm:GetParameter'
               - 'ssm:GetParameters'
               - 'ssm:GetParametersByPath'
+              - 'ssm:PutParameter'
+              - 'ssm:DeleteParameter'
+              - 'ssm:AddTagsToResource'
             Resource:
               - !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*'
               - !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*/*'

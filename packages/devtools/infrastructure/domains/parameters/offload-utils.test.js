@@ -77,6 +77,40 @@ describe('offload-utils', () => {
         });
     });
 
+    describe('resolveParameterPrefix', () => {
+        const { resolveParameterPrefix } = require('./offload-utils');
+
+        it('resolves the default prefix with service and stage', () => {
+            expect(
+                resolveParameterPrefix({ name: 'my-app' }, 'prod')
+            ).toBe('/frigg/my-app/prod');
+        });
+
+        it('resolves serverless tokens inside a custom prefix', () => {
+            expect(
+                resolveParameterPrefix(
+                    {
+                        name: 'my-app',
+                        ssm: {
+                            parameterPrefix:
+                                '/x/${self:service}/${self:provider.stage}',
+                        },
+                    },
+                    'dev'
+                )
+            ).toBe('/x/my-app/dev');
+        });
+
+        it('passes literal custom prefixes through', () => {
+            expect(
+                resolveParameterPrefix(
+                    { name: 'my-app', ssm: { parameterPrefix: '/plain/path' } },
+                    'dev'
+                )
+            ).toBe('/plain/path');
+        });
+    });
+
     describe('isSsmOffloadActive', () => {
         const offloadApp = {
             ssm: { enable: true },

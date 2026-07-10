@@ -99,6 +99,21 @@ function getParameterPrefix(appDefinition = {}) {
 }
 
 /**
+ * Resolve the parameter prefix to a concrete path outside a serverless
+ * build (e.g. in the CLI), substituting the serverless variables the
+ * default prefix uses.
+ *
+ * @param {Object} appDefinition
+ * @param {string} stage
+ * @returns {string}
+ */
+function resolveParameterPrefix(appDefinition = {}, stage) {
+    return getParameterPrefix(appDefinition)
+        .replaceAll('${self:service}', appDefinition.name)
+        .replaceAll('${self:provider.stage}', stage);
+}
+
+/**
  * Whether the offload feature is active for this build: SSM enabled, at
  * least one key marked, and not running in local mode.
  *
@@ -152,6 +167,7 @@ function validateOffloadConfig(appDefinition = {}) {
 module.exports = {
     getOffloadedKeys,
     getParameterPrefix,
+    resolveParameterPrefix,
     isSsmOffloadActive,
     validateOffloadConfig,
     FRAMEWORK_ENV_BLOCKLIST,

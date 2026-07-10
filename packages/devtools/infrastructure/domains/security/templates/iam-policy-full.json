@@ -277,7 +277,10 @@
       "Action": [
         "ssm:GetParameter",
         "ssm:GetParameters",
-        "ssm:GetParametersByPath"
+        "ssm:GetParametersByPath",
+        "ssm:PutParameter",
+        "ssm:DeleteParameter",
+        "ssm:AddTagsToResource"
       ],
       "Resource": [
         "arn:aws:ssm:*:*:parameter/*frigg*",
