@@ -1,10 +1,20 @@
-# Architecture Decision Record: Migration Tool Design
+# ADR-004: Project Structure Migration Tool
 
 ## Status
 Proposed
 
 ## Context
-We need an automated tool to migrate projects from `create-frigg-app` to the new `frigg init` structure. This tool must handle various project configurations while preserving custom code and settings.
+
+"Migration" means three unrelated things in Frigg. This ADR covers exactly one — **project-scaffold
+migration** — and the taxonomy is stated so the three stop being conflated:
+
+| Type | What it changes | Home |
+|---|---|---|
+| **Project-scaffold migration** | An app's project structure (`create-frigg-app` → `frigg init`) | **this ADR** |
+| **Database schema migration** | The persistence schema itself (Prisma) | ADR-012 |
+| **Integration version migration** | Persisted integration records/config across integration versions | ADR-013 |
+
+We need an automated tool to migrate projects from `create-frigg-app` to the new `frigg init` structure. This tool must handle various project configurations while preserving custom code and settings. It is a **build-time, developer-run CLI** (`frigg migrate`) that rewrites files on disk — it does not touch the database or persisted integration records.
 
 ## Decision
 
@@ -277,3 +287,8 @@ const migrationErrors = {
 - Community beta testing
 - Clear documentation
 - Support channels
+
+## Related
+- [ADR-012: Database Schema Migrations](./012-database-schema-migrations.md)
+- [ADR-013: Integration Version Migrations](./013-integration-version-migrations.md)
+- Implementation: `packages/devtools/frigg-cli/migrate-command/`

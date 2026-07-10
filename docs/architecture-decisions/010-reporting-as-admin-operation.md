@@ -1,7 +1,7 @@
 # ADR-010: Reporting as an Admin Operation
 
-**Status**: Proposed
-**Date**: 2026-06-30
+**Status**: Accepted
+**Date**: 2026-07-03
 **Deciders**: Daniel Klotz, Sean Matthews
 
 ## Context
