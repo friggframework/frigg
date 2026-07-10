@@ -1,10 +1,10 @@
 # ADR-030: Configuration & Secrets — Docs & Adopter Maturation
 
-**Status**: Draft
+**Status**: Proposed
 **Date**: 2026-07-10
 **Deciders**: Sean Matthews
 
-> Draft. The enablement half of the Configuration & Secrets work (model = ADR-027, provider =
+> Proposed. The enablement half of the Configuration & Secrets work (model = ADR-027, provider =
 > ADR-028, management = ADR-029). Covers how we document it for adopters and how a Frigg app is
 > expected to grow over time. The full cross-pattern worked example is a **post-implementation doc
 > deliverable**; an illustrative target-state version is included below.
@@ -66,9 +66,11 @@ token** (tier-3 per-connection).
 | HubSpot **access token** (per-conn.) | DB `Credential`, on demand | DB `Credential`, on demand | DB `Credential`, on demand | DB `Credential`, on demand |
 | Routing map | — (all pipeline) | `{platform: aws, appModule: aws, perConnection: database}` | `{platform: 1password, appModule: 1password, perConnection: database}` | `{platform: gcp, appModule: gcp, perConnection: database}` |
 
-Two things the example makes obvious: **per-connection creds stay in the DB in every pattern** (the
-invariant holds regardless of provider), and **moving from A→B→C is a routing-map + storage change,
-not an app-code change.**
+Two things the example makes obvious: **per-connection creds stay in the DB across every provider
+pattern above** (the isolation invariant holds regardless of which cloud/secret store backs tiers 1–2)
+— note this is the provider axis; whether a connection is per-end-user or an admin-authored **global
+entity** (ADR-024) is a separate adoption choice, and both still live in the DB — and **moving from
+A→B→C is a routing-map + storage change, not an app-code change.**
 
 ## Consequences
 
@@ -82,8 +84,17 @@ not an app-code change.**
 ### Neutral
 - Establishes the maturation levels as the shared vocabulary for docs, CLI help, and onboarding.
 
+## Alternatives Considered
+- **Fold this guidance into ADR-027 as a section rather than its own ADR.** Rejected: the enablement/
+  maturation story and the cross-pattern worked example are substantial and adopter-facing; a dedicated
+  ADR keeps ADR-027 focused on the model and gives docs a single anchor to track.
+- **Write the full cross-pattern worked example now.** Deferred: the faithful version depends on the
+  shipped shapes of ADR-027–029, so an illustrative target-state table is included and the complete
+  example is called out as a post-implementation deliverable.
+
 ## Related
 - [ADR-027](./027-configuration-and-secrets-model.md) (model & maturation levels),
   [ADR-028](./028-secrets-config-provider-plugin.md) (providers),
   [ADR-029](./029-variable-secret-management.md) (management).
+- [ADR-024: Global Entities](./024-global-entities.md) (per-connection vs global adoption choice).
 - Frigg docs site (`docs/`) — target home for the guide.

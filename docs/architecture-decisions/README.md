@@ -43,10 +43,10 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [024](./024-global-entities.md) | Global Entities | Proposed | 2024-12-18 |
 | [025](./025-agent-harness.md) | Agent Harness | Proposed | 2026-06-09 |
 | [026](./026-evals.md) | Evals | Proposed | 2026-06-09 |
-| [027](./027-configuration-and-secrets-model.md) | Configuration & Secrets — Model & Tiers | Draft | 2026-07-10 |
-| [028](./028-secrets-config-provider-plugin.md) | Secrets & Config Provider Plugin | Draft | 2026-07-10 |
-| [029](./029-variable-secret-management.md) | Variable & Secret Management (Admin API / CLI / GUI) | Draft | 2026-07-10 |
-| [030](./030-configuration-secrets-docs-and-maturation.md) | Configuration & Secrets — Docs & Adopter Maturation | Draft | 2026-07-10 |
+| [027](./027-configuration-and-secrets-model.md) | Configuration & Secrets — Model & Tiers | Proposed | 2026-07-10 |
+| [028](./028-secrets-config-provider-plugin.md) | Secrets & Config Provider Plugin | Proposed | 2026-07-10 |
+| [029](./029-variable-secret-management.md) | Variable & Secret Management — Admin API, CLI, GUI | Proposed | 2026-07-10 |
+| [030](./030-configuration-secrets-docs-and-maturation.md) | Configuration & Secrets — Docs & Adopter Maturation | Proposed | 2026-07-10 |
 
 ## Conventions
 

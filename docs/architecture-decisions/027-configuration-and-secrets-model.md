@@ -1,11 +1,12 @@
 # ADR-027: Configuration & Secrets — Model & Tiers
 
-**Status**: Draft
+**Status**: Proposed
 **Date**: 2026-07-10
 **Deciders**: Sean Matthews
 
-> Draft capturing the design in progress. Companion ADRs: **ADR-028** (provider plugin) and
-> **ADR-029** (management interface). Open questions at the end; not yet ready to send.
+> Proposed. Companion ADRs: **ADR-028** (provider plugin), **ADR-029** (management interface), and
+> **ADR-030** (docs & adopter maturation). Open questions at the end are implementation detail and
+> non-blocking.
 
 ## Context
 
@@ -40,26 +41,31 @@ Configuration/secrets sort into **three scopes**, each crossed with **{config, s
 
 | Scope | Config | Secret | Where today |
 |---|---|---|---|
-| **1. Platform / app-wide** (per env) | infra, framework behavior, feature/dev flags | platform secrets | build-time `environment` → env; Secrets Manager → env (live); SSM (draft) |
+| **1. Platform / app-wide** (per env) | infra, framework behavior, feature/dev flags | platform secrets | build-time `environment` → env; Secrets Manager → env (needs manual `SECRET_ARN` + Parameters&Secrets extension-layer wiring); SSM (draft) |
 | **2. App-level per-API-module** (per env, shared across all connections) | module settings/scopes | **module client id/secret** | ❌ **no home — dumped into flat env (the overload)** |
-| **3. Per-connection** (instance) | `Integration.config` | `Credential.data` (field-encrypted) | ✅ exists; injected on demand |
+| **3. Per-connection** | `Integration.config` | `Credential.data` (field-encrypted) | ✅ exists; injected on demand |
 
-> **Terminology:** tier 3 is **per-connection** — one `Credential` per `Entity`, i.e. the tokens a
-> specific end user gets when they authorize *their* account (`User → Integration → Entity →
-> Credential`). Not to be confused with **deployment tenancy** (one Frigg instance per adopter
-> customer), a separate axis. Tier 2 is the **app-level** OAuth *application* credential (one per
-> module per environment, shared by all connections) — e.g. the HubSpot `client_id`/`secret` you
-> register once. Tier 3 is what Jane gets when she clicks "Connect HubSpot."
+> **Terminology:** tier 3 is **per-connection** — a `Credential` per `Entity`, i.e. the tokens a
+> connection holds against an external service. The common case is a **specific end user** who
+> authorizes *their* account (`User → Integration → Entity → Credential`) — what Jane gets when she
+> clicks "Connect HubSpot." A second case is an **app-owner–owned global connection** (ADR-024 Global
+> Entities): an admin authorizes once at deploy, the `Credential`/`Entity` carries `userId: null`, and
+> every end user shares that single connection to the external service. Both are tier 3 — connection
+> credentials in the DB, field-encrypted — and differ only in ownership (per-end-user vs global).
+> Not to be confused with **deployment tenancy** (one Frigg deployment per adopter customer), a
+> separate axis. Tier 2 is the **app-level** OAuth *application* credential (one per module per
+> environment, shared by all connections) — e.g. the HubSpot `client_id`/`secret` you register once.
 
-**Invariant (keep):** tier-3 (per-connection) secrets are **never** promoted to `process.env` —
-they're decrypted and injected into the module instance on demand. This isolation already holds and
-must stay.
+**Invariant (keep):** tier-3 (per-connection) secrets — end-user *and* global — are **never** promoted
+to `process.env`; they're decrypted and injected into the module instance on demand. This isolation
+already holds and must stay.
 
 **Two planes.** Every tier has a **management plane** (where values are authored — the admin API /
 CLI / UI, ADR-029) and a **runtime plane** (where the app reads them). Any provider (ADR-028) can
 serve one or both: e.g. an adopter can make **1Password the system of record** for tiers 1–2 while
-the runtime reads from a cloud store (materialized) or from 1Password directly. Tier 3 is authored by
-the *running app* (at connect time), not by an admin — so it lives in the DB by default.
+the runtime reads from a cloud store (materialized) or from 1Password directly. Tier 3 is authored at
+**connect time** — by the end user (per-connection) or by an admin once (global entities, ADR-024) —
+not through the platform-env pipeline, so it lives in the DB by default.
 
 ```
  SCOPE                MANAGEMENT PLANE          STORE (routing map, ADR-029/028)         RUNTIME PLANE
@@ -72,11 +78,10 @@ the *running app* (at connect time), not by an admin — so it lives in the DB b
 ```
 
 **The new concept is tier 2** — an app-level, per-module credential/config store, distinct from the
-instance `Credential`/`config`. Two ways to realize it (open decision):
-- **Option A — mirror models:** new `ModuleCredential` / `ModuleConfig` tables/collections, scoped by
-  **app + environment + module** (not by `Entity`), secrets field-encrypted via the existing registry.
-- **Option B — repurpose existing models at a different reference/filter POV:** app/definition-level
-  rows in `Credential`/config, distinguished from instance rows by scope/reference.
+instance `Credential`/`config`. It is realized by **mirroring the existing models**: new
+`ModuleCredential` / `ModuleConfig` tables/collections, scoped by **app + environment + module** (not
+by `Entity`), secrets field-encrypted via the existing registry. (The rejected alternative — repurpose
+`Credential`/config with a scope/reference discriminator — is in *Alternatives Considered*.)
 
 Either way: field-encrypt the secrets, and **inject per module at build/instantiation** rather than
 flattening them into the global env — which both removes the overload and scopes each module to only
@@ -160,7 +165,7 @@ creds out of env entirely.
 - Establishes scope × sensitivity as the vocabulary the CLI/API and docs are organized around.
 
 ### Resolved so far
-- **Tier-2 storage: Option A — mirror models.** New `ModuleCredential` / `ModuleConfig`
+- **Tier-2 storage: mirror models.** New `ModuleCredential` / `ModuleConfig`
   tables/collections scoped by **app + environment + module** (not by `Entity`), secrets
   field-encrypted via the existing registry. Chosen for clarity/cleanliness over overloading
   `Credential`/`config`.
@@ -185,8 +190,22 @@ creds out of env entirely.
 - Exact **annotation syntax** for scope overrides in the app definition.
 - Whether collision detection defaults to **warn** or **strict**.
 
+## Alternatives Considered
+- **Keep the single flat env list.** Rejected: it is exactly what produces env overload at 10+
+  modules and blends four separable concerns with no distinction.
+- **Tier-2 by repurposing existing models.** App/definition-level rows in `Credential`/`config`
+  distinguished from instance rows by a scope/reference discriminator. Rejected in favor of mirrored
+  `ModuleCredential`/`ModuleConfig` models — a dedicated table reads more clearly and avoids
+  overloading instance semantics.
+- **Only `direct` runtime mode.** Rejected: `direct` needs a bootstrap token in platform env for
+  external managers; `materialized` avoids it, so both are supported with `materialized` as default
+  (ADR-028).
+
 ## Related
 - [ADR-028: Secrets & Config Provider Plugin](./028-secrets-config-provider-plugin.md)
 - [ADR-029: Variable & Secret Management (Admin API / CLI / GUI)](./029-variable-secret-management.md)
-- ADR-PLUGINS (provider/database/encryption plugin taxonomy), ADR-005 / ADR-010 (admin surface),
-  field-level encryption registry (`packages/core/database/encryption/`).
+- [ADR-030: Configuration & Secrets — Docs & Adopter Maturation](./030-configuration-secrets-docs-and-maturation.md)
+- [ADR-016: Plugins](./016-plugins.md) (provider/database/encryption/queue/scheduler plugin taxonomy),
+  [ADR-024: Global Entities](./024-global-entities.md) (admin-authored global tier-3 connections),
+  ADR-005 / ADR-010 (admin surface), field-level encryption registry
+  (`packages/core/database/encryption/`).

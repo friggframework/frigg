@@ -1,11 +1,12 @@
 # ADR-029: Variable & Secret Management — Admin API, CLI, GUI
 
-**Status**: Draft
+**Status**: Proposed
 **Date**: 2026-07-10
 **Deciders**: Sean Matthews
 
-> Draft. The "how do humans/tools manage values across all tiers" half of the Configuration &
-> Secrets work (ADR-027 is the model; ADR-028 is the storage/provider port).
+> Proposed. The "how do humans/tools manage values across all tiers" half of the Configuration &
+> Secrets work (ADR-027 is the model; ADR-028 is the storage/provider port; ADR-030 is docs &
+> maturation).
 
 ## Context
 
@@ -19,7 +20,8 @@ CLI (it would diverge from any future GUI).
 
 **The management interface is a set of admin API routes; every front-end is a thin client of them.**
 
-- **Admin API is the one brain.** Routes (admin-authed, same surface family as ADR-005 / ADR-010)
+- **Admin API is the one brain.** Routes (admin-authed, in the same admin-operation surface family as
+  ADR-005 / ADR-010; this ADR introduces its own `/api/v2/admin/variables` namespace)
   accept a value plus its **category / scope / sensitivity**, and the **API decides where to store
   it** based on the Frigg base app config/definition (which providers/tiers are configured per
   ADR-027/028) and the target environment. Storage routing lives here, once.
@@ -89,11 +91,21 @@ GET/PUT /api/v2/admin/variables            # curl or GUI hit the same routes the
 
 ## Open questions
 - **Routing:** inferred (from sensitivity/scope) vs explicit subcommands/flags?
-- **Auth:** reuse `ADMIN_API_KEY` / reporting key, or a dedicated management credential?
+- **Auth:** reuse the admin API key (per ADR-010, which folded the earlier separate reporting key into
+  one admin key), or mint a dedicated management credential given these routes mutate secret stores?
 - **Read-back & redaction:** can values be read back (never secrets in plaintext?), and what's audited?
 - Where the **routing policy** itself is declared — app definition vs API config.
+
+## Alternatives Considered
+- **Put routing logic in the CLI.** Rejected explicitly: it would diverge from any future GUI; the
+  routing decision must live once, in the admin API, so every front-end stays consistent.
+- **A dedicated non-admin secrets service/endpoint family.** Rejected: reuses none of the established
+  admin-auth/admin-operation surface and adds a second security perimeter to harden.
+- **Per-tier bespoke commands with no routing map.** Rejected: the routing map is what makes "unified
+  1Password" and mixed per-env setups a config change rather than new code.
 
 ## Related
 - [ADR-027: Configuration & Secrets — Model & Tiers](./027-configuration-and-secrets-model.md)
 - [ADR-028: Secrets & Config Provider Plugin](./028-secrets-config-provider-plugin.md)
-- ADR-005 (Admin Script Runner — admin auth/surface), ADR-010 (admin operations / `/api/v2/admin`).
+- [ADR-030: Configuration & Secrets — Docs & Adopter Maturation](./030-configuration-secrets-docs-and-maturation.md)
+- ADR-005 (Admin Script Runner — admin auth/surface), ADR-010 (admin operations / admin API key).
