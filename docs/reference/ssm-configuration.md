@@ -2,337 +2,207 @@
 
 ## Overview
 
-Frigg provides **automatic SSM Parameter Store integration** for secure configuration management. When enabled, it configures AWS Systems Manager Parameter Store access for your Lambda functions, allowing you to store and retrieve configuration values, secrets, and other sensitive data.
+Frigg integrates with AWS Systems Manager Parameter Store in two ways:
 
-## Quick Start
+1. **Read access** (`ssm.enable`): grants your Lambda functions IAM
+   permission to read parameters, so application code can fetch its own
+   configuration from Parameter Store.
+2. **Environment variable offload** (`environment: { KEY: 'ssm' }`): Frigg
+   stores the variable's value in Parameter Store and fetches it at runtime,
+   so the value never enters the Lambda environment. This is the built-in
+   answer to AWS Lambda's hard **4KB environment-variable limit** — offloaded
+   variables cost ~0 bytes of Lambda env instead of their full key+value
+   size on *every* function.
 
-Enable SSM Parameter Store with a single flag:
+Your application code does not change either way: offloaded variables are
+populated into `process.env` before your handler runs.
+
+See [ADR-027](../architecture-decisions/027-ssm-parameter-offload-and-env-scoping.md)
+for the full design rationale.
+
+## Quick Start: Offloading Variables
 
 ```javascript
+// backend/index.js
 const appDefinition = {
     name: 'my-frigg-app',
-    integrations: [
-        // your integrations...
-    ],
+    integrations: [/* ... */],
     ssm: {
-        enable: true  // Enables SSM Parameter Store access
-    }
-}
-
-module.exports = appDefinition;
-```
-
-## What Gets Configured Automatically
-
-When `ssm.enable` is `true`, Frigg automatically:
-
-1. **Adds Lambda Extension Layer**: Includes AWS Parameters and Secrets Lambda Extension for optimized parameter retrieval
-2. **Grants SSM Permissions**: Adds parameter read permissions scoped to your application
-3. **Sets Environment Variables**: Configures parameter prefix for organized parameter storage
-4. **VPC Integration**: Creates SSM VPC Endpoint when VPC is enabled for secure access
-
-### Generated Infrastructure
-
-The framework generates the following serverless configuration:
-
-```yaml
-# Lambda Layer (for performance optimization)
-provider:
-  layers:
-    - arn:aws:lambda:${self:provider.region}:177933569100:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11
-
-# IAM Permissions (scoped to your application)
-provider:
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - ssm:GetParameter
-        - ssm:GetParameters  
-        - ssm:GetParametersByPath
-      Resource:
-        - arn:aws:ssm:${self:provider.region}:*:parameter/${self:service}/${self:provider.stage}/*
-
-# Environment Variables
-provider:
-  environment:
-    SSM_PARAMETER_PREFIX: /${self:service}/${self:provider.stage}
-```
-
-## Using SSM Parameters in Your Code
-
-### Accessing Parameters via Environment Variable
-
-The parameter prefix is available in your Lambda functions:
-
-```javascript
-const parameterPrefix = process.env.SSM_PARAMETER_PREFIX;
-// Example: "/my-frigg-app/prod"
-
-// Parameter naming convention:
-// /${service}/${stage}/parameter-name
-// Example: "/my-frigg-app/prod/database-url"
-```
-
-### Using AWS Parameters and Secrets Extension
-
-The Lambda extension provides optimized parameter retrieval:
-
-```javascript
-// Using HTTP calls to the extension (recommended)
-const http = require('http');
-
-async function getParameter(parameterName) {
-    const options = {
-        hostname: 'localhost',
-        port: 2773,
-        path: `/systemsmanager/parameters/get?name=${parameterName}`,
-        method: 'GET',
-        headers: {
-            'X-Aws-Parameters-Secrets-Token': process.env.AWS_SESSION_TOKEN
-        }
-    };
-    
-    return new Promise((resolve, reject) => {
-        const req = http.request(options, (res) => {
-            let data = '';
-            res.on('data', (chunk) => data += chunk);
-            res.on('end', () => {
-                const response = JSON.parse(data);
-                resolve(response.Parameter.Value);
-            });
-        });
-        req.on('error', reject);
-        req.end();
-    });
-}
-
-// Usage
-const databaseUrl = await getParameter(`${process.env.SSM_PARAMETER_PREFIX}/database-url`);
-```
-
-### Using AWS SDK (Alternative)
-
-```javascript
-const { SSMClient, GetParameterCommand, GetParametersByPathCommand } = require('@aws-sdk/client-ssm');
-
-const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
-
-// Get single parameter
-async function getParameter(name) {
-    const command = new GetParameterCommand({
-        Name: `${process.env.SSM_PARAMETER_PREFIX}/${name}`,
-        WithDecryption: true
-    });
-    
-    const response = await ssmClient.send(command);
-    return response.Parameter.Value;
-}
-
-// Get multiple parameters by path
-async function getAllParameters() {
-    const command = new GetParametersByPathCommand({
-        Path: process.env.SSM_PARAMETER_PREFIX,
-        Recursive: true,
-        WithDecryption: true
-    });
-    
-    const response = await ssmClient.send(command);
-    return response.Parameters;
-}
-```
-
-## Parameter Organization
-
-### Recommended Parameter Structure
-
-Frigg automatically creates a parameter hierarchy for your application:
-
-```
-/${service-name}/${stage}/
-├── database-url          # Database connection strings
-├── api-keys/
-│   ├── salesforce-key   # Integration API keys
-│   ├── hubspot-key
-│   └── slack-token
-├── features/
-│   ├── enable-webhooks  # Feature flags
-│   └── rate-limit
-└── secrets/
-    ├── jwt-secret       # Application secrets
-    └── webhook-secret
-```
-
-### Parameter Types
-
-```javascript
-// String parameters (default)
-await putParameter('/my-app/prod/database-url', 'mongodb://...');
-
-// SecureString parameters (encrypted)
-await putParameter('/my-app/prod/secrets/api-key', 'secret-value', 'SecureString');
-
-// StringList parameters
-await putParameter('/my-app/prod/allowed-domains', 'domain1.com,domain2.com', 'StringList');
-```
-
-## VPC Integration
-
-### SSM with VPC Enabled
-
-When both SSM and VPC are enabled, Frigg optimizes for security and performance:
-
-```javascript
-const appDefinition = {
-    ssm: { enable: true },
-    vpc: { enable: true },
-    integrations: [/* your integrations */]
+        enable: true,
+    },
+    environment: {
+        STAGE_URL: true,                    // stays in the Lambda environment
+        HUBSPOT_CLIENT_SECRET: 'ssm',       // offloaded to Parameter Store
+        OTEL_EXPORTER_OTLP_HEADERS: 'ssm',  // offloaded to Parameter Store
+    },
 };
 ```
 
-This configuration automatically:
-- **Creates SSM VPC Endpoint** (~$22/month) for secure parameter access
-- **Avoids NAT Gateway costs** for parameter operations  
-- **Reduces latency** by keeping SSM traffic within your VPC
-- **Improves security** by avoiding internet routing for parameter retrieval
+For secrets, use the typed form so the parameter is stored encrypted
+(`SecureString`):
 
-### Cost Considerations
-
-| Configuration | Monthly Cost | Security | Performance |
-|---------------|--------------|----------|-------------|
-| SSM only (no VPC) | $0 | Medium | Good |
-| SSM + VPC (no endpoints) | ~$45 | High | Good |
-| SSM + VPC + Endpoints | ~$67 | Very High | Excellent |
-
-## Configuration Options
-
-### Basic SSM (Default)
-```javascript
-ssm: {
-    enable: true  // Uses default configuration
-}
-```
-
-### Custom Parameter Prefix
 ```javascript
 ssm: {
     enable: true,
-    parameterPrefix: '/custom-prefix'  // Override default prefix
-}
+    parameters: {
+        HUBSPOT_CLIENT_SECRET: {
+            type: 'SecureString',
+            description: 'HubSpot OAuth app client secret',
+        },
+    },
+},
 ```
 
-### Environment-Specific Configuration
-```javascript
-ssm: {
-    enable: process.env.STAGE !== 'local',  // Disable for local development
-    parameterPrefix: `/${appName}/${process.env.STAGE}`
-}
+The offload set is the union of `environment` keys valued `'ssm'` and the
+keys of `ssm.parameters`. Keys in both places take their type from
+`ssm.parameters`.
+
+## How It Works
+
+### Deploy time
+
+`frigg deploy` (or a standalone `frigg ssm push --stage <stage>`) reads each
+offloaded value from the deploy process environment — your CI secrets or
+local `.env` — and writes it to Parameter Store **before** the serverless
+deploy runs, so parameters always exist before new code cold-starts:
+
+```
+/frigg/<service>/<stage>/HUBSPOT_CLIENT_SECRET
 ```
 
-## Security Best Practices
+The generated stack excludes offloaded keys from `provider.environment` and
+broadcasts only two small pointers to every function:
 
-### When to Use SSM Parameter Store
+- `SSM_PARAMETER_PREFIX` — e.g. `/frigg/my-frigg-app/prod`
+- `FRIGG_SSM_OFFLOADED_KEYS` — the declared key names
 
-Enable SSM Parameter Store for:
-- **Configuration values** that vary by environment
-- **API keys and tokens** for third-party services
-- **Database connection strings** and credentials
-- **Feature flags** and runtime configuration
-- **Sensitive application settings**
+The Lambda execution role receives read access scoped to the prefix (the
+pre-existing broad `parameter/*` grant from `ssm.enable` is kept for
+backward compatibility; set `ssm.restrictIamToPrefix: true` to drop it).
 
-### Parameter Security
+### Runtime
 
-- **Use SecureString** for sensitive values (encrypted with KMS)
-- **Scope IAM permissions** to specific parameter paths
-- **Enable parameter history** tracking for audit trails
-- **Use parameter policies** for automatic expiration
-- **Implement parameter rotation** for credentials
+On a container's first invocation, the Frigg handler bootstrap fetches the
+declared parameters (batched `GetParameters` with decryption) and writes them
+into `process.env` before your code runs. The result is cached per container
+with a TTL (default 300 seconds, configurable via `FRIGG_SSM_CACHE_TTL`;
+`0` caches for the container lifetime).
 
-### Parameter Naming Conventions
+**Precedence** (highest wins):
 
-```javascript
-// ✅ Good: Clear hierarchy and naming
-/${service}/${stage}/database/primary-url
-/${service}/${stage}/api-keys/salesforce/client-id
-/${service}/${stage}/features/enable-async-processing
+1. Real Lambda environment variables — a value set directly on a function's
+   configuration always wins, and the loader never touches it.
+2. Secrets Manager values injected via `SECRET_ARN` (`secretsToEnv`).
+3. SSM parameters.
 
-// ❌ Avoid: Flat structure and unclear names
-/${service}/${stage}/db-url
-/${service}/${stage}/sf-key  
-/${service}/${stage}/flag1
-```
+If a declared parameter is missing from Parameter Store, the cold start
+fails immediately with an error naming the missing key — a deliberate
+fail-fast instead of `undefined` surfacing somewhere downstream.
 
-## Examples
+### What cannot be offloaded
 
-### Complete Configuration Setup
+Framework-managed variables (`DATABASE_URL`, `DATABASE_*`, `KMS_KEY_ARN`,
+`AES_*`, `STAGE`, `FRIGG_*`, `SECRET_ARN`, `DB_TYPE`, and the AWS-reserved
+set) are rejected at build time: the database-migration handlers read them
+before the loader runs.
 
-```javascript
-// app-definition.js
-const appDefinition = {
-    name: 'integration-platform',
-    integrations: [
-        SalesforceIntegration,
-        HubspotIntegration
-    ],
-    ssm: { enable: true },
-    encryption: { fieldLevelEncryptionMethod: 'kms' },
-    vpc: { enable: true }
-};
+## Debugging and On-the-Fly Changes
 
-module.exports = appDefinition;
-```
-
-### Runtime Parameter Usage
-
-```javascript
-// Lambda function using parameters
-exports.handler = async (event) => {
-    // Get configuration from SSM
-    const databaseUrl = await getParameter('database/primary-url');
-    const salesforceKey = await getParameter('api-keys/salesforce/client-id');
-    const enableWebhooks = await getParameter('features/enable-webhooks');
-    
-    // Use parameters in your integration logic
-    const database = new Database(databaseUrl);
-    const salesforce = new SalesforceAPI(salesforceKey);
-    
-    if (enableWebhooks === 'true') {
-        // Feature flag enabled
-        await setupWebhooks();
-    }
-    
-    return { statusCode: 200 };
-};
-```
-
-## Deployment Considerations
-
-### Parameter Creation
-
-Parameters should be created during deployment or manually:
+**Inspect values** in the AWS console (Systems Manager → Parameter Store →
+filter by `/frigg/<service>/<stage>/`, toggle "Show decrypted value") or:
 
 ```bash
-# Create parameters using AWS CLI
-aws ssm put-parameter \
-    --name "/my-app/prod/database-url" \
-    --value "mongodb://prod-cluster.example.com" \
-    --type "SecureString"
-
-aws ssm put-parameter \
-    --name "/my-app/prod/api-keys/salesforce/client-id" \
-    --value "your-salesforce-client-id" \
-    --type "SecureString"
+aws ssm get-parameter --name /frigg/my-app/dev/HUBSPOT_CLIENT_SECRET --with-decryption
+aws ssm get-parameters-by-path --path /frigg/my-app/dev --with-decryption
 ```
 
-### Environment Isolation
+Parameters keep full version history, so "what was this value last Tuesday"
+is answerable — something Lambda env config never offered.
 
-Parameters are environment-specific by default:
-- **Development**: `/my-app/dev/*`
-- **Staging**: `/my-app/staging/*`  
-- **Production**: `/my-app/prod/*`
+**Change a value for all functions**: `aws ssm put-parameter --overwrite ...`
+(or edit in the console). Warm containers converge within the cache TTL
+(default 5 minutes); new containers pick it up immediately.
 
-### Version Requirements
+**Override one function instantly** (the classic debugging workflow): set the
+variable directly in that function's Lambda console configuration. Real env
+vars beat SSM, and saving the config recycles that function's containers, so
+the override applies immediately and only there.
 
-- **Framework Version**: Requires `@friggframework/devtools` v2.1.0+
-- **AWS Region**: Available in all AWS regions
-- **Lambda Runtime**: Compatible with Node.js 16.x, 18.x, 20.x
-- **Extension Version**: Uses AWS Parameters and Secrets Lambda Extension v11
+Both kinds of edits are temporary: the next `frigg deploy` re-pushes
+parameters from CI/`.env` values and resets function configs.
+
+## Local Development
+
+Nothing changes. In local mode (`frigg start`), offloaded keys fall back to
+plain `${env:KEY}` resolution from your `.env` — no SSM calls, no AWS
+dependency, and the runtime loader is inert because the SSM pointer
+variables are never set.
+
+## Configuration Reference
+
+```javascript
+ssm: {
+    enable: true,                 // required for any SSM feature
+    parameterPrefix: '/custom',   // optional; default /frigg/${service}/${stage}.
+                                  // Non-default prefixes without "frigg" require
+                                  // widening the generated deployment IAM policies.
+    kmsKeyArn: 'arn:aws:kms:...', // optional customer-managed key for SecureString;
+                                  // grants the Lambda role kms:Decrypt on it.
+                                  // Default: the AWS-managed aws/ssm key.
+    restrictIamToPrefix: true,    // optional; drop the legacy broad parameter/* read grant
+    parameters: { /* typed offload declarations, see above */ },
+},
+```
+
+### `frigg ssm push`
+
+```bash
+frigg ssm push --stage prod          # write offloaded values from env/.env to SSM
+frigg ssm push --stage prod --allow-empty   # permit empty values (default: error)
+```
+
+`frigg deploy` runs the push automatically before deploying whenever the
+offload set is non-empty. Use the standalone command to rotate a value
+without deploying (containers converge within the cache TTL) or to seed a
+new stage.
+
+Values are validated at push time: missing/empty values are an error, and
+values over 4KB (the standard-tier parameter limit) are rejected.
+
+## VPC Integration
+
+When the offload set is non-empty and `vpc.enable` is true, Frigg creates an
+SSM interface endpoint (`FriggSSMVPCEndpoint`, ~$7–22/month) so Lambdas in
+private subnets can reach Parameter Store without a NAT route. Without it,
+SSM calls from a VPC-enabled Lambda would hang.
+
+## Cost
+
+| Configuration | Parameter cost | Endpoint cost |
+|---------------|----------------|---------------|
+| Standard-tier parameters (≤4KB values) | $0 | — |
+| + VPC enabled with offload | $0 | ~$7–22/month (SSM interface endpoint) |
+
+API traffic is one batched fetch per container per TTL window — negligible
+against standard throughput limits.
+
+## Deployment Notes and Accepted Trade-offs
+
+- **Rollbacks**: parameters are pushed before the stack update. If the
+  deploy fails and CloudFormation rolls back the code, parameters keep their
+  new values — use parameter version history to revert manually if needed.
+- **Concurrent deploys** to one stage are last-writer-wins on parameters.
+- **Warm containers** keep values fetched at cold start until the TTL
+  expires or the container recycles.
+- The management UI's environment utilities use a separate
+  `/frigg/<environment>` namespace; it does not read or write this feature's
+  `/frigg/<service>/<stage>` parameters.
+
+## Version Requirements
+
+- `@friggframework/core` and `@friggframework/devtools` releases that
+  include ADR-027 (offload requires BOTH: devtools generates the pointers,
+  core fetches at runtime — upgrading devtools alone would silently drop
+  offloaded variables).
+- Works in all AWS regions; no Lambda layers or extensions required (the
+  loader uses `@aws-sdk/client-ssm` directly).
