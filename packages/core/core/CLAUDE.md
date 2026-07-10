@@ -131,6 +131,7 @@ class MyIntegration extends Delegate {
    ```javascript
    initDebugLog(eventName, event);           // Debug logging setup
    await secretsToEnv();                     // Secrets Manager injection
+   await parametersToEnv();                  // SSM Parameter Store fetch (only when SSM_PARAMETER_PREFIX + FRIGG_SSM_OFFLOADED_KEYS are set)
    context.callbackWaitsForEmptyEventLoop = false; // Connection pooling
    ```
 
@@ -164,6 +165,15 @@ class MyIntegration extends Delegate {
 - **Environment Variables**: Secrets automatically set as `process.env` variables
 - **Security**: No secrets logging or exposure in error messages
 - **Caching**: Secrets cached for Lambda container lifetime
+
+### SSM Parameter Store Loader (`parameters-to-env.js`)
+Offloads env vars that would otherwise exceed Lambda's 4KB env limit. Runs right after `secretsToEnv()` and is a no-op unless both `SSM_PARAMETER_PREFIX` and `FRIGG_SSM_OFFLOADED_KEYS` (comma-separated env var names) are set.
+
+- **Precedence**: real `process.env` > Secrets Manager > SSM. A key already present in `process.env` at load time is never fetched or overwritten (a documented local-debugging escape hatch); only keys the loader itself set are refreshed.
+- **Fetch**: `GetParametersCommand` with `WithDecryption: true`, batched in groups of 10 (the GetParameters max). Parameter name for key `K` is `${SSM_PARAMETER_PREFIX}/${K}`.
+- **TTL cache**: successful loads cache for `FRIGG_SSM_CACHE_TTL` seconds (default 300; `0` = forever). Concurrent callers share one in-flight promise. A failed initial load is never cached, so the next invocation retries; a failed TTL *refresh* keeps serving the stale values (warn + 30s backoff) instead of erroring a warm container. `ThrottlingException` is retried with short exponential backoff.
+- **Fail-fast**: throws listing every missing parameter name (and the prefix) if a required key is absent from SSM. Keys already satisfied by real `process.env` never trigger a failure.
+- **Security**: logs parameter names and versions only, never values.
 
 ## Database Connection Patterns
 
