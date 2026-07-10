@@ -120,7 +120,8 @@ async function generateCommand(options = {}) {
                     appName,
                     features,
                     userPrefix: options.user || 'frigg-deployment-user',
-                    stackName: options.stackName || 'frigg-deployment-iam'
+                    stackName: options.stackName || 'frigg-deployment-iam',
+                    ssmKmsKeyArn: appDefinition.ssm?.kmsKeyArn
                 });
                 fileExtension = 'yaml';
                 deploymentInstructions = generateCloudFormationInstructions(options);

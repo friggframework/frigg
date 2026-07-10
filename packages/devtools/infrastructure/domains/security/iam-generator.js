@@ -804,6 +804,7 @@ function getFeatureSummary(appDefinition) {
         features,
         integrationCount,
         appName: appDefinition.name || 'Unnamed Frigg App',
+        ssmKmsKeyArn: appDefinition.ssm?.kmsKeyArn,
     };
 }
 

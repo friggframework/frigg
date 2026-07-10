@@ -293,7 +293,18 @@ async function pushOffloadedParametersOrAbort(appDefinition, options) {
         console.log(`   ✓ ${pushed.length} parameter(s) up to date`);
     } catch (error) {
         console.error(`\n✗ SSM parameter push failed: ${error.message}`);
-        console.error('   Deployment aborted — no resources were changed.');
+        const pushedBeforeFailure = error.pushed || [];
+        if (pushedBeforeFailure.length === 0) {
+            console.error('   Deployment aborted — no parameters were changed.');
+        } else {
+            const names = pushedBeforeFailure.map((p) => p.name).join(', ');
+            console.error(
+                `   Deployment aborted, but ${pushedBeforeFailure.length} parameter(s) were already pushed and are now live in Parameter Store: ${names}`
+            );
+            console.error(
+                '   Those values will take effect on old Lambda code at its next SSM cache TTL refresh. Redeploy soon so the running code matches.'
+            );
+        }
         process.exit(1);
     }
 }

@@ -9,7 +9,7 @@
  * 3. Generated resource references
  */
 
-const { isSsmOffloadActive } = require('../parameters/offload-utils');
+const { isSsmOffloadActive, getOffloadedKeys } = require('../parameters/offload-utils');
 
 /**
  * Get environment variables from AppDefinition
@@ -45,9 +45,7 @@ function getAppEnvironmentVars(appDefinition) {
         'AWS_SESSION_TOKEN',
     ]);
 
-    if (!appDefinition.environment) {
-        return envVars;
-    }
+    const environment = appDefinition.environment || {};
 
     console.log('📋 Loading environment variables from appDefinition...');
     const envKeys = [];
@@ -55,12 +53,30 @@ function getAppEnvironmentVars(appDefinition) {
     const offloadedKeys = [];
     const offloadActive = isSsmOffloadActive(appDefinition);
 
-    for (const [key, value] of Object.entries(appDefinition.environment)) {
+    for (const [key, value] of Object.entries(environment)) {
         if (value === 'ssm' && offloadActive) {
             offloadedKeys.push(key);
             continue;
         }
         if (value !== true && value !== 'ssm') continue;
+        if (reservedVars.has(key)) {
+            skippedKeys.push(key);
+            continue;
+        }
+        envVars[key] = `\${env:${key}, ''}`;
+        envKeys.push(key);
+    }
+
+    // Keys declared only in ssm.parameters (no matching `environment` entry)
+    // get the same local-fallback treatment as `environment`-valued 'ssm' keys.
+    const ssmOnlyKeys = getOffloadedKeys(appDefinition).filter(
+        (key) => !(key in environment)
+    );
+    for (const key of ssmOnlyKeys) {
+        if (offloadActive) {
+            offloadedKeys.push(key);
+            continue;
+        }
         if (reservedVars.has(key)) {
             skippedKeys.push(key);
             continue;

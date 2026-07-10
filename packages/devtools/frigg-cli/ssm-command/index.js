@@ -20,6 +20,33 @@ const TIER_LIMITS = {
     advanced: 8192,
 };
 
+const THROTTLE_BACKOFF_MS = [100, 200, 400];
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Send a PutParameterCommand, retrying ThrottlingException with short
+ * exponential backoff (mirrors sendWithRetry in core/parameters-to-env.js).
+ */
+async function putParameterWithRetry(client, PutParameterCommand, input) {
+    let attempt = 0;
+    for (;;) {
+        try {
+            return await client.send(new PutParameterCommand(input));
+        } catch (error) {
+            if (
+                error.name === 'ThrottlingException' &&
+                attempt < THROTTLE_BACKOFF_MS.length
+            ) {
+                await sleep(THROTTLE_BACKOFF_MS[attempt]);
+                attempt += 1;
+                continue;
+            }
+            throw error;
+        }
+    }
+}
+
 /**
  * Resolve the tier for a single offloaded key. An explicit `--tier` CLI
  * option overrides every key; otherwise each key uses its own
@@ -167,15 +194,21 @@ async function pushOffloadedParameters(appDefinition, stage, options = {}) {
         }
 
         try {
-            const result = await client.send(new PutParameterCommand(input));
+            const result = await putParameterWithRetry(
+                client,
+                PutParameterCommand,
+                input
+            );
             pushed.push({ name: spec.name, version: result.Version });
             console.log(
                 `   ✅ ${spec.name} (${spec.type}, v${result.Version})`
             );
         } catch (error) {
-            throw new Error(
+            const failure = new Error(
                 `Failed to push parameter ${spec.name} (${spec.key}): ${error.message}`
             );
+            failure.pushed = pushed;
+            throw failure;
         }
     }
 

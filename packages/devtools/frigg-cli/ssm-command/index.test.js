@@ -214,6 +214,54 @@ describe('ssm-command pushOffloadedParameters', () => {
         ).rejects.toThrow(/MY_SECRET/);
     });
 
+    it('retries a throttled PutParameter and succeeds', async () => {
+        const throttle = Object.assign(new Error('Rate exceeded'), {
+            name: 'ThrottlingException',
+        });
+        ssmMock
+            .on(PutParameterCommand, {
+                Name: '/frigg/my-app/dev/MY_SECRET',
+            })
+            .rejectsOnce(throttle)
+            .resolves({ Version: 2 });
+
+        const result = await pushOffloadedParameters(appDefinition, 'dev');
+
+        expect(result.pushed).toHaveLength(2);
+        const secretCalls = ssmMock
+            .commandCalls(PutParameterCommand)
+            .filter(
+                (c) => c.args[0].input.Name === '/frigg/my-app/dev/MY_SECRET'
+            );
+        expect(secretCalls).toHaveLength(2);
+    });
+
+    it('exposes keys pushed so far on a mid-batch failure', async () => {
+        // MY_CONFIG (sorted before MY_SECRET) succeeds; MY_SECRET fails.
+        ssmMock
+            .on(PutParameterCommand, {
+                Name: '/frigg/my-app/dev/MY_CONFIG',
+            })
+            .resolves({ Version: 1 });
+        ssmMock
+            .on(PutParameterCommand, {
+                Name: '/frigg/my-app/dev/MY_SECRET',
+            })
+            .rejects(new Error('boom'));
+
+        let caught;
+        try {
+            await pushOffloadedParameters(appDefinition, 'dev');
+        } catch (error) {
+            caught = error;
+        }
+
+        expect(caught).toBeDefined();
+        expect(caught.pushed).toEqual([
+            { name: '/frigg/my-app/dev/MY_CONFIG', version: 1 },
+        ]);
+    });
+
     it('honors a custom parameterPrefix', async () => {
         const custom = {
             ...appDefinition,

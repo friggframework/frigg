@@ -38,6 +38,34 @@ describe('IAM Generator', () => {
             expect(summary.features.ssm).toBe(false);
             expect(summary.features.websockets).toBe(false);
         });
+
+        it('should surface ssm.kmsKeyArn from the app definition', () => {
+            const appDefinition = {
+                name: 'test-app',
+                ssm: {
+                    enable: true,
+                    kmsKeyArn:
+                        'arn:aws:kms:us-east-1:123456789012:key/abcd-1234'
+                }
+            };
+
+            const summary = getFeatureSummary(appDefinition);
+
+            expect(summary.ssmKmsKeyArn).toBe(
+                'arn:aws:kms:us-east-1:123456789012:key/abcd-1234'
+            );
+        });
+
+        it('should leave ssmKmsKeyArn undefined when not configured', () => {
+            const appDefinition = {
+                name: 'test-app',
+                ssm: { enable: true }
+            };
+
+            const summary = getFeatureSummary(appDefinition);
+
+            expect(summary.ssmKmsKeyArn).toBeUndefined();
+        });
     });
 
     describe('generateIAMCloudFormation', () => {

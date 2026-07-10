@@ -343,7 +343,6 @@ Resources:
                 'kms:ViaService':
                   - 'lambda.*.amazonaws.com'
                   - 's3.*.amazonaws.com'
-                  - 'ssm.*.amazonaws.com'
 
   # SSM Parameter Store permissions
   FriggSSMPolicy:
@@ -367,6 +366,18 @@ Resources:
             Resource:
               - !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*'
               - !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*/*'
+          - Sid: 'FriggSSMParameterKMSEncryption'
+            Effect: Allow
+            Action:
+              - 'kms:Encrypt'
+              - 'kms:GenerateDataKey'
+              - 'kms:Decrypt'
+            Resource:
+              - !Sub 'arn:aws:kms:*:${AWS::AccountId}:key/*'
+            Condition:
+              StringEquals:
+                'kms:ViaService':
+                  - 'ssm.*.amazonaws.com'
 
   # Store access key in Secrets Manager
   FriggDeploymentCredentials:
