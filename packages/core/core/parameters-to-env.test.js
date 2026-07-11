@@ -466,4 +466,46 @@ describe('parametersToEnv - SSM Parameter Store loader', () => {
             expect(process.env.A).toBeUndefined();
         });
     });
+
+    describe('adoptPreloadedKeys (INIT preload → handler-time TTL refresh)', () => {
+        const { adoptPreloadedKeys } = require('./parameters-to-env');
+
+        it('lets the TTL-refresh path re-fetch keys the preload set', async () => {
+            process.env.SSM_PARAMETER_PREFIX = '/frigg/app';
+            process.env.FRIGG_SSM_OFFLOADED_KEYS = 'ADOPTED';
+            process.env.FRIGG_SSM_CACHE_TTL = '60';
+
+            // Simulate the preload: value already in env, adopted as owned.
+            process.env.ADOPTED = 'v1';
+            adoptPreloadedKeys(['ADOPTED']);
+
+            // Within TTL: no fetch.
+            await parametersToEnv();
+            expect(ssmMock.commandCalls(GetParametersCommand)).toHaveLength(0);
+
+            // After TTL: the adopted key IS refreshed (overwritten), unlike a
+            // real-env / console override which is never touched.
+            setParamStore({ '/frigg/app/ADOPTED': { value: 'v2', version: 2 } });
+            clock += 61 * 1000;
+            await parametersToEnv();
+
+            expect(process.env.ADOPTED).toBe('v2');
+            expect(ssmMock.commandCalls(GetParametersCommand)).toHaveLength(1);
+        });
+
+        it('does not refresh a key the preload left to real env (not adopted)', async () => {
+            process.env.SSM_PARAMETER_PREFIX = '/frigg/app';
+            process.env.FRIGG_SSM_OFFLOADED_KEYS = 'REALENV';
+            process.env.FRIGG_SSM_CACHE_TTL = '60';
+
+            process.env.REALENV = 'from-console';
+            adoptPreloadedKeys([]); // preload set nothing (real env won)
+
+            clock += 61 * 1000;
+            await parametersToEnv();
+
+            expect(process.env.REALENV).toBe('from-console');
+            expect(ssmMock.commandCalls(GetParametersCommand)).toHaveLength(0);
+        });
+    });
 });

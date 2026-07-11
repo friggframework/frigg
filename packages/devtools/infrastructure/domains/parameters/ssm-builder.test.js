@@ -234,7 +234,7 @@ describe('SsmBuilder', () => {
             expect(result.environment.FRIGG_SSM_OFFLOADED_KEYS).toBe('BAR,FOO');
         });
 
-        it('sets NODE_OPTIONS to --import the INIT preload (appended to any app value)', async () => {
+        it('does not set NODE_OPTIONS globally (the composer scopes it to skipEsbuild functions)', async () => {
             const appDefinition = {
                 ssm: { enable: true },
                 environment: { FOO: 'ssm' },
@@ -242,18 +242,8 @@ describe('SsmBuilder', () => {
 
             const result = await ssmBuilder.build(appDefinition, {});
 
-            expect(result.environment.NODE_OPTIONS).toContain('--import');
-            expect(result.environment.NODE_OPTIONS).toContain(
-                '@friggframework/core/core/ssm-preload.mjs'
-            );
-            // Appends to any app-provided NODE_OPTIONS rather than clobbering it.
-            expect(result.environment.NODE_OPTIONS).toContain(
-                "${env:NODE_OPTIONS, ''}"
-            );
-        });
-
-        it('does not set NODE_OPTIONS when no keys are offloaded', async () => {
-            const result = await ssmBuilder.build({ ssm: { enable: true } }, {});
+            // NODE_OPTIONS=--import would fatally abort esbuild-bundled functions
+            // that lack the preload file, so it must never be provider-global.
             expect(result.environment.NODE_OPTIONS).toBeUndefined();
         });
 

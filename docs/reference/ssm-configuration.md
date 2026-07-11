@@ -80,24 +80,42 @@ The Lambda execution role receives read access scoped to the prefix (the
 pre-existing broad `parameter/*` grant from `ssm.enable` is kept for
 backward compatibility; set `ssm.restrictIamToPrefix: true` to drop it).
 
-### Runtime
+### Runtime — INIT phase (primary)
 
-On a container's first invocation, the Frigg handler bootstrap fetches the
-declared parameters (batched `GetParameters` with decryption) and writes them
-into `process.env` before your code runs. The result is cached per container
-with a TTL (default 300 seconds, configurable via `FRIGG_SSM_CACHE_TTL`;
-`0` caches for the container lifetime).
+Offloaded values are fetched and written into `process.env` during Lambda
+**INIT**, before your handler and any API module is loaded. This is required
+for credentials: API modules capture their OAuth client secret in a top-level
+`const Definition = { env: { client_secret: process.env.X } }` evaluated at
+module-require — a handler-time fetch would be too late and the value would be
+`undefined`. Frigg sets `NODE_OPTIONS=--import` on each function to load
+`ssm-preload.mjs` (shipped in `@friggframework/core`), whose top-level `await`
+completes before the entry module. A fetch failure rejects the preload and
+fails INIT loudly (fail-fast), naming the missing key.
+
+The preload is attached only to Frigg-generated (`skipEsbuild`) handlers, which
+package the preload file. **Adopter custom functions that are esbuild-bundled
+do not receive it** — they fall back to the handler-time loader below, which is
+too late for module-load credential reads. A custom function that needs an
+offloaded credential at module-load must be `skipEsbuild`.
+
+### Runtime — handler fallback
+
+For values read lazily (request time) and for TTL refresh, a loader also runs
+in the `createHandler` bootstrap. It never touches a key already in
+`process.env` (so the preload's values and console overrides win), and
+refreshes the preloaded keys per container on a TTL (default 300 seconds,
+`FRIGG_SSM_CACHE_TTL`; `0` caches for the container lifetime).
 
 **Precedence** (highest wins):
 
 1. Real Lambda environment variables — a value set directly on a function's
-   configuration always wins, and the loader never touches it.
-2. Secrets Manager values injected via `SECRET_ARN` (`secretsToEnv`).
-3. SSM parameters.
+   configuration always wins, and the loaders never touch it.
+2. INIT preload / handler loader SSM values.
+3. Secrets Manager values injected via `SECRET_ARN` (`secretsToEnv`).
 
-If a declared parameter is missing from Parameter Store, the cold start
-fails immediately with an error naming the missing key — a deliberate
-fail-fast instead of `undefined` surfacing somewhere downstream.
+If a declared parameter is missing from Parameter Store, INIT fails
+immediately with an error naming the missing key — a deliberate fail-fast
+instead of `undefined` surfacing somewhere downstream.
 
 ### What cannot be offloaded
 

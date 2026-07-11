@@ -199,6 +199,23 @@ const parametersToEnv = async () => {
     return inflight;
 };
 
+/**
+ * Adopt keys the INIT preload (ssm-preload.mjs) already populated into
+ * process.env, so the handler-time loader treats them as its own: it seeds
+ * the cache TTL and marks the keys owned so the TTL-refresh path re-fetches
+ * them. The preload runs in-process (NODE_OPTIONS=--import), sharing this
+ * module singleton. Pass ONLY the keys the preload actually set (not keys
+ * already present as real env vars) so the real-env-wins rule is preserved.
+ */
+const adoptPreloadedKeys = (keys) => {
+    for (const key of keys) {
+        ownedKeys.add(key);
+    }
+    const ttlSeconds = getCacheTtlSeconds();
+    cacheExpiresAt =
+        ttlSeconds === 0 ? Infinity : Date.now() + ttlSeconds * 1000;
+};
+
 const _resetCache = () => {
     client = null;
     cacheExpiresAt = null;
@@ -209,5 +226,6 @@ const _resetCache = () => {
 module.exports = {
     parametersToEnv,
     fetchOffloadedParameters,
+    adoptPreloadedKeys,
     _resetCache,
 };

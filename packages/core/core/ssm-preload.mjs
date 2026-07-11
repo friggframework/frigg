@@ -25,15 +25,23 @@ if (prefix && rawKeys) {
         .filter(Boolean);
 
     if (keys.length > 0) {
-        const { fetchOffloadedParameters } = require('./parameters-to-env');
+        const {
+            fetchOffloadedParameters,
+            adoptPreloadedKeys,
+        } = require('./parameters-to-env');
         const values = await fetchOffloadedParameters(prefix, keys);
 
         // Real env vars win over SSM (console-override debugging escape hatch).
+        const setKeys = [];
         for (const [key, value] of Object.entries(values)) {
             if (process.env[key] === undefined) {
                 process.env[key] = value;
+                setKeys.push(key);
             }
         }
-        console.log(`frigg-ssm-preload: loaded ${keys.length} parameter(s) at INIT under ${prefix}`);
+        // Hand the keys we set to the handler-time loader (same in-process
+        // module singleton) so its TTL-refresh path re-fetches them.
+        adoptPreloadedKeys(setKeys);
+        console.log(`frigg-ssm-preload: loaded ${setKeys.length} parameter(s) at INIT under ${prefix}`);
     }
 }

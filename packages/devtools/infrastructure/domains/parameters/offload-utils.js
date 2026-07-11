@@ -16,6 +16,19 @@ const ENV_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const DEFAULT_PARAMETER_PREFIX =
     '/frigg/${self:service}/${self:provider.stage}';
 
+// INIT-phase preload shipped in @friggframework/core, present at this path in
+// every skipEsbuild handler (which packages the full node_modules tree).
+// LAMBDA_TASK_ROOT = /var/task.
+const SSM_PRELOAD_PATH =
+    '/var/task/node_modules/@friggframework/core/core/ssm-preload.mjs';
+
+// NODE_OPTIONS value that loads the INIT preload. Set ONLY on skipEsbuild
+// functions (esbuild-bundled functions do not package the .mjs, and a missing
+// --import target is a fatal Node startup error). No `${env:NODE_OPTIONS}`
+// prefix: that source resolves the deploy host's shell at package time, which
+// would leak an unrelated value into every Lambda.
+const SSM_PRELOAD_NODE_OPTIONS = `--import file://${SSM_PRELOAD_PATH}`;
+
 // Keys the framework itself sets (from discovered resources or the base
 // template) or that the loader/bypass handlers depend on before SSM values
 // are available. Never offloadable.
@@ -172,4 +185,6 @@ module.exports = {
     validateOffloadConfig,
     FRAMEWORK_ENV_BLOCKLIST,
     DEFAULT_PARAMETER_PREFIX,
+    SSM_PRELOAD_PATH,
+    SSM_PRELOAD_NODE_OPTIONS,
 };

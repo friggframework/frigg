@@ -21,6 +21,30 @@ const { AdminScriptBuilder } = require('./domains/admin-scripts/admin-script-bui
 
 // Utilities
 const { applyFunctionEnvironments } = require('./domains/shared/function-environments');
+const {
+    isSsmOffloadActive,
+    SSM_PRELOAD_NODE_OPTIONS,
+} = require('./domains/parameters/offload-utils');
+
+/**
+ * Load the SSM INIT preload (NODE_OPTIONS=--import) on skipEsbuild handlers
+ * only. Those package the full node_modules tree, so the preload .mjs is
+ * present at /var/task. esbuild-bundled functions (e.g. defaultWebsocket,
+ * adopter custom functions) do NOT ship it — and a missing --import target is a
+ * fatal Node startup error — so they are left with the handler-time loader
+ * fallback instead. Set at function scope (function env wins over provider env).
+ */
+function applySsmPreloadNodeOptions(appDefinition, functions) {
+    if (!isSsmOffloadActive(appDefinition)) {
+        return;
+    }
+    for (const fn of Object.values(functions)) {
+        if (fn.skipEsbuild) {
+            fn.environment = fn.environment || {};
+            fn.environment.NODE_OPTIONS = SSM_PRELOAD_NODE_OPTIONS;
+        }
+    }
+}
 const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-resolver');
 const { createBaseDefinition } = require('./domains/shared/utilities/base-definition-factory');
 const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
@@ -80,6 +104,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
         definition.functions,
         merged.functionEnvironments
     );
+    applySsmPreloadNodeOptions(AppDefinition, definition.functions);
 
     if (merged.vpcConfig) {
         definition.provider.vpc = merged.vpcConfig;
