@@ -58,17 +58,27 @@ the runtime at cold start; its value never enters the Lambda environment.
   key list, enabling fail-fast). A prefix-scoped read statement is added to
   the Lambda role. In local mode the same keys fall back to plain
   `${env:KEY, ''}` references so `frigg start` + `.env` is unaffected.
-- **Runtime** (`parametersToEnv()` in `@friggframework/core`, invoked from
-  the `createHandler` bootstrap next to `secretsToEnv()`): fetches the
-  declared keys by explicit name (`GetParameters`, batched by 10,
-  `WithDecryption: true`), populates `process.env`, and caches per container
-  with a configurable TTL (default 300s, `FRIGG_SSM_CACHE_TTL`, `0` = cache
-  forever). Precedence is **real env > Secrets Manager (`secretsToEnv`) >
-  SSM**: the loader never touches a key that already exists in
-  `process.env`, and on TTL refresh only updates keys it itself set. A
-  console-set env var on a single function therefore overrides SSM instantly
-  — the established debugging workflow keeps working. Missing declared
-  parameters fail the cold start with an error naming the missing keys.
+- **Runtime — INIT phase** (`ssm-preload.mjs` in `@friggframework/core`,
+  loaded via `NODE_OPTIONS=--import`): fetches the declared keys and populates
+  `process.env` **before the Lambda handler and any api-module is required**.
+  This is required for correctness: api-modules capture their OAuth client
+  credentials in a top-level `const Definition = { env: { client_secret:
+  process.env.X } }` evaluated at module-require (cold-start INIT). A loader
+  that runs *inside* the handler is too late — the module has already
+  snapshotted `undefined`, and the OAuth token exchange fails with 401. The
+  `--import` ESM preload's top-level await completes before the entry module,
+  so the fetch lands first; a fetch failure rejects the preload and fails
+  INIT loudly (fail-fast). SsmBuilder sets `NODE_OPTIONS` (appended to any
+  app value) only when the offload set is non-empty. The preload ships in
+  core, so it is packaged into every `skipEsbuild` handler at a stable path.
+- **Runtime — handler fallback** (`parametersToEnv()`, invoked from the
+  `createHandler` bootstrap next to `secretsToEnv()`): a belt-and-suspenders
+  loader for values read lazily (request-time) and a TTL refresh path
+  (default 300s, `FRIGG_SSM_CACHE_TTL`, `0` = cache forever). Precedence is
+  **real env > INIT preload > Secrets Manager (`secretsToEnv`) > SSM**: it
+  never touches a key already in `process.env` (so the preload's values and
+  console overrides win), and on TTL refresh only updates keys it itself set.
+  Missing declared parameters fail fast with an error naming the keys.
 - **Provisioning** (`frigg ssm push`, also run automatically by
   `frigg deploy` before the serverless deploy): reads offloaded values from
   the CLI process environment (CI secrets or `.env`), validates them

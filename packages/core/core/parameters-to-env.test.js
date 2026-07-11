@@ -420,4 +420,50 @@ describe('parametersToEnv - SSM Parameter Store loader', () => {
             expect(logged).not.toContain('super-secret-value');
         });
     });
+
+    describe('fetchOffloadedParameters (shared with the INIT preload)', () => {
+        const { fetchOffloadedParameters } = require('./parameters-to-env');
+
+        it('returns a { key: value } map for the requested keys', async () => {
+            setParamStore({
+                '/frigg/app/A': { value: 'va' },
+                '/frigg/app/B': { value: 'vb' },
+            });
+
+            const values = await fetchOffloadedParameters('/frigg/app', [
+                'A',
+                'B',
+            ]);
+            expect(values).toEqual({ A: 'va', B: 'vb' });
+        });
+
+        it('batches more than 10 keys into multiple GetParameters calls', async () => {
+            const keys = Array.from({ length: 23 }, (_, i) => `K${i}`);
+            const store = {};
+            for (const k of keys) store[`/frigg/app/${k}`] = { value: k };
+            setParamStore(store);
+
+            const values = await fetchOffloadedParameters('/frigg/app', keys);
+            expect(Object.keys(values)).toHaveLength(23);
+            expect(
+                ssmMock.commandCalls(GetParametersCommand)
+            ).toHaveLength(3);
+        });
+
+        it('throws listing every missing parameter name', async () => {
+            setParamStore({ '/frigg/app/A': { value: 'va' } });
+
+            await expect(
+                fetchOffloadedParameters('/frigg/app', ['A', 'B', 'C'])
+            ).rejects.toThrow(/\/frigg\/app\/B.*\/frigg\/app\/C/s);
+        });
+
+        it('does not mutate process.env (fetch-only)', async () => {
+            setParamStore({ '/frigg/app/A': { value: 'va' } });
+            delete process.env.A;
+
+            await fetchOffloadedParameters('/frigg/app', ['A']);
+            expect(process.env.A).toBeUndefined();
+        });
+    });
 });

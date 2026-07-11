@@ -16,6 +16,11 @@ const {
     validateOffloadConfig,
 } = require('./offload-utils');
 
+// INIT-phase preload shipped in @friggframework/core, packaged into every
+// skipEsbuild handler at this stable path (LAMBDA_TASK_ROOT = /var/task).
+const SSM_PRELOAD_PATH =
+    '/var/task/node_modules/@friggframework/core/core/ssm-preload.mjs';
+
 class SsmBuilder extends InfrastructureBuilder {
     constructor() {
         super();
@@ -92,6 +97,16 @@ class SsmBuilder extends InfrastructureBuilder {
 
             result.environment.SSM_PARAMETER_PREFIX = prefix;
             result.environment.FRIGG_SSM_OFFLOADED_KEYS = offloadedKeys.join(',');
+
+            // Populate offloaded values into process.env during Lambda INIT,
+            // BEFORE app modules load. api-modules capture OAuth client
+            // credentials at module-require time (top-level Definition.env), so
+            // the handler-time loader (parametersToEnv) is too late for them.
+            // NODE_OPTIONS=--import runs this ESM preload (top-level await) before
+            // the entry module. Shipped in @friggframework/core (packaged into
+            // every skipEsbuild handler at a stable path). Appended to any
+            // app-provided NODE_OPTIONS.
+            result.environment.NODE_OPTIONS = `\${env:NODE_OPTIONS, ''} --import file://${SSM_PRELOAD_PATH}`;
 
             // Prefix-scoped read grant. Built as a plain serverless string (not
             // Fn::Sub) because the prefix contains serverless variables like

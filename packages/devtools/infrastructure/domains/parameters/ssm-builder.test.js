@@ -234,6 +234,29 @@ describe('SsmBuilder', () => {
             expect(result.environment.FRIGG_SSM_OFFLOADED_KEYS).toBe('BAR,FOO');
         });
 
+        it('sets NODE_OPTIONS to --import the INIT preload (appended to any app value)', async () => {
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { FOO: 'ssm' },
+            };
+
+            const result = await ssmBuilder.build(appDefinition, {});
+
+            expect(result.environment.NODE_OPTIONS).toContain('--import');
+            expect(result.environment.NODE_OPTIONS).toContain(
+                '@friggframework/core/core/ssm-preload.mjs'
+            );
+            // Appends to any app-provided NODE_OPTIONS rather than clobbering it.
+            expect(result.environment.NODE_OPTIONS).toContain(
+                "${env:NODE_OPTIONS, ''}"
+            );
+        });
+
+        it('does not set NODE_OPTIONS when no keys are offloaded', async () => {
+            const result = await ssmBuilder.build({ ssm: { enable: true } }, {});
+            expect(result.environment.NODE_OPTIONS).toBeUndefined();
+        });
+
         it('should add a prefix-scoped read statement while retaining the broad grant by default', async () => {
             const appDefinition = {
                 ssm: { enable: true },

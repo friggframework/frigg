@@ -38,11 +38,11 @@ const parseKeys = (raw) =>
         .map((key) => key.trim())
         .filter(Boolean);
 
-const sendWithRetry = async (command) => {
+const sendWithRetry = async (ssmClient, command) => {
     let attempt = 0;
     for (;;) {
         try {
-            return await client.send(command);
+            return await ssmClient.send(command);
         } catch (err) {
             if (
                 err.name === 'ThrottlingException' &&
@@ -55,6 +55,47 @@ const sendWithRetry = async (command) => {
             throw err;
         }
     }
+};
+
+/**
+ * Fetch offloaded parameters and return a plain { key: value } map. Fetch-only:
+ * no process.env mutation, no caching, no ownership tracking. Shared by the
+ * runtime loader and the INIT-phase preload (ssm-preload.js). Throws (listing
+ * every missing name) if any requested key is absent from SSM.
+ */
+const fetchOffloadedParameters = async (prefix, keys, { region } = {}) => {
+    const { SSMClient, GetParametersCommand } = require('@aws-sdk/client-ssm');
+    const ssmClient = new SSMClient({
+        region: region || process.env.AWS_REGION,
+    });
+    const nameFor = (key) => `${prefix}/${key}`;
+
+    const found = new Map();
+    for (const batch of chunk(keys, BATCH_SIZE)) {
+        const { Parameters = [] } = await sendWithRetry(
+            ssmClient,
+            new GetParametersCommand({
+                Names: batch.map(nameFor),
+                WithDecryption: true,
+            })
+        );
+        for (const param of Parameters) {
+            found.set(param.Name, param);
+        }
+    }
+
+    const missing = keys.map(nameFor).filter((name) => !found.has(name));
+    if (missing.length > 0) {
+        throw new Error(
+            `missing SSM parameters under ${prefix}: ${missing.join(', ')}`
+        );
+    }
+
+    const values = {};
+    for (const key of keys) {
+        values[key] = found.get(nameFor(key)).Value;
+    }
+    return values;
 };
 
 const loadParameters = async (prefix, keys) => {
@@ -80,6 +121,7 @@ const loadParameters = async (prefix, keys) => {
     try {
         for (const batch of chunk(keysToFetch, BATCH_SIZE)) {
             const { Parameters = [] } = await sendWithRetry(
+                client,
                 new GetParametersCommand({
                     Names: batch.map(nameFor),
                     WithDecryption: true,
@@ -166,5 +208,6 @@ const _resetCache = () => {
 
 module.exports = {
     parametersToEnv,
+    fetchOffloadedParameters,
     _resetCache,
 };
