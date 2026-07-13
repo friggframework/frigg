@@ -1,4 +1,10 @@
-const { composeServerlessDefinition } = require('./infrastructure-composer');
+const {
+    composeServerlessDefinition,
+    applySsmPreloadNodeOptions,
+} = require('./infrastructure-composer');
+const {
+    SSM_PRELOAD_NODE_OPTIONS,
+} = require('./domains/parameters/offload-utils');
 
 // Helper to build discovery responses with overridable fields
 const createDiscoveryResponse = (overrides = {}) => ({
@@ -1947,5 +1953,90 @@ describe('composeServerlessDefinition', () => {
 
             await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow('Invalid integration: missing Definition or name');
         });
+    });
+});
+
+describe('applySsmPreloadNodeOptions', () => {
+    const appDefinition = {
+        ssm: { enable: true },
+        environment: { FOO: 'ssm' },
+    };
+    const savedSkip = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+    beforeEach(() => {
+        delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+    });
+
+    afterEach(() => {
+        if (savedSkip === undefined) {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+        } else {
+            process.env.FRIGG_SKIP_AWS_DISCOVERY = savedSkip;
+        }
+    });
+
+    it('sets the preload NODE_OPTIONS on a skipEsbuild function with no existing value', () => {
+        const functions = { auth: { skipEsbuild: true } };
+        applySsmPreloadNodeOptions(appDefinition, functions);
+        expect(functions.auth.environment.NODE_OPTIONS).toBe(
+            SSM_PRELOAD_NODE_OPTIONS
+        );
+    });
+
+    it('appends to an existing function-level NODE_OPTIONS instead of clobbering it', () => {
+        const functions = {
+            auth: {
+                skipEsbuild: true,
+                environment: { NODE_OPTIONS: '--enable-source-maps' },
+            },
+        };
+        applySsmPreloadNodeOptions(appDefinition, functions);
+        expect(functions.auth.environment.NODE_OPTIONS).toBe(
+            `--enable-source-maps ${SSM_PRELOAD_NODE_OPTIONS}`
+        );
+    });
+
+    it('folds in a provider-level NODE_OPTIONS (which the function env would otherwise shadow)', () => {
+        const functions = { auth: { skipEsbuild: true } };
+        applySsmPreloadNodeOptions(appDefinition, functions, {
+            NODE_OPTIONS: '--require ./otel.js',
+        });
+        expect(functions.auth.environment.NODE_OPTIONS).toBe(
+            `--require ./otel.js ${SSM_PRELOAD_NODE_OPTIONS}`
+        );
+    });
+
+    it('prefers a function-level value over the provider-level one', () => {
+        const functions = {
+            auth: {
+                skipEsbuild: true,
+                environment: { NODE_OPTIONS: '--fn-flag' },
+            },
+        };
+        applySsmPreloadNodeOptions(appDefinition, functions, {
+            NODE_OPTIONS: '--provider-flag',
+        });
+        expect(functions.auth.environment.NODE_OPTIONS).toBe(
+            `--fn-flag ${SSM_PRELOAD_NODE_OPTIONS}`
+        );
+    });
+
+    it('never touches esbuild-bundled functions', () => {
+        const functions = {
+            websocket: { environment: { NODE_OPTIONS: '--keep-me' } },
+        };
+        applySsmPreloadNodeOptions(appDefinition, functions, {
+            NODE_OPTIONS: '--provider',
+        });
+        expect(functions.websocket.environment.NODE_OPTIONS).toBe('--keep-me');
+    });
+
+    it('is a no-op when offload is inactive', () => {
+        const functions = { auth: { skipEsbuild: true } };
+        applySsmPreloadNodeOptions(
+            { ssm: { enable: true } }, // no offloaded keys → inactive
+            functions
+        );
+        expect(functions.auth.environment).toBeUndefined();
     });
 });

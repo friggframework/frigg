@@ -68,9 +68,10 @@ the runtime at cold start; its value never enters the Lambda environment.
   snapshotted `undefined`, and the OAuth token exchange fails with 401. The
   `--import` ESM preload's top-level await completes before the entry module,
   so the fetch lands first; a fetch failure rejects the preload and fails
-  INIT loudly (fail-fast). SsmBuilder sets `NODE_OPTIONS` (appended to any
-  app value) only when the offload set is non-empty. The preload ships in
-  core, so it is packaged into every `skipEsbuild` handler at a stable path.
+  INIT loudly (fail-fast). The composer sets `NODE_OPTIONS` on `skipEsbuild`
+  functions when the offload set is non-empty, appending to (never clobbering)
+  any NODE_OPTIONS the app or a builder already set. The preload ships in core,
+  so it is packaged into every `skipEsbuild` handler at a stable path.
 - **Runtime — handler fallback** (`parametersToEnv()`, invoked from the
   `createHandler` bootstrap next to `secretsToEnv()`): a belt-and-suspenders
   loader for values read lazily (request-time) and a TTL refresh path
@@ -80,7 +81,11 @@ the runtime at cold start; its value never enters the Lambda environment.
   `process.env` (so real env and console overrides win), while `secretsToEnv`
   runs first in the handler and overwrites, so it wins over SSM; on TTL refresh
   the loader only updates keys it itself set. Missing declared parameters fail
-  fast with an error naming the keys.
+  fast with an error naming the keys. This ordering assumes offloaded keys and
+  `SECRET_ARN` bundle keys are **disjoint**; a key in both has undefined
+  precedence (module-load reads see SSM, the handler sees Secrets Manager, a TTL
+  refresh flips back to SSM). It stays disjoint in practice because the
+  framework secrets in the bundle are on the offload blocklist.
 - **Provisioning** (`frigg ssm push`, also run automatically by
   `frigg deploy` before the serverless deploy): reads offloaded values from
   the CLI process environment (CI secrets or `.env`), validates them

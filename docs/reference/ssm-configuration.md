@@ -118,6 +118,15 @@ If a declared parameter is missing from Parameter Store, INIT fails
 immediately with an error naming the missing key — a deliberate fail-fast
 instead of `undefined` surfacing somewhere downstream.
 
+> **Keep offloaded keys and Secrets Manager keys disjoint.** The ordering above
+> holds only when a key is offloaded to SSM *or* in the `SECRET_ARN` bundle, not
+> both. A key in both has undefined precedence: the INIT preload sets the SSM
+> value before modules load (so module-load reads see SSM), `secretsToEnv` then
+> overwrites it in the handler (Secrets Manager), and a later cache-TTL refresh
+> writes the SSM value back. Framework-managed secrets (`DATABASE_*`, etc.) are
+> already on the offload blocklist, so this only arises if an app marks one of
+> its own `SECRET_ARN` keys `'ssm'` — don't.
+
 ### What cannot be offloaded
 
 Framework-managed variables (`DATABASE_URL`, `DATABASE_*`, `KMS_KEY_ARN`,

@@ -32,17 +32,30 @@ const {
  * present at /var/task. esbuild-bundled functions (e.g. defaultWebsocket,
  * adopter custom functions) do NOT ship it — and a missing --import target is a
  * fatal Node startup error — so they are left with the handler-time loader
- * fallback instead. Set at function scope (function env wins over provider env).
+ * fallback instead.
+ *
+ * Set at function scope (function env wins over provider env), APPENDED to any
+ * NODE_OPTIONS already on the function or provider — so an app's own flags
+ * (OTel auto-instrumentation, source maps, memory tuning) survive instead of
+ * being clobbered. A function-level assignment shadows provider env in Lambda,
+ * so the provider value must be folded in here. Only a value already in the
+ * definition is appended — never a synthesized ${env:NODE_OPTIONS}, which would
+ * leak the deploy host's shell into every Lambda.
  */
-function applySsmPreloadNodeOptions(appDefinition, functions) {
+function applySsmPreloadNodeOptions(appDefinition, functions, providerEnvironment = {}) {
     if (!isSsmOffloadActive(appDefinition)) {
         return;
     }
     for (const fn of Object.values(functions)) {
-        if (fn.skipEsbuild) {
-            fn.environment = fn.environment || {};
-            fn.environment.NODE_OPTIONS = SSM_PRELOAD_NODE_OPTIONS;
+        if (!fn.skipEsbuild) {
+            continue;
         }
+        fn.environment = fn.environment || {};
+        const existing =
+            fn.environment.NODE_OPTIONS ?? providerEnvironment.NODE_OPTIONS;
+        fn.environment.NODE_OPTIONS = existing
+            ? `${existing} ${SSM_PRELOAD_NODE_OPTIONS}`
+            : SSM_PRELOAD_NODE_OPTIONS;
     }
 }
 const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-resolver');
@@ -104,7 +117,11 @@ const composeServerlessDefinition = async (AppDefinition) => {
         definition.functions,
         merged.functionEnvironments
     );
-    applySsmPreloadNodeOptions(AppDefinition, definition.functions);
+    applySsmPreloadNodeOptions(
+        AppDefinition,
+        definition.functions,
+        definition.provider.environment
+    );
 
     if (merged.vpcConfig) {
         definition.provider.vpc = merged.vpcConfig;
@@ -147,5 +164,5 @@ const composeServerlessDefinition = async (AppDefinition) => {
     return definition;
 };
 
-module.exports = { composeServerlessDefinition };
+module.exports = { composeServerlessDefinition, applySsmPreloadNodeOptions };
 
