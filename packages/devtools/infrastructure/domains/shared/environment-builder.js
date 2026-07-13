@@ -9,6 +9,11 @@
  * 3. Generated resource references
  */
 
+const {
+    isSsmOffloadActive,
+    getOffloadedKeys,
+} = require('../parameters/offload-utils');
+
 // OTLP-family exporters read their endpoint/headers from these standard env
 // vars (ADR-011). When such an exporter is configured we auto-register them as
 // Serverless passthroughs so the deployed Lambda inherits them from the deploy
@@ -37,6 +42,11 @@ function addTelemetryEnvPassthrough(appDefinition, envVars) {
  * Extracts environment variable definitions where value is true,
  * and creates Serverless variable references.
  *
+ * A value of 'ssm' offloads the variable to Parameter Store when offload is
+ * active (see SsmBuilder), keeping it out of the Lambda env map. When offload
+ * is not active (local mode / ssm disabled) it falls back to the same
+ * `${env:KEY, ''}` reference as `true` so `frigg start` + dotenv keeps working.
+ *
  * @param {Object} appDefinition - Application definition
  * @returns {Object} Environment variable mappings
  */
@@ -62,16 +72,38 @@ function getAppEnvironmentVars(appDefinition) {
 
     addTelemetryEnvPassthrough(appDefinition, envVars);
 
-    if (!appDefinition.environment) {
-        return envVars;
-    }
+    const environment = appDefinition.environment || {};
 
     console.log('📋 Loading environment variables from appDefinition...');
     const envKeys = [];
     const skippedKeys = [];
+    const offloadedKeys = [];
+    const offloadActive = isSsmOffloadActive(appDefinition);
 
-    for (const [key, value] of Object.entries(appDefinition.environment)) {
-        if (value !== true) continue;
+    for (const [key, value] of Object.entries(environment)) {
+        if (value === 'ssm' && offloadActive) {
+            offloadedKeys.push(key);
+            continue;
+        }
+        if (value !== true && value !== 'ssm') continue;
+        if (reservedVars.has(key)) {
+            skippedKeys.push(key);
+            continue;
+        }
+        envVars[key] = `\${env:${key}, ''}`;
+        envKeys.push(key);
+    }
+
+    // Keys declared only in ssm.parameters (no matching `environment` entry)
+    // get the same local-fallback treatment as `environment`-valued 'ssm' keys.
+    const ssmOnlyKeys = getOffloadedKeys(appDefinition).filter(
+        (key) => !(key in environment)
+    );
+    for (const key of ssmOnlyKeys) {
+        if (offloadActive) {
+            offloadedKeys.push(key);
+            continue;
+        }
         if (reservedVars.has(key)) {
             skippedKeys.push(key);
             continue;
@@ -92,6 +124,13 @@ function getAppEnvironmentVars(appDefinition) {
             `   ⚠️  Skipped ${
                 skippedKeys.length
             } reserved AWS Lambda variables: ${skippedKeys.join(', ')}`
+        );
+    }
+    if (offloadedKeys.length > 0) {
+        console.log(
+            `   🔒 Offloaded ${
+                offloadedKeys.length
+            } variables to SSM: ${offloadedKeys.join(', ')}`
         );
     }
 

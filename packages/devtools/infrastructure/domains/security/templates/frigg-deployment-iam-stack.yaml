@@ -360,9 +360,26 @@ Resources:
               - 'ssm:GetParameter'
               - 'ssm:GetParameters'
               - 'ssm:GetParametersByPath'
+              - 'ssm:PutParameter'
+              - 'ssm:DeleteParameter'
+              - 'ssm:AddTagsToResource'
             Resource:
               - !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*'
               - !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*/*'
+          - Sid: 'FriggSSMParameterKMSEncryption'
+            Effect: Allow
+            Action:
+              - 'kms:Encrypt'
+              - 'kms:GenerateDataKey'
+              - 'kms:Decrypt'
+            Resource:
+              - !Sub 'arn:aws:kms:*:${AWS::AccountId}:key/*'
+            Condition:
+              # StringLike: kms:ViaService is regional (ssm.us-east-1.amazonaws.com),
+              # so the wildcard must be matched, not compared literally.
+              StringLike:
+                'kms:ViaService':
+                  - 'ssm.*.amazonaws.com'
 
   # Store access key in Secrets Manager
   FriggDeploymentCredentials:

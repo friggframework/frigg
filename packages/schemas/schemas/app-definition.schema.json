@@ -41,18 +41,27 @@
     },
     "environment": {
       "type": "object",
-      "description": "Environment variable configuration (key: true/false flags)",
+      "description": "Environment variable configuration. true includes the variable in the Lambda environment; 'ssm' offloads it to SSM Parameter Store (requires ssm.enable) so it never counts against the Lambda 4KB env limit",
       "patternProperties": {
         "^[A-Z][A-Z0-9_]*$": {
-          "type": "boolean",
-          "description": "Set to true to include this environment variable from process.env"
+          "oneOf": [
+            {
+              "type": "boolean",
+              "description": "Set to true to include this environment variable from process.env"
+            },
+            {
+              "type": "string",
+              "const": "ssm",
+              "description": "Offload this variable to SSM Parameter Store; fetched at runtime instead of stored in the Lambda environment"
+            }
+          ]
         }
       },
       "additionalProperties": false,
       "examples": [
         {
           "NODE_ENV": true,
-          "API_KEY": true,
+          "API_KEY": "ssm",
           "DATABASE_URL": true
         }
       ]
@@ -450,17 +459,36 @@
           "description": "Enable SSM Parameter Store for configuration",
           "default": false
         },
+        "parameterPrefix": {
+          "type": "string",
+          "description": "Override the default parameter path prefix (/frigg/${service}/${stage}). Non-default prefixes may require widening the *frigg*-scoped deployment IAM policies"
+        },
+        "kmsKeyArn": {
+          "type": "string",
+          "description": "Customer-managed KMS key for SecureString parameters. When set, the Lambda execution role is granted kms:Decrypt on this key. Defaults to the AWS-managed aws/ssm key"
+        },
+        "restrictIamToPrefix": {
+          "type": "boolean",
+          "description": "Drop the legacy broad parameter/* read grant and only allow reads under the parameter prefix",
+          "default": false
+        },
         "parameters": {
           "type": "object",
           "description": "SSM parameter definitions",
           "patternProperties": {
-            "^[a-zA-Z0-9/_.-]+$": {
+            "^[A-Z][A-Z0-9_]*$": {
               "type": "object",
               "properties": {
                 "type": {
                   "type": "string",
                   "enum": ["String", "StringList", "SecureString"],
                   "default": "String"
+                },
+                "tier": {
+                  "type": "string",
+                  "description": "Parameter Store tier for this key: 'standard' caps the value at 4KB, 'advanced' at 8KB (billed by AWS)",
+                  "enum": ["standard", "advanced"],
+                  "default": "standard"
                 },
                 "description": {
                   "type": "string"
@@ -480,6 +508,18 @@
         "enable": {
           "type": "boolean",
           "description": "Enable AWS Secrets Manager for secure credential storage",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "lambda": {
+      "type": "object",
+      "description": "Lambda function generation options",
+      "properties": {
+        "scopedEnvironment": {
+          "type": "boolean",
+          "description": "Scope framework-generated environment variables (queue URLs, migration/scheduler vars) to the functions that consume them instead of broadcasting to every function. Reduces per-function env size against the Lambda 4KB limit",
           "default": false
         }
       },

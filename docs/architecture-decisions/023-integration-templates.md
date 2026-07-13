@@ -1,8 +1,8 @@
-# Architecture Decision Record: Integration Templates
+# ADR-023: Integration Templates
 
 **Status**: Proposed (new concept)
 **Date**: 2026-06-09
-**Author**: Sean Matthews
+**Deciders**: Sean Matthews
 
 ## Context
 
@@ -10,8 +10,8 @@
 
 Two existing concepts are adjacent but do not solve this:
 
-- [API Module Extensions](./ADR-API-MODULE-EXTENSIONS.md) are provider-specific bundles. They are coupled to one provider.
-- [Integration Extensions](./ADR-INTEGRATION-EXTENSIONS.md) are reusable handler bundles. They are plug-in libraries the adopter imports, not a starting point the adopter owns.
+- [API Module Extensions](./019-api-module-extensions.md) are provider-specific bundles. They are coupled to one provider.
+- [Integration Extensions](./018-integration-extensions.md) are reusable handler bundles. They are plug-in libraries the adopter imports, not a starting point the adopter owns.
 
 What is missing is a starting point: a working integration base class for a category (CRM sync, notification fanout, billing reconciliation, support-ticket bridge) that the adopter copies into their codebase, owns, and customizes for the specific provider pair.
 
@@ -111,11 +111,11 @@ Two reasons a sufficiently rich Integration Extension does not solve the same pr
 
 ## Cross-references
 
-- [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md): Integration Templates are a sibling to extensions, not a type of extension
-- [INTEGRATION-EXTENSIONS](./ADR-INTEGRATION-EXTENSIONS.md): templates can bind Integration Extensions internally (a CRM sync template binds a sync-engine extension)
-- [API-MODULE-EXTENSIONS](./ADR-API-MODULE-EXTENSIONS.md): templates know their partner module's API Module Extensions and bind them
-- [CAPABILITIES](./ADR-CAPABILITIES.md): each template declares the capability set it promises; the adopter inherits and can extend
-- [AGENT-HARNESS](./ADR-AGENT-HARNESS.md): the harness uses templates as the dominant scaffold path for new integration work
+- [EXTENSIONS-TAXONOMY](./015-extensions-taxonomy.md): Integration Templates are a sibling to extensions, not a type of extension
+- [INTEGRATION-EXTENSIONS](./018-integration-extensions.md): templates can bind Integration Extensions internally (a CRM sync template binds a sync-engine extension)
+- [API-MODULE-EXTENSIONS](./019-api-module-extensions.md): templates know their partner module's API Module Extensions and bind them
+- [CAPABILITIES](./020-capabilities.md): each template declares the capability set it promises; the adopter inherits and can extend
+- [AGENT-HARNESS](./025-agent-harness.md): the harness uses templates as the dominant scaffold path for new integration work
 
 ## Open questions
 

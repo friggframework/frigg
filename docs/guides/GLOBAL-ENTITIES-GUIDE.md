@@ -272,7 +272,7 @@ model Entity {
 
 ## Current Limitations
 
-> **Note**: As of this writing, the global entity feature requires a schema migration to add the `isGlobal` field to the Entity model. See ADR-GLOBAL-ENTITIES.md for details.
+> **Note**: As of this writing, the global entity feature requires a schema migration to add the `isGlobal` field to the Entity model. See [ADR-024: Global Entities](../architecture-decisions/024-global-entities.md) for details.
 
 **Key Implementation Details:**
 - `moduleName` is used for entity lookups (already exists in schema)

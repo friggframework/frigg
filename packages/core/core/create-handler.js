@@ -4,6 +4,7 @@
 
 const { initDebugLog, flushDebugLog } = require('../logs');
 const { secretsToEnv } = require('./secrets-to-env');
+const { parametersToEnv } = require('./parameters-to-env');
 const {
     getTelemetry,
     getUsageRollupSubscriber,
@@ -173,6 +174,9 @@ const createHandler = (optionByName = {}) => {
 
             // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.
             await secretsToEnv();
+
+            // If enabled (i.e. if SSM_PARAMETER_PREFIX and FRIGG_SSM_OFFLOADED_KEYS are set) fetch offloaded params from SSM Parameter Store into process.env.
+            await parametersToEnv();
 
             // Lazy-required so DB-free handlers never load the Prisma client.
             if (shouldUseDatabase) {

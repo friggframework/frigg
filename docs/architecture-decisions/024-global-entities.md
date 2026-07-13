@@ -1,8 +1,8 @@
-# Architecture Decision Record: Global Entities
+# ADR-024: Global Entities
 
 **Status**: Proposed
 **Date**: 2024-12-18
-**Author**: Claude Code
+**Deciders**: Claude Code
 
 ## Context
 

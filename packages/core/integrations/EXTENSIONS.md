@@ -1,6 +1,6 @@
 # Integration Extensions Quick Start
 
-Tier 3 **Integration Extensions** let an API module ship reusable handler bundles — receiver routes, event handlers, queues, workers — that an integration consumes declaratively via `Definition.extensions`. See [ADR-EXTENSIONS](../../../docs/architecture/ADR-EXTENSIONS.md) for the full taxonomy.
+Tier 3 **Integration Extensions** let an API module ship reusable handler bundles — receiver routes, event handlers, queues, workers — that an integration consumes declaratively via `Definition.extensions`. See [ADR-015: Extensions Taxonomy](../../../docs/architecture-decisions/015-extensions-taxonomy.md) for the full taxonomy.
 
 ## When to use this vs `Definition.webhooks: true`
 
@@ -235,6 +235,6 @@ This keeps core platform-neutral and reusable while keeping the api-module code 
 
 ## See also
 
-- [ADR-EXTENSIONS](../../../docs/architecture/ADR-EXTENSIONS.md) — the three-tier taxonomy (Core Plugins / Application Extensions / Integration Extensions)
+- [ADR-015: Extensions Taxonomy](../../../docs/architecture-decisions/015-extensions-taxonomy.md) — the three-tier taxonomy (Core Plugins / Application Extensions / Integration Extensions)
 - [WEBHOOK-QUICKSTART](./WEBHOOK-QUICKSTART.md) — per-account `Definition.webhooks: true` pattern
 - `extension.js` — the validation + flattening helpers (`validateExtensionBinding`, `getExtensionRoutes`, `getExtensionWorkers`)

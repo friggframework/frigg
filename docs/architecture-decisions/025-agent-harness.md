@@ -1,8 +1,8 @@
-# Architecture Decision Record: Agent Harness
+# ADR-025: Agent Harness
 
 **Status**: Proposed
 **Date**: 2026-06-09
-**Author**: Sean Matthews
+**Deciders**: Sean Matthews
 
 ## Context
 
@@ -25,8 +25,8 @@ agent + CLI + harness + templates + capabilities → predictable, testable, vali
 | Agent (LLM inference) | Reasoning, code generation, planning |
 | CLI (`frigg` commands) | Deterministic actions: scaffold, install, deploy, test |
 | Harness | Session wiring: inject ontology, query capabilities, spawn validators, log friction |
-| [Integration Templates](./ADR-INTEGRATION-TEMPLATES.md) | ShadCN-mirror starting points the agent copies and customizes |
-| [Capabilities](./ADR-CAPABILITIES.md) | Machine-readable model of what exists and what can be added |
+| [Integration Templates](./023-integration-templates.md) | ShadCN-mirror starting points the agent copies and customizes |
+| [Capabilities](./020-capabilities.md) | Machine-readable model of what exists and what can be added |
 
 The harness on its own does nothing. It is the composition layer that brings the other four into the agent's session. With all five in place, the agent's remaining work is the finishing portion: adopter-specific API mapping, business logic, edge cases.
 
@@ -104,14 +104,14 @@ module.exports = async ({ workingDirectory }) => {
 }
 ```
 
-Friction capture is a separate small surface: `friction.log(event)` appends to `.frigg/friction/<session-id>.jsonl`, which a daily job triages into PR proposals against the [Ontology](./ADR-ONTOLOGY.md) layers.
+Friction capture is a separate small surface: `friction.log(event)` appends to `.frigg/friction/<session-id>.jsonl`, which a daily job triages into PR proposals against the [Ontology](./021-ontology.md) layers.
 
 The hook wiring, compiler internals, and friction storage shape are implementation details. The hooks should be replaceable with MCP server equivalents without changing the five-piece composition above.
 
 ## Cross-references
 
-- [CAPABILITIES](./ADR-CAPABILITIES.md), [ONTOLOGY](./ADR-ONTOLOGY.md), [INTEGRATION-TEMPLATES](./ADR-INTEGRATION-TEMPLATES.md), [PLUGINS](./ADR-PLUGINS.md), [EXTENSIONS-TAXONOMY](./ADR-EXTENSIONS-TAXONOMY.md): the five pieces the harness composes
-- [EVALS](./ADR-EVALS.md): measures whether the composed harness output is better than agent-alone
+- [CAPABILITIES](./020-capabilities.md), [ONTOLOGY](./021-ontology.md), [INTEGRATION-TEMPLATES](./023-integration-templates.md), [PLUGINS](./016-plugins.md), [EXTENSIONS-TAXONOMY](./015-extensions-taxonomy.md): the five pieces the harness composes
+- [EVALS](./026-evals.md): measures whether the composed harness output is better than agent-alone
 
 ## Open questions
 
