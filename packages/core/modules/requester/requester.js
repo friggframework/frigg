@@ -2,6 +2,7 @@ const fetch = require('node-fetch');
 const { Delegate } = require('../../core');
 const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
+const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 const MAX_AUTH_RETRIES = 3;
@@ -44,6 +45,40 @@ class Requester extends Delegate {
         // Allow passing in the fetch function
         // Instance methods can use this.fetch without differentiating
         this.fetch = get(params, 'fetch', fetch);
+
+        // Defaults to the process singleton. Pass an integration's bound
+        // `this.telemetry` to attribute out-of-band requests — setup/OAuth calls
+        // made before an integration context exists aren't rolled up otherwise.
+        this.telemetry = (params && params.telemetry) || getTelemetry();
+    }
+
+    /**
+     * Redact secrets/PII from a URL before it touches telemetry. Many API
+     * modules embed credentials in the query string (?api_key=, ?token=,
+     * presigned signatures) or in userinfo — those must never reach a span,
+     * the bus, or an exporter. Keep only protocol + host + path (enough for
+     * North Star endpoint matching).
+     */
+    _sanitizeUrl(url) {
+        const raw = String(url);
+        try {
+            const u = new URL(raw);
+            return `${u.protocol}//${u.host}${u.pathname}`;
+        } catch (_) {
+            // Relative/opaque URL: drop the query string at minimum.
+            return raw.split('?')[0];
+        }
+    }
+
+    /** Bounded module label for the apimodule.requests metric. */
+    _telemetryModuleLabel() {
+        return (
+            this.moduleName ||
+            this.delegate?.name ||
+            this.delegate?.constructor?.name ||
+            this.constructor?.name ||
+            'unknown'
+        );
     }
 
     parsedBody = async (resp) => {
@@ -61,15 +96,81 @@ class Requester extends Delegate {
     };
 
     /**
+     * Instrumenting entry point. Wraps the whole logical request —
+     * including retry/refresh recursion — in a single span + one
+     * `frigg.apimodule.requests` counter, emitted on the `attempt === 0`
+     * boundary so retries are never double-counted. The full URL rides the
+     * span only; the metric carries bounded labels {module, method, status}
+     * — never endpoint.
+     *
      * @param {string} url - The request URL, relative or absolute.
      * @param {Object} options - Fetch options (method, headers, body, query,
      *   returnFullRes, etc.) built by the `_get`/`_post`/`_patch`/`_put`/
      *   `_delete` wrappers.
      * @param {number} attempt - 0-based count of retries already made for
+     *   this call. Non-zero only if a caller re-enters directly; normal
+     *   retries recurse through `_rawRequest` instead (see below).
+     */
+    async _request(url, options = {}, attempt = 0) {
+        if (attempt !== 0) {
+            return this._rawRequest(url, options, attempt);
+        }
+
+        const telemetry = this.telemetry;
+        if (!telemetry || typeof telemetry.span !== 'function') {
+            return this._rawRequest(url, options, 0);
+        }
+
+        const module = this._telemetryModuleLabel();
+        const method = (options.method || 'GET').toUpperCase();
+        const safeUrl = this._sanitizeUrl(url);
+
+        return telemetry.span('frigg.apimodule.request', async (span) => {
+            if (span && typeof span.setAttributes === 'function') {
+                span.setAttributes({
+                    'frigg.module': module,
+                    'http.request.method': method,
+                    // Redacted (no query/userinfo) — never emit raw URLs.
+                    'url.path': safeUrl,
+                });
+            }
+            // Redacted url (unbounded) rides the bus-only context for North Star
+            // derived-from-trace matching — never a metric label.
+            const busContext = { url: safeUrl };
+            try {
+                const result = await this._rawRequest(url, options, 0);
+                telemetry.count(
+                    'frigg.apimodule.requests',
+                    1,
+                    { module, method, status: 'ok' },
+                    busContext
+                );
+                return result;
+            } catch (err) {
+                const code = err?.status ?? err?.statusCode;
+                const status = code ? String(code) : 'error';
+                if (span && typeof span.setAttribute === 'function' && code) {
+                    span.setAttribute('http.response.status_code', code);
+                }
+                telemetry.count(
+                    'frigg.apimodule.requests',
+                    1,
+                    { module, method, status },
+                    busContext
+                );
+                throw err;
+            }
+        });
+    }
+
+    /**
+     * @param {string} url - The request URL, relative or absolute.
+     * @param {Object} options - Fetch options, as built by `_request`.
+     * @param {number} attempt - 0-based count of retries already made for
      *   this call. Indexes `this.backOff` for the next delay and is passed
      *   back in on each recursive retry.
      */
-    async _request(url, options, attempt = 0) {
+    async _rawRequest(url, options, attempt = 0) {
         let encodedUrl = encodeURI(url);
         if (options.query) {
             let queryBuild = '?';
@@ -131,7 +232,7 @@ class Requester extends Delegate {
                     clearRequestTimer();
                     const delay = this.backOff[attempt] * 1000;
                     await new Promise((resolve) => setTimeout(resolve, delay));
-                    return this._request(url, options, attempt + 1);
+                    return this._rawRequest(url, options, attempt + 1);
                 }
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
@@ -161,7 +262,7 @@ class Requester extends Delegate {
                 clearRequestTimer();
                 const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
-                return this._request(url, options, attempt + 1);
+                return this._rawRequest(url, options, attempt + 1);
             }
 
             if (status === 401) {
@@ -179,7 +280,7 @@ class Requester extends Delegate {
                         await new Promise((resolve) =>
                             setTimeout(resolve, delay)
                         );
-                        return this._request(url, options, attempt + 1);
+                        return this._rawRequest(url, options, attempt + 1);
                     }
 
                     throw await this._invalidateAuth(
@@ -194,7 +295,7 @@ class Requester extends Delegate {
                     const refreshSucceeded = await this.refreshAuth();
                     if (refreshSucceeded) {
                         clearRequestTimer();
-                        return this._request(url, options, attempt + 1);
+                        return this._rawRequest(url, options, attempt + 1);
                     }
 
                     throw await this._invalidateAuth(

@@ -1,15 +1,48 @@
 /**
  * Environment Builder Service
- * 
+ *
  * Domain Service - Hexagonal Architecture
- * 
+ *
  * Builds Lambda environment variable configuration from:
  * 1. AppDefinition environment flags
  * 2. Discovered AWS resources (VPC IDs, KMS keys, etc.)
  * 3. Generated resource references
  */
 
-const { isSsmOffloadActive, getOffloadedKeys } = require('../parameters/offload-utils');
+const {
+    isSsmOffloadActive,
+    getOffloadedKeys,
+} = require('../parameters/offload-utils');
+
+// OTLP-family exporters read their endpoint/headers from these standard env
+// vars (ADR-011). When such an exporter is configured we auto-register them as
+// Serverless passthroughs so the deployed Lambda inherits them from the deploy
+// environment — no need for the adopter to also list them under `environment`.
+//
+// NOTE (VPC egress): a Lambda in a private subnet needs a NAT gateway or a VPC
+// endpoint to reach an external OTLP backend (Honeycomb/Datadog). Without egress
+// the exporter fails silently within its flush timeout — see the deploy docs.
+const OTLP_EXPORTER_TYPES = new Set(['otlp', 'honeycomb', 'datadog']);
+const OTEL_PASSTHROUGH_VARS = [
+    'OTEL_EXPORTER_OTLP_ENDPOINT',
+    'OTEL_EXPORTER_OTLP_HEADERS',
+];
+
+function addTelemetryEnvPassthrough(appDefinition, envVars) {
+    const exporterType = appDefinition?.telemetry?.exporter?.type;
+    if (!OTLP_EXPORTER_TYPES.has(exporterType)) return;
+
+    // Skip offloaded keys here: baking '${env:KEY, ''}' resolves to '' at
+    // deploy (the value lives only in SSM), and '' !== undefined then blocks
+    // the SSM loader from ever fetching the real value.
+    const offloadedKeys = isSsmOffloadActive(appDefinition)
+        ? new Set(getOffloadedKeys(appDefinition))
+        : null;
+    for (const key of OTEL_PASSTHROUGH_VARS) {
+        if (offloadedKeys?.has(key)) continue;
+        envVars[key] = `\${env:${key}, ''}`;
+    }
+}
 
 /**
  * Get environment variables from AppDefinition
@@ -44,6 +77,8 @@ function getAppEnvironmentVars(appDefinition) {
         'AWS_SECRET_ACCESS_KEY',
         'AWS_SESSION_TOKEN',
     ]);
+
+    addTelemetryEnvPassthrough(appDefinition, envVars);
 
     const environment = appDefinition.environment || {};
 
@@ -94,15 +129,16 @@ function getAppEnvironmentVars(appDefinition) {
     }
     if (skippedKeys.length > 0) {
         console.log(
-            `   ⚠️  Skipped ${skippedKeys.length
+            `   ⚠️  Skipped ${
+                skippedKeys.length
             } reserved AWS Lambda variables: ${skippedKeys.join(', ')}`
         );
     }
     if (offloadedKeys.length > 0) {
         console.log(
-            `   🔒 Offloaded ${offloadedKeys.length} variables to SSM: ${offloadedKeys.join(
-                ', '
-            )}`
+            `   🔒 Offloaded ${
+                offloadedKeys.length
+            } variables to SSM: ${offloadedKeys.join(', ')}`
         );
     }
 
@@ -111,9 +147,9 @@ function getAppEnvironmentVars(appDefinition) {
 
 /**
  * Build complete environment configuration for Lambda functions
- * 
+ *
  * Combines app environment vars with discovered AWS resource references
- * 
+ *
  * @param {Object} appEnvironmentVars - Environment vars from AppDefinition
  * @param {Object} discoveredResources - Discovered AWS resources
  * @returns {Object} Complete environment configuration
@@ -121,7 +157,7 @@ function getAppEnvironmentVars(appDefinition) {
 function buildEnvironment(appEnvironmentVars, discoveredResources) {
     const environment = {
         ...appEnvironmentVars,
-        STAGE: '${self:provider.stage}',  // Used by encryption bypass logic
+        STAGE: '${self:provider.stage}', // Used by encryption bypass logic
         FRIGG_STACK: '${self:service}',
         FRIGG_STAGE: '${self:provider.stage}',
         FRIGG_REGION: '${self:provider.region}',
@@ -137,7 +173,9 @@ function buildEnvironment(appEnvironmentVars, discoveredResources) {
     // Add database connection info if discovered
     if (discoveredResources.auroraClusterEndpoint) {
         environment.DATABASE_HOST = discoveredResources.auroraClusterEndpoint;
-        environment.DATABASE_PORT = String(discoveredResources.auroraPort || 5432);
+        environment.DATABASE_PORT = String(
+            discoveredResources.auroraPort || 5432
+        );
     }
 
     // Add secrets manager secret ARN if discovered
@@ -152,4 +190,3 @@ module.exports = {
     getAppEnvironmentVars,
     buildEnvironment,
 };
-

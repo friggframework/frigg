@@ -52,8 +52,15 @@ Optional query params (all strings): `status` (an `IntegrationStatus`), `type`
 - `filters` — echoes the applied filters (nulls when omitted).
 - `metrics.total` — count of integrations matching the filters.
 - `metrics.byStatus` — counts keyed by `IntegrationStatus` value.
-- `metrics.byType[]` — per `type` breakdown: `{ type, label, total, byStatus }`.
+- `metrics.byType[]` — per `type` breakdown: `{ type, label, total, byStatus, usage? }`.
   - `type` — the `config.type` slug. Integrations with no type bucket as `"unknown"`.
+  - `usage` — **additive** (ADR-011): present only when the deployment has the
+    usage store configured. A map of canonical counter → total for that type,
+    e.g. `{ "records.synced": 4200, "webhooks.received": 118, "api.requests": 9004 }`
+    (`0` when a type has no data). Read only from the Frigg usage store, never an
+    external APM; a usage-store read failure never fails the structural report.
+    Populated by the counters an integration opts into via `Definition.usage` —
+    see [`../telemetry/README.md`](../telemetry/README.md).
   - `label` — human-readable name from the integration class's
     `Definition.display.label`. Falls back to the `type` slug when no registered
     class supplies a label (e.g. an integration that was removed, or run on an

@@ -1,4 +1,5 @@
 const Boom = require('@hapi/boom');
+const { CANONICAL_COUNTERS } = require('../../telemetry/canonical-counters');
 
 const SCHEMA_VERSION = 1;
 const SERVICE = 'frigg-core-api';
@@ -16,11 +17,19 @@ const KNOWN_STATUSES = [
 ];
 
 class ListIntegrationsReport {
-    constructor({ reportingRepository, typeLabels = {} } = {}) {
+    constructor({
+        reportingRepository,
+        usageRepository,
+        typeLabels = {},
+    } = {}) {
         if (!reportingRepository) {
             throw new Error('reportingRepository is required');
         }
+        if (!usageRepository) {
+            throw new Error('usageRepository is required');
+        }
         this.reportingRepository = reportingRepository;
+        this.usageRepository = usageRepository;
         this.typeLabels = typeLabels;
     }
 
@@ -67,7 +76,8 @@ class ListIntegrationsReport {
             if (!byTypeMap.has(integration.type)) {
                 byTypeMap.set(integration.type, {
                     type: integration.type,
-                    label: this.typeLabels[integration.type] || integration.type,
+                    label:
+                        this.typeLabels[integration.type] || integration.type,
                     total: 0,
                     byStatus: emptyStatusCounts(),
                 });
@@ -76,6 +86,8 @@ class ListIntegrationsReport {
             bucket.total += 1;
             bucket.byStatus[statusKey] = (bucket.byStatus[statusKey] ?? 0) + 1;
         }
+
+        await this._attachUsageColumns(byTypeMap);
 
         return {
             schemaVersion: SCHEMA_VERSION,
@@ -96,9 +108,44 @@ class ListIntegrationsReport {
         };
     }
 
+    async _attachUsageColumns(byTypeMap) {
+        const metrics = Object.keys(CANONICAL_COUNTERS);
+        try {
+            const totalsByMetric = await Promise.all(
+                metrics.map(async (metric) => {
+                    const totals = await this.usageRepository.getTotalsByDimension({
+                        metric,
+                        groupBy: 'integrationType',
+                    });
+                    const map = new Map(
+                        (totals || []).map((t) => [t.integrationType, t.value])
+                    );
+                    return [metric, map];
+                })
+            );
+
+            for (const bucket of byTypeMap.values()) {
+                bucket.usage = {};
+                for (const [metric, map] of totalsByMetric) {
+                    bucket.usage[metric] = map.get(bucket.type) ?? 0;
+                }
+            }
+        } catch (error) {
+            console.warn(
+                `[Frigg][reporting] usage columns unavailable: ${
+                    error && error.message
+                }`
+            );
+        }
+    }
+
     _validateQuery({ status, type, userId } = {}) {
         for (const [key, value] of Object.entries({ status, type, userId })) {
-            if (value !== undefined && value !== null && typeof value !== 'string') {
+            if (
+                value !== undefined &&
+                value !== null &&
+                typeof value !== 'string'
+            ) {
                 throw Boom.badRequest(
                     `Invalid query parameter '${key}': expected a string`
                 );
@@ -112,9 +159,9 @@ class ListIntegrationsReport {
         };
         if (normalized.status && !KNOWN_STATUSES.includes(normalized.status)) {
             throw Boom.badRequest(
-                `Invalid status '${normalized.status}'. Expected one of: ${KNOWN_STATUSES.join(
-                    ', '
-                )}`
+                `Invalid status '${
+                    normalized.status
+                }'. Expected one of: ${KNOWN_STATUSES.join(', ')}`
             );
         }
         return normalized;

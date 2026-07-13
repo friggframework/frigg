@@ -21,6 +21,12 @@ jest.mock('./repositories/reporting-repository-factory', () => ({
     })),
 }));
 
+jest.mock('../usage/repositories/usage-repository-factory', () => ({
+    createUsageRepository: jest.fn(() => ({
+        getTotalsByDimension: jest.fn().mockResolvedValue([]),
+    })),
+}));
+
 jest.mock('../handlers/app-definition-loader', () => ({
     loadAppDefinition: jest.fn(() => ({
         integrations: [

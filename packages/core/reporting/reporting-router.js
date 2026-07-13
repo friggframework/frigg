@@ -3,7 +3,12 @@ const catchAsyncError = require('express-async-handler');
 const {
     createReportingRepository,
 } = require('./repositories/reporting-repository-factory');
-const { ListIntegrationsReport } = require('./use-cases/list-integrations-report');
+const {
+    createUsageRepository,
+} = require('../usage/repositories/usage-repository-factory');
+const {
+    ListIntegrationsReport,
+} = require('./use-cases/list-integrations-report');
 const { loadAppDefinition } = require('../handlers/app-definition-loader');
 
 // IntegrationBase.Definition default — skip it so the slug is used instead.
@@ -35,8 +40,10 @@ function buildTypeLabels() {
 
 function createReportingRouter() {
     const reportingRepository = createReportingRepository();
+    const usageRepository = createUsageRepository();
     const listIntegrationsReport = new ListIntegrationsReport({
         reportingRepository,
+        usageRepository,
         typeLabels: buildTypeLabels(),
     });
 

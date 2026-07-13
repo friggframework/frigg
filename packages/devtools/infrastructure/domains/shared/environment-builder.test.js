@@ -1,10 +1,13 @@
 /**
  * Tests for Environment Builder Service
- * 
+ *
  * Tests environment variable extraction and building
  */
 
-const { getAppEnvironmentVars, buildEnvironment } = require('./environment-builder');
+const {
+    getAppEnvironmentVars,
+    buildEnvironment,
+} = require('./environment-builder');
 
 describe('Environment Builder', () => {
     describe('getAppEnvironmentVars()', () => {
@@ -108,6 +111,42 @@ describe('Environment Builder', () => {
         });
     });
 
+    describe('telemetry env passthrough (ADR-011)', () => {
+        it('auto-adds OTLP env passthroughs when an OTLP-family exporter is configured', () => {
+            const result = getAppEnvironmentVars({
+                telemetry: { exporter: { type: 'otlp' } },
+            });
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBe(
+                "${env:OTEL_EXPORTER_OTLP_ENDPOINT, ''}"
+            );
+            expect(result.OTEL_EXPORTER_OTLP_HEADERS).toBe(
+                "${env:OTEL_EXPORTER_OTLP_HEADERS, ''}"
+            );
+        });
+
+        it.each(['honeycomb', 'datadog'])(
+            'adds OTLP passthroughs for the "%s" preset',
+            (type) => {
+                const result = getAppEnvironmentVars({
+                    telemetry: { exporter: { type } },
+                });
+                expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeDefined();
+            }
+        );
+
+        it('adds no OTLP env vars for console/none exporters or absent telemetry', () => {
+            expect(
+                getAppEnvironmentVars({
+                    telemetry: { exporter: { type: 'console' } },
+                }).OTEL_EXPORTER_OTLP_ENDPOINT
+            ).toBeUndefined();
+            expect(
+                getAppEnvironmentVars({}).OTEL_EXPORTER_OTLP_ENDPOINT
+            ).toBeUndefined();
+        });
+    });
+
     describe("getAppEnvironmentVars() - 'ssm' offload", () => {
         const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
 
@@ -161,13 +200,17 @@ describe('Environment Builder', () => {
             const appDefinition = {
                 ssm: {
                     enable: true,
-                    parameters: { HUBSPOT_CLIENT_SECRET: { type: 'SecureString' } },
+                    parameters: {
+                        HUBSPOT_CLIENT_SECRET: { type: 'SecureString' },
+                    },
                 },
             };
 
             const result = getAppEnvironmentVars(appDefinition);
 
-            expect(result.HUBSPOT_CLIENT_SECRET).toBe("${env:HUBSPOT_CLIENT_SECRET, ''}");
+            expect(result.HUBSPOT_CLIENT_SECRET).toBe(
+                "${env:HUBSPOT_CLIENT_SECRET, ''}"
+            );
         });
 
         it('excludes a key declared only in ssm.parameters when offload is active', () => {
@@ -175,7 +218,9 @@ describe('Environment Builder', () => {
             const appDefinition = {
                 ssm: {
                     enable: true,
-                    parameters: { HUBSPOT_CLIENT_SECRET: { type: 'SecureString' } },
+                    parameters: {
+                        HUBSPOT_CLIENT_SECRET: { type: 'SecureString' },
+                    },
                 },
             };
 
@@ -204,6 +249,106 @@ describe('Environment Builder', () => {
         });
     });
 
+    describe('telemetry env passthrough + SSM offload interaction', () => {
+        const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+        afterEach(() => {
+            if (originalSkipDiscovery === undefined) {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            } else {
+                process.env.FRIGG_SKIP_AWS_DISCOVERY = originalSkipDiscovery;
+            }
+        });
+
+        it("does not bake an OTEL passthrough var that is marked 'ssm' when offload is active", () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                telemetry: { exporter: { type: 'datadog' } },
+                ssm: { enable: true },
+                environment: {
+                    OTEL_EXPORTER_OTLP_ENDPOINT: 'ssm',
+                    OTEL_EXPORTER_OTLP_HEADERS: 'ssm',
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+            expect(result.OTEL_EXPORTER_OTLP_HEADERS).toBeUndefined();
+        });
+
+        it("keeps the direct passthrough for an OTEL var not marked 'ssm' while offloading its sibling", () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                telemetry: { exporter: { type: 'otlp' } },
+                ssm: { enable: true },
+                environment: {
+                    OTEL_EXPORTER_OTLP_ENDPOINT: 'ssm',
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+            expect(result.OTEL_EXPORTER_OTLP_HEADERS).toBe(
+                "${env:OTEL_EXPORTER_OTLP_HEADERS, ''}"
+            );
+        });
+
+        it("falls back to the env passthrough for an 'ssm'-marked OTEL var in local mode", () => {
+            process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
+            const appDefinition = {
+                telemetry: { exporter: { type: 'datadog' } },
+                ssm: { enable: true },
+                environment: {
+                    OTEL_EXPORTER_OTLP_ENDPOINT: 'ssm',
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBe(
+                "${env:OTEL_EXPORTER_OTLP_ENDPOINT, ''}"
+            );
+        });
+
+        it("leaves a 'true'-marked OTEL var as a direct passthrough even when offload is active for another key", () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                telemetry: { exporter: { type: 'datadog' } },
+                ssm: { enable: true },
+                environment: {
+                    OTEL_EXPORTER_OTLP_ENDPOINT: true,
+                    SOME_OFFLOADED_SECRET: 'ssm',
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBe(
+                "${env:OTEL_EXPORTER_OTLP_ENDPOINT, ''}"
+            );
+            expect(result.SOME_OFFLOADED_SECRET).toBeUndefined();
+        });
+
+        it('does not bake an OTEL passthrough var offloaded only via ssm.parameters', () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                telemetry: { exporter: { type: 'datadog' } },
+                ssm: {
+                    enable: true,
+                    parameters: {
+                        OTEL_EXPORTER_OTLP_ENDPOINT: { type: 'SecureString' },
+                    },
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+        });
+    });
+
     describe('buildEnvironment()', () => {
         it('should combine app vars with standard Frigg variables', () => {
             const appEnvironmentVars = {
@@ -211,7 +356,10 @@ describe('Environment Builder', () => {
             };
             const discoveredResources = {};
 
-            const result = buildEnvironment(appEnvironmentVars, discoveredResources);
+            const result = buildEnvironment(
+                appEnvironmentVars,
+                discoveredResources
+            );
 
             expect(result.API_KEY).toBe("${env:API_KEY, ''}");
             expect(result.STAGE).toBe('${self:provider.stage}');
@@ -226,9 +374,14 @@ describe('Environment Builder', () => {
                 kmsKeyId: 'arn:aws:kms:us-east-1:123456:key/abc-123',
             };
 
-            const result = buildEnvironment(appEnvironmentVars, discoveredResources);
+            const result = buildEnvironment(
+                appEnvironmentVars,
+                discoveredResources
+            );
 
-            expect(result.KMS_KEY_ARN).toBe('arn:aws:kms:us-east-1:123456:key/abc-123');
+            expect(result.KMS_KEY_ARN).toBe(
+                'arn:aws:kms:us-east-1:123456:key/abc-123'
+            );
         });
 
         it('should prefer kmsKeyId over kmsKeyArn if both present', () => {
@@ -238,22 +391,33 @@ describe('Environment Builder', () => {
                 kmsKeyArn: 'arn:aws:kms:us-east-1:123456:key/secondary',
             };
 
-            const result = buildEnvironment(appEnvironmentVars, discoveredResources);
+            const result = buildEnvironment(
+                appEnvironmentVars,
+                discoveredResources
+            );
 
             // Implementation uses if/else-if, so kmsKeyId takes priority
-            expect(result.KMS_KEY_ARN).toBe('arn:aws:kms:us-east-1:123456:key/primary');
+            expect(result.KMS_KEY_ARN).toBe(
+                'arn:aws:kms:us-east-1:123456:key/primary'
+            );
         });
 
         it('should add database connection info if discovered', () => {
             const appEnvironmentVars = {};
             const discoveredResources = {
-                auroraClusterEndpoint: 'cluster.abc.us-east-1.rds.amazonaws.com',
+                auroraClusterEndpoint:
+                    'cluster.abc.us-east-1.rds.amazonaws.com',
                 auroraPort: 5432,
             };
 
-            const result = buildEnvironment(appEnvironmentVars, discoveredResources);
+            const result = buildEnvironment(
+                appEnvironmentVars,
+                discoveredResources
+            );
 
-            expect(result.DATABASE_HOST).toBe('cluster.abc.us-east-1.rds.amazonaws.com');
+            expect(result.DATABASE_HOST).toBe(
+                'cluster.abc.us-east-1.rds.amazonaws.com'
+            );
             expect(result.DATABASE_PORT).toBe('5432');
         });
 
@@ -263,7 +427,10 @@ describe('Environment Builder', () => {
                 auroraClusterEndpoint: 'cluster.example.com',
             };
 
-            const result = buildEnvironment(appEnvironmentVars, discoveredResources);
+            const result = buildEnvironment(
+                appEnvironmentVars,
+                discoveredResources
+            );
 
             expect(result.DATABASE_HOST).toBe('cluster.example.com');
             expect(result.DATABASE_PORT).toBe('5432');
@@ -272,12 +439,18 @@ describe('Environment Builder', () => {
         it('should add database secret ARN if discovered', () => {
             const appEnvironmentVars = {};
             const discoveredResources = {
-                databaseSecretArn: 'arn:aws:secretsmanager:us-east-1:123456:secret:db-secret',
+                databaseSecretArn:
+                    'arn:aws:secretsmanager:us-east-1:123456:secret:db-secret',
             };
 
-            const result = buildEnvironment(appEnvironmentVars, discoveredResources);
+            const result = buildEnvironment(
+                appEnvironmentVars,
+                discoveredResources
+            );
 
-            expect(result.DATABASE_SECRET_ARN).toBe('arn:aws:secretsmanager:us-east-1:123456:secret:db-secret');
+            expect(result.DATABASE_SECRET_ARN).toBe(
+                'arn:aws:secretsmanager:us-east-1:123456:secret:db-secret'
+            );
         });
 
         it('should combine all discovered resources', () => {
@@ -288,19 +461,27 @@ describe('Environment Builder', () => {
                 kmsKeyArn: 'arn:aws:kms:us-east-1:123456:key/abc',
                 auroraClusterEndpoint: 'db.example.com',
                 auroraPort: 3306,
-                databaseSecretArn: 'arn:aws:secretsmanager:us-east-1:123456:secret:db',
+                databaseSecretArn:
+                    'arn:aws:secretsmanager:us-east-1:123456:secret:db',
             };
 
-            const result = buildEnvironment(appEnvironmentVars, discoveredResources);
+            const result = buildEnvironment(
+                appEnvironmentVars,
+                discoveredResources
+            );
 
             expect(result.CUSTOM_VAR).toBe("${env:CUSTOM_VAR, ''}");
             expect(result.FRIGG_STACK).toBe('${self:service}');
             expect(result.FRIGG_STAGE).toBe('${self:provider.stage}');
             expect(result.FRIGG_REGION).toBe('${self:provider.region}');
-            expect(result.KMS_KEY_ARN).toBe('arn:aws:kms:us-east-1:123456:key/abc');
+            expect(result.KMS_KEY_ARN).toBe(
+                'arn:aws:kms:us-east-1:123456:key/abc'
+            );
             expect(result.DATABASE_HOST).toBe('db.example.com');
             expect(result.DATABASE_PORT).toBe('3306');
-            expect(result.DATABASE_SECRET_ARN).toBe('arn:aws:secretsmanager:us-east-1:123456:secret:db');
+            expect(result.DATABASE_SECRET_ARN).toBe(
+                'arn:aws:secretsmanager:us-east-1:123456:secret:db'
+            );
         });
 
         it('should handle empty discoveredResources', () => {
@@ -309,7 +490,10 @@ describe('Environment Builder', () => {
             };
             const discoveredResources = {};
 
-            const result = buildEnvironment(appEnvironmentVars, discoveredResources);
+            const result = buildEnvironment(
+                appEnvironmentVars,
+                discoveredResources
+            );
 
             expect(result.API_KEY).toBe("${env:API_KEY, ''}");
             expect(result.FRIGG_STACK).toBe('${self:service}');
@@ -333,11 +517,13 @@ describe('Environment Builder', () => {
                 auroraPort: 3306, // Number
             };
 
-            const result = buildEnvironment(appEnvironmentVars, discoveredResources);
+            const result = buildEnvironment(
+                appEnvironmentVars,
+                discoveredResources
+            );
 
             expect(result.DATABASE_PORT).toBe('3306'); // String
             expect(typeof result.DATABASE_PORT).toBe('string');
         });
     });
 });
-
