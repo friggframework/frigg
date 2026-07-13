@@ -163,20 +163,58 @@ async function pushOffloadedParameters(appDefinition, stage, options = {}) {
         options
     );
 
-    for (const key of skipped) {
-        console.warn(
-            `⚠️  Skipping ${key}: no value in the environment (--allow-empty)`
+    if (specs.length === 0 && skipped.length === 0) {
+        return { pushed: [], skipped };
+    }
+
+    const {
+        SSMClient,
+        PutParameterCommand,
+        GetParametersCommand,
+    } = require('@aws-sdk/client-ssm');
+    const client = new SSMClient({
+        region: resolvePushRegion(options),
+    });
+
+    // --allow-empty only rotates keys that already exist. A skipped key still
+    // ships in FRIGG_SSM_OFFLOADED_KEYS, so if its parameter does not exist the
+    // runtime fails fast at cold start on every function — a green deploy that
+    // bricks the fleet. Verify existence and abort instead.
+    if (skipped.length > 0) {
+        const prefix = resolveParameterPrefix(appDefinition, stage);
+        const names = skipped.map((key) => `${prefix}/${key}`);
+        const existing = new Set();
+        for (let i = 0; i < names.length; i += 10) {
+            const { Parameters = [] } = await client.send(
+                new GetParametersCommand({ Names: names.slice(i, i + 10) })
+            );
+            for (const param of Parameters) {
+                existing.add(param.Name);
+            }
+        }
+        const orphaned = skipped.filter(
+            (key) => !existing.has(`${prefix}/${key}`)
         );
+        if (orphaned.length > 0) {
+            throw new Error(
+                `--allow-empty skipped ${orphaned.join(
+                    ', '
+                )}, but no such parameter exists in Parameter Store. --allow-empty ` +
+                    `only rotates keys that already have a value; a skipped key with no ` +
+                    `parameter stays in FRIGG_SSM_OFFLOADED_KEYS and fails every function ` +
+                    `at cold start. Set a value and push without --allow-empty.`
+            );
+        }
+        for (const key of skipped) {
+            console.warn(
+                `⚠️  Skipping ${key}: no value in the environment; keeping the existing Parameter Store value (--allow-empty)`
+            );
+        }
     }
 
     if (specs.length === 0) {
         return { pushed: [], skipped };
     }
-
-    const { SSMClient, PutParameterCommand } = require('@aws-sdk/client-ssm');
-    const client = new SSMClient({
-        region: resolvePushRegion(options),
-    });
 
     const pushed = [];
     for (const spec of specs) {

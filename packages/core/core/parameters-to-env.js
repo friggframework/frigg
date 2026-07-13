@@ -216,6 +216,31 @@ const adoptPreloadedKeys = (keys) => {
         ttlSeconds === 0 ? Infinity : Date.now() + ttlSeconds * 1000;
 };
 
+/**
+ * INIT-phase preload used by ssm-preload.mjs: fetch offloaded parameters and
+ * set them into process.env, then adopt the keys it set so the handler-time
+ * loader refreshes them on TTL. Real env wins — a key already present is never
+ * fetched or overwritten, so a console override keeps working even if that
+ * key's parameter is absent from SSM (fetching it would fail INIT). Returns the
+ * keys actually set (empty when every key was already in real env). Throws,
+ * listing the names, only for a genuinely-needed parameter that is missing.
+ */
+const preloadOffloadedParameters = async (prefix, keys, options = {}) => {
+    const keysToFetch = keys.filter((key) => process.env[key] === undefined);
+    if (keysToFetch.length === 0) {
+        return [];
+    }
+
+    const values = await fetchOffloadedParameters(prefix, keysToFetch, options);
+    const setKeys = [];
+    for (const [key, value] of Object.entries(values)) {
+        process.env[key] = value;
+        setKeys.push(key);
+    }
+    adoptPreloadedKeys(setKeys);
+    return setKeys;
+};
+
 const _resetCache = () => {
     client = null;
     cacheExpiresAt = null;
@@ -226,6 +251,7 @@ const _resetCache = () => {
 module.exports = {
     parametersToEnv,
     fetchOffloadedParameters,
+    preloadOffloadedParameters,
     adoptPreloadedKeys,
     _resetCache,
 };

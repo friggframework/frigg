@@ -1,5 +1,9 @@
 const { mockClient } = require('aws-sdk-client-mock');
-const { SSMClient, PutParameterCommand } = require('@aws-sdk/client-ssm');
+const {
+    SSMClient,
+    PutParameterCommand,
+    GetParametersCommand,
+} = require('@aws-sdk/client-ssm');
 const { pushOffloadedParameters, resolvePushRegion } = require('./index');
 
 describe('ssm-command pushOffloadedParameters', () => {
@@ -95,14 +99,27 @@ describe('ssm-command pushOffloadedParameters', () => {
         expect(ssmMock.commandCalls(PutParameterCommand)).toHaveLength(0);
     });
 
-    it('skips missing values with allowEmpty instead of throwing', async () => {
+    it('skips missing values with allowEmpty when the parameter already exists', async () => {
         delete process.env.MY_SECRET;
+        ssmMock.on(GetParametersCommand).resolves({
+            Parameters: [{ Name: '/frigg/my-app/dev/MY_SECRET' }],
+        });
 
         const result = await pushOffloadedParameters(appDefinition, 'dev', {
             allowEmpty: true,
         });
         expect(result.skipped).toEqual(['MY_SECRET']);
         expect(ssmMock.commandCalls(PutParameterCommand)).toHaveLength(1);
+    });
+
+    it('aborts when allowEmpty skips a key that does not exist in Parameter Store', async () => {
+        delete process.env.MY_SECRET;
+        ssmMock.on(GetParametersCommand).resolves({ Parameters: [] });
+
+        await expect(
+            pushOffloadedParameters(appDefinition, 'dev', { allowEmpty: true })
+        ).rejects.toThrow(/MY_SECRET.*no such parameter|--allow-empty/s);
+        expect(ssmMock.commandCalls(PutParameterCommand)).toHaveLength(0);
     });
 
     it('rejects values over the standard tier limit and suggests advanced', async () => {

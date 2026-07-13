@@ -467,6 +467,89 @@ describe('parametersToEnv - SSM Parameter Store loader', () => {
         });
     });
 
+    describe('preloadOffloadedParameters (INIT preload)', () => {
+        const {
+            preloadOffloadedParameters,
+        } = require('./parameters-to-env');
+
+        it('fetches, sets, and returns keys not already in real env', async () => {
+            setParamStore({
+                '/frigg/app/A': { value: 'va' },
+                '/frigg/app/B': { value: 'vb' },
+            });
+
+            const setKeys = await preloadOffloadedParameters('/frigg/app', [
+                'A',
+                'B',
+            ]);
+
+            expect(setKeys.sort()).toEqual(['A', 'B']);
+            expect(process.env.A).toBe('va');
+            expect(process.env.B).toBe('vb');
+        });
+
+        it('never fetches or overwrites a key already in real env', async () => {
+            process.env.REAL_KEY = 'from-console';
+            setParamStore({
+                '/frigg/app/REAL_KEY': { value: 'from-ssm' },
+                '/frigg/app/OWNED': { value: 'ssm-owned' },
+            });
+
+            const setKeys = await preloadOffloadedParameters('/frigg/app', [
+                'REAL_KEY',
+                'OWNED',
+            ]);
+
+            expect(setKeys).toEqual(['OWNED']);
+            expect(process.env.REAL_KEY).toBe('from-console');
+            const call = ssmMock.commandCalls(GetParametersCommand)[0];
+            expect(call.args[0].input.Names).toEqual(['/frigg/app/OWNED']);
+        });
+
+        // Regression: a real-env override must work even when its SSM parameter
+        // is absent — the preload must not fetch (and fail INIT on) that key.
+        it('does not fetch or throw when every key is satisfied by real env, even if the parameter is absent', async () => {
+            process.env.REAL_KEY = 'from-console';
+            setParamStore({}); // REAL_KEY has no parameter in SSM
+
+            const setKeys = await preloadOffloadedParameters('/frigg/app', [
+                'REAL_KEY',
+            ]);
+
+            expect(setKeys).toEqual([]);
+            expect(process.env.REAL_KEY).toBe('from-console');
+            expect(ssmMock.commandCalls(GetParametersCommand)).toHaveLength(0);
+        });
+
+        it('fails fast when a genuinely-needed parameter is missing', async () => {
+            setParamStore({ '/frigg/app/PRESENT': { value: 'ok' } });
+
+            await expect(
+                preloadOffloadedParameters('/frigg/app', ['PRESENT', 'ABSENT'])
+            ).rejects.toThrow(/\/frigg\/app\/ABSENT/);
+        });
+
+        it('adopts set keys so the handler loader refreshes them on TTL', async () => {
+            process.env.SSM_PARAMETER_PREFIX = '/frigg/app';
+            process.env.FRIGG_SSM_OFFLOADED_KEYS = 'OWNED';
+            process.env.FRIGG_SSM_CACHE_TTL = '60';
+            setParamStore({ '/frigg/app/OWNED': { value: 'v1', version: 1 } });
+
+            await preloadOffloadedParameters('/frigg/app', ['OWNED']);
+            expect(process.env.OWNED).toBe('v1');
+
+            // Within TTL the handler loader does not refetch (cache adopted).
+            await parametersToEnv();
+            expect(ssmMock.commandCalls(GetParametersCommand)).toHaveLength(1);
+
+            // After TTL it refreshes the adopted key.
+            setParamStore({ '/frigg/app/OWNED': { value: 'v2', version: 2 } });
+            clock += 61 * 1000;
+            await parametersToEnv();
+            expect(process.env.OWNED).toBe('v2');
+        });
+    });
+
     describe('adoptPreloadedKeys (INIT preload → handler-time TTL refresh)', () => {
         const { adoptPreloadedKeys } = require('./parameters-to-env');
 

@@ -109,9 +109,10 @@ refreshes the preloaded keys per container on a TTL (default 300 seconds,
 **Precedence** (highest wins):
 
 1. Real Lambda environment variables — a value set directly on a function's
-   configuration always wins, and the loaders never touch it.
-2. INIT preload / handler loader SSM values.
-3. Secrets Manager values injected via `SECRET_ARN` (`secretsToEnv`).
+   configuration always wins, and the SSM loaders never touch it.
+2. Secrets Manager values injected via `SECRET_ARN` (`secretsToEnv`), which
+   runs first in the handler and overwrites, so it wins over SSM.
+3. INIT preload / handler loader SSM values.
 
 If a declared parameter is missing from Parameter Store, INIT fails
 immediately with an error naming the missing key — a deliberate fail-fast
@@ -175,8 +176,10 @@ ssm: {
 ### `frigg ssm push`
 
 ```bash
-frigg ssm push --stage prod          # write offloaded values from env/.env to SSM
-frigg ssm push --stage prod --allow-empty   # skip keys with empty values (warn instead of error)
+frigg ssm push --stage prod                 # write offloaded values from env/.env to SSM
+frigg ssm push --stage prod --allow-empty    # skip keys with no value (only for keys already in SSM)
+frigg ssm push --stage prod --tier advanced  # allow values up to 8KB (advanced tier, billed by AWS)
+frigg ssm push --stage prod --region eu-west-1  # target a specific region (default: AWS_REGION, else us-east-1)
 ```
 
 `frigg deploy` runs the push automatically before deploying whenever the
@@ -184,8 +187,13 @@ offload set is non-empty. Use the standalone command to rotate a value
 without deploying (containers converge within the cache TTL) or to seed a
 new stage.
 
-Values are validated at push time: missing/empty values are an error, and
-values over 4KB (the standard-tier parameter limit) are rejected.
+Values are validated at push time: missing/empty values are an error unless
+`--allow-empty`, which skips them — but only for keys whose parameter already
+exists (rotation); a skipped key with no parameter aborts the push, since it
+would fail every function at cold start. Values over 4KB (the standard-tier
+limit) require the advanced tier (up to 8KB, billed by AWS): set
+`ssm.parameters.<KEY>.tier: 'advanced'` in the app definition, or pass
+`--tier advanced`.
 
 ## VPC Integration
 

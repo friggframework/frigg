@@ -74,11 +74,13 @@ the runtime at cold start; its value never enters the Lambda environment.
 - **Runtime — handler fallback** (`parametersToEnv()`, invoked from the
   `createHandler` bootstrap next to `secretsToEnv()`): a belt-and-suspenders
   loader for values read lazily (request-time) and a TTL refresh path
-  (default 300s, `FRIGG_SSM_CACHE_TTL`, `0` = cache forever). Precedence is
-  **real env > INIT preload > Secrets Manager (`secretsToEnv`) > SSM**: it
-  never touches a key already in `process.env` (so the preload's values and
-  console overrides win), and on TTL refresh only updates keys it itself set.
-  Missing declared parameters fail fast with an error naming the keys.
+  (default 300s, `FRIGG_SSM_CACHE_TTL`, `0` = cache forever). Precedence on a
+  key collision is **real env > Secrets Manager (`secretsToEnv`) > SSM**: the
+  SSM loaders (INIT preload and handler) never touch a key already in
+  `process.env` (so real env and console overrides win), while `secretsToEnv`
+  runs first in the handler and overwrites, so it wins over SSM; on TTL refresh
+  the loader only updates keys it itself set. Missing declared parameters fail
+  fast with an error naming the keys.
 - **Provisioning** (`frigg ssm push`, also run automatically by
   `frigg deploy` before the serverless deploy): reads offloaded values from
   the CLI process environment (CI secrets or `.env`), validates them
