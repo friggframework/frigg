@@ -249,6 +249,106 @@ describe('Environment Builder', () => {
         });
     });
 
+    describe('telemetry env passthrough + SSM offload interaction', () => {
+        const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+        afterEach(() => {
+            if (originalSkipDiscovery === undefined) {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            } else {
+                process.env.FRIGG_SKIP_AWS_DISCOVERY = originalSkipDiscovery;
+            }
+        });
+
+        it("does not bake an OTEL passthrough var that is marked 'ssm' when offload is active", () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                telemetry: { exporter: { type: 'datadog' } },
+                ssm: { enable: true },
+                environment: {
+                    OTEL_EXPORTER_OTLP_ENDPOINT: 'ssm',
+                    OTEL_EXPORTER_OTLP_HEADERS: 'ssm',
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+            expect(result.OTEL_EXPORTER_OTLP_HEADERS).toBeUndefined();
+        });
+
+        it("keeps the direct passthrough for an OTEL var not marked 'ssm' while offloading its sibling", () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                telemetry: { exporter: { type: 'otlp' } },
+                ssm: { enable: true },
+                environment: {
+                    OTEL_EXPORTER_OTLP_ENDPOINT: 'ssm',
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+            expect(result.OTEL_EXPORTER_OTLP_HEADERS).toBe(
+                "${env:OTEL_EXPORTER_OTLP_HEADERS, ''}"
+            );
+        });
+
+        it("falls back to the env passthrough for an 'ssm'-marked OTEL var in local mode", () => {
+            process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
+            const appDefinition = {
+                telemetry: { exporter: { type: 'datadog' } },
+                ssm: { enable: true },
+                environment: {
+                    OTEL_EXPORTER_OTLP_ENDPOINT: 'ssm',
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBe(
+                "${env:OTEL_EXPORTER_OTLP_ENDPOINT, ''}"
+            );
+        });
+
+        it("leaves a 'true'-marked OTEL var as a direct passthrough even when offload is active for another key", () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                telemetry: { exporter: { type: 'datadog' } },
+                ssm: { enable: true },
+                environment: {
+                    OTEL_EXPORTER_OTLP_ENDPOINT: true,
+                    SOME_OFFLOADED_SECRET: 'ssm',
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBe(
+                "${env:OTEL_EXPORTER_OTLP_ENDPOINT, ''}"
+            );
+            expect(result.SOME_OFFLOADED_SECRET).toBeUndefined();
+        });
+
+        it('does not bake an OTEL passthrough var offloaded only via ssm.parameters', () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                telemetry: { exporter: { type: 'datadog' } },
+                ssm: {
+                    enable: true,
+                    parameters: {
+                        OTEL_EXPORTER_OTLP_ENDPOINT: { type: 'SecureString' },
+                    },
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+        });
+    });
+
     describe('buildEnvironment()', () => {
         it('should combine app vars with standard Frigg variables', () => {
             const appEnvironmentVars = {
