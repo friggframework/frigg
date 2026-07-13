@@ -264,7 +264,7 @@
         "arn:aws:kms:*:*:key/*"
       ],
       "Condition": {
-        "StringEquals": {
+        "StringLike": {
           "kms:ViaService": [
             "lambda.*.amazonaws.com",
             "s3.*.amazonaws.com",

@@ -703,7 +703,10 @@ function generateIAMCloudFormation(options = {}) {
                                       },
                                   ],
                             Condition: {
-                                StringEquals: {
+                                // StringLike: kms:ViaService is regional
+                                // (ssm.us-east-1.amazonaws.com), so the wildcard
+                                // must be matched, not compared literally.
+                                StringLike: {
                                     'kms:ViaService': [
                                         'ssm.*.amazonaws.com',
                                     ],

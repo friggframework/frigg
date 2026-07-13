@@ -375,7 +375,9 @@ Resources:
             Resource:
               - !Sub 'arn:aws:kms:*:${AWS::AccountId}:key/*'
             Condition:
-              StringEquals:
+              # StringLike: kms:ViaService is regional (ssm.us-east-1.amazonaws.com),
+              # so the wildcard must be matched, not compared literally.
+              StringLike:
                 'kms:ViaService':
                   - 'ssm.*.amazonaws.com'
 

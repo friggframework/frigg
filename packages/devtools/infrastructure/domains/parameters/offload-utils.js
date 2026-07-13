@@ -94,7 +94,7 @@ function getOffloadedKeys(appDefinition = {}) {
         keys.add(key);
     }
 
-    return [...keys].sort();
+    return [...keys].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /**

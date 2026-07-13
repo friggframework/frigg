@@ -123,6 +123,10 @@ class VpcDiscovery {
                 const sqsEndpoint = rawResources.vpcEndpoints.find(
                     ep => ep.ServiceName && ep.ServiceName.includes('.sqs')
                 );
+                // endsWith avoids matching sibling services like `.ssmmessages`
+                const ssmEndpoint = rawResources.vpcEndpoints.find(
+                    ep => ep.ServiceName && ep.ServiceName.endsWith('.ssm')
+                );
 
                 if (s3Endpoint) {
                     result.s3VpcEndpointId = s3Endpoint.VpcEndpointId;
@@ -139,6 +143,9 @@ class VpcDiscovery {
                 if (sqsEndpoint) {
                     result.sqsVpcEndpointId = sqsEndpoint.VpcEndpointId;
                 }
+                if (ssmEndpoint) {
+                    result.ssmVpcEndpointId = ssmEndpoint.VpcEndpointId;
+                }
             }
 
             console.log(`  ✓ Found VPC: ${result.defaultVpcId}`);
@@ -151,8 +158,8 @@ class VpcDiscovery {
             if (result.existingNatGatewayId) {
                 console.log(`  ✓ Found NAT Gateway: ${result.existingNatGatewayId}`);
             }
-            if (result.s3VpcEndpointId || result.dynamodbVpcEndpointId || result.kmsVpcEndpointId || result.secretsManagerVpcEndpointId || result.sqsVpcEndpointId) {
-                console.log(`  ✓ Found VPC Endpoints: S3=${result.s3VpcEndpointId ? 'Yes' : 'No'}, DynamoDB=${result.dynamodbVpcEndpointId ? 'Yes' : 'No'}, KMS=${result.kmsVpcEndpointId ? 'Yes' : 'No'}, SecretsManager=${result.secretsManagerVpcEndpointId ? 'Yes' : 'No'}, SQS=${result.sqsVpcEndpointId ? 'Yes' : 'No'}`);
+            if (result.s3VpcEndpointId || result.dynamodbVpcEndpointId || result.kmsVpcEndpointId || result.secretsManagerVpcEndpointId || result.sqsVpcEndpointId || result.ssmVpcEndpointId) {
+                console.log(`  ✓ Found VPC Endpoints: S3=${result.s3VpcEndpointId ? 'Yes' : 'No'}, DynamoDB=${result.dynamodbVpcEndpointId ? 'Yes' : 'No'}, KMS=${result.kmsVpcEndpointId ? 'Yes' : 'No'}, SecretsManager=${result.secretsManagerVpcEndpointId ? 'Yes' : 'No'}, SQS=${result.sqsVpcEndpointId ? 'Yes' : 'No'}, SSM=${result.ssmVpcEndpointId ? 'Yes' : 'No'}`);
             }
 
             return result;

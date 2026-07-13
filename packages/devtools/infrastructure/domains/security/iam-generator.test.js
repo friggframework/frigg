@@ -166,6 +166,16 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('ssm.*.amazonaws.com');
             // No customer-managed key configured: falls back to the account key wildcard
             expect(yaml).toContain('arn:aws:kms:*:${AWS::AccountId}:key/*');
+
+            // The regional ViaService wildcard must be matched with StringLike;
+            // StringEquals would compare literally and never match
+            // ssm.<region>.amazonaws.com, denying the SecureString KMS call.
+            const ssmKmsBlock = yaml.slice(
+                yaml.indexOf('FriggSSMParameterKMSEncryption'),
+                yaml.indexOf('FriggSSMParameterKMSEncryption') + 600
+            );
+            expect(ssmKmsBlock).toContain('StringLike');
+            expect(ssmKmsBlock).not.toContain('StringEquals');
         });
 
         it('should scope the SSM KMS grant to ssm.kmsKeyArn when provided', () => {
