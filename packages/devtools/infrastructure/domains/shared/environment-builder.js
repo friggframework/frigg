@@ -32,13 +32,9 @@ function addTelemetryEnvPassthrough(appDefinition, envVars) {
     const exporterType = appDefinition?.telemetry?.exporter?.type;
     if (!OTLP_EXPORTER_TYPES.has(exporterType)) return;
 
-    // A passthrough var that is also marked for SSM offload must NOT be baked
-    // as a direct `${env:KEY, ''}` Lambda var: the deploy shell has no such var
-    // (it lives only in Parameter Store), so it resolves to '' at package time,
-    // and at runtime '' !== undefined blocks the SSM loader from ever populating
-    // it. Leave it out here so it lives only in FRIGG_SSM_OFFLOADED_KEYS. When
-    // offload is inactive (local mode / ssm disabled) it still gets the
-    // passthrough, matching the local-fallback contract.
+    // Skip offloaded keys here: baking '${env:KEY, ''}' resolves to '' at
+    // deploy (the value lives only in SSM), and '' !== undefined then blocks
+    // the SSM loader from ever fetching the real value.
     const offloadedKeys = isSsmOffloadActive(appDefinition)
         ? new Set(getOffloadedKeys(appDefinition))
         : null;
