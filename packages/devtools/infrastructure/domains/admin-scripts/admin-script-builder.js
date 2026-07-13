@@ -14,6 +14,7 @@
  */
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
+const { isScopedEnvironmentActive } = require('../shared/function-environments');
 
 class AdminScriptBuilder extends InfrastructureBuilder {
     constructor() {
@@ -67,7 +68,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         };
 
         // Create admin script queue
-        this.createAdminScriptQueue(result);
+        this.createAdminScriptQueue(result, appDefinition);
 
         // Create Lambda function for script execution
         this.createScriptExecutorFunction(appDefinition, result, usePrismaLayer);
@@ -90,7 +91,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         return result;
     }
 
-    createAdminScriptQueue(result) {
+    createAdminScriptQueue(result, appDefinition) {
         result.resources.AdminScriptQueue = {
             Type: 'AWS::SQS::Queue',
             Properties: {
@@ -106,7 +107,20 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             },
         };
 
-        result.environment.ADMIN_SCRIPT_QUEUE_URL = { Ref: 'AdminScriptQueue' };
+        if (isScopedEnvironmentActive(appDefinition)) {
+            // Only the admin functions read this queue URL
+            result.functionEnvironments = result.functionEnvironments || {};
+            for (const fnName of ['adminScriptRouter', 'adminScriptExecutor']) {
+                result.functionEnvironments[fnName] = {
+                    ...result.functionEnvironments[fnName],
+                    ADMIN_SCRIPT_QUEUE_URL: { Ref: 'AdminScriptQueue' },
+                };
+            }
+        } else {
+            result.environment.ADMIN_SCRIPT_QUEUE_URL = {
+                Ref: 'AdminScriptQueue',
+            };
+        }
 
         // The router enqueues async executions and scripts enqueue continuations
         // via queueScript()/queueScriptBatch(). The base role's wildcard does not

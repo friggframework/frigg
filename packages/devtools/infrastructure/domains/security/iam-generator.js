@@ -7,6 +7,7 @@ const path = require('path');
  * @param {Object} [options.features={}] - Enabled features { vpc, kms, ssm, websockets }
  * @param {string} [options.userPrefix='frigg-deployment-user'] - IAM user name prefix
  * @param {string} [options.stackName='frigg-deployment-iam'] - CloudFormation stack name
+ * @param {string} [options.ssmKmsKeyArn] - Customer-managed KMS key ARN for SecureString offload (appDefinition.ssm.kmsKeyArn)
  * @returns {string} CloudFormation YAML template
  */
 function generateIAMCloudFormation(options = {}) {
@@ -14,7 +15,8 @@ function generateIAMCloudFormation(options = {}) {
         appName = 'Frigg',
         features = {},
         userPrefix = 'frigg-deployment-user',
-        stackName = 'frigg-deployment-iam'
+        stackName = 'frigg-deployment-iam',
+        ssmKmsKeyArn
     } = options;
 
     const deploymentUserName = userPrefix;
@@ -667,6 +669,9 @@ function generateIAMCloudFormation(options = {}) {
                                 'ssm:GetParameter',
                                 'ssm:GetParameters',
                                 'ssm:GetParametersByPath',
+                                'ssm:PutParameter',
+                                'ssm:DeleteParameter',
+                                'ssm:AddTagsToResource',
                             ],
                             Resource: [
                                 {
@@ -678,6 +683,35 @@ function generateIAMCloudFormation(options = {}) {
                                         'arn:aws:ssm:*:${AWS::AccountId}:parameter/*frigg*/*',
                                 },
                             ],
+                        },
+                        {
+                            // SecureString offload: SSM performs the KMS encrypt/decrypt
+                            // on the caller's behalf, so the grant is scoped to ViaService ssm.*
+                            Sid: 'FriggSSMParameterKMSEncryption',
+                            Effect: 'Allow',
+                            Action: [
+                                'kms:Encrypt',
+                                'kms:GenerateDataKey',
+                                'kms:Decrypt',
+                            ],
+                            Resource: ssmKmsKeyArn
+                                ? [ssmKmsKeyArn]
+                                : [
+                                      {
+                                          'Fn::Sub':
+                                              'arn:aws:kms:*:${AWS::AccountId}:key/*',
+                                      },
+                                  ],
+                            Condition: {
+                                // StringLike: kms:ViaService is regional
+                                // (ssm.us-east-1.amazonaws.com), so the wildcard
+                                // must be matched, not compared literally.
+                                StringLike: {
+                                    'kms:ViaService': [
+                                        'ssm.*.amazonaws.com',
+                                    ],
+                                },
+                            },
                         },
                     ],
                 },
@@ -773,6 +807,7 @@ function getFeatureSummary(appDefinition) {
         features,
         integrationCount,
         appName: appDefinition.name || 'Unnamed Frigg App',
+        ssmKmsKeyArn: appDefinition.ssm?.kmsKeyArn,
     };
 }
 

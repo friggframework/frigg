@@ -625,4 +625,49 @@ describe('AdminScriptBuilder', () => {
             expect(adminScriptBuilder.getName()).toBe('AdminScriptBuilder');
         });
     });
+
+    describe('scoped environment (lambda.scopedEnvironment)', () => {
+        const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+        beforeEach(() => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+        });
+
+        afterEach(() => {
+            if (originalSkipDiscovery === undefined) {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            } else {
+                process.env.FRIGG_SKIP_AWS_DISCOVERY = originalSkipDiscovery;
+            }
+        });
+
+        it('scopes ADMIN_SCRIPT_QUEUE_URL to the admin functions only', async () => {
+            const result = await adminScriptBuilder.build(
+                {
+                    lambda: { scopedEnvironment: true },
+                    adminScripts: [{ Definition: { name: 'fix-things' } }],
+                },
+                {}
+            );
+
+            expect(result.environment.ADMIN_SCRIPT_QUEUE_URL).toBeUndefined();
+            for (const fnName of ['adminScriptRouter', 'adminScriptExecutor']) {
+                expect(
+                    result.functionEnvironments[fnName].ADMIN_SCRIPT_QUEUE_URL
+                ).toEqual({ Ref: 'AdminScriptQueue' });
+            }
+        });
+
+        it('broadcasts app-wide when the flag is off', async () => {
+            const result = await adminScriptBuilder.build(
+                { adminScripts: [{ Definition: { name: 'fix-things' } }] },
+                {}
+            );
+
+            expect(result.environment.ADMIN_SCRIPT_QUEUE_URL).toEqual({
+                Ref: 'AdminScriptQueue',
+            });
+            expect(result.functionEnvironments).toBeUndefined();
+        });
+    });
 });

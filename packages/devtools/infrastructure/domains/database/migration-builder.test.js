@@ -318,5 +318,106 @@ describe('MigrationBuilder', () => {
             );
         });
     });
+
+    describe('scoped environment (lambda.scopedEnvironment)', () => {
+        beforeEach(() => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+        });
+
+        it('scopes migration vars to the migration functions, keeping DB_TYPE global', async () => {
+            const result = await builder.build(
+                { lambda: { scopedEnvironment: true } },
+                {}
+            );
+
+            expect(result.environment.S3_BUCKET_NAME).toBeUndefined();
+            expect(result.environment.MIGRATION_STATUS_BUCKET).toBeUndefined();
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toBeUndefined();
+            expect(result.environment.DB_TYPE).toBe('postgresql');
+
+            for (const fnName of ['dbMigrationRouter', 'dbMigrationWorker']) {
+                expect(result.functionEnvironments[fnName]).toMatchObject({
+                    S3_BUCKET_NAME: { Ref: 'FriggMigrationStatusBucket' },
+                    MIGRATION_STATUS_BUCKET: {
+                        Ref: 'FriggMigrationStatusBucket',
+                    },
+                    DB_MIGRATION_QUEUE_URL: { Ref: 'DbMigrationQueue' },
+                });
+            }
+        });
+
+        it('broadcasts app-wide when the flag is off', async () => {
+            const result = await builder.build({}, {});
+
+            expect(result.environment.S3_BUCKET_NAME).toEqual({
+                Ref: 'FriggMigrationStatusBucket',
+            });
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toEqual({
+                Ref: 'DbMigrationQueue',
+            });
+            expect(result.functionEnvironments).toBeUndefined();
+        });
+    });
+
+    describe('scoped environment (external migration resources)', () => {
+        // managementMode='managed' + vpcIsolation='shared' resolves both
+        // resources to EXTERNAL when discovered, driving the external path.
+        const externalDiscovery = {
+            migrationStatusBucket: 'external-migration-bucket',
+            migrationQueueUrl:
+                'https://sqs.us-east-1.amazonaws.com/123456789012/external-migration-queue',
+        };
+
+        beforeEach(() => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+        });
+
+        it('scopes external migration vars to the migration functions, keeping DB_TYPE global', async () => {
+            const result = await builder.build(
+                {
+                    managementMode: 'managed',
+                    vpcIsolation: 'shared',
+                    lambda: { scopedEnvironment: true },
+                },
+                externalDiscovery
+            );
+
+            expect(result.environment.S3_BUCKET_NAME).toBeUndefined();
+            expect(result.environment.MIGRATION_STATUS_BUCKET).toBeUndefined();
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toBeUndefined();
+            expect(result.environment.DB_TYPE).toBe('postgresql');
+
+            for (const fnName of ['dbMigrationRouter', 'dbMigrationWorker']) {
+                expect(result.functionEnvironments[fnName]).toMatchObject({
+                    S3_BUCKET_NAME: externalDiscovery.migrationStatusBucket,
+                    MIGRATION_STATUS_BUCKET:
+                        externalDiscovery.migrationStatusBucket,
+                    DB_MIGRATION_QUEUE_URL: externalDiscovery.migrationQueueUrl,
+                });
+            }
+        });
+
+        it('broadcasts external migration vars app-wide when the flag is off', async () => {
+            const result = await builder.build(
+                {
+                    managementMode: 'managed',
+                    vpcIsolation: 'shared',
+                },
+                externalDiscovery
+            );
+
+            expect(result.environment.S3_BUCKET_NAME).toBe(
+                externalDiscovery.migrationStatusBucket
+            );
+            expect(result.environment.MIGRATION_STATUS_BUCKET).toBe(
+                externalDiscovery.migrationStatusBucket
+            );
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toBe(
+                externalDiscovery.migrationQueueUrl
+            );
+            expect(result.environment.DB_TYPE).toBe('postgresql');
+            expect(result.functionEnvironments).toBeUndefined();
+        });
+    });
 });
 

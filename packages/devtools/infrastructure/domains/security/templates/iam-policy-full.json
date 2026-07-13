@@ -256,6 +256,7 @@
       "Sid": "FriggKMSEncryptionPermissions",
       "Effect": "Allow",
       "Action": [
+        "kms:Encrypt",
         "kms:GenerateDataKey",
         "kms:Decrypt"
       ],
@@ -263,10 +264,11 @@
         "arn:aws:kms:*:*:key/*"
       ],
       "Condition": {
-        "StringEquals": {
+        "StringLike": {
           "kms:ViaService": [
             "lambda.*.amazonaws.com",
-            "s3.*.amazonaws.com"
+            "s3.*.amazonaws.com",
+            "ssm.*.amazonaws.com"
           ]
         }
       }
@@ -277,7 +279,10 @@
       "Action": [
         "ssm:GetParameter",
         "ssm:GetParameters",
-        "ssm:GetParametersByPath"
+        "ssm:GetParametersByPath",
+        "ssm:PutParameter",
+        "ssm:DeleteParameter",
+        "ssm:AddTagsToResource"
       ],
       "Resource": [
         "arn:aws:ssm:*:*:parameter/*frigg*",
