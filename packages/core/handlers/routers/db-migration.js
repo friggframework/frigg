@@ -31,7 +31,10 @@ const {
     ValidationError: GetValidationError,
     NotFoundError,
 } = require('../../database/use-cases/get-migration-status-use-case');
-const { LambdaInvoker } = require('../../database/adapters/lambda-invoker');
+const {
+    LambdaInvoker,
+    LambdaInvocationError,
+} = require('../../database/adapters/lambda-invoker');
 const {
     GetDatabaseStateViaWorkerUseCase,
 } = require('../../database/use-cases/get-database-state-via-worker-use-case');
@@ -262,6 +265,15 @@ router.post(
             });
         }
 
+        // Prisma migration name shape (<14-digit timestamp>_<name>). Rejects
+        // values that would be parsed as CLI flags (e.g. "--schema").
+        if (!/^\d{14}_[a-z0-9_]+$/i.test(migrationName)) {
+            return res.status(400).json({
+                success: false,
+                error: 'migrationName is not a valid migration identifier'
+            });
+        }
+
         if (!['applied', 'rolled-back'].includes(action)) {
             return res.status(400).json({
                 success: false,
@@ -283,6 +295,16 @@ router.post(
             res.status(200).json(result);
         } catch (error) {
             console.error('Migration resolve failed:', error);
+            // Surface a worker-side 400 (bad input) as a 400, not a generic 500.
+            if (
+                error instanceof LambdaInvocationError &&
+                error.statusCode === 400
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error: error.message,
+                });
+            }
             return res.status(500).json({
                 success: false,
                 error: 'Failed to resolve migration',

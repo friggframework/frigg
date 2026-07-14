@@ -237,7 +237,7 @@ describe('Database Migration Worker - Adapter Layer', () => {
             const result = await handler(
                 {
                     action: 'resolve',
-                    migrationName: 'mig',
+                    migrationName: '20260422120001_create_process_table',
                     resolveAction: 'bogus',
                     stage: 'prod',
                 },
@@ -248,16 +248,47 @@ describe('Database Migration Worker - Adapter Layer', () => {
             expect(mockPrismaRunner.runPrismaMigrateResolve).not.toHaveBeenCalled();
         });
 
-        it('returns 500 when the resolve fails', async () => {
+        it('returns 400 for a malformed migrationName (flag injection guard)', async () => {
+            const result = await handler(
+                {
+                    action: 'resolve',
+                    migrationName: '--schema=/etc/passwd',
+                    resolveAction: 'applied',
+                    stage: 'prod',
+                },
+                context
+            );
+
+            expect(result.statusCode).toBe(400);
+            expect(mockPrismaRunner.runPrismaMigrateResolve).not.toHaveBeenCalled();
+        });
+
+        it('returns 400 for a non-postgresql dbType', async () => {
+            const result = await handler(
+                {
+                    action: 'resolve',
+                    migrationName: '20260422120001_create_process_table',
+                    resolveAction: 'applied',
+                    dbType: 'mongodb',
+                    stage: 'prod',
+                },
+                context
+            );
+
+            expect(result.statusCode).toBe(400);
+            expect(mockPrismaRunner.runPrismaMigrateResolve).not.toHaveBeenCalled();
+        });
+
+        it('returns 500 (with the Prisma error) when the resolve fails', async () => {
             mockPrismaRunner.runPrismaMigrateResolve.mockResolvedValue({
                 success: false,
-                error: 'boom',
+                error: 'Prisma migrate resolve failed (exit 1): P3011 ...',
             });
 
             const result = await handler(
                 {
                     action: 'resolve',
-                    migrationName: 'mig',
+                    migrationName: '20260422120001_create_process_table',
                     resolveAction: 'rolled-back',
                     stage: 'prod',
                 },
@@ -266,6 +297,7 @@ describe('Database Migration Worker - Adapter Layer', () => {
 
             expect(result.statusCode).toBe(500);
             expect(result.body.success).toBe(false);
+            expect(result.body.error).toContain('P3011');
         });
     });
 });

@@ -204,12 +204,32 @@ exports.handler = async (event, context) => {
                 body: { success: false, error: 'migrationName is required' },
             };
         }
+        // Prisma migration name shape (<14-digit timestamp>_<name>). Rejects
+        // values that would be parsed as CLI flags (e.g. "--schema").
+        if (!/^\d{14}_[a-z0-9_]+$/i.test(migrationName)) {
+            return {
+                statusCode: 400,
+                body: {
+                    success: false,
+                    error: 'migrationName is not a valid migration identifier',
+                },
+            };
+        }
         if (!['applied', 'rolled-back'].includes(resolveAction)) {
             return {
                 statusCode: 400,
                 body: {
                     success: false,
                     error: 'resolveAction must be "applied" or "rolled-back"',
+                },
+            };
+        }
+        if (dbType !== 'postgresql') {
+            return {
+                statusCode: 400,
+                body: {
+                    success: false,
+                    error: `Migration resolve is only supported for postgresql, not "${dbType}"`,
                 },
             };
         }
