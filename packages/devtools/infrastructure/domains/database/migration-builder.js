@@ -480,6 +480,12 @@ class MigrationBuilder extends InfrastructureBuilder {
                 { httpApi: { path: '/admin/db-migrate', method: 'POST' } },
                 {
                     httpApi: {
+                        path: '/admin/db-migrate/resolve',
+                        method: 'POST',
+                    },
+                },
+                {
+                    httpApi: {
                         path: '/admin/db-migrate/{processId}',
                         method: 'GET',
                     },
