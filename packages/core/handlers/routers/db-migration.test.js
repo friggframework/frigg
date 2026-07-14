@@ -70,4 +70,22 @@ describe('Database Migration Router - Adapter Layer', () => {
             // If router loads without error, dependency injection worked
         });
     });
+
+    describe('POST /admin/db-migrate/resolve endpoint', () => {
+        it('should register the resolve route (P3009 recovery)', () => {
+            const router = require('./db-migration').router;
+            const routes = router.stack
+                .filter((layer) => layer.route)
+                .map((layer) => ({
+                    path: layer.route.path,
+                    methods: Object.keys(layer.route.methods),
+                }));
+
+            const resolveRoute = routes.find(
+                (r) => r.path === '/admin/db-migrate/resolve'
+            );
+            expect(resolveRoute).toBeDefined();
+            expect(resolveRoute.methods).toContain('post');
+        });
+    });
 });

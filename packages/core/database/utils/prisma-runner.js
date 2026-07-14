@@ -405,12 +405,23 @@ async function runPrismaMigrateResolve(migrationName, action = 'applied', verbos
             const [executable, ...executableArgs] = prismaBin.split(' ');
             const fullArgs = [...executableArgs, ...args];
 
+            let stdout = '';
+            let stderr = '';
             const proc = spawn(executable, fullArgs, {
-                stdio: 'inherit',
+                stdio: ['inherit', 'pipe', 'pipe'],
                 env: {
                     ...process.env,
                     PRISMA_HIDE_UPDATE_MESSAGE: '1'
                 }
+            });
+
+            proc.stdout.on('data', (data) => {
+                stdout += data.toString();
+                if (verbose) process.stdout.write(data);
+            });
+            proc.stderr.on('data', (data) => {
+                stderr += data.toString();
+                if (verbose) process.stderr.write(data);
             });
 
             proc.on('error', (error) => {
@@ -427,9 +438,12 @@ async function runPrismaMigrateResolve(migrationName, action = 'applied', verbos
                         output: `Migration ${migrationName} marked as ${action}`
                     });
                 } else {
+                    const detail = (stderr || stdout).trim();
                     resolve({
                         success: false,
-                        error: `Resolve process exited with code ${code}`
+                        error: detail
+                            ? `Prisma migrate resolve failed (exit ${code}): ${detail}`
+                            : `Resolve process exited with code ${code}`
                     });
                 }
             });
