@@ -405,9 +405,6 @@ async function runPrismaMigrateResolve(migrationName, action = 'applied', verbos
             const [executable, ...executableArgs] = prismaBin.split(' ');
             const fullArgs = [...executableArgs, ...args];
 
-            // Pipe stdout/stderr so Prisma's actual failure reason (e.g. P3011
-            // "migration not found" from a mistyped name) is returned to the
-            // caller — not just left in CloudWatch. Still echo when verbose.
             let stdout = '';
             let stderr = '';
             const proc = spawn(executable, fullArgs, {

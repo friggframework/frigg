@@ -188,8 +188,6 @@ exports.handler = async (event, context) => {
         }
     }
 
-    // Handle resolve action (P3009 recovery — router delegates here because the
-    // worker has the Prisma CLI; the router does not).
     if (action === 'resolve') {
         const { migrationName, resolveAction = 'applied' } = event;
         console.log(`\n========================================`);
@@ -204,8 +202,6 @@ exports.handler = async (event, context) => {
                 body: { success: false, error: 'migrationName is required' },
             };
         }
-        // Prisma migration name shape (<14-digit timestamp>_<name>). Rejects
-        // values that would be parsed as CLI flags (e.g. "--schema").
         if (!/^\d{14}_[a-z0-9_]+$/i.test(migrationName)) {
             return {
                 statusCode: 400,
