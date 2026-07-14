@@ -188,6 +188,65 @@ exports.handler = async (event, context) => {
         }
     }
 
+    // Handle resolve action (P3009 recovery — router delegates here because the
+    // worker has the Prisma CLI; the router does not).
+    if (action === 'resolve') {
+        const { migrationName, resolveAction = 'applied' } = event;
+        console.log(`\n========================================`);
+        console.log(
+            `Action: resolve (migration=${migrationName}, mode=${resolveAction})`
+        );
+        console.log(`========================================`);
+
+        if (!migrationName) {
+            return {
+                statusCode: 400,
+                body: { success: false, error: 'migrationName is required' },
+            };
+        }
+        if (!['applied', 'rolled-back'].includes(resolveAction)) {
+            return {
+                statusCode: 400,
+                body: {
+                    success: false,
+                    error: 'resolveAction must be "applied" or "rolled-back"',
+                },
+            };
+        }
+
+        try {
+            const result = await prismaRunner.runPrismaMigrateResolve(
+                migrationName,
+                resolveAction,
+                true
+            );
+            if (!result.success) {
+                return {
+                    statusCode: 500,
+                    body: {
+                        success: false,
+                        error: sanitizeError(result.error),
+                    },
+                };
+            }
+            return {
+                statusCode: 200,
+                body: {
+                    success: true,
+                    message: `Migration ${migrationName} marked as ${resolveAction}`,
+                    migrationName,
+                    action: resolveAction,
+                },
+            };
+        } catch (error) {
+            console.error('❌ Migration resolve failed:', error.message);
+            return {
+                statusCode: 500,
+                body: { success: false, error: sanitizeError(error.message) },
+            };
+        }
+    }
+
     // Otherwise, handle migration (existing code)
     console.log(`\n========================================`);
     console.log(`Action: migrate (migrationId=${migrationId || 'new'})`);
