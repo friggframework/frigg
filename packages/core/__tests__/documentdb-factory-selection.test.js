@@ -32,11 +32,6 @@ const FACTORIES = [
         exportName: 'ProcessRepositoryDocumentDB',
     },
     {
-        modulePath: '../reporting/repositories/reporting-repository-factory',
-        factoryName: 'createReportingRepository',
-        exportName: 'ReportingRepositoryDocumentDB',
-    },
-    {
         modulePath: '../syncs/repositories/sync-repository-factory',
         factoryName: 'createSyncRepository',
         exportName: 'SyncRepositoryDocumentDB',

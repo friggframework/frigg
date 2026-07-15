@@ -1,5 +1,7 @@
 const Boom = require('@hapi/boom');
+const { ReportBase } = require('../report-base');
 const { CANONICAL_COUNTERS } = require('../../telemetry/canonical-counters');
+const { loadAppDefinition } = require('../../handlers/app-definition-loader');
 
 const SCHEMA_VERSION = 1;
 const SERVICE = 'frigg-core-api';
@@ -16,30 +18,45 @@ const KNOWN_STATUSES = [
     'DISABLED',
 ];
 
-class ListIntegrationsReport {
-    constructor({
-        reportingRepository,
-        usageRepository,
-        typeLabels = {},
-    } = {}) {
-        if (!reportingRepository) {
-            throw new Error('reportingRepository is required');
-        }
-        if (!usageRepository) {
-            throw new Error('usageRepository is required');
-        }
-        this.reportingRepository = reportingRepository;
-        this.usageRepository = usageRepository;
-        this.typeLabels = typeLabels;
-    }
+// IntegrationBase.Definition default — skip it so the slug is used instead.
+const PLACEHOLDER_DISPLAY_NAME = 'Integration Name';
 
-    async execute(query = {}) {
-        const { status, type, userId } = this._validateQuery(query);
+/**
+ * Built-in report: integrations by status and type, with per-type usage
+ * columns. This is PR #607's integrations report re-expressed as a ReportBase
+ * (ADR-010). The aggregation is preserved verbatim (schemaVersion 1); the only
+ * change is that its data reads now go through the admin command bundle
+ * (`frigg`) instead of an injected repository triad.
+ */
+class IntegrationsReport extends ReportBase {
+    static Definition = {
+        name: 'integrations',
+        version: '1.0.0',
+        description: 'Integrations by status and type, with per-type usage counts',
+        source: 'BUILTIN',
+        runModes: ['live', 'recorded', 'snapshot'],
+        inputSchema: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+                status: { type: 'string' },
+                type: { type: 'string' },
+                userId: { type: 'string' },
+            },
+        },
+        output: { format: 'json' },
+        schedule: { enabled: false, cron: null, mode: 'snapshot' },
+        display: { category: 'reporting', icon: null },
+    };
 
-        const rows = await this.reportingRepository.findIntegrationsForReport({
-            status,
-            userId,
-        });
+    async execute(frigg, params = {}) {
+        const { status, type, userId } = this._validateQuery(params);
+        const typeLabels = buildTypeLabels();
+
+        const rows = unwrap(
+            await frigg.integrations.listForReport({ status, userId }),
+            'listForReport'
+        );
 
         // type lives in config.type (a JSON path not portably groupable across
         // DBs), so it is filtered here rather than in the repository query.
@@ -50,7 +67,10 @@ class ListIntegrationsReport {
 
         const ids = filtered.map((row) => row.id);
         const mappingCounts = ids.length
-            ? await this.reportingRepository.countMappingsByIntegrationIds(ids)
+            ? unwrap(
+                  await frigg.integrationMappings.countByIntegrationIds(ids),
+                  'countByIntegrationIds'
+              )
             : new Map();
 
         const integrations = filtered.map((row) => ({
@@ -76,8 +96,7 @@ class ListIntegrationsReport {
             if (!byTypeMap.has(integration.type)) {
                 byTypeMap.set(integration.type, {
                     type: integration.type,
-                    label:
-                        this.typeLabels[integration.type] || integration.type,
+                    label: typeLabels[integration.type] || integration.type,
                     total: 0,
                     byStatus: emptyStatusCounts(),
                 });
@@ -87,7 +106,7 @@ class ListIntegrationsReport {
             bucket.byStatus[statusKey] = (bucket.byStatus[statusKey] ?? 0) + 1;
         }
 
-        await this._attachUsageColumns(byTypeMap);
+        await this._attachUsageColumns(byTypeMap, frigg);
 
         return {
             schemaVersion: SCHEMA_VERSION,
@@ -102,18 +121,18 @@ class ListIntegrationsReport {
                 total: integrations.length,
                 byStatus,
                 byType: Array.from(byTypeMap.values()),
-                typeLabels: { ...this.typeLabels },
+                typeLabels: { ...typeLabels },
                 integrations,
             },
         };
     }
 
-    async _attachUsageColumns(byTypeMap) {
+    async _attachUsageColumns(byTypeMap, frigg) {
         const metrics = Object.keys(CANONICAL_COUNTERS);
         try {
             const totalsByMetric = await Promise.all(
                 metrics.map(async (metric) => {
-                    const totals = await this.usageRepository.getTotalsByDimension({
+                    const totals = await frigg.usage.getTotalsByDimension({
                         metric,
                         groupBy: 'integrationType',
                     });
@@ -168,6 +187,19 @@ class ListIntegrationsReport {
     }
 }
 
+// Throw on a command error object so the runner records a clear failure rather
+// than the report blowing up later on `.map`/`.get` of an error shape.
+function unwrap(result, label) {
+    if (
+        result &&
+        typeof result === 'object' &&
+        typeof result.error === 'number'
+    ) {
+        throw new Error(`${label} failed: ${result.reason || result.error}`);
+    }
+    return result;
+}
+
 function emptyStatusCounts() {
     return KNOWN_STATUSES.reduce((acc, status) => {
         acc[status] = 0;
@@ -186,4 +218,28 @@ function toIso(value) {
     return String(value);
 }
 
-module.exports = { ListIntegrationsReport, SCHEMA_VERSION };
+// Map each integration's config.type slug to its human-readable display label.
+// Wrapped so the report still works if the app definition fails to load.
+function buildTypeLabels() {
+    try {
+        const { integrations = [] } = loadAppDefinition();
+        const labels = {};
+        for (const IntegrationClass of integrations) {
+            const def = IntegrationClass?.Definition;
+            if (!def?.name) continue;
+            const label = def.display?.label;
+            if (label && label !== PLACEHOLDER_DISPLAY_NAME) {
+                labels[def.name] = label;
+            }
+        }
+        return labels;
+    } catch (error) {
+        console.error(
+            'Reporting: failed to load integration labels:',
+            error.message
+        );
+        return {};
+    }
+}
+
+module.exports = { IntegrationsReport, SCHEMA_VERSION };

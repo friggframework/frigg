@@ -3,6 +3,7 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
+const { strictIntId } = require('./report-id');
 
 /**
  * PostgreSQL Integration Repository Adapter
@@ -127,6 +128,47 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
                 createdAt: converted.createdAt,
             };
         });
+    }
+
+    /**
+     * Find every integration in a report-shaped projection.
+     *
+     * type lives in config.type (a JSON path not portably groupable across
+     * DBs); it is left in the row for the caller to bucket. errorCount is
+     * derived from the errors array, moduleCount from the entity relation.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.status] - Integration status
+     * @param {string|number} [filter.userId] - Owning user ID
+     * @returns {Promise<Array>} Report-shaped integration rows
+     */
+    async findAllForReport({ status, userId } = {}) {
+        const where = {};
+        if (status) where.status = status;
+        if (userId !== undefined && userId !== null) {
+            // Strict: a loose parseInt would coerce '12abc'/'12.9' to 12 and
+            // silently report the wrong user's integrations.
+            where.userId = strictIntId(userId);
+        }
+
+        const integrations = await this.prisma.integration.findMany({
+            where,
+            include: { entities: { select: { id: true } } },
+        });
+
+        return integrations.map((integration) => ({
+            id: integration.id?.toString(),
+            type: integration.config?.type ?? null,
+            status: integration.status ?? null,
+            userId: integration.userId?.toString() ?? null,
+            version: integration.version ?? null,
+            errorCount: Array.isArray(integration.errors)
+                ? integration.errors.length
+                : 0,
+            moduleCount: integration.entities?.length ?? 0,
+            createdAt: integration.createdAt ?? null,
+            updatedAt: integration.updatedAt ?? null,
+        }));
     }
 
     /**

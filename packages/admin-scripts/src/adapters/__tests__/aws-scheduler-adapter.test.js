@@ -422,6 +422,60 @@ describe('AWSSchedulerAdapter', () => {
         });
     });
 
+    describe('report parameterization (namePrefix + buildInput)', () => {
+        const reportParams = {
+            targetLambdaArn:
+                'arn:aws:lambda:us-east-1:123456789012:function:report-executor',
+            scheduleGroupName: 'frigg-admin-scripts',
+            roleArn: 'arn:aws:iam::123456789012:role/test-role',
+            namePrefix: 'frigg-report-',
+            buildInput: ({ input }) => ({
+                reportName: 'integrations',
+                mode: 'snapshot',
+                trigger: 'SCHEDULED',
+                params: input || {},
+            }),
+        };
+
+        it('targets the report executor and emits a report-shaped message', async () => {
+            const reportAdapter = new AWSSchedulerAdapter({ ...reportParams });
+            mockSend.mockResolvedValue({
+                ScheduleArn:
+                    'arn:aws:scheduler:us-east-1:123456789012:schedule/frigg-admin-scripts/frigg-report-integrations',
+            });
+
+            const result = await reportAdapter.createSchedule({
+                scriptName: 'integrations',
+                cronExpression: 'cron(0 6 * * ? *)',
+            });
+
+            expect(result.scheduleName).toBe('frigg-report-integrations');
+
+            const command = mockSend.mock.calls[0][0];
+            expect(command.params.Name).toBe('frigg-report-integrations');
+            expect(command.params.Target.Arn).toBe(
+                'arn:aws:lambda:us-east-1:123456789012:function:report-executor'
+            );
+            expect(JSON.parse(command.params.Target.Input)).toEqual({
+                reportName: 'integrations',
+                mode: 'snapshot',
+                trigger: 'SCHEDULED',
+                params: {},
+            });
+        });
+
+        it('deletes the report schedule by its prefixed name', async () => {
+            const reportAdapter = new AWSSchedulerAdapter({ ...reportParams });
+            mockSend.mockResolvedValue({});
+
+            await reportAdapter.deleteSchedule('integrations');
+
+            const command = mockSend.mock.calls[0][0];
+            expect(command._type).toBe('DeleteScheduleCommand');
+            expect(command.params.Name).toBe('frigg-report-integrations');
+        });
+    });
+
     describe('Lazy SDK loading', () => {
         it('should load AWS SDK on first client access', () => {
             const newAdapter = new AWSSchedulerAdapter({ ...defaultParams });

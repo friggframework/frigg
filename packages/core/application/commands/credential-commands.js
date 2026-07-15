@@ -217,6 +217,26 @@ function createCredentialCommands() {
         },
 
         /**
+         * Count credentials active since a timestamp, grouped by integration type.
+         *
+         * "Active" means Credential.updatedAt >= since (the credential-refresh
+         * timestamp). Returns ONLY a non-secret projection — never reads or
+         * decrypts credential secrets. Integration type is derived from the
+         * related Entity.moduleName.
+         *
+         * @param {Object} params
+         * @param {Date} [params.since] - Lower bound on updatedAt
+         * @returns {Promise<Array<{ integrationType: string, count: number }>>}
+         */
+        async countActiveByType({ since } = {}) {
+            try {
+                return await credRepo.countActiveByType({ since });
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
          * Delete a credential by ID (alias for deleteCredential)
          * @param {string} credentialId - Credential ID to delete
          * @returns {Promise<Object>} Result object with success flag

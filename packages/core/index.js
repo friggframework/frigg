@@ -66,8 +66,10 @@ const {
     LoadIntegrationContextUseCase,
 } = require('./integrations/index');
 const {
-    createReportingRouter,
-    createReportingRepository,
+    ReportBase,
+    IntegrationsReport,
+    BUILTIN_REPORTS,
+    createReportCommands,
 } = require('./reporting/index');
 const {
     createTelemetry,
@@ -144,8 +146,10 @@ module.exports = {
     GetProcess,
 
     // reporting
-    createReportingRouter,
-    createReportingRepository,
+    ReportBase,
+    IntegrationsReport,
+    BUILTIN_REPORTS,
+    createReportCommands,
 
     // telemetry
     createTelemetry,

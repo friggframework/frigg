@@ -36,6 +36,24 @@ class IntegrationRepositoryInterface {
     }
 
     /**
+     * Find every integration in a report-shaped projection, optionally filtered
+     * by status and/or owning user. Unlike findIntegrations, this returns the
+     * derived counters a cross-integration report needs (errorCount, moduleCount)
+     * and both timestamps — not the entity/config/messages shape. Adapters must
+     * drain the full result set (no first-batch truncation) since this powers a
+     * deployment-wide scan.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.status] - Integration status
+     * @param {string|number} [filter.userId] - Owning user ID
+     * @returns {Promise<Array<{id, type, status, userId, version, errorCount, moduleCount, createdAt, updatedAt}>>}
+     * @abstract
+     */
+    async findAllForReport(filter = {}) {
+        throw new Error('Method findAllForReport must be implemented by subclass');
+    }
+
+    /**
      * Delete integration by ID
      *
      * @param {string|number} integrationId - Integration ID

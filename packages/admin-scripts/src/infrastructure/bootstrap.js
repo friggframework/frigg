@@ -1,22 +1,26 @@
 const { ScriptFactory } = require('../application/script-factory');
 
 /**
- * Admin Script Bootstrap
+ * Admin Operations Bootstrap
  *
  * Composition root for the admin-scripts runtime. Loads the host app's
- * definition at Lambda runtime, builds a ScriptFactory, and registers the app's
- * admin scripts into it so the router and SQS worker can resolve scripts by
- * name. Also constructs the integrationFactory used by scripts that need
- * hydrated integration instances. Both are returned for the caller to inject.
+ * definition at Lambda runtime and builds two name-keyed registries — one for
+ * admin scripts, one for reports — plus the command bundles they need, so the
+ * routers and SQS workers can resolve operations by name. The registry class is
+ * shared (ScriptFactory is generic over `static Definition.name`); reports are a
+ * second instance rather than a duplicate class.
  *
  * Runs once per process (memoized) and never throws — a missing/unloadable app
- * definition is logged and leaves the factory empty rather than crashing the
+ * definition is logged and leaves the registries empty rather than crashing the
  * Lambda cold start.
  */
 let bootstrapped = false;
 let scriptFactory = null;
 let scriptCommands = null;
 let integrationFactory = null;
+let reportFactory = null;
+let reportCommands = null;
+let reportFriggCommands = null;
 
 function registerScripts(factory, scriptClasses) {
     for (const ScriptClass of scriptClasses || []) {
@@ -24,6 +28,29 @@ function registerScripts(factory, scriptClasses) {
         // Guard against re-registration (register() throws on name collision)
         if (name && !factory.has(name)) {
             factory.register(ScriptClass);
+        }
+    }
+}
+
+/**
+ * Register report classes, enforcing a single operation namespace: a report
+ * whose name collides with a registered script is skipped and logged. Scripts
+ * and reports share ScriptSchedule.scriptName (@unique), so their names must not
+ * clash. Never throws (bootstrap contract) — a bad report leaves the rest
+ * registered.
+ */
+function registerReports(factory, scriptRegistry, reportClasses) {
+    for (const ReportClass of reportClasses || []) {
+        const name = ReportClass?.Definition?.name;
+        if (!name) continue;
+        if (scriptRegistry.has(name)) {
+            console.error(
+                `[admin-scripts] bootstrap: report "${name}" collides with a registered script name; skipping.`
+            );
+            continue;
+        }
+        if (!factory.has(name)) {
+            factory.register(ReportClass);
         }
     }
 }
@@ -46,7 +73,7 @@ function createIntegrationFactory() {
 }
 
 /**
- * Build the command bundle injected into every AdminScriptContext. Scripts
+ * Build the command bundle injected into every AdminScriptContext. Operations
  * interact with the database only through these Frigg commands — never through
  * repositories directly. The require is lazy so the package keeps no load-time
  * coupling to core's command/repository modules.
@@ -76,26 +103,66 @@ function buildScriptCommands() {
 }
 
 /**
- * @returns {{ scriptFactory: ScriptFactory, scriptCommands: object, integrationFactory: object }}
+ * The data-read bundle a report receives as `frigg` (context.commands). Extends
+ * the script bundle with the cross-integration reads reports use — mapping
+ * counts and usage totals — so reports read everything through commands.
+ */
+function buildReportFriggCommands() {
+    const {
+        createIntegrationMappingCommands,
+    } = require('@friggframework/core/application/commands/integration-mapping-commands');
+    const {
+        createUsageCommands,
+    } = require('@friggframework/core/application/commands/usage-commands');
+
+    return {
+        ...buildScriptCommands(),
+        integrationMappings: createIntegrationMappingCommands(),
+        usage: createUsageCommands(),
+    };
+}
+
+/**
+ * @returns {{ scriptFactory: ScriptFactory, scriptCommands: object, integrationFactory: object, reportFactory: ScriptFactory, reportCommands: object, reportFriggCommands: object }}
  */
 function bootstrapAdminScripts() {
     if (bootstrapped) {
-        return { scriptFactory, scriptCommands, integrationFactory };
+        return {
+            scriptFactory,
+            scriptCommands,
+            integrationFactory,
+            reportFactory,
+            reportCommands,
+            reportFriggCommands,
+        };
     }
     bootstrapped = true;
 
-    // Create the registry up front so consumers always get a (possibly empty)
-    // factory even when the app definition can't be loaded — mirrors the
+    // Create the registries up front so consumers always get (possibly empty)
+    // factories even when the app definition can't be loaded — mirrors the
     // never-throw contract above.
     scriptFactory = new ScriptFactory();
+    reportFactory = new ScriptFactory();
 
     try {
         const {
             loadAppDefinition,
         } = require('@friggframework/core/handlers/app-definition-loader');
-        const { adminScripts = [] } = loadAppDefinition();
+        const {
+            adminScripts = [],
+            reports = [],
+            admin = {},
+        } = loadAppDefinition();
 
         registerScripts(scriptFactory, adminScripts);
+        registerReports(reportFactory, scriptFactory, reports);
+
+        if (admin.includeBuiltinReports) {
+            const {
+                BUILTIN_REPORTS,
+            } = require('@friggframework/core/reporting/builtin-reports');
+            registerReports(reportFactory, scriptFactory, BUILTIN_REPORTS);
+        }
     } catch (error) {
         console.error(
             '[admin-scripts] bootstrap: could not load app definition:',
@@ -103,8 +170,8 @@ function bootstrapAdminScripts() {
         );
     }
 
-    // Built in its own try so a command-layer failure never blocks script
-    // registration (and vice versa) — both honor the never-throw contract.
+    // Built in their own try so a command-layer failure never blocks operation
+    // registration (and vice versa) — all honor the never-throw contract.
     try {
         scriptCommands = buildScriptCommands();
     } catch (error) {
@@ -114,8 +181,28 @@ function bootstrapAdminScripts() {
         );
     }
 
+    try {
+        reportFriggCommands = buildReportFriggCommands();
+        const {
+            createReportCommands,
+        } = require('@friggframework/core/application/commands/report-commands');
+        reportCommands = createReportCommands();
+    } catch (error) {
+        console.error(
+            '[admin-scripts] bootstrap: could not build report commands:',
+            error.message
+        );
+    }
+
     integrationFactory = createIntegrationFactory();
-    return { scriptFactory, scriptCommands, integrationFactory };
+    return {
+        scriptFactory,
+        scriptCommands,
+        integrationFactory,
+        reportFactory,
+        reportCommands,
+        reportFriggCommands,
+    };
 }
 
 /** Test-only: reset memoized bootstrap state. */
@@ -124,6 +211,9 @@ function _resetBootstrapForTests() {
     scriptFactory = null;
     scriptCommands = null;
     integrationFactory = null;
+    reportFactory = null;
+    reportCommands = null;
+    reportFriggCommands = null;
 }
 
 module.exports = {

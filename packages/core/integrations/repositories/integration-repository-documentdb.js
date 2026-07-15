@@ -4,6 +4,7 @@ const {
     toObjectIdArray,
     fromObjectId,
     findMany,
+    findManyDrained,
     findOne,
     insertOne,
     updateOne,
@@ -252,6 +253,52 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             );
         }
         return this._mapIntegration(updated);
+    }
+
+    /**
+     * Find every integration in a report-shaped projection. Drains the full
+     * cursor (see class comment) so a deployment-wide report is never truncated.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.status] - Integration status
+     * @param {string} [filter.userId] - Owning user ID
+     * @returns {Promise<Array>} Report-shaped integration rows
+     */
+    async findAllForReport({ status, userId } = {}) {
+        const filter = {};
+        if (status) filter.status = status;
+        if (userId !== undefined && userId !== null) {
+            const objectId = toObjectId(userId);
+            // An invalid userId means no matches — must not fall through to an
+            // unfiltered query that returns the whole deployment.
+            if (!objectId) return [];
+            filter.userId = objectId;
+        }
+
+        const docs = await findManyDrained(this.prisma, 'Integration', filter);
+
+        return docs.map((doc) => {
+            const errors = this._extractReportErrors(doc);
+            return {
+                id: fromObjectId(doc?._id),
+                type: doc?.config?.type ?? null,
+                status: doc?.status ?? null,
+                userId: fromObjectId(doc?.userId) ?? null,
+                version: doc?.version ?? null,
+                errorCount: Array.isArray(errors) ? errors.length : 0,
+                moduleCount: Array.isArray(doc?.entityIds)
+                    ? doc.entityIds.length
+                    : 0,
+                createdAt: doc?.createdAt ?? null,
+                updatedAt: doc?.updatedAt ?? null,
+            };
+        });
+    }
+
+    _extractReportErrors(doc) {
+        if (Array.isArray(doc?.errors)) return doc.errors;
+        if (Array.isArray(doc?.messages?.errors)) return doc.messages.errors;
+        return [];
     }
 
     _mapIntegration(doc) {

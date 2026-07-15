@@ -2,6 +2,8 @@ const { prisma } = require('../../database/prisma');
 const {
     toObjectId,
     fromObjectId,
+    findMany,
+    findManyDrained,
     findOne,
     insertOne,
     updateOne,
@@ -10,6 +12,7 @@ const {
 const {
     CredentialRepositoryInterface,
 } = require('./credential-repository-interface');
+const { tallyActiveCredentialsByType } = require('./credential-active-type');
 const {
     DocumentDBEncryptionService,
 } = require('../../database/documentdb-encryption-service');
@@ -236,6 +239,63 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
             updated
         );
         return this._mapCredential(decryptedCredential);
+    }
+
+    /**
+     * Count credentials active since a timestamp, grouped by integration type.
+     *
+     * Two projected raw reads, no decryption: the encrypted `data` JSON is
+     * never fetched, so `encryptionService.decryptFields` is not invoked.
+     * Integration type is derived from the related Entity.moduleName.
+     *
+     * @param {Object} params
+     * @param {Date} [params.since] - Lower bound on updatedAt
+     * @returns {Promise<Array<{ integrationType: string, count: number }>>}
+     */
+    async countActiveByType({ since } = {}) {
+        const filter = {};
+        // Coerce to a Date so an HTTP-sourced string is not passed raw into the
+        // $gte filter (BSON date vs string type-bracketing would never match).
+        if (since) filter.updatedAt = { $gte: new Date(since) };
+
+        // Drained: a deployment-wide credential scan must not truncate at the
+        // ~101-doc first batch (mirrors the integration/mapping report reads).
+        const activeCredentials = await findManyDrained(
+            this.prisma,
+            'Credential',
+            filter,
+            { projection: { _id: 1 } }
+        );
+
+        const credentialIds = activeCredentials
+            .map((doc) => toObjectId(doc._id))
+            .filter(Boolean);
+
+        const entities = credentialIds.length
+            ? await findManyDrained(
+                  this.prisma,
+                  'Entity',
+                  { credentialId: { $in: credentialIds } },
+                  { projection: { credentialId: 1, moduleName: 1 } }
+              )
+            : [];
+
+        const entitiesByCredential = new Map();
+        for (const entity of entities) {
+            const key = fromObjectId(entity.credentialId);
+            if (!entitiesByCredential.has(key)) {
+                entitiesByCredential.set(key, []);
+            }
+            entitiesByCredential
+                .get(key)
+                .push({ moduleName: entity.moduleName });
+        }
+
+        const credentials = activeCredentials.map((doc) => ({
+            entities: entitiesByCredential.get(fromObjectId(doc._id)) || [],
+        }));
+
+        return tallyActiveCredentialsByType(credentials);
     }
 
     _buildIdentifierFilter(identifiers) {

@@ -65,6 +65,9 @@ class AdminScriptExecutionRepositoryInterface {
      * @param {string} [options.sortBy] - Field to sort by
      * @param {string} [options.sortOrder] - Sort order ('asc' or 'desc')
      * @param {string} [options.state] - Optional state filter ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED')
+     * @param {string} [options.type] - Optional type filter ('ADMIN_SCRIPT', 'REPORT', 'DB_MIGRATION')
+     * @param {Date} [options.from] - Optional lower bound (inclusive) on createdAt
+     * @param {Date} [options.to] - Optional upper bound (inclusive) on createdAt
      * @returns {Promise<Array>} Array of process records
      * @abstract
      */
@@ -153,10 +156,12 @@ class AdminScriptExecutionRepositoryInterface {
      * Used for cleanup and retention policies
      *
      * @param {Date} date - Delete processes older than this date
+     * @param {Object} [options] - Deletion options
+     * @param {string} [options.type] - Optional type filter, so report vs script retention can diverge
      * @returns {Promise<Object>} Deletion result with count
      * @abstract
      */
-    async deleteExecutionsOlderThan(date) {
+    async deleteExecutionsOlderThan(date, options = {}) {
         throw new Error(
             'Method deleteExecutionsOlderThan must be implemented by subclass'
         );

@@ -8,7 +8,7 @@ const { resolveTelemetryConfig } = require('../telemetry/telemetry-config');
  * @function loadAppDefinition
  * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
  * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, admin: object, telemetry: object}} An object containing the application definition.
+ * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object}} An object containing the application definition.
  * @throws {Error} Throws error if backend package.json cannot be found.
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
  * @example
@@ -34,6 +34,7 @@ function loadAppDefinition() {
         integrations = [],
         user: userConfig = null,
         adminScripts = [],
+        reports = [],
         admin = {},
     } = appDefinition;
 
@@ -58,7 +59,7 @@ function loadAppDefinition() {
         };
     }
 
-    return { integrations, userConfig, adminScripts, admin, telemetry };
+    return { integrations, userConfig, adminScripts, reports, admin, telemetry };
 }
 
 module.exports = {

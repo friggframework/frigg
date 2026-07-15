@@ -93,6 +93,25 @@ class CredentialRepositoryInterface {
             'Method updateCredential must be implemented by subclass'
         );
     }
+
+    /**
+     * Count credentials active since a timestamp, grouped by integration type.
+     *
+     * "Active" means Credential.updatedAt >= since (the credential-refresh
+     * timestamp). Reads ONLY non-encrypted fields — never the encrypted `data`
+     * JSON (access_token/refresh_token/id_token). Integration type is derived
+     * from the related Entity.moduleName.
+     *
+     * @param {Object} params
+     * @param {Date} [params.since] - Lower bound on updatedAt
+     * @returns {Promise<Array<{ integrationType: string, count: number }>>}
+     * @abstract
+     */
+    async countActiveByType(/* { since } */) {
+        throw new Error(
+            'Method countActiveByType must be implemented by subclass'
+        );
+    }
 }
 
 module.exports = { CredentialRepositoryInterface };

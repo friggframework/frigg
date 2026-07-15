@@ -28,12 +28,24 @@ function loadSchedulerSDK() {
  * Implements scheduling using AWS EventBridge Scheduler.
  * Supports cron expressions, timezone configuration, and Lambda invocation.
  */
+// Default schedule-name prefix and target-message builder. The message shape
+// and prefix are parameterized so the same adapter can target the admin-script
+// executor ({ scriptName, ... }) or the report executor ({ reportName, ... }).
+const DEFAULT_NAME_PREFIX = 'frigg-script-';
+const defaultBuildInput = ({ scriptName, input }) => ({
+    scriptName,
+    trigger: 'SCHEDULED',
+    params: input || {},
+});
+
 class AWSSchedulerAdapter extends SchedulerAdapter {
     constructor({
         credentials,
         targetLambdaArn,
         scheduleGroupName,
         roleArn,
+        namePrefix,
+        buildInput,
     } = {}) {
         super();
         if (!targetLambdaArn)
@@ -52,7 +64,13 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
         this.targetLambdaArn = targetLambdaArn;
         this.scheduleGroupName = scheduleGroupName;
         this.roleArn = roleArn;
+        this.namePrefix = namePrefix || DEFAULT_NAME_PREFIX;
+        this.buildInput = buildInput || defaultBuildInput;
         this.scheduler = null;
+    }
+
+    scheduleNameFor(scriptName) {
+        return `${this.namePrefix}${scriptName}`;
     }
 
     getSchedulerClient() {
@@ -72,7 +90,7 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
 
     async createSchedule({ scriptName, cronExpression, timezone, input }) {
         const client = this.getSchedulerClient();
-        const scheduleName = `frigg-script-${scriptName}`;
+        const scheduleName = this.scheduleNameFor(scriptName);
 
         const scheduleParams = {
             Name: scheduleName,
@@ -83,11 +101,7 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
             Target: {
                 Arn: this.targetLambdaArn,
                 RoleArn: this.roleArn,
-                Input: JSON.stringify({
-                    scriptName,
-                    trigger: 'SCHEDULED',
-                    params: input || {},
-                }),
+                Input: JSON.stringify(this.buildInput({ scriptName, input })),
             },
             State: 'ENABLED',
         };
@@ -116,7 +130,7 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
 
     async deleteSchedule(scriptName) {
         const client = this.getSchedulerClient();
-        const scheduleName = `frigg-script-${scriptName}`;
+        const scheduleName = this.scheduleNameFor(scriptName);
 
         await client.send(
             new DeleteScheduleCommand({
@@ -128,7 +142,7 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
 
     async setScheduleEnabled(scriptName, enabled) {
         const client = this.getSchedulerClient();
-        const scheduleName = `frigg-script-${scriptName}`;
+        const scheduleName = this.scheduleNameFor(scriptName);
 
         // Get the current schedule first to preserve all settings
         const getCommand = new GetScheduleCommand({
@@ -167,7 +181,7 @@ class AWSSchedulerAdapter extends SchedulerAdapter {
 
     async getSchedule(scriptName) {
         const client = this.getSchedulerClient();
-        const scheduleName = `frigg-script-${scriptName}`;
+        const scheduleName = this.scheduleNameFor(scriptName);
 
         const response = await client.send(
             new GetScheduleCommand({

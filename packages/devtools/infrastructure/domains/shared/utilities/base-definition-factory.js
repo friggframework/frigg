@@ -311,16 +311,10 @@ function createBaseDefinition(
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
                 ],
             },
-            reporting: {
-                handler: 'node_modules/@friggframework/core/handlers/routers/reporting.handler',
-                ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
-                skipEsbuild: true,  // Handlers in node_modules don't need bundling
-                package: skipEsbuildPackageConfig,
-                events: [
-                    { httpApi: { path: '/api/v2/reports', method: 'GET' } },
-                    { httpApi: { path: '/api/v2/reports/{proxy+}', method: 'GET' } },
-                ],
-            },
+            // Reporting is provisioned by AdminScriptBuilder as an admin
+            // operation (ADR-010): the report router runs on the admin-scripts
+            // Lambda under the admin API key, only when reports/built-ins are
+            // enabled — no standalone, always-on reporting function here.
             // Note: dbMigrate removed - MigrationBuilder now handles migration infrastructure
             // See: packages/devtools/infrastructure/domains/database/migration-builder.js
         },
