@@ -255,22 +255,13 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         return this._mapIntegration(updated);
     }
 
-    /**
-     * Find every integration in a report-shaped projection. Drains the full
-     * cursor (see class comment) so a deployment-wide report is never truncated.
-     *
-     * @param {Object} [filter={}]
-     * @param {string} [filter.status] - Integration status
-     * @param {string} [filter.userId] - Owning user ID
-     * @returns {Promise<Array>} Report-shaped integration rows
-     */
+    // Drain the full cursor so a deployment-wide report is never truncated.
     async findAllForReport({ status, userId } = {}) {
         const filter = {};
         if (status) filter.status = status;
         if (userId !== undefined && userId !== null) {
             const objectId = toObjectId(userId);
-            // An invalid userId means no matches — must not fall through to an
-            // unfiltered query that returns the whole deployment.
+            // Invalid userId means no matches — don't fall through to an unfiltered whole-deployment query.
             if (!objectId) return [];
             filter.userId = objectId;
         }

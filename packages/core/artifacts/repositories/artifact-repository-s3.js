@@ -1,27 +1,10 @@
-/**
- * Artifact Repository - S3 Storage
- *
- * Infrastructure Layer - Hexagonal Architecture
- *
- * Stores report artifacts as private, server-side-encrypted S3 objects and
- * mints short-lived presigned GET URLs for reads. The aws-sdk modules are
- * lazy-required (like MigrationStatusRepositoryS3) so importing this file — and
- * the factory that references it — never forces the SDK to load in contexts
- * that only need the local adapter.
- */
+// aws-sdk modules are lazy-required so importing this file (and the factory that
+// references it) never forces the SDK to load for contexts that only need the local adapter.
 const {
     ArtifactRepositoryInterface,
 } = require('./artifact-repository-interface');
 
 class ArtifactRepositoryS3 extends ArtifactRepositoryInterface {
-    /**
-     * @param {Object} [params]
-     * @param {string} [params.bucket] - Target bucket; defaults to
-     *   process.env.REPORT_ARTIFACT_BUCKET.
-     * @param {string} [params.region] - AWS region; defaults to
-     *   process.env.AWS_REGION.
-     * @param {Object} [params.s3Client] - Pre-built S3 client (for testing).
-     */
     constructor({ bucket, region, s3Client } = {}) {
         super();
         this.bucket = bucket || process.env.REPORT_ARTIFACT_BUCKET;
@@ -44,7 +27,7 @@ class ArtifactRepositoryS3 extends ArtifactRepositoryInterface {
             );
         }
         const { PutObjectCommand } = require('@aws-sdk/client-s3');
-        // No ACL (bucket blocks public access); SSE-S3 encrypts at rest.
+        // No ACL set: the bucket blocks public access, so objects stay private.
         await this._getClient().send(
             new PutObjectCommand({
                 Bucket: this.bucket,

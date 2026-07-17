@@ -8,24 +8,10 @@ function mapErrorToResponse(error) {
 }
 
 /**
- * Report execution commands.
- *
- * Sibling of createAdminScriptCommands (admin-script-commands.js): reports reuse
- * the SAME isolated AdminScriptExecution store, discriminated by type:'REPORT'.
- * A separate command surface keeps report vocabulary (run modes, series) out of
- * the script commands while sharing storage — the same rationale that keeps
- * admin-script-commands separate from integration-commands.
- *
- * Isolation (ADR-010 Decision 3): AdminScriptExecution has no user/integration
- * FK, so it can never surface in a user-scoped Process query. findExecutionById
- * additionally rejects any row whose type !== 'REPORT', so a report lookup can
- * never return a script/migration record.
- *
- * @param {Object} [deps]
- * @param {Object} [deps.artifactRepository] - Storage adapter used to mint
- *   signed URLs for non-JSON artifacts on read. Lazily built from the core
- *   factory when first needed if not injected.
- * @returns {Object} Command methods for report executions
+ * Report commands share the AdminScriptExecution store, discriminated by
+ * type:'REPORT'. That store has no user/integration FK, and findExecutionById
+ * rejects non-REPORT rows, so a report lookup can never return another
+ * operation type's record (ADR-010 Decision 3).
  */
 function createReportCommands({ artifactRepository } = {}) {
     const {
@@ -45,9 +31,7 @@ function createReportCommands({ artifactRepository } = {}) {
         return artifactRepo;
     }
 
-    // Mint a short-lived download URL for a stored artifact reference. Reads must
-    // never fail because signing failed (e.g. object store unreachable), so this
-    // resolves to null rather than throwing.
+    // Resolve to null rather than throw: a read must not fail because signing did.
     async function signArtifact(ref) {
         if (!ref) return null;
         try {
@@ -58,18 +42,6 @@ function createReportCommands({ artifactRepository } = {}) {
     }
 
     return {
-        /**
-         * Create a report execution record (recorded/snapshot modes).
-         * @param {Object} params
-         * @param {string} params.reportName
-         * @param {string} [params.reportVersion]
-         * @param {string} params.trigger - 'MANUAL' | 'SCHEDULED' | 'QUEUE'
-         * @param {string} [params.mode] - 'recorded' | 'snapshot' (default 'recorded')
-         * @param {Object} [params.input]
-         * @param {Object} [params.audit]
-         * @param {string} [params.seriesName] - snapshot series tag
-         * @param {string|number} [params.parentExecutionId]
-         */
         async createExecution({
             reportName,
             reportVersion,
@@ -99,11 +71,6 @@ function createReportCommands({ artifactRepository } = {}) {
             }
         },
 
-        /**
-         * Fetch one report execution. Guarded: a non-REPORT row (script,
-         * migration) is reported as not found so report lookups can never
-         * surface another operation type's record.
-         */
         async findExecutionById(id) {
             try {
                 const record = await executionRepository.findExecutionById(id);
@@ -112,9 +79,7 @@ function createReportCommands({ artifactRepository } = {}) {
                     error.code = 'EXECUTION_NOT_FOUND';
                     return mapErrorToResponse(error);
                 }
-                // Non-JSON runs store a { bucket, key } artifact reference; attach
-                // a short-lived download URL so the stored object is reachable
-                // through the API (the raw ref alone is not retrievable).
+                // The stored artifact ref is not retrievable on its own; sign it on read.
                 if (record.results?.artifact) {
                     record.results = {
                         ...record.results,
@@ -127,10 +92,7 @@ function createReportCommands({ artifactRepository } = {}) {
             }
         },
 
-        /**
-         * List report executions for a report name, newest first.
-         * Never-throws: returns [] on error (non-critical read).
-         */
+        // Never-throws: returns [] on error (non-critical read).
         async listExecutionsByName(reportName, { limit, offset, state } = {}) {
             try {
                 return await executionRepository.findExecutionsByName(
@@ -142,12 +104,8 @@ function createReportCommands({ artifactRepository } = {}) {
             }
         },
 
-        /**
-         * Read a report's snapshot series over a time window, oldest first.
-         * Snapshots are recorded executions tagged with context.mode==='snapshot';
-         * the store has no mode index, so rows are fetched by name/window then
-         * filtered in JS. Never-throws: returns [] on error.
-         */
+        // No mode index in the store, so fetch by name/window and filter snapshots
+        // in JS. Never-throws: returns [] on error.
         async findSnapshotSeries(reportName, { from, to, limit } = {}) {
             try {
                 const rows = await executionRepository.findExecutionsByName(
@@ -172,8 +130,6 @@ function createReportCommands({ artifactRepository } = {}) {
                             row.results?.output?.summary ??
                             row.results?.summary ??
                             null,
-                        // A signed download URL, not the raw storage ref — null
-                        // for JSON snapshots that have no artifact.
                         artifactUrl: await signArtifact(row.results?.artifact),
                     }))
                 );
@@ -198,12 +154,8 @@ function createReportCommands({ artifactRepository } = {}) {
             }
         },
 
-        /**
-         * Finalize a report execution: set state and merge results in one pass.
-         * results.output holds an inline (JSON) payload; results.summary +
-         * results.artifact hold a large/binary payload's summary + object-store
-         * reference (artifact storage is a later phase).
-         */
+        // results.output is the inline JSON payload; results.summary + results.artifact
+        // are a large/binary payload's summary + object-store reference.
         async completeExecution(
             id,
             { state, output, summary, artifact, error, metrics, logs } = {}

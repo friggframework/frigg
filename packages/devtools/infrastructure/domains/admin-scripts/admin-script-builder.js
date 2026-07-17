@@ -82,11 +82,8 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         const hasReports =
             reports.length > 0 || adminConfig.includeBuiltinReports === true;
 
-        // Provision the artifact bucket only when an app-registered report
-        // declares a non-JSON output format — that is the only output that gets
-        // stored as an S3 object. Built-in reports emit JSON today, so
-        // includeBuiltinReports alone does not provision the bucket; a non-JSON
-        // built-in would need to be registered explicitly (or this widened).
+        // Only non-JSON report output is stored in S3, so provision the bucket
+        // only for that. Built-in reports emit JSON, so they don't trigger it.
         const reportsNeedArtifacts = reports.some((report) => {
             const format = report?.Definition?.output?.format;
             return Boolean(format) && format !== 'json';
@@ -100,8 +97,6 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             iamStatements: [],
         };
 
-        // Admin scripts: queue + executor + router. Only provisioned when the
-        // app registers scripts.
         if (adminScripts.length > 0) {
             console.log(`  Processing ${adminScripts.length} scripts...`);
             this.createAdminScriptQueue(result, appDefinition);
@@ -114,8 +109,6 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             });
         }
 
-        // Reports: the report router runs under the admin API key, with a
-        // dedicated ReportQueue + executor for async recorded/snapshot runs.
         if (hasReports) {
             this.createReportQueue(result, appDefinition);
             this.createReportExecutorFunction(appDefinition, result, usePrismaLayer);
@@ -132,9 +125,6 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             }
         }
 
-        // Scheduler infra (EventBridge Scheduler role + group) is shared across
-        // scripts and reports. The role can invoke whichever executors exist;
-        // each router gets its own scheduler env wiring.
         if (
             adminConfig.enableScheduling &&
             (adminScripts.length > 0 || hasReports)
@@ -259,7 +249,6 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
             timeout: 30,
             events: [
-                // List report definitions
                 { httpApi: { path: '/api/v2/reports', method: 'GET' } },
                 // Definition detail, snapshots, executions, schedule, back-compat alias
                 { httpApi: { path: '/api/v2/reports/{proxy+}', method: 'GET' } },
@@ -339,8 +328,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         console.log('  ✓ Created reportExecutor function');
     }
 
-    // Private, encrypted bucket for non-JSON report output. Public access is
-    // fully blocked; the router mints short-lived presigned URLs for reads.
+    // Non-JSON report output; the router mints short-lived presigned URLs for reads.
     createReportArtifactBucket(result, appDefinition) {
         result.resources.ReportArtifactBucket = {
             Type: 'AWS::S3::Bucket',
@@ -379,8 +367,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             };
         }
 
-        // The router presigns/reads and the executor writes artifacts. Scope
-        // object-level access to this bucket's keys.
+        // Executor writes and router reads (via presign); scope to this bucket's objects.
         result.iamStatements.push({
             Effect: 'Allow',
             Action: ['s3:PutObject', 's3:GetObject'],
@@ -467,8 +454,6 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         const scriptExecutorArn = fnArn('adminScriptExecutor');
         const reportExecutorArn = fnArn('reportExecutor');
 
-        // The role invokes whichever executors exist. Keep a single Resource
-        // (not a 1-element array) when only one side is present.
         const invokeResources = [
             ...(scriptsPresent ? [scriptExecutorArn] : []),
             ...(hasReports ? [reportExecutorArn] : []),
@@ -503,7 +488,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             },
         };
 
-        // Create schedule group (shared by script and report schedules)
+        // Create schedule group
         result.resources.AdminScriptScheduleGroup = {
             Type: 'AWS::Scheduler::ScheduleGroup',
             Properties: {
@@ -529,9 +514,8 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             };
         }
 
-        // The report router targets the report executor and reuses the shared
-        // role/group. REPORT_EXECUTOR_LAMBDA_ARN keeps scheduled report messages
-        // pointed at the report executor, not the script executor.
+        // Report schedules reuse the shared role/group but must target the
+        // report executor, not the script one (REPORT_EXECUTOR_LAMBDA_ARN).
         if (hasReports) {
             result.functions.reportRouter.environment = {
                 ...(result.functions.reportRouter.environment || {}),

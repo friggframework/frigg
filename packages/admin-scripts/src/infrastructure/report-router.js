@@ -19,8 +19,7 @@ const { bootstrapAdminScripts } = require('./bootstrap');
 
 const router = express.Router();
 
-// Reports are admin operations: same admin API key as /admin/scripts. The
-// dedicated reporting key (REPORTING_API_KEY) is retired (ADR-010).
+// Reports use the admin API key; the dedicated REPORTING_API_KEY is retired (ADR-010).
 router.use(validateAdminApiKey);
 
 const CODE_STATUS = {
@@ -29,12 +28,7 @@ const CODE_STATUS = {
     ARTIFACT_STORAGE_UNAVAILABLE: 501,
 };
 
-/**
- * Map a thrown error to an HTTP response. Boom errors (e.g. a report's own
- * input validation) carry their status; runner errors carry a `.code`;
- * anything else is an unexpected 500.
- * @private
- */
+// Boom errors carry their own status; runner errors carry a `.code`; anything else is a 500.
 function sendReportError(res, error, fallbackMessage) {
     if (error.isBoom) {
         return res
@@ -50,7 +44,6 @@ function sendReportError(res, error, fallbackMessage) {
     return res.status(500).json({ error: fallbackMessage });
 }
 
-/** @private */
 function buildAudit(req) {
     const apiKey = req.headers['x-frigg-admin-api-key'];
     const forwardedFor = (req.headers['x-forwarded-for'] || '')
@@ -72,10 +65,6 @@ function toDefinitionSummary(definition) {
     };
 }
 
-/**
- * GET /api/v2/reports
- * List registered report definitions.
- */
 router.get('/', (_req, res) => {
     try {
         const { reportFactory } = bootstrapAdminScripts();
@@ -91,12 +80,7 @@ router.get('/', (_req, res) => {
     }
 });
 
-/**
- * GET /api/v2/reports/integrations
- * Deprecated back-compat for PR #607: runs the built-in integrations report in
- * live mode and returns its payload directly. Registered BEFORE '/:name' so it
- * wins the match. Prefer POST /api/v2/reports/:name/run.
- */
+// Deprecated #607 back-compat. Registered before '/:name' so it wins the match.
 router.get('/integrations', async (req, res) => {
     try {
         const {
@@ -132,11 +116,7 @@ router.get('/integrations', async (req, res) => {
     }
 });
 
-/**
- * GET /api/v2/reports/executions/:id
- * Fetch one report execution. Registered BEFORE '/:name' so the literal
- * 'executions' segment is not captured as a report name.
- */
+// Registered before '/:name' so 'executions' isn't captured as a report name.
 router.get('/executions/:id', async (req, res) => {
     try {
         const { reportCommands } = bootstrapAdminScripts();
@@ -153,10 +133,6 @@ router.get('/executions/:id', async (req, res) => {
     }
 });
 
-/**
- * GET /api/v2/reports/:name/snapshots
- * A report's snapshot series over an optional time window.
- */
 router.get('/:name/snapshots', async (req, res) => {
     try {
         const { name } = req.params;
@@ -177,22 +153,12 @@ router.get('/:name/snapshots', async (req, res) => {
     }
 });
 
-/**
- * Resolve the mode a scheduled run should use for a report. Reports may declare
- * a preferred mode in Definition.schedule.mode; snapshots are the default so a
- * scheduled report captures a time series out of the box.
- * @private
- */
+// Default to snapshot so a scheduled report captures a time series out of the box.
 function scheduledRunMode(definition) {
     return definition.schedule?.mode || 'snapshot';
 }
 
-/**
- * GET /api/v2/reports/:name/schedule
- * The effective schedule (DB override, or none). Reuses the shared schedule
- * commands/use-case — ScriptSchedule.scriptName is a shared operation-name
- * namespace, so the report name keys the same row a script would.
- */
+// ScriptSchedule.scriptName is a shared operation-name namespace, so the report name keys the same row a script would.
 router.get('/:name/schedule', async (req, res) => {
     try {
         const { name } = req.params;
@@ -221,11 +187,7 @@ router.get('/:name/schedule', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/v2/reports/:name/schedule  { enabled, cronExpression, timezone }
- * Create or update the schedule override. The AWS scheduler targets the REPORT
- * executor and enqueues a report-shaped message, not the script executor.
- */
+// The AWS scheduler targets the REPORT executor and enqueues a report-shaped message, not the script executor.
 router.put('/:name/schedule', async (req, res) => {
     try {
         const { name } = req.params;
@@ -271,10 +233,6 @@ router.put('/:name/schedule', async (req, res) => {
     }
 });
 
-/**
- * DELETE /api/v2/reports/:name/schedule
- * Remove the schedule override and tear down the external scheduler.
- */
 router.delete('/:name/schedule', async (req, res) => {
     try {
         const { name } = req.params;
@@ -305,10 +263,6 @@ router.delete('/:name/schedule', async (req, res) => {
     }
 });
 
-/**
- * GET /api/v2/reports/:name
- * Report definition detail.
- */
 router.get('/:name', (req, res) => {
     try {
         const { name } = req.params;
@@ -339,11 +293,6 @@ router.get('/:name', (req, res) => {
     }
 });
 
-/**
- * POST /api/v2/reports/:name/run  { mode, params, seriesName }
- * live: compute and return inline. recorded/snapshot: create a record and
- * enqueue it on the ReportQueue for the report executor (202).
- */
 router.post('/:name/run', async (req, res) => {
     try {
         const { name } = req.params;
@@ -377,10 +326,8 @@ router.post('/:name/run', async (req, res) => {
             return res.json(result);
         }
 
-        // recorded/snapshot run asynchronously on the report executor. Validate
-        // mode + params BEFORE persisting/enqueueing so a malformed request gets
-        // a 400 up front instead of a 202 that only fails later in the worker
-        // (live mode is validated inside the runner above).
+        // Validate mode + params before persisting/enqueueing so a bad request gets
+        // a 400 up front instead of a 202 that only fails later in the worker.
         const definition = reportFactory.get(name).Definition;
         const runModes =
             Array.isArray(definition.runModes) && definition.runModes.length

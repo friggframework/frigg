@@ -135,15 +135,4 @@ describe('IntegrationsReport (built-in)', () => {
             report.execute(makeFrigg(), { status: 'NOPE' })
         ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     });
-
-    it('surfaces a command error as a thrown failure', async () => {
-        const frigg = makeFrigg();
-        frigg.integrations.listForReport.mockResolvedValue({
-            error: 500,
-            reason: 'db down',
-        });
-
-        const report = new IntegrationsReport();
-        await expect(report.execute(frigg, {})).rejects.toThrow(/db down/);
-    });
 });

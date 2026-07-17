@@ -1,22 +1,16 @@
 /**
  * ReportBase — a report is an admin operation whose output is its payload.
  *
- * Mirrors AdminScriptBase (packages/admin-scripts) so reports and scripts share
- * one mental model and one runner. Lives in core (not admin-scripts) because
- * core ships built-in reports that import this; admin-scripts depends on core,
- * never the reverse.
- *
- * A report Definition adds three fields on top of the script shape:
- *   - runModes: allowed run modes; the first is the default.
+ * A report Definition declares:
+ *   - runModes: allowed modes; the first is the default.
  *       'live'     — compute and return inline; persist nothing.
  *       'recorded' — persist an execution record (input + results + logs).
  *       'snapshot' — a recorded run tagged as a point in a named series.
- *   - output.format: 'json' inline; 'csv'|'pdf'|'zip' go to artifact storage.
- *   - schedule: optional recurring run (activated at runtime, EventBridge).
+ *   - output.format: 'json' returns inline; 'csv'|'pdf'|'zip' go to artifact storage.
+ *   - schedule: optional recurring run via EventBridge.
  *
- * execute(frigg, params) receives the admin command bundle as `frigg`
- * (=== this.context.commands) and returns a structured payload. Data reads go
- * through `frigg` only — never a repository directly.
+ * execute(frigg, params): `frigg` is the admin command bundle
+ * (=== this.context.commands); do data reads through it, never a repository.
  */
 class ReportBase {
     static Definition = {

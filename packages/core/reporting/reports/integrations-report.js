@@ -5,8 +5,7 @@ const { loadAppDefinition } = require('../../handlers/app-definition-loader');
 const SCHEMA_VERSION = 1;
 const SERVICE = 'frigg-core-api';
 
-// Seeded so every known status appears (even at 0); unknown values added to
-// the schema later are still counted dynamically.
+// Seeded so every known status appears in output even at count 0.
 const KNOWN_STATUSES = [
     'IN_CREATION',
     'ENABLED',
@@ -20,13 +19,6 @@ const KNOWN_STATUSES = [
 // IntegrationBase.Definition default — skip it so the slug is used instead.
 const PLACEHOLDER_DISPLAY_NAME = 'Integration Name';
 
-/**
- * Built-in report: integrations by status and type, with per-type usage
- * columns. This is PR #607's integrations report re-expressed as a ReportBase
- * (ADR-010). The aggregation is preserved verbatim (schemaVersion 1); the only
- * change is that its data reads now go through the admin command bundle
- * (`frigg`) instead of an injected repository triad.
- */
 class IntegrationsReport extends ReportBase {
     static Definition = {
         name: 'integrations',
@@ -52,13 +44,9 @@ class IntegrationsReport extends ReportBase {
         const { status, type, userId } = this._validateQuery(params);
         const typeLabels = buildTypeLabels();
 
-        const rows = unwrap(
-            await frigg.integrations.listForReport({ status, userId }),
-            'listForReport'
-        );
+        const rows = await frigg.integrations.listForReport({ status, userId });
 
-        // type lives in config.type (a JSON path not portably groupable across
-        // DBs), so it is filtered here rather than in the repository query.
+        // type lives in config.type, a JSON path not portably groupable across DBs, so filter here not in the query.
         const filtered =
             type === undefined
                 ? rows
@@ -66,10 +54,7 @@ class IntegrationsReport extends ReportBase {
 
         const ids = filtered.map((row) => row.id);
         const mappingCounts = ids.length
-            ? unwrap(
-                  await frigg.integrationMappings.countByIntegrationIds(ids),
-                  'countByIntegrationIds'
-              )
+            ? await frigg.integrationMappings.countByIntegrationIds(ids)
             : new Map();
 
         const integrations = filtered.map((row) => ({
@@ -186,27 +171,11 @@ class IntegrationsReport extends ReportBase {
     }
 }
 
-// A report validates its own input but must stay protocol-agnostic (no HTTP/Boom
-// in the application layer). The runner and router map `code: 'INVALID_INPUT'`
-// to a 400, so bad input still surfaces as a 400 without coupling the report to
-// HTTP.
+// INVALID_INPUT keeps the report protocol-agnostic; the runner/router map it to a 400.
 function invalidInput(message) {
     const error = new Error(message);
     error.code = 'INVALID_INPUT';
     return error;
-}
-
-// Throw on a command error object so the runner records a clear failure rather
-// than the report blowing up later on `.map`/`.get` of an error shape.
-function unwrap(result, label) {
-    if (
-        result &&
-        typeof result === 'object' &&
-        typeof result.error === 'number'
-    ) {
-        throw new Error(`${label} failed: ${result.reason || result.error}`);
-    }
-    return result;
 }
 
 function emptyStatusCounts() {
@@ -227,8 +196,6 @@ function toIso(value) {
     return String(value);
 }
 
-// Map each integration's config.type slug to its human-readable display label.
-// Wrapped so the report still works if the app definition fails to load.
 function buildTypeLabels() {
     try {
         const { integrations = [] } = loadAppDefinition();

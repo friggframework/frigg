@@ -82,14 +82,10 @@ function createSchedulerAdapterFromEnv() {
 }
 
 /**
- * Resolve and build a scheduler adapter that targets the REPORT executor.
+ * Resolve and build a scheduler adapter that targets the report executor Lambda.
  *
- * Reuses the shared scheduler role and (via {@link createSchedulerAdapter}) the
- * same provider resolution as {@link createSchedulerAdapterFromEnv}, but points
- * the schedule at the report executor Lambda and produces a report-shaped target
- * message ({ reportName, mode, trigger: 'SCHEDULED', params }). A distinct name
- * prefix keeps report schedules from colliding with script schedules in the
- * shared EventBridge group.
+ * A distinct name prefix keeps report schedules from colliding with script
+ * schedules in the shared EventBridge group.
  *
  * @param {Object} params
  * @param {string} params.reportName - Registered report name (also the ScriptSchedule key).

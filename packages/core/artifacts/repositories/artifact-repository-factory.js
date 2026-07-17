@@ -1,17 +1,6 @@
-/**
- * Artifact Repository Factory
- *
- * Selects the storage adapter by whether a durable object store is configured:
- * S3 whenever REPORT_ARTIFACT_BUCKET is set — the infra provisions that bucket
- * for every deployed stage with a non-JSON report, INCLUDING dev — and the
- * local filesystem adapter only when no bucket is configured (local dev / tests).
- *
- * This deliberately does NOT mirror the encryption stage-bypass. Skipping
- * encryption in dev still yields working data, but routing a deployed dev
- * Lambda's artifacts to ephemeral /tmp would silently lose them: the executor
- * writes and the router reads in different containers, and /tmp does not
- * survive. A configured bucket therefore always wins.
- */
+// A configured bucket always wins, even in dev (unlike the encryption stage-bypass):
+// a deployed Lambda writes artifacts and the router reads them in different containers,
+// so routing dev to ephemeral /tmp would silently lose them.
 const { ArtifactRepositoryS3 } = require('./artifact-repository-s3');
 const { ArtifactRepositoryLocal } = require('./artifact-repository-local');
 

@@ -134,8 +134,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
      * Find every integration in a report-shaped projection.
      *
      * type lives in config.type (a JSON path not portably groupable across
-     * DBs); it is left in the row for the caller to bucket. errorCount is
-     * derived from the errors array, moduleCount from the entity relation.
+     * DBs); it is left in the row for the caller to bucket.
      *
      * @param {Object} [filter={}]
      * @param {string} [filter.status] - Integration status
@@ -146,8 +145,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         const where = {};
         if (status) where.status = status;
         if (userId !== undefined && userId !== null) {
-            // Strict: a loose parseInt would coerce '12abc'/'12.9' to 12 and
-            // silently report the wrong user's integrations.
+            // Strict: parseInt would coerce '12abc'/'12.9' to 12 and read the wrong user.
             where.userId = strictIntId(userId);
         }
 

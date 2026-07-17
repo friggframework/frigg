@@ -90,13 +90,8 @@ function createIntegrationCommands({ integrationClass } = {}) {
     }
 
     /**
-     * List integrations in a report-shaped projection (derived counters +
-     * timestamps), optionally filtered by status and/or owning user. This is
-     * the cross-integration read that reports (ADR-010) consume via commands.
-     * @param {Object} [filter={}]
-     * @param {string} [filter.status] - Integration status
-     * @param {string|number} [filter.userId] - Owning user ID
-     * @returns {Promise<Array|Object>} Report rows, or an error object.
+     * Report-shaped projection (derived counters + timestamps) — the
+     * cross-integration read that reports (ADR-010) consume via commands.
      */
     async function listForReport(filter = {}) {
         try {

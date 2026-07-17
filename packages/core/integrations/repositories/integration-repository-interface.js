@@ -36,11 +36,9 @@ class IntegrationRepositoryInterface {
     }
 
     /**
-     * Find every integration in a report-shaped projection, optionally filtered
-     * by status and/or owning user. Unlike findIntegrations, this returns the
-     * derived counters a cross-integration report needs (errorCount, moduleCount)
-     * and both timestamps — not the entity/config/messages shape. Adapters must
-     * drain the full result set (no first-batch truncation) since this powers a
+     * Find every integration in a report-shaped projection, optionally
+     * filtered by status and/or owning user. Adapters must drain the full
+     * result set (no first-batch truncation) since this powers a
      * deployment-wide scan.
      *
      * @param {Object} [filter={}]

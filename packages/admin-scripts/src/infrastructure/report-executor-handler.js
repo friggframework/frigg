@@ -5,9 +5,8 @@ const {
 const { QueuerUtil } = require('@friggframework/core/queues');
 const { bootstrapAdminScripts } = require('./bootstrap');
 
-// Re-enqueue a report that yielded a continuation so the next invocation
-// resumes the SAME execution. The resume state travels in the message
-// (params.__resume); the execution record stays RUNNING between hops.
+// Resume state travels in the message (params.__resume); the execution record
+// stays RUNNING across hops so the same execution resumes.
 async function requeueContinuation(message, result) {
     const queueUrl = process.env.REPORT_QUEUE_URL;
     if (!queueUrl) {
@@ -30,25 +29,6 @@ async function requeueContinuation(message, result) {
     );
 }
 
-/**
- * Run a single report execution message through the ReportRunner.
- * @param {Object} message - Parsed execution message.
- * @param {string} message.reportName - Name of the registered report to run (required).
- * @param {string} [message.executionId] - Existing report execution id to resume; when
- *   absent, ReportRunner creates a new record.
- * @param {string} [message.mode] - Run mode; defaults to 'recorded'.
- * @param {string} [message.seriesName] - Snapshot series tag (snapshot mode).
- * @param {string} [message.trigger] - Execution trigger; defaults to 'QUEUE'.
- * @param {Object} [message.params] - Parameters passed to the report.
- * @param {string} [message.parentExecutionId] - Parent execution id for continuations.
- * @param {Object} deps
- * @param {Object} deps.reportFactory - Registry used to resolve and instantiate the report.
- * @param {Object} deps.reportCommands - Report execution-store commands.
- * @param {Object} deps.reportFriggCommands - Data-read command bundle exposed to the report.
- * @param {Object} deps.integrationFactory - Hydrates integration instances for reports that need them.
- * @returns {Promise<{ reportName: string, status: string, executionId: string }>}
- * @private
- */
 async function runMessage(
     message,
     { reportFactory, reportCommands, reportFriggCommands, integrationFactory },
@@ -83,8 +63,7 @@ async function runMessage(
     const result = await runner.execute(reportName, params, {
         mode: mode || 'recorded',
         trigger: trigger || 'QUEUE',
-        // executionId is optional — when absent, ReportRunner creates the record.
-        // Scheduled direct invokes have no id yet.
+        // Scheduled first runs carry no executionId; ReportRunner creates the record.
         ...(executionId && { executionId }),
         ...(seriesName && { seriesName }),
         ...(parentExecutionId && { parentExecutionId }),
@@ -92,10 +71,8 @@ async function runMessage(
     });
 
     if (result.status === 'CONTINUE') {
-        // If re-enqueue fails, the execution will never resume, so it must not
-        // linger in RUNNING. Compensate with the RUNNER-created id (the inbound
-        // message may carry none, e.g. a scheduled first run), then rethrow so
-        // the batch/invoke error handling still records the failure.
+        // A failed re-enqueue means the execution never resumes; mark it FAILED
+        // (via the runner-created id) instead of leaving it stuck in RUNNING.
         try {
             await requeueContinuation(message, result);
         } catch (requeueError) {
@@ -114,12 +91,8 @@ async function runMessage(
     };
 }
 
-/**
- * Mark a report execution FAILED when the worker itself blows up (parse error,
- * runner construction), so the record doesn't stay stuck in a non-terminal
- * state. No-op when there is no execution id.
- * @private
- */
+// Mark a report execution FAILED when the worker itself throws, so the record
+// doesn't stay stuck in a non-terminal state.
 async function markFailed(executionId, error) {
     if (!executionId) return;
     try {
@@ -140,11 +113,7 @@ async function markFailed(executionId, error) {
     }
 }
 
-/**
- * Handle an EventBridge Scheduler direct invoke: the event itself is a single
- * execution message (no `Records` wrapper).
- * @private
- */
+// EventBridge Scheduler direct invoke: the event itself is the message (no `Records` wrapper).
 async function handleScheduledInvoke(event, deps, lambdaContext) {
     try {
         const result = await runMessage(event, deps, lambdaContext);
@@ -174,12 +143,8 @@ async function handleScheduledInvoke(event, deps, lambdaContext) {
     }
 }
 
-/**
- * Handle an SQS batch: each `event.Records[].body` is a JSON execution message.
- * Failures are isolated per record so one bad message doesn't drop the rest of
- * the batch.
- * @private
- */
+// SQS batch: each record body is a JSON message. Failures are isolated per
+// record so one bad message doesn't drop the rest of the batch.
 async function handleSqsBatch(event, deps, lambdaContext) {
     const results = [];
     for (const record of event.Records) {
@@ -192,9 +157,8 @@ async function handleSqsBatch(event, deps, lambdaContext) {
             );
             results.push(result);
         } catch (error) {
-            // Only unexpected failures reach here (message parse errors, runner
-            // construction). Report execution errors are handled by ReportRunner
-            // and returned as { status: 'FAILED' }.
+            // Report execution errors are handled by ReportRunner; only
+            // unexpected failures (parse, runner construction) reach here.
             console.error('Unexpected error processing record:', error);
             await markFailed(message.executionId, error);
             results.push({
@@ -212,16 +176,9 @@ async function handleSqsBatch(event, deps, lambdaContext) {
 }
 
 /**
- * Report Executor Lambda Handler
- *
- * Handles two invocation shapes:
- * - SQS: `event.Records[]` — each record body is a JSON execution message
- *   (manual async report runs).
- * - EventBridge Scheduler direct invoke: the event itself is the message
- *   (`{ reportName, trigger: 'SCHEDULED', mode, params }`) with no `Records`.
- *
- * Thin adapter: parses the event and delegates to ReportRunner, which owns
- * execution tracking, error recording, and status updates.
+ * Report Executor Lambda handler. Two invocation shapes:
+ * - SQS: `event.Records[]`, each body a JSON execution message.
+ * - EventBridge Scheduler direct invoke: the event itself is the message, no `Records`.
  */
 async function handler(event, context) {
     const {

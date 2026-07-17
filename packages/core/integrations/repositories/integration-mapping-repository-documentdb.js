@@ -25,13 +25,9 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
     }
 
     /**
-     * Count mappings grouped by integration id for a bounded id set.
      * integrationId is stored as a string in DocumentDB, so ids are matched as
      * strings (an ObjectId $in would never match). Drains the grouped cursor so
      * a deployment-wide count is not truncated at the first batch.
-     *
-     * @param {Array<string>} ids - Integration ids
-     * @returns {Promise<Map<string, number>>} integrationId (string) → count
      */
     async countByIntegrationIds(ids = []) {
         const counts = new Map();

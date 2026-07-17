@@ -242,23 +242,15 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
 
     /**
      * Count credentials active since a timestamp, grouped by integration type.
-     *
-     * Two projected raw reads, no decryption: the encrypted `data` JSON is
-     * never fetched, so `encryptionService.decryptFields` is not invoked.
-     * Integration type is derived from the related Entity.moduleName.
-     *
-     * @param {Object} params
-     * @param {Date} [params.since] - Lower bound on updatedAt
+     * Projected raw reads only; the encrypted `data` is never fetched, so secrets are never decrypted for this read.
      * @returns {Promise<Array<{ integrationType: string, count: number }>>}
      */
     async countActiveByType({ since } = {}) {
         const filter = {};
-        // Coerce to a Date so an HTTP-sourced string is not passed raw into the
-        // $gte filter (BSON date vs string type-bracketing would never match).
+        // Coerce to Date: a raw string never matches the BSON date $gte (type bracketing).
         if (since) filter.updatedAt = { $gte: new Date(since) };
 
-        // Drained: a deployment-wide credential scan must not truncate at the
-        // ~101-doc first batch (mirrors the integration/mapping report reads).
+        // Drained: a deployment-wide scan must not truncate at DocumentDB's ~101-doc first batch.
         const activeCredentials = await findManyDrained(
             this.prisma,
             'Credential',

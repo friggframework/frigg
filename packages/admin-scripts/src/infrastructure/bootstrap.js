@@ -32,13 +32,8 @@ function registerScripts(factory, scriptClasses) {
     }
 }
 
-/**
- * Register report classes, enforcing a single operation namespace: a report
- * whose name collides with a registered script is skipped and logged. Scripts
- * and reports share ScriptSchedule.scriptName (@unique), so their names must not
- * clash. Never throws (bootstrap contract) — a bad report leaves the rest
- * registered.
- */
+// A report whose name collides with a registered script is skipped: scripts and
+// reports share ScriptSchedule.scriptName (@unique), so names must not clash.
 function registerReports(factory, scriptRegistry, reportClasses) {
     for (const ReportClass of reportClasses || []) {
         const name = ReportClass?.Definition?.name;
@@ -102,11 +97,6 @@ function buildScriptCommands() {
     };
 }
 
-/**
- * The data-read bundle a report receives as `frigg` (context.commands). Extends
- * the script bundle with the cross-integration reads reports use — mapping
- * counts and usage totals — so reports read everything through commands.
- */
 function buildReportFriggCommands() {
     const {
         createIntegrationMappingCommands,

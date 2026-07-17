@@ -28,9 +28,7 @@ function loadSchedulerSDK() {
  * Implements scheduling using AWS EventBridge Scheduler.
  * Supports cron expressions, timezone configuration, and Lambda invocation.
  */
-// Default schedule-name prefix and target-message builder. The message shape
-// and prefix are parameterized so the same adapter can target the admin-script
-// executor ({ scriptName, ... }) or the report executor ({ reportName, ... }).
+// Prefix and input builder are parameterized so one adapter can target either the script or report executor.
 const DEFAULT_NAME_PREFIX = 'frigg-script-';
 const defaultBuildInput = ({ scriptName, input }) => ({
     scriptName,

@@ -93,8 +93,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
      * Find every integration in a report-shaped projection.
      *
      * type lives in config.type (a JSON path not portably groupable across
-     * DBs); it is left in the row for the caller to bucket. errorCount is
-     * derived from the errors array, moduleCount from the entity relation.
+     * DBs); it is left in the row for the caller to bucket.
      *
      * @param {Object} [filter={}]
      * @param {string} [filter.status] - Integration status

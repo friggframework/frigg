@@ -95,12 +95,8 @@ class CredentialRepositoryInterface {
     }
 
     /**
-     * Count credentials active since a timestamp, grouped by integration type.
-     *
-     * "Active" means Credential.updatedAt >= since (the credential-refresh
-     * timestamp). Reads ONLY non-encrypted fields — never the encrypted `data`
-     * JSON (access_token/refresh_token/id_token). Integration type is derived
-     * from the related Entity.moduleName.
+     * Count credentials active (updatedAt >= since) grouped by integration type.
+     * Reads ONLY non-encrypted fields — never the encrypted `data` JSON.
      *
      * @param {Object} params
      * @param {Date} [params.since] - Lower bound on updatedAt

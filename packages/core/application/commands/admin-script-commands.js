@@ -105,10 +105,7 @@ function createAdminScriptCommands() {
                 const process = await adminScriptExecutionRepository.findExecutionById(
                     processId
                 );
-                // Symmetric with report-commands.findExecutionById (which rejects
-                // non-REPORT rows): a script lookup must never surface a report
-                // execution, so the two operation types can't read each other's
-                // records out of the shared store.
+                // Scripts and reports share one store; exclude REPORT rows so the two never read each other's executions.
                 if (!process || process.type === 'REPORT') {
                     const error = new Error(`Execution ${processId} not found`);
                     error.code = 'EXECUTION_NOT_FOUND';

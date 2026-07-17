@@ -1,8 +1,6 @@
 const { createAdminScriptContext } = require('./admin-script-context');
 const { validateParams } = require('./validate-script-input');
 
-// Artifact fileType -> Content-Type. Unknown types fall back to a binary
-// default so any format still uploads cleanly.
 const ARTIFACT_CONTENT_TYPES = {
     csv: 'text/csv',
     json: 'application/json',
@@ -14,34 +12,11 @@ const ARTIFACT_CONTENT_TYPES = {
     zip: 'application/zip',
 };
 
-/**
- * Report Runner
- *
- * Sibling of ScriptRunner. Orchestrates report execution, but — unlike
- * ScriptRunner, whose invariant is "every run is recorded" — the run MODE
- * decides persistence:
- *   - live     : compute and return inline; NO execution record is created.
- *   - recorded : persist an execution record (Phase 2).
- *   - snapshot : recorded run tagged into a named series (Phase 2).
- *
- * A report's execute(frigg, params) receives the data-read command bundle as
- * `frigg` (the same bundle exposed to scripts as context.commands) and reads
- * only through it. ScriptRunner is left untouched.
- */
+// The run mode decides persistence: live computes inline and records nothing,
+// recorded persists an execution record, snapshot additionally tags the run
+// into a named series. Reports read only through the injected frigg command
+// bundle (exposed as context.commands).
 class ReportRunner {
-    /**
-     * @param {Object} params
-     * @param {Object} params.reportFactory - Registry resolving reports by name.
-     * @param {Object} [params.reportCommands] - Report execution-store commands
-     *   (createReportCommands) — used by recorded/snapshot modes.
-     * @param {Object} [params.friggCommands] - Data-read command bundle injected
-     *   into the report as `frigg` / context.commands.
-     * @param {Object} [params.integrationFactory] - Hydrates integration
-     *   instances for reports that need them.
-     * @param {Object} [params.artifactRepository] - Storage adapter for
-     *   non-JSON output. Lazily built from the core factory when first needed
-     *   if not injected.
-     */
     constructor(params = {}) {
         if (!params.reportFactory) {
             throw new Error('ReportRunner requires a reportFactory');
@@ -63,20 +38,6 @@ class ReportRunner {
         return this.artifactRepository;
     }
 
-    /**
-     * @param {string} reportName
-     * @param {Object} params - Report input params (validated against inputSchema)
-     * @param {Object} options
-     * @param {string} [options.mode] - defaults to Definition.runModes[0]
-     * @param {string} [options.seriesName] - snapshot series tag
-     * @param {string} [options.trigger] - 'MANUAL' | 'SCHEDULED' | 'QUEUE'
-     * @param {Object} [options.audit]
-     * @param {string|number} [options.executionId] - resume an existing record
-     * @param {string|number} [options.parentExecutionId]
-     * @param {Object} [options.lambdaContext] - AWS Lambda context, exposed to
-     *   the report so it can chunk long work against getRemainingTimeInMillis()
-     *   and yield a continuation marker (see _runRecorded).
-     */
     async execute(reportName, params = {}, options = {}) {
         const ReportClass = this.reportFactory.get(reportName);
         const definition = ReportClass.Definition;
@@ -108,8 +69,8 @@ class ReportRunner {
         const format = definition.output?.format || 'json';
 
         if (mode === 'live') {
-            // Live returns inline; non-JSON has no artifact to store and can't
-            // be serialized as a response body, so it stays recorded/snapshot.
+            // Non-JSON can't be returned inline as a response body; it needs an
+            // artifact, so it must run recorded/snapshot.
             if (format !== 'json') {
                 const error = new Error(
                     `Report "${reportName}" output format "${format}" cannot be returned inline; run it in recorded or snapshot mode`
@@ -125,8 +86,8 @@ class ReportRunner {
 
     async _runLive(reportName, params) {
         const startTime = new Date();
-        // executionId null: live persists nothing, so logging/chaining that
-        // depend on a record are intentionally inert.
+        // executionId null: live persists nothing, so record-dependent logging
+        // and chaining are intentionally inert.
         const context = createAdminScriptContext({
             executionId: null,
             integrationFactory: this.integrationFactory,
@@ -150,12 +111,8 @@ class ReportRunner {
         };
     }
 
-    /**
-     * recorded / snapshot: persist an execution record around the run. Mirrors
-     * ScriptRunner — completion is written OUTSIDE the try on success so a
-     * persistence failure is never misreported as a report failure. snapshot is
-     * a recorded run additionally tagged into a named series.
-     */
+    // Completion is written OUTSIDE the try on success so a persistence failure
+    // is never misreported as a report failure.
     async _runRecorded(reportName, definition, params, mode, options = {}) {
         let executionId = options.executionId;
 
@@ -208,11 +165,8 @@ class ReportRunner {
 
             output = await report.execute(context.commands, params, context);
 
-            // Non-JSON output is stored as an artifact rather than persisted
-            // inline. A continuation yield carries no artifact yet, so skip it.
-            // Storage runs inside the try: a put failure is a run failure
-            // (FAILED), while the execution record's own completion below stays
-            // outside the try.
+            // Store non-JSON output as an artifact inside the try so a put
+            // failure marks the run FAILED (a continuation yield has none yet).
             if (format !== 'json' && !(output && output.__continuation)) {
                 const stamp = new Date()
                     .toISOString()
@@ -256,12 +210,10 @@ class ReportRunner {
             };
         }
 
-        // Opt-in self-requeue: a report that can't finish within the Lambda
-        // budget returns a continuation marker (a truthy `__continuation`,
-        // typically its resume state) instead of a final result. The execution
-        // stays RUNNING and the executor re-enqueues it with the SAME id; the
-        // report resumes from the marker on the next invocation. Reports decide
-        // when to yield using context.getRemainingTimeInMillis().
+        // Opt-in self-requeue: a report yields by returning a truthy
+        // `__continuation` (its resume state) instead of a final result. The
+        // execution stays RUNNING and the executor re-enqueues the SAME id, so
+        // the report resumes from the marker on the next invocation.
         if (output && output.__continuation) {
             const resumeState = output.__continuation;
             if (typeof this.reportCommands.appendExecutionLog === 'function') {
@@ -283,8 +235,6 @@ class ReportRunner {
         }
 
         const durationMs = new Date() - startTime;
-        // Non-JSON runs report a summary + artifact reference; JSON runs report
-        // the payload inline.
         const isArtifact = format !== 'json';
         const result = {
             executionId,

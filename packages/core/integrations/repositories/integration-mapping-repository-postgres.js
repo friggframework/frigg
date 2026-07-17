@@ -199,8 +199,7 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
         const counts = new Map();
         if (!ids || ids.length === 0) return counts;
 
-        // Strict (matches findAllForReport): reject partially-numeric ids
-        // rather than coercing them to a valid-looking integer.
+        // Strict (matches findAllForReport): reject partially-numeric ids instead of coercing.
         const intIds = ids.map((id) => strictIntId(id));
         const groups = await this.prisma.integrationMapping.groupBy({
             by: ['integrationId'],

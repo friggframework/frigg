@@ -79,11 +79,9 @@ class IntegrationMappingRepositoryInterface {
 
     /**
      * Count mappings grouped by integration id, for a bounded set of ids.
-     * Powers the mapped-record count column of cross-integration reports.
      * Adapters must drain the full grouped result (a deployment can have more
      * than one first-batch of distinct integration ids).
      *
-     * @param {Array<string|number>} ids - Integration ids to count for
      * @returns {Promise<Map<string, number>>} Map of integrationId (string) → count
      * @abstract
      */

@@ -243,10 +243,8 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
         const where = {};
         if (since) where.updatedAt = { gte: since };
 
-        // Credential has no integration-type column; the type is the related
-        // Entity.moduleName. Select ONLY that relation field (+ id) so the
-        // encrypted `data` JSON is never read, and the encryption extension
-        // has nothing to decrypt.
+        // Type lives on the related Entity.moduleName, not on Credential. Select
+        // only that field (+ id) so the encrypted `data` JSON is never decrypted.
         const credentials = await this.prisma.credential.findMany({
             where,
             select: {

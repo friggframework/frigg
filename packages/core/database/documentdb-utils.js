@@ -121,9 +121,7 @@ async function aggregate(client, collection, pipeline) {
     return result?.cursor?.firstBatch || [];
 }
 
-// findMany/aggregate above return ONLY the first batch (~101 docs). For a
-// deployment-wide scan that truncation is a silent data-loss bug, so the
-// drained variants below follow the cursor via getMore to completion.
+// findMany/aggregate return ONLY the first batch (~101 docs); the drained variants below follow the cursor to completion so full scans don't silently truncate.
 const DRAIN_BATCH_SIZE = 1000;
 const MAX_DRAIN_BATCHES = 100000;
 
@@ -160,7 +158,6 @@ async function drainCursor(client, collection, firstResult) {
     return docs;
 }
 
-// find, draining the full cursor (no first-batch truncation).
 async function findManyDrained(client, collection, filter = {}, options = {}) {
     const command = { find: collection, filter, batchSize: DRAIN_BATCH_SIZE };
     if (options.projection) command.projection = options.projection;
@@ -169,7 +166,6 @@ async function findManyDrained(client, collection, filter = {}, options = {}) {
     return drainCursor(client, collection, first);
 }
 
-// aggregate, draining the full cursor (no first-batch truncation).
 async function aggregateDrained(client, collection, pipeline) {
     const first = await client.$runCommandRaw({
         aggregate: collection,

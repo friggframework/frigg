@@ -1,12 +1,6 @@
 /**
- * Artifact Repository - Local Filesystem Storage
- *
- * Infrastructure Layer - Hexagonal Architecture
- *
- * Dev/test adapter: writes artifacts under a local directory and returns
- * file:// URLs. No network, no aws-sdk. Selected by the factory only when no
- * object store is configured (no REPORT_ARTIFACT_BUCKET); the factory does NOT
- * stage-bypass, so a configured bucket wins in dev/test too.
+ * Dev/test artifact adapter: writes to a local directory and returns file:// URLs.
+ * Selected by the factory only when no object store is configured (no REPORT_ARTIFACT_BUCKET).
  */
 const fs = require('fs');
 const path = require('path');
@@ -16,11 +10,6 @@ const {
 } = require('./artifact-repository-interface');
 
 class ArtifactRepositoryLocal extends ArtifactRepositoryInterface {
-    /**
-     * @param {Object} [params]
-     * @param {string} [params.baseDir] - Root directory for artifacts; defaults
-     *   to process.env.REPORT_ARTIFACT_DIR or an OS temp subdirectory.
-     */
     constructor({ baseDir } = {}) {
         super();
         this.baseDir =

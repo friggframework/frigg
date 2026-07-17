@@ -311,10 +311,7 @@ function createBaseDefinition(
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
                 ],
             },
-            // Reporting is provisioned by AdminScriptBuilder as an admin
-            // operation (ADR-010): the report router runs on the admin-scripts
-            // Lambda under the admin API key, only when reports/built-ins are
-            // enabled — no standalone, always-on reporting function here.
+            // Reporting is an admin operation (ADR-010): the report router runs on the admin-scripts Lambda, not as a standalone function here.
             // Note: dbMigrate removed - MigrationBuilder now handles migration infrastructure
             // See: packages/devtools/infrastructure/domains/database/migration-builder.js
         },
