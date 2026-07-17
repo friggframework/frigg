@@ -105,7 +105,7 @@ A **report is an admin operation whose output is its payload** — a sibling of 
 - **Run modes** (`Definition.runModes`, first is default): **`live`** computes inline and persists nothing (cheap, always-fresh); **`recorded`** persists an execution record (input/results/logs) you poll async; **`snapshot`** is a recorded run tagged into a named series (trends). All three write to the isolated `AdminScriptExecution` store as `type: 'REPORT'` (no user/integration FK), so a user-scoped query can never return a report record.
 - **Endpoints** (auth: `x-frigg-admin-api-key`): `GET /api/v2/reports` (list), `GET /api/v2/reports/{name}` (definition), `POST /api/v2/reports/{name}/run` with `{ mode, params }` (**`live` → 200 inline**; **`recorded`/`snapshot` → 202 `{ executionId }`**, queued to the dedicated `ReportQueue`), `GET .../{name}/snapshots?from=&to=` (the series), `GET .../executions/{id}`, and `GET|PUT|DELETE .../{name}/schedule`.
 - **Output**: `output.format: 'json'` returns inline; `'csv'|'pdf'|'zip'` is written to artifact storage (S3, private + SSE, retrieved via signed URL) with a `{ summary, artifact }` on the record — non-JSON therefore runs `recorded`/`snapshot`, not `live`. Set `REPORT_ARTIFACT_BUCKET` (the infra provisions it when a non-JSON report is registered).
-- **Scheduling** reuses the admin scheduler; a scheduled run targets the report executor with `{ reportName, mode: schedule.mode || 'snapshot', trigger: 'SCHEDULED' }`. Report and script names share one namespace (bootstrap rejects collisions).
+- **Scheduling** reuses the admin scheduler; a scheduled run targets the report executor with `{ reportName, mode: schedule.mode || 'snapshot', trigger: 'SCHEDULED' }`. Report and script names share one namespace (bootstrap rejects collisions). **A `schedule` block in the Definition only supplies the default scheduled *mode*; the recurring trigger is activated via `PUT /:name/schedule` — the DB schedule is the single source of truth (a declared `enabled`/`cron` does not fire on its own).**
 
 **Example 1 — adopter report, snapshot + daily schedule, reads via `frigg`:**
 
@@ -120,7 +120,7 @@ class ConnectedAccountsActivity extends ReportBase {
     inputSchema: { type: 'object', properties: {
       windowDays: { type: 'integer', enum: [30, 60, 90], default: 30 } } },
     output: { format: 'json' },
-    schedule: { enabled: true, cron: 'cron(0 6 * * ? *)', mode: 'snapshot' },
+    schedule: { enabled: true, cron: 'cron(0 6 * * ? *)', mode: 'snapshot' }, // default mode; activate via PUT .../schedule
   };
 
   async execute(frigg, params) {                     // frigg === context.commands

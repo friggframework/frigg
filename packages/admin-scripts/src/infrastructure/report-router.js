@@ -2,6 +2,7 @@ const express = require('express');
 const serverless = require('serverless-http');
 const { validateAdminApiKey } = require('./admin-auth-middleware');
 const { createReportRunner } = require('../application/report-runner');
+const { validateParams } = require('../application/validate-script-input');
 const { QueuerUtil } = require('@friggframework/core/queues');
 const {
     createAdminScriptCommands,
@@ -376,7 +377,31 @@ router.post('/:name/run', async (req, res) => {
             return res.json(result);
         }
 
-        // recorded/snapshot run asynchronously on the report executor.
+        // recorded/snapshot run asynchronously on the report executor. Validate
+        // mode + params BEFORE persisting/enqueueing so a malformed request gets
+        // a 400 up front instead of a 202 that only fails later in the worker
+        // (live mode is validated inside the runner above).
+        const definition = reportFactory.get(name).Definition;
+        const runModes =
+            Array.isArray(definition.runModes) && definition.runModes.length
+                ? definition.runModes
+                : ['live'];
+        if (!runModes.includes(mode)) {
+            return res.status(400).json({
+                error: `Report "${name}" does not support mode "${mode}". Allowed: ${runModes.join(
+                    ', '
+                )}`,
+                code: 'INVALID_MODE',
+            });
+        }
+        const validation = validateParams(definition, params);
+        if (!validation.valid) {
+            return res.status(400).json({
+                error: `Invalid input: ${validation.errors.join(', ')}`,
+                code: 'INVALID_INPUT',
+            });
+        }
+
         const queueUrl = process.env.REPORT_QUEUE_URL;
         if (!queueUrl) {
             return res.status(503).json({
@@ -388,7 +413,7 @@ router.post('/:name/run', async (req, res) => {
         const { seriesName } = req.body || {};
         const execution = await reportCommands.createExecution({
             reportName: name,
-            reportVersion: reportFactory.get(name).Definition.version,
+            reportVersion: definition.version,
             trigger: 'MANUAL',
             mode,
             input: params,

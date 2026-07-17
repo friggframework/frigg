@@ -169,6 +169,29 @@ describe('Report Router', () => {
         expect(res.body.code).toBe('INVALID_INPUT');
     });
 
+    it('POST /:name/run recorded 400s invalid input WITHOUT creating a record or enqueueing', async () => {
+        const res = await request(server)
+            .post('/api/v2/reports/demo/run')
+            .send({ mode: 'recorded', params: { n: 'not-a-number' } });
+
+        expect(res.status).toBe(400);
+        expect(res.body.code).toBe('INVALID_INPUT');
+        // The bad request must be rejected up front, not persisted + queued.
+        expect(mockReportCommands.createExecution).not.toHaveBeenCalled();
+        expect(QueuerUtil.send).not.toHaveBeenCalled();
+    });
+
+    it('POST /:name/run 400s an unsupported mode WITHOUT creating a record', async () => {
+        const res = await request(server)
+            .post('/api/v2/reports/demo/run')
+            .send({ mode: 'bogus', params: {} });
+
+        expect(res.status).toBe(400);
+        expect(res.body.code).toBe('INVALID_MODE');
+        expect(mockReportCommands.createExecution).not.toHaveBeenCalled();
+        expect(QueuerUtil.send).not.toHaveBeenCalled();
+    });
+
     it('POST /:name/run recorded creates a record and enqueues it (202)', async () => {
         const res = await request(server)
             .post('/api/v2/reports/demo/run')

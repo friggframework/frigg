@@ -39,7 +39,7 @@ class ConnectedAccountsActivity extends ReportBase {
     inputSchema: { type: 'object', properties: {
       windowDays: { type: 'integer', enum: [30, 60, 90], default: 30 } } },
     output: { format: 'json' },                    // 'csv'|'pdf'|'zip' → artifact storage
-    schedule: { enabled: true, cron: 'cron(0 6 * * ? *)', mode: 'snapshot' },
+    schedule: { enabled: true, cron: 'cron(0 6 * * ? *)', mode: 'snapshot' }, // default mode only; activate via PUT
   };
 
   async execute(frigg, params) {
@@ -79,8 +79,8 @@ private + signed URL) instead of inline; JSON stays inline.
 | `GET` | `/api/v2/reports` | List registered report definitions. |
 | `GET` | `/api/v2/reports/:name` | Report definition detail (run modes, input schema, schedule). |
 | `POST` | `/api/v2/reports/:name/run` | Run `{ mode, params }`. `live` → `200` inline; `recorded`/`snapshot` → `202 { executionId }` (queued). |
-| `GET` | `/api/v2/reports/:name/snapshots?from=&to=` | A report's snapshot series (trend). |
-| `GET` | `/api/v2/reports/executions/:id` | Fetch one report execution (guarded to `type: 'REPORT'`). |
+| `GET` | `/api/v2/reports/:name/snapshots?from=&to=` | A report's snapshot series (trend); each point carries a signed `artifactUrl` when the run produced a non-JSON artifact. |
+| `GET` | `/api/v2/reports/executions/:id` | Fetch one report execution (guarded to `type: 'REPORT'`); a stored artifact is returned as a signed `results.artifactUrl`. |
 | `GET`/`PUT`/`DELETE` | `/api/v2/reports/:name/schedule` | Manage a report's recurring schedule. |
 | `GET` | `/api/v2/reports/integrations` | Deprecated back-compat for PR #607 — runs the built-in `integrations` report in `live` mode and returns its payload directly. Prefer `POST /:name/run`. |
 
@@ -148,3 +148,7 @@ database adapters (PostgreSQL, MongoDB, DocumentDB) are served through one path.
 - The `integrations` back-compat alias is transitional; migrate to
   `POST /api/v2/reports/integrations/run { "mode": "live" }`.
 - Labels only appear once the app registers the integration classes.
+- A `schedule` block in a report's Definition only supplies the default scheduled
+  **mode**. It does not create a recurring trigger on its own — activate the
+  schedule with `PUT /api/v2/reports/:name/schedule`; the DB schedule
+  (`ScriptSchedule`) is the single source of truth.

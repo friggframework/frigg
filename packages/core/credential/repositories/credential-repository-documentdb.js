@@ -2,7 +2,6 @@ const { prisma } = require('../../database/prisma');
 const {
     toObjectId,
     fromObjectId,
-    findMany,
     findManyDrained,
     findOne,
     insertOne,

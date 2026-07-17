@@ -11,6 +11,7 @@ const ARTIFACT_CONTENT_TYPES = {
     html: 'text/html',
     txt: 'text/plain',
     xml: 'application/xml',
+    zip: 'application/zip',
 };
 
 /**

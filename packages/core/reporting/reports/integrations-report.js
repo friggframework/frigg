@@ -1,4 +1,3 @@
-const Boom = require('@hapi/boom');
 const { ReportBase } = require('../report-base');
 const { CANONICAL_COUNTERS } = require('../../telemetry/canonical-counters');
 const { loadAppDefinition } = require('../../handlers/app-definition-loader');
@@ -165,7 +164,7 @@ class IntegrationsReport extends ReportBase {
                 value !== null &&
                 typeof value !== 'string'
             ) {
-                throw Boom.badRequest(
+                throw invalidInput(
                     `Invalid query parameter '${key}': expected a string`
                 );
             }
@@ -177,7 +176,7 @@ class IntegrationsReport extends ReportBase {
             userId: normalize(userId),
         };
         if (normalized.status && !KNOWN_STATUSES.includes(normalized.status)) {
-            throw Boom.badRequest(
+            throw invalidInput(
                 `Invalid status '${
                     normalized.status
                 }'. Expected one of: ${KNOWN_STATUSES.join(', ')}`
@@ -185,6 +184,16 @@ class IntegrationsReport extends ReportBase {
         }
         return normalized;
     }
+}
+
+// A report validates its own input but must stay protocol-agnostic (no HTTP/Boom
+// in the application layer). The runner and router map `code: 'INVALID_INPUT'`
+// to a 400, so bad input still surfaces as a 400 without coupling the report to
+// HTTP.
+function invalidInput(message) {
+    const error = new Error(message);
+    error.code = 'INVALID_INPUT';
+    return error;
 }
 
 // Throw on a command error object so the runner records a clear failure rather

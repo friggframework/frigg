@@ -4,8 +4,9 @@
  * Infrastructure Layer - Hexagonal Architecture
  *
  * Dev/test adapter: writes artifacts under a local directory and returns
- * file:// URLs. No network, no aws-sdk. Selected by the factory whenever S3 is
- * not configured (no REPORT_ARTIFACT_BUCKET) or the stage is local/dev/test.
+ * file:// URLs. No network, no aws-sdk. Selected by the factory only when no
+ * object store is configured (no REPORT_ARTIFACT_BUCKET); the factory does NOT
+ * stage-bypass, so a configured bucket wins in dev/test too.
  */
 const fs = require('fs');
 const path = require('path');

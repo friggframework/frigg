@@ -21,14 +21,41 @@ function mapErrorToResponse(error) {
  * additionally rejects any row whose type !== 'REPORT', so a report lookup can
  * never return a script/migration record.
  *
+ * @param {Object} [deps]
+ * @param {Object} [deps.artifactRepository] - Storage adapter used to mint
+ *   signed URLs for non-JSON artifacts on read. Lazily built from the core
+ *   factory when first needed if not injected.
  * @returns {Object} Command methods for report executions
  */
-function createReportCommands() {
+function createReportCommands({ artifactRepository } = {}) {
     const {
         createAdminScriptExecutionRepository,
     } = require('../../admin-scripts/repositories/admin-script-execution-repository-factory');
 
     const executionRepository = createAdminScriptExecutionRepository();
+
+    let artifactRepo = artifactRepository || null;
+    function getArtifactRepository() {
+        if (!artifactRepo) {
+            const {
+                createArtifactRepository,
+            } = require('../../artifacts/repositories/artifact-repository-factory');
+            artifactRepo = createArtifactRepository();
+        }
+        return artifactRepo;
+    }
+
+    // Mint a short-lived download URL for a stored artifact reference. Reads must
+    // never fail because signing failed (e.g. object store unreachable), so this
+    // resolves to null rather than throwing.
+    async function signArtifact(ref) {
+        if (!ref) return null;
+        try {
+            return await getArtifactRepository().signedUrl(ref);
+        } catch (_error) {
+            return null;
+        }
+    }
 
     return {
         /**
@@ -85,6 +112,15 @@ function createReportCommands() {
                     error.code = 'EXECUTION_NOT_FOUND';
                     return mapErrorToResponse(error);
                 }
+                // Non-JSON runs store a { bucket, key } artifact reference; attach
+                // a short-lived download URL so the stored object is reachable
+                // through the API (the raw ref alone is not retrievable).
+                if (record.results?.artifact) {
+                    record.results = {
+                        ...record.results,
+                        artifactUrl: await signArtifact(record.results.artifact),
+                    };
+                }
                 return record;
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -125,17 +161,22 @@ function createReportCommands() {
                         limit,
                     }
                 );
-                return rows
-                    .filter((row) => row.context?.mode === 'snapshot')
-                    .map((row) => ({
+                const snapshots = rows.filter(
+                    (row) => row.context?.mode === 'snapshot'
+                );
+                return Promise.all(
+                    snapshots.map(async (row) => ({
                         executionId: row.id,
                         capturedAt: row.createdAt,
                         summary:
                             row.results?.output?.summary ??
                             row.results?.summary ??
                             null,
-                        artifactUrl: row.results?.artifact ?? null,
-                    }));
+                        // A signed download URL, not the raw storage ref — null
+                        // for JSON snapshots that have no artifact.
+                        artifactUrl: await signArtifact(row.results?.artifact),
+                    }))
+                );
             } catch (error) {
                 return [];
             }

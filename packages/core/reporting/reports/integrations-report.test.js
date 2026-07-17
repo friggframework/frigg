@@ -127,11 +127,13 @@ describe('IntegrationsReport (built-in)', () => {
         expect(attio.usage).toBeUndefined();
     });
 
-    it('rejects an unknown status with a 400', async () => {
+    it('rejects an unknown status with an INVALID_INPUT error (no HTTP coupling)', async () => {
         const report = new IntegrationsReport();
+        // The report is protocol-agnostic: it throws a coded error, not a Boom
+        // HTTP error. The runner/router maps INVALID_INPUT to a 400.
         await expect(
             report.execute(makeFrigg(), { status: 'NOPE' })
-        ).rejects.toMatchObject({ output: { statusCode: 400 } });
+        ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     });
 
     it('surfaces a command error as a thrown failure', async () => {

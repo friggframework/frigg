@@ -18,10 +18,18 @@ const { createReportCommands } = require('./report-commands');
 
 describe('createReportCommands', () => {
     let commands;
+    let mockArtifactRepo;
 
     beforeEach(() => {
         jest.clearAllMocks();
-        commands = createReportCommands();
+        mockArtifactRepo = {
+            signedUrl: jest
+                .fn()
+                .mockResolvedValue('https://signed.example/artifact'),
+        };
+        commands = createReportCommands({
+            artifactRepository: mockArtifactRepo,
+        });
     });
 
     describe('createExecution', () => {
@@ -114,6 +122,44 @@ describe('createReportCommands', () => {
                 code: 'EXECUTION_NOT_FOUND',
             });
         });
+
+        it('attaches a signed artifactUrl when the record has a stored artifact', async () => {
+            mockExecutionRepo.findExecutionById.mockResolvedValue({
+                id: 'r1',
+                type: 'REPORT',
+                state: 'COMPLETED',
+                results: {
+                    summary: { rows: 5 },
+                    artifact: { bucket: 'b', key: 'k' },
+                },
+            });
+
+            const result = await commands.findExecutionById('r1');
+
+            expect(mockArtifactRepo.signedUrl).toHaveBeenCalledWith({
+                bucket: 'b',
+                key: 'k',
+            });
+            expect(result.results.artifactUrl).toBe(
+                'https://signed.example/artifact'
+            );
+            // The raw reference is preserved alongside the URL.
+            expect(result.results.artifact).toEqual({ bucket: 'b', key: 'k' });
+        });
+
+        it('does not sign when the record has no artifact', async () => {
+            mockExecutionRepo.findExecutionById.mockResolvedValue({
+                id: 'r1',
+                type: 'REPORT',
+                state: 'COMPLETED',
+                results: { output: { total: 3 } },
+            });
+
+            const result = await commands.findExecutionById('r1');
+
+            expect(mockArtifactRepo.signedUrl).not.toHaveBeenCalled();
+            expect(result.results.artifactUrl).toBeUndefined();
+        });
     });
 
     describe('listExecutionsByName', () => {
@@ -185,12 +231,17 @@ describe('createReportCommands', () => {
                     limit: 100,
                 }
             );
+            expect(mockArtifactRepo.signedUrl).toHaveBeenCalledWith({
+                bucket: 'b',
+                key: 'k',
+            });
             expect(result).toEqual([
                 {
                     executionId: 'r1',
                     capturedAt: captured,
                     summary: { total: 7 },
-                    artifactUrl: { bucket: 'b', key: 'k' },
+                    // A real signed download URL, not the raw { bucket, key } ref.
+                    artifactUrl: 'https://signed.example/artifact',
                 },
             ]);
         });
