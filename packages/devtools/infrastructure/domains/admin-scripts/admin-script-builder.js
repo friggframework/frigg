@@ -23,7 +23,15 @@ class AdminScriptBuilder extends InfrastructureBuilder {
     }
 
     shouldExecute(appDefinition) {
-        return Array.isArray(appDefinition.adminScripts) && appDefinition.adminScripts.length > 0;
+        const hasScripts =
+            Array.isArray(appDefinition.adminScripts) &&
+            appDefinition.adminScripts.length > 0;
+        const hasReports =
+            Array.isArray(appDefinition.reports) &&
+            appDefinition.reports.length > 0;
+        const hasBuiltinReports =
+            appDefinition.admin?.includeBuiltinReports === true;
+        return hasScripts || hasReports || hasBuiltinReports;
     }
 
     getDependencies() {
@@ -33,31 +41,53 @@ class AdminScriptBuilder extends InfrastructureBuilder {
     validate(appDefinition) {
         const result = new ValidationResult();
 
-        if (!appDefinition.adminScripts) {
-            return result; // Not an error, just no scripts
-        }
-
-        if (!Array.isArray(appDefinition.adminScripts)) {
-            result.addError('adminScripts must be an array');
-            return result;
-        }
-
-        // Validate each script
-        appDefinition.adminScripts.forEach((script, index) => {
-            if (!script?.Definition?.name) {
-                result.addError(`Admin script at index ${index} is missing Definition or name`);
+        if (appDefinition.adminScripts !== undefined) {
+            if (!Array.isArray(appDefinition.adminScripts)) {
+                result.addError('adminScripts must be an array');
+            } else {
+                appDefinition.adminScripts.forEach((script, index) => {
+                    if (!script?.Definition?.name) {
+                        result.addError(`Admin script at index ${index} is missing Definition or name`);
+                    }
+                });
             }
-        });
+        }
+
+        if (appDefinition.reports !== undefined) {
+            if (!Array.isArray(appDefinition.reports)) {
+                result.addError('reports must be an array');
+            } else {
+                appDefinition.reports.forEach((report, index) => {
+                    if (!report?.Definition?.name) {
+                        result.addError(`Report at index ${index} is missing Definition or name`);
+                    }
+                });
+            }
+        }
 
         return result;
     }
 
     async build(appDefinition, discoveredResources) {
-        console.log(`\n[${this.name}] Configuring admin scripts...`);
-        console.log(`  Processing ${appDefinition.adminScripts.length} scripts...`);
+        console.log(`\n[${this.name}] Configuring admin operations...`);
 
         const usePrismaLayer = appDefinition.usePrismaLambdaLayer !== false;
         const adminConfig = appDefinition.admin || {};
+        const adminScripts = Array.isArray(appDefinition.adminScripts)
+            ? appDefinition.adminScripts
+            : [];
+        const reports = Array.isArray(appDefinition.reports)
+            ? appDefinition.reports
+            : [];
+        const hasReports =
+            reports.length > 0 || adminConfig.includeBuiltinReports === true;
+
+        // Only non-JSON report output is stored in S3, so provision the bucket
+        // only for that. Built-in reports emit JSON, so they don't trigger it.
+        const reportsNeedArtifacts = reports.some((report) => {
+            const format = report?.Definition?.output?.format;
+            return Boolean(format) && format !== 'json';
+        });
 
         const result = {
             functions: {},
@@ -67,27 +97,45 @@ class AdminScriptBuilder extends InfrastructureBuilder {
             iamStatements: [],
         };
 
-        // Create admin script queue
-        this.createAdminScriptQueue(result, appDefinition);
+        if (adminScripts.length > 0) {
+            console.log(`  Processing ${adminScripts.length} scripts...`);
+            this.createAdminScriptQueue(result, appDefinition);
+            this.createScriptExecutorFunction(appDefinition, result, usePrismaLayer);
+            this.createAdminScriptRoutes(appDefinition, result, usePrismaLayer);
 
-        // Create Lambda function for script execution
-        this.createScriptExecutorFunction(appDefinition, result, usePrismaLayer);
-
-        // Create API routes for script management
-        this.createAdminScriptRoutes(appDefinition, result, usePrismaLayer);
-
-        // Phase 2: Create EventBridge Scheduler resources
-        if (adminConfig.enableScheduling) {
-            this.createSchedulerResources(appDefinition, result);
+            adminScripts.forEach(script => {
+                const name = script.Definition?.name || 'unknown';
+                console.log(`    ✓ Registered script: ${name}`);
+            });
         }
 
-        // Log registered scripts
-        appDefinition.adminScripts.forEach(script => {
-            const name = script.Definition?.name || 'unknown';
-            console.log(`    ✓ Registered: ${name}`);
-        });
+        if (hasReports) {
+            this.createReportQueue(result, appDefinition);
+            this.createReportExecutorFunction(appDefinition, result, usePrismaLayer);
+            this.createReportRoutes(appDefinition, result, usePrismaLayer);
+            if (reportsNeedArtifacts) {
+                this.createReportArtifactBucket(result, appDefinition);
+            }
+            reports.forEach(report => {
+                const name = report.Definition?.name || 'unknown';
+                console.log(`    ✓ Registered report: ${name}`);
+            });
+            if (adminConfig.includeBuiltinReports) {
+                console.log('    ✓ Built-in reports enabled');
+            }
+        }
 
-        console.log(`[${this.name}] ✅ Admin script configuration completed`);
+        if (
+            adminConfig.enableScheduling &&
+            (adminScripts.length > 0 || hasReports)
+        ) {
+            this.createSchedulerResources(appDefinition, result, {
+                scriptsPresent: adminScripts.length > 0,
+                hasReports,
+            });
+        }
+
+        console.log(`[${this.name}] ✅ Admin operations configuration completed`);
         return result;
     }
 
@@ -193,6 +241,151 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         console.log('  ✓ Created adminScriptRouter function');
     }
 
+    createReportRoutes(appDefinition, result, usePrismaLayer) {
+        result.functions.reportRouter = {
+            handler: 'node_modules/@friggframework/admin-scripts/src/infrastructure/report-router.handler',
+            skipEsbuild: true,
+            package: this.skipEsbuildPackageConfig(appDefinition, usePrismaLayer),
+            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
+            timeout: 30,
+            events: [
+                { httpApi: { path: '/api/v2/reports', method: 'GET' } },
+                // Definition detail, snapshots, executions, schedule, back-compat alias
+                { httpApi: { path: '/api/v2/reports/{proxy+}', method: 'GET' } },
+                // Run a report ({name}/run)
+                { httpApi: { path: '/api/v2/reports/{proxy+}', method: 'POST' } },
+                // Schedule management (PUT/DELETE {name}/schedule)
+                { httpApi: { path: '/api/v2/reports/{proxy+}', method: 'PUT' } },
+                { httpApi: { path: '/api/v2/reports/{proxy+}', method: 'DELETE' } },
+            ],
+        };
+        console.log('  ✓ Created reportRouter function');
+    }
+
+    createReportQueue(result, appDefinition) {
+        result.resources.ReportQueue = {
+            Type: 'AWS::SQS::Queue',
+            Properties: {
+                QueueName: '${self:service}-${self:provider.stage}-ReportQueue',
+                MessageRetentionPeriod: 86400, // 1 day
+                VisibilityTimeout: 900, // 15 minutes (Lambda max)
+                RedrivePolicy: {
+                    maxReceiveCount: 3,
+                    deadLetterTargetArn: {
+                        'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
+                    },
+                },
+            },
+        };
+
+        if (isScopedEnvironmentActive(appDefinition)) {
+            // Only the report functions read this queue URL
+            result.functionEnvironments = result.functionEnvironments || {};
+            for (const fnName of ['reportRouter', 'reportExecutor']) {
+                result.functionEnvironments[fnName] = {
+                    ...result.functionEnvironments[fnName],
+                    REPORT_QUEUE_URL: { Ref: 'ReportQueue' },
+                };
+            }
+        } else {
+            result.environment.REPORT_QUEUE_URL = { Ref: 'ReportQueue' };
+        }
+
+        // The report router enqueues async recorded/snapshot runs. The base
+        // role's wildcard does not cover this queue's name, so grant
+        // SendMessage explicitly.
+        result.iamStatements.push({
+            Effect: 'Allow',
+            Action: [
+                'sqs:SendMessage',
+                'sqs:SendMessageBatch',
+                'sqs:GetQueueUrl',
+                'sqs:GetQueueAttributes',
+            ],
+            Resource: { 'Fn::GetAtt': ['ReportQueue', 'Arn'] },
+        });
+
+        console.log('  ✓ Created ReportQueue');
+    }
+
+    createReportExecutorFunction(appDefinition, result, usePrismaLayer) {
+        result.functions.reportExecutor = {
+            handler: 'node_modules/@friggframework/admin-scripts/src/infrastructure/report-executor-handler.handler',
+            skipEsbuild: true,
+            package: this.skipEsbuildPackageConfig(appDefinition, usePrismaLayer),
+            ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
+            timeout: 900, // 15 minutes max
+            memorySize: 1024,
+            events: [
+                {
+                    sqs: {
+                        arn: { 'Fn::GetAtt': ['ReportQueue', 'Arn'] },
+                        batchSize: 1,
+                    },
+                },
+            ],
+        };
+        console.log('  ✓ Created reportExecutor function');
+    }
+
+    // Non-JSON report output; the router mints short-lived presigned URLs for reads.
+    createReportArtifactBucket(result, appDefinition) {
+        result.resources.ReportArtifactBucket = {
+            Type: 'AWS::S3::Bucket',
+            Properties: {
+                BucketName:
+                    '${self:service}-${self:provider.stage}-report-artifacts',
+                BucketEncryption: {
+                    ServerSideEncryptionConfiguration: [
+                        {
+                            ServerSideEncryptionByDefault: {
+                                SSEAlgorithm: 'AES256',
+                            },
+                        },
+                    ],
+                },
+                PublicAccessBlockConfiguration: {
+                    BlockPublicAcls: true,
+                    BlockPublicPolicy: true,
+                    IgnorePublicAcls: true,
+                    RestrictPublicBuckets: true,
+                },
+            },
+        };
+
+        if (isScopedEnvironmentActive(appDefinition)) {
+            result.functionEnvironments = result.functionEnvironments || {};
+            for (const fnName of ['reportRouter', 'reportExecutor']) {
+                result.functionEnvironments[fnName] = {
+                    ...result.functionEnvironments[fnName],
+                    REPORT_ARTIFACT_BUCKET: { Ref: 'ReportArtifactBucket' },
+                };
+            }
+        } else {
+            result.environment.REPORT_ARTIFACT_BUCKET = {
+                Ref: 'ReportArtifactBucket',
+            };
+        }
+
+        // Executor writes and router reads (via presign); scope to this bucket's objects.
+        result.iamStatements.push({
+            Effect: 'Allow',
+            Action: ['s3:PutObject', 's3:GetObject'],
+            Resource: {
+                'Fn::Sub': [
+                    '${BucketArn}/*',
+                    {
+                        BucketArn: {
+                            'Fn::GetAtt': ['ReportArtifactBucket', 'Arn'],
+                        },
+                    },
+                ],
+            },
+        });
+
+        console.log('  ✓ Created ReportArtifactBucket');
+    }
+
     // Without this, the skipEsbuild functions package the whole node_modules
     // closure (aws-sdk, Prisma, dev deps) and blow past Lambda's 250 MB limit.
     // Mirrors the exclusions the framework's other node_modules handlers use.
@@ -248,13 +441,25 @@ class AdminScriptBuilder extends InfrastructureBuilder {
         };
     }
 
-    createSchedulerResources(appDefinition, result) {
-        // Constructed ARN, not Fn::GetAtt: a GetAtt edge to the executor closes a
+    createSchedulerResources(
+        appDefinition,
+        result,
+        { scriptsPresent = true, hasReports = false } = {}
+    ) {
+        // Constructed ARNs, not Fn::GetAtt: a GetAtt edge to an executor closes a
         // CloudFormation circular dependency via the shared Lambda execution role.
-        const executorArn = {
-            'Fn::Sub':
-                'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-adminScriptExecutor',
-        };
+        const fnArn = (logicalName) => ({
+            'Fn::Sub': `arn:aws:lambda:\${AWS::Region}:\${AWS::AccountId}:function:\${self:service}-\${self:provider.stage}-${logicalName}`,
+        });
+        const scriptExecutorArn = fnArn('adminScriptExecutor');
+        const reportExecutorArn = fnArn('reportExecutor');
+
+        const invokeResources = [
+            ...(scriptsPresent ? [scriptExecutorArn] : []),
+            ...(hasReports ? [reportExecutorArn] : []),
+        ];
+        const invokeResource =
+            invokeResources.length === 1 ? invokeResources[0] : invokeResources;
 
         // Create IAM role for EventBridge Scheduler
         result.resources.AdminScriptSchedulerRole = {
@@ -276,7 +481,7 @@ class AdminScriptBuilder extends InfrastructureBuilder {
                         Statement: [{
                             Effect: 'Allow',
                             Action: 'lambda:InvokeFunction',
-                            Resource: executorArn,
+                            Resource: invokeResource,
                         }],
                     },
                 }],
@@ -293,18 +498,35 @@ class AdminScriptBuilder extends InfrastructureBuilder {
 
         // Router-scoped, not shared provider env. Two reasons: broadcasting the
         // resource references to every function creates CloudFormation circular
-        // deps; and SCHEDULER_PROVIDER='aws' is only valid for the admin-script
-        // adapter (the router's sole consumer) — core's scheduler factory, used
-        // by integration Lambdas, rejects 'aws', so it must not leak app-wide.
-        result.functions.adminScriptRouter.environment = {
-            ...(result.functions.adminScriptRouter.environment || {}),
-            SCHEDULER_PROVIDER: 'aws',
-            SCHEDULER_ROLE_ARN: {
-                'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'],
-            },
-            ADMIN_SCRIPT_SCHEDULE_GROUP: { Ref: 'AdminScriptScheduleGroup' },
-            ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN: executorArn,
-        };
+        // deps; and SCHEDULER_PROVIDER='aws' is only valid for the admin-scripts
+        // adapter (the routers are its sole consumers) — core's scheduler
+        // factory, used by integration Lambdas, rejects 'aws', so it must not
+        // leak app-wide.
+        if (scriptsPresent) {
+            result.functions.adminScriptRouter.environment = {
+                ...(result.functions.adminScriptRouter.environment || {}),
+                SCHEDULER_PROVIDER: 'aws',
+                SCHEDULER_ROLE_ARN: {
+                    'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'],
+                },
+                ADMIN_SCRIPT_SCHEDULE_GROUP: { Ref: 'AdminScriptScheduleGroup' },
+                ADMIN_SCRIPT_EXECUTOR_LAMBDA_ARN: scriptExecutorArn,
+            };
+        }
+
+        // Report schedules reuse the shared role/group but must target the
+        // report executor, not the script one (REPORT_EXECUTOR_LAMBDA_ARN).
+        if (hasReports) {
+            result.functions.reportRouter.environment = {
+                ...(result.functions.reportRouter.environment || {}),
+                SCHEDULER_PROVIDER: 'aws',
+                SCHEDULER_ROLE_ARN: {
+                    'Fn::GetAtt': ['AdminScriptSchedulerRole', 'Arn'],
+                },
+                REPORT_SCHEDULE_GROUP: { Ref: 'AdminScriptScheduleGroup' },
+                REPORT_EXECUTOR_LAMBDA_ARN: reportExecutorArn,
+            };
+        }
 
         // The router manages schedules through the AWS scheduler adapter, so it
         // needs scheduler:* on this group plus iam:PassRole for the role it hands

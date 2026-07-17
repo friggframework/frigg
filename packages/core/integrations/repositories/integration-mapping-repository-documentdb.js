@@ -8,6 +8,7 @@ const {
     updateOne,
     deleteOne,
     deleteMany,
+    aggregateDrained,
 } = require('../../database/documentdb-utils');
 const {
     IntegrationMappingRepositoryInterface,
@@ -15,11 +16,33 @@ const {
 const {
     DocumentDBEncryptionService,
 } = require('../../database/documentdb-encryption-service');
+
 class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
         this.encryptionService = new DocumentDBEncryptionService();
+    }
+
+    /**
+     * integrationId is stored as a string in DocumentDB, so ids are matched as
+     * strings (an ObjectId $in would never match). Drains the grouped cursor so
+     * a deployment-wide count is not truncated at the first batch.
+     */
+    async countByIntegrationIds(ids = []) {
+        const counts = new Map();
+        if (!ids || ids.length === 0) return counts;
+
+        const stringIds = ids.map(String);
+        const rows = await aggregateDrained(this.prisma, 'IntegrationMapping', [
+            { $match: { integrationId: { $in: stringIds } } },
+            { $group: { _id: '$integrationId', count: { $sum: 1 } } },
+        ]);
+
+        for (const row of rows) {
+            counts.set(String(row?._id), row?.count ?? 0);
+        }
+        return counts;
     }
 
     async findMappingBy(integrationId, sourceId) {

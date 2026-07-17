@@ -90,6 +90,42 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
     }
 
     /**
+     * Find every integration in a report-shaped projection.
+     *
+     * type lives in config.type (a JSON path not portably groupable across
+     * DBs); it is left in the row for the caller to bucket.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.status] - Integration status
+     * @param {string} [filter.userId] - Owning user ID (ObjectId as string)
+     * @returns {Promise<Array>} Report-shaped integration rows
+     */
+    async findAllForReport({ status, userId } = {}) {
+        const where = {};
+        if (status) where.status = status;
+        if (userId !== undefined && userId !== null) where.userId = userId;
+
+        const integrations = await this.prisma.integration.findMany({
+            where,
+            include: { entities: { select: { id: true } } },
+        });
+
+        return integrations.map((integration) => ({
+            id: integration.id,
+            type: integration.config?.type ?? null,
+            status: integration.status ?? null,
+            userId: integration.userId ?? null,
+            version: integration.version ?? null,
+            errorCount: Array.isArray(integration.errors)
+                ? integration.errors.length
+                : 0,
+            moduleCount: integration.entities?.length ?? 0,
+            createdAt: integration.createdAt ?? null,
+            updatedAt: integration.updatedAt ?? null,
+        }));
+    }
+
+    /**
      * Delete integration by ID
      * Replaces: IntegrationModel.deleteOne({ _id: integrationId })
      *

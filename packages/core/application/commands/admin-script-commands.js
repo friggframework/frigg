@@ -105,7 +105,8 @@ function createAdminScriptCommands() {
                 const process = await adminScriptExecutionRepository.findExecutionById(
                     processId
                 );
-                if (!process) {
+                // Scripts and reports share one store; exclude REPORT rows so the two never read each other's executions.
+                if (!process || process.type === 'REPORT') {
                     const error = new Error(`Execution ${processId} not found`);
                     error.code = 'EXECUTION_NOT_FOUND';
                     return mapErrorToResponse(error);

@@ -217,6 +217,23 @@ function createCredentialCommands() {
         },
 
         /**
+         * Count credentials active (updatedAt >= since) grouped by integration
+         * type, derived from the related Entity.moduleName. Returns a non-secret
+         * projection only — never reads or decrypts credential secrets.
+         *
+         * @param {Object} params
+         * @param {Date} [params.since] - Lower bound on updatedAt
+         * @returns {Promise<Array<{ integrationType: string, count: number }>>}
+         */
+        async countActiveByType({ since } = {}) {
+            try {
+                return await credRepo.countActiveByType({ since });
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
          * Delete a credential by ID (alias for deleteCredential)
          * @param {string} credentialId - Credential ID to delete
          * @returns {Promise<Object>} Result object with success flag

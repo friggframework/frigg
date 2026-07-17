@@ -35,6 +35,18 @@ class AdminScriptContext {
         // Injected by bootstrap.js — the context never reaches for repositories
         // or command factories itself.
         this.commands = params.commands || null;
+
+        // Set by the executor; reports read getRemainingTimeInMillis() to yield
+        // before the Lambda timeout and self-requeue.
+        this.lambdaContext = params.lambdaContext || null;
+    }
+
+    // Infinity when there is no Lambda context (live runs, local dev, tests).
+    getRemainingTimeInMillis() {
+        return this.lambdaContext &&
+            typeof this.lambdaContext.getRemainingTimeInMillis === 'function'
+            ? this.lambdaContext.getRemainingTimeInMillis()
+            : Infinity;
     }
 
     // ==================== INTEGRATION INSTANTIATION ====================

@@ -1,11 +1,11 @@
-const Boom = require('@hapi/boom');
+const { ReportBase } = require('../report-base');
 const { CANONICAL_COUNTERS } = require('../../telemetry/canonical-counters');
+const { loadAppDefinition } = require('../../handlers/app-definition-loader');
 
 const SCHEMA_VERSION = 1;
 const SERVICE = 'frigg-core-api';
 
-// Seeded so every known status appears (even at 0); unknown values added to
-// the schema later are still counted dynamically.
+// Seeded so every known status appears in output even at count 0.
 const KNOWN_STATUSES = [
     'IN_CREATION',
     'ENABLED',
@@ -16,33 +16,37 @@ const KNOWN_STATUSES = [
     'DISABLED',
 ];
 
-class ListIntegrationsReport {
-    constructor({
-        reportingRepository,
-        usageRepository,
-        typeLabels = {},
-    } = {}) {
-        if (!reportingRepository) {
-            throw new Error('reportingRepository is required');
-        }
-        if (!usageRepository) {
-            throw new Error('usageRepository is required');
-        }
-        this.reportingRepository = reportingRepository;
-        this.usageRepository = usageRepository;
-        this.typeLabels = typeLabels;
-    }
+// IntegrationBase.Definition default — skip it so the slug is used instead.
+const PLACEHOLDER_DISPLAY_NAME = 'Integration Name';
 
-    async execute(query = {}) {
-        const { status, type, userId } = this._validateQuery(query);
+class IntegrationsReport extends ReportBase {
+    static Definition = {
+        name: 'integrations',
+        version: '1.0.0',
+        description: 'Integrations by status and type, with per-type usage counts',
+        source: 'BUILTIN',
+        runModes: ['live', 'recorded', 'snapshot'],
+        inputSchema: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+                status: { type: 'string' },
+                type: { type: 'string' },
+                userId: { type: 'string' },
+            },
+        },
+        output: { format: 'json' },
+        schedule: { enabled: false, cron: null, mode: 'snapshot' },
+        display: { category: 'reporting', icon: null },
+    };
 
-        const rows = await this.reportingRepository.findIntegrationsForReport({
-            status,
-            userId,
-        });
+    async execute(frigg, params = {}) {
+        const { status, type, userId } = this._validateQuery(params);
+        const typeLabels = buildTypeLabels();
 
-        // type lives in config.type (a JSON path not portably groupable across
-        // DBs), so it is filtered here rather than in the repository query.
+        const rows = await frigg.integrations.listForReport({ status, userId });
+
+        // type lives in config.type, a JSON path not portably groupable across DBs, so filter here not in the query.
         const filtered =
             type === undefined
                 ? rows
@@ -50,7 +54,7 @@ class ListIntegrationsReport {
 
         const ids = filtered.map((row) => row.id);
         const mappingCounts = ids.length
-            ? await this.reportingRepository.countMappingsByIntegrationIds(ids)
+            ? await frigg.integrationMappings.countByIntegrationIds(ids)
             : new Map();
 
         const integrations = filtered.map((row) => ({
@@ -76,8 +80,7 @@ class ListIntegrationsReport {
             if (!byTypeMap.has(integration.type)) {
                 byTypeMap.set(integration.type, {
                     type: integration.type,
-                    label:
-                        this.typeLabels[integration.type] || integration.type,
+                    label: typeLabels[integration.type] || integration.type,
                     total: 0,
                     byStatus: emptyStatusCounts(),
                 });
@@ -87,7 +90,7 @@ class ListIntegrationsReport {
             bucket.byStatus[statusKey] = (bucket.byStatus[statusKey] ?? 0) + 1;
         }
 
-        await this._attachUsageColumns(byTypeMap);
+        await this._attachUsageColumns(byTypeMap, frigg);
 
         return {
             schemaVersion: SCHEMA_VERSION,
@@ -102,18 +105,18 @@ class ListIntegrationsReport {
                 total: integrations.length,
                 byStatus,
                 byType: Array.from(byTypeMap.values()),
-                typeLabels: { ...this.typeLabels },
+                typeLabels: { ...typeLabels },
                 integrations,
             },
         };
     }
 
-    async _attachUsageColumns(byTypeMap) {
+    async _attachUsageColumns(byTypeMap, frigg) {
         const metrics = Object.keys(CANONICAL_COUNTERS);
         try {
             const totalsByMetric = await Promise.all(
                 metrics.map(async (metric) => {
-                    const totals = await this.usageRepository.getTotalsByDimension({
+                    const totals = await frigg.usage.getTotalsByDimension({
                         metric,
                         groupBy: 'integrationType',
                     });
@@ -146,7 +149,7 @@ class ListIntegrationsReport {
                 value !== null &&
                 typeof value !== 'string'
             ) {
-                throw Boom.badRequest(
+                throw invalidInput(
                     `Invalid query parameter '${key}': expected a string`
                 );
             }
@@ -158,7 +161,7 @@ class ListIntegrationsReport {
             userId: normalize(userId),
         };
         if (normalized.status && !KNOWN_STATUSES.includes(normalized.status)) {
-            throw Boom.badRequest(
+            throw invalidInput(
                 `Invalid status '${
                     normalized.status
                 }'. Expected one of: ${KNOWN_STATUSES.join(', ')}`
@@ -166,6 +169,13 @@ class ListIntegrationsReport {
         }
         return normalized;
     }
+}
+
+// INVALID_INPUT keeps the report protocol-agnostic; the runner/router map it to a 400.
+function invalidInput(message) {
+    const error = new Error(message);
+    error.code = 'INVALID_INPUT';
+    return error;
 }
 
 function emptyStatusCounts() {
@@ -186,4 +196,26 @@ function toIso(value) {
     return String(value);
 }
 
-module.exports = { ListIntegrationsReport, SCHEMA_VERSION };
+function buildTypeLabels() {
+    try {
+        const { integrations = [] } = loadAppDefinition();
+        const labels = {};
+        for (const IntegrationClass of integrations) {
+            const def = IntegrationClass?.Definition;
+            if (!def?.name) continue;
+            const label = def.display?.label;
+            if (label && label !== PLACEHOLDER_DISPLAY_NAME) {
+                labels[def.name] = label;
+            }
+        }
+        return labels;
+    } catch (error) {
+        console.error(
+            'Reporting: failed to load integration labels:',
+            error.message
+        );
+        return {};
+    }
+}
+
+module.exports = { IntegrationsReport, SCHEMA_VERSION };

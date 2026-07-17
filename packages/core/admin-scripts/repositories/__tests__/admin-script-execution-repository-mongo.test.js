@@ -186,6 +186,56 @@ describe('AdminScriptExecutionRepositoryMongo', () => {
                 skip: 5,
             });
         });
+
+        it('should filter by type when provided', async () => {
+            mockPrisma.adminScriptExecution.findMany.mockResolvedValue([]);
+
+            await repository.findExecutionsByName('nightly', { type: 'REPORT' });
+
+            expect(mockPrisma.adminScriptExecution.findMany).toHaveBeenCalledWith({
+                where: { name: 'nightly', type: 'REPORT' },
+                orderBy: { createdAt: 'desc' },
+                take: undefined,
+                skip: undefined,
+            });
+        });
+
+        it('should apply a createdAt window with both bounds', async () => {
+            const from = new Date('2025-01-01');
+            const to = new Date('2025-02-01');
+            mockPrisma.adminScriptExecution.findMany.mockResolvedValue([]);
+
+            await repository.findExecutionsByName('nightly', {
+                type: 'REPORT',
+                from,
+                to,
+            });
+
+            expect(mockPrisma.adminScriptExecution.findMany).toHaveBeenCalledWith({
+                where: {
+                    name: 'nightly',
+                    type: 'REPORT',
+                    createdAt: { gte: from, lte: to },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: undefined,
+                skip: undefined,
+            });
+        });
+
+        it('should include only the createdAt bound provided', async () => {
+            const from = new Date('2025-01-01');
+            mockPrisma.adminScriptExecution.findMany.mockResolvedValue([]);
+
+            await repository.findExecutionsByName('nightly', { from });
+
+            expect(mockPrisma.adminScriptExecution.findMany).toHaveBeenCalledWith({
+                where: { name: 'nightly', createdAt: { gte: from } },
+                orderBy: { createdAt: 'desc' },
+                take: undefined,
+                skip: undefined,
+            });
+        });
     });
 
     describe('findExecutionsByState()', () => {
@@ -441,6 +491,19 @@ describe('AdminScriptExecutionRepositoryMongo', () => {
             expect(result).toEqual({
                 acknowledged: true,
                 deletedCount: 0,
+            });
+        });
+
+        it('should scope the delete by type when provided', async () => {
+            const date = new Date('2024-01-01');
+            mockPrisma.adminScriptExecution.deleteMany.mockResolvedValue({
+                count: 3,
+            });
+
+            await repository.deleteExecutionsOlderThan(date, { type: 'REPORT' });
+
+            expect(mockPrisma.adminScriptExecution.deleteMany).toHaveBeenCalledWith({
+                where: { createdAt: { lt: date }, type: 'REPORT' },
             });
         });
     });
