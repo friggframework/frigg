@@ -14,7 +14,10 @@
 // call in `answer()`. When Freya lands, swap `answer()` for a Freya session and
 // keep this handler's request/response contract unchanged. Look for FREYA-SEAM.
 
-const { getStore } = require('@netlify/blobs');
+import { getStore } from '@netlify/blobs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -38,9 +41,9 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000; // per minute
 const MAX_MESSAGES = 12; // trim conversation history sent to the model
 const MAX_CHARS = 4000; // per-message input clamp
 
-function clientIp(event) {
-    const xff = event.headers['x-nf-client-connection-ip'] ||
-        event.headers['x-forwarded-for'] || '';
+function clientIp(request, context) {
+    const xff = context.ip || request.headers.get('x-nf-client-connection-ip') ||
+        request.headers.get('x-forwarded-for') || '';
     return (xff.split(',')[0] || 'unknown').trim();
 }
 
@@ -268,22 +271,20 @@ const OFFLINE_REPLY =
     "https://github.com/friggframework/frigg, and the roadmap and API directory " +
     "are at /roadmap/ on this site.";
 
-exports.handler = async function (event) {
-    if (event.httpMethod === 'OPTIONS') {
-        return { statusCode: 200, headers: CORS_HEADERS };
+export default async function (request, context) {
+    if (request.method === 'OPTIONS') {
+        return new Response(null, { status: 200, headers: CORS_HEADERS });
     }
-    if (event.httpMethod !== 'POST') {
-        return {
-            statusCode: 405,
-            headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
-            body: JSON.stringify({ error: 'method not allowed' }),
-        };
+    if (request.method !== 'POST') {
+        return Response.json(
+            { error: 'method not allowed' },
+            { status: 405, headers: CORS_HEADERS },
+        );
     }
 
-    const json = (status, obj) => ({
-        statusCode: status,
-        headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
-        body: JSON.stringify(obj),
+    const json = (status, obj) => Response.json(obj, {
+        status,
+        headers: CORS_HEADERS,
     });
 
     // No gateway configured -> degrade gracefully, don't 500.
@@ -293,7 +294,7 @@ exports.handler = async function (event) {
 
     let payload;
     try {
-        payload = JSON.parse(event.body || '{}');
+        payload = await request.json();
     } catch (e) {
         return json(400, { error: 'invalid JSON' });
     }
@@ -303,7 +304,7 @@ exports.handler = async function (event) {
         return json(400, { error: 'expected a non-empty messages array ending with a user turn' });
     }
 
-    const rate = await checkRateLimit(clientIp(event));
+    const rate = await checkRateLimit(clientIp(request, context));
     if (!rate.ok) {
         return json(429, {
             reply: "You're going a little fast for me. Give it a few seconds and try again.",
@@ -319,4 +320,4 @@ exports.handler = async function (event) {
         console.log('assistant error:', e && e.message ? e.message : e);
         return json(200, { reply: OFFLINE_REPLY, offline: true });
     }
-};
+}
