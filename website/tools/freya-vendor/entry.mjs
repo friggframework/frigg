@@ -28,6 +28,63 @@ import {
 const AGENT_ID = 'frigg-web';
 const TRANSPORT = 'netlify-web';
 
+// Frigg-domain ontology. Rendered into the system prompt each turn as a typed
+// domain model, so the agent reasons in Frigg's real vocabulary (and its enum
+// values line up with the search tools' category/status/complexity args). This is
+// prompt-only grounding today; when the site gets a durable memory store, the same
+// typed entities make Freya's memory capture meaningful (a returning visitor's
+// stack/interests become typed, queryable memories).
+const FRIGG_ONTOLOGY = {
+    name: 'frigg',
+    scope: 'domain',
+    entities: {
+        Platform: {
+            description: 'A third-party software product Frigg integrates with (e.g. HubSpot, Salesforce, Attio).',
+            properties: ['name', 'vendor'],
+        },
+        ApiModule: {
+            description:
+                'A prebuilt Frigg connector for a platform API, installed with `frigg install <name>` and drawn from the api-module-library.',
+            properties: ['name', 'provider', 'authType'],
+            category: [
+                'ai', 'analytics', 'commerce', 'communication', 'crm', 'devtools',
+                'finance', 'hr', 'marketing', 'other', 'productivity', 'storage', 'support',
+            ],
+            complexity: ['Low', 'Medium', 'High'],
+            status: ['Active', 'Beta', 'Planned'],
+            belongs_to: 'Platform',
+        },
+        Integration: {
+            description:
+                'A running integration a developer builds by extending IntegrationBase, wiring API modules to events (USER_ACTION, CRON, QUEUE, WEBHOOK).',
+            properties: ['name', 'useCase'],
+            connects: ['ApiModule', 'Primitive'],
+        },
+        Primitive: {
+            description:
+                'A Frigg building block exposed to developers and their agents: an Endpoint, a Queue, a Provider-native backend, or a Fenestra in-app UI experience.',
+            properties: ['name'],
+            kind: ['Endpoint', 'Queue', 'ProviderNative', 'Fenestra'],
+        },
+        Capability: {
+            description:
+                'A typed declaration of what a module or integration can do, pointing at a spec and its implementation (the mcp-tool / agent-tooling surface).',
+            properties: ['name', 'spec'],
+            belongs_to: 'ApiModule',
+        },
+        Adr: {
+            description:
+                'A Frigg architecture decision record shaping the roadmap, tracked on the "next" branch and surfaced at /roadmap/.',
+            properties: ['num', 'title', 'theme'],
+            status: ['Accepted', 'Proposed', 'Superseded', 'Draft'],
+        },
+        Visitor: {
+            description: 'A person chatting with the assistant on the site.',
+            properties: ['name', 'stack', 'interest'],
+        },
+    },
+};
+
 // Retrieval data for the current request, set at the top of each runTurn call.
 // A warm Netlify instance handles one request at a time, so a module-level holder
 // is safe; the tool executor reads whatever the latest turn supplied.
@@ -187,12 +244,8 @@ function getRuntime() {
         toolExecutor: new RoadmapTools(),
         memory: new InMemoryMemoryRepository(),
         ontologyRepo: (() => {
-            // Empty ontology: memory auto-capture becomes a no-op, so a turn stays a
-            // single Anthropic call plus any tool iterations.
             const repo = new InMemoryOntologyRepository();
-            repo.addLayer(
-                parseOntologyYaml('universal', { name: 'universal', scope: 'universal', entities: {} }),
-            );
+            repo.addLayer(parseOntologyYaml('frigg', FRIGG_ONTOLOGY));
             return repo;
         })(),
         sessions: sessionsRepo,
@@ -209,7 +262,7 @@ async function ensureAgent(rt, systemPrompt, model) {
             name: 'Freya',
             type: 'shared',
             systemPrompt,
-            ontologyScopes: ['universal'],
+            ontologyScopes: ['frigg'],
             memoryNamespaces: ['default'],
             toolScopes: ['roadmap'],
             routines: [],

@@ -2468,6 +2468,62 @@ function parseOntologyYaml(id, raw) {
 // website/tools/freya-vendor/entry.mjs
 var AGENT_ID = "frigg-web";
 var TRANSPORT = "netlify-web";
+var FRIGG_ONTOLOGY = {
+  name: "frigg",
+  scope: "domain",
+  entities: {
+    Platform: {
+      description: "A third-party software product Frigg integrates with (e.g. HubSpot, Salesforce, Attio).",
+      properties: ["name", "vendor"]
+    },
+    ApiModule: {
+      description: "A prebuilt Frigg connector for a platform API, installed with `frigg install <name>` and drawn from the api-module-library.",
+      properties: ["name", "provider", "authType"],
+      category: [
+        "ai",
+        "analytics",
+        "commerce",
+        "communication",
+        "crm",
+        "devtools",
+        "finance",
+        "hr",
+        "marketing",
+        "other",
+        "productivity",
+        "storage",
+        "support"
+      ],
+      complexity: ["Low", "Medium", "High"],
+      status: ["Active", "Beta", "Planned"],
+      belongs_to: "Platform"
+    },
+    Integration: {
+      description: "A running integration a developer builds by extending IntegrationBase, wiring API modules to events (USER_ACTION, CRON, QUEUE, WEBHOOK).",
+      properties: ["name", "useCase"],
+      connects: ["ApiModule", "Primitive"]
+    },
+    Primitive: {
+      description: "A Frigg building block exposed to developers and their agents: an Endpoint, a Queue, a Provider-native backend, or a Fenestra in-app UI experience.",
+      properties: ["name"],
+      kind: ["Endpoint", "Queue", "ProviderNative", "Fenestra"]
+    },
+    Capability: {
+      description: "A typed declaration of what a module or integration can do, pointing at a spec and its implementation (the mcp-tool / agent-tooling surface).",
+      properties: ["name", "spec"],
+      belongs_to: "ApiModule"
+    },
+    Adr: {
+      description: 'A Frigg architecture decision record shaping the roadmap, tracked on the "next" branch and surfaced at /roadmap/.',
+      properties: ["num", "title", "theme"],
+      status: ["Accepted", "Proposed", "Superseded", "Draft"]
+    },
+    Visitor: {
+      description: "A person chatting with the assistant on the site.",
+      properties: ["name", "stack", "interest"]
+    }
+  }
+};
 var activeData = { adrs: [], apis: [], categories: [], builtCount: 0 };
 var s = (v) => typeof v === "string" ? v.toLowerCase() : "";
 var matches = (hay, q) => !q || s(hay).includes(s(q));
@@ -2597,9 +2653,7 @@ function getRuntime() {
     memory: new InMemoryMemoryRepository(),
     ontologyRepo: (() => {
       const repo = new InMemoryOntologyRepository();
-      repo.addLayer(
-        parseOntologyYaml("universal", { name: "universal", scope: "universal", entities: {} })
-      );
+      repo.addLayer(parseOntologyYaml("frigg", FRIGG_ONTOLOGY));
       return repo;
     })(),
     sessions: sessionsRepo,
@@ -2615,7 +2669,7 @@ async function ensureAgent(rt, systemPrompt, model) {
       name: "Freya",
       type: "shared",
       systemPrompt,
-      ontologyScopes: ["universal"],
+      ontologyScopes: ["frigg"],
       memoryNamespaces: ["default"],
       toolScopes: ["roadmap"],
       routines: [],

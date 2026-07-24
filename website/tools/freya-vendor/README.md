@@ -41,8 +41,13 @@ Freya version should move.
   and the Postgres adapters out of the bundle. The only optional deps left
   external — `@huggingface/transformers`, `pg`, `onnxruntime-node`, `sharp` — are
   reached only through lazy `import()`s that this assistant never triggers.
-- **Empty ontology.** With no ontology entities, Freya's post-turn memory capture
-  is a no-op, so a turn stays a single Anthropic call plus any tool iterations.
+- **Frigg-domain ontology.** `entry.mjs` defines a small typed ontology (Platform,
+  ApiModule, Integration, Primitive, Capability, Adr, Visitor) that Freya renders
+  into the system prompt each turn, so the agent reasons in Frigg's vocabulary.
+  It's prompt-only grounding today; with the in-memory (ephemeral) store, post-turn
+  memory capture is deterministic and effectively discarded on cold start. When the
+  site gets a durable memory store (Freya's Supabase/Postgres adapters), the same
+  typed entities make capture meaningful.
 - **Stateless per request.** In-memory repos reset on cold start; the widget sends
   full history each call, so `runTurn` seeds a fresh session from that history and
   runs the final user turn against it.
