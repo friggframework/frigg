@@ -17,18 +17,18 @@
 
         :root{
             --paper:#f4f6f1;--surface:#fff;--surface-2:#ecefe7;--ink:#14201b;--ink-soft:#3c4b44;--mist:#69796f;
-            --line:#dbe1d6;--line-strong:#c6cfc0;--falcon:#2f8f68;--falcon-ink:#1f6b4d;--dawn:#e0530a;
-            --glow:rgba(47,143,104,0.14);--shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.28);
+            --line:#dbe1d6;--line-strong:#c6cfc0;--falcon:#71a087;--falcon-ink:#2c704f;--dawn:#e0530a;
+            --glow:rgba(113,160,135,0.14);--shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.28);
             --chip:#fff;--chip-line:#e3e8dd;--code-bg:#10201a;--code-ink:#dfeee7;color-scheme:light;
         }
         @media (prefers-color-scheme: dark){:root{
             --paper:#0c1310;--surface:#111b16;--surface-2:#16221c;--ink:#e8f1ea;--ink-soft:#b7c6bd;--mist:#7d8f84;
-            --line:#20302a;--line-strong:#2b3d35;--falcon:#57c39a;--falcon-ink:#8bd8b8;--dawn:#ff6a1a;
-            --glow:rgba(87,195,154,0.16);--shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);
+            --line:#20302a;--line-strong:#2b3d35;--falcon:#84b39b;--falcon-ink:#a9d1bc;--dawn:#ff6a1a;
+            --glow:rgba(132,179,155,0.16);--shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);
             --chip:#16221c;--chip-line:#243530;--code-bg:#0a1310;--code-ink:#d7e8df;color-scheme:dark;
         }}
-        :root[data-theme="light"]{--paper:#f4f6f1;--surface:#fff;--surface-2:#ecefe7;--ink:#14201b;--ink-soft:#3c4b44;--mist:#69796f;--line:#dbe1d6;--line-strong:#c6cfc0;--falcon:#2f8f68;--falcon-ink:#1f6b4d;--dawn:#e0530a;--glow:rgba(47,143,104,0.14);--shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.28);--chip:#fff;--chip-line:#e3e8dd;--code-bg:#10201a;--code-ink:#dfeee7;color-scheme:light;}
-        :root[data-theme="dark"]{--paper:#0c1310;--surface:#111b16;--surface-2:#16221c;--ink:#e8f1ea;--ink-soft:#b7c6bd;--mist:#7d8f84;--line:#20302a;--line-strong:#2b3d35;--falcon:#57c39a;--falcon-ink:#8bd8b8;--dawn:#ff6a1a;--glow:rgba(87,195,154,0.16);--shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);--chip:#16221c;--chip-line:#243530;--code-bg:#0a1310;--code-ink:#d7e8df;color-scheme:dark;}
+        :root[data-theme="light"]{--paper:#f4f6f1;--surface:#fff;--surface-2:#ecefe7;--ink:#14201b;--ink-soft:#3c4b44;--mist:#69796f;--line:#dbe1d6;--line-strong:#c6cfc0;--falcon:#71a087;--falcon-ink:#2c704f;--dawn:#e0530a;--glow:rgba(113,160,135,0.14);--shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.28);--chip:#fff;--chip-line:#e3e8dd;--code-bg:#10201a;--code-ink:#dfeee7;color-scheme:light;}
+        :root[data-theme="dark"]{--paper:#0c1310;--surface:#111b16;--surface-2:#16221c;--ink:#e8f1ea;--ink-soft:#b7c6bd;--mist:#7d8f84;--line:#20302a;--line-strong:#2b3d35;--falcon:#84b39b;--falcon-ink:#a9d1bc;--dawn:#ff6a1a;--glow:rgba(132,179,155,0.16);--shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);--chip:#16221c;--chip-line:#243530;--code-bg:#0a1310;--code-ink:#d7e8df;color-scheme:dark;}
         :root{--navy:#1f2a44;--lh-orange:#ff5e00;}
 
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -440,12 +440,12 @@
          Gateway function; degrades gracefully when offline. -->
     <button class="fa-launch" id="faLaunch" aria-haspopup="dialog" aria-controls="faPanel">
         <svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22M4.9 4.9l2.3 2.3M16.8 16.8l2.3 2.3M19.1 4.9l-2.3 2.3M7.2 16.8l-2.3 2.3"/></svg>
-        Ask Frigg
+        Ask Freya
     </button>
-    <section class="fa-panel" id="faPanel" role="dialog" aria-modal="false" aria-label="Frigg assistant" aria-hidden="true">
+    <section class="fa-panel" id="faPanel" role="dialog" aria-modal="false" aria-label="Freya assistant" aria-hidden="true">
         <header class="fa-head">
             <span class="fa-avatar" aria-hidden="true"><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22M4.9 4.9l2.3 2.3M16.8 16.8l2.3 2.3M19.1 4.9l-2.3 2.3M7.2 16.8l-2.3 2.3"/></svg></span>
-            <span class="fa-title"><b>Ask Frigg</b><span>Framework, integrations, roadmap</span></span>
+            <span class="fa-title"><b>Ask Freya</b><span>Framework, integrations, roadmap</span></span>
             <button class="fa-close" id="faClose" aria-label="Close assistant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </header>
         <div class="fa-log" id="faLog" aria-live="polite"></div>
@@ -504,7 +504,7 @@
         }
         function greet(){
             if (greeted) return; greeted = true;
-            addMsg('bot', "Hi. I'm the Frigg assistant. Ask me about the roadmap, which API modules exist, or how any of this fits together.");
+            addMsg('bot', "Hi, I'm Freya — Frigg's assistant. Ask me about the roadmap, which API modules exist, or how any of this fits together.");
             addChips();
         }
         function open(){ panel.classList.add('open'); panel.setAttribute('aria-hidden','false'); launch.hidden=true; greet(); setTimeout(function(){ input.focus(); }, 60); }
