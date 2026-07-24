@@ -2,6 +2,7 @@
   "name": "friggframework.org",
   "version": "1.0.0",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
     "@netlify/blobs": "^8.1.0",
     "node-fetch": "^2.6.7",
     "dotenv": "^16.0.1"
