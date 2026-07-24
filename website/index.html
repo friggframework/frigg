@@ -14,8 +14,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Frigg — integrations, woven by agents. Owned by you.</title>
-    <meta name="description" content="Frigg is the open-source, serverless integration framework where an agent scaffolds a production integration in an afternoon — and every integration it builds is also an MCP tool your agents can call. Your cloud. Your pipes. No lock-in.">
+    <title>Frigg: integrations woven by agents, owned by you</title>
+    <meta name="description" content="Frigg is the open-source, serverless integration framework. An agent scaffolds a production integration in an afternoon, and every integration it builds is also an MCP tool your agents can call. Your cloud, your pipes, no lock-in.">
     <link rel="shortcut icon" href="assets/img/frigg-favicon.svg" type="image/svg+xml">
 
     <!-- Set theme before paint to avoid a flash -->
@@ -234,6 +234,25 @@
         @media (max-width:900px){.rail{grid-template-columns:repeat(2,1fr)}.step:not(:last-child)::after{display:none}}
         @media (max-width:520px){.rail{grid-template-columns:1fr}}
 
+        /* ---------- Primitives ---------- */
+        .prims{display:grid;grid-template-columns:repeat(2,1fr);gap:1.1rem;margin-top:2.4rem}
+        @media (max-width:760px){.prims{grid-template-columns:1fr}}
+        .prim{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:1.5rem 1.5rem 1.55rem;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:.5rem;transition:transform .3s,border-color .3s}
+        .prim:hover{transform:translateY(-3px);border-color:var(--line-strong)}
+        .prim .tag{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--falcon-ink)}
+        .prim h4{font-size:1.22rem;margin:.1rem 0}
+        .prim p{color:var(--ink-soft);font-size:.97rem;flex:1}
+        .prim .ann{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--code-ink);background:var(--code-bg);border:1px solid var(--line-strong);border-radius:9px;padding:.55rem .7rem;overflow-x:auto;white-space:nowrap;margin-top:.3rem}
+        .prim .ann .c{color:var(--falcon)}
+        .prim .ann .o{color:var(--dawn)}
+        .specs{margin-top:2.1rem;border-top:1px dashed var(--line-strong);padding-top:1.8rem;text-align:center}
+        .specs-label{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mist)}
+        .specs-row{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;margin-top:1rem}
+        .specs-row span{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--ink-soft);border:1px solid var(--line);border-radius:999px;padding:.35rem .85rem;background:var(--surface)}
+        .specs-row span.new{border-color:var(--lh-orange);color:var(--ink)}
+        .specs-row span.new i{font-style:normal;color:var(--lh-orange);font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;margin-left:.35rem}
+        .specs-note{color:var(--mist);font-size:.86rem;margin-top:1.1rem;max-width:62ch;margin-inline:auto}
+
         /* ---------- Use cases ---------- */
         .uses{display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem;margin-top:2.6rem}
         @media (max-width:820px){.uses{grid-template-columns:1fr}}
@@ -336,7 +355,7 @@
     <!-- ============ HEADER ============ -->
     <header id="hdr">
         <div class="wrap bar">
-            <a class="brand" href="/" aria-label="Frigg by Left Hook — home">
+            <a class="brand" href="/" aria-label="Frigg by Left Hook, home">
                 <span class="mk">
                     <img src="assets/img/frigg-favicon.svg" alt="" width="26" height="31">
                 </span>
@@ -349,9 +368,9 @@
                 <span class="lh-word">Left&nbsp;Hook</span>
             </a>
             <nav class="top" aria-label="Primary">
+                <a class="navlink" href="#primitives">Primitives</a>
                 <a class="navlink" href="#shift">The&nbsp;shift</a>
                 <a class="navlink" href="#uses">Uses</a>
-                <a class="navlink" href="#adopt">Adopt</a>
                 <a class="navlink" href="#commercial">Commercial</a>
                 <a class="btn hide-mobile" href="https://docs.friggframework.org" target="_blank" rel="noopener">Docs</a>
                 <a class="btn primary" href="#join">Join<span class="cta-more">&nbsp;the community</span></a>
@@ -376,7 +395,7 @@
             <div class="hero-copy">
                 <span class="eyebrow">Open source · serverless · yours</span>
                 <h1>Integrations,<br><span class="thread">woven by agents.</span><br><span class="own">Owned by you.</span></h1>
-                <p class="lede">Frigg is the open-source, serverless framework where an agent scaffolds a real, tested integration in an afternoon — and every integration it builds is also an MCP tool your own agents can call.</p>
+                <p class="lede">Frigg is the open-source, serverless framework where an agent scaffolds a real, tested integration in an afternoon. Every integration it builds is also an MCP tool your own agents can call.</p>
                 <div class="hero-cta">
                     <a class="btn primary" href="#build">See how it ships
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -399,7 +418,7 @@
                 <div class="term" role="img" aria-label="Terminal showing an agent scaffolding a Frigg integration">
                     <div class="term-head">
                         <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-                        <span class="tt">frigg — agent session</span>
+                        <span class="tt">frigg · agent session</span>
                     </div>
                     <div class="term-body" id="term"></div>
                 </div>
@@ -416,11 +435,55 @@
                     <div class="stat"><b>70</b><span>Platforms</span></div>
                     <div class="stat"><b>1</b><span>Framework</span></div>
                 </div>
-                <p class="mono" style="color:var(--mist);font-size:.82rem;max-width:34ch">The connectors the community has already charted — drop one in with a single <span style="color:var(--falcon-ink)">frigg&nbsp;install</span>.</p>
+                <p class="mono" style="color:var(--mist);font-size:.82rem;max-width:34ch">The connectors the community has already charted. Drop one in with a single <span style="color:var(--falcon-ink)">frigg&nbsp;install</span>.</p>
             </div>
             <div class="marquee" aria-hidden="true">
                 <div class="track" id="track1"></div>
                 <div class="track two" id="track2"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ PRIMITIVES ============ -->
+    <section class="band" id="primitives">
+        <div class="wrap">
+            <div class="sec-head reveal">
+                <span class="eyebrow">A strong opinion</span>
+                <h2>An integration is more than moving data.</h2>
+                <p>Sometimes moving data is the whole job. Sometimes it's none of it. An integration might be an endpoint you expose, a queue you drain, a bit of provider-specific code, or a screen your user actually sees. Frigg treats those as first-class primitives, so you (and your agents) can reach for whatever the job needs.</p>
+            </div>
+            <div class="prims">
+                <div class="prim reveal">
+                    <span class="tag">Endpoint</span>
+                    <h4>Need an ad hoc endpoint?</h4>
+                    <p>Give it a path and you have a route. No side project, no separate service to stand up.</p>
+                    <div class="ann"><span class="c">router</span>.get(<span class="o">'/webhooks/acme'</span>, handler)</div>
+                </div>
+                <div class="prim reveal">
+                    <span class="tag">Queue</span>
+                    <h4>Need a queue?</h4>
+                    <p>A quick annotation, and the background worker plus the infrastructure behind it come with it.</p>
+                    <div class="ann">events: { PROCESS_BATCH: { type: <span class="o">'QUEUE'</span> } }</div>
+                </div>
+                <div class="prim reveal">
+                    <span class="tag">Provider-native</span>
+                    <h4>Building inside a provider's world?</h4>
+                    <p>Attio, HubSpot, Zapier, Zendesk, Salesforce, and the rest. Frigg runs happily as the backend behind them, and the modules ship with helpers so your platform-specific code is built right.</p>
+                    <div class="ann"><span class="c">this</span>.hubspot.helpers.card(<span class="o">spec</span>)</div>
+                </div>
+                <div class="prim reveal">
+                    <span class="tag">In-app UI · Fenestra</span>
+                    <h4>Need a screen your users see?</h4>
+                    <p>Describe the in-app experience in a spec instead of hand-rolling it. Fenestra is the piece we're adding for integration UI, and it gets easier with every extension we ship.</p>
+                    <div class="ann">fenestra: { view: <span class="o">'settings'</span>, schema }</div>
+                </div>
+            </div>
+            <div class="specs reveal">
+                <span class="specs-label">Speaks the specs your tools already know</span>
+                <div class="specs-row">
+                    <span>OpenAPI</span><span>AsyncAPI</span><span>Arazzo</span><span>Overlays</span><span>JSON&nbsp;Schema</span><span>MCP</span><span class="new">Fenestra <i>new</i></span>
+                </div>
+                <p class="specs-note">Fenestra is an emerging spec we're introducing for in-app integration UI. It sits alongside the standards, it doesn't try to replace any of them.</p>
             </div>
         </div>
     </section>
@@ -430,15 +493,15 @@
         <div class="wrap">
             <div class="sec-head reveal">
                 <span class="eyebrow">What changed</span>
-                <h2>The integration backlog was a people problem. Now it's an agent's job.</h2>
-                <p>Frigg was always about not rebuilding the wheel. The wheel now builds itself — and the same structure that lets an agent build an integration lets your agents <em>use</em> it.</p>
+                <h2>Building the integration is now the agent's job. Deciding which to build is still yours.</h2>
+                <p>Frigg has always been about not rebuilding the wheel for every integration. With an agent doing the wiring, the work moves to the parts that need judgment: what to connect, what to skip, and what the integration should actually do. The same structure that lets an agent build an integration also lets your agents use it.</p>
             </div>
 
             <div class="shift">
                 <article class="block reveal">
                     <span class="tag">Agents build it</span>
                     <h3>Point an agent at two systems. Get a tested integration.</h3>
-                    <p>Not boilerplate you copy. <span class="code-inline">frigg init</span>, then the agent harness grounds the model in your app's own conventions, queries the capabilities that already exist, scaffolds from templates, and validates its plan before it writes a line. You finish the last mile — mapping and business logic — instead of starting from a blank file.</p>
+                    <p>Not boilerplate you copy. Run <span class="code-inline">frigg init</span>, then the agent harness grounds the model in your app's own conventions, queries the capabilities that already exist, scaffolds from templates, and validates its plan before it writes a line. You finish the last mile (mapping and business logic) instead of starting from a blank file.</p>
                 </article>
 
                 <article class="block reveal">
@@ -451,7 +514,7 @@
                     <div>
                         <span class="tag">Integrations as MCP tools</span>
                         <h3>Every integration is also a tool your agents can call.</h3>
-                        <p>Frigg describes what each integration does as typed <b>capabilities</b> — <span class="code-inline">crm.contact.sync</span>, <span class="code-inline">notifications.slack.send</span>. Flip the <span class="code-inline">mcp-tool</span> surface on and your agents call those integrations directly, right alongside raw MCP tools that are plain API requests. One capability graph, exposed to humans over <span class="code-inline">GET /api/capabilities</span> and to agents as tools.</p>
+                        <p>Frigg describes what each integration does as typed <b>capabilities</b> like <span class="code-inline">crm.contact.sync</span> and <span class="code-inline">notifications.slack.send</span>. Flip the <span class="code-inline">mcp-tool</span> surface on and your agents call those integrations directly, right alongside raw MCP tools that are plain API requests. One capability graph, exposed to humans over <span class="code-inline">GET /api/capabilities</span> and to agents as tools.</p>
                     </div>
                     <div class="cap" aria-hidden="true">
                         <div><span class="k">capability</span> <span class="n">crm.contact.sync</span><span class="pill">mcp-tool</span></div>
@@ -466,13 +529,13 @@
                 <article class="block reveal">
                     <span class="tag">Wisdom of the crowd</span>
                     <h3>Inherit what everyone already learned about the API.</h3>
-                    <p>Auth flows, pagination quirks, webhook signatures, the rate-limit that isn't in the docs — every API the community charts becomes a module anyone can install. You start from hard-won knowledge instead of re-reading the same reference page a hundred developers read before you.</p>
+                    <p>Auth flows, pagination quirks, webhook signatures, the rate limit that isn't in the docs. Every API the community charts becomes a module anyone can install, so you start from what other people already worked out instead of re-reading the same reference page a hundred developers read before you.</p>
                 </article>
 
                 <article class="block reveal">
                     <span class="tag">Infra writes itself</span>
                     <h3>Define the integrations. The infrastructure generates itself.</h3>
-                    <p>Frigg is infrastructure-as-code: the app definition self-scaffolds the resources it needs — queues, functions, VPC-private networking, field-level encryption with your own KMS keys, OAuth2 wiring — as the integrations demand them. You describe <em>what</em> you want to integrate; the cloud footprint is generated from that, so you're never hand-writing the same infra decisions twice.</p>
+                    <p>Frigg is infrastructure-as-code. The app definition self-scaffolds the resources it needs (queues, functions, VPC-private networking, field-level encryption with your own KMS keys, OAuth2 wiring) as the integrations call for them. You describe <em>what</em> you want to integrate, and the cloud footprint is generated from that, so you're never hand-writing the same infra decisions twice.</p>
                 </article>
             </div>
         </div>
@@ -490,17 +553,17 @@
                 <div class="step reveal">
                     <div class="num">scaffold<span class="clock">00:00</span></div>
                     <h4>Initialize the app</h4>
-                    <p><code>frigg init</code> lays down the serverless app structure — handlers, infra-as-code, and the definition your integrations plug into.</p>
+                    <p><code>frigg init</code> lays down the serverless app structure: handlers, infra-as-code, and the definition your integrations plug into.</p>
                 </div>
                 <div class="step reveal">
                     <div class="num">install<span class="clock">00:05</span></div>
                     <h4>Drop in a module</h4>
-                    <p><code>frigg install hubspot</code> pulls a charted API module — auth, endpoints, and webhooks already mapped by the community.</p>
+                    <p><code>frigg install hubspot</code> pulls a charted API module, with auth, endpoints, and webhooks already mapped by the community.</p>
                 </div>
                 <div class="step reveal">
                     <div class="num">weave<span class="clock">00:30</span></div>
                     <h4>Let the agent wire it</h4>
-                    <p>The agent queries capabilities, copies a template, scaffolds tests, and validates its plan — you review and fill in the business logic.</p>
+                    <p>The agent queries capabilities, copies a template, scaffolds tests, and validates its plan. You review and fill in the business logic.</p>
                 </div>
                 <div class="step reveal">
                     <div class="num">deploy<span class="clock">~few hrs</span></div>
@@ -517,25 +580,25 @@
             <div class="sec-head reveal">
                 <span class="eyebrow">However you run it</span>
                 <h2>Frigg doesn't care what you point it at.</h2>
-                <p>It's a framework for moving data between systems on infrastructure you own — the use case is yours to pick. Here's where adopters have actually taken it.</p>
+                <p>It runs on infrastructure you own and stays out of your way about what you build on it. The use case is yours to pick. Here's where adopters have actually taken it.</p>
             </div>
             <div class="uses">
                 <div class="use reveal">
                     <span class="who">Most adopters</span>
                     <h4>Product integrations for your customers</h4>
-                    <p>Native, in-product integrations your end users authorize themselves — the CRM sync, the storage connector, the webhook that keeps two SaaS tools in step.</p>
+                    <p>Native, in-product integrations your end users authorize themselves. The CRM sync, the storage connector, the webhook that keeps two SaaS tools in step.</p>
                     <div class="scale">// productized · multi-tenant</div>
                 </div>
                 <div class="use reveal">
                     <span class="who">Some adopters</span>
                     <h4>Internal business-process automation</h4>
-                    <p>The plumbing behind your own operations — moving records between the tools your team already runs, on a schedule or a trigger, without a per-task automation bill.</p>
+                    <p>The plumbing behind your own operations. Moving records between the tools your team already runs, on a schedule or a trigger, without a per-task automation bill.</p>
                     <div class="scale">// internal · back-office</div>
                 </div>
                 <div class="use reveal">
                     <span class="who">Our founder</span>
                     <h4>Home lab &amp; personal automation</h4>
-                    <p>Frigg runs the same way for a weekend home-lab project as it does in production — self and home automations, personal dashboards, whatever you want wired together.</p>
+                    <p>Frigg runs the same way for a weekend home-lab project as it does in production. Self and home automation, personal dashboards, whatever you feel like wiring together.</p>
                     <div class="scale">// homelab · personal</div>
                 </div>
             </div>
@@ -554,9 +617,9 @@
                 <div class="adopt reveal">
                     <ul>
                         <li><span class="ck" aria-hidden="true">✚</span><span><b>Start on one integration.</b> No rip-and-replace. Prove it on the connector your customers are asking for right now.</span></li>
-                        <li><span class="ck" aria-hidden="true">✚</span><span><b>It's a library, not a lock-in.</b> Frigg drops into an existing Node.js backend and reads like code you'd have written — open source under MIT, every line auditable.</span></li>
+                        <li><span class="ck" aria-hidden="true">✚</span><span><b>It's a library, not a lock-in.</b> Frigg drops into an existing Node.js backend and reads like code you'd have written. Open source under MIT, every line auditable.</span></li>
                         <li><span class="ck" aria-hidden="true">✚</span><span><b>Bring your own cloud.</b> Deploy to the AWS account you already have. No new vendor bill, no data leaving your perimeter.</span></li>
-                        <li><span class="ck" aria-hidden="true">✚</span><span><b>Charted or custom.</b> Install a community module, or let an agent chart a brand-new API — either way you keep the module.</span></li>
+                        <li><span class="ck" aria-hidden="true">✚</span><span><b>Charted or custom.</b> Install a community module, or let an agent chart a brand-new API. Either way you keep the module.</span></li>
                         <li><span class="ck" aria-hidden="true">✚</span><span><b>No seat math.</b> Pricing isn't per-connection or per-seat; it's whatever your own serverless compute costs, which is close to nothing until traffic shows up.</span></li>
                     </ul>
                 </div>
@@ -599,7 +662,7 @@
                 <div>
                     <span class="eyebrow">Open core</span>
                     <h2>Free and MIT-licensed. Commercial when you want a hand.</h2>
-                    <p>The framework is open source — use it, fork it, ship it, forever. Left Hook, the team that builds Frigg, also offers a commercial license for teams who want more than the community can give.</p>
+                    <p>The framework is open source. Use it, fork it, ship it, forever. Left Hook (the team that builds Frigg) also offers a commercial license for teams who want more than the community can give.</p>
                     <ul>
                         <li><span class="d">→</span> Commercial support and maintenance, with SLAs</li>
                         <li><span class="d">→</span> Premium, heavy-duty connectors, plugins &amp; extensions</li>
@@ -617,7 +680,7 @@
                     <a class="btn orange" href="https://lefthook.com" target="_blank" rel="noopener">Talk to Left Hook
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                     </a>
-                    <p style="color:var(--navy-mist);font-size:.85rem;margin:0">The team that builds Frigg — and builds integrations for a living.</p>
+                    <p style="color:var(--navy-mist);font-size:.85rem;margin:0">The team that builds Frigg, and builds integrations for a living.</p>
                 </div>
             </div>
         </div>
@@ -629,7 +692,7 @@
             <div class="reveal">
                 <span class="eyebrow">Community</span>
                 <h2 style="font-size:clamp(1.9rem,3.5vw,2.7rem);margin-top:.6rem">Build in the open, with people who ship integrations for a living.</h2>
-                <p style="color:var(--ink-soft);margin-top:1rem;font-size:1.06rem;max-width:46ch">Join the Frigg Slack Connect channel for help, war stories, and early looks at the agent tooling — or jump straight into GitHub Discussions.</p>
+                <p style="color:var(--ink-soft);margin-top:1rem;font-size:1.06rem;max-width:46ch">Join the Frigg Slack Connect channel for help, war stories, and early looks at the agent tooling. Or jump straight into GitHub Discussions.</p>
                 <p style="margin-top:1.4rem">
                     <a class="btn" href="https://github.com/friggframework/frigg/discussions" target="_blank" rel="noopener">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -669,7 +732,7 @@
                     <path d="M32.3187 22.0997C33.3025 23.6013 36.4764 27.7498 38.2986 29.8381C40.4073 32.2548 44.7387 34.5508 48.8992 34.3091L30.4588 7.91448C29.7393 7.03509 29.0997 6.16505 28.2683 5.33133C25.2663 2.32084 21.2144 0.47474 16.7558 0.47474C7.50183 0.47474 0 8.42753 0 18.2378C0 28.048 7.50183 36.0008 16.7558 36.0008H32.2008C22.5113 31.1672 20.0331 28.2892 14.3051 23.5546C14.8367 26.6104 14.8181 28.3881 16.7558 30.2611C9.68873 28.9319 6.32617 25.9714 6.32617 18.2378C6.32617 10.5042 12.1248 6.33269 18.2006 7.29592C23.7776 8.18009 31.0468 20.2813 32.3187 22.0997Z" fill="currentColor"/>
                     <path d="M46.4796 13.9011C45.4959 12.3995 42.3219 8.25105 40.4998 6.16273C38.391 3.74599 34.0596 1.45008 29.8992 1.69176L48.3396 28.0864C49.0591 28.9657 49.6987 29.8358 50.53 30.6695C53.5321 33.68 57.5839 35.5261 62.0425 35.5261C71.2965 35.5261 78.7984 27.5733 78.7984 17.763C78.7984 7.95279 71.2965 0 62.0425 0H46.5975C56.287 4.83366 58.7653 7.71165 64.4932 12.4462C63.9617 9.39048 63.9803 7.61273 62.0425 5.73976C69.1096 7.06897 72.4722 10.0295 72.4722 17.763C72.4722 25.4966 66.6735 29.6681 60.5978 28.7049C55.0207 27.8207 47.7516 15.7195 46.4796 13.9011Z" fill="#ff5e00"/>
                 </svg>
-                Made by <a href="https://lefthook.com" target="_blank" rel="noopener">Left Hook</a> — <span class="mono">weaver of the clouds</span> <span class="verbadge">v2.0.0-next</span>
+                Made by <a href="https://lefthook.com" target="_blank" rel="noopener">Left Hook</a> <span class="mono" style="opacity:.7">·</span> <span class="mono">weaver of the clouds</span> <span class="verbadge">v2.0.0-next</span>
             </div>
             <nav aria-label="Footer">
                 <a href="https://docs.friggframework.org" target="_blank" rel="noopener">Docs</a>
@@ -787,7 +850,7 @@
                 fetch('/', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString()})
                     .then(function(r){
                         if (!r.ok) throw new Error('bad status');
-                        msg.className = 'ok'; msg.textContent = "You're in — check your inbox for the Slack Connect invite.";
+                        msg.className = 'ok'; msg.textContent = "You're in. Check your inbox for the Slack Connect invite.";
                         form.reset();
                         if (window.posthog) posthog.capture('signup_submitted');
                     })
@@ -804,11 +867,11 @@
             {c:'$ ', k:'frigg init acme-integrations', cls:'cmd'},
             {o:'✓ scaffolded serverless app · handlers · infra-as-code', cls:'out'},
             {c:'$ ', k:'frigg install hubspot', cls:'cmd'},
-            {o:'✓ module added — auth, endpoints & webhooks mapped', cls:'ok'},
+            {o:'✓ module added · auth, endpoints & webhooks mapped', cls:'ok'},
             {c:'» ', k:'agent: build "notify Slack when a HubSpot deal closes"', cls:'amb', pcls:'amb'},
             {o:'· querying capabilities…  crm.deal.watch ✓  slack.send ✓', cls:'out'},
             {o:'· copying template · scaffolding tests · validating plan', cls:'out'},
-            {o:'✓ integration woven — 1 file left for you: mapping', cls:'ok'},
+            {o:'✓ integration woven · 1 file left for you: mapping', cls:'ok'},
             {c:'$ ', k:'frigg deploy --stage prod', cls:'cmd'},
             {o:'✓ live on your AWS · VPC-private · encrypted', cls:'ok'}
         ];
