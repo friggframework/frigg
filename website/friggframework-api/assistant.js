@@ -129,14 +129,16 @@ The frigg CLI also has an authenticator (frigg auth test .) to try OAuth/API-key
 flows without deploying anything.
 
 ## The catalog + roadmap
-Left Hook tracks 224 APIs across 70 platforms. A subset (~35) already have
-built API modules in the api-module-library; the rest are candidates. The full,
-searchable directory — plus the framework roadmap built from the architecture
-decision records (ADRs) — lives at /roadmap/ on this site, with community
-voting. Point people there rather than listing everything. To request a new API
-module, there is a "Request" link on each candidate that opens a GitHub issue.
+Left Hook tracks a large catalog of APIs across many platforms; a subset already
+have built API modules in the api-module-library and the rest are candidates.
+For exact counts, categories, which modules are built, and specific ADRs, use the
+catalog_stats / search_apis / search_adrs tools — those are authoritative and
+current. The full searchable directory plus the roadmap (built from the ADRs)
+lives at /roadmap/ on this site, with community voting; point people there rather
+than listing everything. To request a new API module, there is a "Request" link
+on each candidate that opens a GitHub issue.
 
-## Roadmap themes (from the ADRs, on the "next" branch)
+## Roadmap themes (high level; use search_adrs for specifics)
 - Agent tooling: Capabilities (typed declarations of what a module/integration
   can do, pointing at spec + implementation), Ontology (layered versioned
   context compiled into an XML block agents see at session start), Integration
@@ -188,9 +190,15 @@ Your jobs, in one voice:
 4. Share helpful context about Left Hook when it's relevant.
 
 Rules:
-- Ground every answer in the reference below. If something isn't covered, say so
-  plainly and point to the docs (https://docs.friggframework.org), the GitHub
-  repo, or /roadmap/ rather than inventing specifics.
+- You have live retrieval tools over the roadmap catalog: catalog_stats (ADR /
+  API counts and categories), search_adrs (architecture decision records), and
+  search_apis (the 224-module API catalog, incl. which are already built). For
+  ANY question about specific ADRs, API modules, catalog counts, or what's built
+  vs. planned, call the tool and answer from what it returns — do not guess or
+  recite from memory. Everything else is grounded in the reference below.
+- If something isn't covered by a tool or the reference, say so plainly and point
+  to the docs (https://docs.friggframework.org), the GitHub repo, or /roadmap/
+  rather than inventing specifics.
 - Never invent API module names, ADR numbers, config keys, or version numbers.
   When someone wants the full API list, send them to /roadmap/.
 - Keep answers short and scannable. A few sentences or a tight list. This is a
@@ -217,27 +225,41 @@ function sanitizeMessages(raw) {
         }));
 }
 
-// FREYA-SEAM: today this is a single grounded Messages API call over the AI
-// Gateway. Replace the body with a Freya session (tool use + live catalog/ADR
-// grounding) when Freya is ready; keep the (messages) -> string contract.
+// Roadmap retrieval data the Freya tools query at request time. Loaded from the
+// committed catalog JSON via static require so Netlify's bundler ships the files;
+// if it's ever unavailable the agent still runs and leans on the static prompt.
+let ROADMAP_DATA = null;
+function loadRoadmapData() {
+    if (ROADMAP_DATA) return ROADMAP_DATA;
+    try {
+        ROADMAP_DATA = {
+            adrs: require('../roadmap/data/adrs.json'),
+            apis: require('../roadmap/data/apis.json'),
+        };
+    } catch (e) {
+        console.log('roadmap data unavailable:', e && e.message ? e.message : e);
+        ROADMAP_DATA = { adrs: [], apis: {} };
+    }
+    return ROADMAP_DATA;
+}
+
+// FREYA-SEAM: a turn now runs through the vendored Freya runtime — a tool-using
+// agent that retrieves ADR / API-catalog facts at request time instead of a
+// single grounded Messages call. The (messages) -> string contract, the handler,
+// the rate limiter, and the offline path are all unchanged. The self-contained
+// bundle lives at ./lib/freya-runtime.mjs (regenerate via website/tools/freya-vendor).
+let freyaModule = null;
 async function answer(messages) {
-    // Lazy require so a missing SDK never breaks the offline path.
-    const Anthropic = require('@anthropic-ai/sdk');
-    const client = new Anthropic(); // reads ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL
-
-    const res = await client.messages.create({
+    // Lazy dynamic import (ESM bundle from CJS) so a load failure never breaks
+    // the offline path, matching how the SDK was lazily required before.
+    if (!freyaModule) freyaModule = await import('./lib/freya-runtime.mjs');
+    const reply = await freyaModule.runTurn({
+        systemPrompt: buildSystemPrompt(),
         model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: buildSystemPrompt(),
         messages,
+        data: loadRoadmapData(),
     });
-
-    const text = (res.content || [])
-        .filter((b) => b.type === 'text')
-        .map((b) => b.text)
-        .join('')
-        .trim();
-    return text || "I didn't catch that. Could you rephrase?";
+    return (reply && reply.trim()) || "I didn't catch that. Could you rephrase?";
 }
 
 const OFFLINE_REPLY =

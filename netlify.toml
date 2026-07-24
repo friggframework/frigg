@@ -8,6 +8,12 @@
   publish = "."
   functions = "friggframework-api"
 
+# Ship the vendored Freya bundle and the roadmap catalog JSON alongside the
+# functions so the "Ask Freya" assistant can load the runtime and retrieve
+# ADR / API data at request time. Paths are relative to the base directory.
+[functions]
+  included_files = ["friggframework-api/lib/**", "roadmap/data/*.json"]
+
 # Proxy the public API host to the deployed serverless functions.
 [[redirects]]
   from = 'https://api.friggframework.org/*'
