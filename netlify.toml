@@ -1,0 +1,28 @@
+# Netlify configuration for the friggframework.org marketing site.
+#
+# The site lives in the website/ subdirectory of the Frigg monorepo, so we set
+# the base directory to "website". Per Netlify's file-based configuration, all
+# other paths in this file are resolved relative to that base directory.
+[build]
+  base = "website"
+  publish = "."
+  functions = "friggframework-api"
+
+# Proxy the public API host to the deployed serverless functions.
+[[redirects]]
+  from = 'https://api.friggframework.org/*'
+  to = '/.netlify/functions/:splat'
+  status = 200
+
+# Feedback host now lives on the roadmap subdomain.
+[[redirects]]
+  from = 'https://feedback.friggframework.org/*'
+  to = 'https://roadmap.friggframework.org/:splat'
+  status = 301
+  force = true
+
+[[redirects]]
+  from = 'http://feedback.friggframework.org/*'
+  to = 'http://roadmap.friggframework.org/:splat'
+  status = 301
+  force = true

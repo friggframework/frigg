@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FYV3G4VEDK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-FYV3G4VEDK');
+    </script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Frigg Framework</title>
+    <link rel="shortcut icon" href="assets/img/favicon.svg" type="image/x-icon">
+    <!-- Bootstrap , fonts & icons  -->
+    <link rel="stylesheet" href="plugins/bootstrap-4/css/bootstrap.min.css">
+    <link rel="stylesheet" href="fonts/icon-font/css/style.css">
+    <link rel="stylesheet" href="fonts/typography-font/typo.css">
+    <link rel="stylesheet" href="fonts/fontawesome-5/css/all.css">
+    <!-- Plugin'stylesheets  -->
+    <link rel="stylesheet" href="plugins/fancybox/jquery.fancybox.min.css">
+    <link rel="stylesheet" href="plugins/nice-select/nice-select.css">
+    <link rel="stylesheet" href="plugins/slick/slick.css">
+    <!-- Vendor stylesheets  -->
+    <link rel="stylesheet" href="css/settings.css">
+    <link rel="stylesheet" href="css/main.css">
+    <!-- Custom stylesheet -->
+    <link rel="stylesheet" href="css/custom.css">
+    <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_J8vdSI1q0PutJ9LG0INHlxlymy6XNYTolDK5mJklWaG',{api_host:'https://app.posthog.com'})
+</script>
+</head>
+
+<body>
+<div id="loading">
+    <div class="load-circle"><span class="one"></span></div>
+</div>
+<div class="site-wrapper overflow-hidden">
+    <div class="landing-8 position-relative" style="background:#ffffff; color:#19191b">
+        <!-- Header Area -->
+        <header class="site-header bg-white sticky-header">
+            <div class="container-fluid pr-lg--30 pl-lg--30">
+                <nav class="navbar site-navbar offcanvas-active navbar-expand-lg navbar-light">
+                    <!-- Brand Logo-->
+                    <div class="title"><a href="/"><img src="assets/img/frigg-logo.svg" style="width:240px;"></a></div>
+                    <div class="collapse navbar-collapse">
+                        <!-- <div class="collapse navbar-collapse" id="mobile-menu"> -->
+                        <div class="navbar-nav ml-lg-auto mr--10">
+                            <ul class="navbar-nav main-menu">
+                                <div class="header-btns ml-auto ml-lg-0">
+                                    <a href="https://docs.friggframework.org" target="_blank"
+                                       class="btn btn-header btn--primary"
+                                       style="background: #71a087; margin-right:10px;">
+                                        <i class="fas fa-book" style="color: white;"></i>
+                                        <span style="margin-left:5px;">Docs</span>
+                                    </a>
+                                    <a href="https://github.com/friggframework/frigg" target="_blank"
+                                       class="btn btn-outlined--white btn-header" style="margin-right:10px;">
+                                        <i class="fab fa-github"></i>
+                                        <span style="margin-left:5px;">Github</span>
+                                    </a>
+                                    <a class="btn btn--primary btn-header" href="https://demo.friggframework.org"
+                                       style="background: #71a087;margin-right:10px;" target="_blank">
+                                        <i class="fas fa-mouse-pointer" style="color: white;"></i>
+                                        <span style="margin-left:5px;">Demo</span>
+                                    </a>
+                                    <a href="https://roadmap.friggframework.org" target="_blank"
+                                       class="btn btn-outlined--white btn-header" style="margin-right:10px;">
+                                        <i class="fas fa-map"></i>
+                                        <span style="margin-left:5px;">Roadmap</span>
+                                    </a>
+                                   <a href="https://github.com/friggframework/api-module-library" target="_blank"
+                                       class="btn btn-header btn--primary"
+                                       style="background: #71a087; margin-right:10px;">
+                                        <span style="margin-left:5px;">API Module Library</span>
+                                    </a>
+                                </div>
+                            </ul>
+                        </div>
+                    </div>
+
+
+                </nav>
+            </div>
+        </header>
+        <!-- Hero Area -->
+        <div class="hero-area" style="height: 100%;">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-lg-6 col-xl-6 col-md-6" style="margin-bottom: 20px; margin-top:20px;">
+                        <div class="hero-content ">
+
+                            <h3 class="b-title" style="margin-bottom:40px">The first open source serverless
+                                framework for developing integrations at scale</h3>
+                            <span class="title-top"
+                                  style="color:#19191b;
+                                  font-weight: 400">
+                                Stop building each new integration from scratch. Leverage the knowledge, best practices, and code from the entire Frigg community instead.<br>
+                                <br>
+                                <h3 class="b-title">Early Adopters include:</h3>
+                                <img src="assets/img/crossbeam-logo.png" class="img-fluid" style="max-width: 30%; margin:15px;">
+                                <img src="assets/img/fastspring-logo.png" class="img-fluid" style="max-width: 25%; margin:15px;">
+                                <img src="assets/img/clyde-logo.png" class="img-fluid" style="max-width: 20%; margin:15px;">
+
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-xl-6 col-md-6">
+                        <img src="assets/img/frigg-hero-compressed.png" class="img-fluid" style="max-width: 160%;">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <hr/>
+
+        <!-- Main Content Area -->
+        <div class="main-block">
+            <div class="container">
+                <div class="row  align-items-center">
+                    <div class="row col-lg-5 col-xl-5 col-md-5"><h1>Our core principles... integrations should be:</h1>
+                    </div>
+                    <div class="row col-lg-7 col-xl-7 col-md-7">
+                        <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true"
+                             style="padding-left: 20px"></div>
+                    </div>
+                </div>
+                <hr/>
+                <div class="row align-items-center">
+                    <div class="row col-lg-5 col-xl-5 col-md-5">
+                        <h1>How to get started</h1>
+                    </div>
+                    <div class="row col-lg-7 col-xl-7 col-md-7">
+                        <div class="align-items-center" style="display:flex">
+                            <a href="https://docs.friggframework.org" target="_blank"
+                               class="btn--primary col-lg-3 col-xl-3 col-md-3"
+                               style="background: #71a087; margin-right:10px;">
+                                <i class="fas fa-book" style="color: white;"></i>
+                                <span style="margin-left:5px;">Docs</span>
+                            </a>
+                            <span class="col-lg-9 col-xl-9 col-md-9">Our technical docs will get you started and will be your ongoing reference.</span>
+                        </div>
+                        <div class="align-items-center" style="display:flex">
+                            <a href="https://github.com/friggframework/frigg" target="_blank"
+                               class="btn-outlined--white col-lg-3 col-xl-3 col-md-3"
+                               style="margin-right:10px;margin-top:10px">
+                                <i class="fab fa-github"></i>
+                                <span style="margin-left:5px;">Github</span>
+                            </a>
+                            <span class="col-lg-9 col-xl-9 col-md-9">Feeling like jumping right into the code? You can poke around in the repos.</span>
+                        </div>
+                        <div class="align-items-center" style="display:flex">
+                            <a class="btn--primary col-lg-3 col-xl-3 col-md-3" href="https://demo.friggframework.org"
+                               style="background: #71a087; margin-top:10px; margin-right:10px;" target="_blank">
+                                <i class="fas fa-mouse-pointer" style="color: white;"></i>
+                                <span style="margin-left:5px;">Demo</span>
+                            </a>
+                            <span class="col-lg-9 col-xl-9 col-md-9">Or check out our demo to see how Frigg works in your stack.</span>
+                        </div>
+                        <div class="align-items-center" style="display:flex">
+                            <a class="btn-outlined--white col-lg-3 col-xl-3 col-md-3"
+                               href="https://roadmap.friggframework.org"
+                               style="margin-top:10px; margin-right:10px;" target="_blank">
+                                <i class="fas fa-map"></i>
+                                <span style="margin-left:5px;">Roadmap</span>
+                            </a>
+                            <span class="col-lg-9 col-xl-9 col-md-9">Wondering what the future holds? Or if you want to make a request, check out our roadmap.</span>
+                        </div>
+                        <div class="align-items-center" style="display:flex">
+                            <a class="btn--primary col-lg-3 col-xl-3 col-md-3" href="https://friggframework.partnerpage.io/api-modules"
+                               style="background: #71a087; margin-top:10px; margin-right:10px;" target="_blank">
+                                <i class="fas fa-book" style="color: white;"></i>
+                                <span style="margin-left:5px;">Library</span>
+                            </a>
+                            <span class="col-lg-9 col-xl-9 col-md-9">If an integration framework doesn't connect to your favorite app, is it really even a framework? This library is growing fast so keep checking back, or contribute a module yourself!</span>
+                        </div>
+                </div>
+                </div>
+                <hr/>
+                <div class="row" style="text-align:center;margin:10px">
+                    <div class="col">
+                        <h1 style="margin-top:20px; margin-bottom:20px">Join our Frigg Slack Connect Channel</h1>
+                        </div>
+
+                </div>
+                <div class="row justify-content-center" style="text-align:center;margin: 10px">
+                    <div class="col-md-6" style="text-align:center">
+                    <div class="card text-center" style="box-shadow: 1px 1px 2px 1px grey;">
+                        <div class="card-header">
+                             <h4><i class="slack-icon" style="height:25px;width:25px"></i> Slack Join and Email Subscribe</h4>
+                        </div>
+
+                        <div id="contact-form-card-body" class="card-body align-items-center">
+                            <form
+                                    name="contact"
+                                    id="contact"
+                                    data-netlify="true"
+                                    method="POST"
+                                    action=""
+                                    netlify-honeypot="bot-field"
+                            >
+                                <p class="hidden" style="display:none">
+                                    <label>
+                                        Don’t fill this out if you’re human: <input name="bot-field" />
+                                    </label>
+                                </p>
+                                <div class="form-row justify-content-center" style="margin:10px">
+                                    <div class="col-lg-8"><input name="email" type="email" class="form-control" id="email"
+                                                        placeholder="Enter Email Address" required></div>
+                                </div>
+                                <div class="form-row justify-content-center">
+                                    <div class="form-check mb-2">
+                                        <input name="slack-invite" class="form-check-input" type="checkbox" id="slack-invite" checked>
+                                        <label class="form-check-label" for="slack-invite">
+                                            <i class="slack-icon" style="height:14px;width:14px"></i> Please invite me to the Slack Connect Channel!
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="form-check mb-2">
+                                        <input name="update-emails" class="form-check-input" type="checkbox" id="update-emails">
+                                        <label class="form-check-label" for="update-emails">
+                                            <i class="fas fa-envelope"></i> Please send me update emails!
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-auto justify-content-center form-row">
+                                    <div data-netlify-recaptcha="true"></div>
+                                </div>
+
+                                <button id="contact-form-submit"
+                                        name="contact-form-submit"
+                                        type="submit"
+                                        class="btn--primary"
+                                        style="background: #71a087;margin-right:10px;margin-top:10px"
+                                >
+                                    Submit
+                                </button>
+
+
+                                <div class="col"></div>
+                            </form>
+                        </div>
+
+                    </div>
+                        <div class="align-items-center" style="display:flex;margin-top:20px">
+                            <a href="https://github.com/friggframework/frigg/discussions" target="_blank"
+                               class="btn-outlined--white col-lg-6 col-xl-6 col-md-6"
+                               style="margin-right:10px;margin-top:10px">
+
+                                <i class="fab fa-github"></i>
+                                <span style="margin-left:5px;">Github Discussions</span>
+                            </a>
+                            <h5 class="col"><= Or head on over to GitHub Discussions.</h5>
+                        </div>
+
+                </div></div>
+            </div>
+        </div>
+        <!-- Footer Area -->
+        <div class="footer-brand" style="text-align: left; margin:100px; max-width: 1200px">
+            Made with <i class="fas fa-heart"></i> by <a href="https://lefthook.com" target="_blank"
+                                                         style="color:#2C704F; font-weight: bold;">Left Hook</a>.
+
+        </div>
+    </div>
+    <!-- Vendor Scripts -->
+    <script src="plugins/jquery/jquery.min.js"></script>
+    <script src="plugins/jquery/jquery-migrate.min.js"></script>
+    <script src="plugins/bootstrap-4/js/bootstrap.bundle.min.js"></script>
+    <script>
+        window.intercomSettings = {
+            api_base: "https://api-iam.intercom.io",
+            app_id: "v6687evi"
+        };
+    </script>
+
+    <script>
+        // We pre-filled your app ID in the widget URL: 'https://widget.intercom.io/widget/v6687evi'
+        (function () {
+            var w = window;
+            var ic = w.Intercom;
+            if (typeof ic === "function") {
+                ic('reattach_activator');
+                ic('update', w.intercomSettings);
+            } else {
+                var d = document;
+                var i = function () {
+                    i.c(arguments);
+                };
+                i.q = [];
+                i.c = function (args) {
+                    i.q.push(args);
+                };
+                w.Intercom = i;
+                var l = function () {
+                    var s = d.createElement('script');
+                    s.type = 'text/javascript';
+                    s.async = true;
+                    s.src = 'https://widget.intercom.io/widget/v6687evi';
+                    var x = d.getElementsByTagName('script')[0];
+                    x.parentNode.insertBefore(s, x);
+                };
+                if (document.readyState === 'complete') {
+                    l();
+                } else if (w.attachEvent) {
+                    w.attachEvent('onload', l);
+                } else {
+                    w.addEventListener('load', l, false);
+                }
+            }
+        })();
+    </script>
+
+    <!-- Plugin's Scripts -->
+    <script src="plugins/fancybox/jquery.fancybox.min.js"></script>
+    <script src="plugins/nice-select/jquery.nice-select.min.js"></script>
+    <script src="plugins/slick/slick.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.rawgit.com/jwarby/jquery-awesome-cursor/master/dist/jquery.awesome-cursor.min.js"></script>
+    <!-- Activation Script -->
+    <script src="js/custom.js"></script>
+
+
+</div>
+
+</body>
+
+</html>

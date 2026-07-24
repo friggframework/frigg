@@ -1,0 +1,498 @@
+/*------------------------
+	icons
+-------------------------*/
+@function unicode($str) {
+  @return unquote("\"\\#{$str}\"");
+}
+
+$icon-cloud-download-95: unicode(ea02);
+$icon-home-minimal: unicode(ea03);
+$icon-single-04: unicode(ea04);
+$icon-users-mm: unicode(ea05);
+$icon-webpage: unicode(ea06);
+$icon-layout-25: unicode(ea07);
+$icon-analytics: unicode(ea08);
+$icon-chart-pie-36: unicode(ea09);
+$icon-chart-bar-33: unicode(ea0a);
+$icon-single-copy-06: unicode(ea0b);
+$icon-home: unicode(ea0c);
+$icon-single-content-03: unicode(ea0d);
+$icon-bell-53: unicode(ea0e);
+$icon-email-84: unicode(ea0f);
+$icon-send: unicode(ea10);
+$icon-at-sign: unicode(ea11);
+$icon-attach-87: unicode(ea12);
+$icon-edit-72: unicode(ea13);
+$icon-tail-right: unicode(ea14);
+$icon-minimal-right: unicode(ea15);
+$icon-tail-left: unicode(ea16);
+$icon-minimal-left: unicode(ea17);
+$icon-tail-up: unicode(ea18);
+$icon-minimal-up: unicode(ea19);
+$icon-minimal-down: unicode(ea1a);
+$icon-tail-down: unicode(ea1b);
+$icon-settings-gear-64: unicode(ea1c);
+$icon-settings: unicode(ea1d);
+$icon-menu-dots: unicode(ea1e);
+$icon-menu-left: unicode(ea1f);
+$icon-funnel-40: unicode(ea20);
+$icon-filter: unicode(ea21);
+$icon-preferences-circle: unicode(ea22);
+$icon-check-2: unicode(ea23);
+$icon-cart-simple: unicode(ea24);
+$icon-cart-9: unicode(ea25);
+$icon-card-update: unicode(ea26);
+$icon-basket: unicode(ea27);
+$icon-check-circle-07: unicode(ea28);
+$icon-simple-remove: unicode(ea29);
+$icon-circle-remove: unicode(ea2a);
+$icon-alert-circle-exc: unicode(ea2b);
+$icon-bug: unicode(ea2c);
+$icon-share-66: unicode(ea2d);
+$icon-time-3: unicode(ea2e);
+$icon-time: unicode(ea2f);
+$icon-coffee: unicode(ea30);
+$icon-smile: unicode(ea31);
+$icon-sad: unicode(ea32);
+$icon-broken-heart: unicode(ea33);
+$icon-heart-2: unicode(ea34);
+$icon-pin-3: unicode(ea35);
+$icon-marker-3: unicode(ea36);
+$icon-globe-2: unicode(ea37);
+$icon-world-2: unicode(ea38);
+$icon-phone-2: unicode(ea39);
+$icon-check-square-11: unicode(ea3a);
+$icon-wallet-90: unicode(ea3b);
+$icon-credit-card: unicode(ea3c);
+$icon-payment: unicode(ea3d);
+$icon-tag: unicode(ea3e);
+$icon-tag-cut: unicode(ea3f);
+$icon-tag-content: unicode(ea40);
+$icon-flag-diagonal-33: unicode(ea41);
+$icon-triangle-right-17: unicode(ea47);
+$icon-puzzle-10: unicode(ea48);
+$icon-triangle-right-17-2: unicode(ea49);
+$icon-btn-play: unicode(ea4a);
+$icon-btn-play-2: unicode(ea4b);
+$icon-menu-34: unicode(ea4c);
+$icon-menu-left-2: unicode(ea4d);
+$icon-heart-2-2: unicode(ea4e);
+$icon-single-04-2: unicode(ea4f);
+$icon-users-mm-2: unicode(ea50);
+$icon-l-settings: unicode(ea51);
+$icon-book-open-2: unicode(ea52);
+$icon-layers-3: unicode(ea53);
+$icon-logo-fb-simple: unicode(ea55);
+$icon-logo-twitter: unicode(ea56);
+$icon-google: unicode(ea57);
+$icon-logo-pinterest: unicode(ea58);
+$icon-logo-instagram: unicode(ea59);
+$icon-logo-dribbble: unicode(ea5a);
+$icon-tablet-mobile: unicode(ea5b);
+$icon-house-search-engine: unicode(ea5c);
+$icon-house-pricing: unicode(ea5d);
+$icon-pulse-chart: unicode(ea5e);
+$icon-plug: unicode(ea5f);
+$icon-app-store: unicode(ea60);
+$icon-power-level: unicode(ea61);
+$icon-window-add: unicode(ea62);
+$icon-form: unicode(ea63);
+$icon-folder-15: unicode(ea64);
+$icon-lock: unicode(ea65);
+$icon-unlocked: unicode(ea66);
+$icon-e-reader: unicode(ea67);
+$icon-layout-grid: unicode(ea68);
+$icon-single-copies: unicode(ea69);
+
+.icon-cloud-download-95::before {
+  content: $icon-cloud-download-95;
+}
+
+.icon-home-minimal::before {
+  content: $icon-home-minimal;
+}
+
+.icon-single-04::before {
+  content: $icon-single-04;
+}
+
+.icon-users-mm::before {
+  content: $icon-users-mm;
+}
+
+.icon-webpage::before {
+  content: $icon-webpage;
+}
+
+.icon-layout-25::before {
+  content: $icon-layout-25;
+}
+
+.icon-analytics::before {
+  content: $icon-analytics;
+}
+
+.icon-chart-pie-36::before {
+  content: $icon-chart-pie-36;
+}
+
+.icon-chart-bar-33::before {
+  content: $icon-chart-bar-33;
+}
+
+.icon-single-copy-06::before {
+  content: $icon-single-copy-06;
+}
+
+.icon-home::before {
+  content: $icon-home;
+}
+
+.icon-single-content-03::before {
+  content: $icon-single-content-03;
+}
+
+.icon-bell-53::before {
+  content: $icon-bell-53;
+}
+
+.icon-email-84::before {
+  content: $icon-email-84;
+}
+
+.icon-send::before {
+  content: $icon-send;
+}
+
+.icon-at-sign::before {
+  content: $icon-at-sign;
+}
+
+.icon-attach-87::before {
+  content: $icon-attach-87;
+}
+
+.icon-edit-72::before {
+  content: $icon-edit-72;
+}
+
+.icon-tail-right::before {
+  content: $icon-tail-right;
+}
+
+.icon-minimal-right::before {
+  content: $icon-minimal-right;
+}
+
+.icon-tail-left::before {
+  content: $icon-tail-left;
+}
+
+.icon-minimal-left::before {
+  content: $icon-minimal-left;
+}
+
+.icon-tail-up::before {
+  content: $icon-tail-up;
+}
+
+.icon-minimal-up::before {
+  content: $icon-minimal-up;
+}
+
+.icon-minimal-down::before {
+  content: $icon-minimal-down;
+}
+
+.icon-tail-down::before {
+  content: $icon-tail-down;
+}
+
+.icon-settings-gear-64::before {
+  content: $icon-settings-gear-64;
+}
+
+.icon-settings::before {
+  content: $icon-settings;
+}
+
+.icon-menu-dots::before {
+  content: $icon-menu-dots;
+}
+
+.icon-menu-left::before {
+  content: $icon-menu-left;
+}
+
+.icon-funnel-40::before {
+  content: $icon-funnel-40;
+}
+
+.icon-filter::before {
+  content: $icon-filter;
+}
+
+.icon-preferences-circle::before {
+  content: $icon-preferences-circle;
+}
+
+.icon-check-2::before {
+  content: $icon-check-2;
+}
+
+.icon-cart-simple::before {
+  content: $icon-cart-simple;
+}
+
+.icon-cart-9::before {
+  content: $icon-cart-9;
+}
+
+.icon-card-update::before {
+  content: $icon-card-update;
+}
+
+.icon-basket::before {
+  content: $icon-basket;
+}
+
+.icon-check-circle-07::before {
+  content: $icon-check-circle-07;
+}
+
+.icon-simple-remove::before {
+  content: $icon-simple-remove;
+}
+
+.icon-circle-remove::before {
+  content: $icon-circle-remove;
+}
+
+.icon-alert-circle-exc::before {
+  content: $icon-alert-circle-exc;
+}
+
+.icon-bug::before {
+  content: $icon-bug;
+}
+
+.icon-share-66::before {
+  content: $icon-share-66;
+}
+
+.icon-time-3::before {
+  content: $icon-time-3;
+}
+
+.icon-time::before {
+  content: $icon-time;
+}
+
+.icon-coffee::before {
+  content: $icon-coffee;
+}
+
+.icon-smile::before {
+  content: $icon-smile;
+}
+
+.icon-sad::before {
+  content: $icon-sad;
+}
+
+.icon-broken-heart::before {
+  content: $icon-broken-heart;
+}
+
+.icon-heart-2::before {
+  content: $icon-heart-2;
+}
+
+.icon-pin-3::before {
+  content: $icon-pin-3;
+}
+
+.icon-marker-3::before {
+  content: $icon-marker-3;
+}
+
+.icon-globe-2::before {
+  content: $icon-globe-2;
+}
+
+.icon-world-2::before {
+  content: $icon-world-2;
+}
+
+.icon-phone-2::before {
+  content: $icon-phone-2;
+}
+
+.icon-check-square-11::before {
+  content: $icon-check-square-11;
+}
+
+.icon-wallet-90::before {
+  content: $icon-wallet-90;
+}
+
+.icon-credit-card::before {
+  content: $icon-credit-card;
+}
+
+.icon-payment::before {
+  content: $icon-payment;
+}
+
+.icon-tag::before {
+  content: $icon-tag;
+}
+
+.icon-tag-cut::before {
+  content: $icon-tag-cut;
+}
+
+.icon-tag-content::before {
+  content: $icon-tag-content;
+}
+
+.icon-flag-diagonal-33::before {
+  content: $icon-flag-diagonal-33;
+}
+
+.icon-triangle-right-17::before {
+  content: $icon-triangle-right-17;
+}
+
+.icon-puzzle-10::before {
+  content: $icon-puzzle-10;
+}
+
+.icon-triangle-right-17-2::before {
+  content: $icon-triangle-right-17-2;
+}
+
+.icon-btn-play::before {
+  content: $icon-btn-play;
+}
+
+.icon-btn-play-2::before {
+  content: $icon-btn-play-2;
+}
+
+.icon-menu-34::before {
+  content: $icon-menu-34;
+}
+
+.icon-menu-left-2::before {
+  content: $icon-menu-left-2;
+}
+
+.icon-heart-2-2::before {
+  content: $icon-heart-2-2;
+}
+
+.icon-single-04-2::before {
+  content: $icon-single-04-2;
+}
+
+.icon-users-mm-2::before {
+  content: $icon-users-mm-2;
+}
+
+.icon-l-settings::before {
+  content: $icon-l-settings;
+}
+
+.icon-book-open-2::before {
+  content: $icon-book-open-2;
+}
+
+.icon-layers-3::before {
+  content: $icon-layers-3;
+}
+
+.icon-logo-fb-simple::before {
+  content: $icon-logo-fb-simple;
+}
+
+.icon-logo-twitter::before {
+  content: $icon-logo-twitter;
+}
+
+.icon-google::before {
+  content: $icon-google;
+}
+
+.icon-logo-pinterest::before {
+  content: $icon-logo-pinterest;
+}
+
+.icon-logo-instagram::before {
+  content: $icon-logo-instagram;
+}
+
+.icon-logo-dribbble::before {
+  content: $icon-logo-dribbble;
+}
+
+.icon-tablet-mobile::before {
+  content: $icon-tablet-mobile;
+}
+
+.icon-house-search-engine::before {
+  content: $icon-house-search-engine;
+}
+
+.icon-house-pricing::before {
+  content: $icon-house-pricing;
+}
+
+.icon-pulse-chart::before {
+  content: $icon-pulse-chart;
+}
+
+.icon-plug::before {
+  content: $icon-plug;
+}
+
+.icon-app-store::before {
+  content: $icon-app-store;
+}
+
+.icon-power-level::before {
+  content: $icon-power-level;
+}
+
+.icon-window-add::before {
+  content: $icon-window-add;
+}
+
+.icon-form::before {
+  content: $icon-form;
+}
+
+.icon-folder-15::before {
+  content: $icon-folder-15;
+}
+
+.icon-lock::before {
+  content: $icon-lock;
+}
+
+.icon-unlocked::before {
+  content: $icon-unlocked;
+}
+
+.icon-e-reader::before {
+  content: $icon-e-reader;
+}
+
+.icon-layout-grid::before {
+  content: $icon-layout-grid;
+}
+
+.icon-single-copies::before {
+  content: $icon-single-copies;
+}
+

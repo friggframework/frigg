@@ -1,0 +1,12 @@
+{
+  "name": "friggframework.org",
+  "version": "1.0.0",
+  "dependencies": {
+    "node-fetch": "^2.6.7",
+    "dotenv": "^16.0.1"
+  },
+  "scripts": {
+    "functions": "NODE_OPTIONS=--inspect netlify functions:serve",
+    "netlify dev": "NODE_OPTIONS=--inspect netlify dev"
+  }
+}

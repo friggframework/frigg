@@ -1,0 +1,192 @@
+
+/*# sourceMappingURL=maps/custom.css.map */
+
+.landing-8 .header-btns a {
+    font-family: "Lato", sans-serif;
+    font-weight: 400;
+    font-size: 14px !important;
+}
+
+body {
+    font-family: "Lato", sans-serif;
+    font-weight: 400
+}
+h1, h2, h3, h4, h5, h6 {
+    font-family: "Lato", sans-serif;
+    color: #2b7150;
+}
+
+.container {
+    max-width: 1420px;
+}
+
+@media (min-width: 992px) {
+    .landing-5 .hero-content {
+        padding: 40px;
+    }
+}
+.landing-8 .hero-area {
+    padding: 140px 40px 40px 40px;
+}
+.landing-8 .btn-outlined--white {
+    width: 200px
+}
+.landing-5 .hero-content p {
+    color: #fff;
+    font-family: "Lato", sans-serif;
+    font-size: 26px;
+    font-weight: 100;
+    letter-spacing: -0.66px;
+    line-height: 39px;
+}
+
+
+.landing-5 .cta-section {
+    background-color: #05344b;
+}
+
+.pricing-page .footer-section {
+    background-color: #05344b;
+}
+
+.landing-5 .cta-section {
+    padding-top: 80px;
+    padding-top: 120px;
+}
+
+.pricing-page .footer-list a {
+    line-height: 28px;
+}
+
+.pricing-page .copyright-area {
+    border-top: 0px;
+}
+
+.airmail-bar {
+    border: 0 none;
+    height: 10px;
+    background-image: repeating-linear-gradient(135deg, #D9534F 0px, #D9534F 15px, #FFFFFF 15px, #FFFFFF 30px, #58AAE1 30px, #58AAE1 45px, #FFFFFF 45px, #FFFFFF 60px);
+}
+
+.landing-5 .main-menu > li > .nav-link:hover {
+    color: #05344b !important;
+  }
+
+.sticky-header {
+    position: fixed !important;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+
+.sticky-header{
+    border-bottom: .05em solid #eeeeee;
+    transition: 1s;
+}
+
+
+#accordion .panel{
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    margin-bottom: 15px;
+    position: relative;
+}
+#accordion .panel:before{
+    content: "";
+    display: block;
+    width: 1px;
+    height: 100%;
+    border: 1px dashed #6e8898;
+    position: absolute;
+    top: 25px;
+    left: 18px;
+}
+#accordion .panel:last-child:before{ display: none; }
+#accordion .panel-heading{
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    position: relative;
+}
+#accordion .panel-title a{
+    display: block;
+    padding: 10px 30px 10px 60px;
+    margin: 0;
+    background: #fff;
+    font-family: "Lato", sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #2b7150;
+    border-radius: 0;
+    position: relative;
+}
+#accordion .panel-title a:before,
+#accordion .panel-title a.collapsed:before{
+    content: "\f107";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    width: 40px;
+    height: 100%;
+    line-height: 40px;
+    background: #2b7150;
+    border: 1px solid #2b7150;
+    border-radius: 3px;
+    font-size: 17px;
+    color: #fff;
+    text-align: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    /*transition: all 0.3s ease 0s;*/
+}
+#accordion .panel-title a.collapsed:before{
+    content: "\f105";
+    background: #fff;
+    border: 1px solid #2b7150;
+    color: #000;
+}
+#accordion .panel-body{
+    padding: 10px 30px 10px 30px;
+    margin-left: 40px;
+    background: #fff;
+    border-top: none;
+    font-size: 15px;
+    color: #6f6f6f;
+    line-height: 28px;
+    letter-spacing: 1px;
+}
+
+.main-block {
+    max-width: 1200px;
+    padding-right: 15px;
+    padding-left: 15px;
+    margin-right: auto;
+    margin-left: auto;
+}
+#accordion {
+    margin-top:20px
+}
+
+.slack-icon {
+    background: url('https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg') no-repeat center center;
+    background-size: contain;
+    max-height: 40px;
+    min-height: 10px;
+    min-width: 10px;
+    max-width: 40px;
+    display:inline-flex;
+    /* Other styles here */
+}
+/*Thanks for the tip random internet stranger https://stackoverflow.com/a/16575811*/
+.landing-8 .btn--primary.notransition:before {
+    content:none;
+    -webkit-transition: none !important;
+    -moz-transition: none !important;
+    -o-transition: none !important;
+    transition: none !important;
+    -webkit-transform: none !important;
+    -moz-transform: none !important;
+    -o-transform: none !important;
+    transform: none !important;
+}
