@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme-default>
 
 <head>
     <!-- Google tag (gtag.js) -->
@@ -8,328 +8,831 @@
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-
         gtag('config', 'G-FYV3G4VEDK');
     </script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Frigg Framework</title>
-    <link rel="shortcut icon" href="assets/img/frigg-favicon.svg" type="image/x-icon">
-    <!-- Bootstrap , fonts & icons  -->
-    <link rel="stylesheet" href="plugins/bootstrap-4/css/bootstrap.min.css">
-    <link rel="stylesheet" href="fonts/icon-font/css/style.css">
-    <link rel="stylesheet" href="fonts/typography-font/typo.css">
-    <link rel="stylesheet" href="fonts/fontawesome-5/css/all.css">
-    <!-- Plugin'stylesheets  -->
-    <link rel="stylesheet" href="plugins/fancybox/jquery.fancybox.min.css">
-    <link rel="stylesheet" href="plugins/nice-select/nice-select.css">
-    <link rel="stylesheet" href="plugins/slick/slick.css">
-    <!-- Vendor stylesheets  -->
-    <link rel="stylesheet" href="css/settings.css">
-    <link rel="stylesheet" href="css/main.css">
-    <!-- Custom stylesheet -->
-    <link rel="stylesheet" href="css/custom.css">
+    <title>Frigg — integrations, woven by agents. Owned by you.</title>
+    <meta name="description" content="Frigg is the open-source, serverless integration framework where an agent scaffolds a production integration in an afternoon — and every integration it builds is also an MCP tool your agents can call. Your cloud. Your pipes. No lock-in.">
+    <link rel="shortcut icon" href="assets/img/frigg-favicon.svg" type="image/svg+xml">
+
+    <!-- Set theme before paint to avoid a flash -->
     <script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_J8vdSI1q0PutJ9LG0INHlxlymy6XNYTolDK5mJklWaG',{api_host:'https://app.posthog.com'})
-</script>
-</head>
-
-<body>
-<div id="loading">
-    <div class="load-circle"><span class="one"></span></div>
-</div>
-<div class="site-wrapper overflow-hidden">
-    <div class="landing-8 position-relative" style="background:#ffffff; color:#19191b">
-        <!-- Header Area -->
-        <header class="site-header bg-white sticky-header">
-            <div class="container-fluid pr-lg--30 pl-lg--30">
-                <nav class="navbar site-navbar offcanvas-active navbar-expand-lg navbar-light">
-                    <!-- Brand Logo-->
-                    <div class="title"><a href="/"><img src="assets/img/frigg-logo.svg" style="width:240px;"></a></div>
-                    <div class="collapse navbar-collapse">
-                        <!-- <div class="collapse navbar-collapse" id="mobile-menu"> -->
-                        <div class="navbar-nav ml-lg-auto mr--10">
-                            <ul class="navbar-nav main-menu">
-                                <div class="header-btns ml-auto ml-lg-0">
-                                    <a href="https://docs.friggframework.org" target="_blank"
-                                       class="btn btn-header btn--primary"
-                                       style="background: #71a087; margin-right:10px;">
-                                        <i class="fas fa-book" style="color: white;"></i>
-                                        <span style="margin-left:5px;">Docs</span>
-                                    </a>
-                                    <a href="https://github.com/friggframework/frigg" target="_blank"
-                                       class="btn btn-outlined--white btn-header" style="margin-right:10px;">
-                                        <i class="fab fa-github"></i>
-                                        <span style="margin-left:5px;">Github</span>
-                                    </a>
-                                    <a class="btn btn--primary btn-header" href="https://demo.friggframework.org"
-                                       style="background: #71a087;margin-right:10px;" target="_blank">
-                                        <i class="fas fa-mouse-pointer" style="color: white;"></i>
-                                        <span style="margin-left:5px;">Demo</span>
-                                    </a>
-                                    <a href="https://roadmap.friggframework.org" target="_blank"
-                                       class="btn btn-outlined--white btn-header" style="margin-right:10px;">
-                                        <i class="fas fa-map"></i>
-                                        <span style="margin-left:5px;">Roadmap</span>
-                                    </a>
-                                   <a href="https://github.com/friggframework/api-module-library" target="_blank"
-                                       class="btn btn-header btn--primary"
-                                       style="background: #71a087; margin-right:10px;">
-                                        <span style="margin-left:5px;">API Module Library</span>
-                                    </a>
-                                </div>
-                            </ul>
-                        </div>
-                    </div>
-
-
-                </nav>
-            </div>
-        </header>
-        <!-- Hero Area -->
-        <div class="hero-area" style="height: 100%;">
-            <div class="container">
-                <div class="row align-items-center">
-                    <div class="col-lg-6 col-xl-6 col-md-6" style="margin-bottom: 20px; margin-top:20px;">
-                        <div class="hero-content ">
-
-                            <h3 class="b-title" style="margin-bottom:40px">The first open source serverless
-                                framework for developing integrations at scale</h3>
-                            <span class="title-top"
-                                  style="color:#19191b;
-                                  font-weight: 400">
-                                Stop building each new integration from scratch. Leverage the knowledge, best practices, and code from the entire Frigg community instead.<br>
-                                <br>
-                                <h3 class="b-title">Early Adopters include:</h3>
-                                <img src="assets/img/crossbeam-logo.png" class="img-fluid" style="max-width: 30%; margin:15px;">
-                                <img src="assets/img/fastspring-logo.png" class="img-fluid" style="max-width: 25%; margin:15px;">
-                                <img src="assets/img/clyde-logo.png" class="img-fluid" style="max-width: 20%; margin:15px;">
-
-                            </span>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 col-xl-6 col-md-6">
-                        <img src="assets/img/frigg-hero-compressed.png" class="img-fluid" style="max-width: 160%;">
-                    </div>
-                </div>
-
-            </div>
-        </div>
-        <hr/>
-
-        <!-- Main Content Area -->
-        <div class="main-block">
-            <div class="container">
-                <div class="row  align-items-center">
-                    <div class="row col-lg-5 col-xl-5 col-md-5"><h1>Our core principles... integrations should be:</h1>
-                    </div>
-                    <div class="row col-lg-7 col-xl-7 col-md-7">
-                        <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true"
-                             style="padding-left: 20px"></div>
-                    </div>
-                </div>
-                <hr/>
-                <div class="row align-items-center">
-                    <div class="row col-lg-5 col-xl-5 col-md-5">
-                        <h1>How to get started</h1>
-                    </div>
-                    <div class="row col-lg-7 col-xl-7 col-md-7">
-                        <div class="align-items-center" style="display:flex">
-                            <a href="https://docs.friggframework.org" target="_blank"
-                               class="btn--primary col-lg-3 col-xl-3 col-md-3"
-                               style="background: #71a087; margin-right:10px;">
-                                <i class="fas fa-book" style="color: white;"></i>
-                                <span style="margin-left:5px;">Docs</span>
-                            </a>
-                            <span class="col-lg-9 col-xl-9 col-md-9">Our technical docs will get you started and will be your ongoing reference.</span>
-                        </div>
-                        <div class="align-items-center" style="display:flex">
-                            <a href="https://github.com/friggframework/frigg" target="_blank"
-                               class="btn-outlined--white col-lg-3 col-xl-3 col-md-3"
-                               style="margin-right:10px;margin-top:10px">
-                                <i class="fab fa-github"></i>
-                                <span style="margin-left:5px;">Github</span>
-                            </a>
-                            <span class="col-lg-9 col-xl-9 col-md-9">Feeling like jumping right into the code? You can poke around in the repos.</span>
-                        </div>
-                        <div class="align-items-center" style="display:flex">
-                            <a class="btn--primary col-lg-3 col-xl-3 col-md-3" href="https://demo.friggframework.org"
-                               style="background: #71a087; margin-top:10px; margin-right:10px;" target="_blank">
-                                <i class="fas fa-mouse-pointer" style="color: white;"></i>
-                                <span style="margin-left:5px;">Demo</span>
-                            </a>
-                            <span class="col-lg-9 col-xl-9 col-md-9">Or check out our demo to see how Frigg works in your stack.</span>
-                        </div>
-                        <div class="align-items-center" style="display:flex">
-                            <a class="btn-outlined--white col-lg-3 col-xl-3 col-md-3"
-                               href="https://roadmap.friggframework.org"
-                               style="margin-top:10px; margin-right:10px;" target="_blank">
-                                <i class="fas fa-map"></i>
-                                <span style="margin-left:5px;">Roadmap</span>
-                            </a>
-                            <span class="col-lg-9 col-xl-9 col-md-9">Wondering what the future holds? Or if you want to make a request, check out our roadmap.</span>
-                        </div>
-                        <div class="align-items-center" style="display:flex">
-                            <a class="btn--primary col-lg-3 col-xl-3 col-md-3" href="https://friggframework.partnerpage.io/api-modules"
-                               style="background: #71a087; margin-top:10px; margin-right:10px;" target="_blank">
-                                <i class="fas fa-book" style="color: white;"></i>
-                                <span style="margin-left:5px;">Library</span>
-                            </a>
-                            <span class="col-lg-9 col-xl-9 col-md-9">If an integration framework doesn't connect to your favorite app, is it really even a framework? This library is growing fast so keep checking back, or contribute a module yourself!</span>
-                        </div>
-                </div>
-                </div>
-                <hr/>
-                <div class="row" style="text-align:center;margin:10px">
-                    <div class="col">
-                        <h1 style="margin-top:20px; margin-bottom:20px">Join our Frigg Slack Connect Channel</h1>
-                        </div>
-
-                </div>
-                <div class="row justify-content-center" style="text-align:center;margin: 10px">
-                    <div class="col-md-6" style="text-align:center">
-                    <div class="card text-center" style="box-shadow: 1px 1px 2px 1px grey;">
-                        <div class="card-header">
-                             <h4><i class="slack-icon" style="height:25px;width:25px"></i> Slack Join and Email Subscribe</h4>
-                        </div>
-
-                        <div id="contact-form-card-body" class="card-body align-items-center">
-                            <form
-                                    name="contact"
-                                    id="contact"
-                                    data-netlify="true"
-                                    method="POST"
-                                    action=""
-                                    netlify-honeypot="bot-field"
-                            >
-                                <p class="hidden" style="display:none">
-                                    <label>
-                                        Don’t fill this out if you’re human: <input name="bot-field" />
-                                    </label>
-                                </p>
-                                <div class="form-row justify-content-center" style="margin:10px">
-                                    <div class="col-lg-8"><input name="email" type="email" class="form-control" id="email"
-                                                        placeholder="Enter Email Address" required></div>
-                                </div>
-                                <div class="form-row justify-content-center">
-                                    <div class="form-check mb-2">
-                                        <input name="slack-invite" class="form-check-input" type="checkbox" id="slack-invite" checked>
-                                        <label class="form-check-label" for="slack-invite">
-                                            <i class="slack-icon" style="height:14px;width:14px"></i> Please invite me to the Slack Connect Channel!
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-auto">
-                                    <div class="form-check mb-2">
-                                        <input name="update-emails" class="form-check-input" type="checkbox" id="update-emails">
-                                        <label class="form-check-label" for="update-emails">
-                                            <i class="fas fa-envelope"></i> Please send me update emails!
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-auto justify-content-center form-row">
-                                    <div data-netlify-recaptcha="true"></div>
-                                </div>
-
-                                <button id="contact-form-submit"
-                                        name="contact-form-submit"
-                                        type="submit"
-                                        class="btn--primary"
-                                        style="background: #71a087;margin-right:10px;margin-top:10px"
-                                >
-                                    Submit
-                                </button>
-
-
-                                <div class="col"></div>
-                            </form>
-                        </div>
-
-                    </div>
-                        <div class="align-items-center" style="display:flex;margin-top:20px">
-                            <a href="https://github.com/friggframework/frigg/discussions" target="_blank"
-                               class="btn-outlined--white col-lg-6 col-xl-6 col-md-6"
-                               style="margin-right:10px;margin-top:10px">
-
-                                <i class="fab fa-github"></i>
-                                <span style="margin-left:5px;">Github Discussions</span>
-                            </a>
-                            <h5 class="col"><= Or head on over to GitHub Discussions.</h5>
-                        </div>
-
-                </div></div>
-            </div>
-        </div>
-        <!-- Footer Area -->
-        <div class="footer-brand" style="text-align: left; margin:100px; max-width: 1200px">
-            Made with <i class="fas fa-heart"></i> by <a href="https://lefthook.com" target="_blank"
-                                                         style="color:#2C704F; font-weight: bold;">Left Hook</a>.
-
-        </div>
-    </div>
-    <!-- Vendor Scripts -->
-    <script src="plugins/jquery/jquery.min.js"></script>
-    <script src="plugins/jquery/jquery-migrate.min.js"></script>
-    <script src="plugins/bootstrap-4/js/bootstrap.bundle.min.js"></script>
-    <script>
-        window.intercomSettings = {
-            api_base: "https://api-iam.intercom.io",
-            app_id: "v6687evi"
-        };
-    </script>
-
-    <script>
-        // We pre-filled your app ID in the widget URL: 'https://widget.intercom.io/widget/v6687evi'
         (function () {
-            var w = window;
-            var ic = w.Intercom;
-            if (typeof ic === "function") {
-                ic('reattach_activator');
-                ic('update', w.intercomSettings);
-            } else {
-                var d = document;
-                var i = function () {
-                    i.c(arguments);
-                };
-                i.q = [];
-                i.c = function (args) {
-                    i.q.push(args);
-                };
-                w.Intercom = i;
-                var l = function () {
-                    var s = d.createElement('script');
-                    s.type = 'text/javascript';
-                    s.async = true;
-                    s.src = 'https://widget.intercom.io/widget/v6687evi';
-                    var x = d.getElementsByTagName('script')[0];
-                    x.parentNode.insertBefore(s, x);
-                };
-                if (document.readyState === 'complete') {
-                    l();
-                } else if (w.attachEvent) {
-                    w.attachEvent('onload', l);
-                } else {
-                    w.addEventListener('load', l, false);
+            try {
+                var t = localStorage.getItem('frigg-theme');
+                if (t === 'light' || t === 'dark') {
+                    document.documentElement.setAttribute('data-theme', t);
                 }
-            }
+            } catch (e) {}
         })();
     </script>
 
-    <!-- Plugin's Scripts -->
-    <script src="plugins/fancybox/jquery.fancybox.min.js"></script>
-    <script src="plugins/nice-select/jquery.nice-select.min.js"></script>
-    <script src="plugins/slick/slick.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.rawgit.com/jwarby/jquery-awesome-cursor/master/dist/jquery.awesome-cursor.min.js"></script>
-    <!-- Activation Script -->
-    <script src="js/custom.js"></script>
+    <style>
+        /* ---------- Self-hosted type ---------- */
+        @font-face{font-family:'Bricolage Grotesque';font-style:normal;font-weight:500 700;font-display:swap;src:url("fonts/webfonts/bricolage-grotesque.woff2") format("woff2");}
+        @font-face{font-family:'Hanken Grotesk';font-style:normal;font-weight:400 600;font-display:swap;src:url("fonts/webfonts/hanken-grotesk.woff2") format("woff2");}
+        @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400 500;font-display:swap;src:url("fonts/webfonts/jetbrains-mono.woff2") format("woff2");}
 
+        /* ---------- Tokens : light is the base ---------- */
+        :root{
+            --paper:#f4f6f1;         /* warm, faintly green off-white */
+            --surface:#ffffff;
+            --surface-2:#ecefe7;
+            --ink:#14201b;           /* green-black text */
+            --ink-soft:#3c4b44;
+            --mist:#69796f;          /* green-biased muted */
+            --line:#dbe1d6;
+            --line-strong:#c6cfc0;
+            --falcon:#2f8f68;        /* accent green, tuned for light ground */
+            --falcon-ink:#1f6b4d;
+            --dawn:#c98a1a;          /* amber thread, tuned for light ground */
+            --glow:rgba(47,143,104,0.14);
+            --shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.28);
+            --chip:#ffffff;
+            --chip-line:#e3e8dd;
+            --code-bg:#10201a;
+            --code-ink:#dfeee7;
+            color-scheme:light;
+        }
+        @media (prefers-color-scheme: dark){
+            :root{
+                --paper:#0c1310;
+                --surface:#111b16;
+                --surface-2:#16221c;
+                --ink:#e8f1ea;
+                --ink-soft:#b7c6bd;
+                --mist:#7d8f84;
+                --line:#20302a;
+                --line-strong:#2b3d35;
+                --falcon:#57c39a;
+                --falcon-ink:#8bd8b8;
+                --dawn:#e6b24d;
+                --glow:rgba(87,195,154,0.16);
+                --shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);
+                --chip:#16221c;
+                --chip-line:#243530;
+                --code-bg:#0a1310;
+                --code-ink:#d7e8df;
+                color-scheme:dark;
+            }
+        }
+        /* Explicit toggle wins over the media query, both directions */
+        :root[data-theme="light"]{
+            --paper:#f4f6f1;--surface:#ffffff;--surface-2:#ecefe7;--ink:#14201b;--ink-soft:#3c4b44;
+            --mist:#69796f;--line:#dbe1d6;--line-strong:#c6cfc0;--falcon:#2f8f68;--falcon-ink:#1f6b4d;
+            --dawn:#c98a1a;--glow:rgba(47,143,104,0.14);
+            --shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.28);
+            --chip:#ffffff;--chip-line:#e3e8dd;--code-bg:#10201a;--code-ink:#dfeee7;color-scheme:light;
+        }
+        :root[data-theme="dark"]{
+            --paper:#0c1310;--surface:#111b16;--surface-2:#16221c;--ink:#e8f1ea;--ink-soft:#b7c6bd;
+            --mist:#7d8f84;--line:#20302a;--line-strong:#2b3d35;--falcon:#57c39a;--falcon-ink:#8bd8b8;
+            --dawn:#e6b24d;--glow:rgba(87,195,154,0.16);
+            --shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);
+            --chip:#16221c;--chip-line:#243530;--code-bg:#0a1310;--code-ink:#d7e8df;color-scheme:dark;
+        }
 
-</div>
+        /* ---------- Reset-ish ---------- */
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        html{scroll-behavior:smooth}
+        @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+        body{
+            background:var(--paper);color:var(--ink);
+            font-family:'Hanken Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+            font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
+            text-rendering:optimizeLegibility;overflow-x:hidden;
+            transition:background .4s ease,color .4s ease;
+        }
+        h1,h2,h3,h4{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:600;line-height:1.04;letter-spacing:-.02em;text-wrap:balance;color:var(--ink)}
+        a{color:inherit;text-decoration:none}
+        img{max-width:100%;display:block}
+        ::selection{background:var(--falcon);color:var(--paper)}
+        :focus-visible{outline:2px solid var(--falcon);outline-offset:3px;border-radius:4px}
 
+        .wrap{width:min(1180px,100% - 2.6rem);margin-inline:auto}
+        .mono{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace}
+        .eyebrow{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.24em;text-transform:uppercase;color:var(--falcon-ink)}
+
+        /* ---------- Header ---------- */
+        header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--paper) 82%,transparent);
+            backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid transparent;transition:border-color .3s,background .3s}
+        header.scrolled{border-bottom-color:var(--line)}
+        .bar{display:flex;align-items:center;gap:1.4rem;height:68px}
+        .brand{display:flex;align-items:center;gap:.6rem;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:1.32rem;letter-spacing:-.03em}
+        .brand .mk{width:26px;height:31px;display:grid;place-items:center}
+        .brand .by{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.14em;color:var(--mist);text-transform:uppercase;font-weight:400;align-self:flex-end;margin-bottom:.28rem}
+        nav.top{margin-left:auto;display:flex;align-items:center;gap:.35rem}
+        nav.top a.navlink{font-size:.92rem;color:var(--ink-soft);padding:.5rem .7rem;border-radius:8px;transition:color .2s,background .2s}
+        nav.top a.navlink:hover{color:var(--ink);background:var(--surface-2)}
+        .btn{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.83rem;font-weight:500;
+            padding:.62rem .95rem;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);
+            cursor:pointer;transition:transform .15s,border-color .2s,background .2s,box-shadow .2s;white-space:nowrap}
+        .btn:hover{transform:translateY(-1px);border-color:var(--falcon)}
+        .btn.primary{background:var(--falcon);border-color:var(--falcon);color:#04140d;font-weight:500}
+        .btn.primary:hover{box-shadow:0 10px 30px -12px var(--falcon)}
+        .btn svg{width:15px;height:15px}
+        .theme-toggle{display:flex;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;background:var(--surface)}
+        .theme-toggle button{background:none;border:0;cursor:pointer;padding:.42rem .5rem;color:var(--mist);display:grid;place-items:center;transition:background .2s,color .2s}
+        .theme-toggle button svg{width:16px;height:16px}
+        .theme-toggle button[aria-pressed="true"]{background:var(--surface-2);color:var(--falcon-ink)}
+        .menu-btn{display:none}
+
+        /* ---------- Hero ---------- */
+        .hero{position:relative;padding:clamp(3rem,7vw,6rem) 0 clamp(2.5rem,5vw,4rem);overflow:hidden}
+        .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(2rem,4vw,4rem);align-items:center}
+        .hero h1{font-size:clamp(2.5rem,5.4vw,4.5rem);font-weight:700;margin:1.1rem 0 0}
+        .hero h1 .thread{color:var(--falcon);position:relative;white-space:nowrap}
+        .hero h1 .own{font-style:normal;background:linear-gradient(120deg,var(--dawn),var(--falcon));-webkit-background-clip:text;background-clip:text;color:transparent}
+        .lede{font-size:clamp(1.05rem,1.5vw,1.28rem);color:var(--ink-soft);max-width:37ch;margin-top:1.3rem}
+        .hero-cta{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.9rem}
+        .hero-meta{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;margin-top:1.7rem;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--mist)}
+        .hero-meta b{color:var(--ink);font-weight:500}
+        .hero-visual{position:relative;min-height:420px}
+        #weave{width:100%;height:100%;position:absolute;inset:0;display:block}
+        /* Terminal */
+        .term{position:relative;background:var(--code-bg);border:1px solid var(--line-strong);border-radius:14px;box-shadow:var(--shadow);
+            font-family:'JetBrains Mono',monospace;font-size:.83rem;line-height:1.75;color:var(--code-ink);overflow:hidden;z-index:2}
+        .term-head{display:flex;align-items:center;gap:.5rem;padding:.6rem .85rem;border-bottom:1px solid rgba(255,255,255,.08)}
+        .term-head .dot{width:11px;height:11px;border-radius:50%;background:#2d4038}
+        .term-head .tt{margin-left:.4rem;font-size:.72rem;color:#6f8a7e;letter-spacing:.04em}
+        .term-body{padding:1rem 1.1rem 1.15rem;min-height:232px}
+        .term .ln{white-space:pre-wrap;word-break:break-word}
+        .term .p{color:var(--falcon)}
+        .term .cmd{color:#eef6f1}
+        .term .out{color:#8fae9f}
+        .term .ok{color:#57c39a}
+        .term .amb{color:var(--dawn)}
+        .term .cursor{display:inline-block;width:.6ch;background:var(--falcon);color:transparent;animation:blink 1.05s steps(1) infinite}
+        @keyframes blink{50%{opacity:0}}
+
+        /* ---------- Section scaffolding ---------- */
+        section{position:relative}
+        .band{padding:clamp(3.4rem,7vw,6.2rem) 0}
+        .band.alt{background:var(--surface);border-block:1px solid var(--line)}
+        .sec-head{max-width:60ch}
+        .sec-head h2{font-size:clamp(1.9rem,3.5vw,2.9rem);margin-top:.7rem}
+        .sec-head p{color:var(--ink-soft);margin-top:.9rem;font-size:1.08rem}
+
+        /* ---------- Marquee ---------- */
+        .marq-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.6rem 1.5rem;justify-content:space-between;margin-bottom:1.6rem}
+        .stat-row{display:flex;gap:2.2rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace}
+        .stat b{font-family:'Bricolage Grotesque',sans-serif;font-size:1.7rem;font-weight:700;color:var(--ink);display:block;line-height:1}
+        .stat span{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mist)}
+        .marquee{position:relative;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
+            mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
+        .track{display:flex;gap:.85rem;width:max-content;animation:scroll 60s linear infinite}
+        .track.two{animation-duration:75s;animation-direction:reverse;margin-top:.85rem}
+        .marquee:hover .track{animation-play-state:paused}
+        @keyframes scroll{to{transform:translateX(-50%)}}
+        @media (prefers-reduced-motion: reduce){.track{animation:none;flex-wrap:wrap;width:auto}}
+        .chip{display:flex;align-items:center;gap:.55rem;background:var(--chip);border:1px solid var(--chip-line);border-radius:11px;
+            padding:.55rem .9rem;flex:0 0 auto}
+        .chip img{width:24px;height:24px;object-fit:contain;border-radius:5px}
+        .chip span{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--ink-soft);white-space:nowrap}
+
+        /* ---------- The shift : editorial blocks ---------- */
+        .shift{display:grid;gap:1.1rem;grid-template-columns:repeat(2,1fr);margin-top:2.6rem}
+        .block{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:1.9rem 1.8rem 2rem;
+            box-shadow:var(--shadow);overflow:hidden;transition:transform .3s,border-color .3s}
+        .block:hover{transform:translateY(-3px);border-color:var(--line-strong)}
+        .block .tag{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--falcon-ink)}
+        .block h3{font-size:1.5rem;margin:.7rem 0 .6rem}
+        .block p{color:var(--ink-soft);font-size:1.02rem}
+        .block .code-inline{font-family:'JetBrains Mono',monospace;font-size:.86em;background:var(--surface-2);border:1px solid var(--line);padding:.05em .4em;border-radius:5px;color:var(--falcon-ink);white-space:nowrap}
+        .block::after{content:"";position:absolute;inset:auto -40px -50px auto;width:160px;height:160px;border-radius:50%;
+            background:radial-gradient(circle,var(--glow),transparent 70%);pointer-events:none}
+        .block.wide{grid-column:1 / -1;display:grid;grid-template-columns:1.1fr 1fr;gap:1.6rem;align-items:center}
+        @media (max-width:820px){.shift{grid-template-columns:1fr}.block.wide{grid-template-columns:1fr}}
+
+        /* mini capability panel inside the MCP block */
+        .cap{background:var(--code-bg);border:1px solid var(--line-strong);border-radius:12px;padding:1rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--code-ink);line-height:1.9}
+        .cap .k{color:#6f8a7e}
+        .cap .n{color:#eef6f1}
+        .cap .s{color:var(--dawn)}
+        .cap .pill{display:inline-block;font-size:.66rem;border:1px solid #2b4034;border-radius:999px;padding:.05rem .5rem;color:var(--falcon);margin-left:.3rem}
+
+        /* ---------- Timeline ---------- */
+        .rail{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:2.6rem;counter-reset:step}
+        .step{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:1.5rem 1.35rem 1.6rem}
+        .step .num{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--mist)}
+        .step .num::before{counter-increment:step;content:"0" counter(step);color:var(--falcon);font-weight:500;margin-right:.5rem;font-size:1rem}
+        .step .clock{float:right;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--dawn)}
+        .step h4{font-size:1.12rem;margin:.7rem 0 .45rem}
+        .step p{font-size:.94rem;color:var(--ink-soft)}
+        .step code{font-family:'JetBrains Mono',monospace;font-size:.86em;color:var(--falcon-ink)}
+        .step:not(:last-child)::after{content:"";position:absolute;top:50%;right:-.63rem;width:.6rem;height:2px;background:var(--line-strong);z-index:1}
+        @media (max-width:900px){.rail{grid-template-columns:repeat(2,1fr)}.step:not(:last-child)::after{display:none}}
+        @media (max-width:520px){.rail{grid-template-columns:1fr}}
+
+        /* ---------- Adoption + start ---------- */
+        .start-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:1.4rem;margin-top:2.6rem}
+        @media (max-width:860px){.start-grid{grid-template-columns:1fr}}
+        .adopt{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:1.9rem;box-shadow:var(--shadow)}
+        .adopt ul{list-style:none;display:grid;gap:.95rem;margin-top:1.2rem}
+        .adopt li{display:grid;grid-template-columns:22px 1fr;gap:.7rem;align-items:start}
+        .adopt li .ck{margin-top:2px;color:var(--falcon)}
+        .adopt li b{color:var(--ink)}
+        .adopt li span{color:var(--ink-soft);font-size:.98rem}
+        .startcard{background:var(--code-bg);border:1px solid var(--line-strong);border-radius:18px;padding:1.9rem;color:var(--code-ink);display:flex;flex-direction:column;gap:1.1rem}
+        .startcard .eyebrow{color:var(--falcon)}
+        .startcard .cmd-copy{display:flex;align-items:center;justify-content:space-between;gap:1rem;background:#0a130f;border:1px solid #223029;border-radius:11px;padding:.85rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.9rem}
+        .startcard .cmd-copy .c{color:#eef6f1}
+        .startcard .cmd-copy .c .p{color:var(--falcon)}
+        .startcard .cmd-copy button{background:none;border:1px solid #2b4034;color:#8fae9f;border-radius:7px;padding:.3rem .55rem;cursor:pointer;font-family:inherit;font-size:.72rem}
+        .startcard .cmd-copy button:hover{color:var(--falcon);border-color:var(--falcon)}
+        .startlinks{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+        .startlinks a{display:flex;align-items:center;gap:.55rem;padding:.7rem .85rem;border:1px solid #223029;border-radius:11px;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:#cfe0d7;transition:border-color .2s,color .2s,background .2s}
+        .startlinks a:hover{border-color:var(--falcon);color:#fff;background:#0d1a14}
+        .startlinks a svg{width:16px;height:16px;flex:0 0 auto}
+
+        /* ---------- Signup ---------- */
+        .join{display:grid;grid-template-columns:1fr 1fr;gap:2.4rem;align-items:center}
+        @media (max-width:860px){.join{grid-template-columns:1fr}}
+        .signup{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:1.9rem;box-shadow:var(--shadow)}
+        .signup label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mist);margin-bottom:.45rem}
+        .signup input[type=email]{width:100%;padding:.85rem .95rem;border:1px solid var(--line-strong);border-radius:11px;background:var(--paper);color:var(--ink);font:inherit;font-size:1rem}
+        .signup input[type=email]:focus{outline:none;border-color:var(--falcon);box-shadow:0 0 0 3px var(--glow)}
+        .opt{display:flex;gap:.6rem;align-items:flex-start;margin-top:1rem;cursor:pointer}
+        .opt input{margin-top:.28rem;accent-color:var(--falcon);width:16px;height:16px}
+        .opt span{font-size:.95rem;color:var(--ink-soft)}
+        .signup .btn.primary{width:100%;justify-content:center;margin-top:1.3rem;padding:.85rem;font-size:.95rem}
+        .hp{position:absolute;left:-9999px}
+        .formnote{font-size:.8rem;color:var(--mist);margin-top:.8rem}
+        #formmsg{display:none;margin-top:1rem;padding:.8rem 1rem;border-radius:10px;font-size:.92rem}
+        #formmsg.ok{display:block;background:var(--glow);color:var(--falcon-ink);border:1px solid var(--falcon)}
+        #formmsg.err{display:block;background:rgba(201,138,26,.12);color:var(--dawn);border:1px solid var(--dawn)}
+
+        /* ---------- Footer ---------- */
+        footer{border-top:1px solid var(--line);padding:2.6rem 0;background:var(--surface)}
+        .foot{display:flex;flex-wrap:wrap;gap:1.2rem 2rem;align-items:center;justify-content:space-between}
+        .foot .made{font-size:.92rem;color:var(--mist)}
+        .foot .made a{color:var(--falcon-ink);font-weight:600}
+        .foot nav{display:flex;flex-wrap:wrap;gap:1.2rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+        .foot nav a{color:var(--ink-soft)}
+        .foot nav a:hover{color:var(--falcon-ink)}
+        .verbadge{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--mist);border:1px solid var(--line);border-radius:999px;padding:.2rem .6rem}
+
+        /* ---------- reveal ---------- */
+        .reveal{opacity:0;transform:translateY(18px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+        .reveal.in{opacity:1;transform:none}
+        @media (prefers-reduced-motion: reduce){.reveal{opacity:1;transform:none;transition:none}}
+
+        @media (max-width:900px){
+            .hero-grid{grid-template-columns:1fr}
+            .hero-visual{min-height:360px;order:-1}
+            nav.top .navlink{display:none}
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ============ HEADER ============ -->
+    <header id="hdr">
+        <div class="wrap bar">
+            <a class="brand" href="/" aria-label="Frigg home">
+                <span class="mk">
+                    <img src="assets/img/frigg-favicon.svg" alt="" width="26" height="31">
+                </span>
+                Frigg <span class="by">by Left&nbsp;Hook</span>
+            </a>
+            <nav class="top" aria-label="Primary">
+                <a class="navlink" href="#shift">The&nbsp;shift</a>
+                <a class="navlink" href="#build">Build</a>
+                <a class="navlink" href="#adopt">Adopt</a>
+                <a class="btn" href="https://docs.friggframework.org" target="_blank" rel="noopener">Docs</a>
+                <a class="btn primary" href="#join">Join the community</a>
+                <div class="theme-toggle" role="group" aria-label="Color theme">
+                    <button data-set="light" title="Light" aria-pressed="false" aria-label="Light theme">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                    </button>
+                    <button data-set="system" title="System" aria-pressed="true" aria-label="System theme">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    </button>
+                    <button data-set="dark" title="Dark" aria-pressed="false" aria-label="Dark theme">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+                    </button>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+        <div class="wrap hero-grid">
+            <div class="hero-copy">
+                <span class="eyebrow">Open source · serverless · yours</span>
+                <h1>Integrations,<br><span class="thread">woven by agents.</span><br><span class="own">Owned by you.</span></h1>
+                <p class="lede">Frigg is the open-source, serverless framework where an agent scaffolds a real, tested integration in an afternoon — and every integration it builds is also an MCP tool your own agents can call.</p>
+                <div class="hero-cta">
+                    <a class="btn primary" href="#build">See how it ships
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                    </a>
+                    <a class="btn" href="https://github.com/friggframework/frigg" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.9c-2.78.62-3.37-1.2-3.37-1.2-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9l-.01 2.82c0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>
+                        Star on GitHub
+                    </a>
+                </div>
+                <div class="hero-meta">
+                    <span><b>MIT</b> licensed</span>
+                    <span>Deploys to <b>your AWS</b></span>
+                    <span><b>200+</b> APIs charted</span>
+                    <span class="mono">v2.0.0-next</span>
+                </div>
+            </div>
+
+            <div class="hero-visual">
+                <canvas id="weave" aria-hidden="true"></canvas>
+                <div class="term" role="img" aria-label="Terminal showing an agent scaffolding a Frigg integration">
+                    <div class="term-head">
+                        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                        <span class="tt">frigg — agent session</span>
+                    </div>
+                    <div class="term-body" id="term"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ MARQUEE ============ -->
+    <section class="band alt" id="library">
+        <div class="wrap">
+            <div class="marq-head reveal">
+                <div class="stat-row">
+                    <div class="stat"><b>200+</b><span>APIs charted</span></div>
+                    <div class="stat"><b>70</b><span>Platforms</span></div>
+                    <div class="stat"><b>1</b><span>Framework</span></div>
+                </div>
+                <p class="mono" style="color:var(--mist);font-size:.82rem;max-width:34ch">The connectors the community has already charted — drop one in with a single <span style="color:var(--falcon-ink)">frigg&nbsp;install</span>.</p>
+            </div>
+            <div class="marquee" aria-hidden="true">
+                <div class="track" id="track1"></div>
+                <div class="track two" id="track2"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ THE SHIFT ============ -->
+    <section class="band" id="shift">
+        <div class="wrap">
+            <div class="sec-head reveal">
+                <span class="eyebrow">What changed</span>
+                <h2>The integration backlog was a people problem. Now it's an agent's job.</h2>
+                <p>Frigg was always about not rebuilding the wheel. The wheel now builds itself — and the same structure that lets an agent build an integration lets your agents <em>use</em> it.</p>
+            </div>
+
+            <div class="shift">
+                <article class="block reveal">
+                    <span class="tag">Agents build it</span>
+                    <h3>Point an agent at two systems. Get a tested integration.</h3>
+                    <p>Not boilerplate you copy. <span class="code-inline">frigg init</span>, then the agent harness grounds the model in your app's own conventions, queries the capabilities that already exist, scaffolds from templates, and validates its plan before it writes a line. You finish the last mile — mapping and business logic — instead of starting from a blank file.</p>
+                </article>
+
+                <article class="block reveal">
+                    <span class="tag">Own your pipes</span>
+                    <h3>Your cloud. Your data. No middleman in the path.</h3>
+                    <p>Frigg deploys to <b>your</b> AWS account, not a vendor's. Serverless means it costs next to nothing at rest and scales from three records a day to millions an hour on the same code. Customer data never transits someone else's servers — and there's no per-connection tax to renegotiate later.</p>
+                </article>
+
+                <article class="block wide reveal">
+                    <div>
+                        <span class="tag">Integrations as MCP tools</span>
+                        <h3>Every integration is also a tool your agents can call.</h3>
+                        <p>Frigg describes what each integration does as typed <b>capabilities</b> — <span class="code-inline">crm.contact.sync</span>, <span class="code-inline">notifications.slack.send</span>. Flip the <span class="code-inline">mcp-tool</span> surface on and your agents call those integrations directly, right alongside raw MCP tools that are plain API requests. One capability graph, exposed to humans over <span class="code-inline">GET /api/capabilities</span> and to agents as tools.</p>
+                    </div>
+                    <div class="cap" aria-hidden="true">
+                        <div><span class="k">capability</span> <span class="n">crm.contact.sync</span><span class="pill">mcp-tool</span></div>
+                        <div><span class="k">&nbsp;&nbsp;surface</span> <span class="s">sync · action</span></div>
+                        <div><span class="k">&nbsp;&nbsp;spec</span>&nbsp;&nbsp;&nbsp;&nbsp;hubspot-openapi#/contacts</div>
+                        <div style="margin-top:.5rem"><span class="k">capability</span> <span class="n">notifications.slack.send</span><span class="pill">mcp-tool</span></div>
+                        <div><span class="k">&nbsp;&nbsp;surface</span> <span class="s">action</span></div>
+                        <div><span class="k">&nbsp;&nbsp;called_by</span> agent · webhook · cron</div>
+                    </div>
+                </article>
+
+                <article class="block reveal">
+                    <span class="tag">Wisdom of the crowd</span>
+                    <h3>Inherit what everyone already learned about the API.</h3>
+                    <p>Auth flows, pagination quirks, webhook signatures, the rate-limit that isn't in the docs — every API the community charts becomes a module anyone can install. You start from hard-won knowledge instead of re-reading the same reference page a hundred developers read before you.</p>
+                </article>
+
+                <article class="block reveal">
+                    <span class="tag">Built to last</span>
+                    <h3>Enterprise bones, without the enterprise slog.</h3>
+                    <p>Field-level encryption with your own KMS keys, VPC-private Lambdas, OAuth2 handled for you, and a hexagonal architecture that keeps your logic testable. Frigg is opinionated so you don't have to relitigate the same infrastructure decisions on every integration.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ BUILD / TIMELINE ============ -->
+    <section class="band alt" id="build">
+        <div class="wrap">
+            <div class="sec-head reveal">
+                <span class="eyebrow">From zero to production</span>
+                <h2>An afternoon, not a quarter.</h2>
+                <p>The original vision was "spin one up in minutes, push to production in a day." With an agent doing the wiring, a first integration realistically lands in a few hours. Here's the actual path.</p>
+            </div>
+            <div class="rail">
+                <div class="step reveal">
+                    <div class="num">scaffold<span class="clock">00:00</span></div>
+                    <h4>Initialize the app</h4>
+                    <p><code>frigg init</code> lays down the serverless app structure — handlers, infra-as-code, and the definition your integrations plug into.</p>
+                </div>
+                <div class="step reveal">
+                    <div class="num">install<span class="clock">00:05</span></div>
+                    <h4>Drop in a module</h4>
+                    <p><code>frigg install hubspot</code> pulls a charted API module — auth, endpoints, and webhooks already mapped by the community.</p>
+                </div>
+                <div class="step reveal">
+                    <div class="num">weave<span class="clock">00:30</span></div>
+                    <h4>Let the agent wire it</h4>
+                    <p>The agent queries capabilities, copies a template, scaffolds tests, and validates its plan — you review and fill in the business logic.</p>
+                </div>
+                <div class="step reveal">
+                    <div class="num">deploy<span class="clock">~few hrs</span></div>
+                    <h4>Ship to your cloud</h4>
+                    <p><code>frigg deploy</code> stands it up on your own AWS account, VPC-private and encrypted, scaling on demand.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ ADOPT / START ============ -->
+    <section class="band" id="adopt">
+        <div class="wrap">
+            <div class="sec-head reveal">
+                <span class="eyebrow">Easy to adopt</span>
+                <h2>Low commitment. High ceiling.</h2>
+                <p>Frigg is a framework you add to a Node backend, not a platform you migrate onto. Try it on one integration this week.</p>
+            </div>
+            <div class="start-grid">
+                <div class="adopt reveal">
+                    <ul>
+                        <li><span class="ck" aria-hidden="true">✚</span><span><b>Start on one integration.</b> No rip-and-replace. Prove it on the connector your customers are asking for right now.</span></li>
+                        <li><span class="ck" aria-hidden="true">✚</span><span><b>It's a library, not a lock-in.</b> Frigg drops into an existing Node.js backend and reads like code you'd have written — open source under MIT, every line auditable.</span></li>
+                        <li><span class="ck" aria-hidden="true">✚</span><span><b>Bring your own cloud.</b> Deploy to the AWS account you already have. No new vendor bill, no data leaving your perimeter.</span></li>
+                        <li><span class="ck" aria-hidden="true">✚</span><span><b>Charted or custom.</b> Install a community module, or let an agent chart a brand-new API — either way you keep the module.</span></li>
+                        <li><span class="ck" aria-hidden="true">✚</span><span><b>No seat math.</b> Pricing isn't per-connection or per-seat; it's whatever your own serverless compute costs, which is close to nothing until traffic shows up.</span></li>
+                    </ul>
+                </div>
+                <div class="startcard reveal">
+                    <div>
+                        <span class="eyebrow">Get started</span>
+                        <p style="color:#a9c0b4;margin-top:.6rem;font-size:.98rem">One command to scaffold your first app:</p>
+                    </div>
+                    <div class="cmd-copy">
+                        <span class="c"><span class="p">$</span> frigg init my-integrations</span>
+                        <button id="copybtn" type="button">copy</button>
+                    </div>
+                    <div class="startlinks">
+                        <a href="https://docs.friggframework.org" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                            Read the docs
+                        </a>
+                        <a href="https://github.com/friggframework/frigg" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.9c-2.78.62-3.37-1.2-3.37-1.2-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9l-.01 2.82c0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>
+                            Browse the repo
+                        </a>
+                        <a href="https://demo.friggframework.org" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7 18 2-8 8-2z"/></svg>
+                            Try the demo
+                        </a>
+                        <a href="https://roadmap.friggframework.org" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v16M15 6v16"/></svg>
+                            See the roadmap
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ JOIN ============ -->
+    <section class="band alt" id="join">
+        <div class="wrap join">
+            <div class="reveal">
+                <span class="eyebrow">Community</span>
+                <h2 style="font-size:clamp(1.9rem,3.5vw,2.7rem);margin-top:.6rem">Build in the open, with people who ship integrations for a living.</h2>
+                <p style="color:var(--ink-soft);margin-top:1rem;font-size:1.06rem;max-width:46ch">Join the Frigg Slack Connect channel for help, war stories, and early looks at the agent tooling — or jump straight into GitHub Discussions.</p>
+                <p style="margin-top:1.4rem">
+                    <a class="btn" href="https://github.com/friggframework/frigg/discussions" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        GitHub Discussions
+                    </a>
+                </p>
+            </div>
+            <div class="signup reveal">
+                <form name="frigg-signup" method="POST" data-netlify="true" netlify-honeypot="bot-field" id="signup">
+                    <input type="hidden" name="form-name" value="frigg-signup">
+                    <p class="hp"><label>Don't fill this out if you're human: <input name="bot-field"></label></p>
+                    <label class="fld" for="email">Email address</label>
+                    <input id="email" name="email" type="email" required placeholder="you@company.com" autocomplete="email">
+                    <label class="opt">
+                        <input type="checkbox" name="slack-invite" checked>
+                        <span>Invite me to the Frigg Slack Connect channel</span>
+                    </label>
+                    <label class="opt">
+                        <input type="checkbox" name="update-emails">
+                        <span>Send me occasional product updates</span>
+                    </label>
+                    <button class="btn primary" type="submit">Join the community
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                    </button>
+                    <p class="formnote">No spam. Unsubscribe anytime. We only use your email for what you check above.</p>
+                    <div id="formmsg" role="status" aria-live="polite"></div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ FOOTER ============ -->
+    <footer>
+        <div class="wrap foot">
+            <div class="made">Made with care by <a href="https://lefthook.com" target="_blank" rel="noopener">Left Hook</a> — <span class="mono">weaver of the clouds</span> <span class="verbadge">v2.0.0-next</span></div>
+            <nav aria-label="Footer">
+                <a href="https://docs.friggframework.org" target="_blank" rel="noopener">Docs</a>
+                <a href="https://github.com/friggframework/frigg" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://demo.friggframework.org" target="_blank" rel="noopener">Demo</a>
+                <a href="https://roadmap.friggframework.org" target="_blank" rel="noopener">Roadmap</a>
+                <a href="#join">Community</a>
+            </nav>
+        </div>
+    </footer>
+
+    <!-- PostHog -->
+    <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_J8vdSI1q0PutJ9LG0INHlxlymy6XNYTolDK5mJklWaG',{api_host:'https://app.posthog.com'})
+    </script>
+
+    <!-- ============ APP JS ============ -->
+    <script>
+    (function () {
+        'use strict';
+        var root = document.documentElement;
+        var mql = window.matchMedia('(prefers-color-scheme: dark)');
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        /* ---------- Theme toggle ---------- */
+        var toggle = document.querySelector('.theme-toggle');
+        function saved(){ try { return localStorage.getItem('frigg-theme'); } catch(e){ return null; } }
+        function currentMode(){ return saved() || 'system'; }
+        function syncButtons(){
+            var m = currentMode();
+            toggle.querySelectorAll('button').forEach(function(b){
+                b.setAttribute('aria-pressed', String(b.dataset.set === m));
+            });
+        }
+        function apply(mode){
+            try {
+                if (mode === 'system') { localStorage.removeItem('frigg-theme'); root.removeAttribute('data-theme'); }
+                else { localStorage.setItem('frigg-theme', mode); root.setAttribute('data-theme', mode); }
+            } catch(e){
+                if (mode === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', mode);
+            }
+            syncButtons();
+            // repaint canvas colors on next frame
+            requestAnimationFrame(function(){ if (window.__weaveRecolor) window.__weaveRecolor(); });
+        }
+        toggle.addEventListener('click', function(e){
+            var b = e.target.closest('button'); if (!b) return; apply(b.dataset.set);
+        });
+        mql.addEventListener && mql.addEventListener('change', function(){ if (window.__weaveRecolor) window.__weaveRecolor(); });
+        syncButtons();
+
+        /* ---------- Header shadow on scroll ---------- */
+        var hdr = document.getElementById('hdr');
+        var onScroll = function(){ hdr.classList.toggle('scrolled', window.scrollY > 10); };
+        onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+
+        /* ---------- Reveal on scroll ---------- */
+        if ('IntersectionObserver' in window && !reduce){
+            var io = new IntersectionObserver(function(entries){
+                entries.forEach(function(en){ if (en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
+            }, {threshold:.12, rootMargin:'0px 0px -8% 0px'});
+            document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+        } else {
+            document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); });
+        }
+
+        /* ---------- Integration marquee ---------- */
+        var apps = [
+            ['Salesforce','salesforce-icon.jpeg'],['HubSpot','hubspot-icon.jpeg'],['Slack','slack-icon.svg'],
+            ['Stripe','stripe-icon.png'],['Zoom','zoom-icon.png'],['Asana','asana-icon.png'],
+            ['monday.com','mondaycom-icon.jpeg'],['QuickBooks','quickbooks-icon.svg'],['Pipedrive','pipedrive-icon.png'],
+            ['Linear','linear-icon.svg'],['MS Teams','microsoft-teams-icon.png'],['Google Drive','google-drive-icon.png'],
+            ['Outreach','outreach-icon.jpeg'],['Marketo','marketo-icon.jpeg'],['Zoho','zoho-icon.png'],
+            ['ActiveCampaign','activecampaign-icon.jpeg'],['Front','front-icon.jpeg'],['Frontify','frontify-icon.png'],
+            ['Gorgias','gorgias-icon.png'],['Help Scout','helpscout-icon.png'],['FreshBooks','freshbooks-icon.png'],
+            ['Contentful','contentful-icon.png'],['Deel','deel-icon.png'],['Personio','personio-icon.png'],
+            ['Salesloft','salesloft-icon.png'],['RollWorks','rollworks-icon.jpeg'],['Crossbeam','crossbeam-icon.jpeg'],
+            ['Attentive','attentive-icon.png'],['Ironclad','ironclad-icon.png'],['Airwallex','airwallex-icon.png'],
+            ['ConnectWise','connectwise-icon.jpeg'],['Yotpo','yotpo-icon.png'],['Google Calendar','google-calendar-icon.png']
+        ];
+        function chip(a){
+            return '<div class="chip"><img src="assets/img/'+a[1]+'" alt="" loading="lazy"><span>'+a[0]+'</span></div>';
+        }
+        function fill(id, list){
+            var html = list.map(chip).join('');
+            document.getElementById(id).innerHTML = html + html; // duplicate for seamless loop
+        }
+        var half = Math.ceil(apps.length/2);
+        fill('track1', apps.slice(0, half).concat(apps.slice(0, half)));
+        fill('track2', apps.slice(half).concat(apps.slice(half)));
+
+        /* ---------- Copy command ---------- */
+        var copybtn = document.getElementById('copybtn');
+        if (copybtn){
+            copybtn.addEventListener('click', function(){
+                var txt = 'frigg init my-integrations';
+                var done = function(){ copybtn.textContent = 'copied'; setTimeout(function(){ copybtn.textContent='copy'; }, 1600); };
+                if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done, done); }
+                else { done(); }
+            });
+        }
+
+        /* ---------- Signup (progressive enhancement over Netlify Forms) ---------- */
+        var form = document.getElementById('signup');
+        var msg = document.getElementById('formmsg');
+        if (form){
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                var data = new FormData(form);
+                var body = new URLSearchParams();
+                data.forEach(function(v,k){ body.append(k, v); });
+                var btn = form.querySelector('button[type=submit]');
+                btn.disabled = true; btn.style.opacity = .7;
+                fetch('/', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString()})
+                    .then(function(r){
+                        if (!r.ok) throw new Error('bad status');
+                        msg.className = 'ok'; msg.textContent = "You're in — check your inbox for the Slack Connect invite.";
+                        form.reset();
+                        if (window.posthog) posthog.capture('signup_submitted');
+                    })
+                    .catch(function(){
+                        msg.className = 'err'; msg.textContent = 'Something went wrong sending that. Mind trying again in a moment?';
+                    })
+                    .finally(function(){ btn.disabled = false; btn.style.opacity = 1; });
+            });
+        }
+
+        /* ---------- Terminal typing ---------- */
+        var termEl = document.getElementById('term');
+        var script = [
+            {c:'$ ', k:'frigg init acme-integrations', cls:'cmd'},
+            {o:'✓ scaffolded serverless app · handlers · infra-as-code', cls:'out'},
+            {c:'$ ', k:'frigg install hubspot', cls:'cmd'},
+            {o:'✓ module added — auth, endpoints & webhooks mapped', cls:'ok'},
+            {c:'» ', k:'agent: build "notify Slack when a HubSpot deal closes"', cls:'amb', pcls:'amb'},
+            {o:'· querying capabilities…  crm.deal.watch ✓  slack.send ✓', cls:'out'},
+            {o:'· copying template · scaffolding tests · validating plan', cls:'out'},
+            {o:'✓ integration woven — 1 file left for you: mapping', cls:'ok'},
+            {c:'$ ', k:'frigg deploy --stage prod', cls:'cmd'},
+            {o:'✓ live on your AWS · VPC-private · encrypted', cls:'ok'}
+        ];
+        function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function renderStatic(){
+            termEl.innerHTML = script.map(function(s){
+                if (s.c) return '<div class="ln"><span class="p '+(s.pcls||'p')+'">'+esc(s.c)+'</span><span class="'+s.cls+'">'+esc(s.k)+'</span></div>';
+                return '<div class="ln"><span class="'+s.cls+'">'+esc(s.o)+'</span></div>';
+            }).join('');
+        }
+        function typeIt(){
+            var i = 0;
+            function line(){
+                if (i >= script.length){
+                    var last = termEl.lastChild;
+                    if (last){ var cur = document.createElement('span'); cur.className='cursor'; cur.textContent='▍'; last.appendChild(cur); }
+                    return;
+                }
+                var s = script[i]; i++;
+                var div = document.createElement('div'); div.className = 'ln';
+                termEl.appendChild(div);
+                if (s.c){
+                    var pre = '<span class="p '+(s.pcls||'p')+'">'+esc(s.c)+'</span>';
+                    var full = s.k, j = 0;
+                    div.innerHTML = pre + '<span class="'+s.cls+'"></span>';
+                    var span = div.querySelector('.'+s.cls.split(' ')[0]) || div.lastChild;
+                    (function tick(){
+                        span.textContent = full.slice(0, j);
+                        j++;
+                        if (j <= full.length) setTimeout(tick, 22 + Math.random()*30);
+                        else setTimeout(line, 260);
+                    })();
+                } else {
+                    div.innerHTML = '<span class="'+s.cls+'">'+esc(s.o)+'</span>';
+                    div.style.opacity = 0; div.style.transition='opacity .25s';
+                    requestAnimationFrame(function(){ div.style.opacity = 1; });
+                    setTimeout(line, 420);
+                }
+            }
+            line();
+        }
+        if (reduce){ renderStatic(); } else { setTimeout(typeIt, 500); }
+
+        /* ---------- Weave canvas ---------- */
+        var cv = document.getElementById('weave');
+        if (cv && cv.getContext){
+            var ctx = cv.getContext('2d');
+            var W=0,H=0,dpr=Math.min(window.devicePixelRatio||1,2);
+            var col = {};
+            function readColors(){
+                var cs = getComputedStyle(root);
+                col.falcon = cs.getPropertyValue('--falcon').trim() || '#57c39a';
+                col.dawn = cs.getPropertyValue('--dawn').trim() || '#e6b24d';
+                col.line = cs.getPropertyValue('--line-strong').trim() || '#2b3d35';
+                col.mist = cs.getPropertyValue('--mist').trim() || '#7d8f84';
+            }
+            window.__weaveRecolor = readColors;
+            var nodesL=[], nodesR=[], threads=[];
+            function resize(){
+                var r = cv.getBoundingClientRect(); W=r.width; H=r.height;
+                cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+                build();
+            }
+            function build(){
+                nodesL=[]; nodesR=[];
+                var n = 5;
+                for (var i=0;i<n;i++){
+                    nodesL.push({x:W*0.12, y:H*(0.16+0.68*i/(n-1))});
+                    nodesR.push({x:W*0.88, y:H*(0.16+0.68*i/(n-1))});
+                }
+                threads=[];
+                for (var t=0;t<7;t++) threads.push(newThread(t*0.5));
+            }
+            function newThread(delay){
+                var a = nodesL[Math.floor(Math.random()*nodesL.length)];
+                var b = nodesR[Math.floor(Math.random()*nodesR.length)];
+                var amber = Math.random() < 0.28;
+                return {a:a,b:b, p:-delay, speed:0.10+Math.random()*0.12, amber:amber, life:0};
+            }
+            function pt(a,b,mx,my,t){
+                var u=1-t;
+                return {
+                    x: u*u*a.x + 2*u*t*mx + t*t*b.x,
+                    y: u*u*a.y + 2*u*t*my + t*t*b.y
+                };
+            }
+            var raf;
+            function frame(){
+                ctx.clearRect(0,0,W,H);
+                // faint node dots
+                ctx.fillStyle = col.mist;
+                [nodesL,nodesR].forEach(function(arr){ arr.forEach(function(nd){
+                    ctx.globalAlpha=.5; ctx.beginPath(); ctx.arc(nd.x,nd.y,2.5,0,7); ctx.fill();
+                }); });
+                ctx.globalAlpha=1;
+                threads.forEach(function(th,idx){
+                    th.p += th.speed*0.016*3;
+                    if (th.p < 0) return;
+                    var mx=(th.a.x+th.b.x)/2 + (idx%2?40:-40);
+                    var my=(th.a.y+th.b.y)/2 + Math.sin(idx)*30;
+                    var prog = Math.min(th.p,1);
+                    var color = th.amber ? col.dawn : col.falcon;
+                    // drawn portion of the woven thread
+                    ctx.strokeStyle = color; ctx.lineWidth = th.amber?1.6:1.2; ctx.globalAlpha = th.amber?.85:.6;
+                    ctx.beginPath();
+                    for (var s=0;s<=prog;s+=0.03){
+                        var q=pt(th.a,th.b,mx,my,s);
+                        if (s===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y);
+                    }
+                    ctx.stroke();
+                    // the shuttle (falcon) head
+                    if (prog < 1){
+                        var head=pt(th.a,th.b,mx,my,prog);
+                        ctx.globalAlpha=1; ctx.fillStyle=color;
+                        ctx.beginPath(); ctx.arc(head.x,head.y, th.amber?3.4:2.6, 0,7); ctx.fill();
+                        ctx.globalAlpha=.25; ctx.beginPath(); ctx.arc(head.x,head.y, 7, 0,7); ctx.fill();
+                    }
+                    ctx.globalAlpha=1;
+                    if (th.p > 1.9){ threads[idx]=newThread(0); }
+                });
+                raf=requestAnimationFrame(frame);
+            }
+            function stop(){ if (raf) cancelAnimationFrame(raf); }
+            readColors(); resize();
+            window.addEventListener('resize', resize);
+            if (reduce){
+                // static woven state
+                threads.forEach(function(t){ t.p = 1.4; });
+                ctx.clearRect(0,0,W,H); frameStatic();
+            } else { frame(); }
+            function frameStatic(){
+                threads.forEach(function(th,idx){
+                    var mx=(th.a.x+th.b.x)/2+(idx%2?40:-40), my=(th.a.y+th.b.y)/2+Math.sin(idx)*30;
+                    ctx.strokeStyle = th.amber?col.dawn:col.falcon; ctx.globalAlpha=.5; ctx.lineWidth=1.2;
+                    ctx.beginPath();
+                    for (var s=0;s<=1;s+=0.03){ var q=pt(th.a,th.b,mx,my,s); s===0?ctx.moveTo(q.x,q.y):ctx.lineTo(q.x,q.y); }
+                    ctx.stroke();
+                });
+                ctx.globalAlpha=1;
+            }
+        }
+    })();
+    </script>
 </body>
 
 </html>

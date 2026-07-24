@@ -1,24 +1,41 @@
 # friggframework.org marketing site
 
 The public marketing site for the Frigg Integration Framework
-(https://friggframework.org). It is a static site (HTML/CSS/JS built on
-Bootstrap 4 + jQuery) with a small set of Netlify serverless functions for the
-newsletter / Slack Connect signup flow.
+(https://friggframework.org). It is a single, self-contained static page
+(inline CSS + vanilla JS, no build step, no framework runtime) with a small set
+of Netlify serverless functions for the newsletter / Slack Connect signup flow.
 
 Previously this site lived in the `lefthook--demo-frigg-application` repo. It
 now lives here in the Frigg core monorepo so the site can be iterated on
-alongside the framework and deployed from the `next` branch via Netlify.
+alongside the framework and deployed from the `next` branch via Netlify. The
+page was rebuilt from the original Bootstrap/jQuery version into a modern,
+dependency-free page with a light/dark/system theme toggle and messaging around
+the current framework story (agents building integrations, integrations exposed
+as MCP tools, owning your own stack).
 
 ## Layout
 
 | Path | What it is |
 |------|------------|
-| `index.html` | The single-page marketing site |
-| `css/`, `js/` | Site styles and scripts |
-| `fonts/`, `plugins/`, `assets/` | Vendored fonts, jQuery/Bootstrap plugins, images |
-| `accordions.json` | Copy for the "Why Frigg" accordion section |
+| `index.html` | The entire single-page site — inline CSS + JS, no build step |
+| `fonts/webfonts/` | Self-hosted woff2 (Bricolage Grotesque, Hanken Grotesk, JetBrains Mono) |
+| `assets/img/` | Logo mark + integration icons used in the marquee |
 | `friggframework-api/` | Netlify serverless functions (`subscribe`, `submission-created`) |
 | `../netlify.toml` | Netlify build config (base = `website`) — lives at the repo root |
+
+## Design notes
+
+- **Theme**: tokens are CSS custom properties on `:root`; `prefers-color-scheme`
+  sets the default and a header toggle stamps `data-theme="light|dark"` (stored
+  in `localStorage`) which overrides the media query in both directions.
+- **No external requests**: fonts are self-hosted; the only third-party scripts
+  are the existing Google Analytics + PostHog snippets carried over from the
+  original site.
+- **Motion** (weave canvas, terminal typing, scroll reveals) is disabled under
+  `prefers-reduced-motion`.
+- The signup `<form>` keeps the exact field names (`email`, `slack-invite`,
+  `update-emails`) and `form-name` that the `submission-created` function reads,
+  so the Netlify Forms flow is unchanged.
 
 ## Netlify configuration
 
