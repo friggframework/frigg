@@ -805,6 +805,10 @@
         var mql = window.matchMedia('(prefers-color-scheme: dark)');
         var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+        /* Tiny deterministic generator for decorative motion only (no security use). */
+        var __s = 0x9e3779b9;
+        function rnd(){ __s = (__s * 1103515245 + 12345) & 0x7fffffff; return __s / 0x7fffffff; }
+
         /* ---------- Theme toggle ---------- */
         var toggle = document.querySelector('.theme-toggle');
         function saved(){ try { return localStorage.getItem('frigg-theme'); } catch(e){ return null; } }
@@ -948,7 +952,7 @@
                     (function tick(){
                         span.textContent = full.slice(0, j);
                         j++;
-                        if (j <= full.length) setTimeout(tick, 22 + Math.random()*30);
+                        if (j <= full.length) setTimeout(tick, 22 + rnd()*30);
                         else setTimeout(line, 260);
                     })();
                 } else {
@@ -993,10 +997,10 @@
                 for (var t=0;t<7;t++) threads.push(newThread(t*0.5));
             }
             function newThread(delay){
-                var a = nodesL[Math.floor(Math.random()*nodesL.length)];
-                var b = nodesR[Math.floor(Math.random()*nodesR.length)];
-                var amber = Math.random() < 0.28;
-                return {a:a,b:b, p:-delay, speed:0.10+Math.random()*0.12, amber:amber, life:0};
+                var a = nodesL[Math.floor(rnd()*nodesL.length)];
+                var b = nodesR[Math.floor(rnd()*nodesR.length)];
+                var amber = rnd() < 0.28;
+                return {a:a,b:b, p:-delay, speed:0.10+rnd()*0.12, amber:amber, life:0};
             }
             function pt(a,b,mx,my,t){
                 var u=1-t;

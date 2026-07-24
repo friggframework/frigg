@@ -52,10 +52,10 @@ exports.handler = async function (event, context, callback) {
     try {
         const res = await fetch(process.env.WEBHOOK_URL, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({email: payload.email.trim(),
             slackInvite: payload.slackInvite,
-            emailUpdates: payload.emailUpdates}),
-            contentType: 'application/json'
+            emailUpdates: payload.emailUpdates})
         })
         responseMessage.push('Email subscribed')
     } catch (e) {

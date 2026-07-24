@@ -16,4 +16,8 @@ exports.handler = async function (event, context, callback) {
         body: JSON.stringify({email, slackInvite, emailUpdates})
     })
     console.log(res)
+    return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'processed' })
+    }
 }
