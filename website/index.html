@@ -48,7 +48,7 @@
             --line-strong:#c6cfc0;
             --falcon:#2f8f68;        /* accent green, tuned for light ground */
             --falcon-ink:#1f6b4d;
-            --dawn:#c98a1a;          /* amber thread, tuned for light ground */
+            --dawn:#e0530a;          /* amber thread, tuned for light ground */
             --glow:rgba(47,143,104,0.14);
             --shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.28);
             --chip:#ffffff;
@@ -69,7 +69,7 @@
                 --line-strong:#2b3d35;
                 --falcon:#57c39a;
                 --falcon-ink:#8bd8b8;
-                --dawn:#e6b24d;
+                --dawn:#ff6a1a;
                 --glow:rgba(87,195,154,0.16);
                 --shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);
                 --chip:#16221c;
@@ -83,17 +83,20 @@
         :root[data-theme="light"]{
             --paper:#f4f6f1;--surface:#ffffff;--surface-2:#ecefe7;--ink:#14201b;--ink-soft:#3c4b44;
             --mist:#69796f;--line:#dbe1d6;--line-strong:#c6cfc0;--falcon:#2f8f68;--falcon-ink:#1f6b4d;
-            --dawn:#c98a1a;--glow:rgba(47,143,104,0.14);
+            --dawn:#e0530a;--glow:rgba(47,143,104,0.14);
             --shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.28);
             --chip:#ffffff;--chip-line:#e3e8dd;--code-bg:#10201a;--code-ink:#dfeee7;color-scheme:light;
         }
         :root[data-theme="dark"]{
             --paper:#0c1310;--surface:#111b16;--surface-2:#16221c;--ink:#e8f1ea;--ink-soft:#b7c6bd;
             --mist:#7d8f84;--line:#20302a;--line-strong:#2b3d35;--falcon:#57c39a;--falcon-ink:#8bd8b8;
-            --dawn:#e6b24d;--glow:rgba(87,195,154,0.16);
+            --dawn:#ff6a1a;--glow:rgba(87,195,154,0.16);
             --shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);
             --chip:#16221c;--chip-line:#243530;--code-bg:#0a1310;--code-ink:#d7e8df;color-scheme:dark;
         }
+
+        /* Left Hook brand tokens (theme-invariant) */
+        :root{--navy:#1f2a44;--navy-2:#161f33;--navy-ink:#e9eef7;--navy-mist:#93a0bb;--lh-orange:#ff5e00;--navy-line:#2c3852;}
 
         /* ---------- Reset-ish ---------- */
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -227,6 +230,37 @@
         @media (max-width:900px){.rail{grid-template-columns:repeat(2,1fr)}.step:not(:last-child)::after{display:none}}
         @media (max-width:520px){.rail{grid-template-columns:1fr}}
 
+        /* ---------- Use cases ---------- */
+        .uses{display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem;margin-top:2.6rem}
+        @media (max-width:820px){.uses{grid-template-columns:1fr}}
+        .use{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:1.6rem 1.5rem;box-shadow:var(--shadow);transition:transform .3s,border-color .3s}
+        .use:hover{transform:translateY(-3px);border-color:var(--line-strong)}
+        .use .who{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--falcon-ink)}
+        .use h4{font-size:1.2rem;margin:.6rem 0 .5rem}
+        .use p{color:var(--ink-soft);font-size:.97rem}
+        .use .scale{margin-top:1.1rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--mist)}
+
+        /* ---------- Commercial band (Left Hook) ---------- */
+        .commercial{background:var(--navy);color:var(--navy-ink);border-radius:22px;padding:clamp(2rem,4vw,3.2rem);
+            display:grid;grid-template-columns:1.25fr .75fr;gap:2.2rem;align-items:center;position:relative;overflow:hidden}
+        @media (max-width:820px){.commercial{grid-template-columns:1fr}}
+        .commercial::after{content:"";position:absolute;inset:auto -70px -90px auto;width:280px;height:280px;border-radius:50%;
+            background:radial-gradient(circle,rgba(255,94,0,.22),transparent 70%);pointer-events:none}
+        .commercial::before{content:"";position:absolute;inset:0;background:
+            radial-gradient(120% 80% at 0% 0%,rgba(87,195,154,.10),transparent 55%);pointer-events:none}
+        .commercial .eyebrow{color:var(--lh-orange)}
+        .commercial h2{color:#fff;font-size:clamp(1.7rem,3vw,2.35rem);margin-top:.7rem}
+        .commercial p{color:var(--navy-mist);margin-top:.9rem;font-size:1.03rem;max-width:54ch}
+        .commercial ul{list-style:none;display:grid;gap:.55rem;margin-top:1.2rem;position:relative}
+        .commercial li{display:grid;grid-template-columns:18px 1fr;gap:.6rem;color:var(--navy-ink);font-size:.98rem}
+        .commercial li .d{color:var(--lh-orange);font-family:'JetBrains Mono',monospace}
+        .commercial .side{display:flex;flex-direction:column;gap:1.15rem;align-items:flex-start;position:relative}
+        .btn.orange{background:var(--lh-orange);border-color:var(--lh-orange);color:#fff}
+        .btn.orange:hover{box-shadow:0 12px 30px -12px var(--lh-orange);border-color:var(--lh-orange)}
+        .lh-lockup{display:flex;align-items:center;gap:.65rem;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;color:#fff;font-size:1.15rem}
+        .lh-mark{height:26px;width:auto;display:block}
+        .foot .lh-mark{height:20px;vertical-align:middle;display:inline-block;margin-right:.15rem}
+
         /* ---------- Adoption + start ---------- */
         .start-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:1.4rem;margin-top:2.6rem}
         @media (max-width:860px){.start-grid{grid-template-columns:1fr}}
@@ -300,8 +334,9 @@
             </a>
             <nav class="top" aria-label="Primary">
                 <a class="navlink" href="#shift">The&nbsp;shift</a>
-                <a class="navlink" href="#build">Build</a>
+                <a class="navlink" href="#uses">Uses</a>
                 <a class="navlink" href="#adopt">Adopt</a>
+                <a class="navlink" href="#commercial">Commercial</a>
                 <a class="btn" href="https://docs.friggframework.org" target="_blank" rel="noopener">Docs</a>
                 <a class="btn primary" href="#join">Join the community</a>
                 <div class="theme-toggle" role="group" aria-label="Color theme">
@@ -336,8 +371,8 @@
                     </a>
                 </div>
                 <div class="hero-meta">
-                    <span><b>MIT</b> licensed</span>
-                    <span>Deploys to <b>your AWS</b></span>
+                    <span><b>MIT</b> + commercial</span>
+                    <span>Runs on <b>your cloud</b></span>
                     <span><b>200+</b> APIs charted</span>
                     <span class="mono">v2.0.0-next</span>
                 </div>
@@ -392,8 +427,8 @@
 
                 <article class="block reveal">
                     <span class="tag">Own your pipes</span>
-                    <h3>Your cloud. Your data. No middleman in the path.</h3>
-                    <p>Frigg deploys to <b>your</b> AWS account, not a vendor's. Serverless means it costs next to nothing at rest and scales from three records a day to millions an hour on the same code. Customer data never transits someone else's servers — and there's no per-connection tax to renegotiate later.</p>
+                    <h3>Cloud-agnostic. Your account, your data, your pipes.</h3>
+                    <p>Frigg deploys to <b>your</b> cloud, not a vendor's. It runs primarily on AWS today, and adopters have shipped it to GCP, Azure, and their own hardware via containers. Serverless means it costs next to nothing at rest and scales from three records a day to millions an hour on the same code. Customer data never transits someone else's servers, and there's no per-connection tax to renegotiate later.</p>
                 </article>
 
                 <article class="block wide reveal">
@@ -419,9 +454,9 @@
                 </article>
 
                 <article class="block reveal">
-                    <span class="tag">Built to last</span>
-                    <h3>Enterprise bones, without the enterprise slog.</h3>
-                    <p>Field-level encryption with your own KMS keys, VPC-private Lambdas, OAuth2 handled for you, and a hexagonal architecture that keeps your logic testable. Frigg is opinionated so you don't have to relitigate the same infrastructure decisions on every integration.</p>
+                    <span class="tag">Infra writes itself</span>
+                    <h3>Define the integrations. The infrastructure generates itself.</h3>
+                    <p>Frigg is infrastructure-as-code: the app definition self-scaffolds the resources it needs — queues, functions, VPC-private networking, field-level encryption with your own KMS keys, OAuth2 wiring — as the integrations demand them. You describe <em>what</em> you want to integrate; the cloud footprint is generated from that, so you're never hand-writing the same infra decisions twice.</p>
                 </article>
             </div>
         </div>
@@ -455,6 +490,37 @@
                     <div class="num">deploy<span class="clock">~few hrs</span></div>
                     <h4>Ship to your cloud</h4>
                     <p><code>frigg deploy</code> stands it up on your own AWS account, VPC-private and encrypted, scaling on demand.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ USE CASES ============ -->
+    <section class="band" id="uses">
+        <div class="wrap">
+            <div class="sec-head reveal">
+                <span class="eyebrow">However you run it</span>
+                <h2>Frigg doesn't care what you point it at.</h2>
+                <p>It's a framework for moving data between systems on infrastructure you own — the use case is yours to pick. Here's where adopters have actually taken it.</p>
+            </div>
+            <div class="uses">
+                <div class="use reveal">
+                    <span class="who">Most adopters</span>
+                    <h4>Product integrations for your customers</h4>
+                    <p>Native, in-product integrations your end users authorize themselves — the CRM sync, the storage connector, the webhook that keeps two SaaS tools in step.</p>
+                    <div class="scale">// productized · multi-tenant</div>
+                </div>
+                <div class="use reveal">
+                    <span class="who">Some adopters</span>
+                    <h4>Internal business-process automation</h4>
+                    <p>The plumbing behind your own operations — moving records between the tools your team already runs, on a schedule or a trigger, without a per-task automation bill.</p>
+                    <div class="scale">// internal · back-office</div>
+                </div>
+                <div class="use reveal">
+                    <span class="who">Our founder</span>
+                    <h4>Home lab &amp; personal automation</h4>
+                    <p>Frigg runs the same way for a weekend home-lab project as it does in production — self and home automations, personal dashboards, whatever you want wired together.</p>
+                    <div class="scale">// homelab · personal</div>
                 </div>
             </div>
         </div>
@@ -510,6 +576,37 @@
         </div>
     </section>
 
+    <!-- ============ COMMERCIAL ============ -->
+    <section class="band" id="commercial">
+        <div class="wrap">
+            <div class="commercial reveal">
+                <div>
+                    <span class="eyebrow">Open core</span>
+                    <h2>Free and MIT-licensed. Commercial when you want a hand.</h2>
+                    <p>The framework is open source — use it, fork it, ship it, forever. Left Hook, the team that builds Frigg, also offers a commercial license for teams who want more than the community can give.</p>
+                    <ul>
+                        <li><span class="d">→</span> Commercial support and maintenance, with SLAs</li>
+                        <li><span class="d">→</span> Premium, heavy-duty connectors, plugins &amp; extensions</li>
+                        <li><span class="d">→</span> Hands-on help standing up and scaling your integration program</li>
+                    </ul>
+                </div>
+                <div class="side">
+                    <div class="lh-lockup">
+                        <svg class="lh-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 79 36" fill="none" role="img" aria-label="Left Hook">
+                            <path d="M32.3187 22.0997C33.3025 23.6013 36.4764 27.7498 38.2986 29.8381C40.4073 32.2548 44.7387 34.5508 48.8992 34.3091L30.4588 7.91448C29.7393 7.03509 29.0997 6.16505 28.2683 5.33133C25.2663 2.32084 21.2144 0.47474 16.7558 0.47474C7.50183 0.47474 0 8.42753 0 18.2378C0 28.048 7.50183 36.0008 16.7558 36.0008H32.2008C22.5113 31.1672 20.0331 28.2892 14.3051 23.5546C14.8367 26.6104 14.8181 28.3881 16.7558 30.2611C9.68873 28.9319 6.32617 25.9714 6.32617 18.2378C6.32617 10.5042 12.1248 6.33269 18.2006 7.29592C23.7776 8.18009 31.0468 20.2813 32.3187 22.0997Z" fill="#ffffff"/>
+                            <path d="M46.4796 13.9011C45.4959 12.3995 42.3219 8.25105 40.4998 6.16273C38.391 3.74599 34.0596 1.45008 29.8992 1.69176L48.3396 28.0864C49.0591 28.9657 49.6987 29.8358 50.53 30.6695C53.5321 33.68 57.5839 35.5261 62.0425 35.5261C71.2965 35.5261 78.7984 27.5733 78.7984 17.763C78.7984 7.95279 71.2965 0 62.0425 0H46.5975C56.287 4.83366 58.7653 7.71165 64.4932 12.4462C63.9617 9.39048 63.9803 7.61273 62.0425 5.73976C69.1096 7.06897 72.4722 10.0295 72.4722 17.763C72.4722 25.4966 66.6735 29.6681 60.5978 28.7049C55.0207 27.8207 47.7516 15.7195 46.4796 13.9011Z" fill="#ff5e00"/>
+                        </svg>
+                        Left&nbsp;Hook
+                    </div>
+                    <a class="btn orange" href="https://lefthook.com" target="_blank" rel="noopener">Talk to Left Hook
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                    </a>
+                    <p style="color:var(--navy-mist);font-size:.85rem;margin:0">The team that builds Frigg — and builds integrations for a living.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- ============ JOIN ============ -->
     <section class="band alt" id="join">
         <div class="wrap join">
@@ -551,12 +648,18 @@
     <!-- ============ FOOTER ============ -->
     <footer>
         <div class="wrap foot">
-            <div class="made">Made with care by <a href="https://lefthook.com" target="_blank" rel="noopener">Left Hook</a> — <span class="mono">weaver of the clouds</span> <span class="verbadge">v2.0.0-next</span></div>
+            <div class="made">
+                <svg class="lh-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 79 36" fill="none" role="img" aria-label="Left Hook">
+                    <path d="M32.3187 22.0997C33.3025 23.6013 36.4764 27.7498 38.2986 29.8381C40.4073 32.2548 44.7387 34.5508 48.8992 34.3091L30.4588 7.91448C29.7393 7.03509 29.0997 6.16505 28.2683 5.33133C25.2663 2.32084 21.2144 0.47474 16.7558 0.47474C7.50183 0.47474 0 8.42753 0 18.2378C0 28.048 7.50183 36.0008 16.7558 36.0008H32.2008C22.5113 31.1672 20.0331 28.2892 14.3051 23.5546C14.8367 26.6104 14.8181 28.3881 16.7558 30.2611C9.68873 28.9319 6.32617 25.9714 6.32617 18.2378C6.32617 10.5042 12.1248 6.33269 18.2006 7.29592C23.7776 8.18009 31.0468 20.2813 32.3187 22.0997Z" fill="currentColor"/>
+                    <path d="M46.4796 13.9011C45.4959 12.3995 42.3219 8.25105 40.4998 6.16273C38.391 3.74599 34.0596 1.45008 29.8992 1.69176L48.3396 28.0864C49.0591 28.9657 49.6987 29.8358 50.53 30.6695C53.5321 33.68 57.5839 35.5261 62.0425 35.5261C71.2965 35.5261 78.7984 27.5733 78.7984 17.763C78.7984 7.95279 71.2965 0 62.0425 0H46.5975C56.287 4.83366 58.7653 7.71165 64.4932 12.4462C63.9617 9.39048 63.9803 7.61273 62.0425 5.73976C69.1096 7.06897 72.4722 10.0295 72.4722 17.763C72.4722 25.4966 66.6735 29.6681 60.5978 28.7049C55.0207 27.8207 47.7516 15.7195 46.4796 13.9011Z" fill="#ff5e00"/>
+                </svg>
+                Made by <a href="https://lefthook.com" target="_blank" rel="noopener">Left Hook</a> — <span class="mono">weaver of the clouds</span> <span class="verbadge">v2.0.0-next</span>
+            </div>
             <nav aria-label="Footer">
                 <a href="https://docs.friggframework.org" target="_blank" rel="noopener">Docs</a>
                 <a href="https://github.com/friggframework/frigg" target="_blank" rel="noopener">GitHub</a>
                 <a href="https://demo.friggframework.org" target="_blank" rel="noopener">Demo</a>
-                <a href="https://roadmap.friggframework.org" target="_blank" rel="noopener">Roadmap</a>
+                <a href="#commercial">Commercial</a>
                 <a href="#join">Community</a>
             </nav>
         </div>
