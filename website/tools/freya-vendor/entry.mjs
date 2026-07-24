@@ -24,6 +24,7 @@ import {
     createSession,
     addMessage,
 } from '@freyaframework/core';
+import { McpClientToolExecutor } from '@freyaframework/mcp-client';
 
 const AGENT_ID = 'frigg-web';
 const TRANSPORT = 'netlify-web';
@@ -225,15 +226,93 @@ class RoadmapTools {
     }
 }
 
+/**
+ * Configure the MCP servers the assistant can reach, from env. Each is offered
+ * only when its credential is present, so the widget degrades gracefully:
+ *   - frigg-docs  → Context7 (semantic docs), pinned to the next branch via the
+ *     repo's context7.json. Needs CONTEXT7_API_KEY.
+ *   - frigg-repo  → GitHub's MCP server (branch-accurate file/code on next).
+ *     Needs GITHUB_MCP_TOKEN (a read-only token); URL overridable via GITHUB_MCP_URL.
+ */
+function mcpServersFromEnv() {
+    const servers = [];
+    if (process.env.CONTEXT7_API_KEY) {
+        servers.push({
+            id: 'frigg-docs',
+            url: process.env.CONTEXT7_MCP_URL || 'https://mcp.context7.com/mcp',
+            headers: { CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY },
+        });
+    }
+    // Dedicated var only — do NOT fall back to an ambient GITHUB_TOKEN, which is
+    // commonly present in host/CI envs and would half-activate this server with a
+    // wrong-scoped token.
+    const ghToken = process.env.GITHUB_MCP_TOKEN;
+    if (ghToken) {
+        servers.push({
+            id: 'frigg-repo',
+            url: process.env.GITHUB_MCP_URL || 'https://api.githubcopilot.com/mcp/',
+            headers: { Authorization: `Bearer ${ghToken}` },
+        });
+    }
+    return servers;
+}
+
+/**
+ * Fans discovery/execution across sub-executors (roadmap tools + MCP client).
+ * Each sub-executor returns [] for scopes it doesn't own, so exactly one claims
+ * a given scope; the owning executor for each discovered tool is remembered so
+ * execute() routes straight back to it.
+ */
+class CompositeToolExecutor {
+    constructor(executors) {
+        this.executors = executors;
+        this.owner = new Map();
+    }
+    async discoverTools(scope) {
+        for (const ex of this.executors) {
+            const defs = await ex.discoverTools(scope);
+            if (defs && defs.length) {
+                for (const d of defs) this.owner.set(d.name, ex);
+                return defs;
+            }
+        }
+        return [];
+    }
+    async execute(call) {
+        const ex = this.owner.get(call.toolName);
+        if (ex) return ex.execute(call);
+        return {
+            callId: call.id,
+            toolName: call.toolName,
+            output: null,
+            status: 'error',
+            error: `no executor for tool: ${call.toolName}`,
+            durationMs: 0,
+            timestamp: new Date(),
+        };
+    }
+}
+
 let runtime = null;
 let sessionsRepo = null;
 let registered = false;
+let mcpScopes = [];
 
 function getRuntime() {
     if (runtime) return runtime;
     sessionsRepo = new InMemorySessionRepository();
     const apiKey = process.env.ANTHROPIC_API_KEY || '';
     const baseUrl = process.env.ANTHROPIC_BASE_URL || undefined;
+
+    // Roadmap tools always; MCP servers (Context7 docs, GitHub repo) when keyed.
+    const executors = [new RoadmapTools()];
+    const mcpServers = mcpServersFromEnv();
+    if (mcpServers.length) {
+        executors.push(new McpClientToolExecutor({ servers: mcpServers, mode: 'proxy' }));
+        mcpScopes = mcpServers.map((sv) => `mcp:${sv.id}`);
+    }
+    const toolExecutor = new CompositeToolExecutor(executors);
+
     runtime = createAgentRuntime({
         llm: new AnthropicLLM({
             apiKey,
@@ -241,7 +320,7 @@ function getRuntime() {
             defaultModel: process.env.ASSISTANT_MODEL || 'claude-opus-4-8',
             maxTokens: 900,
         }),
-        toolExecutor: new RoadmapTools(),
+        toolExecutor,
         memory: new InMemoryMemoryRepository(),
         ontologyRepo: (() => {
             const repo = new InMemoryOntologyRepository();
@@ -264,7 +343,7 @@ async function ensureAgent(rt, systemPrompt, model) {
             systemPrompt,
             ontologyScopes: ['frigg'],
             memoryNamespaces: ['default'],
-            toolScopes: ['roadmap'],
+            toolScopes: ['roadmap', ...mcpScopes],
             routines: [],
             delegationTargets: [],
             modelId: model || process.env.ASSISTANT_MODEL || 'claude-opus-4-8',
