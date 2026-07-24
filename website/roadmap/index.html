@@ -116,9 +116,18 @@
         .tag{font-family:'JetBrains Mono',monospace;font-size:.64rem;background:var(--surface-2);border:1px solid var(--chip-line);border-radius:6px;padding:.12rem .4rem;color:var(--ink-soft)}
         .tag.cat{color:var(--falcon-ink);border-color:var(--falcon)}
         .badge{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:.15rem .5rem;border:1px solid;white-space:nowrap}
-        .badge.built{color:var(--falcon-ink);border-color:var(--falcon);background:var(--glow)}
+        .badge.built,.badge.lib{color:var(--falcon-ink);border-color:var(--falcon);background:var(--glow)}
         .badge.soon{color:var(--dawn);border-color:var(--dawn)}
         .badge.active{color:var(--mist);border-color:var(--line-strong)}
+        .api-head{display:flex;align-items:flex-start;gap:.6rem}
+        .api-head .grow{flex:1;min-width:0}
+        .api-logo{width:34px;height:34px;border-radius:8px;background:#fff;padding:4px;object-fit:contain;flex:0 0 auto;border:1px solid var(--chip-line)}
+        .api-mono{width:34px;height:34px;border-radius:8px;flex:0 0 auto;display:grid;place-items:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;background:var(--surface-2);color:var(--falcon-ink);border:1px solid var(--chip-line)}
+        .cat-group{margin-top:1.7rem}
+        .cat-group:first-child{margin-top:0}
+        .cat-h{display:flex;align-items:center;gap:.7rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--falcon-ink);margin-bottom:.85rem}
+        .cat-h::after{content:"";flex:1;height:1px;background:var(--line)}
+        .cat-h .c{color:var(--mist)}
         .empty{grid-column:1/-1;text-align:center;color:var(--mist);font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:2rem 0}
         .loading{color:var(--mist);font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:1.5rem 0}
 
@@ -217,8 +226,13 @@
                     <option value="Medium">Medium effort</option>
                     <option value="High">High effort</option>
                 </select>
+                <div class="seg" id="api-lib" role="group" aria-label="Library filter">
+                    <button data-v="all" aria-pressed="true">All</button>
+                    <button data-v="built" aria-pressed="false">In library</button>
+                    <button data-v="candidate" aria-pressed="false">Candidates</button>
+                </div>
             </div>
-            <div class="api-grid" id="api-grid"><div class="loading">Loading the catalog…</div></div>
+            <div id="api-grid"><div class="loading">Loading the catalog…</div></div>
         </div>
     </section>
 
@@ -306,46 +320,57 @@
         document.getElementById('adr-status').addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; adrStatus=b.dataset.v; this.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));}); renderADRs(); });
 
         // ---- API directory ----
-        var APIS = [];
-        function badgeFor(c){
-            if(c==='Low') return '<span class="badge built">Low effort</span>';
-            if(c==='High') return '<span class="badge soon">High effort</span>';
-            return '<span class="badge active">Medium effort</span>';
-        }
+        var APIS = [], apiLib = 'all';
         function ghRequest(a){
             var t = encodeURIComponent('API module request: '+a.name);
             var body = encodeURIComponent('Requesting a Frigg API module for **'+a.name+'** ('+(a.provider||'')+').\n\nCategory: '+(a.category||'')+'\nWhy I need it:\n');
             return 'https://github.com/friggframework/frigg/issues/new?title='+t+'&labels=api-module,roadmap&body='+body;
         }
+        function apiCard(a){
+            var badge = a.built ? '<span class="badge lib">In the library</span>'
+                : '<span class="badge active">'+esc(a.complexity||'Medium')+' effort</span>';
+            var mark = a.logo
+                ? '<img class="api-logo" src="'+esc(a.logo)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+                : '<span class="api-mono">'+esc((a.name||'?').charAt(0).toUpperCase())+'</span>';
+            var tags = (a.tags||[]).filter(function(t){ return t && t.toLowerCase()!==(a.category||'').toLowerCase(); }).slice(0,3).map(function(t){ return '<span class="tag">'+esc(t)+'</span>'; }).join('');
+            return '<article class="api">'
+                + '<div class="api-head">'+mark
+                + '<div class="grow"><div class="name">'+esc(a.name)+'</div><div class="prov">'+esc(a.provider||'')+'</div></div>'
+                + badge+'</div>'
+                + '<p class="desc">'+esc(a.description||'')+'</p>'
+                + '<div class="tags"><span class="tag cat">'+esc(a.category||'')+'</span>'+tags+'</div>'
+                + '<div class="card-foot">'+voteBtn('api:'+a.slug)
+                + '<a class="link" href="'+ghRequest(a)+'" target="_blank" rel="noopener">Request</a>'
+                + '</div></article>';
+        }
         function renderAPIs(){
             var q = (document.getElementById('api-search').value||'').toLowerCase().trim();
             var cat = document.getElementById('api-category').value;
-            var st = document.getElementById('api-complexity').value;
+            var cx = document.getElementById('api-complexity').value;
             var rows = APIS.filter(function(a){
                 if(cat!=='all' && a.category!==cat) return false;
-                if(st!=='all' && a.complexity!==st) return false;
+                if(cx!=='all' && a.complexity!==cx) return false;
+                if(apiLib==='built' && !a.built) return false;
+                if(apiLib==='candidate' && a.built) return false;
                 if(q){ var hay=(a.name+' '+(a.provider||'')+' '+(a.description||'')+' '+((a.tags||[]).join(' '))).toLowerCase(); if(hay.indexOf(q)<0) return false; }
                 return true;
             });
             document.getElementById('api-count').textContent = rows.length + ' / ' + APIS.length;
             var g = document.getElementById('api-grid');
             if(!rows.length){ g.innerHTML = '<div class="empty">No APIs match that.</div>'; return; }
-            g.innerHTML = rows.map(function(a){
-                var tags = (a.tags||[]).filter(function(t){ return t && t.toLowerCase()!==(a.category||'').toLowerCase(); }).slice(0,3).map(function(t){ return '<span class="tag">'+esc(t)+'</span>'; }).join('');
-                return '<article class="api">'
-                    + '<div class="top" style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">'
-                    + '<div><div class="name">'+esc(a.name)+'</div><div class="prov">'+esc(a.provider||'')+'</div></div>'
-                    + badgeFor(a.status)+'</div>'
-                    + '<p class="desc">'+esc(a.description||'')+'</p>'
-                    + '<div class="tags"><span class="tag cat">'+esc(a.category||'')+'</span>'+tags+'</div>'
-                    + '<div class="card-foot">'+voteBtn('api:'+a.slug)
-                    + '<a class="link" href="'+ghRequest(a)+'" target="_blank" rel="noopener">Request</a>'
-                    + '</div></article>';
+            // group by category, biggest groups first
+            var groups = {};
+            rows.forEach(function(a){ (groups[a.category] = groups[a.category] || []).push(a); });
+            var cats = Object.keys(groups).sort(function(x,y){ return groups[y].length - groups[x].length || x.localeCompare(y); });
+            g.innerHTML = cats.map(function(c){
+                return '<section class="cat-group"><h3 class="cat-h">'+esc(c)+' <span class="c">'+groups[c].length+'</span></h3>'
+                    + '<div class="api-grid">'+groups[c].map(apiCard).join('')+'</div></section>';
             }).join('');
         }
         ['api-search','api-category','api-complexity'].forEach(function(id){
             var el=document.getElementById(id); el.addEventListener(id==='api-search'?'input':'change', renderAPIs);
         });
+        document.getElementById('api-lib').addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; apiLib=b.dataset.v; this.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));}); renderAPIs(); });
 
         // ---- boot ----
         loadVotes().then(function(){
