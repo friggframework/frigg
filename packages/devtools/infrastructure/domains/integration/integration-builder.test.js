@@ -553,6 +553,49 @@ describe('IntegrationBuilder', () => {
                 integrationBuilder.build(appDefinition, {})
             ).rejects.toThrow(/worker\.timeout=901 is out of range/);
         });
+
+        it('rejects batchSize > 10 without a batching window', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'bad',
+                            queue: { worker: { batchSize: 500 } },
+                        },
+                    },
+                ],
+            };
+
+            await expect(
+                integrationBuilder.build(appDefinition, {})
+            ).rejects.toThrow(
+                /batchSize=500 requires queue\.worker\.maximumBatchingWindow >= 1/
+            );
+        });
+
+        it('allows batchSize > 10 when a batching window is set', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'ok',
+                            queue: {
+                                worker: {
+                                    batchSize: 500,
+                                    maximumBatchingWindow: 5,
+                                },
+                            },
+                        },
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.okQueueWorker.events[0].sqs.batchSize).toBe(
+                500
+            );
+        });
     });
 
     describe('DLQ Observability', () => {
@@ -599,7 +642,9 @@ describe('IntegrationBuilder', () => {
             // draining. If it is throttled or erroring, messages pile up and
             // the arrival alarm stays silent — depth catches that case.
             expect(props.MetricName).toBe('ApproximateNumberOfMessagesVisible');
-            expect(props.Statistic).toBe('Maximum');
+            // Maximum would breach on any burst bigger than one dlqProcessor
+            // batch, duplicating DLQMessageAlarm. Minimum means "never empty".
+            expect(props.Statistic).toBe('Minimum');
             expect(props.Threshold).toBe(0);
             expect(props.ComparisonOperator).toBe('GreaterThanThreshold');
             expect(props.AlarmActions).toEqual([

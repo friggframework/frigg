@@ -78,6 +78,43 @@ function validateWorkerConfig(integrationName, workerConfig) {
             );
         }
     }
+
+    // SQS event sources only accept batchSize > 10 when a batching window is
+    // set. Without this check the template packages fine and fails at deploy.
+    if (
+        workerConfig.batchSize > 10 &&
+        !(workerConfig.maximumBatchingWindow >= 1)
+    ) {
+        throw new Error(
+            `Integration '${integrationName}': queue.worker.batchSize=${workerConfig.batchSize} requires queue.worker.maximumBatchingWindow >= 1`
+        );
+    }
+}
+
+const QUEUE_CONFIG_KEYS = [
+    'visibilityTimeout',
+    'messageRetentionPeriod',
+    'maxReceiveCount',
+];
+
+/**
+ * Queue-level knobs only apply to a queue this stack owns. When the queue is
+ * external we must not mutate it — but silently dropping the config the app
+ * declared is the worst failure mode for a tuning API, so say so.
+ */
+function warnIgnoredQueueConfig(integrationName, queueConfig) {
+    if (!queueConfig) return;
+    validateQueueConfig(integrationName, queueConfig);
+    const ignored = QUEUE_CONFIG_KEYS.filter(
+        (key) => queueConfig[key] !== undefined
+    );
+    if (ignored.length > 0) {
+        console.warn(
+            `  ⚠ Integration '${integrationName}': queue.${ignored.join(
+                ', queue.'
+            )} ignored — the queue is externally owned. queue.worker.* still applies.`
+        );
+    }
 }
 
 class IntegrationBuilder extends InfrastructureBuilder {
@@ -281,6 +318,10 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 );
             } else {
                 console.log(`      ✓ Using external ${integrationName}Queue`);
+                warnIgnoredQueueConfig(
+                    integrationName,
+                    integration.Definition.queue
+                );
                 this.useExternalIntegrationQueue(
                     integrationName,
                     queueDecision,
@@ -612,7 +653,13 @@ class IntegrationBuilder extends InfrastructureBuilder {
                     'Dead-letter queue is not draining — dlqProcessor may be throttled or failing',
                 Namespace: 'AWS/SQS',
                 MetricName: 'ApproximateNumberOfMessagesVisible',
-                Statistic: 'Maximum',
+                // Minimum, not Maximum: dlqProcessor runs at concurrency 1
+                // with batchSize 10, so any burst larger than that leaves
+                // depth briefly above zero. Maximum would fire on every
+                // ordinary burst alongside DLQMessageAlarm and train people to
+                // ignore it. Minimum only breaches when the queue was never
+                // empty across the whole period — i.e. genuinely not draining.
+                Statistic: 'Minimum',
                 Threshold: 0,
                 ComparisonOperator: 'GreaterThanThreshold',
                 EvaluationPeriods: 1,
