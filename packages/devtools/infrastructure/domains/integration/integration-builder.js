@@ -40,7 +40,12 @@ function validateQueueConfig(integrationName, queueConfig) {
         val === undefined || (Number.isFinite(val) && val >= min && val <= max);
     const checks = [
         ['visibilityTimeout', queueConfig.visibilityTimeout, 0, 43200],
-        ['messageRetentionPeriod', queueConfig.messageRetentionPeriod, 60, 1209600],
+        [
+            'messageRetentionPeriod',
+            queueConfig.messageRetentionPeriod,
+            60,
+            1209600,
+        ],
         ['maxReceiveCount', queueConfig.maxReceiveCount, 1, 1000],
     ];
     for (const [key, val, min, max] of checks) {
@@ -487,8 +492,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
         // (not `...InSeconds` — that's the AWS-side CFN property name). osls
         // and serverless@3+ both reject the longer key with a schema error.
         if (workerConfig.maximumBatchingWindow !== undefined) {
-            sqsEvent.maximumBatchingWindow =
-                workerConfig.maximumBatchingWindow;
+            sqsEvent.maximumBatchingWindow = workerConfig.maximumBatchingWindow;
         }
         if (workerConfig.maximumConcurrency !== undefined) {
             sqsEvent.maximumConcurrency = workerConfig.maximumConcurrency;
