@@ -565,19 +565,31 @@ class IntegrationBuilder extends InfrastructureBuilder {
      * Called for both stack-owned and external InternalErrorQueues.
      */
     createDLQObservability(result, functionPackageConfig, queueArn, queueName) {
-        // CloudWatch Alarm: fires when any message lands in the DLQ
+        // CloudWatch Alarm: fires when any message lands in the DLQ.
+        //
+        // This alarms on arrival rate, not on standing depth. dlqProcessor
+        // (below) consumes this queue continuously, so ApproximateNumberOf-
+        // MessagesVisible sits at ~0 no matter how many messages arrive and a
+        // depth-based alarm can never fire.
+        //
+        // The metric is NumberOfMessagesDeleted rather than the more obvious
+        // NumberOfMessagesSent because SQS does not increment Sent when a
+        // message arrives via redrive from a source queue — which is the only
+        // way messages reach a DLQ. Deleted increments as dlqProcessor drains
+        // them, making it the reliable arrival signal.
         result.resources.DLQMessageAlarm = {
             Type: 'AWS::CloudWatch::Alarm',
             Properties: {
                 AlarmDescription:
                     'Messages in dead-letter queue — integration queue processing failures',
                 Namespace: 'AWS/SQS',
-                MetricName: 'ApproximateNumberOfMessagesVisible',
-                Statistic: 'Maximum',
-                Threshold: 500,
+                MetricName: 'NumberOfMessagesDeleted',
+                Statistic: 'Sum',
+                Threshold: 0,
                 ComparisonOperator: 'GreaterThanThreshold',
                 EvaluationPeriods: 1,
                 Period: 300,
+                TreatMissingData: 'notBreaching',
                 AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
                 Dimensions: [{ Name: 'QueueName', Value: queueName }],
             },

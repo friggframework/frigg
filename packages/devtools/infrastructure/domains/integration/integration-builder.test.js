@@ -556,18 +556,35 @@ describe('IntegrationBuilder', () => {
     });
 
     describe('DLQ Observability', () => {
-        it('should create a CloudWatch alarm for DLQ message depth', async () => {
+        it('should alarm on messages arriving in the DLQ, not on standing depth', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const props = result.resources.DLQMessageAlarm.Properties;
+
+            expect(result.resources.DLQMessageAlarm.Type).toBe('AWS::CloudWatch::Alarm');
+            // dlqProcessor consumes this queue continuously, so a depth metric
+            // sits at zero no matter how many messages arrive.
+            expect(props.MetricName).not.toBe('ApproximateNumberOfMessagesVisible');
+            expect(props.MetricName).toBe('NumberOfMessagesDeleted');
+            expect(props.Statistic).toBe('Sum');
+            expect(props.Threshold).toBe(0);
+            expect(props.ComparisonOperator).toBe('GreaterThanThreshold');
+            expect(props.TreatMissingData).toBe('notBreaching');
+        });
+
+        it('should not alarm on NumberOfMessagesSent, which SQS never increments on redrive', async () => {
             const appDefinition = {
                 integrations: [{ Definition: { name: 'test' } }],
             };
 
             const result = await integrationBuilder.build(appDefinition, {});
 
-            expect(result.resources.DLQMessageAlarm).toBeDefined();
-            expect(result.resources.DLQMessageAlarm.Type).toBe('AWS::CloudWatch::Alarm');
-            expect(result.resources.DLQMessageAlarm.Properties.MetricName).toBe('ApproximateNumberOfMessagesVisible');
-            expect(result.resources.DLQMessageAlarm.Properties.ComparisonOperator).toBe('GreaterThanThreshold');
-            expect(result.resources.DLQMessageAlarm.Properties.Threshold).toBe(500);
+            expect(result.resources.DLQMessageAlarm.Properties.MetricName).not.toBe(
+                'NumberOfMessagesSent'
+            );
         });
 
         it('should wire alarm to InternalErrorBridgeTopic for notifications', async () => {
