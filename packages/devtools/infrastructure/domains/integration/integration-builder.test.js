@@ -587,6 +587,26 @@ describe('IntegrationBuilder', () => {
             );
         });
 
+        it('should also alarm on standing depth, to catch a stalled dlqProcessor', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const props = result.resources.DLQBacklogAlarm.Properties;
+
+            // NumberOfMessagesDeleted only increments while dlqProcessor is
+            // draining. If it is throttled or erroring, messages pile up and
+            // the arrival alarm stays silent — depth catches that case.
+            expect(props.MetricName).toBe('ApproximateNumberOfMessagesVisible');
+            expect(props.Statistic).toBe('Maximum');
+            expect(props.Threshold).toBe(0);
+            expect(props.ComparisonOperator).toBe('GreaterThanThreshold');
+            expect(props.AlarmActions).toEqual([
+                { Ref: 'InternalErrorBridgeTopic' },
+            ]);
+        });
+
         it('should wire alarm to InternalErrorBridgeTopic for notifications', async () => {
             const appDefinition = {
                 integrations: [{ Definition: { name: 'test' } }],
