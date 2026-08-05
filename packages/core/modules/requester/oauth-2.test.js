@@ -21,41 +21,60 @@ describe('OAuth2Requester', () => {
     });
 
     describe('DLGT_INVALID_AUTH payload', () => {
-        it('forwards the failure from getTokenFromUsernamePassword', async () => {
+        it('forwards the status from getTokenFromUsernamePassword', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'password',
                 username: 'someone',
-                password: 'wrong',
+                password: 'hunter2',
             });
-            const failure = Object.assign(new Error('bad password'), {
-                statusCode: 401,
-            });
-            requester._post = jest.fn().mockRejectedValue(failure);
+            requester._post = jest
+                .fn()
+                .mockRejectedValue(
+                    Object.assign(
+                        new Error(
+                            '{"init":{"body":"{\\"password\\":\\"hunter2\\"}"}}'
+                        ),
+                        { statusCode: 401 }
+                    )
+                );
             requester.notify = jest.fn();
 
             await requester.getTokenFromUsernamePassword();
 
             expect(requester.notify).toHaveBeenCalledWith(
                 requester.DLGT_INVALID_AUTH,
-                failure
+                { statusCode: 401 }
+            );
+            expect(JSON.stringify(requester.notify.mock.calls)).not.toContain(
+                'hunter2'
             );
         });
 
-        it('forwards the failure from getTokenFromClientCredentials', async () => {
+        it('forwards the status from getTokenFromClientCredentials', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'client_credentials',
+                client_secret: 'sk-live-secret',
             });
-            const failure = Object.assign(new Error('bad client secret'), {
-                statusCode: 401,
-            });
-            requester._post = jest.fn().mockRejectedValue(failure);
+            requester._post = jest
+                .fn()
+                .mockRejectedValue(
+                    Object.assign(
+                        new Error(
+                            '{"init":{"body":"{\\"client_secret\\":\\"sk-live-secret\\"}"}}'
+                        ),
+                        { statusCode: 401 }
+                    )
+                );
             requester.notify = jest.fn();
 
             await requester.getTokenFromClientCredentials();
 
             expect(requester.notify).toHaveBeenCalledWith(
                 requester.DLGT_INVALID_AUTH,
-                failure
+                { statusCode: 401 }
+            );
+            expect(JSON.stringify(requester.notify.mock.calls)).not.toContain(
+                'sk-live-secret'
             );
         });
     });

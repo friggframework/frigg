@@ -354,7 +354,12 @@ class OAuth2Requester extends Requester {
             await this.setTokens(tokenRes);
             return tokenRes;
         } catch (error) {
-            await this.notify(this.DLGT_INVALID_AUTH, error);
+            // Status only. This request's body holds the password or client
+            // secret, and FetchError embeds the body in its message outside
+            // prod, so forwarding the error itself would log the credential.
+            await this.notify(this.DLGT_INVALID_AUTH, {
+                statusCode: error?.statusCode,
+            });
         }
     }
 
@@ -388,7 +393,12 @@ class OAuth2Requester extends Requester {
             await this.setTokens(tokenRes);
             return tokenRes;
         } catch (error) {
-            await this.notify(this.DLGT_INVALID_AUTH, error);
+            // Status only. This request's body holds the password or client
+            // secret, and FetchError embeds the body in its message outside
+            // prod, so forwarding the error itself would log the credential.
+            await this.notify(this.DLGT_INVALID_AUTH, {
+                statusCode: error?.statusCode,
+            });
         }
     }
 }
