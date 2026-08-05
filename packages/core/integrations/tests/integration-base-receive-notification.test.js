@@ -106,7 +106,7 @@ describe('IntegrationBase.receiveNotification', () => {
     describe('recorded diagnostic', () => {
         it('records an Authentication Error naming the module and status code', async () => {
             await integration.receiveNotification(
-                { name: 'testmodule', getName: () => 'testmodule' },
+                { name: 'testmodule' },
                 'CREDENTIAL_INVALIDATED',
                 {
                     credentialId: 'cred-1',
@@ -196,6 +196,34 @@ describe('IntegrationBase.receiveNotification', () => {
             expect(body).not.toContain('Authorization');
             expect(body).not.toContain('super-secret-token');
             expect(body).not.toContain('api.example.com');
+        });
+
+        it('falls back to the payload module name when the notifier has none', async () => {
+            await integration.receiveNotification(
+                {},
+                'CREDENTIAL_INVALIDATED',
+                { credentialId: 'cred-1', moduleName: 'testmodule' }
+            );
+
+            const [, , , body] =
+                mockUpdateIntegrationMessages.execute.mock.calls[0];
+            expect(body).toContain('your testmodule Entity');
+        });
+
+        it('reads naturally when no module name is available at all', async () => {
+            await integration.receiveNotification(
+                {},
+                'CREDENTIAL_INVALIDATED',
+                {
+                    credentialId: 'cred-1',
+                }
+            );
+
+            const [, , , body] =
+                mockUpdateIntegrationMessages.execute.mock.calls[0];
+            expect(body).toContain('your Entity');
+            expect(body).not.toContain('undefined');
+            expect(body).not.toContain('unknown');
         });
 
         it('omits the status code when the payload carries none', async () => {

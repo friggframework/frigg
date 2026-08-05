@@ -383,16 +383,27 @@ class IntegrationBase {
                     this.id,
                     'errors',
                     'Authentication Error',
-                    `There was an error with your ${this[
-                        module
-                    ].getName()} Entity.
-                Please reconnect/re-authenticate, or reach out to Support for assistance.`,
+                    this._authErrorMessage(this[module].getName()),
                     Date.now()
                 );
             }
         }
 
         return didAuthPass;
+    }
+
+    /**
+     * The single wording for "this module's credentials no longer work", shared
+     * by the passive check (testAuth) and the module delegate
+     * (receiveNotification) so the two paths cannot drift apart.
+     * @param {string} [moduleName] - The module whose credentials failed.
+     * @param {number} [statusCode] - HTTP status the module rejected us with.
+     * @returns {string} A user-facing message.
+     */
+    _authErrorMessage(moduleName, statusCode) {
+        const entity = moduleName ? `your ${moduleName} Entity` : 'your Entity';
+        const status = statusCode ? ` (HTTP ${statusCode})` : '';
+        return `There was an error with ${entity}${status}. Please reconnect/re-authenticate, or reach out to Support for assistance.`;
     }
 
     /**
@@ -848,6 +859,7 @@ class IntegrationBase {
         if (!this.id) return;
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            const moduleName = notifier?.name ?? object?.moduleName;
             const detail =
                 object?.reason || object?.statusCode
                     ? ` (status ${object?.statusCode ?? '?'}: ${
@@ -856,12 +868,15 @@ class IntegrationBase {
                     : '';
             console.log(
                 `[Frigg] Module ${
-                    notifier?.name || '?'
+                    moduleName || '?'
                 } reported invalid credentials for integration ${
                     this.id
                 } — marking ERROR${detail}`
             );
-            await this.recordCredentialRejection(notifier, object);
+            await this._recordCredentialRejection(
+                moduleName,
+                object?.statusCode
+            );
             await this.persistStatus('ERROR');
             return;
         }
@@ -893,21 +908,16 @@ class IntegrationBase {
      *
      * Best-effort: a failed diagnostic write must never prevent the status flip
      * that stops further processing on dead credentials.
-     * @param {Object} notifier - The module that reported the rejection.
-     * @param {Object} [object] - The delegate payload.
+     * @param {string} [moduleName] - The module that reported the rejection.
+     * @param {number} [statusCode] - HTTP status the module rejected us with.
      */
-    async recordCredentialRejection(notifier, object) {
-        const moduleName = notifier?.getName?.() ?? notifier?.name ?? 'unknown';
-        const statusCode = object?.statusCode;
-
+    async _recordCredentialRejection(moduleName, statusCode) {
         try {
             await this.updateIntegrationMessages.execute(
                 this.id,
                 'errors',
                 'Authentication Error',
-                `There was an error with your ${moduleName} Entity${
-                    statusCode ? ` (HTTP ${statusCode})` : ''
-                }. Please reconnect/re-authenticate, or reach out to Support for assistance.`,
+                this._authErrorMessage(moduleName, statusCode),
                 Date.now()
             );
         } catch (error) {
