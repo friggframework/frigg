@@ -383,16 +383,23 @@ class IntegrationBase {
                     this.id,
                     'errors',
                     'Authentication Error',
-                    `There was an error with your ${this[
-                        module
-                    ].getName()} Entity.
-                Please reconnect/re-authenticate, or reach out to Support for assistance.`,
+                    this._authErrorMessage(this[module].getName()),
                     Date.now()
                 );
             }
         }
 
         return didAuthPass;
+    }
+
+    /**
+     * @param {string} [moduleName] - The module whose credentials failed.
+     * @param {number} [statusCode] - HTTP status the module rejected us with.
+     * @returns {string} A user-facing message.
+     */
+    _authErrorMessage(moduleName, statusCode) {
+        const status = statusCode ? ` (HTTP ${statusCode})` : '';
+        return `There was an error with your ${moduleName} Entity${status}. Please reconnect/re-authenticate, or reach out to Support for assistance.`;
     }
 
     /**
@@ -848,6 +855,9 @@ class IntegrationBase {
         if (!this.id) return;
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            if (this.status === 'ERROR') return;
+
+            const moduleName = notifier?.name;
             const detail =
                 object?.reason || object?.statusCode
                     ? ` (status ${object?.statusCode ?? '?'}: ${
@@ -856,10 +866,14 @@ class IntegrationBase {
                     : '';
             console.log(
                 `[Frigg] Module ${
-                    notifier?.name || '?'
+                    moduleName || '?'
                 } reported invalid credentials for integration ${
                     this.id
                 } — marking ERROR${detail}`
+            );
+            await this._recordCredentialRejection(
+                moduleName,
+                object?.statusCode
             );
             await this.persistStatus('ERROR');
             return;
@@ -875,6 +889,30 @@ class IntegrationBase {
                 } — clearing ERROR → ENABLED`
             );
             await this.persistStatus('ENABLED');
+        }
+    }
+
+    /**
+     * Takes no `reason`: the delegate's is a FetchError message echoing the
+     * request, Authorization header included outside prod, and this is shown to
+     * end users. Best-effort so it cannot block the caller's status flip.
+     * @param {string} [moduleName] - The module that reported the rejection.
+     * @param {number} [statusCode] - HTTP status the module rejected us with.
+     */
+    async _recordCredentialRejection(moduleName, statusCode) {
+        try {
+            await this.updateIntegrationMessages.execute(
+                this.id,
+                'errors',
+                'Authentication Error',
+                this._authErrorMessage(moduleName, statusCode),
+                Date.now()
+            );
+        } catch (error) {
+            console.error(
+                `[Frigg] Failed to record credential rejection for integration ${this.id}:`,
+                error
+            );
         }
     }
 }
