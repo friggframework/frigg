@@ -137,16 +137,19 @@ describe('OAuth2Requester', () => {
                 grant_type: 'authorization_code',
                 refresh_token: 'test-refresh-token',
             });
-            requester.refreshAccessToken = jest
-                .fn()
-                .mockRejectedValue(new Error('Token expired'));
+            requester.refreshAccessToken = jest.fn().mockRejectedValue(
+                Object.assign(new Error('Token expired'), {
+                    statusCode: 401,
+                })
+            );
             requester.notify = jest.fn();
 
             const result = await requester.refreshAuth();
 
             expect(result).toBe(false);
             expect(requester.notify).toHaveBeenCalledWith(
-                requester.DLGT_INVALID_AUTH
+                requester.DLGT_INVALID_AUTH,
+                { statusCode: 401 }
             );
         });
 
@@ -156,14 +159,41 @@ describe('OAuth2Requester', () => {
             });
             requester.getTokenFromClientCredentials = jest
                 .fn()
-                .mockRejectedValue(new Error('Invalid credentials'));
+                .mockRejectedValue(
+                    Object.assign(new Error('Invalid credentials'), {
+                        statusCode: 401,
+                    })
+                );
             requester.notify = jest.fn();
 
             const result = await requester.refreshAuth();
 
             expect(result).toBe(false);
             expect(requester.notify).toHaveBeenCalledWith(
-                requester.DLGT_INVALID_AUTH
+                requester.DLGT_INVALID_AUTH,
+                { statusCode: 401 }
+            );
+        });
+
+        it('does not leak the refresh request body to the delegate', async () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'authorization_code',
+                refresh_token: 'test-refresh-token',
+                client_secret: 'sk-live-secret',
+            });
+            requester.refreshAccessToken = jest
+                .fn()
+                .mockRejectedValue(
+                    new Error(
+                        '{"init":{"body":"client_secret=sk-live-secret"}}'
+                    )
+                );
+            requester.notify = jest.fn();
+
+            await requester.refreshAuth();
+
+            expect(JSON.stringify(requester.notify.mock.calls)).not.toContain(
+                'sk-live-secret'
             );
         });
     });
@@ -388,7 +418,8 @@ describe('OAuth2Requester', () => {
 
             expect(mockFetch).toHaveBeenCalledTimes(1);
             expect(requester.notify).toHaveBeenCalledWith(
-                requester.DLGT_INVALID_AUTH
+                requester.DLGT_INVALID_AUTH,
+                expect.anything()
             );
         });
 

@@ -322,6 +322,11 @@ class OAuth2Requester extends Requester {
                 response_status: error?.response?.status,
                 response_data: error?.response?.data,
             });
+            // Status only: the refresh body carries client_secret, and
+            // FetchError embeds the body in its message outside prod.
+            await this.notify(this.DLGT_INVALID_AUTH, {
+                statusCode: error?.statusCode,
+            });
             return false;
         }
     }
