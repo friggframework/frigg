@@ -398,9 +398,8 @@ class IntegrationBase {
      * @returns {string} A user-facing message.
      */
     _authErrorMessage(moduleName, statusCode) {
-        const entity = moduleName ? `your ${moduleName} Entity` : 'your Entity';
         const status = statusCode ? ` (HTTP ${statusCode})` : '';
-        return `There was an error with ${entity}${status}. Please reconnect/re-authenticate, or reach out to Support for assistance.`;
+        return `There was an error with your ${moduleName} Entity${status}. Please reconnect/re-authenticate, or reach out to Support for assistance.`;
     }
 
     /**
@@ -856,7 +855,7 @@ class IntegrationBase {
         if (!this.id) return;
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
-            const moduleName = notifier?.name ?? object?.moduleName;
+            const moduleName = notifier?.name;
             const detail =
                 object?.reason || object?.statusCode
                     ? ` (status ${object?.statusCode ?? '?'}: ${
