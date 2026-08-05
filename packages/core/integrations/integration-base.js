@@ -861,6 +861,7 @@ class IntegrationBase {
                     this.id
                 } — marking ERROR${detail}`
             );
+            await this.recordCredentialRejection(notifier, object);
             await this.persistStatus('ERROR');
             return;
         }
@@ -875,6 +876,45 @@ class IntegrationBase {
                 } — clearing ERROR → ENABLED`
             );
             await this.persistStatus('ENABLED');
+        }
+    }
+
+    /**
+     * Persist why a module's credentials were rejected, so the ERROR flip that
+     * follows has a stated cause. `persistStatus` writes only the status
+     * column, so without this the integration reads as broken with an empty
+     * `errors` array and the reason survives only in the log line above.
+     *
+     * Deliberately does not persist `object.reason`. That is the FetchError
+     * message, which embeds the serialized request — including the
+     * Authorization header, since FetchError blanks it only when STAGE is not
+     * `dev`. These messages are surfaced to end users, so only the status code
+     * crosses over.
+     *
+     * Best-effort: a failed diagnostic write must never prevent the status flip
+     * that stops further processing on dead credentials.
+     * @param {Object} notifier - The module that reported the rejection.
+     * @param {Object} [object] - The delegate payload.
+     */
+    async recordCredentialRejection(notifier, object) {
+        const moduleName = notifier?.getName?.() ?? notifier?.name ?? 'unknown';
+        const statusCode = object?.statusCode;
+
+        try {
+            await this.updateIntegrationMessages.execute(
+                this.id,
+                'errors',
+                'Authentication Error',
+                `There was an error with your ${moduleName} Entity${
+                    statusCode ? ` (HTTP ${statusCode})` : ''
+                }. Please reconnect/re-authenticate, or reach out to Support for assistance.`,
+                Date.now()
+            );
+        } catch (error) {
+            console.error(
+                `[Frigg] Failed to record credential rejection for integration ${this.id}:`,
+                error
+            );
         }
     }
 }
