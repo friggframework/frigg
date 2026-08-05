@@ -65,6 +65,56 @@ describe('IntegrationBase.receiveNotification', () => {
         expect(integration.status).toBe('ERROR');
     });
 
+    describe('already in ERROR', () => {
+        it('does not write again when the same integration is reported twice', async () => {
+            const payload = { credentialId: 'cred-1', statusCode: 401 };
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_INVALIDATED',
+                payload
+            );
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_INVALIDATED',
+                payload
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledTimes(
+                1
+            );
+            expect(mockUpdateIntegrationMessages.execute).toHaveBeenCalledTimes(
+                1
+            );
+        });
+
+        it('still flips a second integration that shares the same credential', async () => {
+            const shared = { credentialId: 'cred-1', statusCode: 401 };
+            const other = new IntegrationBase();
+            other.id = 'int-2';
+            other.status = 'ENABLED';
+            other.updateIntegrationStatus = { execute: jest.fn() };
+            other.updateIntegrationMessages = { execute: jest.fn() };
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_INVALIDATED',
+                shared
+            );
+            await other.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_INVALIDATED',
+                shared
+            );
+
+            expect(other.updateIntegrationStatus.execute).toHaveBeenCalledWith(
+                'int-2',
+                'ERROR'
+            );
+            expect(other.status).toBe('ERROR');
+        });
+    });
+
     it('includes the diagnostic reason and status code in the log line when present', async () => {
         const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
         try {

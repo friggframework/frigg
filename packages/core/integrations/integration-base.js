@@ -855,6 +855,8 @@ class IntegrationBase {
         if (!this.id) return;
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            if (this.status === 'ERROR') return;
+
             const moduleName = notifier?.name;
             const detail =
                 object?.reason || object?.statusCode
