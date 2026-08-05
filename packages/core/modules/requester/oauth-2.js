@@ -354,10 +354,6 @@ class OAuth2Requester extends Requester {
             await this.setTokens(tokenRes);
             return tokenRes;
         } catch (error) {
-            // Forward the failure: the delegate persists a user-facing reason
-            // from it, so dropping it leaves the integration in ERROR with no
-            // stated cause. (refreshAccessToken has no equivalent site — its
-            // error propagates to refreshAuth, which never notifies at all.)
             await this.notify(this.DLGT_INVALID_AUTH, error);
         }
     }
@@ -392,7 +388,6 @@ class OAuth2Requester extends Requester {
             await this.setTokens(tokenRes);
             return tokenRes;
         } catch (error) {
-            // Forward the failure: see getTokenFromUsernamePassword above.
             await this.notify(this.DLGT_INVALID_AUTH, error);
         }
     }

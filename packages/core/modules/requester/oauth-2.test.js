@@ -21,8 +21,6 @@ describe('OAuth2Requester', () => {
     });
 
     describe('DLGT_INVALID_AUTH payload', () => {
-        // The delegate turns this payload into a user-facing reason on the
-        // integration, so a bare notify() leaves it in ERROR with no cause.
         it('forwards the failure from getTokenFromUsernamePassword', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'password',

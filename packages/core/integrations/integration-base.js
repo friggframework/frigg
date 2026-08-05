@@ -393,9 +393,6 @@ class IntegrationBase {
     }
 
     /**
-     * The single wording for "this module's credentials no longer work", shared
-     * by the passive check (testAuth) and the module delegate
-     * (receiveNotification) so the two paths cannot drift apart.
      * @param {string} [moduleName] - The module whose credentials failed.
      * @param {number} [statusCode] - HTTP status the module rejected us with.
      * @returns {string} A user-facing message.
@@ -895,19 +892,9 @@ class IntegrationBase {
     }
 
     /**
-     * Persist why a module's credentials were rejected, so the ERROR flip that
-     * follows has a stated cause. `persistStatus` writes only the status
-     * column, so without this the integration reads as broken with an empty
-     * `errors` array and the reason survives only in the log line above.
-     *
-     * Deliberately does not persist `object.reason`. That is the FetchError
-     * message, which embeds the serialized request — including the
-     * Authorization header, since FetchError blanks it only when STAGE is not
-     * `dev`. These messages are surfaced to end users, so only the status code
-     * crosses over.
-     *
-     * Best-effort: a failed diagnostic write must never prevent the status flip
-     * that stops further processing on dead credentials.
+     * Takes no `reason`: the delegate's is a FetchError message echoing the
+     * request, Authorization header included outside prod, and this is shown to
+     * end users. Best-effort so it cannot block the caller's status flip.
      * @param {string} [moduleName] - The module that reported the rejection.
      * @param {number} [statusCode] - HTTP status the module rejected us with.
      */
