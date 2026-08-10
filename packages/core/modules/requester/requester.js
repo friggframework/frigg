@@ -1,4 +1,5 @@
 const fetch = require('node-fetch');
+const { AsyncLocalStorage } = require('async_hooks');
 const { Delegate } = require('../../core');
 const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
@@ -7,6 +8,22 @@ const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 const MAX_AUTH_RETRIES = 3;
 
+/**
+ * Marks the async context of an in-progress refreshAuth().
+ *
+ * Subclasses issue their token request through this.\_post (see
+ * OAuth2Requester.getTokenFromClientCredentials / refreshAccessToken), which
+ * re-enters _rawRequest. A 401 from the token endpoint itself — invalid_client,
+ * i.e. a revoked or rotated client secret — must therefore be fatal rather than
+ * "join the refresh in flight": that refresh IS this call, so awaiting it would
+ * be a circular await that never settles.
+ *
+ * AsyncLocalStorage propagates through the nested awaits, so this works for any
+ * subclass without the subclass cooperating — including modules with a custom
+ * _post-based refresh.
+ */
+const refreshContext = new AsyncLocalStorage();
+
 class Requester extends Delegate {
     constructor(params) {
         super(params);
@@ -14,6 +31,13 @@ class Requester extends Delegate {
         this.isRefreshable = false;
         this.refreshCount = 0;
         this.authGraceRetryCount = 0;
+        // Holds the in-flight refreshAuth() promise so concurrent 401s share
+        // one refresh instead of racing each other. See the 401 branch in
+        // _rawRequest.
+        this._inFlightRefresh = null;
+        // Bumped on every successful refresh. Lets a request tell "my token was
+        // rejected" from "my token was replaced while I was in flight".
+        this._authGeneration = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
         this.agent = get(params, 'agent', null);
@@ -184,6 +208,11 @@ class Requester extends Delegate {
 
         options.headers = await this.addAuthHeaders(options.headers);
 
+        // Which credential generation this attempt is carrying. If a concurrent
+        // request refreshes before our response lands, a 401 here is stale and
+        // must not trigger another refresh.
+        const authGenerationAtDispatch = this._authGeneration;
+
         if (this.agent) options.agent = this.agent;
 
         // Per-attempt timeout — fresh AbortController per call so the retry
@@ -266,6 +295,32 @@ class Requester extends Delegate {
             }
 
             if (status === 401) {
+                // Re-entrancy: this 401 came from inside the refresh flow, so
+                // the credential itself is being rejected. Refreshing again
+                // cannot help, and joining the in-flight refresh would await
+                // the promise this very call has to settle. Fail fast so the
+                // credential gets flagged and the slot is released.
+                if (refreshContext.getStore()?.inRefresh) {
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
+                }
+
+                // The credential was rotated by another request while this one
+                // was in flight, so the 401 is stale — the current token was
+                // never tried. Retry with it rather than spending a refresh;
+                // every extra refresh is another provider-side rotation that
+                // would invalidate the pair a concurrent holder just minted.
+                if (
+                    this.isRefreshable &&
+                    this._authGeneration !== authGenerationAtDispatch
+                ) {
+                    clearRequestTimer();
+                    return this._rawRequest(url, options, attempt + 1);
+                }
+
                 if (!this.isRefreshable) {
                     // Up to MAX_AUTH_RETRIES grace retries before invalidating
                     // — a 401 alone isn't proof the credential is bad.
@@ -290,19 +345,38 @@ class Requester extends Delegate {
                     );
                 }
 
-                if (this.refreshCount < MAX_AUTH_RETRIES) {
-                    this.refreshCount++;
-                    const refreshSucceeded = await this.refreshAuth();
-                    if (refreshSucceeded) {
-                        clearRequestTimer();
-                        return this._rawRequest(url, options, attempt + 1);
-                    }
+                // Single-flight refresh. Sync stages drive records through one
+                // api-module instance in concurrent chunks, so an access token
+                // that lapsed overnight makes every request in the chunk 401 at
+                // once. Letting each request refresh independently was actively
+                // harmful: the refreshes rotated the credential out from under
+                // each other (providers such as Intuit force-expire the previous
+                // refresh token), so the framework manufactured its own
+                // invalid_grant failures — and every request past the retry
+                // budget failed outright while a refresh was in flight and about
+                // to succeed. Waiters now share the initiator's refresh, and only
+                // the initiator spends the budget.
+                const refreshAlreadyInFlight = Boolean(this._inFlightRefresh);
 
+                if (
+                    !refreshAlreadyInFlight &&
+                    this.refreshCount >= MAX_AUTH_RETRIES
+                ) {
                     throw await this._invalidateAuth(
                         encodedUrl,
                         options,
                         response
                     );
+                }
+
+                if (!refreshAlreadyInFlight) {
+                    this.refreshCount++;
+                }
+
+                const refreshSucceeded = await this._refreshAuthOnce();
+                if (refreshSucceeded) {
+                    clearRequestTimer();
+                    return this._rawRequest(url, options, attempt + 1);
                 }
 
                 throw await this._invalidateAuth(encodedUrl, options, response);
@@ -425,6 +499,40 @@ class Requester extends Delegate {
             returnFullRes: options.returnFullRes || true,
         };
         return this._request(options.url, fetchOptions);
+    }
+
+    /**
+     * Runs refreshAuth() at most once at a time. The first caller starts the
+     * refresh; callers arriving while it is in flight await the same promise and
+     * receive the same result. The slot is released once the refresh settles, so
+     * a genuinely later 401 can refresh again.
+     *
+     * The assignment is synchronous — no await between the emptiness check in
+     * the 401 branch and storing the promise here — so concurrent callers on the
+     * single-threaded event loop cannot both start a refresh.
+     *
+     * @returns {Promise<boolean>} Whether the refresh succeeded.
+     */
+    _refreshAuthOnce() {
+        if (!this._inFlightRefresh) {
+            this._inFlightRefresh = Promise.resolve()
+                .then(() =>
+                    refreshContext.run({ inRefresh: true }, () =>
+                        this.refreshAuth()
+                    )
+                )
+                .then((refreshSucceeded) => {
+                    if (refreshSucceeded) this._authGeneration++;
+                    return refreshSucceeded;
+                })
+                // Must stay last: the stored promise has to be the one that
+                // clears the slot, so the slot is released before any waiter's
+                // continuation resumes and a later 401 can refresh again.
+                .finally(() => {
+                    this._inFlightRefresh = null;
+                });
+        }
+        return this._inFlightRefresh;
     }
 
     async refreshAuth() {
