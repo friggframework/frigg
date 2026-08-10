@@ -23,6 +23,12 @@ Two other skills cover adjacent ground — consult them as needed:
   commands pattern, encryption.
 - **`frigg-canary-test`** — same harness shape, but against a *published npm
   canary*. Prefer this skill when the target is a specific published canary.
+- **`frigg-management-api`** / **`frigg-user-actions`** — driving a running
+  app's Management HTTP API (auth, users, integrations, actions). Use these
+  once the app is up (see Full-app path below).
+- **`frigg-development-best-practices`** — the framework-development iteration
+  loop (edit → canary → deploy) and TDD expectations; this harness gives that
+  loop its real local database layer.
 
 ## Where everything lives
 
