@@ -1,0 +1,126 @@
+# Frigg Local Test harness — one compose project = one isolated world.
+#
+# This file ships inside the skill's harness assets and is copied to a scratch
+# dir to run (never run from inside .claude/). Everything is relative to this
+# file, so the copy is self-contained.
+#
+# Services:
+#   postgres / mongodb  (default profile)  — real databases for Frigg, no mocks.
+#   agent               (profile: agent)   — sandbox container with node + frigg
+#                                            tooling; repo mounted at /workspace.
+#   browser             (profile: browser) — standalone Chromium (CDP :9222).
+#   localstack          (profile: localstack) — AWS emulation (KMS/SQS/Scheduler).
+#
+# Isolation model (no Docker-in-Docker):
+#   - Default bring-up starts only the databases, reachable from the host via
+#     127.0.0.1:5433 / 127.0.0.1:27018 (localhost-only, non-clashing ports).
+#   - The agent container reaches them by service hostname (postgres:5432 /
+#     mongodb:27017) on the internal compose network.
+#   - Remove the `ports:` blocks below for a fully hermetic run.
+#
+# Usage:
+#   docker compose up -d                       # databases only
+#   docker compose up -d --profile agent       # + agent sandbox
+#   docker compose up -d --profile agent,browser,localstack   # everything
+#   docker compose down -v                     # total reset (wipes data)
+#
+# The agent profile needs FRIGG_REPO_DIR in .env (absolute path to the frigg
+# checkout) so it can mount the repo and pin the local core.
+
+name: frigg-test-env
+
+services:
+    postgres:
+        image: postgres:16-alpine
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: frigg_test
+        ports:
+            - '127.0.0.1:5433:5432' # host-driven dev; remove for hermetic mode
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U postgres']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    # MongoDB must run as a single-node replica set — Prisma requires it for
+    # transactions. mongodb-init initialises rs0 once, then exits.
+    mongodb:
+        image: mongo:7
+        command: ['--replSet', 'rs0', '--bind_ip_all']
+        ports:
+            - '127.0.0.1:27018:27017' # host-driven dev; remove for hermetic mode
+        healthcheck:
+            test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    mongodb-init:
+        image: mongo:7
+        depends_on:
+            mongodb:
+                condition: service_healthy
+        network_mode: 'service:mongodb'
+        volumes:
+            - ./mongo-init.sh:/mongo-init.sh:ro
+        entrypoint: ['bash', '/mongo-init.sh']
+        restart: 'no'
+
+    # Agent sandbox: container where testing agents run Frigg commands.
+    # - /harness   = this harness dir (mounted read-write; the code under test)
+    # - /workspace = the frigg checkout (FRIGG_REPO_DIR from .env), read-only;
+    #                used to pin the LOCAL core (file: dep) — live next code.
+    agent:
+        profiles: ['agent']
+        build:
+            context: .
+            dockerfile: Dockerfile
+        working_dir: /harness
+        volumes:
+            - .:/harness
+            - ${FRIGG_REPO_DIR:-/nonexistent-frigg-repo}:/workspace:ro
+            # Mask any host node_modules so the container installs its own.
+            - nm-harness:/harness/node_modules
+        environment:
+            DB_TYPE: postgresql
+            DATABASE_URL: postgresql://postgres:postgres@postgres:5432/frigg_test
+            STAGE: dev
+            FRIGG_SKIP_AWS_DISCOVERY: 'true'
+        depends_on:
+            postgres:
+                condition: service_healthy
+            mongodb:
+                condition: service_healthy
+            mongodb-init:
+                condition: service_completed_successfully
+        stdin_open: true
+        tty: true
+        command: ['bash']
+
+    # Optional standalone browser (CDP on 9222, bound to localhost). If your
+    # agent runtime runs INSIDE the agent container, it uses the chromium
+    # bundled in the agent image instead and you can skip this service.
+    browser:
+        profiles: ['browser']
+        image: mcr.microsoft.com/playwright:v1.49.1-jammy
+        ports:
+            - '127.0.0.1:9222:9222'
+        command:
+            - sh
+            - -c
+            - 'npx playwright install chromium --with-deps >/dev/null 2>&1; exec npx playwright run-server --port 9222'
+
+    # Optional AWS emulation for tests that touch KMS / SQS / EventBridge.
+    localstack:
+        profiles: ['localstack']
+        image: localstack/localstack:latest
+        environment:
+            SERVICES: kms,sqs,scheduler
+            PERSISTENCE: '0'
+        ports:
+            - '127.0.0.1:4566:4566'
+
+volumes:
+    nm-harness:

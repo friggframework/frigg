@@ -1,0 +1,28 @@
+{
+    "name": "frigg-local-test-harness",
+    "version": "1.0.0",
+    "description": "Docker-based harness to run and test Frigg from the local 'next' branch against real databases (PostgreSQL or MongoDB). Copy this directory to a scratch dir and run there — never from inside .claude/.",
+    "main": "index.js",
+    "scripts": {
+        "db:up": "docker compose up -d",
+        "db:down": "docker compose down",
+        "setup:db": "bash scripts/setup-db.sh",
+        "prisma:generate:postgres": "npx prisma@6 generate --schema=node_modules/@friggframework/core/prisma-postgresql/schema.prisma",
+        "prisma:generate:mongo": "npx prisma@6 generate --schema=node_modules/@friggframework/core/prisma-mongodb/schema.prisma",
+        "db:migrate:postgres": "npx prisma@6 migrate deploy --schema=node_modules/@friggframework/core/prisma-postgresql/schema.prisma",
+        "db:push:mongo": "npx prisma@6 db push --schema=node_modules/@friggframework/core/prisma-mongodb/schema.prisma",
+        "scenario:integration-lifecycle": "node scenarios/integration-lifecycle.js",
+        "server": "node server.js",
+        "smoke": "bash scripts/smoke.sh",
+        "test": "npm run setup:db && npm run scenario:integration-lifecycle"
+    },
+    "dependencies": {
+        "@aws-sdk/client-kms": "^3.1054.0",
+        "@aws-sdk/client-scheduler": "^3.1054.0",
+        "@aws-sdk/client-sqs": "^3.1054.0",
+        "@prisma/client": "^6.19.3",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2",
+        "prisma": "^6.19.3"
+    }
+}
