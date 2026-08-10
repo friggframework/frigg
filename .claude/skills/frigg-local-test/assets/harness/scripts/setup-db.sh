@@ -18,11 +18,9 @@ if [ ! -f .env ]; then
     echo "📄 Created .env from .env.example"
 fi
 
-# Load .env without clobbering already-exported env (container overrides win).
-set -a
+# Load .env WITHOUT clobbering already-exported env (container overrides win).
 # shellcheck disable=SC1091
-source .env
-set +a
+source scripts/load-env.sh
 
 DB_TYPE="${DB_TYPE:-postgresql}"
 

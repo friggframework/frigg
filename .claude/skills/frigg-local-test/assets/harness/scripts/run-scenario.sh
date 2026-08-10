@@ -16,14 +16,12 @@ if [ ! -f "$SCENARIO" ]; then
     exit 1
 fi
 
-# Pre-flight: DB must be reachable.
+# Pre-flight: load .env without clobbering already-set env (container mode).
 if [ ! -f .env ]; then
     cp .env.example .env
 fi
-set -a
 # shellcheck disable=SC1091
-source .env
-set +a
+source scripts/load-env.sh
 
 echo "🚀 Running scenario: $SCENARIO"
 node "$SCENARIO"

@@ -38,7 +38,7 @@ Two other skills cover adjacent ground — consult them as needed:
 └── assets/harness/                   ← the whole environment (copy to scratch to run)
     ├── package.json                  ← scripts: db:up/down, setup:db, prisma:*, scenarios, server
     ├── docker-compose.yml            ← postgres (:5433) + mongo rs0 (:27018)
-    │                                    + profiles: agent sandbox, browser (CDP), localstack
+    │                                    + profiles: agent sandbox, browser (Playwright server), localstack
     ├── Dockerfile + scripts/entrypoint.sh  ← agent sandbox image (node 22 + chromium)
     ├── index.js                      ← Frigg app Definition (integrations, database.type)
     ├── server.js                     ← poke server (:3001/health, /api/integrations)
@@ -105,7 +105,7 @@ initialises it.
   `npm install /path/to/frigg/packages/core` adds a `file:` dependency. Verify:
   `node -e "console.log(require.resolve('@friggframework/core/package.json'))"`
   should print a path under `*/packages/core/`. The bundled `npm run smoke`
-  checks this.
+  FAILS if core does not resolve to the local checkout.
 - **Mongo needs the replica set** (`rs0`) — wait for the `mongodb-init` one-shot
   service to complete before connecting.
 
@@ -155,8 +155,8 @@ docker compose exec agent bash
 The entrypoint pins core to `/workspace/packages/core`, runs `npm install` on
 first boot (named volume, cached), and runs `setup:db`. Chromium is bundled in
 the image for browser-driven tests (headless, `--no-sandbox`). Other opt-in
-profiles: `browser` (standalone Chromium, CDP :9222) and `localstack`
-(KMS/SQS/Scheduler). See `docker-compose.yml` for the isolation model.
+profiles: `browser` (standalone Chromium, Playwright server protocol on
+:9222 — not CDP) and `localstack` (KMS/SQS/Scheduler). See `docker-compose.yml` for the isolation model.
 
 ## Scenario pattern (how to test a feature)
 
@@ -207,10 +207,12 @@ Add the script to `package.json` and mirror it back into this skill's
   first (its `.gitignore` and `.env` handling assume a scratch location).
 - **Ports 5433/27018 are localhost-only bindings.** For a fully hermetic run,
   remove the `ports:` blocks in `docker-compose.yml`.
-- **Generated clients land in the core checkout's `generated/` dir** — that
-  dir is gitignored in the frigg repo, but regenerating on a different platform
-  (e.g. inside the Linux sandbox) overwrites them; re-run `setup:db` on the
-  host before host-driven runs.
+- **Generated clients are platform-local.** On the host they land in the core
+  checkout's `generated/` dir (gitignored in the frigg repo). Inside the
+  sandbox they go to a dedicated named volume over
+  `packages/core/generated`, so container-generated clients never overwrite
+  the host's (and the read-only repo mount never blocks prisma generate).
+  Re-run `setup:db` on the host after host-driven runs.
 
 ## Full-app path (osls offline — how production runs locally)
 

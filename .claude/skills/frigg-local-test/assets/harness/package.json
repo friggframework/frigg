@@ -11,7 +11,7 @@
         "prisma:generate:mongo": "npx prisma@6 generate --schema=node_modules/@friggframework/core/prisma-mongodb/schema.prisma",
         "db:migrate:postgres": "npx prisma@6 migrate deploy --schema=node_modules/@friggframework/core/prisma-postgresql/schema.prisma",
         "db:push:mongo": "npx prisma@6 db push --schema=node_modules/@friggframework/core/prisma-mongodb/schema.prisma",
-        "scenario:integration-lifecycle": "node scenarios/integration-lifecycle.js",
+        "scenario:integration-lifecycle": "bash scripts/run-scenario.sh scenarios/integration-lifecycle.js",
         "server": "node server.js",
         "smoke": "bash scripts/smoke.sh",
         "test": "npm run setup:db && npm run scenario:integration-lifecycle"

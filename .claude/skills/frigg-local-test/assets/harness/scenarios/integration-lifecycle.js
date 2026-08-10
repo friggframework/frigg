@@ -1,7 +1,7 @@
 /**
  * Scenario: Integration lifecycle + context loading
  *
- * Seeds real PostgreSQL records, then exercises the FIND_INTEGRATION_BY_EXTERNAL_ID
+ * Seeds real database records, then exercises the FIND_INTEGRATION_BY_EXTERNAL_ID
  * USER_ACTION on TestApiAIntegration. The action sources externalId + type from
  * the hydrated integration itself, so we load context first, then dispatch.
  *
@@ -26,7 +26,7 @@ let testIntegrationBId;
 const TEST_EXTERNAL_ID = `shared-entity-${Date.now()}`;
 
 async function setupTestData() {
-    console.log('📦 Setting up test data in PostgreSQL...\n');
+    console.log('📦 Setting up test data...\n');
 
     const user = await prisma.user.create({
         data: {
@@ -113,6 +113,35 @@ async function runTests() {
     let passed = 0;
     let failed = 0;
 
+    /**
+     * Run one case: invoke fn(), then pass (result, error) to check().
+     * check returns true when the case passed. Keeps the per-test
+     * try/catch/PASSED/FAILED bookkeeping in one place.
+     */
+    async function runCase(label, fn, check) {
+        console.log(label);
+        try {
+            const result = await fn();
+            console.log(`   Result: ${JSON.stringify(result)}`);
+            if (check(result, null)) {
+                console.log('   ✅ PASSED\n');
+                passed++;
+            } else {
+                console.log(`   ❌ FAILED: unexpected result: ${JSON.stringify(result)}\n`);
+                failed++;
+            }
+        } catch (error) {
+            if (check(null, error)) {
+                console.log(`   Error: "${error.message}"`);
+                console.log('   ✅ PASSED\n');
+                passed++;
+            } else {
+                console.log(`   ❌ FAILED: ${error.code || error.message}\n`);
+                failed++;
+            }
+        }
+    }
+
     // Load context (hydrate) → dispatch the user action.
     async function dispatchForIntegration(integrationId) {
         const loaded = await commands.loadIntegrationContextById(integrationId);
@@ -141,72 +170,38 @@ async function runTests() {
     }
 
     // Test 1: Integration A → reads its own config.type=test-api-a
-    console.log('Test 1: Hydrate Integration A, dispatch (config.type=test-api-a)');
-    try {
-        const result = await dispatchForIntegration(testIntegrationAId);
-        console.log(`   Result: ${JSON.stringify(result)}`);
-        if (result.success && result.integrationId === testIntegrationAId.toString() && result.integrationType === 'test-api-a') {
-            console.log('   ✅ PASSED: Found Integration A from its own config.type + bound entity\n');
-            passed++;
-        } else {
-            console.log(`   ❌ FAILED: Expected integrationId=${testIntegrationAId}, got ${result.integrationId}\n`);
-            failed++;
-        }
-    } catch (error) {
-        console.log(`   ❌ FAILED: ${error.message}\n`);
-        failed++;
-    }
+    await runCase(
+        'Test 1: Hydrate Integration A, dispatch (config.type=test-api-a)',
+        () => dispatchForIntegration(testIntegrationAId),
+        (result) =>
+            result?.success &&
+            result.integrationId === testIntegrationAId.toString() &&
+            result.integrationType === 'test-api-a'
+    );
 
     // Test 2: Integration B (same shared entity) → reads config.type=test-api-b
-    console.log('Test 2: Hydrate Integration B, dispatch (config.type=test-api-b)');
-    try {
-        const result = await dispatchForIntegration(testIntegrationBId);
-        console.log(`   Result: ${JSON.stringify(result)}`);
-        if (result.success && result.integrationId === testIntegrationBId.toString() && result.integrationType === 'test-api-b') {
-            console.log('   ✅ PASSED: Found Integration B from its own config.type + shared entity\n');
-            passed++;
-        } else {
-            console.log(`   ❌ FAILED: Expected integrationId=${testIntegrationBId}, got ${result.integrationId}\n`);
-            failed++;
-        }
-    } catch (error) {
-        console.log(`   ❌ FAILED: ${error.message}\n`);
-        failed++;
-    }
+    await runCase(
+        'Test 2: Hydrate Integration B, dispatch (config.type=test-api-b)',
+        () => dispatchForIntegration(testIntegrationBId),
+        (result) =>
+            result?.success &&
+            result.integrationId === testIntegrationBId.toString() &&
+            result.integrationType === 'test-api-b'
+    );
 
     // Test 3: config.type matches no integration for the shared entity
-    console.log('Test 3: config.type=unknown-type (manually hydrated)');
-    try {
-        await dispatchForConfig({ type: 'unknown-type' }, [{ externalId: TEST_EXTERNAL_ID }]);
-        console.log('   ❌ FAILED: Should have thrown INTEGRATION_NOT_FOUND\n');
-        failed++;
-    } catch (error) {
-        if (error.code === 'INTEGRATION_NOT_FOUND') {
-            console.log(`   Error: "${error.message}"`);
-            console.log('   ✅ PASSED: correctly threw INTEGRATION_NOT_FOUND\n');
-            passed++;
-        } else {
-            console.log(`   ❌ FAILED: Wrong error: ${error.code || error.message}\n`);
-            failed++;
-        }
-    }
+    await runCase(
+        'Test 3: config.type=unknown-type (manually hydrated)',
+        () => dispatchForConfig({ type: 'unknown-type' }, [{ externalId: TEST_EXTERNAL_ID }]),
+        (result, error) => error?.code === 'INTEGRATION_NOT_FOUND'
+    );
 
     // Test 4: config has no type
-    console.log('Test 4: config has no type (manually hydrated)');
-    try {
-        await dispatchForConfig({}, [{ externalId: TEST_EXTERNAL_ID }]);
-        console.log('   ❌ FAILED: Should have thrown TYPE_REQUIRED\n');
-        failed++;
-    } catch (error) {
-        if (error.code === 'TYPE_REQUIRED') {
-            console.log(`   Error: "${error.message}"`);
-            console.log('   ✅ PASSED: correctly threw TYPE_REQUIRED\n');
-            passed++;
-        } else {
-            console.log(`   ❌ FAILED: Wrong error: ${error.code || error.message}\n`);
-            failed++;
-        }
-    }
+    await runCase(
+        'Test 4: config has no type (manually hydrated)',
+        () => dispatchForConfig({}, [{ externalId: TEST_EXTERNAL_ID }]),
+        (result, error) => error?.code === 'TYPE_REQUIRED'
+    );
 
     return { passed, failed };
 }

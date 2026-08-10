@@ -13,15 +13,33 @@ set -euo pipefail
 
 echo "🐳 Frigg agent sandbox bootstrapping..."
 
+# Sanity check: /workspace must be the frigg checkout (FRIGG_REPO_DIR).
+if [ ! -f /workspace/package.json ]; then
+    echo "❌ /workspace/package.json not found." >&2
+    echo "   Set FRIGG_REPO_DIR in .env to the absolute path of the frigg" >&2
+    echo "   checkout (compose mounts it read-only at /workspace)." >&2
+    exit 1
+fi
+
 cd /harness
 
-if ! grep -q '"@friggframework/core"' package.json 2>/dev/null; then
+# Pin core to the LOCAL checkout — check the declared file: path, not just
+# presence, so a stale host-path pin (from a host quick-start in this dir)
+# gets corrected to the sandbox path.
+CORE_FILE="$(node -p "require('./package.json').dependencies['@friggframework/core'] || ''" 2>/dev/null || true)"
+if [ "$CORE_FILE" != "file:/workspace/packages/core" ]; then
     echo "==> Pinning local core (file:/workspace/packages/core)"
     npm pkg set "dependencies.@friggframework/core=file:/workspace/packages/core"
 fi
 
-if [ ! -d node_modules ]; then
+# Install only when needed: the named volume masks /harness/node_modules with
+# an (initially empty) dir, so check for the actual package, not the dir.
+if [ ! -d node_modules ] || [ ! -e node_modules/@friggframework/core ]; then
     echo "==> npm install (one-time, may take a few minutes)"
+    # A lockfile from another environment pins the old core path (e.g. the
+    # host checkout) and breaks the file: re-pin — the harness intentionally
+    # has no committed lockfile, so resolve fresh.
+    rm -f package-lock.json
     npm install --no-audit --no-fund
 else
     echo "==> node_modules present, skipping npm install"

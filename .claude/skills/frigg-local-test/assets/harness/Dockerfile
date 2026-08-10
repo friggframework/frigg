@@ -36,7 +36,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Chromium for headless browser testing inside the sandbox.
-ARG WITH_BROWSER
+# Default must be set IN this stage: a pre-FROM ARG is not visible to build
+# steps, so a bare `ARG WITH_BROWSER` here would silently default to empty
+# and skip the chromium install.
+ARG WITH_BROWSER=true
 RUN if [ "$WITH_BROWSER" = "true" ]; then \
         npx --yes playwright@1.49.1 install --with-deps chromium \
         && rm -rf /root/.cache/ms-playwright/*/*.map 2>/dev/null || true; \

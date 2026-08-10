@@ -26,6 +26,10 @@
 #
 # The agent profile needs FRIGG_REPO_DIR in .env (absolute path to the frigg
 # checkout) so it can mount the repo and pin the local core.
+#
+# One environment at a time: the project name is fixed (frigg-test-env), so
+# repeated `docker compose up` reuses the running databases (warm start);
+# concurrent scratch harnesses on one host would collide on the host ports.
 
 name: frigg-test-env
 
@@ -83,6 +87,11 @@ services:
             - ${FRIGG_REPO_DIR:-/nonexistent-frigg-repo}:/workspace:ro
             # Mask any host node_modules so the container installs its own.
             - nm-harness:/harness/node_modules
+            # prisma generate writes the client relative to the schema file
+            # (packages/core/generated/); overlay a writable volume so the
+            # read-only /workspace mount doesn't fail with EROFS, and the
+            # host checkout is never polluted with container-built clients.
+            - nm-generated:/workspace/packages/core/generated
         environment:
             DB_TYPE: postgresql
             DATABASE_URL: postgresql://postgres:postgres@postgres:5432/frigg_test
@@ -99,9 +108,12 @@ services:
         tty: true
         command: ['bash']
 
-    # Optional standalone browser (CDP on 9222, bound to localhost). If your
-    # agent runtime runs INSIDE the agent container, it uses the chromium
-    # bundled in the agent image instead and you can skip this service.
+    # Optional standalone browser on :9222 (localhost-only). NOTE: the
+    # command runs the Playwright Server protocol (`playwright run-server`),
+    # NOT the Chrome DevTools Protocol — connect with a Playwright client, not
+    # a CDP client. If your agent runtime runs INSIDE the agent container, it
+    # uses the chromium bundled in the agent image instead and you can skip
+    # this service.
     browser:
         profiles: ['browser']
         image: mcr.microsoft.com/playwright:v1.49.1-jammy
@@ -115,7 +127,7 @@ services:
     # Optional AWS emulation for tests that touch KMS / SQS / EventBridge.
     localstack:
         profiles: ['localstack']
-        image: localstack/localstack:latest
+        image: localstack/localstack:3.8.1
         environment:
             SERVICES: kms,sqs,scheduler
             PERSISTENCE: '0'
@@ -124,3 +136,4 @@ services:
 
 volumes:
     nm-harness:
+    nm-generated:

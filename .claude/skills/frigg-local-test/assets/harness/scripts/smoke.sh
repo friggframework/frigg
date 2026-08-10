@@ -8,13 +8,19 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Create .env from the template on first run (before loading it).
+if [ ! -f .env ]; then
+    cp .env.example .env
+fi
+
+# Load .env without clobbering already-set env (container mode).
+# shellcheck disable=SC1091
+source scripts/load-env.sh
+
 echo "═══ Frigg Local Test harness — smoke test ═══"
 
 echo ""
 echo "1) Checking databases..."
-if [ ! -f .env ]; then
-    cp .env.example .env
-fi
 docker compose ps --format 'table {{.Service}}\t{{.Status}}' || {
     echo "❌ Compose unavailable. Start Docker and run: npm run db:up" >&2
     exit 1
@@ -41,8 +47,11 @@ case "$CORE_RESOLVED" in
         echo "   ✅ core resolved to LOCAL checkout: $CORE_RESOLVED"
         ;;
     *)
-        echo "   ⚠️ core resolved to registry copy, not local: $CORE_RESOLVED"
-        echo "     (re-pin: npm install /path/to/frigg/packages/core)"
+        echo "   ❌ core resolved to registry copy, not local: $CORE_RESOLVED" >&2
+        echo "     Re-pin and reinstall:" >&2
+        echo "       npm install /path/to/frigg/packages/core" >&2
+        echo "       npm install" >&2
+        exit 1
         ;;
 esac
 
