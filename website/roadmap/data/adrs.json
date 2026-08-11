@@ -1,5 +1,5 @@
 {
-  "count": 27,
+  "count": 28,
   "adrs": [
     {
       "num": 1,
@@ -270,6 +270,16 @@
       "theme": "Infra & deploy",
       "summary": "Offloads large secrets to SSM and scopes env vars per function so Lambdas stay under the 4KB environment limit as the integration count grows.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/027-ssm-parameter-offload-and-env-scoping.md"
+    },
+    {
+      "num": 31,
+      "id": "031",
+      "title": "Concurrent OAuth Credential Refresh Across Lambda Invocations",
+      "status": "Proposed",
+      "date": "2026-08-11",
+      "theme": "Data & migrations",
+      "summary": "Layers failure containment, loser recovery, credential compare-and-swap, and core-owned token expiry so concurrent Lambda invocations can no longer lose an OAuth rotation race and silently orphan records.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/031-concurrent-oauth-credential-refresh.md"
     }
   ]
 }
