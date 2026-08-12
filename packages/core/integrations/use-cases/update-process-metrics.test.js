@@ -2,8 +2,9 @@
  * UpdateProcessMetrics Use Case Tests
  *
  * Covers the atomic-path refactor: increments and errorDetails push go
- * through applyProcessUpdate; derived fields are computed and written
- * via the legacy update() as a non-fatal follow-up.
+ * through applyProcessUpdate; derived fields are computed from that
+ * snapshot and written back through a scoped `set` op as a non-fatal
+ * follow-up — never as a full context/results overwrite.
  */
 
 const { UpdateProcessMetrics } = require('./update-process-metrics');
@@ -173,9 +174,11 @@ describe('UpdateProcessMetrics', () => {
                 skipped: 1,
             });
 
-            expect(mockProcessRepository.applyProcessUpdate).toHaveBeenCalledTimes(
-                1
-            );
+            const [, ops] =
+                mockProcessRepository.applyProcessUpdate.mock.calls[0];
+            expect(ops.increment).toEqual({
+                'results.aggregateData.totalSkipped': 1,
+            });
             expect(mockProcessRepository.findById).not.toHaveBeenCalled();
         });
 
@@ -233,9 +236,11 @@ describe('UpdateProcessMetrics', () => {
             );
         });
 
-        it('short-circuits on an all-zero update without hitting applyProcessUpdate', async () => {
+        it('short-circuits an all-zero update to a read, issuing no counter write', async () => {
             mockProcessRepository.findById.mockResolvedValue(atomicSnapshot);
-            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
+            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
+                atomicSnapshot
+            );
 
             await useCase.execute(processId, {
                 processed: 0,
@@ -243,12 +248,16 @@ describe('UpdateProcessMetrics', () => {
                 errors: 0,
             });
 
-            expect(
-                mockProcessRepository.applyProcessUpdate
-            ).not.toHaveBeenCalled();
             expect(mockProcessRepository.findById).toHaveBeenCalledWith(
                 processId
             );
+            // The only atomic write left is the derived-fields pass; no
+            // increment/pushSlice op is issued for an empty batch.
+            const counterWrites =
+                mockProcessRepository.applyProcessUpdate.mock.calls.filter(
+                    ([, ops]) => ops.increment || ops.pushSlice
+                );
+            expect(counterWrites).toHaveLength(0);
         });
     });
 
@@ -274,33 +283,34 @@ describe('UpdateProcessMetrics', () => {
             jest.useRealTimers();
         });
 
-        it('writes duration, recordsPerSecond, and estimatedCompletion via update()', async () => {
+        it('writes duration, recordsPerSecond, and estimatedCompletion as a scoped atomic set', async () => {
             mockProcessRepository.applyProcessUpdate.mockResolvedValue(
                 atomicSnapshot
             );
-            mockProcessRepository.update.mockResolvedValue(atomicSnapshot);
 
             await useCase.execute(processId, { processed: 50, success: 50 });
 
-            const [id, derived] =
-                mockProcessRepository.update.mock.calls[0];
+            const [id, ops] =
+                mockProcessRepository.applyProcessUpdate.mock.calls[1];
             expect(id).toBe(processId);
-            expect(derived.results.aggregateData.duration).toBe(45000);
-            expect(derived.results.aggregateData.recordsPerSecond).toBeCloseTo(
-                150 / 45,
-                2
-            );
-            expect(derived.context.estimatedCompletion).toEqual(
+            // Only the three derived paths — never the whole blob, which
+            // would replay stale counters over a concurrent caller's write.
+            expect(Object.keys(ops)).toEqual(['set']);
+            expect(ops.set['results.aggregateData.duration']).toBe(45000);
+            expect(
+                ops.set['results.aggregateData.recordsPerSecond']
+            ).toBeCloseTo(150 / 45, 2);
+            expect(ops.set['context.estimatedCompletion']).toEqual(
                 expect.any(String)
             );
+            expect(mockProcessRepository.update).not.toHaveBeenCalled();
         });
 
         it('continues returning the atomic snapshot when the derived-fields write fails (non-fatal)', async () => {
             const consoleErr = jest.spyOn(console, 'error').mockImplementation();
-            mockProcessRepository.applyProcessUpdate.mockResolvedValue(
-                atomicSnapshot
-            );
-            mockProcessRepository.update.mockRejectedValue(new Error('disk full'));
+            mockProcessRepository.applyProcessUpdate
+                .mockResolvedValueOnce(atomicSnapshot)
+                .mockRejectedValueOnce(new Error('disk full'));
 
             const result = await useCase.execute(processId, {
                 processed: 50,
@@ -324,6 +334,9 @@ describe('UpdateProcessMetrics', () => {
 
             await useCase.execute(processId, { processed: 0 });
 
+            expect(
+                mockProcessRepository.applyProcessUpdate
+            ).not.toHaveBeenCalled();
             expect(mockProcessRepository.update).not.toHaveBeenCalled();
         });
     });
@@ -432,6 +445,211 @@ describe('UpdateProcessMetrics', () => {
                     ([, ops]) => ops.increment['context.processedRecords'] === 1
                 )
             ).toBe(true);
+        });
+    });
+
+    describe('concurrent writers — lost update regression', () => {
+        // Models the production failure (Clockwork, 2026-08-12): two batch
+        // handlers update the same process. Each one's phase-1 increment is
+        // atomic, but the phase-2 derived-fields write used to persist the
+        // WHOLE context/results blob captured in phase 1's RETURNING
+        // snapshot. A late-arriving snapshot therefore rolled the row back
+        // to a pre-concurrent state and one chunk vanished for good.
+        const startTime = '2024-01-01T10:00:00.000Z';
+        const baseTime = new Date(startTime);
+
+        const clone = (value) => JSON.parse(JSON.stringify(value));
+
+        const readPath = (doc, path) =>
+            path
+                .split('.')
+                .reduce(
+                    (acc, segment) =>
+                        acc === null || acc === undefined
+                            ? undefined
+                            : acc[segment],
+                    doc
+                );
+
+        const writePath = (doc, path, value) => {
+            const segments = path.split('.');
+            let cursor = doc;
+            for (const segment of segments.slice(0, -1)) {
+                if (!cursor[segment] || typeof cursor[segment] !== 'object') {
+                    cursor[segment] = {};
+                }
+                cursor = cursor[segment];
+            }
+            cursor[segments[segments.length - 1]] = value;
+        };
+
+        /**
+         * Repository double where `applyProcessUpdate` behaves like the real
+         * atomic backends (mutate-then-snapshot) and `update` behaves like
+         * the legacy blind full-column overwrite.
+         *
+         * With `parkFirstWriter`, the first atomic write commits its
+         * mutation immediately but its RETURNING snapshot is withheld until
+         * the test releases it — the deterministic stand-in for "caller A's
+         * phase 2 runs after caller B has fully finished".
+         */
+        const createRepository = ({ parkFirstWriter = false } = {}) => {
+            const doc = {
+                id: 'p1',
+                state: 'PROCESSING_BATCHES',
+                context: {
+                    totalRecords: 100,
+                    processedRecords: 0,
+                    startTime,
+                },
+                results: { aggregateData: { totalSynced: 0, totalFailed: 0 } },
+                createdAt: startTime,
+            };
+
+            let parkedResolve;
+            const parked = new Promise((resolve) => {
+                parkedResolve = resolve;
+            });
+            let releaseResolve;
+            const released = new Promise((resolve) => {
+                releaseResolve = resolve;
+            });
+
+            let atomicWrites = 0;
+            const repository = {
+                findById: jest.fn(async () => clone(doc)),
+                update: jest.fn(async (_processId, updates) => {
+                    if (updates.context !== undefined) {
+                        doc.context = clone(updates.context);
+                    }
+                    if (updates.results !== undefined) {
+                        doc.results = clone(updates.results);
+                    }
+                    return clone(doc);
+                }),
+                applyProcessUpdate: jest.fn(async (_processId, ops) => {
+                    atomicWrites += 1;
+                    const isFirstWriter = atomicWrites === 1;
+
+                    for (const [path, delta] of Object.entries(
+                        ops.increment || {}
+                    )) {
+                        writePath(doc, path, (readPath(doc, path) || 0) + delta);
+                    }
+                    for (const [path, value] of Object.entries(ops.set || {})) {
+                        writePath(doc, path, value);
+                    }
+                    for (const [path, spec] of Object.entries(
+                        ops.pushSlice || {}
+                    )) {
+                        const next = [
+                            ...(readPath(doc, path) || []),
+                            ...spec.values,
+                        ];
+                        writePath(doc, path, next.slice(-spec.keepLast));
+                    }
+
+                    const snapshot = clone(doc);
+                    if (parkFirstWriter && isFirstWriter) {
+                        parkedResolve();
+                        await released;
+                    }
+                    return snapshot;
+                }),
+            };
+
+            return {
+                repository,
+                doc,
+                firstWriterParked: parked,
+                releaseFirstWriter: () => releaseResolve(),
+            };
+        };
+
+        beforeEach(() => {
+            jest.useFakeTimers();
+            jest.setSystemTime(new Date(baseTime.getTime() + 45000));
+        });
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        it('keeps both callers’ increments when a stale snapshot writes derived fields last', async () => {
+            const { repository, doc, firstWriterParked, releaseFirstWriter } =
+                createRepository({ parkFirstWriter: true });
+            const useCaseUnderTest = new UpdateProcessMetrics({
+                processRepository: repository,
+            });
+
+            const firstCaller = useCaseUnderTest.execute('p1', {
+                processed: 25,
+                success: 25,
+            });
+            await firstWriterParked;
+
+            await useCaseUnderTest.execute('p1', {
+                processed: 25,
+                success: 25,
+            });
+
+            releaseFirstWriter();
+            await firstCaller;
+
+            expect(doc.context.processedRecords).toBe(50);
+            expect(doc.results.aggregateData.totalSynced).toBe(50);
+        });
+
+        it('never routes the derived-fields write through the legacy blind-overwrite update()', async () => {
+            const { repository } = createRepository();
+            const useCaseUnderTest = new UpdateProcessMetrics({
+                processRepository: repository,
+            });
+
+            await useCaseUnderTest.execute('p1', {
+                processed: 25,
+                success: 25,
+            });
+
+            expect(repository.update).not.toHaveBeenCalled();
+        });
+
+        it('persists duration, recordsPerSecond and estimatedCompletion via the atomic set op', async () => {
+            const { repository, doc } = createRepository();
+            const useCaseUnderTest = new UpdateProcessMetrics({
+                processRepository: repository,
+            });
+
+            await useCaseUnderTest.execute('p1', {
+                processed: 25,
+                success: 25,
+            });
+
+            expect(doc.results.aggregateData.duration).toBe(45000);
+            expect(doc.results.aggregateData.recordsPerSecond).toBeCloseTo(
+                25 / 45,
+                5
+            );
+            expect(doc.context.estimatedCompletion).toEqual(expect.any(String));
+            expect(doc.context.processedRecords).toBe(25);
+            expect(doc.results.aggregateData.totalSynced).toBe(25);
+        });
+
+        it('omits estimatedCompletion when totalRecords is unknown', async () => {
+            const { repository, doc } = createRepository();
+            doc.context.totalRecords = 0;
+            const useCaseUnderTest = new UpdateProcessMetrics({
+                processRepository: repository,
+            });
+
+            await useCaseUnderTest.execute('p1', {
+                processed: 25,
+                success: 25,
+            });
+
+            const derivedOps =
+                repository.applyProcessUpdate.mock.calls[1][1].set;
+            expect('context.estimatedCompletion' in derivedOps).toBe(false);
+            expect(doc.context.estimatedCompletion).toBeUndefined();
         });
     });
 
