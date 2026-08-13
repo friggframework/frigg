@@ -171,7 +171,7 @@ function loadModuleEncryptionSchemas(integrations) {
         return;
     }
 
-    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
+    const { getModulesDefinitionFromIntegrationClasses } = require('../../integrations/utils/map-integration-dto');
 
     const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);
     const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
