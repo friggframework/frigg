@@ -60,9 +60,27 @@ class OAuth2Requester extends Requester {
         this.DLGT_TOKEN_UPDATE = 'TOKEN_UPDATE';
         /** @type {string} Delegate type for token deauthorization notifications */
         this.DLGT_TOKEN_DEAUTHORIZED = 'TOKEN_DEAUTHORIZED';
+        /**
+         * @type {string} Delegate type asking the delegate (Module) for the
+         * currently stored credential, so a concurrent invocation's refresh
+         * can be adopted instead of raced. See _adoptNewerCredential.
+         */
+        this.DLGT_CREDENTIAL_RELOAD = 'CREDENTIAL_RELOAD';
 
         this.delegateTypes.push(this.DLGT_TOKEN_UPDATE);
         this.delegateTypes.push(this.DLGT_TOKEN_DEAUTHORIZED);
+        this.delegateTypes.push(this.DLGT_CREDENTIAL_RELOAD);
+
+        /**
+         * Re-read delays after an invalid_grant, in ms. The winner's write may
+         * not be readable yet when the loser's rejection lands — the observed
+         * gap in production was 716ms — so the re-read backs off a few times
+         * before concluding the credential is genuinely dead. Injectable for
+         * tests.
+         */
+        this.credentialReloadBackoffMs = params?.credentialReloadBackoffMs ?? [
+            500, 1000, 1500,
+        ];
 
         /** @type {string} OAuth grant type */
         this.grant_type = get(params, 'grant_type', 'authorization_code');
@@ -295,6 +313,13 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<boolean>} True if refresh succeeded, false if failed
      */
     async refreshAuth() {
+        // Another invocation may have refreshed while this one held a stale
+        // in-memory copy. Adopting its tokens is always better than spending
+        // a rotation: with single-use refresh tokens, a stale refresh is not
+        // just wasted — it fails, and on grant-revoking providers it can kill
+        // the winner's tokens too.
+        if (await this._adoptNewerCredential()) return true;
+
         try {
             console.log('[Frigg] Starting token refresh', {
                 grant_type: this.grant_type,
@@ -322,6 +347,35 @@ class OAuth2Requester extends Requester {
                 response_status: error?.response?.status,
                 response_data: error?.response?.data,
             });
+
+            // Only a definitive rejection of the grant can mean the
+            // credential is dead. A timeout, connection error, 429, or 5xx —
+            // or a 400 without an OAuth error marker, which may be our own
+            // malformed request — must stay retryable: rethrow, so the
+            // caller fails loudly (worker throw → SQS retry → DLQ) without
+            // flagging a healthy credential invalid.
+            if (!this._isDefinitiveAuthRejection(error)) {
+                throw error;
+            }
+
+            // Rejected — but the rejection may mean "another invocation
+            // consumed this refresh token first". Its write may lag ours by
+            // several hundred ms, so re-read with a bounded backoff before
+            // concluding death.
+            for (const delayMs of this.credentialReloadBackoffMs) {
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+                if (await this._adoptNewerCredential()) {
+                    console.log(
+                        '[Frigg] Adopted a newer credential after invalid_grant'
+                    );
+                    return true;
+                }
+            }
+
+            // Rejected AND nothing newer in the store: genuinely dead.
+            this.telemetry?.count?.('frigg.auth.refresh_race_lost', 1, {
+                module: this._telemetryModuleLabel(),
+            });
             // Status only: the refresh body carries client_secret, and
             // FetchError embeds the body in its message outside prod.
             await this.notify(this.DLGT_INVALID_AUTH, {
@@ -329,6 +383,63 @@ class OAuth2Requester extends Requester {
             });
             return false;
         }
+    }
+
+    /**
+     * Whether a refresh error is a definitive authorization rejection —
+     * the OAuth error markers that mean the presented grant itself was
+     * refused — as opposed to a transport or provider failure that says
+     * nothing about the credential.
+     */
+    _isDefinitiveAuthRejection(error) {
+        const haystack = [
+            error?.message,
+            error?.body,
+            error?.error,
+            error?.response?.data && JSON.stringify(error.response.data),
+        ]
+            .filter(Boolean)
+            .join(' ');
+        return /invalid_grant|invalid_client/i.test(haystack);
+    }
+
+    /**
+     * Asks the delegate (Module) for the currently stored credential and
+     * adopts it when it holds a NEWER refresh token than this instance.
+     *
+     * The comparison is keyed on the refresh token, never the access token:
+     * a provider can rotate the refresh token while returning an identical
+     * access-token string, and an access-token comparison would then miss
+     * the winner. Reload failures are non-fatal — a database blip must not
+     * change auth behavior — and the reload never writes anything.
+     *
+     * @returns {Promise<boolean>} True when a newer credential was adopted.
+     */
+    async _adoptNewerCredential() {
+        let stored = null;
+        try {
+            stored = await this.notify(this.DLGT_CREDENTIAL_RELOAD);
+        } catch (_) {
+            return false;
+        }
+        if (!stored?.refresh_token) return false;
+        if (stored.refresh_token === this.refresh_token) return false;
+
+        this.access_token = stored.access_token ?? this.access_token;
+        this.refresh_token = stored.refresh_token;
+        if (stored.accessTokenExpire !== undefined) {
+            this.accessTokenExpire = stored.accessTokenExpire;
+        }
+        if (stored.refreshTokenExpire !== undefined) {
+            this.refreshTokenExpire = stored.refreshTokenExpire;
+        }
+        // In-flight requests that 401ed against the old token retry with
+        // this one instead of triggering another refresh.
+        this._authGeneration++;
+        this.telemetry?.count?.('frigg.auth.refresh_race_recovered', 1, {
+            module: this._telemetryModuleLabel(),
+        });
+        return true;
     }
 
     /**
