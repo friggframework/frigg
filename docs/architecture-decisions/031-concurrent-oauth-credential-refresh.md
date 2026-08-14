@@ -180,36 +180,53 @@ optional core script that runs on a cron. When someone installs an
 api-module with expiring OAuth tokens and refresh, the CLI offers the
 script, or installs it automatically.
 
-It has one prerequisite in core. The framework must know when tokens
-expire, and today it does not:
+The simplest form needs **zero changes to core**. The script refreshes
+blind, on a fixed cadence, below the shortest access-token lifetime (QBO
+tokens live 60 minutes). It does not track expiry:
 
-- `setTokens` computes the expiry as
-  `new Date(Date.now() + accessExpiresIn * 1000)` (`oauth-2.js:138`).
-  `accessExpiresIn` defaults to `null`, and `null * 1000` is `0`. A
-  provider that omits `expires_in` yields a date pinned to *now*. Fix: set
-  the expiry only when `expires_in` is a positive number; otherwise store
-  `null`, which means "unknown".
-- Core must persist and hydrate the expiry fields itself, outside each
-  module's `apiPropertiesToPersist` list. Persistence alone is not enough:
-  hydration is gated by the same list (`module.js:75`), so a field that no
-  module lists never reaches the instance. Both halves are needed.
-- Missing or unknown expiry means: do nothing, and let the 401 path react.
-  The fail-safe direction is "unknown → reactive", never "unknown →
-  refresh".
+1. Enumerate the entities. Hydrate each module.
+2. Skip modules that do not refresh (`isRefreshable` false) and modules on
+   `client_credentials` (no rotation risk).
+3. Call `refreshAuth()` on the rest, **serially**. One writer, so the
+   script cannot race itself.
+4. Persistence needs no new code. The existing chain already fires:
+   `setTokens` → `DLGT_TOKEN_UPDATE` → `onTokenUpdate` →
+   `upsertCredential`.
 
-Option 2 reduces refreshes to about one per token lifetime. It makes the
-race rare. It cannot make the race impossible: a missed tick, a cold app,
-or a newly authorized credential still refreshes on the request path. That
-is why option 4 is the mechanism and option 2 is the companion.
+The waste is bounded: at a 30-minute cadence, 48 provider calls per
+credential per day. For a small app, that is nothing. For one known sync
+window, the cadence can be one refresh, minutes before the window.
+
+Two caveats:
+
+- A blind refresh rotates the refresh token each time. For a provider that
+  also kills prior *access* tokens on each mint, a mid-sync refresh could
+  break in-flight work. Schedule the sweep outside sync windows. Option 4
+  also self-heals this case: the 401 re-reads and adopts the newer token.
+- The chain "hydrate a module outside an integration, call `refreshAuth()`,
+  persistence fires" must be confirmed against the module factory at
+  implementation time. Each link is verified in code; the standalone run is
+  not.
+
+An expiry-aware version ("skip credentials that are still fresh") is an
+optional later optimization, not a prerequisite. It would require core to
+fix the expiry computation (`oauth-2.js:138` turns a missing `expires_in`
+into a date pinned to *now*, via `null * 1000`) and to persist and hydrate
+the expiry fields itself, outside `apiPropertiesToPersist` (`module.js:75`
+gates hydration). Defer all of that until the waste matters.
+
+Option 2 reduces request-path refreshes to nearly zero. It makes the race
+rare. It cannot make the race impossible: a missed tick, a cold app, or a
+newly authorized credential still refreshes on the request path. That is
+why option 4 is the mechanism and option 2 is the companion.
 
 ### Sequencing
 
 1. **PR A — option 4 plus the silent-ack fix.** No migration, no new
    infrastructure. Requires a build at or after PR #636.
-2. **PR B — the expiry fix, persist, and hydrate** (option 2's
-   prerequisite).
-3. **PR C — the scheduled refresh script and the CLI offer.**
-4. **Then measure** against the metric, and only then revisit
+2. **PR B — the scheduled refresh script, its schedule, and the CLI
+   offer.** Zero core changes.
+3. **Then measure** against the metric, and only then revisit
    serialization.
 
 ### Open question
@@ -233,8 +250,10 @@ no-behavior-change-on-upgrade bar. The justification: the un-fixed state
 - Options 4 and 2 need **no new AWS resource, no new IAM, and no new
   runtime dependency**. The marginal cost is one credential re-read, with
   its KMS decrypts, on the failure path only.
-- The expiry fix gives the framework a working expiry model for the first
-  time, and cuts provider token calls to about one per token lifetime.
+- The scheduled refresh keeps the access token fresh through each sync
+  window, so the request path almost never refreshes. The stampede
+  condition (every stage discovers expiry at the same instant, via 401)
+  disappears in normal operation.
 
 ### Negative
 
@@ -258,7 +277,7 @@ no-behavior-change-on-upgrade bar. The justification: the un-fixed state
 ### Neutral
 
 - Rollout for an app pinned to `2.0.0-next.78`: bump core past PR #636,
-  take PR A, then PR B and PR C. No infrastructure redeploy at any step.
+  take PR A, then PR B. No infrastructure redeploy at any step.
 - The DocumentDB adapter must be covered or explicitly scoped out.
 - ADR-003 "Runtime State Only" is not a constraint here. Its scope is the
   local-dev management GUI.
@@ -275,9 +294,10 @@ no-behavior-change-on-upgrade bar. The justification: the un-fixed state
   leak a cursor and a connection. The pattern stays worth a look for future
   distributed workloads, as the review notes.
 - **Option 3 — pre-flight fetch of the credential per request.** Rejected.
-  Per-request database fetches flood the database (maintainer review). The
-  cheap cousin ships instead: an in-memory expiry check, fed by option 2's
-  persisted expiry, with no database read on the request path.
+  Per-request database fetches flood the database (maintainer review).
+  Option 2's scheduled refresh reaches the same goal — a fresh token on the
+  request path — with a handful of scheduled calls instead of one database
+  read per request.
 - **Compare-and-swap on a `tokenVersion` column.** Deferred, as optional
   hardening. The refresh-token comparison in option 4 already gives the
   loser a reliable "you lost" signal. A version column adds a migration and
