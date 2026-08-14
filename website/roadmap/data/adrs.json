@@ -278,7 +278,7 @@
       "status": "Proposed",
       "date": "2026-08-11",
       "theme": "Data & migrations",
-      "summary": "Layers failure containment, loser recovery, credential compare-and-swap, and core-owned token expiry so concurrent Lambda invocations can no longer lose an OAuth rotation race and silently orphan records.",
+      "summary": "Deconflicts concurrent OAuth refreshes across Lambda invocations: a reactive database check before refresh and on 401 (adopt the winner's tokens, escalate only on proof of death), plus proactive scheduled refresh via admin scripts, and a fix for the silent SQS ack that hid the losses.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/031-concurrent-oauth-credential-refresh.md"
     }
   ]
