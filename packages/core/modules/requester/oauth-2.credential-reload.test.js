@@ -222,15 +222,77 @@ describe('OAuth2Requester credential reload (ADR-031 option 4)', () => {
                 },
             });
 
-            await expect(requester.refreshAuth()).rejects.toBe(error);
+            await expect(requester.refreshAuth()).rejects.toThrow(
+                /transport failure/i
+            );
             expect(delegate.invalidAuthCalls).toBe(0);
         });
 
-        it('treats an unmarked 400 as transport, not as credential death', async () => {
-            // A bare 400 with no invalid_grant marker can be a code bug in the
-            // request we built. Invalidating the credential for it would take
-            // an integration offline for our own bug. Retryable is the safe
-            // direction: the worker throws, SQS retries, the DLQ alerts.
+        it('preserves the status code on the wrapped transport error', async () => {
+            const { requester } = makeRequester({
+                stored: {
+                    access_token: 'access-old',
+                    refresh_token: 'refresh-old',
+                },
+                refreshImpl: async () => {
+                    throw transportError(503);
+                },
+            });
+
+            await expect(requester.refreshAuth()).rejects.toMatchObject({
+                statusCode: 503,
+            });
+        });
+
+        it('does not leak the original error body on the transport path', async () => {
+            // In dev stages a FetchError message embeds the request body,
+            // which carries client_secret. The wrapped transport error must
+            // not carry that message onward.
+            const { requester } = makeRequester({
+                stored: {
+                    access_token: 'access-old',
+                    refresh_token: 'refresh-old',
+                },
+                refreshImpl: async () => {
+                    throw new Error(
+                        '{"init":{"body":"client_secret=sk-live-secret"}}'
+                    );
+                },
+            });
+
+            await expect(requester.refreshAuth()).rejects.not.toThrow(
+                /sk-live-secret/
+            );
+        });
+
+        it('treats a 500 whose body mentions invalid_grant as transport', async () => {
+            // An error page can echo the request. A 5xx is never a verdict
+            // on the credential, whatever its body says.
+            const error = transportError(500);
+            error.message = 'server error while processing invalid_grant';
+            const { requester, delegate } = makeRequester({
+                stored: {
+                    access_token: 'access-old',
+                    refresh_token: 'refresh-old',
+                },
+                refreshImpl: async () => {
+                    throw error;
+                },
+            });
+
+            await expect(requester.refreshAuth()).rejects.toThrow(
+                /transport failure/i
+            );
+            expect(delegate.invalidAuthCalls).toBe(0);
+        });
+    });
+
+    describe('status-based rejection detection', () => {
+        it('treats an unmarked 400 from the token endpoint as definitive', async () => {
+            // Production FetchErrors are body-sanitized (fetch-error.js strips
+            // the body outside dev), so a real invalid_grant carries NO marker
+            // in prod. Per RFC 6749 §5.2 a token endpoint rejects a bad grant
+            // with 400 (invalid_client may use 401), so status is the signal.
             const { requester, delegate } = makeRequester({
                 stored: {
                     access_token: 'access-old',
@@ -241,8 +303,28 @@ describe('OAuth2Requester credential reload (ADR-031 option 4)', () => {
                 },
             });
 
-            await expect(requester.refreshAuth()).rejects.toThrow();
-            expect(delegate.invalidAuthCalls).toBe(0);
+            const result = await requester.refreshAuth();
+
+            expect(result).toBe(false);
+            expect(delegate.invalidAuthCalls).toBe(1);
+        });
+
+        it('treats a statusless SDK error with an OAuth marker as definitive', async () => {
+            // intuit-oauth style: no statusCode, the marker rides the message.
+            const { requester, delegate } = makeRequester({
+                stored: {
+                    access_token: 'access-old',
+                    refresh_token: 'refresh-old',
+                },
+                refreshImpl: async () => {
+                    throw new Error('invalid_grant');
+                },
+            });
+
+            const result = await requester.refreshAuth();
+
+            expect(result).toBe(false);
+            expect(delegate.invalidAuthCalls).toBe(1);
         });
     });
 });

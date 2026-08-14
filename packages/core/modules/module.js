@@ -170,9 +170,12 @@ class Module extends Delegate {
         const fresh = await this.credentialRepository.findCredentialById(
             this.credential.id
         );
-        if (!fresh?.data) return null;
+        if (!fresh) return null;
         this.credential = fresh;
-        return this.apiParamsFromCredential(fresh.data);
+        // The repository adapters return the decrypted token fields spread at
+        // the top level (see credential-repository-mongo.js `...data`), while
+        // entity hydration nests them under `data`. Accept both.
+        return this.apiParamsFromCredential(fresh.data ?? fresh);
     }
 
     async markCredentialsInvalid(diagnosticInfo = null) {

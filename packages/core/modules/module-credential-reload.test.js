@@ -71,14 +71,19 @@ function makeModule({ storedRow, credentialId = 'cred-1' } = {}) {
 
 describe('Module credential reload (ADR-031 option 4)', () => {
     it('returns the stored token fields on DLGT_CREDENTIAL_RELOAD', async () => {
+        // Real adapter shape: findCredentialById spreads the decrypted token
+        // fields at the TOP LEVEL (credential-repository-mongo.js `...data`).
+        // There is no nested `data` key. The first version of this test
+        // mocked a nested shape and hid an always-null reload.
         const module = makeModule({
             storedRow: {
                 id: 'cred-1',
-                data: {
-                    access_token: 'access-new',
-                    refresh_token: 'refresh-new',
-                    unrelated_field: 'never-exposed',
-                },
+                userId: 'user-1',
+                externalId: 'ext-1',
+                authIsValid: true,
+                access_token: 'access-new',
+                refresh_token: 'refresh-new',
+                unrelated_field: 'never-exposed',
             },
         });
 
@@ -94,10 +99,7 @@ describe('Module credential reload (ADR-031 option 4)', () => {
     });
 
     it('replaces this.credential with the fresh row', async () => {
-        const fresh = {
-            id: 'cred-1',
-            data: { access_token: 'a2', refresh_token: 'r2' },
-        };
+        const fresh = { id: 'cred-1', access_token: 'a2', refresh_token: 'r2' };
         const module = makeModule({ storedRow: fresh });
 
         await module.receiveNotification(module.api, 'CREDENTIAL_RELOAD');
@@ -107,10 +109,7 @@ describe('Module credential reload (ADR-031 option 4)', () => {
 
     it('never writes during a reload', async () => {
         const module = makeModule({
-            storedRow: {
-                id: 'cred-1',
-                data: { access_token: 'a2', refresh_token: 'r2' },
-            },
+            storedRow: { id: 'cred-1', access_token: 'a2', refresh_token: 'r2' },
         });
 
         await module.receiveNotification(module.api, 'CREDENTIAL_RELOAD');
@@ -132,12 +131,28 @@ describe('Module credential reload (ADR-031 option 4)', () => {
         expect(result).toBeNull();
     });
 
-    it('returns null when the module holds no credential id', async () => {
+    it('tolerates a nested data shape as well', async () => {
+        // Entity hydration carries tokens under credential.data. If a future
+        // adapter returns that shape from findCredentialById, the reload must
+        // still work.
         const module = makeModule({
             storedRow: {
-                id: 'x',
-                data: { access_token: 'a', refresh_token: 'r' },
+                id: 'cred-1',
+                data: { access_token: 'a3', refresh_token: 'r3' },
             },
+        });
+
+        const result = await module.receiveNotification(
+            module.api,
+            'CREDENTIAL_RELOAD'
+        );
+
+        expect(result).toEqual({ access_token: 'a3', refresh_token: 'r3' });
+    });
+
+    it('returns null when the module holds no credential id', async () => {
+        const module = makeModule({
+            storedRow: { id: 'x', access_token: 'a', refresh_token: 'r' },
         });
         module.credential = null;
 

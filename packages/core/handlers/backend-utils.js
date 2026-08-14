@@ -190,13 +190,11 @@ const createQueueWorker = (integrationClass) => {
                         hydratedIntegrationId: integrationInstance?.id,
                     });
                     if (
-                        ['DISABLED', 'ERROR', 'IN_DELETION'].includes(
-                            integrationInstance?.status
+                        !checkIntegrationRunnable(
+                            integrationInstance?.status,
+                            `[${integrationName}] Integration for process ${params.data.processId} (${params.event})`
                         )
                     ) {
-                        console.warn(
-                            `[${integrationName}] Integration for process ${params.data.processId} is ${integrationInstance.status}. Discarding ${params.event} message.`
-                        );
                         return;
                     }
                 } else if (params.data?.integrationId) {
@@ -218,13 +216,11 @@ const createQueueWorker = (integrationClass) => {
                         integrationStatus: integrationInstance?.status,
                     });
                     if (
-                        ['DISABLED', 'ERROR', 'IN_DELETION'].includes(
-                            integrationInstance.status
+                        !checkIntegrationRunnable(
+                            integrationInstance.status,
+                            `[${integrationName}] Integration ${params.data.integrationId} (${params.event})`
                         )
                     ) {
-                        console.warn(
-                            `[${integrationName}] Integration ${params.data.integrationId} is ${integrationInstance.status}. Discarding ${params.event} message.`
-                        );
                         return;
                     }
                 } else {
@@ -308,9 +304,41 @@ const createQueueWorker = (integrationClass) => {
     return QueueWorker;
 };
 
+/**
+ * Decides what the queue worker does with a message for an integration that
+ * is not runnable (ADR-031, the silent-ack companion).
+ *
+ * DISABLED and IN_DELETION are intentional stops — an operator action, or a
+ * deletion in flight — so their work is supposed to be dropped: return false
+ * and the caller acks. ERROR is different: silently acking it is what turned
+ * one lost auth race into months of silent data loss (SQS deleted every
+ * message with no DLQ entry), so ERROR throws and SQS retries, then DLQs.
+ * FRIGG_LEGACY_ERROR_ACK=true restores the old silent ack as a kill switch,
+ * with no redeploy.
+ *
+ * @param {string|undefined} status - The integration's status.
+ * @param {string} contextLabel - Log prefix identifying the integration.
+ * @returns {boolean} True when the message should be processed, false when
+ *   it should be discarded (acked) on purpose.
+ */
+function checkIntegrationRunnable(status, contextLabel) {
+    if (!['DISABLED', 'ERROR', 'IN_DELETION'].includes(status)) {
+        return true;
+    }
+    if (status === 'ERROR' && process.env.FRIGG_LEGACY_ERROR_ACK !== 'true') {
+        throw new Error(
+            `${contextLabel} is in ERROR state; rejecting the message so ` +
+                'SQS retries it instead of silently dropping the work'
+        );
+    }
+    console.warn(`${contextLabel} is ${status}. Discarding message.`);
+    return false;
+}
+
 module.exports = {
     loadRouterFromObject,
     createQueueWorker,
     integrationExists,
     loadIntegrationForWebhook,
+    checkIntegrationRunnable,
 };

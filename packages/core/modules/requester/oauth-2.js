@@ -349,13 +349,22 @@ class OAuth2Requester extends Requester {
             });
 
             // Only a definitive rejection of the grant can mean the
-            // credential is dead. A timeout, connection error, 429, or 5xx —
-            // or a 400 without an OAuth error marker, which may be our own
-            // malformed request — must stay retryable: rethrow, so the
-            // caller fails loudly (worker throw → SQS retry → DLQ) without
-            // flagging a healthy credential invalid.
+            // credential is dead. A timeout, connection error, 429, or 5xx
+            // must stay retryable — rethrown, so the caller fails loudly
+            // (worker throw → SQS retry → DLQ) without flagging a healthy
+            // credential invalid. The rethrow is a fresh Error: in dev
+            // stages the original message can embed the request body, which
+            // carries client_secret, and that must not propagate.
             if (!this._isDefinitiveAuthRejection(error)) {
-                throw error;
+                const status =
+                    error?.statusCode ?? error?.status ?? error?.response?.status;
+                const transportError = new Error(
+                    `[Frigg] Token refresh transport failure for ${moduleName}` +
+                        (status != null ? ` (status ${status})` : '')
+                );
+                transportError.statusCode = status;
+                transportError.isTokenRefreshTransportFailure = true;
+                throw transportError;
             }
 
             // Rejected — but the rejection may mean "another invocation
@@ -366,7 +375,13 @@ class OAuth2Requester extends Requester {
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
                 if (await this._adoptNewerCredential()) {
                     console.log(
-                        '[Frigg] Adopted a newer credential after invalid_grant'
+                        '[Frigg] Adopted a newer credential after a refresh rejection',
+                        { module: this._telemetryModuleLabel() }
+                    );
+                    this.telemetry?.count?.(
+                        'frigg.auth.refresh_race_recovered',
+                        1,
+                        { module: this._telemetryModuleLabel() }
                     );
                     return true;
                 }
@@ -386,21 +401,35 @@ class OAuth2Requester extends Requester {
     }
 
     /**
-     * Whether a refresh error is a definitive authorization rejection —
-     * the OAuth error markers that mean the presented grant itself was
-     * refused — as opposed to a transport or provider failure that says
-     * nothing about the credential.
+     * Whether a refresh error is a definitive authorization rejection — the
+     * grant itself was refused — as opposed to a transport or provider
+     * failure that says nothing about the credential.
+     *
+     * The status code decides when one is present. Per RFC 6749 §5.2 a token
+     * endpoint rejects a bad grant with 400 (invalid_client may use 401);
+     * 429 and 5xx are never a verdict on the credential, whatever the body
+     * text says — an error page can echo the request. Body markers cannot be
+     * the primary signal: production FetchErrors are body-sanitized
+     * (fetch-error.js strips the body outside dev), so a real invalid_grant
+     * carries no marker in prod. The marker fallback exists for SDK-shaped
+     * errors that have no status code (e.g. intuit-oauth puts the OAuth
+     * error string on the message).
      */
     _isDefinitiveAuthRejection(error) {
+        const status =
+            error?.statusCode ?? error?.status ?? error?.response?.status;
+        if (status !== undefined && status !== null) {
+            return status === 400 || status === 401;
+        }
         const haystack = [
             error?.message,
             error?.body,
-            error?.error,
+            typeof error?.error === 'string' ? error.error : null,
             error?.response?.data && JSON.stringify(error.response.data),
         ]
             .filter(Boolean)
             .join(' ');
-        return /invalid_grant|invalid_client/i.test(haystack);
+        return /\b(invalid_grant|invalid_client)\b/i.test(haystack);
     }
 
     /**
@@ -436,9 +465,6 @@ class OAuth2Requester extends Requester {
         // In-flight requests that 401ed against the old token retry with
         // this one instead of triggering another refresh.
         this._authGeneration++;
-        this.telemetry?.count?.('frigg.auth.refresh_race_recovered', 1, {
-            module: this._telemetryModuleLabel(),
-        });
         return true;
     }
 

@@ -160,15 +160,15 @@ describe('OAuth2Requester', () => {
                 refresh_token: 'test-refresh-token',
                 credentialReloadBackoffMs: [],
             });
-            const transportError = Object.assign(new Error('Token expired'), {
-                statusCode: 401,
-            });
+            const transportError = new Error('socket hang up');
             requester.refreshAccessToken = jest
                 .fn()
                 .mockRejectedValue(transportError);
             requester.notify = jest.fn();
 
-            await expect(requester.refreshAuth()).rejects.toBe(transportError);
+            await expect(requester.refreshAuth()).rejects.toThrow(
+                /transport failure/i
+            );
             expect(requester.notify).not.toHaveBeenCalledWith(
                 requester.DLGT_INVALID_AUTH,
                 expect.anything()
