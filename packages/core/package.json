@@ -35,6 +35,9 @@
         "serverless-http": "^2.7.0",
         "uuid": "^11.1.1"
     },
+    "optionalDependencies": {
+        "@aws-sdk/client-scheduler": "^3.588.0"
+    },
     "peerDependencies": {
         "@prisma/client": "^6.19.3",
         "prisma": "^6.19.3"
