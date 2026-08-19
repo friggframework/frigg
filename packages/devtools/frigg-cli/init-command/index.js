@@ -50,19 +50,32 @@ function checkNodeVersion() {
     }
 }
 
-async function initCommand(projectName, options) {
+async function initCommand(projectName, options = {}) {
     const verbose = options.verbose || false;
     const force = options.force || false;
-    
+
     checkNodeVersion();
 
-    const root = path.resolve(projectName);
+    // Accept the project name from the positional argument or the --name flag.
+    const targetName = projectName || options.name;
+    if (!targetName) {
+        console.error(
+            chalk.red(
+                'Please specify a project name:\n' +
+                    `  ${chalk.cyan('frigg init')} ${chalk.green('<project-name>')}\n`
+            )
+        );
+        process.exit(1);
+    }
+
+    const root = path.resolve(targetName);
     const appName = path.basename(root);
 
     checkAppName(appName);
-    
-    // Use backend-first handler by default
-    if (!options.template && !options.legacyFrontend) {
+
+    // A --template flag is legacy and no longer supported; without it, the
+    // backend-first handler is the default path for `frigg init`.
+    if (!options.template) {
         try {
             const handler = new BackendFirstHandler(root, {
                 force,
