@@ -429,10 +429,8 @@ describe('Webhook Queue Worker', () => {
             consoleSpy.mockRestore();
         });
 
-        it('should reject the message when integration is ERROR so SQS retries it (ADR-031)', async () => {
-            // The old behavior — silently acking ERROR — is what turned one
-            // lost auth race into months of silent data loss. ERROR must now
-            // surface as a batch item failure (SQS retry, then DLQ).
+        it('should discard message when integration is ERROR', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
 
             let mockedCreateQueueWorker;
             jest.isolateModules(() => {
@@ -487,73 +485,12 @@ describe('Webhook Queue Worker', () => {
 
             const result = await worker.run(sqsEvent, {});
 
-            expect(result.batchItemFailures).toEqual([
-                { itemIdentifier: 'msg-1' },
-            ]);
-        });
+            expect(result.batchItemFailures).toEqual([]);
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('ERROR')
+            );
 
-        it('keeps the legacy silent ack for ERROR when the kill switch is set', async () => {
-            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-            process.env.FRIGG_LEGACY_ERROR_ACK = 'true';
-
-            try {
-                let mockedCreateQueueWorker;
-                jest.isolateModules(() => {
-                    jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
-                        createIntegrationRepository: () => ({
-                            findIntegrationById: jest.fn().mockResolvedValue({
-                                id: '123',
-                                userId: 'user-1',
-                                entities: [],
-                                config: {},
-                                status: 'ERROR',
-                                version: '1.0.0',
-                                messages: { errors: [], warnings: [] },
-                            }),
-                        }),
-                    }));
-                    jest.doMock('../../modules/repositories/module-repository-factory', () => ({
-                        createModuleRepository: () => ({}),
-                    }));
-                    jest.doMock('../app-definition-loader', () => ({
-                        loadAppDefinition: () => ({ integrations: [TestWebhookIntegration] }),
-                    }));
-                    jest.doMock('../../integrations/use-cases/get-integration-instance', () => ({
-                        GetIntegrationInstance: class {
-                            async execute() {
-                                const instance = new TestWebhookIntegration();
-                                instance.id = '123';
-                                instance.status = 'ERROR';
-                                return instance;
-                            }
-                        },
-                    }));
-                    mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
-                });
-
-                const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
-                const worker = new QueueWorker();
-
-                const sqsEvent = {
-                    Records: [{
-                        messageId: 'msg-1',
-                        body: JSON.stringify({
-                            event: 'ON_WEBHOOK',
-                            data: { integrationId: '123', body: { webhookEvent: 'updated' } },
-                        }),
-                    }],
-                };
-
-                const result = await worker.run(sqsEvent, {});
-
-                expect(result.batchItemFailures).toEqual([]);
-                expect(consoleSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('ERROR')
-                );
-            } finally {
-                delete process.env.FRIGG_LEGACY_ERROR_ACK;
-                consoleSpy.mockRestore();
-            }
+            consoleSpy.mockRestore();
         });
 
         it('should process message normally when integration is ENABLED', async () => {
