@@ -24,6 +24,31 @@ const { createEmptyDiscoveryResult } = require('../shared/types/discovery-result
 const { ResourceOwnership } = require('../shared/types/resource-ownership');
 const { isSsmOffloadActive } = require('../parameters/offload-utils');
 
+/**
+ * ADR-033: NAT-free public database connectivity.
+ *
+ * When the app opts into `database.postgres.connectivity: 'public'`, Aurora is
+ * placed in public subnets with a public endpoint and the app's Lambdas are
+ * intentionally left OUTSIDE the VPC so they keep default internet egress and
+ * need no NAT Gateway. This function is the single seam that DECOUPLES the
+ * Lambda's VPC attachment + NAT from Aurora's networking:
+ *
+ *   - The VpcBuilder still builds the VPC / public subnets / DB subnet group
+ *     that Aurora requires (Aurora must live in a VPC — an AWS constraint).
+ *   - But it does NOT emit a NAT Gateway, and it clears `result.vpcConfig` so the
+ *     composer never sets `provider.vpc` (see infrastructure-composer.js:126) —
+ *     leaving the Lambda un-attached with normal egress.
+ *
+ * @param {Object} appDefinition
+ * @returns {boolean}
+ */
+function isPublicDatabaseConnectivity(appDefinition) {
+    return (
+        appDefinition?.database?.postgres?.enable === true &&
+        appDefinition?.database?.postgres?.connectivity === 'public'
+    );
+}
+
 class VpcBuilder extends InfrastructureBuilder {
     constructor() {
         super();
@@ -565,11 +590,35 @@ class VpcBuilder extends InfrastructureBuilder {
         // Build Subnets based on ownership decision
         this.buildSubnetsFromDecision(decisions.subnets, appDefinition, discoveredResources, result);
 
-        // Build NAT Gateway based on ownership decision
-        this.buildNatGatewayFromDecision(decisions.natGateway, appDefinition, discoveredResources, result);
+        // ADR-033: NAT-free public database connectivity. When set, Aurora sits in
+        // public subnets with a public endpoint and the Lambda is NOT attached to
+        // the VPC — so it keeps default internet egress and needs no NAT Gateway.
+        // We still built the VPC + public subnets above (Aurora requires them), but
+        // we skip the NAT Gateway here and clear vpcConfig below so the composer
+        // leaves provider.vpc unset. This is the seam that decouples the Lambda's
+        // VPC attachment + NAT from Aurora's networking.
+        const publicDbConnectivity = isPublicDatabaseConnectivity(appDefinition);
 
-        // Build VPC Endpoints based on ownership decisions
-        this.buildVpcEndpointsFromDecisions(decisions.vpcEndpoints, decisions.securityGroup, appDefinition, discoveredResources, result);
+        if (publicDbConnectivity) {
+            console.log(
+                '  ⊝ NAT Gateway skipped (database.postgres.connectivity=public — Lambda is not VPC-attached, so no NAT is needed)'
+            );
+        } else {
+            // Build NAT Gateway based on ownership decision
+            this.buildNatGatewayFromDecision(decisions.natGateway, appDefinition, discoveredResources, result);
+        }
+
+        // Build VPC Endpoints based on ownership decisions.
+        // ADR-033: in public connectivity the Lambda is not in the VPC, so VPC
+        // endpoints (which give in-VPC functions private AWS access) would be
+        // wasted spend — skip them along with the NAT Gateway.
+        if (publicDbConnectivity) {
+            console.log(
+                '  ⊝ VPC Endpoints skipped (database.postgres.connectivity=public — Lambda is not VPC-attached)'
+            );
+        } else {
+            this.buildVpcEndpointsFromDecisions(decisions.vpcEndpoints, decisions.securityGroup, appDefinition, discoveredResources, result);
+        }
 
         // Set VPC_ENABLED environment variable
         result.environment.VPC_ENABLED = 'true';
@@ -578,6 +627,18 @@ class VpcBuilder extends InfrastructureBuilder {
         console.log(`  - VPC ID: ${result.vpcId || 'from discovery'}`);
         console.log(`  - Subnets: ${result.vpcConfig.subnetIds.length}`);
         console.log(`  - Security Groups: ${result.vpcConfig.securityGroupIds.length}`);
+
+        if (publicDbConnectivity) {
+            // Do NOT attach the Lambda to the VPC: leaving vpcConfig null means the
+            // composer never sets provider.vpc, so the function keeps normal
+            // internet egress. The Aurora subnets/DB subnet group built above are
+            // still emitted (AuroraBuilder consumes discoveredResources.publicSubnetId*),
+            // and the Lambda reaches Aurora over its public endpoint + TLS.
+            console.log(
+                '  ⊝ Lambda VPC attachment skipped (database.postgres.connectivity=public — provider.vpc will be unset)'
+            );
+            result.vpcConfig = null;
+        }
 
         return result;
     }
