@@ -305,21 +305,15 @@ const createQueueWorker = (integrationClass) => {
 };
 
 /**
- * Decides what the queue worker does with a message for an integration that
- * is not runnable (ADR-031, the silent-ack companion).
- *
- * DISABLED and IN_DELETION are intentional stops — an operator action, or a
- * deletion in flight — so their work is supposed to be dropped: return false
- * and the caller acks. ERROR is different: silently acking it is what turned
- * one lost auth race into months of silent data loss (SQS deleted every
- * message with no DLQ entry), so ERROR throws and SQS retries, then DLQs.
- * FRIGG_LEGACY_ERROR_ACK=true restores the old silent ack as a kill switch,
- * with no redeploy.
+ * DISABLED and IN_DELETION are intentional stops: return false, the caller
+ * acks, the work is dropped on purpose. ERROR throws instead — silently
+ * acking it turned one lost auth race into months of silent data loss — so
+ * SQS retries and eventually DLQs (ADR-031). FRIGG_LEGACY_ERROR_ACK=true is
+ * the kill switch restoring the old silent ack.
  *
  * @param {string|undefined} status - The integration's status.
  * @param {string} contextLabel - Log prefix identifying the integration.
- * @returns {boolean} True when the message should be processed, false when
- *   it should be discarded (acked) on purpose.
+ * @returns {boolean} True to process the message, false to discard (ack) it.
  */
 function checkIntegrationRunnable(status, contextLabel) {
     if (!['DISABLED', 'ERROR', 'IN_DELETION'].includes(status)) {

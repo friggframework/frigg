@@ -61,9 +61,9 @@ class OAuth2Requester extends Requester {
         /** @type {string} Delegate type for token deauthorization notifications */
         this.DLGT_TOKEN_DEAUTHORIZED = 'TOKEN_DEAUTHORIZED';
         /**
-         * @type {string} Delegate type asking the delegate (Module) for the
-         * currently stored credential, so a concurrent invocation's refresh
-         * can be adopted instead of raced. See _adoptNewerCredential.
+         * @type {string} Delegate type asking the Module for the stored
+         * credential, so a concurrent invocation's refresh can be adopted
+         * instead of raced. See _adoptNewerCredential.
          */
         this.DLGT_CREDENTIAL_RELOAD = 'CREDENTIAL_RELOAD';
 
@@ -72,11 +72,9 @@ class OAuth2Requester extends Requester {
         this.delegateTypes.push(this.DLGT_CREDENTIAL_RELOAD);
 
         /**
-         * Re-read delays after an invalid_grant, in ms. The winner's write may
-         * not be readable yet when the loser's rejection lands — the observed
-         * gap in production was 716ms — so the re-read backs off a few times
-         * before concluding the credential is genuinely dead. Injectable for
-         * tests.
+         * Re-read delays after an invalid_grant, in ms. The winner's write can
+         * lag the loser's rejection (716ms observed in production), so back
+         * off before concluding the credential is dead. Injectable for tests.
          */
         this.credentialReloadBackoffMs = params?.credentialReloadBackoffMs ?? [
             500, 1000, 1500,
@@ -313,11 +311,8 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<boolean>} True if refresh succeeded, false if failed
      */
     async refreshAuth() {
-        // Another invocation may have refreshed while this one held a stale
-        // in-memory copy. Adopting its tokens is always better than spending
-        // a rotation: with single-use refresh tokens, a stale refresh is not
-        // just wasted — it fails, and on grant-revoking providers it can kill
-        // the winner's tokens too.
+        // Another invocation may have refreshed already. Adopting its tokens
+        // beats spending a rotation, which could kill the winner's pair.
         if (await this._adoptNewerCredential()) return true;
 
         try {
@@ -348,44 +343,11 @@ class OAuth2Requester extends Requester {
                 response_data: error?.response?.data,
             });
 
-            // Only a definitive rejection of the grant can mean the
-            // credential is dead. A timeout, connection error, 429, or 5xx
-            // must stay retryable — rethrown, so the caller fails loudly
-            // (worker throw → SQS retry → DLQ) without flagging a healthy
-            // credential invalid. The rethrow is a fresh Error: in dev
-            // stages the original message can embed the request body, which
-            // carries client_secret, and that must not propagate.
             if (!this._isDefinitiveAuthRejection(error)) {
-                const status =
-                    error?.statusCode ?? error?.status ?? error?.response?.status;
-                const transportError = new Error(
-                    `[Frigg] Token refresh transport failure for ${moduleName}` +
-                        (status != null ? ` (status ${status})` : '')
-                );
-                transportError.statusCode = status;
-                transportError.isTokenRefreshTransportFailure = true;
-                throw transportError;
+                throw this._transportFailureError(error, moduleName);
             }
 
-            // Rejected — but the rejection may mean "another invocation
-            // consumed this refresh token first". Its write may lag ours by
-            // several hundred ms, so re-read with a bounded backoff before
-            // concluding death.
-            for (const delayMs of this.credentialReloadBackoffMs) {
-                await new Promise((resolve) => setTimeout(resolve, delayMs));
-                if (await this._adoptNewerCredential()) {
-                    console.log(
-                        '[Frigg] Adopted a newer credential after a refresh rejection',
-                        { module: this._telemetryModuleLabel() }
-                    );
-                    this.telemetry?.count?.(
-                        'frigg.auth.refresh_race_recovered',
-                        1,
-                        { module: this._telemetryModuleLabel() }
-                    );
-                    return true;
-                }
-            }
+            if (await this._adoptNewerCredentialWithBackoff()) return true;
 
             // Rejected AND nothing newer in the store: genuinely dead.
             this.telemetry?.count?.('frigg.auth.refresh_race_lost', 1, {
@@ -401,19 +363,52 @@ class OAuth2Requester extends Requester {
     }
 
     /**
-     * Whether a refresh error is a definitive authorization rejection — the
-     * grant itself was refused — as opposed to a transport or provider
-     * failure that says nothing about the credential.
-     *
-     * The status code decides when one is present. Per RFC 6749 §5.2 a token
-     * endpoint rejects a bad grant with 400 (invalid_client may use 401);
-     * 429 and 5xx are never a verdict on the credential, whatever the body
-     * text says — an error page can echo the request. Body markers cannot be
-     * the primary signal: production FetchErrors are body-sanitized
-     * (fetch-error.js strips the body outside dev), so a real invalid_grant
-     * carries no marker in prod. The marker fallback exists for SDK-shaped
-     * errors that have no status code (e.g. intuit-oauth puts the OAuth
-     * error string on the message).
+     * A timeout, 429, or 5xx from the token endpoint says nothing about the
+     * credential, so it must stay retryable: the caller fails loudly (worker
+     * throw → SQS retry → DLQ) without flagging a healthy credential. Built
+     * as a fresh Error because outside prod the original message can embed
+     * the request body, which carries client_secret.
+     */
+    _transportFailureError(error, moduleName) {
+        const status =
+            error?.statusCode ?? error?.status ?? error?.response?.status;
+        const transportError = new Error(
+            `[Frigg] Token refresh transport failure for ${moduleName}` +
+                (status != null ? ` (status ${status})` : '')
+        );
+        transportError.statusCode = status;
+        transportError.isTokenRefreshTransportFailure = true;
+        return transportError;
+    }
+
+    /**
+     * A definitive rejection may mean another invocation consumed this
+     * refresh token first, and its write may not be readable yet. Re-read on
+     * a bounded backoff before concluding the credential is dead.
+     */
+    async _adoptNewerCredentialWithBackoff() {
+        for (const delayMs of this.credentialReloadBackoffMs) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            if (await this._adoptNewerCredential()) {
+                console.log(
+                    '[Frigg] Adopted a newer credential after a refresh rejection',
+                    { module: this._telemetryModuleLabel() }
+                );
+                this.telemetry?.count?.('frigg.auth.refresh_race_recovered', 1, {
+                    module: this._telemetryModuleLabel(),
+                });
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when the token endpoint definitively refused the grant. Per RFC
+     * 6749 §5.2 that is a 400 (or 401 for invalid_client); 429/5xx are never
+     * a verdict on the credential. Body markers are only a fallback for
+     * SDK-shaped errors without a status code — production FetchErrors are
+     * body-sanitized, so a marker cannot be the primary signal.
      */
     _isDefinitiveAuthRejection(error) {
         const status =
@@ -433,14 +428,11 @@ class OAuth2Requester extends Requester {
     }
 
     /**
-     * Asks the delegate (Module) for the currently stored credential and
-     * adopts it when it holds a NEWER refresh token than this instance.
-     *
-     * The comparison is keyed on the refresh token, never the access token:
-     * a provider can rotate the refresh token while returning an identical
-     * access-token string, and an access-token comparison would then miss
-     * the winner. Reload failures are non-fatal — a database blip must not
-     * change auth behavior — and the reload never writes anything.
+     * Adopts the stored credential when it holds a newer refresh token than
+     * this instance. Keyed on the refresh token — a provider can rotate it
+     * while returning an identical access-token string. Read-only, and a
+     * reload failure is non-fatal: a database blip must not change auth
+     * behavior.
      *
      * @returns {Promise<boolean>} True when a newer credential was adopted.
      */
@@ -462,8 +454,8 @@ class OAuth2Requester extends Requester {
         if (stored.refreshTokenExpire !== undefined) {
             this.refreshTokenExpire = stored.refreshTokenExpire;
         }
-        // In-flight requests that 401ed against the old token retry with
-        // this one instead of triggering another refresh.
+        // Lets in-flight 401s retry with the adopted token instead of
+        // triggering another refresh.
         this._authGeneration++;
         return true;
     }

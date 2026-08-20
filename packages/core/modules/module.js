@@ -154,16 +154,12 @@ class Module extends Delegate {
     }
 
     /**
-     * Re-reads this module's credential row and returns the token fields the
-     * api persists, so the requester can adopt a concurrent invocation's
-     * refresh instead of racing it (ADR-031, option 4).
+     * Re-reads the credential row so the requester can adopt a concurrent
+     * invocation's refresh instead of racing it (ADR-031). Read-only by
+     * design: routing the reload through setTokens()/onTokenUpdate would
+     * write to the database and resurrect a credential an operator disabled.
      *
-     * Read-only by design: no upsert, no authIsValid change. Routing the
-     * reload through setTokens()/onTokenUpdate would write to the database
-     * and resurrect a credential an operator had just disabled.
-     *
-     * @returns {Promise<Object|null>} The picked token fields, or null when
-     *   no credential row is available.
+     * @returns {Promise<Object|null>} The persisted token fields, or null.
      */
     async reloadCredential() {
         if (!this.credential?.id) return null;
@@ -172,9 +168,8 @@ class Module extends Delegate {
         );
         if (!fresh) return null;
         this.credential = fresh;
-        // The repository adapters return the decrypted token fields spread at
-        // the top level (see credential-repository-mongo.js `...data`), while
-        // entity hydration nests them under `data`. Accept both.
+        // Repository adapters spread the decrypted token fields at the top
+        // level; entity hydration nests them under `data`. Accept both.
         return this.apiParamsFromCredential(fresh.data ?? fresh);
     }
 
