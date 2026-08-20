@@ -426,11 +426,11 @@ class OAuth2Requester extends Requester {
     }
 
     /**
-     * Adopts the stored credential when it holds a newer refresh token than
-     * this instance. Keyed on the refresh token — a provider can rotate it
-     * while returning an identical access-token string. Read-only, and a
-     * reload failure is non-fatal: a database blip must not change auth
-     * behavior.
+     * Adopts the credential stored in the database if it is newer than the
+     * credential from the instance. Newer is decided on the refresh token —
+     * a provider can rotate it while returning an identical access-token
+     * string. Read-only, and a reload failure is non-fatal: a database blip
+     * must not change auth behavior.
      *
      * @returns {Promise<boolean>} True when a newer credential was adopted.
      */
@@ -444,7 +444,9 @@ class OAuth2Requester extends Requester {
         if (!stored?.refresh_token) return false;
         if (stored.refresh_token === this.refresh_token) return false;
 
-        this.access_token = stored.access_token ?? this.access_token;
+        if (stored.access_token) {
+            this.access_token = stored.access_token;
+        }
         this.refresh_token = stored.refresh_token;
         if (stored.accessTokenExpire !== undefined) {
             this.accessTokenExpire = stored.accessTokenExpire;
@@ -452,9 +454,6 @@ class OAuth2Requester extends Requester {
         if (stored.refreshTokenExpire !== undefined) {
             this.refreshTokenExpire = stored.refreshTokenExpire;
         }
-        // Lets in-flight 401s retry with the adopted token instead of
-        // triggering another refresh.
-        this._authGeneration++;
         return true;
     }
 

@@ -93,7 +93,10 @@ describe('OAuth2Requester credential reload (ADR-031 option 4)', () => {
             });
             const generationBefore = requester._authGeneration;
 
-            await requester.refreshAuth();
+            // Through the slot, like the 401 path: the generation must bump
+            // exactly once per adoption (a second bump inside
+            // _adoptNewerCredential would make this +2).
+            await requester._refreshAuthOnce();
 
             expect(requester._authGeneration).toBe(generationBefore + 1);
         });
