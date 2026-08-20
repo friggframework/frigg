@@ -142,6 +142,29 @@ Three records are shared by design, and deleting them unconditionally is data lo
    (`:97`), their entities (`:121`) and their sessions (`:82`). It would also break the
    next authenticated request for a user the adopter's app still considers active.
 
+### The same missing predicate, elsewhere
+
+Integration deletion is where the gap is most visible, but nothing in the codebase
+reference-counts these records today. A repo-wide search for reference counting or orphan
+cleanup of data records finds one hit, and it is a log line rather than logic:
+`[Frigg] findIntegrationByEntityExternalId: entity ${entity.id} has no owning integrations (orphan)`
+(`integrations/use-cases/find-integration-by-entity-external-id.js:57`). Orphaned entities
+are already a condition the framework recognises at runtime and does nothing about.
+
+Two other paths delete these records with no reference check at all:
+
+- `Module.deauthorize()` (`modules/module.js:206-227`) deletes the `Credential` row
+  unconditionally and then unsets `credentialId` on **only the entity it happens to hold in
+  memory**. Any sibling entity sharing that credential keeps a dangling pointer. Same
+  predicate, same fix — worth doing with the same helper rather than separately.
+- The developer command surface exposes the raw primitives with only a truthy-id check:
+  `createEntityCommands().deleteEntity` / `deleteEntityById` / `unsetCredential`
+  (`application/commands/entity-commands.js:273,294,315`) and
+  `createCredentialCommands().deleteCredential` / `deleteCredentialById`
+  (`credential-commands.js:203,241`). Those stay as-is — they are the primitives — but the
+  safe, reference-counted operation should be reachable from the same surface so integration
+  authors are not obliged to reimplement the predicate.
+
 Global entities (ADR-024) sharpen the same point: an app-owner-owned entity is intended to
 back many users' integrations. The `isGlobal` field does not exist in the schema or the
 code yet (ADR-024 is Proposed and notes the feature is non-functional for exactly that
@@ -195,7 +218,10 @@ deleted was their last referent. The `User` row is never touched.
      (`module-repository-mongo.js:92-94`, `-postgres.js:126-128`, `-documentdb.js:35-41`)
      rather than returning null, so the "already gone" branch must catch, or the sweep must
      read through `findEntities({ id })` instead. Getting this wrong is what would make a
-     retried purge fail instead of converging
+     retried purge fail instead of converging. `deleteEntity` and `deleteCredentialById`
+     already swallow `P2025` and report "nothing deleted"
+     (`module-repository-mongo.js:385-398`, `credential-repository-mongo.js:74-86`), so the
+     write side of a retry is already safe — it is only the read that throws
    - remember `credentialId = entity.credential?.id`, then `moduleRepository.deleteEntity(entityId)`
    - if `credentialId` and `findEntities({ credentialId }).length === 0` →
      `credentialRepository.deleteCredentialById(credentialId)`
@@ -251,6 +277,13 @@ untouched: provider-side teardown must still succeed before any local data is de
 | `process-repository-*` | `deleteByIntegrationId(integrationId)` | Only `findByIntegrationAndType` / `findActiveProcesses` exist today (`process-repository-interface.js:102,112`); `deleteById` is single-row (`:130`) |
 | `association-repository-*` | new repository | No association repository exists at all; `Association`/`AssociationObject` are referenced only by the schema-init test (`database/utils/mongodb-schema-init.test.js:9`). Add a minimal repository with `deleteByIntegrationId` so DocumentDB is covered and the model stops being invisible |
 | `integration-repository-*` | make `deleteIntegrationById` idempotent | Mongo/Postgres throw Prisma `P2025` on a missing row and do not catch it. Catch it and return `deletedCount: 0` so a retried purge does not 500 — same pattern as `deleteUser` (`user-repository-mongo.js:294-301`) and the mapping repositories |
+
+**Shared orphan-check helper** — the entity and credential predicates should live in one
+place the purge and `Module.deauthorize()` both call, so the deauthorize bug
+(`modules/module.js:206-227`, credential deleted without checking sibling entities) is fixed
+by construction rather than separately. Expose the reference-counted operation on the
+developer command surface alongside the existing raw `deleteEntity` / `deleteCredential`
+commands.
 
 Already present and reused unchanged: `findIntegrationsByEntityId`
 (`integration-repository-mongo.js:283`, `-postgres.js:464`, `-documentdb.js:43`),
@@ -433,7 +466,12 @@ splits the durable state across a queue and hides failures. The synchronous purg
    the module supports it? Not currently modelled in `requiredAuthMethods`; would need a new
    optional method.
 3. **Account erasure.** Should the GDPR-style "delete user and everything they own" use case
-   land in the same change, or as its own ADR?
+   land in the same change, or as its own ADR? The pieces are already half-built: `deleteUser`
+   exists on all three backends (`user-repository-interface.js:195`), it is exposed to
+   developers as `deleteUserById` (`application/commands/user-commands.js:281`) whose docblock
+   spells out the manual cascade order but does not perform it, no framework flow calls it,
+   and ADR-007 sketches a `DELETE /users/:id` route (`:229`) that was never implemented. An
+   erasure use case would give that command the cascade its own documentation asks for.
 4. **Deletion audit log.** Worth recording purge summaries durably (an `AdminScriptExecution`
    -shaped row, or telemetry only)?
 5. **Adjacent papercut, in or out?** An ownership mismatch throws a plain `Error`
