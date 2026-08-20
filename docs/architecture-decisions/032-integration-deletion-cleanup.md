@@ -83,7 +83,14 @@ Dangling references:
   through the integration side (`entityIds: { has: entityId }`,
   `integration-repository-mongo.js:283-291`), which is why nothing has broken. Cleanup code
   must keep using the integration side and must not start trusting `Entity.integrationIds`.
-- PostgreSQL join rows are removed by the implicit m2m cascade, so no dangling refs there.
+  `Entity.syncIds` / `Sync.entityIds` (`:138-139`, `:273-274`) are a second pair with the
+  same property. Prisma forbids referential actions on implicit many-to-many relations and
+  does not strip a deleted document's id from the surviving side's scalar list, so any id
+  written into these arrays would dangle permanently.
+- PostgreSQL join rows are removed by the implicit m2m cascade on both sides of
+  `_EntityToIntegration` and `_EntityToSync`
+  (`prisma-postgresql/migrations/20250930193005_init/migration.sql:306-315`), so no dangling
+  refs are possible there.
 - MongoDB `Process` has no parent/child *relation* — just `childProcesses String[]` /
   `parentProcessId String?` (`prisma-mongodb/schema.prisma:247-248`) — whereas PostgreSQL
   declares a self-relation with `onDelete: SetNull`
@@ -142,6 +149,32 @@ Three records are shared by design, and deleting them unconditionally is data lo
    (`:97`), their entities (`:121`) and their sessions (`:82`). It would also break the
    next authenticated request for a user the adopter's app still considers active.
 
+### Two findings that change the design
+
+**`Sync` rows are never linked to their integration.** The schema declares
+`Sync.integrationId` as optional with `onDelete: Cascade`
+(`prisma-postgresql/schema.prisma:216-218`), but the only framework writer never sets it:
+`SyncManager.createSyncDBObject` builds `{ name, entities, hash, dataIdentifiers }`
+(`syncs/manager.js:330-337`) and the integration is captured into `this.integration`
+(`:33`) and never used again. Every sync row the framework writes therefore has
+`integrationId = null`, which means the cascade matches nothing *and* a purge keyed on
+`integrationId` alone would delete zero rows. Those rows are only reachable through their
+entity ids. The fix is two-part: make `SyncManager` persist `integrationId`, and have the
+purge match on `integrationId` **or** on the integration's entity ids so pre-existing rows
+are covered too.
+
+**Deleting an encrypted row can fail after the row is gone.** The Prisma encryption
+extension's `delete` hook runs the query and *then* decrypts the returned record
+(`database/encryption/prisma-encryption-extension.js:171-182`), and `decryptFields` →
+`Cryptor.decrypt` → KMS has no error handling
+(`database/encryption/field-encryption-service.js:101`, `encrypt/Cryptor.js:92-98`). So a
+KMS outage or a rotated-away key throws *after* the row has been removed: the caller sees a
+500 and may retry, but the data is already gone. The affected models are exactly the ones
+this purge touches — `Credential` and `IntegrationMapping`
+(`database/encryption/encryption-schema-registry.js:16-41`). `deleteMany` is a pure
+pass-through with no crypto (`prisma-encryption-extension.js:184-186`), so purge paths
+should prefer it.
+
 ### The same missing predicate, elsewhere
 
 Integration deletion is where the gap is most visible, but nothing in the codebase
@@ -185,12 +218,12 @@ deleted was their last referent. The `User` row is never touched.
 |---|---|---|---|
 | `Integration` | always delete | — | The thing being deleted. Deleted **last**, so `IN_DELETION` remains a durable checkpoint for the whole purge |
 | `IntegrationMapping` | always delete | `integrationId = X` | Owned outright. Explicit call, not cascade — DocumentDB has none |
-| `Sync` | always delete | `integrationId = X` | Owned outright |
-| `DataIdentifier` | always delete | `syncId ∈ deleted syncs` | Cascades from `Sync` on MongoDB/PostgreSQL; explicit `deleteMany` on DocumentDB |
-| `Association` | always delete | `integrationId = X` | Owned outright |
+| `Sync` | always delete | `integrationId = X` **or** `entityIds ∩ integration.entityIds` | Owned outright, but `integrationId` is never written today (see Context), so the entity-id arm is what actually matches existing rows |
+| `DataIdentifier` | always delete | `syncId ∈ deleted syncs` | Cascades from `Sync` on MongoDB/PostgreSQL. On **DocumentDB** there is nothing to delete — identifiers are an embedded array inside the Sync document (`sync-repository-documentdb.js:100-121,201-227`), not a collection, so deleting the sync removes them. The two Mongo-family backends genuinely diverge in storage shape here |
+| `Association` | always delete | `integrationId = X` | Owned outright. Note nothing in the codebase reads or writes these models today (`associations/association.js` is an in-memory hashing helper with no repository), so this is future-proofing, not a live orphan source |
 | `AssociationObject` | always delete | `associationId ∈ deleted associations` | Cascades on MongoDB/PostgreSQL; explicit on DocumentDB |
 | `Process` | always delete | `integrationId = X` | Owned outright. A whole-integration delete makes the hierarchy moot, so children go with it rather than being re-parented |
-| `Entity` | delete if orphaned | `findIntegrationsByEntityId(e).filter(i => i.id !== X).length === 0` **and** `entity.isGlobal !== true` **and** `entity.userId === integration.userId` | Shared by design (see Context). The user check is defensive: an entity owned by another user is never collateral of this delete |
+| `Entity` | delete if orphaned | `findIntegrationsByEntityId(e).filter(i => i.id !== X).length === 0` **and** `entity.isGlobal !== true` **and** `String(entity.userId) === String(integration.userId)` | Shared by design (see Context). The ownership check is strict on purpose: `Entity.userId` is nullable (`prisma-postgresql/schema.prisma:120`) and a null owner is the shape ADR-024 gives a global entity, so a null `userId` **skips**, it does not match |
 | `Credential` | delete if orphaned | after entity deletion, `findEntities({ credentialId }).length === 0` | One credential can back several entities |
 | `User` | **never** | — | Per app-user, reused across integrations, cascades to everything (see Context). Account erasure is a separate operation |
 | `Token` | never | — | Session-scoped, user-scoped. Cascades only if a user is deleted |
@@ -199,7 +232,7 @@ deleted was their last referent. The `User` row is never touched.
 | `ScriptSchedule`, `AdminScriptExecution` | never | — | App-level admin machinery, not per-integration |
 | EventBridge schedules | integration's `onDelete` | — | Job ids are integration-defined and the scheduler port has no list operation. Optional follow-up in step 8 |
 | In-flight SQS messages | never | — | Cannot be selectively purged. Handlers must tolerate a missing integration (see §4) |
-| S3 artifacts (ADR-022) | out of scope | — | Separate lifecycle; call out explicitly rather than half-handle it |
+| S3 report artifacts (ADR-010) | out of scope | — | Keys are execution-scoped (`reports/{executionId}/…`), not integration-scoped, so per-integration purge is impossible by key. Separately: the artifact port has no `delete` at all (`artifacts/repositories/artifact-repository-interface.js:6-25`) and the bucket has no lifecycle policy — worth its own issue. ADR-022 "Artifacts" is a different concept (provider-side deployables) |
 
 ### 2. Order of operations
 
@@ -207,13 +240,15 @@ deleted was their last referent. The `User` row is never touched.
 
 1. `integrationMappingRepository.deleteMappingsByIntegration(integrationId)`
 2. `processRepository.deleteByIntegrationId(integrationId)`
-3. `syncRepository.deleteSyncsByIntegrationId(integrationId)`
+3. `syncRepository.deleteSyncsForIntegration({ integrationId, entityIds })` — matching either
+   arm, because `integrationId` is null on every sync the framework has written so far
 4. `associationRepository.deleteByIntegrationId(integrationId)`
 5. Orphan sweep, per entity id captured from the integration record **before** anything was
    deleted:
    - `others = findIntegrationsByEntityId(entityId).filter(i => String(i.id) !== String(integrationId))`
    - skip if `others.length > 0` (shared), if the entity is gone, if `entity.isGlobal === true`,
-     or if `entity.userId` is set and differs from the integration's `userId`.
+     or if `String(entity.userId) !== String(integration.userId)` — which includes a null
+     owner, per the policy table.
      Note `findEntityById` **throws** `Entity <id> not found` on all three backends
      (`module-repository-mongo.js:92-94`, `-postgres.js:126-128`, `-documentdb.js:35-41`)
      rather than returning null, so the "already gone" branch must catch, or the sweep must
@@ -273,10 +308,17 @@ untouched: provider-side teardown must still succeed before any local data is de
 
 | Repository | Method | Notes |
 |---|---|---|
-| `sync-repository-*` | `deleteSyncsByIntegrationId(integrationId)` | Mongo/Postgres: `prisma.sync.deleteMany`. DocumentDB: `deleteMany` on `Sync`, then `DataIdentifier` by the collected sync ids — no cascade there |
+| `sync-repository-*` | `deleteSyncsForIntegration({ integrationId, entityIds })` | The entity arm must be scoped to *these* entity ids — never "where `integrationId is null`", which would delete every parentless sync in the database. Mongo/Postgres: `prisma.sync.deleteMany`. MongoDB additionally needs its separate `DataIdentifier` rows removed; DocumentDB does not (embedded). Only `deleteSync(id)` exists today (`sync-repository-interface.js:104`) |
 | `process-repository-*` | `deleteByIntegrationId(integrationId)` | Only `findByIntegrationAndType` / `findActiveProcesses` exist today (`process-repository-interface.js:102,112`); `deleteById` is single-row (`:130`) |
 | `association-repository-*` | new repository | No association repository exists at all; `Association`/`AssociationObject` are referenced only by the schema-init test (`database/utils/mongodb-schema-init.test.js:9`). Add a minimal repository with `deleteByIntegrationId` so DocumentDB is covered and the model stops being invisible |
 | `integration-repository-*` | make `deleteIntegrationById` idempotent | Mongo/Postgres throw Prisma `P2025` on a missing row and do not catch it. Catch it and return `deletedCount: 0` so a retried purge does not 500 — same pattern as `deleteUser` (`user-repository-mongo.js:294-301`) and the mapping repositories |
+
+**Prefer `deleteMany` for encrypted models.** `Credential` and `IntegrationMapping` carry
+encrypted fields, and the extension's `delete` hook decrypts the deleted row afterwards, so a
+KMS failure throws with the row already gone (see Context). `deleteMany({ where: { id } })`
+skips the crypto path entirely. That argues for a `deleteCredentialsByIds` bulk method rather
+than looping the existing `deleteCredentialById`, which uses `.delete()`
+(`credential-repository-mongo.js:74-86`).
 
 **Shared orphan-check helper** — the entity and credential predicates should live in one
 place the purge and `Module.deauthorize()` both call, so the deauthorize bug
@@ -298,9 +340,30 @@ Already present and reused unchanged: `findIntegrationsByEntityId`
 (`createIntegrationMappingRepository`, `createProcessRepository`, `createSyncRepository` all
 exist) and pass the purge use case into `DeleteIntegrationForUser` at `:111`.
 
-**Queue/worker guard** — an in-flight SQS message for a deleted integration must fail
-closed, not loudly: workers that hydrate an integration by id should treat "not found" as a
-completed message (ack and drop) rather than retry into the DLQ.
+**Queue/worker guard — a regression this change would otherwise introduce.** The guard
+already exists on the `integrationId` path: `createQueueWorker` discards when hydration
+returns null and when status is `DISABLED` / `ERROR` / `IN_DELETION`
+(`handlers/backend-utils.js:202-229`, tested at `backend-utils.test.js:152-161`). The
+`processId` path has no such tolerance — `loadIntegrationForProcess` throws
+`Process not found: ${processId}` (`:143-153`). Today such a message hydrates fine and is
+discarded on status; once the purge deletes `Process` rows, every in-flight process-keyed
+message for a deleted integration starts throwing and lands in the DLQ. Per-integration
+queues retain messages for 4 days and the shared error queue for 14
+(`devtools/infrastructure/domains/integration/integration-builder.js:462-469,557-574`), so
+this is not theoretical. Fixing that one branch is part of this change, not an optional
+follow-up.
+
+There is a second, sharper version of the same problem. Both paths hydrate **before** they
+check status, and `GetIntegrationInstance` loops the entity ids calling
+`moduleFactory.getModuleInstance` with no try/catch
+(`integrations/use-cases/get-integration-instance.js:57-63`) — unlike `DeleteIntegrationForUser`,
+which wraps each load. Since `findEntityById` throws when the entity is gone, a worker that
+arrives during the purge window — `Integration` row still present as `IN_DELETION`, entities
+already deleted — throws inside hydration and never reaches the `IN_DELETION` discard at
+`backend-utils.js:220-229`. The fix is to check status before hydrating modules, or to make
+that loop tolerant the way the delete path already is. This hazard exists today in a narrower
+form (any manually-deleted entity does it); the purge widens the window, so closing it belongs
+to this change.
 
 ### 5. Configuration
 
@@ -334,6 +397,38 @@ have no other referent.
 - Skips are logged at `warn` with the reason (`shared`, `global`, `foreign-user`,
   `already-gone`) so "why is this entity still here" is answerable from logs.
 
+#### Known limits, stated rather than hidden
+
+- **Check-then-act is not atomic.** Between the reference-count read and the delete, a
+  concurrent `createIntegration` could link that entity. There is no unique index or lock to
+  fall back on. The window is small and the operation requires the same user to be adding an
+  integration while deleting another, but it is real — and it argues for keeping the
+  `IN_DELETION` status guard (which stops queue work for this integration) rather than
+  deleting the row early.
+- **Syncs are not consulted by the entity predicate.** An entity can be referenced by a
+  `Sync` even when no integration references it, and on PostgreSQL deleting the entity
+  cascades that sync's `DataIdentifier` rows away
+  (`prisma-postgresql/schema.prisma:241`). While `Sync.integrationId` is unwritten the syncs
+  are unattributable, so the honest position is: after step 2 makes syncs attributable, the
+  entity predicate should also require that no *surviving* integration's sync references the
+  entity. Until then, pre-existing parentless syncs are the sweeper's problem, not the
+  purge's.
+- **Org-linked users are skipped, not resolved.** The predicate compares raw ids, while the
+  rest of the codebase resolves ownership through `User.ownsUserId`, which understands
+  individual↔organization membership (`modules/use-cases/get-module.js:32-35`,
+  `test-module-auth.js:37-38`). The purge only has ids, so an entity owned by the individual
+  while the integration is owned by the org is skipped. That is the safe direction — a skip
+  leaves an orphan, a false match destroys live data — but it means org-configured
+  deployments will accumulate some orphans that only the sweeper clears.
+- **Deleting a credential forecloses revoking it.** Once the row is gone the refresh token is
+  gone with it, so provider-side revocation can never happen afterwards. If revocation is
+  added later it has to run *before* the purge — `ON_DELETE`, which already executes first
+  with modules loaded, is the natural place.
+- **Guard against empty filters on DocumentDB.** `_buildFilter` can drop an unconvertible id
+  and return a match-all query. For the credential reference count that fails safe (it looks
+  like "still referenced", so nothing is deleted), but any purge filter must assert it is
+  non-empty before issuing a `deleteMany`.
+
 ### 7. Orphan sweeper
 
 Existing deployments already hold orphans — every integration ever deleted, plus every
@@ -348,6 +443,24 @@ that reports counts by default and deletes with `--apply`:
 It doubles as the recovery path for a purge that failed after the `Integration` row was
 already gone.
 
+One constraint makes this more than a scripting job: **admin scripts have no repository
+access.** They reach the database only through the injected command bundle —
+`{ users, credentials, entities, integrations }`
+(`admin-scripts/src/application/admin-script-context.js:7-11`,
+`src/infrastructure/bootstrap.js:91-96`) — and the two reads the orphan predicate needs are
+not on it:
+
+- `findIntegrationsByEntityId` exists on the repository interface (`:182`) but is not exposed
+  as an integration command.
+- `commands.entities.findEntity` rejects a filter that carries only `credentialId` — it
+  requires `externalId`, `userId` or `moduleName` (`entity-commands.js:92-104`) — so the
+  credential reference count is unreachable.
+
+Both writes are already reachable (`integration-commands.js:315`,
+`entity-commands.js:273,294`, `credential-commands.js:203,241`). So the sweeper step includes
+adding those two reads to the command layer — which is also what makes the reference-counted
+operation available to integration authors.
+
 ### 8. Optional follow-up: scheduled-job sweep
 
 Add `listSchedules({ namePrefix })` to `scheduler-service-interface.js` plus the EventBridge
@@ -361,28 +474,47 @@ framework can clean up arbitrary job names.
 Each step is independently reviewable and independently verifiable.
 
 1. **This ADR** + a row in `docs/architecture-decisions/README.md`.
-2. **Repository primitives.** `deleteSyncsByIntegrationId`, `processRepository.deleteByIntegrationId`,
-   the new association repository, and `P2025`-tolerant `deleteIntegrationById` — interface
-   first, then mongo / postgres / documentdb, with a repository test per backend.
-3. **`PurgeIntegrationData` use case** + unit tests against repository doubles. Test matrix:
+2. **Fix `SyncManager` to persist `integrationId`** (`syncs/manager.js:330-337`). Without this
+   the sync arm of the purge is decorative, and the schema's own `onDelete: Cascade` on
+   `Sync.integrationId` has never matched a row. Backfilling existing rows is the sweeper's
+   job, not a migration's.
+3. **Repository primitives.** `deleteSyncsForIntegration`,
+   `processRepository.deleteByIntegrationId`, a bulk `deleteCredentialsByIds` that uses
+   `deleteMany`, the new association repository, and `P2025`-tolerant
+   `deleteIntegrationById` — interface first, then mongo / postgres / documentdb.
+4. **`PurgeIntegrationData` use case** + unit tests against repository doubles. Test matrix:
    sole-owner entity deleted; shared entity kept; credential with one entity deleted;
-   credential with two entities kept; foreign-user entity skipped; already-deleted entity
-   skipped; `isGlobal` entity skipped (forward-compat, asserted against a stub field);
-   re-running the purge is a no-op.
-4. **Wire into `DeleteIntegrationForUser`** + extend
-   `tests/use-cases/delete-integration-for-user.test.js` and the doubles in
-   `tests/doubles/` (`test-integration-repository.js` needs the ref-count and bulk-delete
-   methods).
-5. **Router DI** in `createIntegrationRouter()`.
-6. **App-definition `deletion` block** in `app-definition-loader.js` + defaults + a loader test.
-7. **Orphan sweeper admin script** with dry-run default.
-8. **Queue/worker "integration not found → ack" guard.**
-9. **Docs**: `packages/core/CLAUDE.md` deletion section, `docs/DANGER_ZONES.md`, the
-   `onDelete` contract in `integration-base.js` (what the framework cleans up vs. what the
-   integration still owns — provider webhooks and scheduled jobs — and that `onDelete` must
-   be idempotent because a retried `DELETE` re-runs it), and the `delete` operation in
-   `docs/frigg-management-api.yml:312-322`, which currently documents only the 204.
-10. **Optional**: scheduler `listSchedules` + prefix sweep (§8).
+   credential with two entities kept; entity with a foreign `userId` skipped; entity with a
+   null `userId` skipped; already-deleted entity skipped; `isGlobal` entity skipped
+   (forward-compat, asserted against a stub field); sync matched by entity id when
+   `integrationId` is null; re-running the whole purge is a no-op.
+5. **Wire into `DeleteIntegrationForUser`** + extend
+   `tests/use-cases/delete-integration-for-user.test.js`. The existing failure-path tests
+   (`:132-232`, `:269-320`, including a `throw null` case) lock in current behaviour — do not
+   regress them. The double `test-integration-repository.js` already implements
+   `findIntegrationsByEntityId`; what it needs is the bulk deletes, and its
+   `deleteIntegrationById` aligned to the real `{ acknowledged, deletedCount }` shape rather
+   than a bare boolean. Note its field is `entitiesIds`, matching the domain mapping.
+   `DeleteIntegrationForUser` is constructed without `moduleFactory` throughout that suite, so
+   it must keep tolerating its absence.
+6. **Close the queue-worker window** — two small fixes, both regression guards rather than
+   niceties (see §4): make the `processId` path discard a missing process
+   (`handlers/backend-utils.js:143-153`) the way the `integrationId` path already discards a
+   missing integration, and check integration status *before* hydrating modules so a purge in
+   progress cannot throw a message into the DLQ
+   (`integrations/use-cases/get-integration-instance.js:57-63`).
+7. **Router DI** in `createIntegrationRouter()`.
+8. **App-definition `deletion` block** in `app-definition-loader.js` + defaults + a loader test.
+9. **Command-layer reads** — expose `findIntegrationsByEntityId`, and let entity lookup filter
+   on `credentialId` — then the **orphan sweeper admin script**, dry-run by default.
+10. **Docs**: `packages/core/CLAUDE.md`, `docs/DANGER_ZONES.md`, the `onDelete` contract in
+   `integration-base.js`, and the `delete` operation in `docs/frigg-management-api.yml:312-322`
+   (which documents only the 204 today). Also `packages/core/integrations/EXTENSIONS.md` and
+   `WEBHOOK-QUICKSTART.md`: both document registering provider-side webhooks and contain no
+   mention of deletion, teardown or `onDelete` anywhere — an author following either is never
+   told they own the removal. `EXTENSIONS.md:175` ("Contract enforced by the framework") is the
+   natural home for the teardown half.
+11. **Optional**: scheduler `listSchedules` + prefix sweep (§8).
 
 No schema migration is required — the change is pure application code. That is deliberate:
 it keeps the change deployable to existing installations with no coordination, and it is a
@@ -390,16 +522,40 @@ reason to prefer reference counting in the use case over adding schema-level mac
 
 ## Testing
 
-- Use case unit tests: `cd packages/core && npx jest integrations/tests/use-cases/`
-- Repository tests per backend: `cd packages/core && npx jest integrations/repositories syncs credential modules`
-- Full package: `cd packages/core && npx jest` — and `npm run test:all` from the root before
-  the PR, per `CLAUDE.md`.
-- Real-database verification (PostgreSQL and MongoDB via Docker, no mocks) with the
-  `frigg-canary-test` harness: create an integration, add a second integration sharing one
-  entity, delete the first, and assert the shared entity and its credential survive while
-  the sole-owner entity and credential are gone. DocumentDB has no local emulator; its
-  adapter is covered by unit tests plus a manual check against a real cluster before
-  release.
+The repo has no real-database test tier: there is no `testcontainers` dependency, no
+`docker-compose` file, and no per-backend jest project. Repository tests are
+*command-generation* tests — instantiate the adapter, replace `repo.prisma` with a hand-rolled
+fake, and assert on the emitted command shape (exemplars:
+`integration-repository-mongo.test.js:15-25`,
+`integration-repository-documentdb.test.js:17-30`). Match that habit rather than inventing a
+new tier. Use-case tests use the stateful fake in `integrations/tests/doubles/`, and every core
+test file starts by mocking `database/config` so requiring a use case does not pull a real
+Prisma client (copy `delete-integration-for-user.test.js:1-6`, adjusting the relative depth).
+
+```bash
+npm install                                    # from the repo root; needed before any run
+
+cd packages/core
+npm test -- integrations/tests/use-cases/      # use-case suites
+npm test -- integrations/repositories/         # integration, mapping, process adapters
+npm test -- syncs credential modules           # sync, credential, entity adapters
+npm test                                       # whole core package
+
+# from the root, what CI runs
+npm run test:all
+npm run lint:fix --workspaces
+```
+
+Note every core jest invocation boots an in-memory mongod via `globalSetup`
+(`packages/core/jest.config.js:19-22`), so runs are slower than they look and need the
+workspace installed.
+
+Real-database verification is therefore out-of-suite, with the canary harness against
+PostgreSQL and MongoDB: create two integrations sharing one entity, delete the first, and
+assert the shared entity and its credential survive while the sole-owner pair is gone.
+DocumentDB has no local emulator — its adapters are covered by command-shape tests plus a
+manual check against a real cluster before release. That gap is worth stating plainly: the
+backend with no cascade at all is also the one that cannot be integration-tested locally.
 
 ## Consequences
 
@@ -413,6 +569,9 @@ reason to prefer reference counting in the use case over adding schema-level mac
   the ORM's emulation rules plus which adapter you happen to be running.
 - Shared entities (ADR-024) get a deletion story before the feature ships, rather than
   after the first data-loss report.
+- Two latent bugs get fixed on the way: `Sync.integrationId` starts being written, so the
+  cascade the schema has always declared finally matches something; and
+  `Module.deauthorize()` stops leaving dangling `credentialId` pointers.
 
 ### Negative
 
@@ -426,11 +585,20 @@ reason to prefer reference counting in the use case over adding schema-level mac
   full teardown.
 - Reference counting costs one query per entity plus one per credential. Negligible at
   realistic entity counts, and only on the delete path.
+- Deleting `Process` rows turns a currently-harmless in-flight SQS message into a DLQ entry
+  unless the `processId` hydration path is fixed in the same change. That fix is step 6, and
+  it is the one part of this plan that is a guard against the plan itself.
+- The purge is exercised end to end only against PostgreSQL and MongoDB. DocumentDB — the
+  backend this change helps most — has no local emulator, so its adapters get command-shape
+  tests and a manual pre-release check.
 
 ### Neutral
 
 - `User`, `Token` and `UsageCounter` behaviour is unchanged.
 - Existing orphans are untouched until the sweeper is run deliberately.
+- `Association` / `AssociationObject` gain a repository with nothing to clean yet — nothing
+  in the codebase writes those models today. It is there so DocumentDB is not the odd one out
+  if an adopter starts.
 
 ## Alternatives Considered
 
