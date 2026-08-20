@@ -149,6 +149,40 @@ Three records are shared by design, and deleting them unconditionally is data lo
    (`:97`), their entities (`:121`) and their sessions (`:82`). It would also break the
    next authenticated request for a user the adopter's app still considers active.
 
+### Three defects on this path the plan must fix, not inherit
+
+**A retried `DELETE` returns 500, not 404.** `findIntegrationById` *throws* on all three
+backends — `integration-repository-mongo.js:195`, `-postgres.js:239`,
+`-documentdb.js:71,75` — so the `Boom.notFound` guard at
+`delete-integration-for-user.js:38-42` is unreachable dead code. Retrying a delete against an
+already-deleted integration produces a plain `Error`, which the middleware boomifies to a 500.
+Any plan that names retry as its recovery path has to make that read tolerant first. Do it in
+the use case rather than by changing the repositories: callers elsewhere depend on the throw
+and match on its message (`handlers/backend-utils.js:99-103`). The existing test double
+returns `null`, which is exactly why this has stayed invisible.
+
+**The failure breadcrumb overwrites itself.** `updateIntegrationMessages` reads
+`integration.messages` (`integration-repository-mongo.js:254`, `-postgres.js:300`,
+`-documentdb.js:110`), but neither schema has a `messages` column — there are four separate
+Json arrays, `errors` / `warnings` / `info` / `logs`
+(`prisma-postgresql/schema.prisma:164-168`). So the array read is always `[]`, and the write
+`data: { [messageType]: messageArray }` replaces the column with a single element. Every
+deletion error message destroys the previous one, and any pre-existing errors on the
+integration. The purge's error reporting depends on this appending, so it needs fixing here.
+
+**There is a second delete path that skips the lifecycle entirely.**
+`application/commands/integration-commands.js:315-339` calls `deleteIntegrationById` raw — no
+ownership check, no `IN_DELETION`, no `ON_DELETE` — and its `if (!deleted)` guard at `:325` is
+unreachable because every adapter returns a truthy `{ acknowledged, deletedCount }`. Whether
+the purge belongs on that path is a decision, not an oversight: it is the developer-facing
+primitive, and the sweeper needs an unpurged raw delete. The recommendation is to leave it raw
+and document it as such, while exposing the purge as its own command.
+
+One caller must be left alone: `create-integration.js:70-78` deletes the duplicate row it
+just created when it loses a concurrent-create race. That row never had entities set up and
+owes no teardown — and the surviving integration holds the same entities — so purging there is
+wasted work at best. Excluding it is deliberate, noted so a later reader does not "fix" it.
+
 ### Two findings that change the design
 
 **`Sync` rows are never linked to their integration.** The schema declares
@@ -159,9 +193,16 @@ Three records are shared by design, and deleting them unconditionally is data lo
 (`:33`) and never used again. Every sync row the framework writes therefore has
 `integrationId = null`, which means the cascade matches nothing *and* a purge keyed on
 `integrationId` alone would delete zero rows. Those rows are only reachable through their
-entity ids. The fix is two-part: make `SyncManager` persist `integrationId`, and have the
-purge match on `integrationId` **or** on the integration's entity ids so pre-existing rows
-are covered too.
+entity ids, so the purge must match on `integrationId` **or** on the integration's entity ids.
+
+The write path looks broken beyond that missing field, which is why fixing it is *not* a
+prerequisite here. `upsertSync` passes `syncData` with `entities` as a bare id array into a
+Prisma *relation* field (`sync-repository-mongo.js:87-89`), and `_convertFilterToWhere`
+spreads the caller's filter straight into `where` (`:225-236`) while `SyncManager` builds that
+filter from Mongo operators — `$elemMatch`, `$all` (`manager.js:338-347`). Prisma accepts
+neither shape, so there are probably no framework-written `Sync` rows on either Prisma backend
+at all. Repairing `SyncManager` is a separate defect with its own test surface; this change
+ships the correct purge rules and leaves them accurate whether or not rows exist.
 
 **Deleting an encrypted row can fail after the row is gone.** The Prisma encryption
 extension's `delete` hook runs the query and *then* decrypts the returned record
@@ -393,7 +434,10 @@ have no other referent.
   local destruction stays the invariant.
 - Purge failure: log with the integration id and the step that failed, append an `errors`
   message via `updateIntegrationMessages`, leave the row `IN_DELETION`, rethrow. The client
-  gets a 500; a retried `DELETE` resumes and converges.
+  gets a 500; a retried `DELETE` resumes and converges. Both halves of that sentence currently
+  need a fix to be true: `updateIntegrationMessages` clobbers rather than appends, and a retry
+  against an already-deleted integration 500s instead of returning 404 (see Context). Those are
+  steps 2 and 3.
 - Skips are logged at `warn` with the reason (`shared`, `global`, `foreign-user`,
   `already-gone`) so "why is this entity still here" is answerable from logs.
 
@@ -474,21 +518,29 @@ framework can clean up arbitrary job names.
 Each step is independently reviewable and independently verifiable.
 
 1. **This ADR** + a row in `docs/architecture-decisions/README.md`.
-2. **Fix `SyncManager` to persist `integrationId`** (`syncs/manager.js:330-337`). Without this
-   the sync arm of the purge is decorative, and the schema's own `onDelete: Cascade` on
-   `Sync.integrationId` has never matched a row. Backfilling existing rows is the sweeper's
-   job, not a migration's.
-3. **Repository primitives.** `deleteSyncsForIntegration`,
+2. **Make the delete path retryable.** Translate a not-found read into `Boom.notFound` inside
+   `DeleteIntegrationForUser` (`:35-42`), so the existing dead guard becomes live and a retried
+   `DELETE` returns 404 rather than 500. Do not change the repositories' throw — other callers
+   match on its message.
+3. **Fix `updateIntegrationMessages` to append**, against the real `errors` / `warnings` /
+   `info` / `logs` columns rather than a `messages` column that does not exist. Without this
+   every purge failure erases the previous one's breadcrumb. Align the test double's
+   `deleteIntegrationById` return shape at the same time.
+4. **Do not fix `SyncManager` here** — file it separately. The purge's sync rules are written
+   to be correct either way (entity-id arm included), and the write path needs its own repair
+   plus its own tests (see Context). Persisting `integrationId` is the smallest part of that
+   defect, and coupling the two would make this change unshippable until the larger one lands.
+5. **Repository primitives.** `deleteSyncsForIntegration`,
    `processRepository.deleteByIntegrationId`, a bulk `deleteCredentialsByIds` that uses
    `deleteMany`, the new association repository, and `P2025`-tolerant
    `deleteIntegrationById` — interface first, then mongo / postgres / documentdb.
-4. **`PurgeIntegrationData` use case** + unit tests against repository doubles. Test matrix:
+6. **`PurgeIntegrationData` use case** + unit tests against repository doubles. Test matrix:
    sole-owner entity deleted; shared entity kept; credential with one entity deleted;
    credential with two entities kept; entity with a foreign `userId` skipped; entity with a
    null `userId` skipped; already-deleted entity skipped; `isGlobal` entity skipped
    (forward-compat, asserted against a stub field); sync matched by entity id when
    `integrationId` is null; re-running the whole purge is a no-op.
-5. **Wire into `DeleteIntegrationForUser`** + extend
+7. **Wire into `DeleteIntegrationForUser`** + extend
    `tests/use-cases/delete-integration-for-user.test.js`. The existing failure-path tests
    (`:132-232`, `:269-320`, including a `throw null` case) lock in current behaviour — do not
    regress them. The double `test-integration-repository.js` already implements
@@ -497,24 +549,24 @@ Each step is independently reviewable and independently verifiable.
    than a bare boolean. Note its field is `entitiesIds`, matching the domain mapping.
    `DeleteIntegrationForUser` is constructed without `moduleFactory` throughout that suite, so
    it must keep tolerating its absence.
-6. **Close the queue-worker window** — two small fixes, both regression guards rather than
+8. **Close the queue-worker window** — two small fixes, both regression guards rather than
    niceties (see §4): make the `processId` path discard a missing process
    (`handlers/backend-utils.js:143-153`) the way the `integrationId` path already discards a
    missing integration, and check integration status *before* hydrating modules so a purge in
    progress cannot throw a message into the DLQ
    (`integrations/use-cases/get-integration-instance.js:57-63`).
-7. **Router DI** in `createIntegrationRouter()`.
-8. **App-definition `deletion` block** in `app-definition-loader.js` + defaults + a loader test.
-9. **Command-layer reads** — expose `findIntegrationsByEntityId`, and let entity lookup filter
+9. **Router DI** in `createIntegrationRouter()`.
+10. **App-definition `deletion` block** in `app-definition-loader.js` + defaults + a loader test.
+11. **Command-layer reads** — expose `findIntegrationsByEntityId`, and let entity lookup filter
    on `credentialId` — then the **orphan sweeper admin script**, dry-run by default.
-10. **Docs**: `packages/core/CLAUDE.md`, `docs/DANGER_ZONES.md`, the `onDelete` contract in
+12. **Docs**: `packages/core/CLAUDE.md`, `docs/DANGER_ZONES.md`, the `onDelete` contract in
    `integration-base.js`, and the `delete` operation in `docs/frigg-management-api.yml:312-322`
    (which documents only the 204 today). Also `packages/core/integrations/EXTENSIONS.md` and
    `WEBHOOK-QUICKSTART.md`: both document registering provider-side webhooks and contain no
    mention of deletion, teardown or `onDelete` anywhere — an author following either is never
    told they own the removal. `EXTENSIONS.md:175` ("Contract enforced by the framework") is the
    natural home for the teardown half.
-11. **Optional**: scheduler `listSchedules` + prefix sweep (§8).
+13. **Optional**: scheduler `listSchedules` + prefix sweep (§8).
 
 No schema migration is required — the change is pure application code. That is deliberate:
 it keeps the change deployable to existing installations with no coordination, and it is a
@@ -569,9 +621,10 @@ backend with no cascade at all is also the one that cannot be integration-tested
   the ORM's emulation rules plus which adapter you happen to be running.
 - Shared entities (ADR-024) get a deletion story before the feature ships, rather than
   after the first data-loss report.
-- Two latent bugs get fixed on the way: `Sync.integrationId` starts being written, so the
-  cascade the schema has always declared finally matches something; and
-  `Module.deauthorize()` stops leaving dangling `credentialId` pointers.
+- Four latent bugs get fixed on the way: a retried `DELETE` returns 404 instead of 500;
+  deletion error messages stop erasing each other; `Module.deauthorize()` stops leaving
+  dangling `credentialId` pointers; and queue workers stop DLQ-ing on a missing process. Each
+  is a defect on its own merits — the purge is what surfaced them.
 
 ### Negative
 
@@ -640,9 +693,15 @@ splits the durable state across a queue and hides failures. The synchronous purg
    spells out the manual cascade order but does not perform it, no framework flow calls it,
    and ADR-007 sketches a `DELETE /users/:id` route (`:229`) that was never implemented. An
    erasure use case would give that command the cascade its own documentation asks for.
-4. **Deletion audit log.** Worth recording purge summaries durably (an `AdminScriptExecution`
+4. **`UsageCounter` under a lawful erasure request.** The policy here is "never delete", per
+   the schema's stated intent, and that is right for integration deletion. But no purge or
+   prune path exists at all, so an adopter served an erasure request has no lawful way to
+   remove usage rows. Should the erasure use case (question 3) be allowed to purge them —
+   making the policy "configurable, default never" — or is aggregation enough to consider them
+   non-personal?
+5. **Deletion audit log.** Worth recording purge summaries durably (an `AdminScriptExecution`
    -shaped row, or telemetry only)?
-5. **Adjacent papercut, in or out?** An ownership mismatch throws a plain `Error`
+6. **Adjacent papercut, in or out?** An ownership mismatch throws a plain `Error`
    (`delete-integration-for-user.js:51-53`), which the error middleware boomifies to a 500
    `{"error":"Internal Server Error"}` (`handlers/app-handler-helpers.js:26-37`) instead of a
    403/404. One-line fix in the same file this change already touches, but it is a
