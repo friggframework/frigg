@@ -19,8 +19,9 @@ How much of the integration's *own* data goes away depends on which database you
 | MongoDB | Same `onDelete: Cascade` in the schema, but no real foreign keys — Prisma emulates it | The same set, usually. The repo already warns against relying on it (`user-repository-mongo.js`) |
 | DocumentDB | The adapter deletes through `$runCommandRaw`, which bypasses Prisma's query engine | Nothing cascades. Every child row is orphaned too |
 
-Syncs are the exception on every backend. The cascade is declared, but `Sync.integrationId` is
-never written, so it has never matched a row — see the fourth bug below.
+Syncs are the exception on every backend. The cascade is declared, but `SyncManager` never writes
+`Sync.integrationId`, so for every sync the framework has created that foreign key is null and
+matches nothing — see the fourth bug below.
 
 So the schema says one thing and the behaviour is three different things. DocumentDB is the
 worst affected and the least obvious, because the schema *does* say `Cascade`.
@@ -81,10 +82,17 @@ The rules:
 
 Order matters, so the steps run children first and the integration row last:
 
-1. Delete mappings, processes and associations by integration id. Delete syncs by integration id
-   **or** by the integration's entity ids — the second half matters, because matching on
-   `Sync.integrationId` alone would delete nothing today. Scope it to *those* entity ids, never
-   to "where `integrationId` is null", which would take every parentless sync in the database.
+1. Delete the integration's own children, deepest first, so nothing is left pointing at a parent
+   that is already gone. DocumentDB cascades nothing, so each level is deleted explicitly rather
+   than assumed:
+   - `DataIdentifier`, then `Sync`. Match syncs on integration id **or** on the integration's
+     entity ids — the second arm matters, because matching on `Sync.integrationId` alone would
+     delete nothing today. Scope it to *those* entity ids, never to "where `integrationId` is
+     null", which would take every parentless sync in the database. On DocumentDB the
+     identifiers are an embedded array inside the sync document, so deleting the sync removes
+     them and there is no separate collection to clear.
+   - `AssociationObject`, then `Association`.
+   - `IntegrationMapping` and `Process`, by integration id.
 2. For each entity: count the *other* integrations using it. Skip it if any remain, if it is
    marked global, or if its `userId` does not match. Otherwise delete it, and remember its
    credential id.
