@@ -311,8 +311,6 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<boolean>} True if refresh succeeded, false if failed
      */
     async refreshAuth() {
-        // Another invocation may have refreshed already. Adopting its tokens
-        // beats spending a rotation, which could kill the winner's pair.
         if (await this._adoptNewerCredential()) return true;
 
         try {
