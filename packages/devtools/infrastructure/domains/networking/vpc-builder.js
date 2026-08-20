@@ -603,6 +603,34 @@ class VpcBuilder extends InfrastructureBuilder {
             console.log(
                 '  ⊝ NAT Gateway skipped (database.postgres.connectivity=public — Lambda is not VPC-attached, so no NAT is needed)'
             );
+
+            // ADR-033: the public subnets Aurora sits in still need an Internet
+            // Gateway default route + subnet→route-table associations to be
+            // internet-routable. Those are normally emitted only as a SIDE EFFECT
+            // of the NAT build (createPublicRouting is called from inside the NAT
+            // methods), so skipping NAT would otherwise leave the public subnets on
+            // the VPC main route table (local-only) and the public Aurora endpoint
+            // unreachable — a green deploy with a dead DB. Decouple the public-subnet
+            // routing from NAT here.
+            //
+            // GUARD: only do this for a Frigg-created (stack) VPC — signalled by the
+            // presence of FriggInternetGateway in the template (emitted by
+            // buildVpcFromDecision only for STACK ownership). createPublicRouting
+            // references { Ref: 'FriggInternetGateway' } and DependsOn
+            // 'FriggVPCGatewayAttachment', and associates the stack-created
+            // FriggPublicSubnet* — all of which exist only in that case. For a
+            // discovered/existing VPC, its public subnets already route to an IGW, so
+            // creating our own public route table would be redundant/conflicting.
+            if (result.resources.FriggInternetGateway) {
+                console.log(
+                    '  → Public-subnet routing (IGW default route + associations) for stack-created VPC'
+                );
+                this.createPublicRouting(appDefinition, discoveredResources, result);
+            } else {
+                console.log(
+                    '  ℹ Public connectivity on a discovered/existing VPC — assuming its public subnets already route to an Internet Gateway; not creating conflicting routing'
+                );
+            }
         } else {
             // Build NAT Gateway based on ownership decision
             this.buildNatGatewayFromDecision(decisions.natGateway, appDefinition, discoveredResources, result);
@@ -620,8 +648,10 @@ class VpcBuilder extends InfrastructureBuilder {
             this.buildVpcEndpointsFromDecisions(decisions.vpcEndpoints, decisions.securityGroup, appDefinition, discoveredResources, result);
         }
 
-        // Set VPC_ENABLED environment variable
-        result.environment.VPC_ENABLED = 'true';
+        // Set VPC_ENABLED environment variable.
+        // ADR-033: in public connectivity the Lambda is NOT attached to the VPC, so
+        // report VPC_ENABLED=false — otherwise /health would misreport isInVpc:true.
+        result.environment.VPC_ENABLED = publicDbConnectivity ? 'false' : 'true';
 
         console.log(`\n[${this.name}] ✅ VPC infrastructure built successfully`);
         console.log(`  - VPC ID: ${result.vpcId || 'from discovery'}`);

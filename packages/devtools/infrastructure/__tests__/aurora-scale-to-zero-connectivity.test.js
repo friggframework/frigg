@@ -57,9 +57,15 @@ describe('ADR-033: Aurora scale-to-zero + connectivity', () => {
     describe('validator (AuroraBuilder.validate)', () => {
         const build = new AuroraBuilder();
         // ValidationResult exposes hasErrors(); "valid" means no errors.
-        const validateResult = (postgres) =>
-            build.validate({ database: { postgres: { enable: true, ...postgres } } });
-        const isValid = (postgres) => !validateResult(postgres).hasErrors();
+        // vpc.enable defaults to true so connectivity:'public' cases don't trip the
+        // "public requires vpc.enable" rule; pass appOverrides to change it.
+        const validateResult = (postgres, appOverrides = {}) =>
+            build.validate({
+                vpc: { enable: true },
+                database: { postgres: { enable: true, ...postgres } },
+                ...appOverrides,
+            });
+        const isValid = (postgres, appOverrides) => !validateResult(postgres, appOverrides).hasErrors();
 
         test('accepts minCapacity: 0 (scale-to-zero)', () => {
             expect(isValid({ minCapacity: 0 })).toBe(true);
@@ -100,6 +106,57 @@ describe('ADR-033: Aurora scale-to-zero + connectivity', () => {
             expect(isValid({ allowedCidrs: 'nope' })).toBe(false);
             expect(isValid({ allowedCidrs: ['not-a-cidr'] })).toBe(false);
             expect(isValid({ allowedCidrs: ['10.0.0.0/8', '203.0.113.5/32'] })).toBe(true);
+        });
+
+        test('rejects out-of-range CIDR octets/prefix (numeric, not just shape)', () => {
+            expect(isValid({ allowedCidrs: ['999.999.999.999/99'] })).toBe(false);
+            expect(isValid({ allowedCidrs: ['10.0.0.0/33'] })).toBe(false);
+            expect(isValid({ allowedCidrs: ['256.1.1.1/24'] })).toBe(false);
+            expect(isValid({ allowedCidrs: ['0.0.0.0/0'] })).toBe(true);
+        });
+
+        test('rejects empty allowedCidrs in public mode (no silent full-internet fallback)', () => {
+            const r = validateResult({ connectivity: 'public', allowedCidrs: [] });
+            expect(r.hasErrors()).toBe(true);
+            expect(r.errors.join(' ')).toMatch(/allowedCidrs is empty with connectivity="public"/);
+        });
+
+        test('rejects minCapacity > maxCapacity', () => {
+            const r = validateResult({ minCapacity: 8, maxCapacity: 4 });
+            expect(r.hasErrors()).toBe(true);
+            expect(r.errors.join(' ')).toMatch(/minCapacity \(8\) must be <= maxCapacity \(4\)/);
+            // equal is fine
+            expect(isValid({ minCapacity: 4, maxCapacity: 4 })).toBe(true);
+        });
+
+        test("connectivity:'public' requires vpc.enable=true", () => {
+            const r = validateResult({ connectivity: 'public' }, { vpc: { enable: false } });
+            expect(r.hasErrors()).toBe(true);
+            expect(r.errors.join(' ')).toMatch(/connectivity="public" requires vpc\.enable=true/);
+            // With vpc.enable true (default helper), it's valid
+            expect(isValid({ connectivity: 'public' })).toBe(true);
+        });
+
+        test('warns when secondsUntilAutoPause set with minCapacity !== 0', () => {
+            const r = validateResult({ minCapacity: 0.5, secondsUntilAutoPause: 3600 });
+            expect(r.hasErrors()).toBe(false);
+            expect(r.warnings.join(' ')).toMatch(/secondsUntilAutoPause is ignored unless minCapacity is 0/);
+            // No such warning when minCapacity is 0
+            const r0 = validateResult({ minCapacity: 0, secondsUntilAutoPause: 3600 });
+            expect(r0.warnings.join(' ')).not.toMatch(/ignored unless minCapacity is 0/);
+        });
+
+        test("warns (not errors) for connectivity:'public' with discover/use-existing management", () => {
+            const rDiscover = validateResult({ connectivity: 'public', management: 'discover' });
+            expect(rDiscover.hasErrors()).toBe(false);
+            expect(rDiscover.warnings.join(' ')).toMatch(/assumes the EXISTING Aurora cluster is already publicly accessible/);
+
+            const rUseExisting = validateResult({
+                connectivity: 'public',
+                management: 'use-existing',
+                endpoint: 'db.example.com',
+            });
+            expect(rUseExisting.warnings.join(' ')).toMatch(/only affects TLS/);
         });
 
         test('warns (does not fail) when minCapacity:0 with an older pinned engine version', () => {
@@ -188,6 +245,45 @@ describe('ADR-033: Aurora scale-to-zero + connectivity', () => {
             expect(nats).toHaveLength(0);
         });
 
+        test('public subnets get an IGW default route + route table + both associations (create-new VPC)', async () => {
+            const t = await composeServerlessDefinition(makeApp({ connectivity: 'public' }));
+            const R = t.resources.Resources;
+
+            // Public route table
+            expect(R.FriggPublicRouteTable).toBeDefined();
+            expect(R.FriggPublicRouteTable.Type).toBe('AWS::EC2::RouteTable');
+
+            // 0.0.0.0/0 -> Internet Gateway default route
+            const igwRoutes = findResources(
+                t,
+                (r) =>
+                    r.Type === 'AWS::EC2::Route' &&
+                    r.Properties.DestinationCidrBlock === '0.0.0.0/0' &&
+                    r.Properties.GatewayId &&
+                    r.Properties.GatewayId.Ref === 'FriggInternetGateway'
+            );
+            expect(igwRoutes).toHaveLength(1);
+
+            // Both public subnet associations
+            expect(R.FriggPublicSubnet1RouteTableAssociation).toBeDefined();
+            expect(R.FriggPublicSubnet2RouteTableAssociation).toBeDefined();
+            expect(R.FriggPublicSubnet1RouteTableAssociation.Properties.RouteTableId).toEqual({
+                Ref: 'FriggPublicRouteTable',
+            });
+
+            // And there must be NO NAT route (that would imply a NAT default route)
+            const natRoutes = findResources(
+                t,
+                (r) => r.Type === 'AWS::EC2::Route' && r.Properties.NatGatewayId
+            );
+            expect(natRoutes).toHaveLength(0);
+        });
+
+        test('VPC_ENABLED is false in public mode (Lambda not VPC-attached)', async () => {
+            const t = await composeServerlessDefinition(makeApp({ connectivity: 'public' }));
+            expect(t.provider.environment.VPC_ENABLED).toBe('false');
+        });
+
         test('Lambda is NOT attached to the VPC (provider.vpc unset)', async () => {
             const t = await composeServerlessDefinition(makeApp({ connectivity: 'public' }));
             expect(t.provider.vpc).toBeUndefined();
@@ -250,6 +346,11 @@ describe('ADR-033: Aurora scale-to-zero + connectivity', () => {
             const t = await composeServerlessDefinition(makeApp());
             const url = t.provider.environment.DATABASE_URL;
             expect(url['Fn::Sub'][0]).not.toContain('sslmode=require');
+        });
+
+        test('VPC_ENABLED stays true in vpc mode', async () => {
+            const t = await composeServerlessDefinition(makeApp());
+            expect(t.provider.environment.VPC_ENABLED).toBe('true');
         });
     });
 });

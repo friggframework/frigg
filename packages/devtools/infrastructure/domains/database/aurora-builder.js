@@ -107,6 +107,17 @@ class AuroraBuilder extends InfrastructureBuilder {
         if (dbConfig.maxCapacity !== undefined && (dbConfig.maxCapacity < 0.5 || dbConfig.maxCapacity > 128)) {
             result.addError('database.postgres.maxCapacity must be between 0.5 and 128');
         }
+        // Cross-check: minCapacity must not exceed maxCapacity, or CloudFormation
+        // rejects the ServerlessV2ScalingConfiguration at deploy time.
+        if (
+            dbConfig.minCapacity !== undefined &&
+            dbConfig.maxCapacity !== undefined &&
+            dbConfig.minCapacity > dbConfig.maxCapacity
+        ) {
+            result.addError(
+                `database.postgres.minCapacity (${dbConfig.minCapacity}) must be <= maxCapacity (${dbConfig.maxCapacity})`
+            );
+        }
 
         // Validate scale-to-zero auto-pause window (seconds). AWS-valid range is
         // 300–86400 (5 minutes to 24 hours) and it must be an integer.
@@ -114,6 +125,12 @@ class AuroraBuilder extends InfrastructureBuilder {
             const s = dbConfig.secondsUntilAutoPause;
             if (!Number.isInteger(s) || s < 300 || s > 86400) {
                 result.addError('database.postgres.secondsUntilAutoPause must be an integer between 300 and 86400');
+            }
+            // secondsUntilAutoPause only takes effect for scale-to-zero clusters.
+            if (dbConfig.minCapacity !== 0) {
+                result.addWarning(
+                    'database.postgres.secondsUntilAutoPause is ignored unless minCapacity is 0 (scale-to-zero).'
+                );
             }
         }
 
@@ -129,18 +146,35 @@ class AuroraBuilder extends InfrastructureBuilder {
             }
         }
 
-        // Validate allowedCidrs is an array of CIDR-looking strings when present.
+        // Public connectivity requires an enabled VPC (Aurora must live in a VPC —
+        // an AWS constraint — and the builder creates the public subnets there).
+        // Validate it here so the failure is a clear message rather than a downstream
+        // "Aurora requires 2 public subnets" throw.
+        if (dbConfig.connectivity === 'public' && appDefinition.vpc?.enable !== true) {
+            result.addError(
+                'database.postgres.connectivity="public" requires vpc.enable=true (Aurora needs public subnets in a VPC).'
+            );
+        }
+
+        // Validate allowedCidrs is an array of syntactically valid IPv4 CIDRs when
+        // present. NOTE: IPv4 only — IPv6 (CidrIpv6) is not supported here.
         if (dbConfig.allowedCidrs !== undefined) {
-            const cidrPattern = /^([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}$/;
             if (!Array.isArray(dbConfig.allowedCidrs)) {
                 result.addError('database.postgres.allowedCidrs must be an array of CIDR strings');
             } else {
-                const bad = dbConfig.allowedCidrs.filter(
-                    (c) => typeof c !== 'string' || !cidrPattern.test(c)
-                );
+                const bad = dbConfig.allowedCidrs.filter((c) => !this.isValidIpv4Cidr(c));
                 if (bad.length > 0) {
                     result.addError(
                         `database.postgres.allowedCidrs contains invalid CIDR value(s): ${bad.join(', ')}`
+                    );
+                }
+                // An empty allowlist in public mode is almost always a mistake that
+                // would silently fall back to 0.0.0.0/0 (full internet exposure) —
+                // reject it so "allow nothing" cannot mean "allow everything".
+                if (dbConfig.allowedCidrs.length === 0 && dbConfig.connectivity === 'public') {
+                    result.addError(
+                        'database.postgres.allowedCidrs is empty with connectivity="public". List at least one CIDR ' +
+                            "(use ['0.0.0.0/0'] to intentionally allow the whole internet)."
                     );
                 }
             }
@@ -171,16 +205,65 @@ class AuroraBuilder extends InfrastructureBuilder {
                 'database.postgres.connectivity="public" exposes the Aurora endpoint to the internet. ' +
                     'TLS is enforced (sslmode=require) and access is restricted to allowedCidrs, but prefer "vpc" for production.'
             );
-            const cidrs = Array.isArray(dbConfig.allowedCidrs) ? dbConfig.allowedCidrs : ['0.0.0.0/0'];
+            // Only the default fallback (empty array is now an error above) or an
+            // explicit 0.0.0.0/0 reaches here as "whole internet".
+            const cidrs =
+                Array.isArray(dbConfig.allowedCidrs) && dbConfig.allowedCidrs.length > 0
+                    ? dbConfig.allowedCidrs
+                    : ['0.0.0.0/0'];
             if (cidrs.includes('0.0.0.0/0')) {
                 result.addWarning(
                     'database.postgres.allowedCidrs allows 0.0.0.0/0 (the whole internet). ' +
                         'Narrow this to known egress ranges wherever the deployment can.'
                 );
             }
+
+            // Public connectivity only makes Frigg place the cluster in public
+            // subnets when Frigg CREATES the cluster (management='managed'). In
+            // discover/use-existing mode Frigg cannot flip an existing cluster to
+            // public subnets / PubliclyAccessible, yet the Lambda is still detached
+            // from the VPC — so if the existing cluster is private it becomes
+            // unreachable. Warn loudly. (management defaults to 'discover'.)
+            const mgmt = dbConfig.management || 'discover';
+            if (mgmt === 'discover' || mgmt === 'use-existing') {
+                result.addWarning(
+                    `database.postgres.connectivity="public" with management="${mgmt}" assumes the EXISTING Aurora cluster ` +
+                        'is already publicly accessible. Frigg detaches the Lambda from the VPC in public mode, so a private ' +
+                        'existing cluster will be unreachable. Ensure the cluster has a public endpoint and open security group.'
+                );
+            }
+            if (mgmt === 'use-existing') {
+                result.addWarning(
+                    'database.postgres.connectivity="public" with management="use-existing" only affects TLS (sslmode=require) on the ' +
+                        'connection string — Frigg does not manage the existing cluster\'s subnets or ingress.'
+                );
+            }
         }
 
         return result;
+    }
+
+    /**
+     * Validate an IPv4 CIDR string with real numeric range checks (each octet
+     * 0–255, prefix 0–32) — not just shape — so values like 999.999.999.999/99
+     * are rejected. IPv4 only; IPv6 is out of scope for allowedCidrs.
+     * @param {string} cidr
+     * @returns {boolean}
+     */
+    isValidIpv4Cidr(cidr) {
+        if (typeof cidr !== 'string') {
+            return false;
+        }
+        const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/.exec(cidr);
+        if (!match) {
+            return false;
+        }
+        const octets = [match[1], match[2], match[3], match[4]].map(Number);
+        if (octets.some((o) => o > 255)) {
+            return false;
+        }
+        const prefix = Number(match[5]);
+        return prefix >= 0 && prefix <= 32;
     }
 
     /**
@@ -429,9 +512,14 @@ class AuroraBuilder extends InfrastructureBuilder {
             }
         }
 
-        // Preserve other database config.
-        // NOTE: use `!== undefined` (not truthiness) so a requested minCapacity
-        // of 0 (scale-to-zero) flows through instead of being dropped.
+        // Mirror config into translated.database.postgres.config for completeness.
+        // NOTE: this is NOT the load-bearing path — createNewAurora/discoverAurora
+        // read the TOP-LEVEL database.postgres fields (preserved by the deep clone
+        // above), and 0-propagation for scale-to-zero comes from that clone plus the
+        // `?? 0.5` in the scaling config, not from here. These `.config.*` copies are
+        // kept only so any future consumer that reads `config` sees the same values;
+        // `!== undefined` (not truthiness) is used so a minCapacity of 0 is mirrored
+        // rather than dropped.
         if (appDefinition.database?.postgres?.minCapacity !== undefined) {
             translated.database.postgres.config.minCapacity = appDefinition.database.postgres.minCapacity;
         }
@@ -679,6 +767,12 @@ class AuroraBuilder extends InfrastructureBuilder {
             throw new Error('database.postgres.endpoint is required when management="use-existing"');
         }
 
+        // ADR-033: for use-existing, `connectivity` only affects TLS on the
+        // connection params — Frigg does not own the cluster, so it manages neither
+        // its subnets nor its ingress (the validator warns about this). Public mode
+        // still requires TLS, so append sslmode=require.
+        const publicConnectivity = dbConfig.connectivity === 'public';
+
         // Set environment variables for existing cluster
         result.environment.DATABASE_HOST = dbConfig.endpoint;
         result.environment.DATABASE_PORT = String(dbConfig.port || 5432);
@@ -687,7 +781,9 @@ class AuroraBuilder extends InfrastructureBuilder {
         // Consumers that build DATABASE_URL from components at runtime MUST
         // append `?${DATABASE_URL_PARAMS}` to get the same hang-prevention
         // timeouts as the managed path.
-        result.environment.DATABASE_URL_PARAMS = LAMBDA_DATABASE_URL_QUERY_PARAMS;
+        result.environment.DATABASE_URL_PARAMS = publicConnectivity
+            ? `${LAMBDA_DATABASE_URL_QUERY_PARAMS}&sslmode=require`
+            : LAMBDA_DATABASE_URL_QUERY_PARAMS;
 
         console.log(`  ✅ Using existing cluster: ${dbConfig.endpoint}`);
     }
