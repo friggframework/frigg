@@ -131,25 +131,6 @@ describe('Module credential reload (ADR-031 option 4)', () => {
         expect(result).toBeNull();
     });
 
-    it('tolerates a nested data shape as well', async () => {
-        // Entity hydration carries tokens under credential.data. If a future
-        // adapter returns that shape from findCredentialById, the reload must
-        // still work.
-        const module = makeModule({
-            storedRow: {
-                id: 'cred-1',
-                data: { access_token: 'a3', refresh_token: 'r3' },
-            },
-        });
-
-        const result = await module.receiveNotification(
-            module.api,
-            'CREDENTIAL_RELOAD'
-        );
-
-        expect(result).toEqual({ access_token: 'a3', refresh_token: 'r3' });
-    });
-
     it('returns null when the module holds no credential id', async () => {
         const module = makeModule({
             storedRow: { id: 'x', access_token: 'a', refresh_token: 'r' },

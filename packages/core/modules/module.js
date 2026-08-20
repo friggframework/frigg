@@ -154,23 +154,21 @@ class Module extends Delegate {
     }
 
     /**
-     * Re-reads the credential row so the requester can adopt a concurrent
-     * invocation's refresh instead of racing it (ADR-031). Read-only by
-     * design: routing the reload through setTokens()/onTokenUpdate would
-     * write to the database and resurrect a credential an operator disabled.
-     *
-     * @returns {Promise<Object|null>} The persisted token fields, or null.
+     * Re-reads the credential row from the database so the requester can
+     * adopt a concurrent invocation's refresh instead of racing it (ADR-031).
+     * @returns {Promise<Object|null>} The persisted token fields, or null
+     *   when no credential row is available; the requester treats null as
+     *   "nothing to adopt" and proceeds with its own refresh.
      */
     async reloadCredential() {
         if (!this.credential?.id) return null;
-        const fresh = await this.credentialRepository.findCredentialById(
-            this.credential.id
-        );
-        if (!fresh) return null;
-        this.credential = fresh;
-        // Repository adapters spread the decrypted token fields at the top
-        // level; entity hydration nests them under `data`. Accept both.
-        return this.apiParamsFromCredential(fresh.data ?? fresh);
+        const freshFromDatabase =
+            await this.credentialRepository.findCredentialById(
+                this.credential.id
+            );
+        if (!freshFromDatabase) return null;
+        this.credential = freshFromDatabase;
+        return this.apiParamsFromCredential(freshFromDatabase);
     }
 
     async markCredentialsInvalid(diagnosticInfo = null) {
