@@ -15,9 +15,12 @@ How much of the integration's *own* data goes away depends on which database you
 
 | Backend | What happens | Result |
 |---|---|---|
-| PostgreSQL | Real foreign keys with `ON DELETE CASCADE` | Mappings, syncs, associations and processes are removed |
-| MongoDB | Same `onDelete: Cascade` in the schema, but no real foreign keys — Prisma emulates it | Usually removed, and the repo already warns against relying on it (`user-repository-mongo.js`) |
+| PostgreSQL | Real foreign keys with `ON DELETE CASCADE` | Mappings, associations and processes are removed |
+| MongoDB | Same `onDelete: Cascade` in the schema, but no real foreign keys — Prisma emulates it | The same set, usually. The repo already warns against relying on it (`user-repository-mongo.js`) |
 | DocumentDB | The adapter deletes through `$runCommandRaw`, which bypasses Prisma's query engine | Nothing cascades. Every child row is orphaned too |
+
+Syncs are the exception on every backend. The cascade is declared, but `Sync.integrationId` is
+never written, so it has never matched a row — see the fourth bug below.
 
 So the schema says one thing and the behaviour is three different things. DocumentDB is the
 worst affected and the least obvious, because the schema *does* say `Cascade`.
@@ -78,7 +81,10 @@ The rules:
 
 Order matters, so the steps run children first and the integration row last:
 
-1. Delete mappings, processes, syncs and associations.
+1. Delete mappings, processes and associations by integration id. Delete syncs by integration id
+   **or** by the integration's entity ids — the second half matters, because matching on
+   `Sync.integrationId` alone would delete nothing today. Scope it to *those* entity ids, never
+   to "where `integrationId` is null", which would take every parentless sync in the database.
 2. For each entity: count the *other* integrations using it. Skip it if any remain, if it is
    marked global, or if its `userId` does not match. Otherwise delete it, and remember its
    credential id.
