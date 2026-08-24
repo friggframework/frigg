@@ -1,7 +1,7 @@
 const { OAuth2Requester } = require('./oauth-2');
 
 /**
- * ADR-031 option 4: the reactive database check.
+ * The reactive database check.
  *
  * Before each refresh, and after an invalid_grant, the requester asks its
  * delegate (the Module) for the stored credential via DLGT_CREDENTIAL_RELOAD.
@@ -62,7 +62,7 @@ function transportError(status) {
     return err;
 }
 
-describe('OAuth2Requester credential reload (ADR-031 option 4)', () => {
+describe('OAuth2Requester credential reload', () => {
     describe('adoption before a refresh', () => {
         it('adopts the stored tokens and skips the refresh when the store is newer', async () => {
             const { requester, delegate } = makeRequester({

@@ -8,10 +8,11 @@ jest.mock('../database/config', () => ({
 const { Module } = require('./module');
 
 /**
- * ADR-031 option 4, Module side. DLGT_CREDENTIAL_RELOAD asks the Module for
- * the currently stored credential. The Module reads the row by id, updates
- * its own this.credential, and returns the token fields the api persists.
- * The reload never writes anything, and it never touches authIsValid.
+ * Module side of the credential reload. DLGT_CREDENTIAL_RELOAD asks the
+ * Module for the currently stored credential. The Module reads the row by
+ * id, updates its own this.credential, and returns the token fields the api
+ * persists. The reload never writes anything, and it never touches
+ * authIsValid.
  */
 
 class MockApi {
@@ -69,7 +70,7 @@ function makeModule({ storedRow, credentialId = 'cred-1' } = {}) {
     return module;
 }
 
-describe('Module credential reload (ADR-031 option 4)', () => {
+describe('Module credential reload', () => {
     it('returns the stored token fields on DLGT_CREDENTIAL_RELOAD', async () => {
         // Real adapter shape: findCredentialById spreads the decrypted token
         // fields at the TOP LEVEL (credential-repository-mongo.js `...data`).

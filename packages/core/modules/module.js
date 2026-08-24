@@ -155,8 +155,7 @@ class Module extends Delegate {
 
     /**
      * Re-reads the credential row from the database. The requester can then
-     * adopt a concurrent invocation's refresh and does not race it
-     * (ADR-031).
+     * adopt a concurrent invocation's refresh and does not race it.
      * @returns {Promise<Object|null>} The persisted token fields, or null
      *   when no credential row is available. The requester treats null as
      *   "nothing to adopt" and continues with its own refresh.

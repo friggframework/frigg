@@ -154,7 +154,7 @@ describe('OAuth2Requester', () => {
             );
         });
 
-        it('rethrows a non-definitive refresh error without invalidating (ADR-031)', async () => {
+        it('rethrows a non-definitive refresh error without invalidating', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'authorization_code',
                 refresh_token: 'test-refresh-token',
