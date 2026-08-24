@@ -3,12 +3,12 @@ const { OAuth2Requester } = require('./oauth-2');
 /**
  * ADR-031 option 4: the reactive database check.
  *
- * Before any refresh, and after an invalid_grant, the requester asks its
+ * Before each refresh, and after an invalid_grant, the requester asks its
  * delegate (the Module) for the stored credential via DLGT_CREDENTIAL_RELOAD.
- * If the stored refresh_token differs from the in-memory one, another
- * invocation already refreshed: adopt the stored tokens and do not refresh.
- * Only a definitive authorization rejection with nothing newer in the store
- * may invalidate the credential. Transport failures stay retryable.
+ * If the stored refresh_token differs from the in-memory copy, another
+ * invocation refreshed already. Then adopt the stored tokens and do not
+ * refresh. Only a definitive rejection with nothing newer in the store can
+ * invalidate the credential. Transport failures stay retryable.
  */
 
 /** Minimal delegate double standing in for Module. */
@@ -93,9 +93,9 @@ describe('OAuth2Requester credential reload (ADR-031 option 4)', () => {
             });
             const generationBefore = requester._authGeneration;
 
-            // Through the slot, like the 401 path: the generation must bump
-            // exactly once per adoption (a second bump inside
-            // _adoptNewerCredential would make this +2).
+            // Go through the slot, like the 401 path. The generation must
+            // increase exactly one time per adoption. A second increase
+            // inside _adoptNewerCredential makes this +2 and fails the test.
             await requester._refreshAuthOnce();
 
             expect(requester._authGeneration).toBe(generationBefore + 1);

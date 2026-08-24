@@ -8,10 +8,11 @@ const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 const MAX_AUTH_RETRIES = 3;
 
-// Marks the async context of an in-progress refreshAuth(). Token requests
-// re-enter _rawRequest (via this._post), so a 401 raised inside the refresh
-// must fail fast — joining the in-flight refresh would await its own promise.
-// AsyncLocalStorage reaches those nested calls without subclass cooperation.
+// This context marks the async call chain of an active refreshAuth().
+// Token requests re-enter _rawRequest through this._post. A 401 from inside
+// the refresh must fail fast: if it joins the refresh in flight, it awaits
+// its own promise and hangs. AsyncLocalStorage reaches the nested calls
+// without help from the subclasses.
 const refreshContext = new AsyncLocalStorage();
 
 class Requester extends Delegate {
@@ -21,10 +22,10 @@ class Requester extends Delegate {
         this.isRefreshable = false;
         this.refreshCount = 0;
         this.authGraceRetryCount = 0;
-        // Concurrent 401s share one refreshAuth() run; see _refreshAuthOnce().
+        // Concurrent 401s share one refreshAuth() run. See _refreshAuthOnce().
         this._inFlightRefresh = null;
-        // Bumped when the tokens change, so a stale 401 (token already
-        // replaced) retries instead of refreshing again.
+        // This counter increases when the tokens change. A stale 401 (the
+        // token changed already) then retries and does not refresh again.
         this._authGeneration = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
@@ -196,8 +197,8 @@ class Requester extends Delegate {
 
         options.headers = await this.addAuthHeaders(options.headers);
 
-        // A 401 that lands after a concurrent refresh is stale, not proof
-        // that the new token failed.
+        // A 401 that arrives after a concurrent refresh is stale. It is not
+        // proof that the new token failed.
         const authGenerationAtDispatch = this._authGeneration;
 
         if (this.agent) options.agent = this.agent;
@@ -282,9 +283,9 @@ class Requester extends Delegate {
             }
 
             if (status === 401) {
-                // A 401 inside the refresh flow means the credential itself
-                // was rejected (invalid_client). Refreshing again cannot help,
-                // and joining the in-flight refresh would await this very call.
+                // A 401 from inside the refresh flow means the provider
+                // rejected the credential itself (invalid_client). A new
+                // refresh cannot help. A join would await this same call.
                 if (this._isInsideRefreshFlow()) {
                     throw await this._invalidateAuth(
                         encodedUrl,
@@ -296,8 +297,8 @@ class Requester extends Delegate {
                 const tokenReplacedWhileInFlight =
                     this._authGeneration !== authGenerationAtDispatch;
                 if (this.isRefreshable && tokenReplacedWhileInFlight) {
-                    // The current token was never tried. Retry with it instead
-                    // of spending another provider-side rotation.
+                    // This request did not try the current token. Retry with
+                    // it. Do not spend one more provider-side rotation.
                     clearRequestTimer();
                     return this._rawRequest(url, options, attempt + 1);
                 }
@@ -326,9 +327,9 @@ class Requester extends Delegate {
                     );
                 }
 
-                // Concurrent 401s share one refresh: independent refreshes
-                // rotate the credential out from under each other (single-use
-                // refresh tokens), and only the initiator spends the budget.
+                // Concurrent 401s share one refresh. Independent refreshes
+                // kill each other, because many providers use single-use
+                // refresh tokens. Only the initiator spends the retry budget.
                 const refreshAlreadyInFlight = Boolean(this._inFlightRefresh);
 
                 if (
@@ -475,17 +476,18 @@ class Requester extends Delegate {
     }
 
     /**
-     * Runs refreshAuth() at most once at a time. The first caller starts it;
-     * callers arriving while it is in flight await the same promise. The
-     * check-and-store is synchronous, so concurrent callers on the event loop
+     * Runs one refreshAuth() at a time. The first caller starts the refresh.
+     * Callers that arrive during the refresh await the same promise. The
+     * check-and-store step is synchronous. Thus two concurrent callers
      * cannot both start a refresh.
      *
-     * @returns {Promise<boolean>} Whether the refresh succeeded.
+     * @returns {Promise<boolean>} True if the refresh succeeded.
      */
     _refreshAuthOnce() {
         if (!this._inFlightRefresh) {
-            // .finally must stay last: the stored promise is the one that
-            // clears the slot, so the slot is free before any waiter resumes.
+            // Keep .finally last. The stored promise must be the promise
+            // that clears the slot. Then the slot is free before a waiter
+            // resumes.
             this._inFlightRefresh = this._runMarkedRefresh().finally(() => {
                 this._inFlightRefresh = null;
             });

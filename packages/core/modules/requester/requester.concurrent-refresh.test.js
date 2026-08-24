@@ -2,10 +2,10 @@ const { Requester } = require('./requester');
 const { OAuth2Requester } = require('./oauth-2');
 
 /**
- * Models the upstream's auth state. Mirrors QuickBooks/Intuit semantics: a
- * successful refresh rotates BOTH tokens and force-expires the previous
- * refresh token, so a second caller presenting the pre-rotation refresh
- * token gets `invalid_grant`.
+ * Models the upstream's auth state with QuickBooks/Intuit semantics. A
+ * successful refresh rotates BOTH tokens and kills the previous refresh
+ * token. A second caller that presents the old refresh token gets
+ * `invalid_grant`.
  */
 function makeUpstream() {
     return {
@@ -29,9 +29,10 @@ function makeUpstream() {
 }
 
 /**
- * Requester double that records how many refreshes ran and how many ran
- * concurrently. `releaseRefresh` holds every in-flight refresh open at once so
- * the concurrency window is deterministic rather than timing-dependent.
+ * Requester double. It records how many refreshes ran, and how many ran at
+ * the same time. `releaseRefresh` holds all in-flight refreshes open at
+ * once. The concurrency window is then deterministic and does not depend on
+ * timing.
  */
 class ConcurrentRefreshRequester extends Requester {
     constructor(params) {

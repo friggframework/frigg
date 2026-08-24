@@ -61,9 +61,9 @@ class OAuth2Requester extends Requester {
         /** @type {string} Delegate type for token deauthorization notifications */
         this.DLGT_TOKEN_DEAUTHORIZED = 'TOKEN_DEAUTHORIZED';
         /**
-         * @type {string} Delegate type asking the Module for the stored
-         * credential, so a concurrent invocation's refresh can be adopted
-         * instead of raced. See _adoptNewerCredential.
+         * @type {string} Delegate type that asks the Module for the stored
+         * credential. The requester can then adopt a concurrent invocation's
+         * refresh and does not race it. See _adoptNewerCredential.
          */
         this.DLGT_CREDENTIAL_RELOAD = 'CREDENTIAL_RELOAD';
 
@@ -72,9 +72,10 @@ class OAuth2Requester extends Requester {
         this.delegateTypes.push(this.DLGT_CREDENTIAL_RELOAD);
 
         /**
-         * Re-read delays after an invalid_grant, in ms. The winner's write can
-         * lag the loser's rejection (716ms observed in production), so back
-         * off before concluding the credential is dead. Injectable for tests.
+         * Re-read delays after an invalid_grant, in ms. The winner's write
+         * can arrive after the loser's rejection (716 ms measured in
+         * production). Wait between re-reads before you decide that the
+         * credential is dead. Tests can inject other values.
          */
         this.credentialReloadBackoffMs = params?.credentialReloadBackoffMs ?? [
             500, 1000, 1500,
@@ -347,12 +348,14 @@ class OAuth2Requester extends Requester {
 
             if (await this._adoptNewerCredentialWithBackoff()) return true;
 
-            // Rejected AND nothing newer in the store: genuinely dead.
+            // The provider rejected the grant, and the store has nothing
+            // newer. The credential is dead.
             this.telemetry?.count?.('frigg.auth.refresh_race_lost', 1, {
                 module: this._telemetryModuleLabel(),
             });
-            // Status only: the refresh body carries client_secret, and
-            // FetchError embeds the body in its message outside prod.
+            // Send the status only. The refresh body contains the
+            // client_secret, and FetchError puts the body in its message
+            // outside prod.
             await this.notify(this.DLGT_INVALID_AUTH, {
                 statusCode: error?.statusCode,
             });
@@ -361,11 +364,12 @@ class OAuth2Requester extends Requester {
     }
 
     /**
-     * A timeout, 429, or 5xx from the token endpoint says nothing about the
-     * credential, so it must stay retryable: the caller fails loudly (worker
-     * throw → SQS retry → DLQ) without flagging a healthy credential. Built
-     * as a fresh Error because outside prod the original message can embed
-     * the request body, which carries client_secret.
+     * A timeout, a 429, or a 5xx from the token endpoint says nothing about
+     * the credential. The error must stay retryable: the caller fails loudly
+     * (worker throw → SQS retry → DLQ) and does not flag a healthy
+     * credential. This is a fresh Error on purpose. Outside prod, the
+     * original message can contain the request body, and the body carries
+     * the client_secret.
      */
     _transportFailureError(error, moduleName) {
         const status =
@@ -380,9 +384,10 @@ class OAuth2Requester extends Requester {
     }
 
     /**
-     * A definitive rejection may mean another invocation consumed this
-     * refresh token first, and its write may not be readable yet. Re-read on
-     * a bounded backoff before concluding the credential is dead.
+     * A definitive rejection can mean that another invocation consumed this
+     * refresh token first. That invocation's write can be unreadable for a
+     * short time. Re-read with a bounded backoff before you decide that the
+     * credential is dead.
      */
     async _adoptNewerCredentialWithBackoff() {
         for (const delayMs of this.credentialReloadBackoffMs) {
@@ -402,11 +407,11 @@ class OAuth2Requester extends Requester {
     }
 
     /**
-     * True when the token endpoint definitively refused the grant. Per RFC
-     * 6749 §5.2 that is a 400 (or 401 for invalid_client); 429/5xx are never
-     * a verdict on the credential. Body markers are only a fallback for
-     * SDK-shaped errors without a status code — production FetchErrors are
-     * body-sanitized, so a marker cannot be the primary signal.
+     * True when the token endpoint refused the grant. RFC 6749 §5.2 sets
+     * the status: 400, or 401 for invalid_client. A 429 or a 5xx is never a
+     * verdict on the credential. Body markers are only a fallback for SDK
+     * errors that have no status code. Production FetchErrors have a
+     * sanitized body, so a marker cannot be the primary signal.
      */
     _isDefinitiveAuthRejection(error) {
         const status =
@@ -427,12 +432,13 @@ class OAuth2Requester extends Requester {
 
     /**
      * Adopts the credential stored in the database if it is newer than the
-     * credential from the instance. Newer is decided on the refresh token —
-     * a provider can rotate it while returning an identical access-token
-     * string. Read-only, and a reload failure is non-fatal: a database blip
-     * must not change auth behavior.
+     * credential from the instance. The refresh token decides "newer": a
+     * provider can rotate it and return an identical access-token string.
+     * The reload only reads. A reload failure is not fatal: a database blip
+     * must not change the auth behavior.
      *
-     * @returns {Promise<boolean>} True when a newer credential was adopted.
+     * @returns {Promise<boolean>} True if the module adopted a newer
+     *   credential.
      */
     async _adoptNewerCredential() {
         let stored = null;
