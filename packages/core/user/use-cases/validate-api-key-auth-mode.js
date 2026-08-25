@@ -56,6 +56,48 @@ function validateApiKeyAuthMode(userConfig, moduleDefinitions = []) {
             );
         }
     }
+
+    // allowedOrigins, when present, MUST be an array. A bare string would be
+    // iterated character-by-character by the Origin/Referer allowlist check
+    // (`allowed.includes(candidate)` on a string tests substrings), silently
+    // widening or breaking CSRF enforcement.
+    if (
+        config.allowedOrigins !== undefined &&
+        !Array.isArray(config.allowedOrigins)
+    ) {
+        throw new Error(
+            'Invalid app definition: user.authModes.apiKey.allowedOrigins must be an array of origin strings.'
+        );
+    }
+
+    // rateLimit, when present, must be an object whose numeric knobs are positive
+    // finite numbers. A `0`, negative, or NaN would disable or corrupt the
+    // limiter (e.g. maxPerKey:0 rejects every request; windowMs:NaN never rolls),
+    // so fail fast at wiring time rather than shipping a broken oracle guard.
+    if (config.rateLimit !== undefined) {
+        if (
+            typeof config.rateLimit !== 'object' ||
+            config.rateLimit === null ||
+            Array.isArray(config.rateLimit)
+        ) {
+            throw new Error(
+                'Invalid app definition: user.authModes.apiKey.rateLimit must be an object.'
+            );
+        }
+        for (const field of ['maxPerKey', 'maxGlobal', 'windowMs']) {
+            const value = config.rateLimit[field];
+            if (
+                value !== undefined &&
+                (typeof value !== 'number' ||
+                    !Number.isFinite(value) ||
+                    value <= 0)
+            ) {
+                throw new Error(
+                    `Invalid app definition: user.authModes.apiKey.rateLimit.${field} must be a positive finite number.`
+                );
+            }
+        }
+    }
 }
 
 module.exports = { validateApiKeyAuthMode };

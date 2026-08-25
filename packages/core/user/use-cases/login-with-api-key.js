@@ -118,13 +118,16 @@ class LoginWithApiKey {
             throw invalidCredentials();
         }
 
-        // Allowlist = the explicit `modules` array if present, else the single
-        // `module`. Never an open set.
-        const allowlist = Array.isArray(config.modules)
-            ? config.modules
-            : config.module
-            ? [config.module]
-            : [];
+        // Allowlist = the UNION of the explicit `modules` array and the single
+        // `module` (matching validateApiKeyAuthMode's own union). This keeps the
+        // resolver and the wiring-time validator in agreement: a config like
+        // `{ modules: [], module: 'reevo' }` passes validation AND resolves to
+        // ['reevo'] here, rather than validation passing while the resolver saw
+        // an empty list and rejected every login. Never an open set.
+        const allowlist = [
+            ...(Array.isArray(config.modules) ? config.modules : []),
+            ...(config.module ? [config.module] : []),
+        ];
 
         if (allowlist.length === 0) {
             throw invalidCredentials();
@@ -192,7 +195,11 @@ class LoginWithApiKey {
                 ? providerUnavailable()
                 : invalidCredentials();
         }
-        if (!isValid) {
+        // Require a STRICT boolean pass. A module that returns a truthy value on
+        // a bad key (e.g. an error object, a non-empty string, a response body)
+        // must NOT clear the validity gate — only an explicit `true` does. The
+        // login-path contract for testAuthRequest is: throw, or return `true`.
+        if (isValid !== true) {
             throw invalidCredentials();
         }
 
@@ -213,12 +220,15 @@ class LoginWithApiKey {
         }
 
         const externalId = entityDetails?.identifiers?.externalId;
+        // Require a scalar, string-or-number identifier. Anything else (an
+        // object, array, boolean, null/undefined) is NOT a stable identifier and
+        // must be rejected rather than String()-coerced into a bogus one like
+        // "[object Object]" (ADR-034 §Security requirement 1).
         if (
-            externalId === undefined ||
-            externalId === null ||
+            (typeof externalId !== 'string' &&
+                typeof externalId !== 'number') ||
             String(externalId).trim() === ''
         ) {
-            // No stable identifier → reject (ADR-034 §Security requirement 1).
             throw invalidCredentials();
         }
 
@@ -250,13 +260,26 @@ class LoginWithApiKey {
             moduleName
         );
 
+        // Namespace the provider identity by the RESOLVED module. In a
+        // multi-module allowlist two different providers can legitimately return
+        // the SAME externalId (e.g. both use the numeric account id "42"); a bare
+        // externalId would then collapse those two distinct tenants onto one
+        // Frigg user. Prefixing with the module keeps them separate for BOTH the
+        // org-user and individual-user identity.
+        const identity = `${moduleName}:${externalId}`;
+
         // Find-or-create the Frigg user from the PROVIDER-DERIVED identity only.
         // A client-supplied appOrgId/appUserId is never read here — the caller
         // passes nothing but the key and (optionally) the allowlisted module.
         const useOrg = this.userConfig.organizationUserRequired === true;
-        const appOrgId = useOrg ? externalId : undefined;
-        const appUserId = useOrg ? undefined : externalId;
+        const appOrgId = useOrg ? identity : undefined;
+        const appUserId = useOrg ? undefined : identity;
 
+        // NOTE (accepted cleanup debt): the user is found-or-created before the
+        // credential is provisioned below. If ProcessAuthorizationCallback fails,
+        // a user with no credential/entity is left behind. Reordering to create
+        // the credential first is intentionally out of scope here; orphaned users
+        // on partial failure are tolerated and cleaned up out of band.
         const user = await this.getUserFromXFriggHeaders.execute(
             appUserId,
             appOrgId
@@ -269,9 +292,21 @@ class LoginWithApiKey {
         // Create/refresh the Credential + Entity through the same path
         // /api/authorize uses. The key is persisted only as the encrypted
         // Credential — never returned, never logged, never a JWT claim.
-        await this.processAuthorizationCallback.execute(userId, moduleName, {
-            api_key: apiKey,
-        });
+        const callbackResult = await this.processAuthorizationCallback.execute(
+            userId,
+            moduleName,
+            { api_key: apiKey }
+        );
+
+        // Defense-in-depth: never mint a session unless the credential was
+        // actually persisted. A callback that returns without a credential id
+        // means the key was not connected; minting anyway would hand out a
+        // session over a half-provisioned tenant. Fail 500-class, not 401.
+        if (!callbackResult || !callbackResult.credential_id) {
+            throw Boom.badImplementation(
+                'Login failed to create a credential for the api-key identity'
+            );
+        }
 
         // Mint an ordinary, short-lived app-user session token (never admin).
         const token = await this.createTokenForUserId.execute(

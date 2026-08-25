@@ -54,4 +54,115 @@ describe('validateApiKeyAuthMode', () => {
             )
         ).toThrow(/'ghost' is not a registered module/);
     });
+
+    // ---- (4a) empty allowlist ---------------------------------------------
+    it('throws on modules: [] with no module (empty allowlist)', () => {
+        expect(() =>
+            validateApiKeyAuthMode(
+                { authModes: { apiKey: { modules: [] } } },
+                modules
+            )
+        ).toThrow(/names no identity module/);
+    });
+
+    it('accepts modules: [] WITH a module fallback (union semantics)', () => {
+        expect(() =>
+            validateApiKeyAuthMode(
+                { authModes: { apiKey: { modules: [], module: 'reevo' } } },
+                modules
+            )
+        ).not.toThrow();
+    });
+
+    // ---- (4b) allowedOrigins must be an array -----------------------------
+    it('throws when allowedOrigins is a bare string, not an array', () => {
+        expect(() =>
+            validateApiKeyAuthMode(
+                {
+                    authModes: {
+                        apiKey: {
+                            module: 'reevo',
+                            allowedOrigins: 'https://app.example.com',
+                        },
+                    },
+                },
+                modules
+            )
+        ).toThrow(/allowedOrigins must be an array/);
+    });
+
+    it('accepts an array allowedOrigins', () => {
+        expect(() =>
+            validateApiKeyAuthMode(
+                {
+                    authModes: {
+                        apiKey: {
+                            module: 'reevo',
+                            allowedOrigins: ['https://app.example.com'],
+                        },
+                    },
+                },
+                modules
+            )
+        ).not.toThrow();
+    });
+
+    // ---- (4c) rateLimit numeric fields must be positive finite ------------
+    it.each([
+        ['maxPerKey', 0],
+        ['maxPerKey', -5],
+        ['maxGlobal', 0],
+        ['windowMs', -1],
+        ['windowMs', NaN],
+        ['maxGlobal', Infinity],
+    ])('throws when rateLimit.%s is %p', (field, value) => {
+        expect(() =>
+            validateApiKeyAuthMode(
+                {
+                    authModes: {
+                        apiKey: {
+                            module: 'reevo',
+                            rateLimit: { [field]: value },
+                        },
+                    },
+                },
+                modules
+            )
+        ).toThrow(
+            new RegExp(`rateLimit\\.${field} must be a positive finite number`)
+        );
+    });
+
+    it('accepts positive finite rateLimit values', () => {
+        expect(() =>
+            validateApiKeyAuthMode(
+                {
+                    authModes: {
+                        apiKey: {
+                            module: 'reevo',
+                            rateLimit: {
+                                maxPerKey: 10,
+                                maxGlobal: 1000,
+                                windowMs: 60000,
+                            },
+                        },
+                    },
+                },
+                modules
+            )
+        ).not.toThrow();
+    });
+
+    it('throws when rateLimit is not an object', () => {
+        expect(() =>
+            validateApiKeyAuthMode(
+                {
+                    authModes: {
+                        apiKey: { module: 'reevo', rateLimit: 'fast' },
+                    },
+                },
+                modules
+            )
+        ).toThrow(/rateLimit must be an object/);
+    });
 });

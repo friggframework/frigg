@@ -1,7 +1,15 @@
-const {debug, initDebugLog, flushDebugLog} = require('./logger');
+const {
+    debug,
+    initDebugLog,
+    flushDebugLog,
+    redactSensitive,
+    SENSITIVE_KEYS,
+} = require('./logger');
 
 module.exports = {
     debug,
     initDebugLog,
-    flushDebugLog
-}
+    flushDebugLog,
+    redactSensitive,
+    SENSITIVE_KEYS,
+};

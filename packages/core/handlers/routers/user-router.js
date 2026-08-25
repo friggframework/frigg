@@ -6,13 +6,53 @@ const catchAsyncError = require('express-async-handler');
 const LOCAL_STAGES = ['dev', 'test', 'local'];
 
 /**
- * Best-effort client IP for the per-IP rate-limit bucket. Prefers the first hop
- * of X-Forwarded-For (set by API Gateway / proxies), falls back to the socket.
+ * Number of trusted proxies (API Gateway, ALB, CloudFront, …) in front of the
+ * app. The client IP is taken this many hops from the RIGHT of X-Forwarded-For.
+ * Defaults to 1 (the single trusted hop AWS API Gateway adds). Only a positive
+ * finite integer is honored; anything else falls back to 1.
  */
-function getClientIp(req) {
+function trustedProxyDepth(userConfig) {
+    const configured =
+        userConfig?.authModes?.apiKey?.rateLimit?.trustedProxyDepth;
+    if (
+        typeof configured === 'number' &&
+        Number.isInteger(configured) &&
+        configured > 0
+    ) {
+        return configured;
+    }
+    return 1;
+}
+
+/**
+ * Client IP for the per-IP rate-limit bucket, derived from a TRUSTED position in
+ * X-Forwarded-For.
+ *
+ * X-Forwarded-For is `client, proxy1, …, proxyN`, where each trusted proxy
+ * APPENDS the address it received the request from. The LEFTMOST entry is
+ * therefore attacker-controlled (a client can pre-seed it), so keying the limiter
+ * off `split(',')[0]` let an attacker mint a fresh bucket per request and defeat
+ * the per-IP cap entirely. We instead read the entry `trustedProxyDepth` hops
+ * from the right — the value stamped by the first trusted proxy — which the
+ * client cannot forge. Falls back to the socket address when no XFF is present.
+ *
+ * NOTE: `maxGlobal` on the limiter is the only hard in-process ceiling this
+ * endpoint has, and even that is per-container in a multi-instance serverless
+ * deployment. The real per-IP control belongs at the edge (WAF / API Gateway
+ * throttling); this limiter is a floor, not a guarantee.
+ */
+function getClientIp(req, userConfig) {
     const xff = req.headers['x-forwarded-for'];
     if (typeof xff === 'string' && xff.length > 0) {
-        return xff.split(',')[0].trim();
+        const parts = xff
+            .split(',')
+            .map((p) => p.trim())
+            .filter(Boolean);
+        if (parts.length > 0) {
+            const depth = trustedProxyDepth(userConfig);
+            const idx = Math.max(0, parts.length - depth);
+            return parts[idx];
+        }
     }
     return req.ip || req.connection?.remoteAddress || 'unknown';
 }
@@ -50,17 +90,30 @@ function assertOriginAllowed(req, userConfig) {
 
 /**
  * Set the session cookie with the hygiene ADR-034 §7 requires: httpOnly, secure
- * in non-local stages, SameSite. The access token is ALSO returned in the body
- * so token-only (header-bearer) clients work without reading the cookie.
+ * in non-local stages, SameSite. The cookie lifetime is aligned to the session
+ * token TTL so the browser drops the cookie exactly when the token stops being
+ * valid (no stale cookie outliving its token, and no token outliving its cookie).
+ * The access token is ALSO returned in the body so token-only (header-bearer)
+ * clients work without reading the cookie.
+ *
+ * @param {import('express').Response} res
+ * @param {string} token
+ * @param {number} [ttlMinutes=120] - Session token TTL; drives Max-Age/Expires.
  */
-function setSessionCookie(res, token) {
+function setSessionCookie(res, token, ttlMinutes = 120) {
     const isLocal = LOCAL_STAGES.includes(process.env.STAGE);
-    res.cookie('frigg_session', token, {
+    const options = {
         httpOnly: true,
         secure: !isLocal,
         sameSite: 'strict',
         path: '/',
-    });
+    };
+    // Align cookie lifetime to the token TTL (express sets both Max-Age and
+    // Expires from maxAge). Guard against a non-positive/NaN TTL.
+    if (Number.isFinite(ttlMinutes) && ttlMinutes > 0) {
+        options.maxAge = ttlMinutes * 60 * 1000;
+    }
+    res.cookie('frigg_session', token, options);
 }
 
 /**
@@ -104,8 +157,12 @@ function buildUserRouter({
                     throw Boom.unauthorized('Invalid credentials');
                 }
 
-                // Rate limit BEFORE any provider work (oracle protection).
-                const { allowed } = apiKeyLoginLimiter.check(getClientIp(req));
+                // Rate limit BEFORE any provider work (oracle protection). The
+                // bucket key is derived from a trusted XFF position so a client
+                // cannot rotate it to escape the per-IP cap.
+                const { allowed } = apiKeyLoginLimiter.check(
+                    getClientIp(req, userConfig)
+                );
                 if (!allowed) {
                     throw Boom.tooManyRequests('Too many requests');
                 }
@@ -118,7 +175,12 @@ function buildUserRouter({
                     module: body.module,
                 });
 
-                setSessionCookie(res, token);
+                // Align the cookie lifetime to the minted token's TTL.
+                setSessionCookie(
+                    res,
+                    token,
+                    loginWithApiKey.tokenExpiryMinutes ?? 120
+                );
                 res.status(201);
                 res.json({ token });
                 return;

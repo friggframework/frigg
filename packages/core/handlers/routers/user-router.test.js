@@ -151,6 +151,79 @@ describe('POST /user/login (polymorphic)', () => {
                 .send({ apiKey: 'sk_live_abc' });
             expect(res.status).toBe(429);
         });
+
+        it('rotating the LEFTMOST X-Forwarded-For hop does NOT mint a fresh bucket (spoof-resistant)', async () => {
+            const deps = makeDeps(); // maxPerKey = 3
+            const app = mountApp(buildUserRouter(deps));
+
+            // Attacker rotates the client-controlled leftmost hop on every
+            // request but the trusted rightmost hop (stamped by the proxy) is
+            // constant. With a trusted-position IP the bucket is shared, so the
+            // 4th request still trips. (Under the old split(',')[0] behavior each
+            // request would land in a new bucket and all four would be 201.)
+            for (let i = 0; i < 3; i++) {
+                await request(app)
+                    .post('/user/login')
+                    .set('X-Forwarded-For', `10.0.0.${i}, 203.0.113.7`)
+                    .send({ apiKey: 'sk_live_abc' })
+                    .expect(201);
+            }
+            const res = await request(app)
+                .post('/user/login')
+                .set('X-Forwarded-For', '10.0.0.99, 203.0.113.7')
+                .send({ apiKey: 'sk_live_abc' });
+            expect(res.status).toBe(429);
+        });
+
+        it('honors trustedProxyDepth to pick the client IP N hops from the right', async () => {
+            const deps = makeDeps({
+                userConfig: {
+                    authModes: {
+                        apiKey: {
+                            module: 'reevo',
+                            rateLimit: { trustedProxyDepth: 2 },
+                        },
+                    },
+                },
+            });
+            const app = mountApp(buildUserRouter(deps));
+
+            // XFF = spoof, client, proxy. With 2 trusted hops the client IP is
+            // the entry 2 from the right (index length-2). Keeping THAT constant
+            // while the spoofable leftmost hop and the rightmost proxy vary must
+            // still share a bucket and trip at #4.
+            for (let i = 0; i < 3; i++) {
+                await request(app)
+                    .post('/user/login')
+                    .set(
+                        'X-Forwarded-For',
+                        `10.0.0.${i}, 198.51.100.5, 172.16.0.${i}`
+                    )
+                    .send({ apiKey: 'sk_live_abc' })
+                    .expect(201);
+            }
+            const res = await request(app)
+                .post('/user/login')
+                .set('X-Forwarded-For', '10.0.0.9, 198.51.100.5, 172.16.0.9')
+                .send({ apiKey: 'sk_live_abc' });
+            expect(res.status).toBe(429);
+        });
+
+        it('sets a cookie Max-Age aligned to the token TTL', async () => {
+            const deps = makeDeps();
+            deps.loginWithApiKey.tokenExpiryMinutes = 30;
+            const app = mountApp(buildUserRouter(deps));
+
+            const res = await request(app)
+                .post('/user/login')
+                .send({ apiKey: 'sk_live_abc' })
+                .expect(201);
+
+            const cookie = res.headers['set-cookie'][0];
+            // 30 minutes = 1800 seconds.
+            expect(cookie).toMatch(/Max-Age=1800\b/i);
+            expect(cookie).toMatch(/Expires=/i);
+        });
     });
 
     describe('CSRF origin allowlist', () => {

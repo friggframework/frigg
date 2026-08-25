@@ -48,6 +48,23 @@ const moduleDefinitions =
 validateApiKeyAuthMode(userConfig, moduleDefinitions);
 
 const apiKeyModeEnabled = Boolean(userConfig?.authModes?.apiKey);
+
+// One-time wiring-time warning: apiKey mode is enabled but no Origin/Referer
+// allowlist is configured, so the CSRF check (assertOriginAllowed) is a no-op
+// and the SameSite=strict session cookie is the only residual protection. This
+// is intentionally NOT a hard failure — it must not break unconfigured local
+// dev — but adopters serving a browser SPA should set allowedOrigins (ADR-034 §7).
+if (
+    apiKeyModeEnabled &&
+    !Array.isArray(userConfig?.authModes?.apiKey?.allowedOrigins)
+) {
+    // eslint-disable-next-line no-console
+    console.warn(
+        '[Frigg] apiKey auth mode is enabled without user.authModes.apiKey.allowedOrigins. ' +
+            'CSRF Origin/Referer enforcement is OFF; the SameSite=strict session cookie is the only ' +
+            'residual protection. Set allowedOrigins to a list of trusted browser origins to lock this down (ADR-034 §7).'
+    );
+}
 const userRepository = createUserRepository();
 const createIndividualUser = new CreateIndividualUser({
     userRepository,

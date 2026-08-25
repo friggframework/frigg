@@ -57,6 +57,9 @@ function providerError(status) {
 }
 
 const PROVIDER_ORG_ID = 'provider-org-123';
+// The Frigg user identity is namespaced by the resolved module name so two
+// modules returning the same externalId map to distinct tenants.
+const PROVIDER_ORG_IDENTITY = `reevo:${PROVIDER_ORG_ID}`;
 
 // Org-mode config: identity becomes appOrgId (per ADR-034 example).
 const ORG_USER_CONFIG = {
@@ -100,7 +103,13 @@ function makeModuleDefinition(overrides = {}) {
 function buildUseCase({
     userConfig = ORG_USER_CONFIG,
     moduleDefinition = makeModuleDefinition(),
-    processAuthorizationCallback = { execute: jest.fn().mockResolvedValue({}) },
+    processAuthorizationCallback = {
+        execute: jest.fn().mockResolvedValue({
+            credential_id: 'cred-1',
+            entity_id: 'entity-1',
+            type: 'reevo',
+        }),
+    },
     userRepository = new TestUserRepository({ userConfig }),
 } = {}) {
     const getUserFromXFriggHeaders = new GetUserFromXFriggHeaders({
@@ -155,9 +164,10 @@ describe('LoginWithApiKey', () => {
             expect(paramsArg).toEqual({ api_key: 'valid-key' });
             expect(userIdArg).toBe(result.userId);
 
-            // The Frigg user was found-or-created from the PROVIDER identity.
+            // The Frigg user was found-or-created from the PROVIDER identity,
+            // namespaced by the resolved module name.
             const org = await userRepository.findOrganizationUserByAppOrgId(
-                PROVIDER_ORG_ID
+                PROVIDER_ORG_IDENTITY
             );
             expect(org).toBeTruthy();
             expect(org.id).toBe(result.userId);
@@ -234,7 +244,7 @@ describe('LoginWithApiKey', () => {
             // The user is bound to the PROVIDER org id, never the attacker's.
             const provider =
                 await userRepository.findOrganizationUserByAppOrgId(
-                    PROVIDER_ORG_ID
+                    PROVIDER_ORG_IDENTITY
                 );
             expect(provider).toBeTruthy();
             expect(provider.id).toBe(result.userId);
@@ -268,7 +278,7 @@ describe('LoginWithApiKey', () => {
 
             const provider =
                 await userRepository.findOrganizationUserByAppOrgId(
-                    'provider-authoritative-999'
+                    'reevo:provider-authoritative-999'
                 );
             expect(provider.id).toBe(result.userId);
             expect(
@@ -487,6 +497,22 @@ describe('LoginWithApiKey', () => {
                 useCase.execute({ apiKey: 'valid-key' })
             ).rejects.toMatchObject({ output: { statusCode: 401 } });
         });
+
+        it('resolves via `module` fallback when `modules` is an empty array (union semantics agree with validation)', async () => {
+            const moduleDefinition = makeModuleDefinition();
+            const { useCase } = buildUseCase({
+                userConfig: {
+                    primary: 'organization',
+                    organizationUserRequired: true,
+                    individualUserRequired: false,
+                    authModes: { apiKey: { modules: [], module: 'reevo' } },
+                },
+                moduleDefinition,
+            });
+            const result = await useCase.execute({ apiKey: 'valid-key' });
+            expect(result.module).toBe('reevo');
+            expect(result.token).toBeTruthy();
+        });
     });
 
     describe('session scope (ordinary app user, not admin)', () => {
@@ -515,10 +541,208 @@ describe('LoginWithApiKey', () => {
             );
 
             expect(resolved.getId()).toBe(userId);
-            expect(resolved.getAppOrgId()).toBe(PROVIDER_ORG_ID);
+            expect(resolved.getAppOrgId()).toBe(PROVIDER_ORG_IDENTITY);
             // No admin/role field is set anywhere on the principal.
             expect(resolved.organizationUser.isAdmin).toBeUndefined();
             expect(resolved.organizationUser.role).toBeUndefined();
+        });
+    });
+
+    describe('module-namespaced identity (multi-module allowlist collision)', () => {
+        // A subclass of the double whose ids increment deterministically, so two
+        // org users created in the same millisecond cannot collide on `Date.now()`
+        // — the collision we are proving is namespace-driven, not clock-driven.
+        class CountingUserRepository extends TestUserRepository {
+            constructor(args) {
+                super(args);
+                this._seq = 0;
+            }
+            async createOrganizationUser(params) {
+                const orgUserData = {
+                    ...params,
+                    id: `org-${(this._seq += 1)}`,
+                };
+                this.organizationUsers.set(orgUserData.id, orgUserData);
+                return orgUserData;
+            }
+        }
+
+        const MULTI_CONFIG = {
+            primary: 'organization',
+            organizationUserRequired: true,
+            individualUserRequired: false,
+            authModes: { apiKey: { modules: ['reevo', 'acme'] } },
+        };
+
+        function moduleDefReturning(moduleName, externalId) {
+            const def = makeModuleDefinition({
+                getEntityDetails: jest.fn().mockResolvedValue({
+                    identifiers: { externalId },
+                    details: {},
+                }),
+            });
+            def.moduleName = moduleName;
+            def.modelName = moduleName;
+            return def;
+        }
+
+        it('two modules returning the SAME externalId produce DISTINCT Frigg userIds', async () => {
+            const sharedId = 'shared-account-42';
+            const reevoDef = moduleDefReturning('reevo', sharedId);
+            const acmeDef = moduleDefReturning('acme', sharedId);
+
+            const userRepository = new CountingUserRepository({
+                userConfig: MULTI_CONFIG,
+            });
+            const getUserFromXFriggHeaders = new GetUserFromXFriggHeaders({
+                userRepository,
+                userConfig: MULTI_CONFIG,
+            });
+            const createTokenForUserId = new CreateTokenForUserId({
+                userRepository,
+            });
+            const processAuthorizationCallback = {
+                execute: jest.fn().mockResolvedValue({
+                    credential_id: 'cred-1',
+                    entity_id: 'entity-1',
+                }),
+            };
+
+            const useCase = new LoginWithApiKey({
+                userConfig: MULTI_CONFIG,
+                moduleDefinitions: [reevoDef, acmeDef],
+                getUserFromXFriggHeaders,
+                processAuthorizationCallback,
+                createTokenForUserId,
+                ModuleClass: FakeModule,
+            });
+
+            const r1 = await useCase.execute({
+                apiKey: 'reevo-key',
+                module: 'reevo',
+            });
+            const r2 = await useCase.execute({
+                apiKey: 'acme-key',
+                module: 'acme',
+            });
+
+            // The whole point: identical provider externalId, DIFFERENT tenants.
+            // (Drop the `${moduleName}:` prefix in the use case and these become
+            // the same user — the mutation this test guards.)
+            expect(r1.userId).toBeTruthy();
+            expect(r2.userId).toBeTruthy();
+            expect(r1.userId).not.toBe(r2.userId);
+
+            expect(
+                await userRepository.findOrganizationUserByAppOrgId(
+                    `reevo:${sharedId}`
+                )
+            ).toBeTruthy();
+            expect(
+                await userRepository.findOrganizationUserByAppOrgId(
+                    `acme:${sharedId}`
+                )
+            ).toBeTruthy();
+            // The bare (un-namespaced) identity was never used as a key.
+            expect(
+                await userRepository.findOrganizationUserByAppOrgId(sharedId)
+            ).toBeFalsy();
+        });
+    });
+
+    describe('strict testAuthRequest gate (truthy != pass)', () => {
+        it('a truthy error OBJECT from testAuthRequest does not clear the gate (401)', async () => {
+            const moduleDefinition = makeModuleDefinition({
+                // A module that returns a truthy value (an error object) instead
+                // of throwing on a bad key must still be rejected.
+                testAuthRequest: jest
+                    .fn()
+                    .mockResolvedValue({ error: 'nope', ok: false }),
+            });
+            const { useCase, processAuthorizationCallback } = buildUseCase({
+                moduleDefinition,
+            });
+
+            await expect(
+                useCase.execute({ apiKey: 'bad-key' })
+            ).rejects.toMatchObject({ output: { statusCode: 401 } });
+            // getEntityDetails / credential creation must never be reached.
+            expect(
+                moduleDefinition.requiredAuthMethods.getEntityDetails
+            ).not.toHaveBeenCalled();
+            expect(processAuthorizationCallback.execute).not.toHaveBeenCalled();
+        });
+
+        it('a truthy non-boolean (non-empty string) also fails the gate (401)', async () => {
+            const moduleDefinition = makeModuleDefinition({
+                testAuthRequest: jest.fn().mockResolvedValue('valid'),
+            });
+            const { useCase } = buildUseCase({ moduleDefinition });
+            await expect(
+                useCase.execute({ apiKey: 'bad-key' })
+            ).rejects.toMatchObject({ output: { statusCode: 401 } });
+        });
+    });
+
+    describe('non-scalar externalId is rejected, not coerced', () => {
+        it('an object externalId → 401 and creates no user', async () => {
+            const moduleDefinition = makeModuleDefinition({
+                getEntityDetails: jest.fn().mockResolvedValue({
+                    identifiers: { externalId: {} },
+                    details: {},
+                }),
+            });
+            const { useCase, userRepository, processAuthorizationCallback } =
+                buildUseCase({ moduleDefinition });
+
+            await expect(
+                useCase.execute({ apiKey: 'valid-key' })
+            ).rejects.toMatchObject({ output: { statusCode: 401 } });
+
+            expect(processAuthorizationCallback.execute).not.toHaveBeenCalled();
+            // No user keyed on the coerced "[object Object]" string.
+            expect(
+                await userRepository.findOrganizationUserByAppOrgId(
+                    'reevo:[object Object]'
+                )
+            ).toBeFalsy();
+        });
+
+        it('a numeric externalId is accepted (scalar identity)', async () => {
+            const moduleDefinition = makeModuleDefinition({
+                getEntityDetails: jest.fn().mockResolvedValue({
+                    identifiers: { externalId: 42 },
+                    details: {},
+                }),
+            });
+            const { useCase, userRepository } = buildUseCase({
+                moduleDefinition,
+            });
+            const result = await useCase.execute({ apiKey: 'valid-key' });
+            expect(
+                await userRepository.findOrganizationUserByAppOrgId('reevo:42')
+            ).toBeTruthy();
+            expect(result.userId).toBeTruthy();
+        });
+    });
+
+    describe('credential must exist before a session is minted', () => {
+        it('throws a 500-class error (no token) when the callback returns no credential_id', async () => {
+            const processAuthorizationCallback = {
+                // Simulates a callback that ran but did not persist a credential.
+                execute: jest.fn().mockResolvedValue({ entity_id: 'e-1' }),
+            };
+            const { useCase } = buildUseCase({ processAuthorizationCallback });
+
+            await expect(
+                useCase.execute({ apiKey: 'valid-key' })
+            ).rejects.toMatchObject({ output: { statusCode: 500 } });
+        });
+
+        it('mints a token when the callback returns a credential_id', async () => {
+            const { useCase } = buildUseCase();
+            const result = await useCase.execute({ apiKey: 'valid-key' });
+            expect(result.token).toBeTruthy();
         });
     });
 });
