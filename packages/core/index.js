@@ -31,6 +31,10 @@ const {
     GetUserFromAdopterJwt,
 } = require('./user/use-cases/get-user-from-adopter-jwt');
 const { AuthenticateUser } = require('./user/use-cases/authenticate-user');
+const { LoginWithApiKey } = require('./user/use-cases/login-with-api-key');
+const {
+    validateApiKeyAuthMode,
+} = require('./user/use-cases/validate-api-key-auth-mode');
 
 const {
     CredentialRepository,
@@ -121,6 +125,8 @@ module.exports = {
     GetUserFromXFriggHeaders,
     GetUserFromAdopterJwt,
     AuthenticateUser,
+    LoginWithApiKey,
+    validateApiKeyAuthMode,
     CredentialRepository,
     ModuleRepository,
     IntegrationMappingRepository,
