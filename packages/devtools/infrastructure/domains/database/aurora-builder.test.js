@@ -194,7 +194,7 @@ describe('AuroraBuilder', () => {
             const result = auroraBuilder.validate(appDefinition);
 
             expect(result.valid).toBe(false);
-            expect(result.errors.some(e => e.includes('minCapacity must be between 0.5 and 128'))).toBe(true);
+            expect(result.errors.some(e => e.includes('minCapacity must be 0 (scale-to-zero) or between 0.5 and 128'))).toBe(true);
         });
 
         it('should error when maxCapacity is out of range', () => {

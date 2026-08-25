@@ -94,11 +94,103 @@ class AuroraBuilder extends InfrastructureBuilder {
         }
 
         // Validate capacity settings
-        if (dbConfig.minCapacity !== undefined && (dbConfig.minCapacity < 0.5 || dbConfig.minCapacity > 128)) {
-            result.addError('database.postgres.minCapacity must be between 0.5 and 128');
+        // minCapacity accepts 0 (Aurora Serverless v2 scale-to-zero, GA Nov 2024)
+        // OR a value in [0.5, 128]. Values in (0, 0.5) are not a valid Aurora
+        // capacity — reject them explicitly. See ADR-033.
+        if (
+            dbConfig.minCapacity !== undefined &&
+            dbConfig.minCapacity !== 0 &&
+            (dbConfig.minCapacity < 0.5 || dbConfig.minCapacity > 128)
+        ) {
+            result.addError('database.postgres.minCapacity must be 0 (scale-to-zero) or between 0.5 and 128');
         }
         if (dbConfig.maxCapacity !== undefined && (dbConfig.maxCapacity < 0.5 || dbConfig.maxCapacity > 128)) {
             result.addError('database.postgres.maxCapacity must be between 0.5 and 128');
+        }
+        // Cross-check: minCapacity must not exceed maxCapacity, or CloudFormation
+        // rejects the ServerlessV2ScalingConfiguration at deploy time.
+        if (
+            dbConfig.minCapacity !== undefined &&
+            dbConfig.maxCapacity !== undefined &&
+            dbConfig.minCapacity > dbConfig.maxCapacity
+        ) {
+            result.addError(
+                `database.postgres.minCapacity (${dbConfig.minCapacity}) must be <= maxCapacity (${dbConfig.maxCapacity})`
+            );
+        }
+
+        // Validate scale-to-zero auto-pause window (seconds). AWS-valid range is
+        // 300–86400 (5 minutes to 24 hours) and it must be an integer.
+        if (dbConfig.secondsUntilAutoPause !== undefined) {
+            const s = dbConfig.secondsUntilAutoPause;
+            if (!Number.isInteger(s) || s < 300 || s > 86400) {
+                result.addError('database.postgres.secondsUntilAutoPause must be an integer between 300 and 86400');
+            }
+            // secondsUntilAutoPause only takes effect for scale-to-zero clusters.
+            if (dbConfig.minCapacity !== 0) {
+                result.addWarning(
+                    'database.postgres.secondsUntilAutoPause is ignored unless minCapacity is 0 (scale-to-zero).'
+                );
+            }
+        }
+
+        // Validate connectivity mode. 'vpc' (default) keeps today's behavior;
+        // 'public' places Aurora in public subnets and leaves the Lambda out of
+        // the VPC (NAT-free). See ADR-033.
+        if (dbConfig.connectivity !== undefined) {
+            const validConnectivity = ['vpc', 'public'];
+            if (!validConnectivity.includes(dbConfig.connectivity)) {
+                result.addError(
+                    `Invalid database.postgres.connectivity: "${dbConfig.connectivity}". Must be one of: ${validConnectivity.join(', ')}`
+                );
+            }
+        }
+
+        // Public connectivity requires an enabled VPC (Aurora must live in a VPC —
+        // an AWS constraint — and the builder creates the public subnets there).
+        // Validate it here so the failure is a clear message rather than a downstream
+        // "Aurora requires 2 public subnets" throw.
+        if (dbConfig.connectivity === 'public' && appDefinition.vpc?.enable !== true) {
+            result.addError(
+                'database.postgres.connectivity="public" requires vpc.enable=true (Aurora needs public subnets in a VPC).'
+            );
+        }
+
+        // Validate allowedCidrs is an array of syntactically valid IPv4 CIDRs when
+        // present. NOTE: IPv4 only — IPv6 (CidrIpv6) is not supported here.
+        if (dbConfig.allowedCidrs !== undefined) {
+            if (!Array.isArray(dbConfig.allowedCidrs)) {
+                result.addError('database.postgres.allowedCidrs must be an array of CIDR strings');
+            } else {
+                const bad = dbConfig.allowedCidrs.filter((c) => !this.isValidIpv4Cidr(c));
+                if (bad.length > 0) {
+                    result.addError(
+                        `database.postgres.allowedCidrs contains invalid CIDR value(s): ${bad.join(', ')}`
+                    );
+                }
+                // An empty allowlist in public mode is almost always a mistake that
+                // would silently fall back to 0.0.0.0/0 (full internet exposure) —
+                // reject it so "allow nothing" cannot mean "allow everything".
+                if (dbConfig.allowedCidrs.length === 0 && dbConfig.connectivity === 'public') {
+                    result.addError(
+                        'database.postgres.allowedCidrs is empty with connectivity="public". List at least one CIDR ' +
+                            "(use ['0.0.0.0/0'] to intentionally allow the whole internet)."
+                    );
+                }
+            }
+        }
+
+        // Scale-to-zero requires a supported engine version. Warn (do not
+        // hard-fail) if the user pins an older version with minCapacity: 0.
+        // Frigg's default engineVersion (15.13) qualifies. Minimum
+        // scale-to-zero-capable versions: Aurora PG 13.15 / 14.12 / 15.7 / 16.3.
+        if (dbConfig.minCapacity === 0 && dbConfig.engineVersion) {
+            if (!this.engineSupportsScaleToZero(dbConfig.engineVersion)) {
+                result.addWarning(
+                    `database.postgres.engineVersion="${dbConfig.engineVersion}" may not support Aurora Serverless v2 scale-to-zero (minCapacity: 0). ` +
+                        'Scale-to-zero requires Aurora PostgreSQL 13.15+/14.12+/15.7+/16.3+.'
+                );
+            }
         }
 
         // Warn about public accessibility in production
@@ -106,7 +198,100 @@ class AuroraBuilder extends InfrastructureBuilder {
             result.addWarning('database.postgres.publiclyAccessible=true is not recommended for production');
         }
 
+        // ADR-033 security posture: public connectivity exposes the DB endpoint
+        // to the internet. Make the trade-off loud.
+        if (dbConfig.connectivity === 'public') {
+            result.addWarning(
+                'database.postgres.connectivity="public" exposes the Aurora endpoint to the internet. ' +
+                    'TLS is enforced (sslmode=require) and access is restricted to allowedCidrs, but prefer "vpc" for production.'
+            );
+            // Only the default fallback (empty array is now an error above) or an
+            // explicit 0.0.0.0/0 reaches here as "whole internet".
+            const cidrs =
+                Array.isArray(dbConfig.allowedCidrs) && dbConfig.allowedCidrs.length > 0
+                    ? dbConfig.allowedCidrs
+                    : ['0.0.0.0/0'];
+            if (cidrs.includes('0.0.0.0/0')) {
+                result.addWarning(
+                    'database.postgres.allowedCidrs allows 0.0.0.0/0 (the whole internet). ' +
+                        'Narrow this to known egress ranges wherever the deployment can.'
+                );
+            }
+
+            // Public connectivity only makes Frigg place the cluster in public
+            // subnets when Frigg CREATES the cluster (management='managed'). In
+            // discover/use-existing mode Frigg cannot flip an existing cluster to
+            // public subnets / PubliclyAccessible, yet the Lambda is still detached
+            // from the VPC — so if the existing cluster is private it becomes
+            // unreachable. Warn loudly. (management defaults to 'discover'.)
+            const mgmt = dbConfig.management || 'discover';
+            if (mgmt === 'discover' || mgmt === 'use-existing') {
+                result.addWarning(
+                    `database.postgres.connectivity="public" with management="${mgmt}" assumes the EXISTING Aurora cluster ` +
+                        'is already publicly accessible. Frigg detaches the Lambda from the VPC in public mode, so a private ' +
+                        'existing cluster will be unreachable. Ensure the cluster has a public endpoint and open security group.'
+                );
+            }
+            if (mgmt === 'use-existing') {
+                result.addWarning(
+                    'database.postgres.connectivity="public" with management="use-existing" only affects TLS (sslmode=require) on the ' +
+                        'connection string — Frigg does not manage the existing cluster\'s subnets or ingress.'
+                );
+            }
+        }
+
         return result;
+    }
+
+    /**
+     * Validate an IPv4 CIDR string with real numeric range checks (each octet
+     * 0–255, prefix 0–32) — not just shape — so values like 999.999.999.999/99
+     * are rejected. IPv4 only; IPv6 is out of scope for allowedCidrs.
+     * @param {string} cidr
+     * @returns {boolean}
+     */
+    isValidIpv4Cidr(cidr) {
+        if (typeof cidr !== 'string') {
+            return false;
+        }
+        const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/.exec(cidr);
+        if (!match) {
+            return false;
+        }
+        const octets = [match[1], match[2], match[3], match[4]].map(Number);
+        if (octets.some((o) => o > 255)) {
+            return false;
+        }
+        const prefix = Number(match[5]);
+        return prefix >= 0 && prefix <= 32;
+    }
+
+    /**
+     * Determine whether an Aurora PostgreSQL engine version supports
+     * Serverless v2 scale-to-zero (minCapacity: 0). Minimum capable versions:
+     * 13.15+, 14.12+, 15.7+, 16.3+. Unknown/unparseable versions return true
+     * (assume-capable) so we never hard-block on a version string we can't read;
+     * this only gates a warning, never a hard failure.
+     * @param {string} engineVersion e.g. '15.13'
+     * @returns {boolean}
+     */
+    engineSupportsScaleToZero(engineVersion) {
+        const minByMajor = { 13: 15, 14: 12, 15: 7, 16: 3 };
+        const match = /^(\d+)\.(\d+)/.exec(String(engineVersion));
+        if (!match) {
+            return true; // can't parse — don't warn spuriously
+        }
+        const major = Number(match[1]);
+        const minor = Number(match[2]);
+        // Majors newer than the table are assumed capable.
+        if (major > 16) {
+            return true;
+        }
+        // Majors older than 13 never support scale-to-zero.
+        if (!(major in minByMajor)) {
+            return false;
+        }
+        return minor >= minByMajor[major];
     }
 
     /**
@@ -327,15 +512,31 @@ class AuroraBuilder extends InfrastructureBuilder {
             }
         }
 
-        // Preserve other database config
-        if (appDefinition.database?.postgres?.minCapacity) {
+        // Mirror config into translated.database.postgres.config for completeness.
+        // NOTE: this is NOT the load-bearing path — createNewAurora/discoverAurora
+        // read the TOP-LEVEL database.postgres fields (preserved by the deep clone
+        // above), and 0-propagation for scale-to-zero comes from that clone plus the
+        // `?? 0.5` in the scaling config, not from here. These `.config.*` copies are
+        // kept only so any future consumer that reads `config` sees the same values;
+        // `!== undefined` (not truthiness) is used so a minCapacity of 0 is mirrored
+        // rather than dropped.
+        if (appDefinition.database?.postgres?.minCapacity !== undefined) {
             translated.database.postgres.config.minCapacity = appDefinition.database.postgres.minCapacity;
         }
-        if (appDefinition.database?.postgres?.maxCapacity) {
+        if (appDefinition.database?.postgres?.maxCapacity !== undefined) {
             translated.database.postgres.config.maxCapacity = appDefinition.database.postgres.maxCapacity;
+        }
+        if (appDefinition.database?.postgres?.secondsUntilAutoPause !== undefined) {
+            translated.database.postgres.config.secondsUntilAutoPause = appDefinition.database.postgres.secondsUntilAutoPause;
         }
         if (appDefinition.database?.postgres?.publiclyAccessible !== undefined) {
             translated.database.postgres.config.publiclyAccessible = appDefinition.database.postgres.publiclyAccessible;
+        }
+        if (appDefinition.database?.postgres?.connectivity !== undefined) {
+            translated.database.postgres.config.connectivity = appDefinition.database.postgres.connectivity;
+        }
+        if (appDefinition.database?.postgres?.allowedCidrs !== undefined) {
+            translated.database.postgres.config.allowedCidrs = appDefinition.database.postgres.allowedCidrs;
         }
 
         return translated;
@@ -373,7 +574,10 @@ class AuroraBuilder extends InfrastructureBuilder {
         console.log('  Creating new Aurora Serverless v2 cluster...');
 
         const dbConfig = appDefinition.database.postgres;
-        const publiclyAccessible = dbConfig.publiclyAccessible === true;
+        // ADR-033: connectivity 'public' implies a publicly-accessible cluster in
+        // public subnets. It combines with the legacy publiclyAccessible flag.
+        const publicConnectivity = dbConfig.connectivity === 'public';
+        const publiclyAccessible = publicConnectivity || dbConfig.publiclyAccessible === true;
 
         // Get subnet IDs for DB Subnet Group
         const subnetIds = publiclyAccessible
@@ -452,9 +656,16 @@ class AuroraBuilder extends InfrastructureBuilder {
                 // min when idle) and gives the DB enough headroom to
                 // absorb bursty sync traffic. Apps can still override both
                 // via app definition dbConfig.
+                // ADR-033: use nullish coalescing — `|| 0.5` silently turned a
+                // requested MinCapacity of 0 (scale-to-zero) back into 0.5.
+                // When MinCapacity is 0, emit SecondsUntilAutoPause so the cluster
+                // pauses to 0 ACU after the idle window (default 300s).
                 ServerlessV2ScalingConfiguration: {
-                    MinCapacity: dbConfig.minCapacity || 0.5,
-                    MaxCapacity: dbConfig.maxCapacity || 4,
+                    MinCapacity: dbConfig.minCapacity ?? 0.5,
+                    MaxCapacity: dbConfig.maxCapacity ?? 4,
+                    ...(dbConfig.minCapacity === 0
+                        ? { SecondsUntilAutoPause: dbConfig.secondsUntilAutoPause ?? 300 }
+                        : {}),
                 },
                 EnableHttpEndpoint: false,
                 BackupRetentionPeriod: 7,
@@ -482,12 +693,15 @@ class AuroraBuilder extends InfrastructureBuilder {
             },
         };
 
-        // Environment variables
+        // Environment variables.
+        // ADR-033: public connectivity requires TLS (sslmode=require) since the
+        // endpoint is reachable over the internet.
         result.environment.DATABASE_URL = this.buildDatabaseUrl(
             { 'Fn::GetAtt': ['FriggAuroraCluster', 'Endpoint.Address'] },
             { 'Fn::GetAtt': ['FriggAuroraCluster', 'Endpoint.Port'] },
             dbConfig.database || 'frigg',
-            { Ref: 'FriggDBSecret' }
+            { Ref: 'FriggDBSecret' },
+            { requireTls: publicConnectivity }
         );
 
         // IAM permissions for Secrets Manager
@@ -497,19 +711,46 @@ class AuroraBuilder extends InfrastructureBuilder {
             Resource: { Ref: 'FriggDBSecret' },
         });
 
-        // Add self-referencing security group ingress rule to allow Lambda to connect to Aurora
-        // Since both Lambda and Aurora share the same security group, we need to allow the SG to accept traffic from itself
-        result.resources.FriggAuroraIngressRule = {
-            Type: 'AWS::EC2::SecurityGroupIngress',
-            Properties: {
-                GroupId: { Ref: 'FriggLambdaSecurityGroup' },
-                IpProtocol: 'tcp',
-                FromPort: 5432,
-                ToPort: 5432,
-                SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
-                Description: 'Allow Lambda functions to connect to Aurora PostgreSQL (self-referencing rule)',
-            },
-        };
+        if (publicConnectivity) {
+            // ADR-033 NAT-free public connectivity: the Lambda is NOT attached to
+            // the VPC (see vpc-builder), so FriggLambdaSecurityGroup is not on the
+            // Lambda side and a SourceSecurityGroupId rule would authorize nothing.
+            // Instead open 5432 to the configured CIDR allowlist (default
+            // 0.0.0.0/0 for demos — narrow it in production). One ingress rule per
+            // CIDR. GroupId stays FriggLambdaSecurityGroup because that is the SG
+            // attached to the Aurora cluster (see VpcSecurityGroupIds above).
+            const allowedCidrs =
+                Array.isArray(dbConfig.allowedCidrs) && dbConfig.allowedCidrs.length > 0
+                    ? dbConfig.allowedCidrs
+                    : ['0.0.0.0/0'];
+            allowedCidrs.forEach((cidr, index) => {
+                result.resources[`FriggAuroraIngressRule${index}`] = {
+                    Type: 'AWS::EC2::SecurityGroupIngress',
+                    Properties: {
+                        GroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                        IpProtocol: 'tcp',
+                        FromPort: 5432,
+                        ToPort: 5432,
+                        CidrIp: cidr,
+                        Description: `Allow PostgreSQL access from ${cidr} (public connectivity)`,
+                    },
+                };
+            });
+        } else {
+            // Add self-referencing security group ingress rule to allow Lambda to connect to Aurora
+            // Since both Lambda and Aurora share the same security group, we need to allow the SG to accept traffic from itself
+            result.resources.FriggAuroraIngressRule = {
+                Type: 'AWS::EC2::SecurityGroupIngress',
+                Properties: {
+                    GroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                    IpProtocol: 'tcp',
+                    FromPort: 5432,
+                    ToPort: 5432,
+                    SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                    Description: 'Allow Lambda functions to connect to Aurora PostgreSQL (self-referencing rule)',
+                },
+            };
+        }
 
         console.log('  ✅ Aurora Serverless v2 cluster resources created');
     }
@@ -526,6 +767,12 @@ class AuroraBuilder extends InfrastructureBuilder {
             throw new Error('database.postgres.endpoint is required when management="use-existing"');
         }
 
+        // ADR-033: for use-existing, `connectivity` only affects TLS on the
+        // connection params — Frigg does not own the cluster, so it manages neither
+        // its subnets nor its ingress (the validator warns about this). Public mode
+        // still requires TLS, so append sslmode=require.
+        const publicConnectivity = dbConfig.connectivity === 'public';
+
         // Set environment variables for existing cluster
         result.environment.DATABASE_HOST = dbConfig.endpoint;
         result.environment.DATABASE_PORT = String(dbConfig.port || 5432);
@@ -534,7 +781,9 @@ class AuroraBuilder extends InfrastructureBuilder {
         // Consumers that build DATABASE_URL from components at runtime MUST
         // append `?${DATABASE_URL_PARAMS}` to get the same hang-prevention
         // timeouts as the managed path.
-        result.environment.DATABASE_URL_PARAMS = LAMBDA_DATABASE_URL_QUERY_PARAMS;
+        result.environment.DATABASE_URL_PARAMS = publicConnectivity
+            ? `${LAMBDA_DATABASE_URL_QUERY_PARAMS}&sslmode=require`
+            : LAMBDA_DATABASE_URL_QUERY_PARAMS;
 
         console.log(`  ✅ Using existing cluster: ${dbConfig.endpoint}`);
     }
@@ -554,6 +803,9 @@ class AuroraBuilder extends InfrastructureBuilder {
         console.log(`  ✅ Using discovered Aurora cluster: ${discoveredResources.auroraClusterEndpoint}`);
 
         const dbConfig = appDefinition.database.postgres;
+        // ADR-033: public connectivity requires TLS on the connection string and a
+        // CIDR-based ingress rule (the Lambda is not VPC-attached).
+        const publicConnectivity = dbConfig.connectivity === 'public';
 
         // Use discovered cluster details
         result.environment.DATABASE_HOST = discoveredResources.auroraClusterEndpoint;
@@ -729,7 +981,8 @@ exports.handler = async (event, context) => {
                 discoveredResources.auroraClusterEndpoint,
                 discoveredResources.auroraPort || 5432,
                 dbConfig.database || 'frigg',
-                { Ref: 'FriggDBSecret' }
+                { Ref: 'FriggDBSecret' },
+                { requireTls: publicConnectivity }
             );
 
             // Grant Lambda functions permission to read the secret
@@ -747,7 +1000,8 @@ exports.handler = async (event, context) => {
                 discoveredResources.auroraClusterEndpoint,
                 discoveredResources.auroraPort || 5432,
                 dbConfig.database || 'frigg',
-                discoveredResources.databaseSecretArn
+                discoveredResources.databaseSecretArn,
+                { requireTls: publicConnectivity }
             );
 
             result.iamStatements.push({
@@ -768,7 +1022,10 @@ exports.handler = async (event, context) => {
             // Consumers that build DATABASE_URL from components at runtime MUST
             // append `?${DATABASE_URL_PARAMS}` to get the same hang-prevention
             // timeouts as the managed path.
-            result.environment.DATABASE_URL_PARAMS = LAMBDA_DATABASE_URL_QUERY_PARAMS;
+            // ADR-033: public connectivity requires TLS — include sslmode=require.
+            result.environment.DATABASE_URL_PARAMS = publicConnectivity
+                ? `${LAMBDA_DATABASE_URL_QUERY_PARAMS}&sslmode=require`
+                : LAMBDA_DATABASE_URL_QUERY_PARAMS;
 
             // Note: DATABASE_URL is NOT set here to avoid Serverless variable resolution errors
             // The application (Frigg Core) should construct it at runtime from:
@@ -782,17 +1039,39 @@ exports.handler = async (event, context) => {
 
         // Add security group ingress rule to allow Lambda to connect to Aurora
         if (discoveredResources.auroraSecurityGroupId) {
-            result.resources.FriggAuroraIngressRule = {
-                Type: 'AWS::EC2::SecurityGroupIngress',
-                Properties: {
-                    GroupId: discoveredResources.auroraSecurityGroupId,
-                    IpProtocol: 'tcp',
-                    FromPort: discoveredResources.auroraPort || 5432,
-                    ToPort: discoveredResources.auroraPort || 5432,
-                    SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
-                    Description: 'Allow Lambda functions to connect to Aurora PostgreSQL',
-                },
-            };
+            if (publicConnectivity) {
+                // ADR-033 NAT-free public connectivity: the Lambda is not in the
+                // VPC, so authorize the CIDR allowlist instead of the Lambda SG.
+                const allowedCidrs =
+                    Array.isArray(dbConfig.allowedCidrs) && dbConfig.allowedCidrs.length > 0
+                        ? dbConfig.allowedCidrs
+                        : ['0.0.0.0/0'];
+                allowedCidrs.forEach((cidr, index) => {
+                    result.resources[`FriggAuroraIngressRule${index}`] = {
+                        Type: 'AWS::EC2::SecurityGroupIngress',
+                        Properties: {
+                            GroupId: discoveredResources.auroraSecurityGroupId,
+                            IpProtocol: 'tcp',
+                            FromPort: discoveredResources.auroraPort || 5432,
+                            ToPort: discoveredResources.auroraPort || 5432,
+                            CidrIp: cidr,
+                            Description: `Allow PostgreSQL access from ${cidr} (public connectivity)`,
+                        },
+                    };
+                });
+            } else {
+                result.resources.FriggAuroraIngressRule = {
+                    Type: 'AWS::EC2::SecurityGroupIngress',
+                    Properties: {
+                        GroupId: discoveredResources.auroraSecurityGroupId,
+                        IpProtocol: 'tcp',
+                        FromPort: discoveredResources.auroraPort || 5432,
+                        ToPort: discoveredResources.auroraPort || 5432,
+                        SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
+                        Description: 'Allow Lambda functions to connect to Aurora PostgreSQL',
+                    },
+                };
+            }
             console.log(`  ✅ Added security group ingress rule for Lambda → Aurora connectivity`);
         }
 
@@ -805,8 +1084,11 @@ exports.handler = async (event, context) => {
      * @param {string|number|object} port - Database port (string/number or CloudFormation intrinsic function)
      * @param {string} database - Database name
      * @param {string|object} secretRef - Secret ARN (string) or CloudFormation Ref object
+     * @param {object} [options]
+     * @param {boolean} [options.requireTls] - Append sslmode=require (ADR-033 public connectivity)
      */
-    buildDatabaseUrl(host, port, database, secretRef) {
+    buildDatabaseUrl(host, port, database, secretRef, options = {}) {
+        const { requireTls = false } = options;
         // Handle secretRef as either a string ARN or CloudFormation Ref object
         const resolveSecretRef = (secretRefValue) => {
             if (typeof secretRefValue === 'object' && secretRefValue.Ref) {
@@ -838,9 +1120,16 @@ exports.handler = async (event, context) => {
 
         // Query params are defined at module scope (LAMBDA_DATABASE_URL_QUERY_PARAMS)
         // so runtime-URL-construction paths can emit the same timeouts as an env var.
+        // ADR-033: for public connectivity, TLS is mandatory — append sslmode=require
+        // unless it's already present in the base params.
+        const queryParams =
+            requireTls && !/(^|&)sslmode=/.test(LAMBDA_DATABASE_URL_QUERY_PARAMS)
+                ? `${LAMBDA_DATABASE_URL_QUERY_PARAMS}&sslmode=require`
+                : LAMBDA_DATABASE_URL_QUERY_PARAMS;
+
         return {
             'Fn::Sub': [
-                `postgresql://\${Username}:\${Password}@\${Host}:\${Port}/\${Database}?${LAMBDA_DATABASE_URL_QUERY_PARAMS}`,
+                `postgresql://\${Username}:\${Password}@\${Host}:\${Port}/\${Database}?${queryParams}`,
                 {
                     Username: resolveSecretRef(secretRef),
                     Password: resolveSecretPassword(secretRef),
