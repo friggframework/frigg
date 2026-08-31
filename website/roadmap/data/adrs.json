@@ -1,5 +1,5 @@
 {
-  "count": 28,
+  "count": 41,
   "adrs": [
     {
       "num": 1,
@@ -54,7 +54,7 @@
     {
       "num": 6,
       "id": "006",
-      "title": "Integration Router v2",
+      "title": "Integration Router v2 Restructuring",
       "status": "Accepted",
       "date": "2025-12-14",
       "theme": "Developer experience",
@@ -74,7 +74,7 @@
     {
       "num": 8,
       "id": "008",
-      "title": "Frigg CLI Start Command",
+      "title": "Frigg CLI Start Command Architecture",
       "status": "Accepted",
       "date": "2025-12-14",
       "theme": "Infra & deploy",
@@ -84,7 +84,7 @@
     {
       "num": 9,
       "id": "009",
-      "title": "E2E Test Package",
+      "title": "E2E Test Package Architecture",
       "status": "Accepted",
       "date": "2025-12-15",
       "theme": "Developer experience",
@@ -175,8 +175,8 @@
       "num": 18,
       "id": "018",
       "title": "Integration Extensions",
-      "status": "Implemented",
-      "date": "2026-06-09",
+      "status": "Implemented ([PR #590](https://github.com/friggframework/frigg/pull/590) and [PR #596](https://github.com/friggframework/frigg/pull/596)). Authoritative quick-start: [`packages/core/integrations/EXTENSIONS.md`](../../packages/core/integrations/EXTENSIONS.md).",
+      "date": "2026-06-09 (decision ratified retroactively)",
       "theme": "Extensions & plugins",
       "summary": "Integration Extensions let an API module or shared library ship a bundle of routes, events, queues, and workers that an integration binds declaratively.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/018-integration-extensions.md"
@@ -272,6 +272,36 @@
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/027-ssm-parameter-offload-and-env-scoping.md"
     },
     {
+      "num": 28,
+      "id": "028",
+      "title": "Multi-Provider Support",
+      "status": "Accepted",
+      "date": "2026-03-02",
+      "theme": "Infra & deploy",
+      "summary": "Introduces a provider plugin system so a single `provider` field switches the whole toolchain. Each provider ships as @friggframework/provider-{name} with adapters for deploy, config generation, queues, scheduling, secrets and handlers; Netlify is the first non-AWS target.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/028-multi-provider-support.md"
+    },
+    {
+      "num": 29,
+      "id": "029",
+      "title": "Decouple AWS SDK Dependencies from @friggframework/core",
+      "status": "Accepted",
+      "date": "2026-03-03",
+      "theme": "Infra & deploy",
+      "summary": "Extracts every AWS SDK dependency out of @friggframework/core into @friggframework/provider-aws, wiring adapters explicitly at the composition root. Breaking change; it is what lets a non-AWS bundle contain no AWS SDK code.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/029-decouple-aws-from-core.md"
+    },
+    {
+      "num": 30,
+      "id": "030",
+      "title": "Integration Versioning",
+      "status": "Proposed",
+      "date": "2026-09-27",
+      "theme": "Data & migrations",
+      "summary": "Opens the integration version contract — how versions are declared, compared, gated and made compatible — which ADR-013's record migrations key off. Exploratory: the decision is deliberately deferred pending research.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/030-integration-versioning.md"
+    },
+    {
       "num": 31,
       "id": "031",
       "title": "Concurrent OAuth Credential Refresh Across Lambda Invocations",
@@ -280,6 +310,106 @@
       "theme": "Data & migrations",
       "summary": "Deconflicts concurrent OAuth refreshes across Lambda invocations: a reactive database check before refresh and on 401 (adopt the winner's tokens, escalate only on proof of death), plus proactive scheduled refresh via admin scripts, and a fix for the silent SQS ack that hid the losses.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/031-concurrent-oauth-credential-refresh.md"
+    },
+    {
+      "num": 32,
+      "id": "032",
+      "title": "Integration Deletion Data Cleanup",
+      "status": "Proposed",
+      "date": "2026-08-20",
+      "theme": "Data & migrations",
+      "summary": "Defines what must be cleaned up when an integration is deleted — which records cascade, which are retained for audit, and which admin operation performs the sweep.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/032-integration-deletion-cleanup.md"
+    },
+    {
+      "num": 33,
+      "id": "033",
+      "title": "Aurora Serverless v2 scale-to-zero + NAT-free Lambda connectivity",
+      "status": "Proposed",
+      "date": "2026-08-20",
+      "theme": "Infra & deploy",
+      "summary": "Runs Aurora Serverless v2 with scale-to-zero and reaches it from Lambda without a NAT gateway, cutting idle database and egress cost for low-traffic Frigg apps.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/033-aurora-serverless-v2-scale-to-zero-and-nat-free-connectivity.md"
+    },
+    {
+      "num": 34,
+      "id": "034",
+      "title": "API-Key Login Auth Mode",
+      "status": "Proposed",
+      "date": "2026-08-20",
+      "theme": "Developer experience",
+      "summary": "Adds an API-key login auth mode validated by the API module, so an integration can authenticate with a key rather than an OAuth round-trip.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/034-api-key-login-auth-mode.md"
+    },
+    {
+      "num": 35,
+      "id": "035",
+      "title": "App Init",
+      "status": "Proposed",
+      "date": "2026-09-27",
+      "theme": "Agent tooling",
+      "summary": "Defines what app init seeds into an adopter app — agent directories, ontology seed and conventions — as a starting point adopters grow over time.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/035-app-init.md"
+    },
+    {
+      "num": 36,
+      "id": "036",
+      "title": "Skills",
+      "status": "Proposed",
+      "date": "2026-09-27",
+      "theme": "Agent tooling",
+      "summary": "Ships .claude/skills/ alongside .claude/agents/ as the declarative, read-on-demand surface of knowledge, contracts and runbooks an agent loads explicitly when relevant.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/036-skills.md"
+    },
+    {
+      "num": 37,
+      "id": "037",
+      "title": "Agent Pipeline",
+      "status": "Proposed",
+      "date": "2026-09-27",
+      "theme": "Agent tooling",
+      "summary": "Describes the agent pipeline that composes app init, skills, capabilities and ontology into a repeatable run.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/037-agent-pipeline.md"
+    },
+    {
+      "num": 38,
+      "id": "038",
+      "title": "Configuration & Secrets — Model & Tiers",
+      "status": "Proposed",
+      "date": "2026-07-10",
+      "theme": "Extensions & plugins",
+      "summary": "Establishes the configuration and secrets model and its tiers, separating framework config, app config and per-connection credentials, and where each physically lives.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/038-configuration-and-secrets-model.md"
+    },
+    {
+      "num": 39,
+      "id": "039",
+      "title": "Secrets & Config Provider Plugin",
+      "status": "Proposed",
+      "date": "2026-07-10",
+      "theme": "Extensions & plugins",
+      "summary": "Extends the ADR-016 plugin taxonomy with a secrets/config provider plugin: one typed core port, many adapters, so a new backing store needs no core change.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/039-secrets-config-provider-plugin.md"
+    },
+    {
+      "num": 40,
+      "id": "040",
+      "title": "Variable & Secret Management — Admin API, CLI, GUI",
+      "status": "Proposed",
+      "date": "2026-07-10",
+      "theme": "Developer experience",
+      "summary": "Adds the admin API, CLI and GUI surface for managing variables and secrets across all tiers, reusing the admin API key from ADR-010.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/040-variable-secret-management.md"
+    },
+    {
+      "num": 41,
+      "id": "041",
+      "title": "Configuration & Secrets — Docs & Adopter Maturation",
+      "status": "Proposed",
+      "date": "2026-07-10",
+      "theme": "Developer experience",
+      "summary": "Covers how the configuration and secrets work is documented for adopters, and the maturation path a Frigg app follows from local env files to a managed store.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/041-configuration-secrets-docs-and-maturation.md"
     }
   ]
 }

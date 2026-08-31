@@ -83,6 +83,45 @@ Execution steps:
 - Numbers get assigned in a logical block rather than strictly by original authoring date; original
   `Date` fields are preserved in each file.
 
+## Amendment (2026-08-31): claiming a number
+
+The original decision created one register but no way to **claim** a number. Every author picks
+`max + 1` at authoring time, which is only correct if no one else is doing the same — and in practice
+several were. At the time of this amendment the register had eight collisions across six open PRs, four
+of them against numbers already merged to `next`: three different decisions were all titled `ADR-027`,
+and a fourth reused `ADR-010`. Nothing catches this, because each PR is internally consistent and only
+collides with branches its author cannot see.
+
+**Numbers are claimed at PR-open time, and uniqueness is enforced by CI — not assigned at merge.**
+
+Authoring does not change. Pick the next free number, name the file `NNN-kebab-title.md`, write the
+`# ADR-NNN:` heading and cross-link by number as before. A workflow on any PR touching
+`docs/architecture-decisions/**` computes the taken set as *numbers on `next`* ∪ *numbers claimed by
+every other open PR*, and fails with the conflict and the next free number when they overlap. It re-runs
+on every push and when `next` moves, so if two PRs open simultaneously and both pass, the second to
+rebase goes red before it can merge.
+
+### Why not assign the number at merge time
+
+Deferring assignment sounds tidier and is worse in practice:
+
+- The file is named wrong for the entire review. Reviewers read `draft-foo.md` / `ADR-XXX` and cannot
+  cite it in review comments or link it from other PRs.
+- Cross-ADR links cannot be written until the number exists, so a cluster of related ADRs (this register
+  has three such clusters) has to be link-patched after the fact.
+- Someone has to perform the rename plus link rewrite at every merge — which is exactly the manual
+  reconciliation this amendment exists to stop, just relocated and made recurring.
+
+Enforcing at PR-open keeps the number stable from first commit and moves detection from *after merge*
+to *before review*. The cost is a rename when CI reports a conflict, which is cheap because it is a
+document, and rarer because the check names the next free number.
+
+### Numbers are not recycled
+
+A number that has appeared on `next` is permanent, even if that ADR is later superseded or deprecated.
+A number that has only ever existed in an unmerged branch is not yet claimed and may be reassigned — that
+is what let this reconciliation close the 028-030 gap rather than leave holes in the sequence.
+
 ## Alternatives Considered
 - **Keep both, add an index that spans them.** Rejected: still two structures/locations to learn;
   the drift problem remains.
