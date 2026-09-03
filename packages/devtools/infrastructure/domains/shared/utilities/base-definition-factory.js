@@ -8,6 +8,7 @@
  */
 
 const { buildEnvironment } = require('../environment-builder');
+const { nestedNodeModulesExcludes } = require('./nested-node-modules');
 
 /**
  * Create base serverless definition with core functions and resources
@@ -64,8 +65,7 @@ function createBaseDefinition(
             'node_modules/prettier/**',
             'node_modules/eslint/**',
 
-            // Exclude ALL nested node_modules (catch any package with nested dependencies)
-            'node_modules/**/node_modules/**',
+            ...nestedNodeModulesExcludes(AppDefinition, usePrismaLayer),
 
             // Exclude build tools (not needed at runtime)
             'node_modules/esbuild/**',
