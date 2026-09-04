@@ -1,4 +1,5 @@
 const fetch = require('node-fetch');
+const { AsyncLocalStorage } = require('async_hooks');
 const { Delegate } = require('../../core');
 const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
@@ -7,6 +8,13 @@ const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 const MAX_AUTH_RETRIES = 3;
 
+// This context marks the async call chain of an active refreshAuth().
+// Token requests re-enter _rawRequest through this._post. A 401 from inside
+// the refresh must fail fast: if it joins the refresh in flight, it awaits
+// its own promise and hangs. AsyncLocalStorage reaches the nested calls
+// without help from the subclasses.
+const refreshContext = new AsyncLocalStorage();
+
 class Requester extends Delegate {
     constructor(params) {
         super(params);
@@ -14,6 +22,11 @@ class Requester extends Delegate {
         this.isRefreshable = false;
         this.refreshCount = 0;
         this.authGraceRetryCount = 0;
+        // Concurrent 401s share one refreshAuth() run. See _refreshAuthOnce().
+        this._inFlightRefresh = null;
+        // This counter increases when the tokens change. A stale 401 (the
+        // token changed already) then retries and does not refresh again.
+        this._authGeneration = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
         this.agent = get(params, 'agent', null);
@@ -184,6 +197,10 @@ class Requester extends Delegate {
 
         options.headers = await this.addAuthHeaders(options.headers);
 
+        // A 401 that arrives after a concurrent refresh is stale. It is not
+        // proof that the new token failed.
+        const authGenerationAtDispatch = this._authGeneration;
+
         if (this.agent) options.agent = this.agent;
 
         // Per-attempt timeout — fresh AbortController per call so the retry
@@ -266,6 +283,26 @@ class Requester extends Delegate {
             }
 
             if (status === 401) {
+                // A 401 from inside the refresh flow means the provider
+                // rejected the credential itself (invalid_client). A new
+                // refresh cannot help. A join would await this same call.
+                if (this._isInsideRefreshFlow()) {
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
+                }
+
+                const tokenReplacedWhileInFlight =
+                    this._authGeneration !== authGenerationAtDispatch;
+                if (this.isRefreshable && tokenReplacedWhileInFlight) {
+                    // This request did not try the current token. Retry with
+                    // it. Do not spend one more provider-side rotation.
+                    clearRequestTimer();
+                    return this._rawRequest(url, options, attempt + 1);
+                }
+
                 if (!this.isRefreshable) {
                     // Up to MAX_AUTH_RETRIES grace retries before invalidating
                     // — a 401 alone isn't proof the credential is bad.
@@ -290,19 +327,30 @@ class Requester extends Delegate {
                     );
                 }
 
-                if (this.refreshCount < MAX_AUTH_RETRIES) {
-                    this.refreshCount++;
-                    const refreshSucceeded = await this.refreshAuth();
-                    if (refreshSucceeded) {
-                        clearRequestTimer();
-                        return this._rawRequest(url, options, attempt + 1);
-                    }
+                // Concurrent 401s share one refresh. Independent refreshes
+                // kill each other, because many providers use single-use
+                // refresh tokens. Only the initiator spends the retry budget.
+                const refreshAlreadyInFlight = Boolean(this._inFlightRefresh);
 
+                if (
+                    !refreshAlreadyInFlight &&
+                    this.refreshCount >= MAX_AUTH_RETRIES
+                ) {
                     throw await this._invalidateAuth(
                         encodedUrl,
                         options,
                         response
                     );
+                }
+
+                if (!refreshAlreadyInFlight) {
+                    this.refreshCount++;
+                }
+
+                const refreshSucceeded = await this._refreshAuthOnce();
+                if (refreshSucceeded) {
+                    clearRequestTimer();
+                    return this._rawRequest(url, options, attempt + 1);
                 }
 
                 throw await this._invalidateAuth(encodedUrl, options, response);
@@ -425,6 +473,39 @@ class Requester extends Delegate {
             returnFullRes: options.returnFullRes || true,
         };
         return this._request(options.url, fetchOptions);
+    }
+
+    /**
+     * Runs one refreshAuth() at a time. The first caller starts the refresh.
+     * Callers that arrive during the refresh await the same promise. The
+     * check-and-store step is synchronous. Thus two concurrent callers
+     * cannot both start a refresh.
+     *
+     * @returns {Promise<boolean>} True if the refresh succeeded.
+     */
+    _refreshAuthOnce() {
+        if (!this._inFlightRefresh) {
+            // Keep .finally last. The stored promise must be the promise
+            // that clears the slot. Then the slot is free before a waiter
+            // resumes.
+            this._inFlightRefresh = this._runMarkedRefresh().finally(() => {
+                this._inFlightRefresh = null;
+            });
+        }
+        return this._inFlightRefresh;
+    }
+
+    async _runMarkedRefresh() {
+        const refreshSucceeded = await refreshContext.run(
+            { inRefresh: true },
+            () => this.refreshAuth()
+        );
+        if (refreshSucceeded) this._authGeneration++;
+        return refreshSucceeded;
+    }
+
+    _isInsideRefreshFlow() {
+        return Boolean(refreshContext.getStore()?.inRefresh);
     }
 
     async refreshAuth() {

@@ -148,7 +148,27 @@ class Module extends Delegate {
             await this.deauthorize();
         } else if (delegateString === this.api.DLGT_INVALID_AUTH) {
             await this.markCredentialsInvalid(object);
+        } else if (delegateString === this.api.DLGT_CREDENTIAL_RELOAD) {
+            return this.reloadCredential();
         }
+    }
+
+    /**
+     * Re-reads the credential row from the database. The requester can then
+     * adopt a concurrent invocation's refresh and does not race it.
+     * @returns {Promise<Object|null>} The persisted token fields, or null
+     *   when no credential row is available. The requester treats null as
+     *   "nothing to adopt" and continues with its own refresh.
+     */
+    async reloadCredential() {
+        if (!this.credential?.id) return null;
+        const freshFromDatabase =
+            await this.credentialRepository.findCredentialById(
+                this.credential.id
+            );
+        if (!freshFromDatabase) return null;
+        this.credential = freshFromDatabase;
+        return this.apiParamsFromCredential(freshFromDatabase);
     }
 
     async markCredentialsInvalid(diagnosticInfo = null) {
