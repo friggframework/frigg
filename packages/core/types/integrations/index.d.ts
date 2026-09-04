@@ -1,9 +1,7 @@
 declare module "@friggframework/integrations" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
-  import { Model } from "mongoose";
-  import { EntityManager } from "@friggframework/module-plugin";
 
-  export class Integration extends Model {
+  export interface Integration {
     entities: any[];
     userId: string;
     status: string; // IntegrationStatus
@@ -19,8 +17,7 @@ declare module "@friggframework/integrations" {
 
   export class IntegrationManager
     extends Delegate
-    implements IFriggIntegrationManager
-  {
+    implements IFriggIntegrationManager {
     integration: Integration;
     primaryInstance: any;
     targetInstance: any;
@@ -56,7 +53,6 @@ declare module "@friggframework/integrations" {
       entities: { id: string; user: any },
       userId: string,
       config: any,
-      EntityManager: EntityManager
     ): Promise<any>;
 
     static getFormattedIntegration(
@@ -116,8 +112,7 @@ declare module "@friggframework/integrations" {
   }
 
   export class IntegrationConfigManager
-    implements IFriggIntegrationConfigManager
-  {
+    implements IFriggIntegrationConfigManager {
     options: IntegrationOptions[];
     primary: any;
 

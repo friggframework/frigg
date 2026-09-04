@@ -1,0 +1,285 @@
+{
+  "count": 28,
+  "adrs": [
+    {
+      "num": 1,
+      "id": "001",
+      "title": "Use Vite + React for Management UI",
+      "status": "Accepted",
+      "date": "2025-01-25",
+      "theme": "Developer experience",
+      "summary": "Uses Vite and React for the local management UI so it can reuse existing Frigg UI components and stay lightweight, with no Electron wrapper.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/001-use-vite-for-management-ui.md"
+    },
+    {
+      "num": 2,
+      "id": "002",
+      "title": "No Database for Local Development Tools",
+      "status": "Accepted",
+      "date": "2025-01-25",
+      "theme": "Developer experience",
+      "summary": "The management GUI keeps no database or persistent storage; all state is runtime memory read from project files, so each session starts fresh.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/002-no-database-for-local-dev.md"
+    },
+    {
+      "num": 3,
+      "id": "003",
+      "title": "Runtime State Only for Management GUI",
+      "status": "Accepted",
+      "date": "2025-01-25",
+      "theme": "Developer experience",
+      "summary": "The management GUI uses a minimal local-only security model: no auth, no stored credentials, no encryption, localhost CORS, and read-only file access.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/003-runtime-state-only.md"
+    },
+    {
+      "num": 4,
+      "id": "004",
+      "title": "Project Structure Migration Tool",
+      "status": "Proposed",
+      "date": "2025-01-25",
+      "theme": "Developer experience",
+      "summary": "Defines frigg migrate, a build-time CLI that rewrites an app's project structure from create-frigg-app to the frigg init layout while preserving custom code.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/004-migration-tool-design.md"
+    },
+    {
+      "num": 5,
+      "id": "005",
+      "title": "Admin Script Runner Service",
+      "status": "Accepted",
+      "date": "2025-12-10",
+      "theme": "Developer experience",
+      "summary": "Adds an Admin Script Runner so adopters register admin operations in the app definition and run them sync or scheduled behind a dedicated admin key.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/005-admin-script-runner.md"
+    },
+    {
+      "num": 6,
+      "id": "006",
+      "title": "Integration Router v2",
+      "status": "Accepted",
+      "date": "2025-12-14",
+      "theme": "Developer experience",
+      "summary": "Restructures the integration API into a v2 router with consistent naming, credential management, and proxy endpoints, dropping the duplicated modules routes.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/006-integration-router-v2.md"
+    },
+    {
+      "num": 7,
+      "id": "007",
+      "title": "Management UI Architecture",
+      "status": "Accepted",
+      "date": "2025-12-14",
+      "theme": "Developer experience",
+      "summary": "The management UI runs as a separate Express server that proxies to running Frigg apps, keeping admin API keys off the browser across local and remote.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/007-management-ui-architecture.md"
+    },
+    {
+      "num": 8,
+      "id": "008",
+      "title": "Frigg CLI Start Command",
+      "status": "Accepted",
+      "date": "2025-12-14",
+      "theme": "Infra & deploy",
+      "summary": "frigg start runs pre-flight checks for Docker, the database, env files, and Prisma, offering to fix problems so local startup just works.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/008-frigg-cli-start-command.md"
+    },
+    {
+      "num": 9,
+      "id": "009",
+      "title": "E2E Test Package",
+      "status": "Accepted",
+      "date": "2025-12-15",
+      "theme": "Developer experience",
+      "summary": "Adds a self-contained e2e package that spins up a real Express server and in-memory MongoDB to test full integration lifecycles over HTTP.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/009-e2e-test-package.md"
+    },
+    {
+      "num": 10,
+      "id": "010",
+      "title": "Reporting as an Admin Operation",
+      "status": "Accepted",
+      "date": "2026-07-03",
+      "theme": "Observability & ops",
+      "summary": "Treats reporting as an admin operation so reports register in the app definition and run on the shared script-runner instead of a hardcoded core endpoint.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/010-reporting-as-admin-operation.md"
+    },
+    {
+      "num": 11,
+      "id": "011",
+      "title": "Integration Telemetry, Eventing & Feature-Usage Tracking",
+      "status": "Accepted",
+      "date": "2026-07-03",
+      "theme": "Observability & ops",
+      "summary": "Adopts OpenTelemetry as a vendor-neutral telemetry layer with auto-instrumentation and a durable per-integration usage store that feeds reports.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/011-integration-telemetry-and-usage-tracking.md"
+    },
+    {
+      "num": 12,
+      "id": "012",
+      "title": "Database Schema Migrations",
+      "status": "Proposed",
+      "date": "2026-07-04",
+      "theme": "Data & migrations",
+      "summary": "Runs Prisma schema migrations from a VPC-internal Lambda triggered by CI/CD, tracking status in S3 so it needs no dependency on the tables it creates.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/012-database-schema-migrations.md"
+    },
+    {
+      "num": 13,
+      "id": "013",
+      "title": "Integration Version Migrations",
+      "status": "Proposed",
+      "date": "2026-07-04",
+      "theme": "Data & migrations",
+      "summary": "Makes integration version migration a first-class admin operation that idempotently transforms persisted records, config, and mappings across versions.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/013-integration-version-migrations.md"
+    },
+    {
+      "num": 14,
+      "id": "014",
+      "title": "One Numbered ADR Register",
+      "status": "Accepted",
+      "date": "2026-07-04",
+      "theme": "Developer experience",
+      "summary": "Consolidates Frigg's two ADR sets into one numbered register under docs/architecture-decisions with a single structure, header, and index.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/014-consolidate-adr-register.md"
+    },
+    {
+      "num": 15,
+      "id": "015",
+      "title": "Extensions Taxonomy",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Extensions & plugins",
+      "summary": "Defines Extensions as optional add-on code split into core, integration, and API-module types, distinct from required infrastructure Plugins.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/015-extensions-taxonomy.md"
+    },
+    {
+      "num": 16,
+      "id": "016",
+      "title": "Plugins",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Extensions & plugins",
+      "summary": "Defines Plugins as swappable infrastructure packages (provider, database, encryption, queue, scheduler) so core depends on interfaces, not bundled deps.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/016-plugins.md"
+    },
+    {
+      "num": 17,
+      "id": "017",
+      "title": "Core Extensions",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Extensions & plugins",
+      "summary": "Core Extensions add optional app-level functionality like alerting, monitoring, and a Slack admin bot, declared on appDefinition.extensions.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/017-core-extensions.md"
+    },
+    {
+      "num": 18,
+      "id": "018",
+      "title": "Integration Extensions",
+      "status": "Implemented",
+      "date": "2026-06-09",
+      "theme": "Extensions & plugins",
+      "summary": "Integration Extensions let an API module or shared library ship a bundle of routes, events, queues, and workers that an integration binds declaratively.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/018-integration-extensions.md"
+    },
+    {
+      "num": 19,
+      "id": "019",
+      "title": "API Module Extensions",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Extensions & plugins",
+      "summary": "API Module Extensions are the producer side: an API module exports reusable extension bundles under extensions.{name} with provider quirks built in.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/019-api-module-extensions.md"
+    },
+    {
+      "num": 20,
+      "id": "020",
+      "title": "Capabilities",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Agent tooling",
+      "summary": "Capabilities are typed declarations on a Definition that name what a module, integration, or app can do and point at its spec and implementation.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/020-capabilities.md"
+    },
+    {
+      "num": 21,
+      "id": "021",
+      "title": "Ontology",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Agent tooling",
+      "summary": "The Ontology is layered, versioned context (universal, framework, vendor, instance) that compiles into an XML block agents see at session start.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/021-ontology.md"
+    },
+    {
+      "num": 22,
+      "id": "022",
+      "title": "Artifacts",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Extensions & plugins",
+      "summary": "Artifacts are code or config an API module helps generate that runs outside Frigg on the provider's platform, with Frigg serving the runtime bridge.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/022-artifacts.md"
+    },
+    {
+      "num": 23,
+      "id": "023",
+      "title": "Integration Templates",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Agent tooling",
+      "summary": "Integration Templates are category base classes an adopter copies into their codebase, ShadCN-style, with sync and mapping pre-built and owned by them.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/023-integration-templates.md"
+    },
+    {
+      "num": 24,
+      "id": "024",
+      "title": "Global Entities",
+      "status": "Proposed",
+      "date": "2024-12-18",
+      "theme": "Data & migrations",
+      "summary": "Global Entities let integrations use shared app-owner service accounts instead of per-user credentials, and need the currently missing schema fields.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/024-global-entities.md"
+    },
+    {
+      "num": 25,
+      "id": "025",
+      "title": "Agent Harness",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Agent tooling",
+      "summary": "The Agent Harness is a package wiring ontology, capabilities, plugins, and templates into Claude Code's session so agents ground and validate Frigg work.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/025-agent-harness.md"
+    },
+    {
+      "num": 26,
+      "id": "026",
+      "title": "Evals",
+      "status": "Proposed",
+      "date": "2026-06-09",
+      "theme": "Agent tooling",
+      "summary": "Builds an 8-condition factorial eval to measure whether capabilities, ontology, and the harness each improve agent accuracy on Frigg tasks.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/026-evals.md"
+    },
+    {
+      "num": 27,
+      "id": "027",
+      "title": "SSM Parameter Offload and Per-Function Environment Scoping",
+      "status": "Accepted",
+      "date": "2026-07-10",
+      "theme": "Infra & deploy",
+      "summary": "Offloads large secrets to SSM and scopes env vars per function so Lambdas stay under the 4KB environment limit as the integration count grows.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/027-ssm-parameter-offload-and-env-scoping.md"
+    },
+    {
+      "num": 31,
+      "id": "031",
+      "title": "Concurrent OAuth Credential Refresh Across Lambda Invocations",
+      "status": "Proposed",
+      "date": "2026-08-11",
+      "theme": "Data & migrations",
+      "summary": "Deconflicts concurrent OAuth refreshes across Lambda invocations: a reactive database check before refresh and on 401 (adopt the winner's tokens, escalate only on proof of death), plus proactive scheduled refresh via admin scripts, and a fix for the silent SQS ack that hid the losses.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/031-concurrent-oauth-credential-refresh.md"
+    }
+  ]
+}

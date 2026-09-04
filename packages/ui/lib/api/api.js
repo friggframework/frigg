@@ -13,6 +13,8 @@ export default class API {
     this.endpointIntegrations = "/api/integrations";
     this.endpointIntegration = (id) => `/api/integrations/${id}`;
     this.endpointSampleData = (id) => `/api/demo/sample/${id}`;
+    this.endpointIntegrationUserActions = (id) =>
+      `/api/integrations/${id}/actions`;
     this.endpointIntegrationUserActionOptions = (id, action) =>
       `/api/integrations/${id}/actions/${action}/options`;
     this.endpointIntegrationUserActionSubmit = (id, action) =>
@@ -179,12 +181,17 @@ export default class API {
     return this._post(url);
   }
 
-  async getUserActionOptions(integrationId, selectedUserAction) {
+  async getUserActions(integrationId, actionType) {
+    const url = this.endpointIntegrationUserActions(integrationId);
+    return this._post(url, { actionType });
+  }
+
+  async getUserActionOptions(integrationId, selectedUserAction, data) {
     const url = this.endpointIntegrationUserActionOptions(
       integrationId,
       selectedUserAction
     );
-    return this._get(url);
+    return this._post(url, data);
   }
 
   async submitUserAction(integrationId, selectedUserAction, data) {

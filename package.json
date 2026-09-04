@@ -13,8 +13,60 @@
     "contributors:generate": "all-contributors generate"
   },
   "engines": {
-    "node": ">=18",
-    "npm": ">=9"
+    "node": ">=22",
+    "npm": ">=10"
+  },
+  "overrides": {
+    "rollup": {
+      ".": "4.62.2",
+      "@rollup/rollup-linux-x64-gnu": "4.62.2",
+      "@rollup/rollup-darwin-x64": "4.62.2",
+      "@rollup/rollup-darwin-arm64": "4.62.2",
+      "@rollup/rollup-win32-x64-msvc": "4.62.2"
+    },
+    "fast-xml-parser": "5.9.3",
+    "handlebars": "4.7.9",
+    "simple-git": "3.36.0",
+    "lodash": "4.18.1",
+    "ws": "8.21.0",
+    "tmp": "0.2.7",
+    "flatted": "3.4.2",
+    "fast-uri": "3.1.5",
+    "defu": "6.1.7",
+    "effect": "3.21.4",
+    "velocityjs": "2.1.7",
+    "@hapi/content": "6.0.2",
+    "@hapi/wreck": "18.1.2",
+    "qs": "6.15.2",
+    "follow-redirects": "1.16.0",
+    "ip-address": "10.5.0",
+    "@jsonforms/core": "3.6.0",
+    "@jsonforms/react": "3.6.0",
+    "@jsonforms/material-renderers": "3.6.0",
+    "jshint": {
+      "minimatch": "3.1.5"
+    },
+    "mongodb-memory-server-core": {
+      "uuid": "11.1.1"
+    },
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "4.3.1"
+    },
+    "lerna": {
+      "js-yaml": "4.3.1"
+    },
+    "@lerna/create": {
+      "js-yaml": "4.3.1"
+    },
+    "nanoid": "3.3.18",
+    "postcss": "8.5.26",
+    "body-parser": "1.20.6",
+    "js-yaml@4": "4.3.1",
+    "brace-expansion@1": "1.1.18",
+    "brace-expansion@2": "2.1.4",
+    "js-yaml@3": "3.15.1",
+    "undici@6": "6.28.0",
+    "undici@7": "7.29.0"
   },
   "author": "seanspeaks <sean.matthews@lefthook.co>",
   "license": "MIT",
@@ -22,13 +74,13 @@
     "packages/*"
   ],
   "devDependencies": {
-    "@auto-it/all-contributors": "^11.1.2",
-    "@auto-it/conventional-commits": "^11.2.0",
-    "@auto-it/first-time-contributor": "^11.1.2",
-    "@auto-it/slack": "^11.1.2",
-    "auto": "^11.1.2",
-    "lerna": "^8.1.2",
-    "nx": "^18.1.3"
+    "@auto-it/all-contributors": "11.3.0",
+    "@auto-it/conventional-commits": "11.3.0",
+    "@auto-it/first-time-contributor": "11.3.0",
+    "@auto-it/slack": "11.3.0",
+    "auto": "11.3.0",
+    "lerna": "8.1.9",
+    "nx": "20.3.2"
   },
   "repository": "friggframework/frigg",
   "auto": {
@@ -61,8 +113,5 @@
         }
       ]
     ]
-  },
-  "dependencies": {
-    "bot": "^0.0.3"
   }
 }
