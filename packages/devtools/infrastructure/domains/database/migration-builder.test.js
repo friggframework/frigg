@@ -424,3 +424,31 @@ describe('MigrationBuilder', () => {
     });
 });
 
+
+describe('MigrationBuilder nested node_modules (lambda.keepNestedNodeModules)', () => {
+    const baseAppDefinition = { database: { postgres: { enable: true } } };
+    const workerAndRouter = (result) => [
+        result.functions.dbMigrationWorker,
+        result.functions.dbMigrationRouter,
+    ];
+
+    it('excludes every nested node_modules by default', async () => {
+        const result = await new MigrationBuilder().build(baseAppDefinition, {});
+
+        for (const fn of workerAndRouter(result)) {
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
+        }
+    });
+
+    it('keeps nested node_modules when the app opts in, still excluding nested Frigg copies', async () => {
+        const result = await new MigrationBuilder().build(
+            { ...baseAppDefinition, lambda: { keepNestedNodeModules: true } },
+            {}
+        );
+
+        for (const fn of workerAndRouter(result)) {
+            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+        }
+    });
+});

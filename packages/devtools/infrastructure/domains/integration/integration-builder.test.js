@@ -1032,3 +1032,33 @@ describe('IntegrationBuilder', () => {
     });
 });
 
+
+describe('IntegrationBuilder nested node_modules (lambda.keepNestedNodeModules)', () => {
+    const appDefinition = (lambda) => ({
+        integrations: [{ Definition: { name: 'test', webhooks: true } }],
+        ...(lambda && { lambda }),
+    });
+    const packagedFunctions = (result) =>
+        Object.values(result.functions).filter((fn) => fn.package?.exclude);
+
+    it('excludes every nested node_modules by default', async () => {
+        const result = await new IntegrationBuilder().build(appDefinition(), {});
+
+        expect(packagedFunctions(result).length).toBeGreaterThan(0);
+        for (const fn of packagedFunctions(result)) {
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
+        }
+    });
+
+    it('keeps nested node_modules when the app opts in, still excluding nested Frigg copies', async () => {
+        const result = await new IntegrationBuilder().build(
+            appDefinition({ keepNestedNodeModules: true }),
+            {}
+        );
+
+        for (const fn of packagedFunctions(result)) {
+            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+        }
+    });
+});

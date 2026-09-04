@@ -29,6 +29,9 @@ const {
     getIntegrationFunctionNames,
     getAdminFunctionNames,
 } = require('../shared/function-environments');
+const {
+    nestedNodeModulesExcludes,
+} = require('../shared/utilities/nested-node-modules');
 
 class IntegrationBuilder extends InfrastructureBuilder {
     constructor() {
@@ -182,8 +185,10 @@ class IntegrationBuilder extends InfrastructureBuilder {
         usePrismaLayer = true
     ) {
         // Create package config first — needed by all Lambda functions including DLQ processor
-        const functionPackageConfig =
-            this.createFunctionPackageConfig(usePrismaLayer);
+        const functionPackageConfig = this.createFunctionPackageConfig(
+            usePrismaLayer,
+            appDefinition
+        );
 
         // Create InternalErrorQueue if ownership = STACK
         const shouldCreateInternalErrorQueue =
@@ -243,7 +248,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Create function package exclusion configuration
      */
-    createFunctionPackageConfig(usePrismaLayer = true) {
+    createFunctionPackageConfig(usePrismaLayer = true, appDefinition = {}) {
         return {
             exclude: [
                 // Exclude AWS SDK (provided by Lambda runtime)
@@ -260,8 +265,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
                       ]
                     : []),
 
-                // Exclude ALL nested node_modules
-                'node_modules/**/node_modules/**',
+                ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
 
                 // Exclude build tools (not needed at runtime)
                 'node_modules/esbuild/**',
