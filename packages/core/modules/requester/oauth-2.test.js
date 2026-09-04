@@ -198,6 +198,21 @@ describe('OAuth2Requester', () => {
             );
         });
 
+        it('returns false when getTokenFromClientCredentials reports a failure and resolves to undefined', async () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'client_credentials',
+                credentialReloadBackoffMs: [],
+            });
+            requester.getTokenFromClientCredentials = jest
+                .fn()
+                .mockResolvedValue(undefined);
+            requester.notify = jest.fn();
+
+            const result = await requester.refreshAuth();
+
+            expect(result).toBe(false);
+        });
+
         it('does not leak the refresh request body to the delegate', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'authorization_code',

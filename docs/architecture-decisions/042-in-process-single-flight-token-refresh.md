@@ -1,7 +1,7 @@
-# ADR-040: In-Process Single-Flight Token Refresh
+# ADR-042: In-Process Single-Flight Token Refresh
 
-**Status**: Proposed
-**Date**: 2026-09-04
+**Status**: Proposed  
+**Date**: 2026-09-04  
 **Deciders**: Daniel Klotz
 
 ## Context
@@ -33,8 +33,9 @@ A sync stage sends a chunk of records through one instance with
 requests in the chunk get a 401 at the same moment. Before this decision,
 each 401 handler started its own refresh and spent the shared retry budget.
 
-Measured on one instance, with 5 concurrent 401s and Intuit-like rotation
-(the PR test suite):
+Measured with the PR test harness, on one instance, with 5 concurrent 401s
+and Intuit-like rotation. The "Before" column ran the same harness against
+the pre-PR `requester.js`:
 
 | | Before | After |
 |---|---|---|
@@ -46,14 +47,15 @@ Measured on one instance, with 5 concurrent 401s and Intuit-like rotation
 Two mechanisms produce the "before" column:
 
 1. **The budget kills healthy requests.** Requests 1–3 spend the budget.
-   Requests 4 and 5 find it empty and invalidate the credential at once,
-   while request 1's refresh is in flight and about to succeed.
+   Requests 4 and 5 find the budget empty. They invalidate the credential at
+   once. At that moment, request 1's refresh is in flight and about to
+   succeed.
 2. **The refreshes kill each other.** The provider accepts request 1's
    refresh and rotates the token. Requests 2 and 3 then present the consumed
    token and get `invalid_grant`. The framework makes these failures itself.
-   On a provider that follows RFC 9700 §4.14.2, a replay of a consumed
-   refresh token revokes the whole grant. The framework then kills its own
-   credential.
+   On a provider that implements RFC 9700 §4.14.2 refresh-token rotation, a
+   replay of a consumed refresh token revokes the grant. The provider then
+   forces a new authorization. The framework has killed its own credential.
 
 Each failure fires `INVALID_AUTH`. The credential gets `authIsValid: false`
 while it is healthy, and the integration goes to `ERROR`.
@@ -114,14 +116,22 @@ new initiator.
 An `AsyncLocalStorage` context marks the async call chain of the running
 `refreshAuth()`. A 401 that arrives inside that chain means the token
 endpoint rejected the credential itself. The handler then invalidates the
-credential at once and never joins the slot. Code: `_isInsideRefreshFlow()`.
+credential and never joins the slot. Code: `_isInsideRefreshFlow()`.
 
 Without this rule, that 401 finds the slot full and awaits it. The slot's
 promise can only settle when the token request returns, and that request is
 now the one waiting. This is a circular await. It hangs until the Lambda
 times out, and it never clears the slot, so every later request on the
-instance hangs too. The PR test shows the hang (more than 1500 ms) before
-the rule, and 2 ms after it.
+instance hangs too. Measured without the rule: the initiator hangs for more
+than 1600 ms, and the slot stays full. The PR test asserts that the
+initiator settles within 1500 ms with the rule.
+
+After the guard throws, `refreshAuth()` sees the 401 as a definitive
+rejection. For `authorization_code`, it runs the reload backoff (about 3 s
+by default) and then invalidates, because the store has nothing newer. For
+`client_credentials`, the token call reports the failure and `refreshAuth()`
+returns false at once. In both cases the slot clears and the credential is
+flagged. The guard removes the hang. It does not remove the backoff.
 
 `AsyncLocalStorage` is the mechanism because the marker must be per call
 chain, not per instance. During a refresh, the sibling requests' 401s also
@@ -145,9 +155,9 @@ instance:
    (`DLGT_CREDENTIAL_RELOAD`). If the stored refresh token differs, adopt
    the stored tokens and do not refresh.
 2. Split the refresh errors. A 400, or a 401 for `invalid_client`, is a
-   definitive rejection. A timeout, a 429, or a 5xx is a transport failure:
-   rethrow it as a fresh `Error`, so the caller retries and no healthy
-   credential gets flagged.
+   definitive rejection. A timeout, a 429, or a 5xx is a transport failure.
+   Rethrow it as a fresh `Error`. The caller then retries, and the framework
+   does not flag a healthy credential.
 3. After a definitive rejection, re-read with a bounded backoff (500, 1000,
    1500 ms). Adopt if the store has a newer refresh token.
 4. Invalidate only when the rejection is definitive and the store has
@@ -156,8 +166,9 @@ instance:
    `frigg.auth.refresh_race_lost`.
 
 The Module answers the reload from the database
-(`Module.reloadCredential()`). The reload only reads. It never writes, and
-it never changes `authIsValid`.
+(`Module.reloadCredential()`). The reload never writes to the database, and
+it never changes the stored `authIsValid`. It does replace the Module's
+in-memory `credential` with the row it read.
 
 Not in this PR: the queue-worker change that stops the silent ack for
 integrations in `ERROR`. It is independent of the requester. It is also the
@@ -175,7 +186,8 @@ as its own PR.
 - The rules work for every subclass, including modules with a custom
   `_post`-based refresh. No module changes.
 - No new AWS resource and no new dependency. `AsyncLocalStorage` is part of
-  Node.js (stable since 16.4; Frigg requires 18 or later).
+  Node.js (stable since Node 16.4.0; the root `package.json` requires Node
+  22 or later).
 - On a grant-revoking provider, the framework no longer replays consumed
   refresh tokens from inside one invocation. It no longer kills its own
   grant.
@@ -184,19 +196,25 @@ as its own PR.
 
 - The retry budget is per initiator. A reviewer must accept that a burst of
   20 requests spends one unit of budget, not 20.
-- All waiters receive the same `Error` instance when the shared refresh
-  fails. Code that annotates errors per record can see cross-contamination.
-  Open.
+- On a transport failure, all waiters receive the same `Error` instance.
+  Code that annotates errors per record can see cross-contamination. On a
+  definitive rejection, each waiter builds its own `FetchError` and fires
+  its own `INVALID_AUTH`. A burst of N requests then produces N+1
+  `markCredentialsInvalid` writes. This is not a regression, but it is not
+  deduplicated. This is an open issue.
 - A module whose `refreshAuth()` does its own HTTP outside `_rawRequest`
   (for example, `intuit-oauth`) bypasses Frigg's per-attempt timeout.
   Single-flight concentrates that exposure: a hung token endpoint pins the
-  initiator and every waiter until the Lambda times out. Open; a follow-up
-  can wrap `refreshAuth()` in a timeout.
+  initiator and every waiter until the Lambda times out. This is an open
+  issue. A follow-up can wrap `refreshAuth()` in a timeout.
 - The refresh context is module-scoped, not instance-scoped. If a custom
   `refreshAuth()` calls a *different* `Requester` instance, that instance
   inherits the marker, and its 401 becomes fatal by mistake. Fix: store the
   requester in the context and compare identity in `_isInsideRefreshFlow()`.
-  Open review finding, small change.
+  This is an open review finding. The change is small.
+- The adoption check reads the credential row. A read from a replica-set
+  secondary can miss the winner's write. Nothing in this PR asserts
+  `readPreference=primary`. ADR-031 owns that item.
 - A second `AsyncLocalStorage` in core. Readers must know the pattern: the
   container is a process global; the value exists only inside the wrapped
   call chain.
@@ -210,6 +228,9 @@ as its own PR.
   this PR before the ADR-031 recovery can work.
 - The refresh-token comparison of ADR-031 is sound across processes and
   blind inside one process. That is the reason both ADRs exist.
+- ADR-031's Sequencing defines "PR A" as option 4 plus the silent-ack fix.
+  This PR ships option 4's requester side and defers the silent-ack fix to
+  its own PR. ADR-031's Sequencing section needs an amendment.
 
 ## Alternatives Considered
 
@@ -223,15 +244,15 @@ as its own PR.
   for the two reasons in the Context.
 - **An instance flag (`this._isRefreshing`) instead of `AsyncLocalStorage`.**
   Rejected as incorrect. A refresh takes 300–600 ms. Sibling requests' 401s
-  arrive in that window. The flag is true for them too, so the guard
-  classifies them as fatal and kills a healthy credential, which is the bug
+  arrive in that window. The flag is also true for them. The guard then
+  classifies them as fatal and kills a healthy credential. That is the bug
   this decision fixes. The state must be per call chain. A hand-rolled
   per-call-chain state is a worse `AsyncLocalStorage`.
 - **Thread an explicit flag through the request options.** Rejected for
   now. Core has two token call sites and can mark them. A custom
   `_post`-based refresh does not carry the flag, so its deadlock returns. It
-  then needs a join watchdog as a backstop, and a revoked client secret
-  burns the full timeout instead of failing in one tick. The trade is
+  then needs a join watchdog as a backstop. A revoked client secret then
+  burns the full request timeout, not the 3 s reload backoff. The trade is
   familiar code for weaker protection. Revisit if the maintainers veto
   `AsyncLocalStorage`.
 - **Compare the request URL to `tokenUri`.** Rejected. It covers core's two
@@ -270,7 +291,8 @@ as its own PR.
   `packages/core/modules/module.js` (`reloadCredential`).
 - Tests: `requester.concurrent-refresh.test.js`,
   `oauth-2.credential-reload.test.js`, `module-credential-reload.test.js`.
-- Numbering note: 032–039 are claimed by unmerged branches
+- Numbering note: 032–041 are claimed by unmerged branches
   (`claude/integration-deletion-cleanup-*`, `claude/aurora-serverless-*`,
   `claude/api-key-login-auth-mode`, and the renumbering on
-  `docs/adr-register-reconciliation`). 040 is the first free integer.
+  `docs/adr-register-reconciliation`, which uses 040–041). 042 is the first
+  free integer.

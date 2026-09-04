@@ -45,7 +45,7 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [026](./026-evals.md) | Evals | Proposed | 2026-06-09 |
 | [027](./027-ssm-parameter-offload-and-env-scoping.md) | SSM Parameter Offload and Per-Function Environment Scoping | Accepted | 2026-07-10 |
 | [031](./031-concurrent-oauth-credential-refresh.md) | Concurrent OAuth Credential Refresh Across Lambda Invocations | Proposed | 2026-08-11 |
-| [040](./040-in-process-single-flight-token-refresh.md) | In-Process Single-Flight Token Refresh | Proposed | 2026-09-04 |
+| [042](./042-in-process-single-flight-token-refresh.md) | In-Process Single-Flight Token Refresh | Proposed | 2026-09-04 |
 
 ## Conventions
 

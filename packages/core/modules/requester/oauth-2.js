@@ -329,7 +329,11 @@ class OAuth2Requester extends Requester {
                     refresh_token: this.refresh_token,
                 });
             } else {
-                await this.getTokenFromClientCredentials();
+                // getTokenFromClientCredentials() reports a failed token
+                // request itself and resolves to undefined. Without this
+                // check, the refresh counts as a success with no new token.
+                const tokenRes = await this.getTokenFromClientCredentials();
+                if (!tokenRes) return false;
             }
             console.log('[Frigg] Token refresh succeeded');
             return true;
