@@ -1,5 +1,5 @@
 {
-  "count": 28,
+  "count": 29,
   "adrs": [
     {
       "num": 1,
@@ -280,6 +280,16 @@
       "theme": "Data & migrations",
       "summary": "Deconflicts concurrent OAuth refreshes across Lambda invocations: a reactive database check before refresh and on 401 (adopt the winner's tokens, escalate only on proof of death), plus proactive scheduled refresh via admin scripts, and a fix for the silent SQS ack that hid the losses.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/031-concurrent-oauth-credential-refresh.md"
+    },
+    {
+      "num": 40,
+      "id": "040",
+      "title": "In-Process Single-Flight Token Refresh",
+      "status": "Proposed",
+      "date": "2026-09-04",
+      "theme": "Data & migrations",
+      "summary": "Coordinates concurrent 401s inside one Lambda invocation: one shared token refresh per api-module instance, a fail-fast guard for a 401 raised inside the refresh itself, and a token-generation check so stale 401s retry instead of refreshing again.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/040-in-process-single-flight-token-refresh.md"
     }
   ]
 }
