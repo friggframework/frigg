@@ -397,19 +397,259 @@ describe('IntegrationBuilder', () => {
         });
     });
 
+    describe('Integration.Definition.queue tuning knobs', () => {
+        it('overrides VisibilityTimeout, MessageRetentionPeriod, and maxReceiveCount on the queue', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'tuned',
+                            queue: {
+                                visibilityTimeout: 960,
+                                messageRetentionPeriod: 86400,
+                                maxReceiveCount: 5,
+                            },
+                        },
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const props = result.resources.TunedQueue.Properties;
+
+            expect(props.VisibilityTimeout).toBe(960);
+            expect(props.MessageRetentionPeriod).toBe(86400);
+            expect(props.RedrivePolicy.maxReceiveCount).toBe(5);
+        });
+
+        it('overrides worker batchSize, maximumBatchingWindow, maximumConcurrency, reservedConcurrency, and timeout', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'tuned',
+                            queue: {
+                                worker: {
+                                    batchSize: 5,
+                                    maximumBatchingWindow: 2,
+                                    maximumConcurrency: 20,
+                                    reservedConcurrency: 10,
+                                    timeout: 120,
+                                },
+                            },
+                        },
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const fn = result.functions.tunedQueueWorker;
+            const sqsEvent = fn.events[0].sqs;
+
+            expect(sqsEvent.batchSize).toBe(5);
+            expect(sqsEvent.maximumBatchingWindow).toBe(2);
+            expect(sqsEvent.maximumConcurrency).toBe(20);
+            expect(fn.reservedConcurrency).toBe(10);
+            expect(fn.timeout).toBe(120);
+        });
+
+        it('preserves defaults when queue is omitted (backward compat)', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'untouched' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const props = result.resources.UntouchedQueue.Properties;
+            const fn = result.functions.untouchedQueueWorker;
+            const sqsEvent = fn.events[0].sqs;
+
+            expect(props.VisibilityTimeout).toBe(1800);
+            expect(props.MessageRetentionPeriod).toBe(345600);
+            expect(props.RedrivePolicy.maxReceiveCount).toBe(3);
+            expect(sqsEvent.batchSize).toBe(1);
+            expect(sqsEvent.maximumBatchingWindow).toBeUndefined();
+            expect(sqsEvent.maximumConcurrency).toBeUndefined();
+            expect(fn.reservedConcurrency).toBe(20);
+            expect(fn.timeout).toBe(900);
+        });
+
+        it('handles queue: {} and queue.worker: {} as no-op', async () => {
+            const appDefinition = {
+                integrations: [
+                    { Definition: { name: 'empty', queue: {} } },
+                    { Definition: { name: 'emptyworker', queue: { worker: {} } } },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.resources.EmptyQueue.Properties.VisibilityTimeout).toBe(1800);
+            expect(result.functions.emptyQueueWorker.events[0].sqs.batchSize).toBe(1);
+            expect(result.functions.emptyworkerQueueWorker.events[0].sqs.batchSize).toBe(1);
+        });
+
+        it('does NOT emit maximumBatchingWindow / maximumConcurrency keys when unset', async () => {
+            // Conditional spread keeps the emitted serverless template stable
+            // for consumers who don't opt in. Important — adding undefined
+            // keys would change the serialized template hash.
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'notuned' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const sqsEvent = result.functions.notunedQueueWorker.events[0].sqs;
+
+            expect('maximumBatchingWindow' in sqsEvent).toBe(false);
+            expect('maximumConcurrency' in sqsEvent).toBe(false);
+        });
+
+        it('rejects out-of-range queue.visibilityTimeout (>43200)', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'bad',
+                            queue: { visibilityTimeout: 99999 },
+                        },
+                    },
+                ],
+            };
+
+            await expect(
+                integrationBuilder.build(appDefinition, {})
+            ).rejects.toThrow(/visibilityTimeout=99999 is out of range/);
+        });
+
+        it('rejects out-of-range queue.worker.maximumConcurrency (<2)', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'bad',
+                            queue: { worker: { maximumConcurrency: 1 } },
+                        },
+                    },
+                ],
+            };
+
+            await expect(
+                integrationBuilder.build(appDefinition, {})
+            ).rejects.toThrow(/worker\.maximumConcurrency=1 is out of range/);
+        });
+
+        it('rejects out-of-range queue.worker.timeout (>900)', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'bad',
+                            queue: { worker: { timeout: 901 } },
+                        },
+                    },
+                ],
+            };
+
+            await expect(
+                integrationBuilder.build(appDefinition, {})
+            ).rejects.toThrow(/worker\.timeout=901 is out of range/);
+        });
+
+        it('rejects batchSize > 10 without a batching window', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'bad',
+                            queue: { worker: { batchSize: 500 } },
+                        },
+                    },
+                ],
+            };
+
+            await expect(
+                integrationBuilder.build(appDefinition, {})
+            ).rejects.toThrow(
+                /batchSize=500 requires queue\.worker\.maximumBatchingWindow >= 1/
+            );
+        });
+
+        it('allows batchSize > 10 when a batching window is set', async () => {
+            const appDefinition = {
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'ok',
+                            queue: {
+                                worker: {
+                                    batchSize: 500,
+                                    maximumBatchingWindow: 5,
+                                },
+                            },
+                        },
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions.okQueueWorker.events[0].sqs.batchSize).toBe(
+                500
+            );
+        });
+    });
+
     describe('DLQ Observability', () => {
-        it('should create a CloudWatch alarm for DLQ message depth', async () => {
+        it('should alarm on messages arriving in the DLQ, not on standing depth', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const props = result.resources.DLQMessageAlarm.Properties;
+
+            expect(result.resources.DLQMessageAlarm.Type).toBe('AWS::CloudWatch::Alarm');
+            // dlqProcessor consumes this queue continuously, so a depth metric
+            // sits at zero no matter how many messages arrive.
+            expect(props.MetricName).not.toBe('ApproximateNumberOfMessagesVisible');
+            expect(props.MetricName).toBe('NumberOfMessagesDeleted');
+            expect(props.Statistic).toBe('Sum');
+            expect(props.Threshold).toBe(0);
+            expect(props.ComparisonOperator).toBe('GreaterThanThreshold');
+            expect(props.TreatMissingData).toBe('notBreaching');
+        });
+
+        it('should not alarm on NumberOfMessagesSent, which SQS never increments on redrive', async () => {
             const appDefinition = {
                 integrations: [{ Definition: { name: 'test' } }],
             };
 
             const result = await integrationBuilder.build(appDefinition, {});
 
-            expect(result.resources.DLQMessageAlarm).toBeDefined();
-            expect(result.resources.DLQMessageAlarm.Type).toBe('AWS::CloudWatch::Alarm');
-            expect(result.resources.DLQMessageAlarm.Properties.MetricName).toBe('ApproximateNumberOfMessagesVisible');
-            expect(result.resources.DLQMessageAlarm.Properties.ComparisonOperator).toBe('GreaterThanThreshold');
-            expect(result.resources.DLQMessageAlarm.Properties.Threshold).toBe(500);
+            expect(result.resources.DLQMessageAlarm.Properties.MetricName).not.toBe(
+                'NumberOfMessagesSent'
+            );
+        });
+
+        it('should also alarm on standing depth, to catch a stalled dlqProcessor', async () => {
+            const appDefinition = {
+                integrations: [{ Definition: { name: 'test' } }],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+            const props = result.resources.DLQBacklogAlarm.Properties;
+
+            // NumberOfMessagesDeleted only increments while dlqProcessor is
+            // draining. If it is throttled or erroring, messages pile up and
+            // the arrival alarm stays silent — depth catches that case.
+            expect(props.MetricName).toBe('ApproximateNumberOfMessagesVisible');
+            // Maximum would breach on any burst bigger than one dlqProcessor
+            // batch, duplicating DLQMessageAlarm. Minimum means "never empty".
+            expect(props.Statistic).toBe('Minimum');
+            expect(props.Threshold).toBe(0);
+            expect(props.ComparisonOperator).toBe('GreaterThanThreshold');
+            expect(props.AlarmActions).toEqual([
+                { Ref: 'InternalErrorBridgeTopic' },
+            ]);
         });
 
         it('should wire alarm to InternalErrorBridgeTopic for notifications', async () => {

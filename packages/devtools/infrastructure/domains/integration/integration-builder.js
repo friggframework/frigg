@@ -33,6 +33,93 @@ const {
     nestedNodeModulesExcludes,
 } = require('../shared/utilities/nested-node-modules');
 
+/**
+ * Bounds-check Definition.queue knobs against AWS SQS limits.
+ * Throws on out-of-range values so we fail at template-generation time
+ * instead of waiting for an opaque CloudFormation rejection.
+ */
+function validateQueueConfig(integrationName, queueConfig) {
+    const inRange = (val, min, max) =>
+        val === undefined || (Number.isFinite(val) && val >= min && val <= max);
+    const checks = [
+        ['visibilityTimeout', queueConfig.visibilityTimeout, 0, 43200],
+        [
+            'messageRetentionPeriod',
+            queueConfig.messageRetentionPeriod,
+            60,
+            1209600,
+        ],
+        ['maxReceiveCount', queueConfig.maxReceiveCount, 1, 1000],
+    ];
+    for (const [key, val, min, max] of checks) {
+        if (!inRange(val, min, max)) {
+            throw new Error(
+                `Integration '${integrationName}': queue.${key}=${val} is out of range [${min}, ${max}]`
+            );
+        }
+    }
+}
+
+/**
+ * Bounds-check Definition.queue.worker knobs against the serverless
+ * framework + AWS Lambda+SQS limits. Mirrors osls's own input schema.
+ */
+function validateWorkerConfig(integrationName, workerConfig) {
+    const inRange = (val, min, max) =>
+        val === undefined || (Number.isFinite(val) && val >= min && val <= max);
+    const checks = [
+        ['batchSize', workerConfig.batchSize, 1, 10000],
+        ['maximumBatchingWindow', workerConfig.maximumBatchingWindow, 0, 300],
+        ['maximumConcurrency', workerConfig.maximumConcurrency, 2, 1000],
+        ['reservedConcurrency', workerConfig.reservedConcurrency, 0, 1000],
+        ['timeout', workerConfig.timeout, 1, 900],
+    ];
+    for (const [key, val, min, max] of checks) {
+        if (!inRange(val, min, max)) {
+            throw new Error(
+                `Integration '${integrationName}': queue.worker.${key}=${val} is out of range [${min}, ${max}]`
+            );
+        }
+    }
+
+    // SQS event sources only accept batchSize > 10 when a batching window is
+    // set. Without this check the template packages fine and fails at deploy.
+    if (
+        workerConfig.batchSize > 10 &&
+        !(workerConfig.maximumBatchingWindow >= 1)
+    ) {
+        throw new Error(
+            `Integration '${integrationName}': queue.worker.batchSize=${workerConfig.batchSize} requires queue.worker.maximumBatchingWindow >= 1`
+        );
+    }
+}
+
+const QUEUE_CONFIG_KEYS = [
+    'visibilityTimeout',
+    'messageRetentionPeriod',
+    'maxReceiveCount',
+];
+
+/**
+ * Queue-level knobs only apply to a queue this stack owns. When the queue is
+ * external we must not mutate it — but silently dropping the config the app
+ * declared is the worst failure mode for a tuning API, so say so.
+ */
+function warnIgnoredQueueConfig(integrationName, queueConfig) {
+    if (!queueConfig) return;
+    validateQueueConfig(integrationName, queueConfig);
+    const ignored = QUEUE_CONFIG_KEYS.filter(
+        (key) => queueConfig[key] !== undefined
+    );
+    if (ignored.length > 0) {
+        console.warn(
+            `  ⚠ Integration '${integrationName}': queue.${ignored.join(
+                ', queue.'
+            )} ignored — the queue is externally owned. queue.worker.* still applies.`
+        );
+    }
+}
+
 class IntegrationBuilder extends InfrastructureBuilder {
     constructor() {
         super();
@@ -231,10 +318,15 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 this.createIntegrationQueue(
                     integrationName,
                     result,
-                    appDefinition
+                    appDefinition,
+                    integration.Definition.queue
                 );
             } else {
                 console.log(`      ✓ Using external ${integrationName}Queue`);
+                warnIgnoredQueueConfig(
+                    integrationName,
+                    integration.Definition.queue
+                );
                 this.useExternalIntegrationQueue(
                     integrationName,
                     queueDecision,
@@ -429,27 +521,35 @@ class IntegrationBuilder extends InfrastructureBuilder {
 
         // Create Queue Worker function
         const queueWorkerName = `${integrationName}QueueWorker`;
+        const workerConfig = integration.Definition.queue?.worker || {};
+        validateWorkerConfig(integrationName, workerConfig);
+        const sqsEvent = {
+            arn: {
+                'Fn::GetAtt': [
+                    `${this.capitalizeFirst(integrationName)}Queue`,
+                    'Arn',
+                ],
+            },
+            batchSize: workerConfig.batchSize ?? 1,
+            functionResponseType: 'ReportBatchItemFailures',
+        };
+        // The serverless framework SQS event accepts `maximumBatchingWindow`
+        // (not `...InSeconds` — that's the AWS-side CFN property name). osls
+        // and serverless@3+ both reject the longer key with a schema error.
+        if (workerConfig.maximumBatchingWindow !== undefined) {
+            sqsEvent.maximumBatchingWindow = workerConfig.maximumBatchingWindow;
+        }
+        if (workerConfig.maximumConcurrency !== undefined) {
+            sqsEvent.maximumConcurrency = workerConfig.maximumConcurrency;
+        }
         result.functions[queueWorkerName] = {
             handler: `node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.${integrationName}.queueWorker`,
             skipEsbuild: true, // Nested exports in node_modules - skip esbuild bundling
             package: functionPackageConfig,
             ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }), // Queue workers need Prisma for database operations
-            reservedConcurrency: 20,
-            events: [
-                {
-                    sqs: {
-                        arn: {
-                            'Fn::GetAtt': [
-                                `${this.capitalizeFirst(integrationName)}Queue`,
-                                'Arn',
-                            ],
-                        },
-                        batchSize: 1,
-                        functionResponseType: 'ReportBatchItemFailures',
-                    },
-                },
-            ],
-            timeout: 900, // 15 minutes max for queue workers (Lambda maximum)
+            reservedConcurrency: workerConfig.reservedConcurrency ?? 20,
+            events: [{ sqs: sqsEvent }],
+            timeout: workerConfig.timeout ?? 900, // 15 minutes max for queue workers (Lambda maximum)
         };
         console.log(`      ✓ Queue worker function defined`);
     }
@@ -514,19 +614,61 @@ class IntegrationBuilder extends InfrastructureBuilder {
      * Called for both stack-owned and external InternalErrorQueues.
      */
     createDLQObservability(result, functionPackageConfig, queueArn, queueName) {
-        // CloudWatch Alarm: fires when any message lands in the DLQ
+        // Two alarms, because this DLQ has a consumer and so needs both an
+        // arrival signal and a backlog signal.
+        //
+        // AWS recommends ApproximateNumberOfMessagesVisible for DLQs, which
+        // assumes the usual shape: nothing consumes the DLQ, so depth
+        // accumulates. dlqProcessor (below) drains this one continuously, so
+        // depth returns to ~0 between CloudWatch samples and a depth alarm
+        // alone misses arrivals entirely.
+        //
+        // DLQMessageAlarm — arrivals. NumberOfMessagesDeleted rather than the
+        // more obvious NumberOfMessagesSent: per the SQS docs, messages moved
+        // to a DLQ by redrive are NOT counted by Sent (only manual sends are),
+        // and redrive is the only way messages get here. Deleted increments as
+        // dlqProcessor drains, making it the arrival signal.
+        //
+        // DLQBacklogAlarm — backlog. Deleted only increments while
+        // dlqProcessor is healthy; if it is throttled or erroring, messages
+        // pile up and the arrival alarm stays silent. Depth > 0 catches that.
         result.resources.DLQMessageAlarm = {
             Type: 'AWS::CloudWatch::Alarm',
             Properties: {
                 AlarmDescription:
                     'Messages in dead-letter queue — integration queue processing failures',
                 Namespace: 'AWS/SQS',
-                MetricName: 'ApproximateNumberOfMessagesVisible',
-                Statistic: 'Maximum',
-                Threshold: 500,
+                MetricName: 'NumberOfMessagesDeleted',
+                Statistic: 'Sum',
+                Threshold: 0,
                 ComparisonOperator: 'GreaterThanThreshold',
                 EvaluationPeriods: 1,
                 Period: 300,
+                TreatMissingData: 'notBreaching',
+                AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
+                Dimensions: [{ Name: 'QueueName', Value: queueName }],
+            },
+        };
+
+        result.resources.DLQBacklogAlarm = {
+            Type: 'AWS::CloudWatch::Alarm',
+            Properties: {
+                AlarmDescription:
+                    'Dead-letter queue is not draining — dlqProcessor may be throttled or failing',
+                Namespace: 'AWS/SQS',
+                MetricName: 'ApproximateNumberOfMessagesVisible',
+                // Minimum, not Maximum: dlqProcessor runs at concurrency 1
+                // with batchSize 10, so any burst larger than that leaves
+                // depth briefly above zero. Maximum would fire on every
+                // ordinary burst alongside DLQMessageAlarm and train people to
+                // ignore it. Minimum only breaches when the queue was never
+                // empty across the whole period — i.e. genuinely not draining.
+                Statistic: 'Minimum',
+                Threshold: 0,
+                ComparisonOperator: 'GreaterThanThreshold',
+                EvaluationPeriods: 1,
+                Period: 300,
+                TreatMissingData: 'notBreaching',
                 AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
                 Dimensions: [{ Name: 'QueueName', Value: queueName }],
             },
@@ -558,7 +700,13 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Create integration-specific SQS queue CloudFormation resource
      */
-    createIntegrationQueue(integrationName, result, appDefinition) {
+    createIntegrationQueue(
+        integrationName,
+        result,
+        appDefinition,
+        queueConfig = {}
+    ) {
+        validateQueueConfig(integrationName, queueConfig);
         const queueReference = `${this.capitalizeFirst(integrationName)}Queue`;
         const queueName = `\${self:service}--\${self:provider.stage}-${queueReference}`;
 
@@ -566,10 +714,11 @@ class IntegrationBuilder extends InfrastructureBuilder {
             Type: 'AWS::SQS::Queue',
             Properties: {
                 QueueName: `\${self:custom.${queueReference}}`,
-                MessageRetentionPeriod: 345600, // 4 days (SQS default)
-                VisibilityTimeout: 1800,
+                MessageRetentionPeriod:
+                    queueConfig.messageRetentionPeriod ?? 345600, // 4 days (SQS default)
+                VisibilityTimeout: queueConfig.visibilityTimeout ?? 1800,
                 RedrivePolicy: {
-                    maxReceiveCount: 3,
+                    maxReceiveCount: queueConfig.maxReceiveCount ?? 3,
                     deadLetterTargetArn: {
                         'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                     },
