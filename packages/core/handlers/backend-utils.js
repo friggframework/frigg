@@ -149,7 +149,7 @@ const loadIntegrationForProcess = async (processId, integrationClass) => {
     const process = await processRepository.findById(processId);
 
     if (!process) {
-        throw new Error(`Process not found: ${processId}`);
+        return null;
     }
 
     const instance = await getIntegrationInstance.execute(
@@ -184,6 +184,12 @@ const createQueueWorker = (integrationClass) => {
                         params.data.processId,
                         integrationClass
                     );
+                    if (!integrationInstance) {
+                        console.warn(
+                            `[${integrationName}] Process ${params.data.processId} not found. Discarding ${params.event} message.`
+                        );
+                        return;
+                    }
                     console.log(`[QueueWorker] hydrated`, {
                         ...logCtx,
                         integrationStatus: integrationInstance?.status,
