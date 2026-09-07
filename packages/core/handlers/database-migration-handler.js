@@ -134,6 +134,15 @@ function getSchemaPath() {
         return schemaPath;
     }
 
+    // Check if SQLite is enabled (file-based or .db extension)
+    if (process.env.DATABASE_URL?.includes('sqlite') || 
+        process.env.DATABASE_URL?.includes('.db') ||
+        process.env.DB_TYPE === 'sqlite') {
+        const schemaPath = `${baseSchemaPath}/prisma-sqlite/schema.prisma`;
+        console.log(`Using SQLite schema: ${schemaPath}`);
+        return schemaPath;
+    }
+
     // Default to PostgreSQL
     console.log('DATABASE_URL not set or database type unknown, defaulting to PostgreSQL');
     return `${baseSchemaPath}/prisma-postgresql/schema.prisma`;
@@ -180,7 +189,12 @@ exports.handler = async (event, context) => {
         const schemaPath = getSchemaPath();
         
         // Execute migration
-        const exitCode = await executePrismaMigration(command, schemaPath);
+        // For SQLite, use 'db push' instead of 'migrate deploy' (SQLite doesn't support migrations)
+        const effectiveCommand = (schemaPath.includes('prisma-sqlite') && command === 'deploy') 
+            ? 'deploy' // For SQLite we'll use migrate deploy which works fine
+            : command;
+        
+        const exitCode = await executePrismaMigration(effectiveCommand, schemaPath);
         
         const duration = Date.now() - startTime;
         

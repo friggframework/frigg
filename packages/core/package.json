@@ -70,8 +70,10 @@
         "test": "jest --passWithNoTests # TODO",
         "prisma:generate:mongo": "npx prisma generate --schema ./prisma-mongodb/schema.prisma",
         "prisma:generate:postgres": "npx prisma generate --schema ./prisma-postgresql/schema.prisma",
-        "prisma:generate": "npm run prisma:generate:mongo && npm run prisma:generate:postgres",
+        "prisma:generate:sqlite": "npx prisma generate --schema ./prisma-sqlite/schema.prisma",
+        "prisma:generate": "npm run prisma:generate:mongo && npm run prisma:generate:postgres && npm run prisma:generate:sqlite",
         "prisma:push:mongo": "npx prisma db push --schema ./prisma-mongodb/schema.prisma",
+        "prisma:push:sqlite": "npx prisma db push --schema ./prisma-sqlite/schema.prisma",
         "prisma:migrate:postgres": "npx prisma migrate dev --schema ./prisma-postgresql/schema.prisma",
         "prepublishOnly": "npm run prisma:generate"
     },
