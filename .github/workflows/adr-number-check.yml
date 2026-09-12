@@ -1,0 +1,116 @@
+name: ADR number check
+
+# Enforces ADR-014's amendment: an ADR number is claimed at PR-open time and must be
+# unique against `next` AND against every other open PR. Without this, each author picks
+# max+1 in isolation and collides with branches they cannot see — which is how the
+# register ended up with three different decisions all titled ADR-027.
+
+on:
+  pull_request:
+    # `labeled`/`unlabeled` so adding or removing `adr-reconciliation` re-evaluates
+    # without needing an empty commit.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - 'docs/architecture-decisions/**'
+  # Re-check open PRs when the base moves, so the loser of a simultaneous claim goes red
+  # before it can merge rather than after.
+  push:
+    branches: [next]
+    paths:
+      - 'docs/architecture-decisions/**'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check ADR numbers are unique
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ADR_DIR="docs/architecture-decisions"
+
+          nums_from() { grep -oE '^[0-9]{3}' <<<"$1" || true; }
+
+          # Numbers already on next (permanent — never recycled).
+          git fetch -q origin next
+          MERGED=$(git ls-tree --name-only "origin/next" -- "$ADR_DIR/" \
+                   | xargs -r -n1 basename | grep -oE '^[0-9]{3}' | sort -u || true)
+
+          # Numbers this PR introduces (present here, absent on next).
+          MINE=$(comm -23 \
+            <(ls "$ADR_DIR" | grep -oE '^[0-9]{3}' | sort -u) \
+            <(printf '%s\n' "$MERGED" | sort -u))
+
+          if [ -z "${MINE//[[:space:]]/}" ]; then
+            echo "No new ADR numbers introduced."; exit 0
+          fi
+          echo "This PR claims: $(echo $MINE | tr '\n' ' ')"
+
+          fail=0
+
+          # 1. Collision with an already-merged number.
+          for n in $MINE; do
+            if grep -qx "$n" <<<"$MERGED"; then
+              echo "::error::ADR-$n already exists on next. Numbers on next are permanent and are never recycled."
+              fail=1
+            fi
+          done
+
+          # 2. Collision with another open PR's claim.
+          #
+          # Skipped for a reconciliation PR: one that exists to re-assign contested
+          # numbers necessarily claims numbers the PRs it is reconciling still hold,
+          # so this check would always fail it. The merged-number and heading checks
+          # still apply. Opt out with the `adr-reconciliation` label.
+          RECONCILE=""
+          if [ -n "${PR_NUMBER:-}" ]; then
+            RECONCILE=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels \
+                          --jq '.labels[].name' 2>/dev/null | grep -Fx 'adr-reconciliation' || true)
+            [ -n "$RECONCILE" ] && echo "Label 'adr-reconciliation' present - skipping the cross-PR check."
+          fi
+          if [ -n "${PR_NUMBER:-}" ] && [ -z "$RECONCILE" ]; then
+            for other in $(gh pr list --repo "$REPO" --state open --limit 200 \
+                             --json number --jq '.[].number'); do
+              [ "$other" = "$PR_NUMBER" ] && continue
+              theirs=$(gh pr view "$other" --repo "$REPO" --json files \
+                        --jq '.files[].path' 2>/dev/null \
+                        | grep "^$ADR_DIR/[0-9][0-9][0-9]-" | xargs -r -n1 basename \
+                        | grep -oE '^[0-9]{3}' | sort -u || true)
+              [ -z "$theirs" ] && continue
+              for n in $MINE; do
+                if grep -qx "$n" <<<"$theirs"; then
+                  echo "::error::ADR-$n is also claimed by open PR #$other."
+                  fail=1
+                fi
+              done
+            done
+          fi
+
+          # 3. Filename number must match the heading (ADR-014 rule 3).
+          for f in "$ADR_DIR"/[0-9][0-9][0-9]-*.md; do
+            n=$(basename "$f" | grep -oE '^[0-9]{3}')
+            head -1 "$f" | grep -qE "^#[[:space:]]*ADR-$n:[[:space:]]*\S" || {
+              echo "::error file=$f::First line must be '# ADR-$n: Title' (ADR-014 rule 3)."
+              fail=1
+            }
+          done
+
+          if [ "$fail" = "1" ]; then
+            taken=$(printf '%s\n%s\n' "$MERGED" "$MINE" | sort -u)
+            next=$(seq -f '%03g' 1 999 | grep -vxF -f <(echo "$taken") | head -1)
+            echo "::notice::Next free ADR number is $next."
+            exit 1
+          fi
+          echo "ADR numbers OK."

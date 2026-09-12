@@ -1,7 +1,8 @@
-# Architecture Decision Record: Admin Script Runner Service
+# ADR-005: Admin Script Runner Service
 
-## Status
-Accepted (Implemented)
+**Status**: Accepted (Implemented)
+**Date**: 2025-12-10
+**Deciders**: TBD
 
 ## Context
 

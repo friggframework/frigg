@@ -1,7 +1,8 @@
 # ADR-004: Project Structure Migration Tool
 
-## Status
-Proposed
+**Status**: Proposed
+**Date**: 2025-01-25
+**Deciders**: TBD
 
 ## Context
 
