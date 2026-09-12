@@ -7,6 +7,9 @@ name: ADR number check
 
 on:
   pull_request:
+    # `labeled`/`unlabeled` so adding or removing `adr-reconciliation` re-evaluates
+    # without needing an empty commit.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - 'docs/architecture-decisions/**'
   # Re-check open PRs when the base moves, so the loser of a simultaneous claim goes red
