@@ -66,7 +66,18 @@ jobs:
           done
 
           # 2. Collision with another open PR's claim.
+          #
+          # Skipped for a reconciliation PR: one that exists to re-assign contested
+          # numbers necessarily claims numbers the PRs it is reconciling still hold,
+          # so this check would always fail it. The merged-number and heading checks
+          # still apply. Opt out with the `adr-reconciliation` label.
+          RECONCILE=""
           if [ -n "${PR_NUMBER:-}" ]; then
+            RECONCILE=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels \
+                          --jq '.labels[].name' 2>/dev/null | grep -Fx 'adr-reconciliation' || true)
+            [ -n "$RECONCILE" ] && echo "Label 'adr-reconciliation' present - skipping the cross-PR check."
+          fi
+          if [ -n "${PR_NUMBER:-}" ] && [ -z "$RECONCILE" ]; then
             for other in $(gh pr list --repo "$REPO" --state open --limit 200 \
                              --json number --jq '.[].number'); do
               [ "$other" = "$PR_NUMBER" ] && continue
