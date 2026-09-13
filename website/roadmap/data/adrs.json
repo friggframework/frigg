@@ -1,5 +1,5 @@
 {
-  "count": 28,
+  "count": 29,
   "adrs": [
     {
       "num": 1,
@@ -280,6 +280,16 @@
       "theme": "Data & migrations",
       "summary": "Deconflicts concurrent OAuth refreshes across Lambda invocations: a reactive database check before refresh and on 401 (adopt the winner's tokens, escalate only on proof of death), plus proactive scheduled refresh via admin scripts, and a fix for the silent SQS ack that hid the losses.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/031-concurrent-oauth-credential-refresh.md"
+    },
+    {
+      "num": 43,
+      "id": "043",
+      "title": "ADR Lifecycle — One Register, No RFC Tier",
+      "status": "Proposed",
+      "date": "2026-09-12",
+      "theme": "Developer experience",
+      "summary": "Keeps one numbered register instead of adding an RFC tier, and makes merging the decision event: an ADR does not merge as Proposed. Adds Exploratory and Implemented to the vocabulary, assigns each transition to work someone already does (ADR PR merge = Accepted, code PR merge = Implemented), requires named deciders, and extends the existing CI check to enforce it.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/043-adr-lifecycle.md"
     }
   ]
 }
