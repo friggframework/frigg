@@ -86,8 +86,13 @@ ADR-031 names this decision as its prerequisite.
   `_rawRequest`. The token endpoint can answer 401 (`invalid_client`: a
   revoked or rotated client secret). That 401 arrives inside the refresh
   itself.
-- About 35 of the ~46 api modules are rotation-exposed. Several override
-  the refresh. The mechanism must not need cooperation from the modules.
+- About 35 of the ~46 api modules are rotation-exposed. The mechanism must
+  not need cooperation from the modules. Three modules replace
+  `refreshAuth()` itself: `airwallex` and `marketo` in the api-module
+  library, and the incident app's QBO module. Nine modules override
+  `refreshAccessToken()`, which runs inside `refreshAuth()` and is not
+  affected. Four modules call `this.refreshAuth()` directly and do not
+  enter the 401 path: `frontify`, `netx`, `slack`, and `terminus`.
 - `AsyncLocalStorage` is already a core pattern:
   `telemetry/telemetry-context.js` uses it for the ambient telemetry context
   (ADR-011).
@@ -104,19 +109,36 @@ in the slot. Each 401 that arrives while the slot is full awaits the same
 promise and gets the same result. Only the initiator spends the retry
 budget. The slot clears in a `.finally` that is attached last, so the slot
 is free before any waiter resumes. Code: `_refreshAuthOnce()` and
-`_runMarkedRefresh()`.
+`_adoptOrRefresh()`.
 
 This changes the meaning of the retry budget. It is now per initiator, not
 per request. The budget still bounds a pathological upstream that answers
 401 after a "successful" refresh, because each new refresh cycle needs a
 new initiator.
 
+`_adoptOrRefresh()` first calls the `_adoptNewerCredential()` hook, and
+calls `refreshAuth()` only when the hook returns false. The hook belongs
+here, not in `refreshAuth()`. A module that replaces `refreshAuth()` erases
+a check that lives inside it. Three modules replace that method. The base
+`Requester` declares the hook as a no-op, so a requester with no rotating
+credential ignores it. Adoption writes only the Frigg fields. Thus a module
+backed by a vendor SDK overrides the hook, calls super, and then copies the
+adopted tokens into its SDK client.
+
 ### Rule 2 — the refresh flow is marked, and a 401 inside it is fatal
 
-An `AsyncLocalStorage` context marks the async call chain of the running
-`refreshAuth()`. A 401 that arrives inside that chain means the token
-endpoint rejected the credential itself. The handler then invalidates the
-credential and never joins the slot. Code: `_isInsideRefreshFlow()`.
+An `AsyncLocalStorage` context marks the async call chain that holds the
+slot, and names the requester that holds it. A 401 that arrives inside that
+chain, on that same requester, means the token endpoint rejected the
+credential itself. The handler then invalidates the credential and never
+joins the slot. Code: `_isInsideRefreshFlow()`.
+
+The marker covers the hook as well as `refreshAuth()`. It must cover the
+whole time the instance holds the slot. The identity matters because the
+context reaches every call in the chain. A custom refresh can send a request
+through a second `Requester`. That requester must refresh on its own terms.
+It compares the marker to itself, finds another requester, and takes the
+normal 401 path.
 
 Without this rule, that 401 finds the slot full and awaits it. The slot's
 promise can only settle when the token request returns, and that request is
@@ -148,12 +170,14 @@ that another invocation just minted.
 
 ### Companion in the same PR: the requester side of ADR-031
 
-`OAuth2Requester.refreshAuth()` implements ADR-031's option 4 for the
-instance:
+`OAuth2Requester` implements ADR-031's option 4 for the instance:
 
-1. Before a refresh, ask the Module for the stored credential
-   (`DLGT_CREDENTIAL_RELOAD`). If the stored refresh token differs, adopt
-   the stored tokens and do not refresh.
+1. Before a refresh, the wrapper asks the Module for the stored credential
+   (`DLGT_CREDENTIAL_RELOAD`) through the `_adoptNewerCredential()` hook. If
+   the stored refresh token differs, adopt the stored tokens and do not
+   refresh. `refreshAuth()` keeps a guarded copy of this step for the four
+   modules that call it directly. The guard tests the marker, so the step
+   runs one time for each refresh, through either door.
 2. Split the refresh errors. A 400, or a 401 for `invalid_client`, is a
    definitive rejection. A timeout, a 429, or a 5xx is a transport failure.
    Rethrow it as a fresh `Error`. The caller then retries, and the framework
@@ -207,11 +231,11 @@ as its own PR.
   Single-flight concentrates that exposure: a hung token endpoint pins the
   initiator and every waiter until the Lambda times out. This is an open
   issue. A follow-up can wrap `refreshAuth()` in a timeout.
-- The refresh context is module-scoped, not instance-scoped. If a custom
-  `refreshAuth()` calls a *different* `Requester` instance, that instance
-  inherits the marker, and its 401 becomes fatal by mistake. Fix: store the
-  requester in the context and compare identity in `_isInsideRefreshFlow()`.
-  This is an open review finding. The change is small.
+- A module that replaces `refreshAuth()` keeps the pre-refresh adoption,
+  because the wrapper owns it. It forfeits the post-rejection recovery,
+  which still lives in the `refreshAuth()` catch. Three modules are in that
+  group. Hoisting that half too would mean moving
+  `_isDefinitiveAuthRejection()` out of the catch, which the PR does not do.
 - The adoption check reads the credential row. A read from a replica-set
   secondary can miss the winner's write. Nothing in this PR asserts
   `readPreference=primary`. ADR-031 owns that item.
@@ -266,6 +290,13 @@ as its own PR.
   core only, and it leaves custom modules exposed.
 - **Serialize the sync stages (no fan-out).** Rejected in ADR-031: it about
   doubles the wall-clock time.
+- **Keep the adoption only in `OAuth2Requester.refreshAuth()`.** Rejected.
+  A module that replaces `refreshAuth()` erases the check, and three
+  modules replace it. The wrapper is the one seam no module overrides.
+- **Delete the guarded copy from `refreshAuth()`.** Rejected. Four modules
+  call `refreshAuth()` directly and never reach the wrapper. They would
+  refresh blind, replay a consumed refresh token, and lose the grant on a
+  rotating provider.
 
 ## Related
 
@@ -284,7 +315,8 @@ as its own PR.
   no-behavior-change-on-upgrade bar; the silent-ack fix that left this PR
   is the argued exception.
 - Key code: `packages/core/modules/requester/requester.js`
-  (`_refreshAuthOnce`, `_runMarkedRefresh`, `_isInsideRefreshFlow`, the 401
+  (`_refreshAuthOnce`, `_adoptOrRefresh`, the `_adoptNewerCredential` hook,
+  `_isInsideRefreshFlow`, the 401
   branch of `_rawRequest`); `packages/core/modules/requester/oauth-2.js`
   (`refreshAuth`, `_adoptNewerCredential`, `_adoptNewerCredentialWithBackoff`,
   `_isDefinitiveAuthRejection`, `_transportFailureError`);
