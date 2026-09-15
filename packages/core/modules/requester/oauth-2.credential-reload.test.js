@@ -200,12 +200,54 @@ describe('OAuth2Requester credential reload', () => {
                 },
             });
 
-            const result = await requester.refreshAuth();
+            const result = await requester._refreshAuthOnce();
 
             expect(result).toBe(false);
             expect(delegate.invalidAuthCalls).toBe(1);
-            // Initial pre-check + the backoff re-reads all ran.
-            expect(delegate.reloadCalls).toBeGreaterThanOrEqual(2);
+            // One read before the refresh, plus one per backoff delay.
+            expect(delegate.reloadCalls).toBe(4);
+        });
+
+        it('reads the credential once when the slot runs the refresh', async () => {
+            const { requester, delegate } = makeRequester({
+                stored: {
+                    access_token: 'access-old',
+                    refresh_token: 'refresh-old', // same token: nothing to adopt
+                },
+                refreshImpl: async () => ({ access_token: 'access-fresh' }),
+            });
+
+            const result = await requester._refreshAuthOnce();
+
+            expect(result).toBe(true);
+            // The guard in refreshAuth() must not repeat the wrapper's read.
+            expect(delegate.reloadCalls).toBe(1);
+            expect(requester.refreshAccessToken).toHaveBeenCalled();
+        });
+
+        it('adopts for a module that overrides refreshAuth()', async () => {
+            const { requester, delegate } = makeRequester({
+                stored: {
+                    access_token: 'access-new',
+                    refresh_token: 'refresh-new',
+                },
+            });
+            // The incident app's QBO module replaces refreshAuth() wholesale,
+            // so an adoption that lives inside it disappears.
+            let overrideRan = false;
+            requester.refreshAuth = async () => {
+                overrideRan = true;
+                return true;
+            };
+            const generationBefore = requester._authGeneration;
+
+            const result = await requester._refreshAuthOnce();
+
+            expect(result).toBe(true);
+            expect(overrideRan).toBe(false);
+            expect(delegate.reloadCalls).toBe(1);
+            expect(requester.refresh_token).toBe('refresh-new');
+            expect(requester._authGeneration).toBe(generationBefore + 1);
         });
     });
 

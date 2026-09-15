@@ -307,6 +307,56 @@ describe('Requester refresh re-entrancy', () => {
         expect(outcome.status).toBe('rejected');
     });
 
+    // A custom refreshAuth() can reach through a second Requester. That
+    // requester runs inside the first one's async chain, so a marker without
+    // an identity makes its 401 fatal and kills a healthy credential.
+    it('leaves a second requester used inside the refresh out of the flow', async () => {
+        let secondStatus = 401;
+        const second = new OAuth2Requester({
+            grant_type: 'authorization_code',
+            refresh_token: 'second-refresh',
+            access_token: 'second-access',
+            requestTimeoutMs: 0,
+            backOff: [0, 0, 0],
+            fetch: jest.fn(async () => ({
+                status: secondStatus,
+                headers: new Map([['Content-Type', 'application/json']]),
+                json: async () => ({}),
+                text: async () => '{}',
+            })),
+        });
+        jest.spyOn(second, 'notify').mockResolvedValue(undefined);
+        second.refreshAuth = jest.fn(async () => {
+            secondStatus = 200;
+            return true;
+        });
+
+        const first = new OAuth2Requester({
+            grant_type: 'client_credentials',
+            client_id: 'id',
+            client_secret: 'secret',
+            requestTimeoutMs: 0,
+        });
+        jest.spyOn(first, 'notify').mockResolvedValue(undefined);
+        let secondOutcome;
+        first.refreshAuth = jest.fn(async () => {
+            secondOutcome = await settlesWithin(
+                second._get({ url: 'https://api.example.com/second' }),
+                1500
+            );
+            return true;
+        });
+
+        await first._refreshAuthOnce();
+
+        expect(secondOutcome.status).toBe('fulfilled');
+        expect(second.refreshAuth).toHaveBeenCalledTimes(1);
+        expect(second.notify).not.toHaveBeenCalledWith(
+            second.DLGT_INVALID_AUTH,
+            expect.anything()
+        );
+    });
+
     // A request dispatched before a refresh can have its 401 land after that
     // refresh finished. The current token was never tried, so refreshing again
     // is waste — and every extra rotation invalidates the pair a concurrent

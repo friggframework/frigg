@@ -8,11 +8,12 @@ const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 const MAX_AUTH_RETRIES = 3;
 
-// This context marks the async call chain of an active refreshAuth().
-// Token requests re-enter _rawRequest through this._post. A 401 from inside
-// the refresh must fail fast: if it joins the refresh in flight, it awaits
-// its own promise and hangs. AsyncLocalStorage reaches the nested calls
-// without help from the subclasses.
+// This context marks the async call chain that holds the refresh slot, and
+// names the requester that holds it. Token requests re-enter _rawRequest
+// through this._post. A 401 from inside that chain must fail fast: if it
+// joins the refresh in flight, it awaits its own promise and hangs. The
+// identity keeps a second requester used inside the chain out of the check.
+// AsyncLocalStorage reaches the nested calls without help from the subclasses.
 const refreshContext = new AsyncLocalStorage();
 
 class Requester extends Delegate {
@@ -488,24 +489,49 @@ class Requester extends Delegate {
             // Keep .finally last. The stored promise must be the promise
             // that clears the slot. Then the slot is free before a waiter
             // resumes.
-            this._inFlightRefresh = this._runMarkedRefresh().finally(() => {
+            this._inFlightRefresh = this._adoptOrRefresh().finally(() => {
                 this._inFlightRefresh = null;
             });
         }
         return this._inFlightRefresh;
     }
 
-    async _runMarkedRefresh() {
+    /**
+     * Adopts a newer stored credential, or refreshes. Both steps run inside
+     * the marker, because the marker must cover the whole time this instance
+     * holds the slot. The adoption lives here, not in refreshAuth(), so a
+     * module that overrides refreshAuth() still gets it.
+     *
+     * @returns {Promise<boolean>} True if the instance holds a usable token.
+     */
+    async _adoptOrRefresh() {
         const refreshSucceeded = await refreshContext.run(
-            { inRefresh: true },
-            () => this.refreshAuth()
+            { requester: this },
+            async () => {
+                if (await this._adoptNewerCredential()) return true;
+                return this.refreshAuth();
+            }
         );
         if (refreshSucceeded) this._authGeneration++;
         return refreshSucceeded;
     }
 
+    /**
+     * Hook for requesters that hold a rotating stored credential. Return true
+     * when the instance adopted a newer stored credential and needs no
+     * refresh. A module backed by a vendor SDK overrides this, calls super,
+     * and then copies the adopted tokens into its SDK client.
+     *
+     * @returns {Promise<boolean>} True if the instance adopted a newer
+     *   credential.
+     */
+    async _adoptNewerCredential() {
+        return false;
+    }
+
+    /** True while this instance runs its own refresh. */
     _isInsideRefreshFlow() {
-        return Boolean(refreshContext.getStore()?.inRefresh);
+        return refreshContext.getStore()?.requester === this;
     }
 
     async refreshAuth() {

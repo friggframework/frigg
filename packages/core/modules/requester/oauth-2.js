@@ -312,7 +312,15 @@ class OAuth2Requester extends Requester {
      * @returns {Promise<boolean>} True if refresh succeeded, false if failed
      */
     async refreshAuth() {
-        if (await this._adoptNewerCredential()) return true;
+        // The wrapper runs this check before it calls refreshAuth(). Callers
+        // that reach this method directly skip the wrapper, so the check runs
+        // here for them. The guard keeps it at one read per refresh.
+        if (
+            !this._isInsideRefreshFlow() &&
+            (await this._adoptNewerCredential())
+        ) {
+            return true;
+        }
 
         try {
             console.log('[Frigg] Starting token refresh', {
