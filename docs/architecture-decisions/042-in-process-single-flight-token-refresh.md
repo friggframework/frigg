@@ -86,13 +86,15 @@ ADR-031 names this decision as its prerequisite.
   `_rawRequest`. The token endpoint can answer 401 (`invalid_client`: a
   revoked or rotated client secret). That 401 arrives inside the refresh
   itself.
-- About 35 of the ~46 api modules are rotation-exposed. The mechanism must
+- About 35 of the ~55 api modules are rotation-exposed. The mechanism must
   not need cooperation from the modules. Three modules replace
   `refreshAuth()` itself: `airwallex` and `marketo` in the api-module
   library, and the incident app's QBO module. Nine modules override
   `refreshAccessToken()`, which runs inside `refreshAuth()` and is not
-  affected. Four modules call `this.refreshAuth()` directly and do not
-  enter the 401 path: `frontify`, `netx`, `slack`, and `terminus`.
+  affected. Four modules call the stock `refreshAuth()` directly and do not
+  enter the 401 path: `frontify`, `netx`, `slack`, and `terminus`. The
+  `marketo` manager also calls it directly, but it lands on that module's
+  own override.
 - `AsyncLocalStorage` is already a core pattern:
   `telemetry/telemetry-context.js` uses it for the ambient telemetry context
   (ADR-011).

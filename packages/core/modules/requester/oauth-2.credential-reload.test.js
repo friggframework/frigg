@@ -207,7 +207,9 @@ describe('OAuth2Requester credential reload', () => {
             // One read before the refresh, plus one per backoff delay.
             expect(delegate.reloadCalls).toBe(4);
         });
+    });
 
+    describe('adoption through the slot', () => {
         it('reads the credential once when the slot runs the refresh', async () => {
             const { requester, delegate } = makeRequester({
                 stored: {
