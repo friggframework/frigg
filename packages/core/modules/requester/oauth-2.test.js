@@ -132,14 +132,15 @@ describe('OAuth2Requester', () => {
             expect(requester.refreshAccessToken).not.toHaveBeenCalled();
         });
 
-        it('should return false and notify DLGT_INVALID_AUTH on error during refresh', async () => {
+        it('should return false and notify DLGT_INVALID_AUTH on a definitive rejection', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'authorization_code',
                 refresh_token: 'test-refresh-token',
+                credentialReloadBackoffMs: [],
             });
             requester.refreshAccessToken = jest.fn().mockRejectedValue(
-                Object.assign(new Error('Token expired'), {
-                    statusCode: 401,
+                Object.assign(new Error('invalid_grant'), {
+                    statusCode: 400,
                 })
             );
             requester.notify = jest.fn();
@@ -149,18 +150,40 @@ describe('OAuth2Requester', () => {
             expect(result).toBe(false);
             expect(requester.notify).toHaveBeenCalledWith(
                 requester.DLGT_INVALID_AUTH,
-                { statusCode: 401 }
+                { statusCode: 400 }
+            );
+        });
+
+        it('rethrows a non-definitive refresh error without invalidating', async () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'authorization_code',
+                refresh_token: 'test-refresh-token',
+                credentialReloadBackoffMs: [],
+            });
+            const transportError = new Error('socket hang up');
+            requester.refreshAccessToken = jest
+                .fn()
+                .mockRejectedValue(transportError);
+            requester.notify = jest.fn();
+
+            await expect(requester.refreshAuth()).rejects.toThrow(
+                /transport failure/i
+            );
+            expect(requester.notify).not.toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH,
+                expect.anything()
             );
         });
 
         it('should return false and notify DLGT_INVALID_AUTH on error during client_credentials refresh', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'client_credentials',
+                credentialReloadBackoffMs: [],
             });
             requester.getTokenFromClientCredentials = jest
                 .fn()
                 .mockRejectedValue(
-                    Object.assign(new Error('Invalid credentials'), {
+                    Object.assign(new Error('invalid_client'), {
                         statusCode: 401,
                     })
                 );
@@ -175,17 +198,33 @@ describe('OAuth2Requester', () => {
             );
         });
 
+        it('returns false when getTokenFromClientCredentials reports a failure and resolves to undefined', async () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'client_credentials',
+                credentialReloadBackoffMs: [],
+            });
+            requester.getTokenFromClientCredentials = jest
+                .fn()
+                .mockResolvedValue(undefined);
+            requester.notify = jest.fn();
+
+            const result = await requester.refreshAuth();
+
+            expect(result).toBe(false);
+        });
+
         it('does not leak the refresh request body to the delegate', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'authorization_code',
                 refresh_token: 'test-refresh-token',
                 client_secret: 'sk-live-secret',
+                credentialReloadBackoffMs: [],
             });
             requester.refreshAccessToken = jest
                 .fn()
                 .mockRejectedValue(
                     new Error(
-                        '{"init":{"body":"client_secret=sk-live-secret"}}'
+                        '{"error":"invalid_grant","init":{"body":"client_secret=sk-live-secret"}}'
                     )
                 );
             requester.notify = jest.fn();
@@ -405,11 +444,14 @@ describe('OAuth2Requester', () => {
                 refresh_token: 'invalid-refresh-token',
                 grant_type: 'authorization_code',
                 fetch: mockFetch,
+                credentialReloadBackoffMs: [],
             });
 
             requester.refreshAccessToken = jest
                 .fn()
-                .mockRejectedValue(new Error('Refresh token expired'));
+                .mockRejectedValue(
+                    new Error('invalid_grant: refresh token expired')
+                );
             requester.notify = jest.fn();
 
             await expect(
