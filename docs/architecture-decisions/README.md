@@ -46,6 +46,10 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [027](./027-ssm-parameter-offload-and-env-scoping.md) | SSM Parameter Offload and Per-Function Environment Scoping | Accepted | 2026-07-10 |
 | [031](./031-concurrent-oauth-credential-refresh.md) | Concurrent OAuth Credential Refresh Across Lambda Invocations | Proposed | 2026-08-11 |
 | [042](./042-in-process-single-flight-token-refresh.md) | In-Process Single-Flight Token Refresh | Proposed | 2026-09-04 |
+| [044](./044-sync-module-revitalization.md) | Sync Module Revitalization | Proposed | 2026-09-16 |
+| [045](./045-capability-traits.md) | Capability Traits | Proposed | 2026-09-16 |
+| [046](./046-canonical-models.md) | Canonical Models | Proposed | 2026-09-16 |
+| [047](./047-orchestrator-worker-queue-pattern.md) | Orchestrator/Worker Queue Pattern | Proposed | 2026-09-16 |
 
 ## Conventions
 

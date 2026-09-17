@@ -1,5 +1,5 @@
 {
-  "count": 29,
+  "count": 33,
   "adrs": [
     {
       "num": 1,
@@ -290,6 +290,46 @@
       "theme": "Data & migrations",
       "summary": "Coordinates concurrent 401s inside one Lambda invocation: one shared token refresh per api-module instance, a fail-fast guard for a 401 raised inside the refresh itself, and a token-generation check so stale 401s retry instead of refreshing again.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/042-in-process-single-flight-token-refresh.md"
+    },
+    {
+      "num": 44,
+      "id": "044",
+      "title": "Sync Module Revitalization",
+      "status": "Proposed",
+      "date": "2026-09-16",
+      "theme": "Extensions & plugins",
+      "summary": "Revives the dormant core sync engine as an Integration Extension: replaces its quadratic matcher with a proven O(n+m) hash join, and adds declarative relationships, conflict precedence, tiered storage and resumable execution — consolidating five incompatible in-house sync implementations.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/044-sync-module-revitalization.md"
+    },
+    {
+      "num": 45,
+      "id": "045",
+      "title": "Capability Traits",
+      "status": "Proposed",
+      "date": "2026-09-16",
+      "theme": "Extensions & plugins",
+      "summary": "Adds a closed, verifiable trait vocabulary to capability declarations — authored inline or as an OpenAPI Overlay — so consumers can negotiate what two systems can actually do instead of assuming.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/045-capability-traits.md"
+    },
+    {
+      "num": 46,
+      "id": "046",
+      "title": "Canonical Models",
+      "status": "Proposed",
+      "date": "2026-09-16",
+      "theme": "Extensions & plugins",
+      "summary": "Ships forkable per-category canonical data models with declared provider skew and agent-assisted mapping, competing with unified API vendors on the long tail they structurally cannot cover.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/046-canonical-models.md"
+    },
+    {
+      "num": 47,
+      "id": "047",
+      "title": "Orchestrator/Worker Queue Pattern",
+      "status": "Proposed",
+      "date": "2026-09-16",
+      "theme": "Infra & deploy",
+      "summary": "Ratifies the May 2026 orchestrator design: a stateless reduce(machine, state, event) reducer with atomic state+outbox writes, group-FIFO event ordering, three durability tiers, and XState for full state machines — removing the self-publishing that AWS recursion detection kills at 16 invocations.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/047-orchestrator-worker-queue-pattern.md"
     }
   ]
 }

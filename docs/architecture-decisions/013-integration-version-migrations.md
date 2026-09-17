@@ -112,5 +112,7 @@ separate ADR, to be authored independently; this ADR keys off whatever that cont
 - [ADR-012: Database Schema Migrations](./012-database-schema-migrations.md)
 - [ADR-010: Reporting as an Admin Operation](./010-reporting-as-admin-operation.md) (shared runner + isolation)
 - [ADR-005: Admin Script Runner Service](./005-admin-script-runner.md)
-- Integration Versioning ADR — *to be authored separately* (defines the version contract this keys off).
+- Integration Versioning ADR — drafted in [PR #620](https://github.com/friggframework/frigg/pull/620)
+  (defines the version contract this keys off); the open questions are tracked in
+  [#647](https://github.com/friggframework/frigg/issues/647).
 - Implementation: `packages/devtools/migrations/` (`MigrationManager`, `Migrator`, `Options`).
