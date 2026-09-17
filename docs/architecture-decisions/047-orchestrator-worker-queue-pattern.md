@@ -137,8 +137,15 @@ contract.
 | Self-hosted | RabbitMQ consistent-hash exchange, or NATS JetStream subject hashing | Postgres outbox + CDC | any broker the workers consume |
 | In-process (tests) | in-memory queue keyed by instance ID | in-memory map | direct function call |
 
-This is the property that decided against the managed alternatives, and it is a standing Frigg
-principle rather than a preference.
+This is not a preference of this ADR. **ADR-028 Multi-Provider Support** is already `Accepted`
+and commits Frigg to deploy targets beyond AWS, and **ADR-029 Decouple AWS SDK Dependencies from
+`@friggframework/core`** is `Accepted` and defines the `QueueClientInterface` port this mechanism
+should ride rather than reinvent. (Both land with the register reconciliation in #644.)
+
+Note the gap: ADR-029 is accepted but unimplemented — `packages/core/core/Worker.js` and
+`packages/core/queues/queuer-util.js` still `require('@aws-sdk/client-sqs')` directly on `next`
+today. The orchestrator's provider-agnosticism is therefore **contingent on ADR-029 landing**; built
+before it, the reducer would be portable while its dispatch primitive was not.
 
 ### 6. XState for Tier 3 only
 
@@ -284,3 +291,6 @@ proportional to complexity.
   metrics surface
 - [ADR-013: Integration Version Migrations](./013-integration-version-migrations.md) — precedent for
   the machine-version migration problem; in-flight machine versioning is called out in [#647](https://github.com/friggframework/frigg/issues/647)
+- **ADR-030 Integration Versioning** — the version *contract* ADR-013 defers to, drafted in
+  [#620](https://github.com/friggframework/frigg/pull/620) and landing with #644. It is the ADR
+  this one's versioning question actually belongs to.

@@ -111,7 +111,9 @@ canonical package ships:
   canonical field means, which are required, what skew is already declared;
 - a **skill** — given a provider's API module and its [capability traits](./045-capability-traits.md),
   draft the `moduleMap` and `reverseModuleMap`, flag fields it could not place, and propose skew
-  entries for what does not fit;
+  entries for what does not fit. Authored per **ADR-036 Skills**, which names the skill subtypes and
+  their lifecycles, rather than inventing a shape here; the scope → build → adversarial-review flow
+  it runs inside is **ADR-037 Agent Pipeline** (both land with #644);
 - **fixtures and evals** ([ADR-026](./026-evals.md)) — sample provider payloads with expected
   canonical output, so a generated map is scored rather than trusted.
 
@@ -196,3 +198,6 @@ address. Worth revisiting as an optional adapter for adopters who want both.
 - [ADR-026: Evals](./026-evals.md) — scores generated maps against fixtures
 - [ADR-013: Integration Version Migrations](./013-integration-version-migrations.md) — precedent for
   the versioning problem forks create; the missing contract is tracked in [#647](https://github.com/friggframework/frigg/issues/647)
+- **ADR-030 Integration Versioning** — the version *contract* ADR-013 defers to, drafted in
+  [#620](https://github.com/friggframework/frigg/pull/620) and landing with #644. It is the ADR
+  this one's versioning question actually belongs to.

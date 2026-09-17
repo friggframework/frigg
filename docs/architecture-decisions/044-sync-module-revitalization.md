@@ -591,7 +591,10 @@ Drawn directly from what Quo and FreshBooks built:
   are a classic duplicate-record source and neither core nor Faulkner guards against them.
 - **Tombstones.** A `deletedDownstream` flag on the sync record, set when a destination reports the
   record missing on update, suppressing recreation. Generalizes `userManuallyDeleted`. Policy is
-  configurable: `onDownstreamDelete: 'tombstone' | 'recreate' | 'fail'`.
+  configurable: `onDownstreamDelete: 'tombstone' | 'recreate' | 'fail'`. Distinct from **ADR-032
+  Integration Deletion Data Cleanup** (lands with #644), which governs Frigg's *own* records —
+  orphaned `Entity` and `Credential` rows — when an integration is torn down. Sync records are a
+  third category and should be named in that ADR's cleanup scope.
 - **Error taxonomy.** `halt` (stop the run — credential invalidation, rate-limit exhaustion),
   `skipRecord` (count and continue), `retry` (backoff). Credential invalidation routes to the
   existing diagnostic path rather than string-matching messages.
@@ -742,6 +745,9 @@ relationships no home, and cannot express multi-directional sync at all.
   the `syncedCompany.AccountId` leak violates
 - [ADR-013: Integration Version Migrations](./013-integration-version-migrations.md) — the
   versioning question shared sync objects will raise
+- **ADR-030 Integration Versioning** — the version *contract* ADR-013 defers to, drafted in
+  [#620](https://github.com/friggframework/frigg/pull/620) and landing with #644. It is the ADR
+  this one's versioning question actually belongs to.
 - [ADR-045: Capability Traits](./045-capability-traits.md) — the declaration layer §2's storage
   tiers negotiate against
 - [ADR-046: Canonical Models](./046-canonical-models.md) — ships the category models §6's canonical
