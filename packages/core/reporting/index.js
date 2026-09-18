@@ -1,17 +1,13 @@
-const { createReportingRouter } = require('./reporting-router');
+const { ReportBase } = require('./report-base');
+const { IntegrationsReport } = require('./reports/integrations-report');
+const { BUILTIN_REPORTS } = require('./builtin-reports');
 const {
-    createReportingRepository,
-    ReportingRepositoryMongo,
-    ReportingRepositoryPostgres,
-    ReportingRepositoryDocumentDB,
-} = require('./repositories/reporting-repository-factory');
-const { ListIntegrationsReport } = require('./use-cases');
+    createReportCommands,
+} = require('../application/commands/report-commands');
 
 module.exports = {
-    createReportingRouter,
-    createReportingRepository,
-    ReportingRepositoryMongo,
-    ReportingRepositoryPostgres,
-    ReportingRepositoryDocumentDB,
-    ListIntegrationsReport,
+    ReportBase,
+    IntegrationsReport,
+    BUILTIN_REPORTS,
+    createReportCommands,
 };

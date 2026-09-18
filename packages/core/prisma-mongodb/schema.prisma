@@ -430,3 +430,26 @@ model ScriptSchedule {
   @@index([enabled])
   @@map("ScriptSchedule")
 }
+
+/// Durable usage counters, deliberately isolated: no userId and no foreign key
+/// to Integration, so a user-scoped query can never return a usage row and usage
+/// history survives integration deletion.
+model UsageCounter {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  integrationId   String
+  integrationType String
+  metric          String
+  window          String // e.g. "day:2026-07-05" or "hour:2026-07-05T14"
+  value           BigInt @default(0) // BigInt: a busy day/hour counter can exceed 32-bit
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([integrationId, integrationType, metric, window])
+  // Covers totals() (metric + window prefix/range, no integrationType filter).
+  @@index([metric, window])
+  // Covers series() (metric + integrationType + window range).
+  @@index([metric, integrationType, window])
+  @@map("UsageCounter")
+}

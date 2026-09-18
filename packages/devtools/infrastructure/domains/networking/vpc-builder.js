@@ -22,6 +22,7 @@ const { InfrastructureBuilder, ValidationResult } = require('../shared/base-buil
 const VpcResourceResolver = require('./vpc-resolver');
 const { createEmptyDiscoveryResult } = require('../shared/types/discovery-result');
 const { ResourceOwnership } = require('../shared/types/resource-ownership');
+const { isSsmOffloadActive } = require('../parameters/offload-utils');
 
 class VpcBuilder extends InfrastructureBuilder {
     constructor() {
@@ -177,6 +178,9 @@ class VpcBuilder extends InfrastructureBuilder {
                 } else if (logicalId === 'FriggSQSVPCEndpoint' || logicalId === 'VPCEndpointSQS') {
                     resourceType = 'AWS::EC2::VPCEndpoint';
                     physicalId = flatDiscovery.sqsVpcEndpointId;
+                } else if (logicalId === 'FriggSSMVPCEndpoint' || logicalId === 'VPCEndpointSSM') {
+                    resourceType = 'AWS::EC2::VPCEndpoint';
+                    physicalId = flatDiscovery.ssmVpcEndpointId;
                 } else if (logicalId === 'FriggNATRoute' || logicalId === 'FriggPrivateRoute') {
                     resourceType = 'AWS::EC2::Route';
                     physicalId = flatDiscovery.natRoute;
@@ -294,6 +298,15 @@ class VpcBuilder extends InfrastructureBuilder {
                     resourceType: 'AWS::EC2::VPCEndpoint',
                     source: 'aws-discovery',
                     properties: { ServiceName: 'sqs' }
+                });
+            }
+
+            if (flatDiscovery.ssmVpcEndpointId && typeof flatDiscovery.ssmVpcEndpointId === 'string') {
+                discovery.external.push({
+                    physicalId: flatDiscovery.ssmVpcEndpointId,
+                    resourceType: 'AWS::EC2::VPCEndpoint',
+                    source: 'aws-discovery',
+                    properties: { ServiceName: 'ssm' }
                 });
             }
         }
@@ -1005,7 +1018,7 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         // Create security group for interface endpoints if needed
-        const needsInterfaceEndpoints = endpointsToCreate.some(type => ['kms', 'secretsManager', 'sqs'].includes(type));
+        const needsInterfaceEndpoints = endpointsToCreate.some(type => ['kms', 'secretsManager', 'sqs', 'ssm'].includes(type));
         if (needsInterfaceEndpoints) {
             // Determine source security group for ingress rule
             let sourceSgId;
@@ -1072,6 +1085,20 @@ class VpcBuilder extends InfrastructureBuilder {
                 Properties: {
                     VpcId: vpcId,
                     ServiceName: 'com.amazonaws.${self:provider.region}.sqs',
+                    VpcEndpointType: 'Interface',
+                    SubnetIds: result.vpcConfig.subnetIds,
+                    SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
+                    PrivateDnsEnabled: true,
+                },
+            };
+        }
+
+        if (endpointsToCreate.includes('ssm')) {
+            result.resources.FriggSSMVPCEndpoint = {
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.ssm',
                     VpcEndpointType: 'Interface',
                     SubnetIds: result.vpcConfig.subnetIds,
                     SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
@@ -1157,7 +1184,8 @@ class VpcBuilder extends InfrastructureBuilder {
             dynamodb: existingLogicalIds.includes('VPCEndpointDynamoDB') ? 'VPCEndpointDynamoDB' : 'FriggDynamoDBVPCEndpoint',
             kms: existingLogicalIds.includes('VPCEndpointKMS') ? 'VPCEndpointKMS' : 'FriggKMSVPCEndpoint',
             secretsManager: existingLogicalIds.includes('VPCEndpointSecretsManager') ? 'VPCEndpointSecretsManager' : 'FriggSecretsManagerVPCEndpoint',
-            sqs: existingLogicalIds.includes('VPCEndpointSQS') ? 'VPCEndpointSQS' : 'FriggSQSVPCEndpoint'
+            sqs: existingLogicalIds.includes('VPCEndpointSQS') ? 'VPCEndpointSQS' : 'FriggSQSVPCEndpoint',
+            ssm: existingLogicalIds.includes('VPCEndpointSSM') ? 'VPCEndpointSSM' : 'FriggSSMVPCEndpoint'
         };
 
         Object.entries(decisions).forEach(([type, decision]) => {
@@ -1186,11 +1214,12 @@ class VpcBuilder extends InfrastructureBuilder {
                         }
                     };
                 } else {
-                    // Interface endpoints (KMS, Secrets Manager, SQS)
+                    // Interface endpoints (KMS, Secrets Manager, SQS, SSM)
                     const serviceMap = {
                         kms: 'kms',
                         secretsManager: 'secretsmanager',
-                        sqs: 'sqs'
+                        sqs: 'sqs',
+                        ssm: 'ssm'
                     };
                     
                     result.resources[logicalId] = {
@@ -1209,7 +1238,7 @@ class VpcBuilder extends InfrastructureBuilder {
         });
 
         // If any interface endpoints exist, ensure security group is in template
-        const hasInterfaceEndpoints = ['kms', 'secretsManager', 'sqs'].some(
+        const hasInterfaceEndpoints = ['kms', 'secretsManager', 'sqs', 'ssm'].some(
             type => decisions[type]?.ownership === ResourceOwnership.STACK && decisions[type]?.physicalId
         );
 
@@ -1887,7 +1916,10 @@ class VpcBuilder extends InfrastructureBuilder {
             kms: discoveredResources.kmsVpcEndpointId && typeof discoveredResources.kmsVpcEndpointId === 'string',
             secretsManager: discoveredResources.secretsManagerVpcEndpointId && typeof discoveredResources.secretsManagerVpcEndpointId === 'string',
             sqs: discoveredResources.sqsVpcEndpointId && typeof discoveredResources.sqsVpcEndpointId === 'string',
+            ssm: discoveredResources.ssmVpcEndpointId && typeof discoveredResources.ssmVpcEndpointId === 'string',
         };
+
+        const needsSsm = isSsmOffloadActive(appDefinition);
 
         // Build list of what needs creation (not stack-managed, not existing elsewhere)
         const missing = [];
@@ -1897,6 +1929,7 @@ class VpcBuilder extends InfrastructureBuilder {
         if (!stackManagedEndpoints.secretsManager && !existingEndpoints.secretsManager) missing.push('Secrets Manager');
         // SQS endpoint needed for job queues and async processing
         if (!stackManagedEndpoints.sqs && !existingEndpoints.sqs) missing.push('SQS');
+        if (!stackManagedEndpoints.ssm && !existingEndpoints.ssm && needsSsm) missing.push('SSM');
 
         // Log reused stack-managed endpoints
         const reused = [];
@@ -1905,6 +1938,7 @@ class VpcBuilder extends InfrastructureBuilder {
         if (stackManagedEndpoints.kms) reused.push('KMS');
         if (stackManagedEndpoints.secretsManager) reused.push('Secrets Manager');
         if (stackManagedEndpoints.sqs) reused.push('SQS');
+        if (stackManagedEndpoints.ssm) reused.push('SSM');
 
         if (reused.length > 0) {
             console.log(`  ✓ Reusing stack-managed VPC endpoints: ${reused.join(', ')}`);
@@ -1968,11 +2002,12 @@ class VpcBuilder extends InfrastructureBuilder {
             };
         }
 
-        // VPC Endpoint Security Group (only if KMS, Secrets Manager, or SQS are not stack-managed and missing)
+        // VPC Endpoint Security Group (only if KMS, Secrets Manager, SQS, or SSM are not stack-managed and missing)
         const needsSecurityGroup =
             (!stackManagedEndpoints.kms && !existingEndpoints.kms && appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms') ||
             (!stackManagedEndpoints.secretsManager && !existingEndpoints.secretsManager) ||
-            (!stackManagedEndpoints.sqs && !existingEndpoints.sqs);
+            (!stackManagedEndpoints.sqs && !existingEndpoints.sqs) ||
+            (!stackManagedEndpoints.ssm && !existingEndpoints.ssm && needsSsm);
 
         if (needsSecurityGroup) {
             result.resources.FriggVPCEndpointSecurityGroup = {
@@ -2035,6 +2070,21 @@ class VpcBuilder extends InfrastructureBuilder {
                 Properties: {
                     VpcId: vpcId,
                     ServiceName: 'com.amazonaws.${self:provider.region}.sqs',
+                    VpcEndpointType: 'Interface',
+                    SubnetIds: result.vpcConfig.subnetIds,
+                    SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],
+                    PrivateDnsEnabled: true,
+                },
+            };
+        }
+
+        // SSM Interface Endpoint (only if not stack-managed, missing, AND SSM offload is active)
+        if (!stackManagedEndpoints.ssm && !existingEndpoints.ssm && needsSsm) {
+            result.resources.FriggSSMVPCEndpoint = {
+                Type: 'AWS::EC2::VPCEndpoint',
+                Properties: {
+                    VpcId: vpcId,
+                    ServiceName: 'com.amazonaws.${self:provider.region}.ssm',
                     VpcEndpointType: 'Interface',
                     SubnetIds: result.vpcConfig.subnetIds,
                     SecurityGroupIds: [{ Ref: 'FriggVPCEndpointSecurityGroup' }],

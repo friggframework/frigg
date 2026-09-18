@@ -20,6 +20,44 @@ const { SchedulerBuilder } = require('./domains/scheduler/scheduler-builder');
 const { AdminScriptBuilder } = require('./domains/admin-scripts/admin-script-builder');
 
 // Utilities
+const { applyFunctionEnvironments } = require('./domains/shared/function-environments');
+const {
+    isSsmOffloadActive,
+    SSM_PRELOAD_NODE_OPTIONS,
+} = require('./domains/parameters/offload-utils');
+
+/**
+ * Load the SSM INIT preload (NODE_OPTIONS=--import) on skipEsbuild handlers
+ * only. Those package the full node_modules tree, so the preload .mjs is
+ * present at /var/task. esbuild-bundled functions (e.g. defaultWebsocket,
+ * adopter custom functions) do NOT ship it — and a missing --import target is a
+ * fatal Node startup error — so they are left with the handler-time loader
+ * fallback instead.
+ *
+ * Set at function scope (function env wins over provider env), APPENDED to any
+ * NODE_OPTIONS already on the function or provider — so an app's own flags
+ * (OTel auto-instrumentation, source maps, memory tuning) survive instead of
+ * being clobbered. A function-level assignment shadows provider env in Lambda,
+ * so the provider value must be folded in here. Only a value already in the
+ * definition is appended — never a synthesized ${env:NODE_OPTIONS}, which would
+ * leak the deploy host's shell into every Lambda.
+ */
+function applySsmPreloadNodeOptions(appDefinition, functions, providerEnvironment = {}) {
+    if (!isSsmOffloadActive(appDefinition)) {
+        return;
+    }
+    for (const fn of Object.values(functions)) {
+        if (!fn.skipEsbuild) {
+            continue;
+        }
+        fn.environment = fn.environment || {};
+        const existing =
+            fn.environment.NODE_OPTIONS ?? providerEnvironment.NODE_OPTIONS;
+        fn.environment.NODE_OPTIONS = existing
+            ? `${existing} ${SSM_PRELOAD_NODE_OPTIONS}`
+            : SSM_PRELOAD_NODE_OPTIONS;
+    }
+}
 const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-resolver');
 const { createBaseDefinition } = require('./domains/shared/utilities/base-definition-factory');
 const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
@@ -75,6 +113,15 @@ const composeServerlessDefinition = async (AppDefinition) => {
     definition.provider.iamRoleStatements.push(...merged.iamStatements);
     Object.assign(definition.provider.environment, merged.environment);
     Object.assign(definition.functions, merged.functions);
+    applyFunctionEnvironments(
+        definition.functions,
+        merged.functionEnvironments
+    );
+    applySsmPreloadNodeOptions(
+        AppDefinition,
+        definition.functions,
+        definition.provider.environment
+    );
 
     if (merged.vpcConfig) {
         definition.provider.vpc = merged.vpcConfig;
@@ -117,5 +164,5 @@ const composeServerlessDefinition = async (AppDefinition) => {
     return definition;
 };
 
-module.exports = { composeServerlessDefinition };
+module.exports = { composeServerlessDefinition, applySsmPreloadNodeOptions };
 

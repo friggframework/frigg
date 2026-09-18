@@ -39,6 +39,8 @@ function createSchedulerAdapter(options = {}) {
                 targetLambdaArn: options.targetLambdaArn,
                 scheduleGroupName: options.scheduleGroupName,
                 roleArn: options.roleArn,
+                namePrefix: options.namePrefix,
+                buildInput: options.buildInput,
             });
 
         case 'local':
@@ -79,7 +81,45 @@ function createSchedulerAdapterFromEnv() {
     });
 }
 
+/**
+ * Resolve and build a scheduler adapter that targets the report executor Lambda.
+ *
+ * A distinct name prefix keeps report schedules from colliding with script
+ * schedules in the shared EventBridge group.
+ *
+ * @param {Object} params
+ * @param {string} params.reportName - Registered report name (also the ScriptSchedule key).
+ * @param {string} params.mode - Run mode for the scheduled invocation (e.g. 'snapshot').
+ * @returns {SchedulerAdapter}
+ * @throws {Boom.Boom} 503 when SCHEDULER_PROVIDER is unset in a deployed Lambda.
+ */
+function createReportSchedulerAdapterFromEnv({ reportName, mode }) {
+    const type =
+        process.env.SCHEDULER_PROVIDER ||
+        (process.env.AWS_LAMBDA_FUNCTION_NAME ? null : 'local');
+    if (!type) {
+        throw Boom.serverUnavailable(
+            'SCHEDULER_PROVIDER is not configured. Set it (e.g. "aws") via appDefinition.admin.enableScheduling.'
+        );
+    }
+
+    return createSchedulerAdapter({
+        type,
+        targetLambdaArn: process.env.REPORT_EXECUTOR_LAMBDA_ARN,
+        scheduleGroupName: process.env.REPORT_SCHEDULE_GROUP,
+        roleArn: process.env.SCHEDULER_ROLE_ARN,
+        namePrefix: 'frigg-report-',
+        buildInput: ({ input }) => ({
+            reportName,
+            mode,
+            trigger: 'SCHEDULED',
+            params: input || {},
+        }),
+    });
+}
+
 module.exports = {
     createSchedulerAdapter,
     createSchedulerAdapterFromEnv,
+    createReportSchedulerAdapterFromEnv,
 };

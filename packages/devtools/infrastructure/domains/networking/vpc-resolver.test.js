@@ -567,6 +567,46 @@ describe('VpcResourceResolver', () => {
             expect(decisions.kms.ownership).toBeNull();
             expect(decisions.secretsManager.ownership).toBeNull();
             expect(decisions.sqs.ownership).toBeNull();
+            expect(decisions.ssm.ownership).toBeNull();
+        });
+
+        describe('SSM endpoint', () => {
+            const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+            afterEach(() => {
+                if (originalSkipDiscovery === undefined) {
+                    delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+                } else {
+                    process.env.FRIGG_SKIP_AWS_DISCOVERY = originalSkipDiscovery;
+                }
+            });
+
+            it('should create SSM endpoint when offload is active', () => {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+                const appDefinition = {
+                    vpc: { ownership: { vpcEndpoints: 'auto' } },
+                    ssm: { enable: true },
+                    environment: { FOO: 'ssm' }
+                };
+                const discovery = { stackManaged: [], external: [], fromCloudFormation: false };
+
+                const decisions = resolver.resolveVpcEndpoints(appDefinition, discovery);
+
+                expect(decisions.ssm.ownership).toBe('stack');
+            });
+
+            it('should not create SSM endpoint when offload is not active', () => {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+                const appDefinition = {
+                    vpc: { ownership: { vpcEndpoints: 'auto' } },
+                    ssm: { enable: true }
+                };
+                const discovery = { stackManaged: [], external: [], fromCloudFormation: false };
+
+                const decisions = resolver.resolveVpcEndpoints(appDefinition, discovery);
+
+                expect(decisions.ssm.ownership).toBeNull();
+            });
         });
 
         it('should resolve to EXTERNAL with user-provided endpoint IDs', () => {

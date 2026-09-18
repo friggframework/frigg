@@ -31,10 +31,16 @@ const {
     ValidationError: GetValidationError,
     NotFoundError,
 } = require('../../database/use-cases/get-migration-status-use-case');
-const { LambdaInvoker } = require('../../database/adapters/lambda-invoker');
+const {
+    LambdaInvoker,
+    LambdaInvocationError,
+} = require('../../database/adapters/lambda-invoker');
 const {
     GetDatabaseStateViaWorkerUseCase,
 } = require('../../database/use-cases/get-database-state-via-worker-use-case');
+const {
+    ResolveMigrationViaWorkerUseCase,
+} = require('../../database/use-cases/resolve-migration-via-worker-use-case');
 
 const router = Router();
 
@@ -55,6 +61,10 @@ const workerFunctionName = process.env.WORKER_FUNCTION_NAME ||
     `${process.env.SERVICE || 'unknown'}-${process.env.STAGE || 'production'}-dbMigrationWorker`;
 
 const getDatabaseStateUseCase = new GetDatabaseStateViaWorkerUseCase({
+    lambdaInvoker,
+    workerFunctionName,
+});
+const resolveMigrationUseCase = new ResolveMigrationViaWorkerUseCase({
     lambdaInvoker,
     workerFunctionName,
 });
@@ -255,6 +265,13 @@ router.post(
             });
         }
 
+        if (!/^\d{14}_[a-z0-9_]+$/i.test(migrationName)) {
+            return res.status(400).json({
+                success: false,
+                error: 'migrationName is not a valid migration identifier'
+            });
+        }
+
         if (!['applied', 'rolled-back'].includes(action)) {
             return res.status(400).json({
                 success: false,
@@ -262,30 +279,31 @@ router.post(
             });
         }
 
+        const stage = req.body.stage || process.env.STAGE || 'production';
+
         try {
-            // Import prismaRunner here to avoid circular dependencies
-            const prismaRunner = require('../../database/utils/prisma-runner');
-
-            const result = await prismaRunner.runPrismaMigrateResolve(migrationName, action, true);
-
-            if (!result.success) {
-                return res.status(500).json({
-                    success: false,
-                    error: `Failed to resolve migration: ${result.error}`
-                });
-            }
-
-            res.status(200).json({
-                success: true,
-                message: `Migration ${migrationName} marked as ${action}`,
+            const result = await resolveMigrationUseCase.execute({
                 migrationName,
-                action
+                action,
+                stage,
             });
+
+            res.status(200).json(result);
         } catch (error) {
             console.error('Migration resolve failed:', error);
+            if (
+                error instanceof LambdaInvocationError &&
+                error.statusCode === 400
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error: error.message,
+                });
+            }
             return res.status(500).json({
                 success: false,
-                error: error.message
+                error: 'Failed to resolve migration',
+                details: error.message,
             });
         }
     })

@@ -38,6 +38,34 @@ describe('IAM Generator', () => {
             expect(summary.features.ssm).toBe(false);
             expect(summary.features.websockets).toBe(false);
         });
+
+        it('should surface ssm.kmsKeyArn from the app definition', () => {
+            const appDefinition = {
+                name: 'test-app',
+                ssm: {
+                    enable: true,
+                    kmsKeyArn:
+                        'arn:aws:kms:us-east-1:123456789012:key/abcd-1234'
+                }
+            };
+
+            const summary = getFeatureSummary(appDefinition);
+
+            expect(summary.ssmKmsKeyArn).toBe(
+                'arn:aws:kms:us-east-1:123456789012:key/abcd-1234'
+            );
+        });
+
+        it('should leave ssmKmsKeyArn undefined when not configured', () => {
+            const appDefinition = {
+                name: 'test-app',
+                ssm: { enable: true }
+            };
+
+            const summary = getFeatureSummary(appDefinition);
+
+            expect(summary.ssmKmsKeyArn).toBeUndefined();
+        });
     });
 
     describe('generateIAMCloudFormation', () => {
@@ -118,6 +146,61 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('FriggSSMPolicy');
             expect(yaml).toContain('CreateSSMPermissions');
             expect(yaml).toContain('EnableSSMSupport');
+        });
+
+        it('should grant SSM-mediated KMS access via ssm.*.amazonaws.com when SSM is enabled', () => {
+            const appDefinition = {
+                name: 'test-app',
+                integrations: [],
+                ssm: { enable: true }
+            };
+
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features
+            });
+
+            expect(yaml).toContain('FriggSSMParameterKMSEncryption');
+            expect(yaml).toContain('kms:Encrypt');
+            expect(yaml).toContain('ssm.*.amazonaws.com');
+            // No customer-managed key configured: falls back to the account key wildcard
+            expect(yaml).toContain('arn:aws:kms:*:${AWS::AccountId}:key/*');
+
+            // The regional ViaService wildcard must be matched with StringLike;
+            // StringEquals would compare literally and never match
+            // ssm.<region>.amazonaws.com, denying the SecureString KMS call.
+            const ssmKmsBlock = yaml.slice(
+                yaml.indexOf('FriggSSMParameterKMSEncryption'),
+                yaml.indexOf('FriggSSMParameterKMSEncryption') + 600
+            );
+            expect(ssmKmsBlock).toContain('StringLike');
+            expect(ssmKmsBlock).not.toContain('StringEquals');
+        });
+
+        it('should scope the SSM KMS grant to ssm.kmsKeyArn when provided', () => {
+            const appDefinition = {
+                name: 'test-app',
+                integrations: [],
+                ssm: {
+                    enable: true,
+                    kmsKeyArn:
+                        'arn:aws:kms:us-east-1:123456789012:key/abcd-1234'
+                }
+            };
+
+            const summary = getFeatureSummary(appDefinition);
+            const yaml = generateIAMCloudFormation({
+                appName: summary.appName,
+                features: summary.features,
+                ssmKmsKeyArn: appDefinition.ssm.kmsKeyArn
+            });
+
+            expect(yaml).toContain('FriggSSMParameterKMSEncryption');
+            expect(yaml).toContain(
+                'arn:aws:kms:us-east-1:123456789012:key/abcd-1234'
+            );
+            expect(yaml).not.toContain('arn:aws:kms:*:${AWS::AccountId}:key/*');
         });
 
         it('should set correct default parameter values based on features', () => {

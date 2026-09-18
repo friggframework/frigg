@@ -41,6 +41,7 @@ declare module "@friggframework/module-plugin" {
     ): Promise<any>;
     parseBody(response: any): Promise<any>;
     refreshAuth(): Promise<any>;
+    _adoptNewerCredential(): Promise<boolean>;
 
     delegate: any;
     delegateTypes: any[];
@@ -72,6 +73,7 @@ declare module "@friggframework/module-plugin" {
     _put(options: RequestOptions): Promise<any>;
     _delete(options: RequestOptions): Promise<any>;
     refreshAuth(): Promise<any>;
+    _adoptNewerCredential(): Promise<boolean>;
   }
 
   type RequestOptions = {
@@ -201,6 +203,7 @@ declare module "@friggframework/module-plugin" {
     addAuthHeaders(headers: object): Promise<object>;
     isAuthenticated(): boolean;
     refreshAuth(): Promise<void>;
+    _adoptNewerCredential(): Promise<boolean>;
     getTokenFromUsernamePassword(): Promise<Token>;
     getTokenFromClientCredentials(): Promise<Token>;
   }

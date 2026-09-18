@@ -1,6 +1,6 @@
 ---
 name: frigg
-description: "Core reference and entry point for the Frigg integration framework: what Frigg is, hexagonal architecture and the golden rule, the integration definition pattern, the frigg CLI (install, start, build, deploy, doctor, repair, ui, generate-iam), AWS infrastructure (domain builders, scheduler, VPC, osls), field-level encryption, the Admin Script Runner (admin scripts, sync/async execution, chaining, scheduling), the monorepo layout, and anti-patterns. Use when working in a Frigg project or repo (friggframework packages, IntegrationBase, infrastructure.js), understanding Frigg's architecture, configuring infrastructure/VPC/encryption, or running frigg CLI commands. Links to the focused companion skills: frigg-api-modules, frigg-management-api, frigg-user-actions, and frigg-development-best-practices."
+description: "Core reference and entry point for the Frigg integration framework: what Frigg is, hexagonal architecture and the golden rule, the integration definition pattern, the frigg CLI (install, start, build, deploy, doctor, repair, ui, generate-iam), AWS infrastructure (domain builders, scheduler, VPC, osls), field-level encryption, the Admin Script Runner (admin scripts, sync/async execution, chaining, scheduling), reporting as an admin operation (ReportBase, run modes live/recorded/snapshot, artifacts, scheduling), telemetry & usage tracking (OpenTelemetry, this.telemetry, Definition.usage, frigg.usage.*), the monorepo layout, and anti-patterns. Use when working in a Frigg project or repo (friggframework packages, IntegrationBase, infrastructure.js), understanding Frigg's architecture, configuring infrastructure/VPC/encryption/telemetry, adding observability or usage counters, or running frigg CLI commands. Links to the focused companion skills: frigg-api-modules, frigg-management-api, frigg-user-actions, and frigg-development-best-practices."
 ---
 
 # Frigg Integration Framework Expert
@@ -98,6 +98,99 @@ A script extends `AdminScriptBase` with a static `Definition` (name, version, `i
 - **When to use it:** work that won't fit one execution — beat the 15-min executor cap by paging/resuming; fan out one child per item/batch; isolate per-item failures; stage pipelines (A queues B with its output). For small bounded work, or when you need the result in the response, just use one sync/async execution.
 - **Caveats:** fire-and-forget (you don't get the child's result back — correlate via `parentExecutionId`); at-least-once delivery, so **make child scripts idempotent**; and there is **no depth guard**, so keep continuation targets terminal or a self-queuing script fans out unbounded.
 
+## Reports (ADR-010)
+
+A **report is an admin operation whose output is its payload** — a sibling of admin scripts on the same runner, admin API key (`ADMIN_API_KEY`), async/SQS execution, and EventBridge scheduling. **Core ships built-in reports; adopters register their own.** Register with `reports: [MyReport]` in the app definition (+ `admin: { includeBuiltinReports: true }` for the core built-ins, e.g. `integrations`). A report extends `ReportBase` (from `@friggframework/core`) with a static `Definition` and `async execute(frigg, params)`, where `frigg` is the same command bundle scripts get as `context.commands` — **reads go through it, never a repository**.
+
+- **Run modes** (`Definition.runModes`, first is default): **`live`** computes inline and persists nothing (cheap, always-fresh); **`recorded`** persists an execution record (input/results/logs) you poll async; **`snapshot`** is a recorded run tagged into a named series (trends). All three write to the isolated `AdminScriptExecution` store as `type: 'REPORT'` (no user/integration FK), so a user-scoped query can never return a report record.
+- **Endpoints** (auth: `x-frigg-admin-api-key`): `GET /api/v2/reports` (list), `GET /api/v2/reports/{name}` (definition), `POST /api/v2/reports/{name}/run` with `{ mode, params }` (**`live` → 200 inline**; **`recorded`/`snapshot` → 202 `{ executionId }`**, queued to the dedicated `ReportQueue`), `GET .../{name}/snapshots?from=&to=` (the series), `GET .../executions/{id}`, and `GET|PUT|DELETE .../{name}/schedule`.
+- **Output**: `output.format: 'json'` returns inline; `'csv'|'pdf'|'zip'` is written to artifact storage (S3, private + SSE, retrieved via signed URL) with a `{ summary, artifact }` on the record — non-JSON therefore runs `recorded`/`snapshot`, not `live`. Set `REPORT_ARTIFACT_BUCKET` (the infra provisions it when a non-JSON report is registered).
+- **Scheduling** reuses the admin scheduler; a scheduled run targets the report executor with `{ reportName, mode: schedule.mode || 'snapshot', trigger: 'SCHEDULED' }`. Report and script names share one namespace (bootstrap rejects collisions). **A `schedule` block in the Definition only supplies the default scheduled *mode*; the recurring trigger is activated via `PUT /:name/schedule` — the DB schedule is the single source of truth (a declared `enabled`/`cron` does not fire on its own).**
+
+**Example 1 — adopter report, snapshot + daily schedule, reads via `frigg`:**
+
+```javascript
+const { ReportBase } = require('@friggframework/core');
+
+class ConnectedAccountsActivity extends ReportBase {
+  static Definition = {
+    name: 'connected-accounts-activity',
+    version: '1.0.0',
+    runModes: ['snapshot', 'recorded', 'live'],      // first = default
+    inputSchema: { type: 'object', properties: {
+      windowDays: { type: 'integer', enum: [30, 60, 90], default: 30 } } },
+    output: { format: 'json' },
+    schedule: { enabled: true, cron: 'cron(0 6 * * ? *)', mode: 'snapshot' }, // default mode; activate via PUT .../schedule
+  };
+
+  async execute(frigg, params) {                     // frigg === context.commands
+    const since = new Date(Date.now() - (params.windowDays ?? 30) * 864e5);
+    const byType = await frigg.credentials.countActiveByType({ since });
+    return { windowDays: params.windowDays ?? 30, byType };
+  }
+}
+// POST /api/v2/reports/connected-accounts-activity/run {"mode":"snapshot"} → 202 {executionId}
+// GET  /api/v2/reports/connected-accounts-activity/snapshots?from=&to=     → the daily trend
+```
+
+**Example 2 — CSV export to artifact storage (recorded), non-JSON output:**
+
+```javascript
+class ContactExportReport extends ReportBase {
+  static Definition = {
+    name: 'contact-export',
+    version: '1.0.0',
+    runModes: ['recorded'],                          // non-JSON can't run live
+    inputSchema: { type: 'object', properties: { type: { type: 'string' } } },
+    output: { format: 'csv' },                        // → S3 + signed URL
+  };
+
+  async execute(frigg, params) {
+    const rows = await frigg.integrations.listForReport({ type: params.type });
+    const csv = ['id,type,status', ...rows.map((r) => `${r.id},${r.type},${r.status}`)].join('\n');
+    // Non-JSON reports return { file, summary, fileType }; the runner stores the
+    // file and records { summary, artifact } — retrieve via GET .../executions/{id}.
+    return { file: csv, summary: { rows: rows.length }, fileType: 'csv' };
+  }
+}
+```
+
+The built-in `integrations` report (PR #607) is itself a `ReportBase` in core; use it as the reference implementation. Full guide: `packages/core/reporting/README.md`.
+
+## Telemetry & Usage (ADR-011)
+
+Vendor-neutral OpenTelemetry (traces + metrics) plus durable per-integration
+usage counters. **No-op by default** (zero cold-start cost; loads no OTel until an
+exporter is configured), and framework seams (handlers, API-module requests,
+`ON_WEBHOOK`) are **auto-instrumented** — usage rides for free.
+
+```javascript
+// App definition: turn on export + declare a North Star (both optional)
+const Definition = {
+  telemetry: {
+    exporter: { type: "otlp", endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT }, // none|console|otlp|honeycomb|datadog
+    northStar: { default: { name: "records.synced" } },
+  },
+};
+
+// Integration Definition: opt into durable usage counters
+static Definition = { name: "hubspot", usage: { canonical: ["records.synced", "api.requests"] } };
+
+// Integration code: custom metrics/spans (this.telemetry is auto-tagged with integration_type)
+await this.telemetry.span("delta_sync", async () => {
+  this.telemetry.count("records.synced", batch.length, { entity: "contact" }); // explicit-only counters
+});
+
+// Read the durable usage store (reporting reads the same store — never an APM)
+await frigg.usage.getTotalsByDimension({ metric: "records.synced", groupBy: "integrationType", since });
+await frigg.usage.getTimeSeries({ metric: "records.synced", integrationType: "hubspot", from, to, bucket: "day" });
+```
+
+- **Canonical counters**: `api.requests`, `user_actions`, `webhooks.received` (auto); `records.synced`, `workflows.invoked` (explicit via `this.telemetry.count`). Declare in `Definition.usage.canonical` to persist + compare across types; `custom` keys compare within a type.
+- **Cardinality rule**: high-cardinality ids (integrationId, userId, url) ride span baggage / bus context — NEVER metric labels (bounded to integration_type/event/status/method/module).
+- **Sampling**: `telemetry.sampleRatio` (0..1, default 1) sets the fraction of **traces** exported (a cost knob) — whole-trace + parent-based, and **not** applied to usage counters (they stay exact). Not error-aware; for keep-all-errors use collector tail-sampling.
+- Public tap: `getTelemetry().on("metric", cb)`. Full guide: `packages/core/telemetry/README.md`.
+
 ## CLI Commands
 
 ```bash
@@ -140,6 +233,8 @@ There is no one-command scaffold. Start a project by either:
 **Architecture**: don't put business logic in handlers; don't call repositories from handlers; don't put orchestration in repositories; don't mix concerns in one file; don't skip dependency injection; don't create "god" use cases.
 
 **Development**: don't assume data structures are always consistent (add null checks); don't make quick fixes without finding root cause; don't update one monorepo package without checking the others; don't skip the full test suite for both databases.
+
+**Telemetry**: don't import a vendor/OTel SDK in integration code (use `this.telemetry.*`); don't put high-cardinality ids (integrationId, userId, urls) on metric labels (they belong on span baggage / bus context); don't expect a canonical usage counter to populate unless it's declared in `Definition.usage`.
 
 ## Quick Reference
 
@@ -186,3 +281,4 @@ static Definition = {
 - Community Slack: https://friggframework.org/#contact
 - Commands README: `packages/core/application/commands/README.md`
 - Encryption Guide: `packages/core/database/encryption/README.md`
+- Telemetry & Usage Guide: `packages/core/telemetry/README.md` (+ usage store: `packages/core/usage/README.md`)

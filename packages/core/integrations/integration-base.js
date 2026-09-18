@@ -18,6 +18,9 @@ const {
     UpdateIntegrationConfig,
 } = require('./use-cases/update-integration-config');
 const { validateExtensionBinding } = require('./extension');
+const { getTelemetry } = require('../telemetry/telemetry-runtime');
+const { instrumentHandler } = require('../telemetry/instrument-handler');
+const { bindTelemetryContext } = require('../telemetry/bind-telemetry-context');
 
 const constantsToBeMigrated = {
     defaultEvents: {
@@ -56,6 +59,11 @@ class IntegrationBase {
         integrationRepository: this.integrationRepository,
     });
 
+    // this.telemetry.count('records.synced', n, { entity: 'contact' })
+    telemetry = bindTelemetryContext(getTelemetry(), () =>
+        this.getTelemetryContext()
+    );
+
     static getOptionDetails() {
         const options = new Options({
             module: Object.values(this.Definition.modules)[0], // This is a placeholder until we revamp the frontend
@@ -76,6 +84,8 @@ class IntegrationBase {
         // Tier 3 Integration Extensions — see packages/core/integrations/EXTENSIONS.md
         // Shape: { [bindingName]: { extension, handlers?: { [eventName]: methodName } } }
         extensions: {},
+        // usage: { canonical: ['records.synced'], custom: { 'deals.enriched': { unit, label } } }
+        usage: {},
         display: {
             name: 'Integration Name',
             logo: '',
@@ -204,11 +214,44 @@ class IntegrationBase {
         };
 
         this._isHydrated = Boolean(this.id);
+
+        // Log the instance-open exactly once per hydrated instance, so an
+        // integration is visible in telemetry even on a path that never
+        // dispatches a handler. integration_type + the full id context are
+        // attached automatically by the bound telemetry service.
+        if (this._isHydrated && !this._instantiationLogged) {
+            this._instantiationLogged = true;
+            try {
+                this.telemetry.event('frigg.integration.instantiated');
+            } catch (_) {
+                // Telemetry must never break integration hydration.
+            }
+        }
+
         return this;
     }
 
     get isHydrated() {
         return this._isHydrated;
+    }
+
+    /**
+     * Standard telemetry identifier set. Assembled from the
+     * hydrated record (integrationId, userId, version), the static Definition
+     * (integrationType, version fallback), and the environment (stage, appName).
+     * High-cardinality ids (integrationId, userId) ride span baggage only — never
+     * metric labels.
+     */
+    getTelemetryContext() {
+        const Definition = this.constructor.Definition || {};
+        return {
+            integrationId: this.id ?? null,
+            integrationType: Definition.name ?? null,
+            userId: this.userId ?? null,
+            version: this.version ?? Definition.version ?? null,
+            stage: process.env.STAGE || process.env.NODE_ENV || null,
+            appName: process.env.FRIGG_STACK || null,
+        };
     }
 
     assertHydrated(message = 'Integration instance is not hydrated') {
@@ -236,13 +279,16 @@ class IntegrationBase {
         // e.g., 'quo-attio' → 'quo', 'attio' → 'attio'
         const moduleNameToKey = {};
         if (this.constructor.Definition?.modules) {
-            for (const [key, moduleConfig] of Object.entries(this.constructor.Definition.modules)) {
+            for (const [key, moduleConfig] of Object.entries(
+                this.constructor.Definition.modules
+            )) {
                 const definition = moduleConfig.definition;
                 if (definition) {
                     // Use getName() if available, fallback to moduleName
-                    const definitionName = typeof definition.getName === 'function'
-                        ? definition.getName()
-                        : definition.moduleName;
+                    const definitionName =
+                        typeof definition.getName === 'function'
+                            ? definition.getName()
+                            : definition.moduleName;
                     if (definitionName) {
                         moduleNameToKey[definitionName] = key;
                     }
@@ -327,7 +373,9 @@ class IntegrationBase {
             try {
                 const authPassed = await this[module].testAuth();
                 if (!authPassed) {
-                    throw new Error(`testAuth returned false for module ${module}`);
+                    throw new Error(
+                        `testAuth returned false for module ${module}`
+                    );
                 }
             } catch {
                 didAuthPass = false;
@@ -335,16 +383,23 @@ class IntegrationBase {
                     this.id,
                     'errors',
                     'Authentication Error',
-                    `There was an error with your ${this[
-                        module
-                    ].getName()} Entity.
-                Please reconnect/re-authenticate, or reach out to Support for assistance.`,
+                    this._authErrorMessage(this[module].getName()),
                     Date.now()
                 );
             }
         }
 
         return didAuthPass;
+    }
+
+    /**
+     * @param {string} [moduleName] - The module whose credentials failed.
+     * @param {number} [statusCode] - HTTP status the module rejected us with.
+     * @returns {string} A user-facing message.
+     */
+    _authErrorMessage(moduleName, statusCode) {
+        const status = statusCode ? ` (HTTP ${statusCode})` : '';
+        return `There was an error with your ${moduleName} Entity${status}. Please reconnect/re-authenticate, or reach out to Support for assistance.`;
     }
 
     /**
@@ -584,7 +639,9 @@ class IntegrationBase {
     async persistStatus(status) {
         await this.updateIntegrationStatus.execute(this.id, status);
         this.status = status;
-        console.log(`[Frigg] Integration ${this.id} status changed to ${status}`);
+        console.log(
+            `[Frigg] Integration ${this.id} status changed to ${status}`
+        );
     }
 
     /**
@@ -749,7 +806,14 @@ class IntegrationBase {
                 `Event ${event} is not defined in the Integration event object`
             );
         }
-        return this.on[event].handler.call(this, object);
+        // Auto-instrument. This is the seam for user
+        // actions, config-options, and lifecycle events dispatched via `this.on`
+        // (the queue/webhook/route paths go through IntegrationEventDispatcher).
+        return instrumentHandler(
+            this.telemetry,
+            { event, eventType: this.on[event].type },
+            () => this.on[event].handler.call(this, object)
+        );
     }
 
     getOptionDetails() {
@@ -791,6 +855,9 @@ class IntegrationBase {
         if (!this.id) return;
 
         if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            if (this.status === 'ERROR') return;
+
+            const moduleName = notifier?.name;
             const detail =
                 object?.reason || object?.statusCode
                     ? ` (status ${object?.statusCode ?? '?'}: ${
@@ -799,10 +866,14 @@ class IntegrationBase {
                     : '';
             console.log(
                 `[Frigg] Module ${
-                    notifier?.name || '?'
+                    moduleName || '?'
                 } reported invalid credentials for integration ${
                     this.id
                 } — marking ERROR${detail}`
+            );
+            await this._recordCredentialRejection(
+                moduleName,
+                object?.statusCode
             );
             await this.persistStatus('ERROR');
             return;
@@ -818,6 +889,30 @@ class IntegrationBase {
                 } — clearing ERROR → ENABLED`
             );
             await this.persistStatus('ENABLED');
+        }
+    }
+
+    /**
+     * Takes no `reason`: the delegate's is a FetchError message echoing the
+     * request, Authorization header included outside prod, and this is shown to
+     * end users. Best-effort so it cannot block the caller's status flip.
+     * @param {string} [moduleName] - The module that reported the rejection.
+     * @param {number} [statusCode] - HTTP status the module rejected us with.
+     */
+    async _recordCredentialRejection(moduleName, statusCode) {
+        try {
+            await this.updateIntegrationMessages.execute(
+                this.id,
+                'errors',
+                'Authentication Error',
+                this._authErrorMessage(moduleName, statusCode),
+                Date.now()
+            );
+        } catch (error) {
+            console.error(
+                `[Frigg] Failed to record credential rejection for integration ${this.id}:`,
+                error
+            );
         }
     }
 }

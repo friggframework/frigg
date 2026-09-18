@@ -24,6 +24,14 @@ const {
     createEmptyDiscoveryResult,
     ResourceOwnership,
 } = require('../shared/types');
+const {
+    isScopedEnvironmentActive,
+    getIntegrationFunctionNames,
+    getAdminFunctionNames,
+} = require('../shared/function-environments');
+const {
+    nestedNodeModulesExcludes,
+} = require('../shared/utilities/nested-node-modules');
 
 class IntegrationBuilder extends InfrastructureBuilder {
     constructor() {
@@ -177,8 +185,10 @@ class IntegrationBuilder extends InfrastructureBuilder {
         usePrismaLayer = true
     ) {
         // Create package config first — needed by all Lambda functions including DLQ processor
-        const functionPackageConfig =
-            this.createFunctionPackageConfig(usePrismaLayer);
+        const functionPackageConfig = this.createFunctionPackageConfig(
+            usePrismaLayer,
+            appDefinition
+        );
 
         // Create InternalErrorQueue if ownership = STACK
         const shouldCreateInternalErrorQueue =
@@ -218,13 +228,18 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 console.log(
                     `      ✓ Creating ${integrationName}Queue in stack`
                 );
-                this.createIntegrationQueue(integrationName, result);
+                this.createIntegrationQueue(
+                    integrationName,
+                    result,
+                    appDefinition
+                );
             } else {
                 console.log(`      ✓ Using external ${integrationName}Queue`);
                 this.useExternalIntegrationQueue(
                     integrationName,
                     queueDecision,
-                    result
+                    result,
+                    appDefinition
                 );
             }
         }
@@ -233,7 +248,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Create function package exclusion configuration
      */
-    createFunctionPackageConfig(usePrismaLayer = true) {
+    createFunctionPackageConfig(usePrismaLayer = true, appDefinition = {}) {
         return {
             exclude: [
                 // Exclude AWS SDK (provided by Lambda runtime)
@@ -250,8 +265,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
                       ]
                     : []),
 
-                // Exclude ALL nested node_modules
-                'node_modules/**/node_modules/**',
+                ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
 
                 // Exclude build tools (not needed at runtime)
                 'node_modules/esbuild/**',
@@ -544,7 +558,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Create integration-specific SQS queue CloudFormation resource
      */
-    createIntegrationQueue(integrationName, result) {
+    createIntegrationQueue(integrationName, result, appDefinition) {
         const queueReference = `${this.capitalizeFirst(integrationName)}Queue`;
         const queueName = `\${self:service}--\${self:provider.stage}-${queueReference}`;
 
@@ -564,9 +578,12 @@ class IntegrationBuilder extends InfrastructureBuilder {
         };
 
         // Add queue URL to environment
-        result.environment[`${integrationName.toUpperCase()}_QUEUE_URL`] = {
-            Ref: queueReference,
-        };
+        this.setQueueUrlEnvironment(
+            integrationName,
+            { Ref: queueReference },
+            result,
+            appDefinition
+        );
 
         // Add queue name to custom section
         result.custom[queueReference] = queueName;
@@ -577,12 +594,55 @@ class IntegrationBuilder extends InfrastructureBuilder {
     /**
      * Use external integration queue
      */
-    useExternalIntegrationQueue(integrationName, decision, result) {
+    useExternalIntegrationQueue(
+        integrationName,
+        decision,
+        result,
+        appDefinition
+    ) {
         // Add queue URL to environment for Lambda functions
-        result.environment[`${integrationName.toUpperCase()}_QUEUE_URL`] =
-            decision.physicalId;
+        this.setQueueUrlEnvironment(
+            integrationName,
+            decision.physicalId,
+            result,
+            appDefinition
+        );
 
         console.log(`  ✓ Using external queue: ${decision.physicalId}`);
+    }
+
+    /**
+     * Broadcast the queue URL app-wide, or — with lambda.scopedEnvironment —
+     * scope it to the functions that can actually enqueue: the shared auth
+     * router (dispatches integration actions synchronously), the admin-script
+     * functions (instantiate arbitrary integrations), and the owning
+     * integration's own functions.
+     */
+    setQueueUrlEnvironment(integrationName, value, result, appDefinition) {
+        const key = `${integrationName.toUpperCase()}_QUEUE_URL`;
+
+        if (!isScopedEnvironmentActive(appDefinition)) {
+            result.environment[key] = value;
+            return;
+        }
+
+        const integration = appDefinition.integrations.find(
+            (entry) => entry.Definition.name === integrationName
+        );
+        const targets = [
+            'auth',
+            ...getAdminFunctionNames(appDefinition),
+            ...getIntegrationFunctionNames(integration),
+        ];
+
+        result.functionEnvironments = result.functionEnvironments || {};
+        for (const fnName of targets) {
+            result.functionEnvironments[fnName] = {
+                ...result.functionEnvironments[fnName],
+                [key]: value,
+            };
+        }
+        console.log(`  ✓ Scoped ${key} to: ${targets.join(', ')}`);
     }
 
     /**

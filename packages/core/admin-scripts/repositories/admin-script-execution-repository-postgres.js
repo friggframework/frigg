@@ -110,10 +110,19 @@ class AdminScriptExecutionRepositoryPostgres extends AdminScriptExecutionReposit
             sortBy = 'createdAt',
             sortOrder = 'desc',
             state,
+            type,
+            from,
+            to,
         } = options;
 
         const where = { name };
         if (state) where.state = state;
+        if (type) where.type = type;
+        if (from || to) {
+            where.createdAt = {};
+            if (from) where.createdAt.gte = from;
+            if (to) where.createdAt.lte = to;
+        }
 
         const processes = await this.prisma.adminScriptExecution.findMany({
             where,
@@ -247,15 +256,16 @@ class AdminScriptExecutionRepositoryPostgres extends AdminScriptExecutionReposit
      * Used for cleanup and retention policies
      *
      * @param {Date} date - Delete processes older than this date
+     * @param {Object} [options] - Deletion options
+     * @param {string} [options.type] - Optional type filter
      * @returns {Promise<Object>} Deletion result with count
      */
-    async deleteExecutionsOlderThan(date) {
+    async deleteExecutionsOlderThan(date, { type } = {}) {
+        const where = { createdAt: { lt: date } };
+        if (type) where.type = type;
+
         const result = await this.prisma.adminScriptExecution.deleteMany({
-            where: {
-                createdAt: {
-                    lt: date,
-                },
-            },
+            where,
         });
 
         return {

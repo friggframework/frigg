@@ -1,6 +1,7 @@
 const {
     createSchedulerAdapter,
     createSchedulerAdapterFromEnv,
+    createReportSchedulerAdapterFromEnv,
 } = require('../scheduler-adapter-factory');
 const { AWSSchedulerAdapter } = require('../aws-scheduler-adapter');
 const { LocalSchedulerAdapter } = require('../local-scheduler-adapter');
@@ -183,6 +184,54 @@ describe('Scheduler Adapter Factory', () => {
                 awsAdapterParams.scheduleGroupName
             );
             expect(adapter.roleArn).toBe(awsAdapterParams.roleArn);
+        });
+    });
+
+    describe('createReportSchedulerAdapterFromEnv()', () => {
+        it('builds an AWS adapter targeting the report executor with a report-shaped message', () => {
+            process.env.SCHEDULER_PROVIDER = 'aws';
+            process.env.REPORT_EXECUTOR_LAMBDA_ARN =
+                'arn:aws:lambda:us-east-1:123456789012:function:report-executor';
+            process.env.REPORT_SCHEDULE_GROUP = 'frigg-admin-scripts';
+            process.env.SCHEDULER_ROLE_ARN = awsAdapterParams.roleArn;
+
+            const adapter = createReportSchedulerAdapterFromEnv({
+                reportName: 'integrations',
+                mode: 'snapshot',
+            });
+
+            expect(adapter).toBeInstanceOf(AWSSchedulerAdapter);
+            expect(adapter.targetLambdaArn).toBe(
+                'arn:aws:lambda:us-east-1:123456789012:function:report-executor'
+            );
+            expect(adapter.scheduleNameFor('integrations')).toBe(
+                'frigg-report-integrations'
+            );
+            expect(adapter.buildInput({ input: { a: 1 } })).toEqual({
+                reportName: 'integrations',
+                mode: 'snapshot',
+                trigger: 'SCHEDULED',
+                params: { a: 1 },
+            });
+        });
+
+        it('throws 503 when SCHEDULER_PROVIDER is unset in a deployed Lambda', () => {
+            delete process.env.SCHEDULER_PROVIDER;
+            process.env.AWS_LAMBDA_FUNCTION_NAME = 'report-router';
+
+            let error;
+            try {
+                createReportSchedulerAdapterFromEnv({
+                    reportName: 'x',
+                    mode: 'snapshot',
+                });
+            } catch (e) {
+                error = e;
+            }
+
+            expect(error).toBeDefined();
+            expect(error.isBoom).toBe(true);
+            expect(error.output.statusCode).toBe(503);
         });
     });
 });

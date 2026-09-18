@@ -2,6 +2,7 @@ const { prisma } = require('../../database/prisma');
 const {
     IntegrationMappingRepositoryInterface,
 } = require('./integration-mapping-repository-interface');
+const { strictIntId } = require('./report-id');
 
 /**
  * PostgreSQL Integration Mapping Repository Adapter
@@ -186,6 +187,33 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
             acknowledged: true,
             deletedCount: result.count,
         };
+    }
+
+    /**
+     * Count mappings grouped by integration id for a bounded id set.
+     *
+     * @param {Array<string|number>} ids - Integration ids
+     * @returns {Promise<Map<string, number>>} integrationId (string) → count
+     */
+    async countByIntegrationIds(ids = []) {
+        const counts = new Map();
+        if (!ids || ids.length === 0) return counts;
+
+        // Strict (matches findAllForReport): reject partially-numeric ids instead of coercing.
+        const intIds = ids.map((id) => strictIntId(id));
+        const groups = await this.prisma.integrationMapping.groupBy({
+            by: ['integrationId'],
+            where: { integrationId: { in: intIds } },
+            _count: { _all: true },
+        });
+
+        for (const group of groups) {
+            counts.set(
+                this._intToString(group.integrationId),
+                group._count._all
+            );
+        }
+        return counts;
     }
 
     /**

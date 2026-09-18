@@ -16,6 +16,10 @@ const {
     ScriptRunner,
     createScriptRunner,
 } = require('./src/application/script-runner');
+const {
+    ReportRunner,
+    createReportRunner,
+} = require('./src/application/report-runner');
 
 // Infrastructure
 const {
@@ -27,8 +31,14 @@ const {
     handler: routerHandler,
 } = require('./src/infrastructure/admin-script-router');
 const {
+    handler: reportRouterHandler,
+} = require('./src/infrastructure/report-router');
+const {
     handler: executorHandler,
 } = require('./src/infrastructure/script-executor-handler');
+const {
+    handler: reportExecutorHandler,
+} = require('./src/infrastructure/report-executor-handler');
 
 // Adapters
 const { SchedulerAdapter } = require('./src/adapters/scheduler-adapter');
@@ -48,13 +58,17 @@ module.exports = {
     createAdminScriptContext,
     ScriptRunner,
     createScriptRunner,
+    ReportRunner,
+    createReportRunner,
 
     // Infrastructure layer
     validateAdminApiKey,
     router,
     app,
     routerHandler,
+    reportRouterHandler,
     executorHandler,
+    reportExecutorHandler,
 
     // Adapters
     SchedulerAdapter,

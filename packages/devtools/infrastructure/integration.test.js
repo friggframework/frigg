@@ -108,11 +108,9 @@ describe('VPC/KMS/SSM Integration Tests', () => {
             );
             expect(kmsPermission).toBeDefined();
 
-            // Verify SSM configuration
-            expect(serverlessConfig.provider.layers).toEqual([
-                'arn:aws:lambda:${self:provider.region}:177933569100:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11'
-            ]);
-            expect(serverlessConfig.provider.environment.SSM_PARAMETER_PREFIX).toBe('/${self:service}/${self:provider.stage}');
+            // Verify SSM configuration (enabled without offload markers -> broad grant only)
+            expect(serverlessConfig.provider.layers).toBeUndefined();
+            expect(serverlessConfig.provider.environment.SSM_PARAMETER_PREFIX).toBeUndefined();
 
             // Verify SSM IAM permissions
             const ssmPermission = serverlessConfig.provider.iamRoleStatements.find(

@@ -208,6 +208,51 @@ describe('BuilderOrchestrator', () => {
 
             await expect(orchestrator.buildAll({})).rejects.toThrow('Build failed');
         });
+
+        it('should merge functionEnvironments per function, later builder winning on key conflict', async () => {
+            class ScopedEnvBuilderA extends InfrastructureBuilder {
+                getName() { return 'ScopedEnvBuilderA'; }
+                shouldExecute() { return true; }
+                validate() { return new ValidationResult(); }
+                async build() {
+                    return {
+                        functionEnvironments: {
+                            auth: { QUEUE_A: 'url-a', SHARED: 'from-a' },
+                            workerA: { QUEUE_A: 'url-a' },
+                        },
+                    };
+                }
+            }
+            class ScopedEnvBuilderB extends InfrastructureBuilder {
+                getName() { return 'ScopedEnvBuilderB'; }
+                shouldExecute() { return true; }
+                validate() { return new ValidationResult(); }
+                getDependencies() { return ['ScopedEnvBuilderA']; }
+                async build() {
+                    return {
+                        functionEnvironments: {
+                            auth: { QUEUE_B: 'url-b', SHARED: 'from-b' },
+                        },
+                    };
+                }
+            }
+
+            orchestrator = new BuilderOrchestrator([
+                new ScopedEnvBuilderA(),
+                new ScopedEnvBuilderB(),
+            ]);
+
+            const result = await orchestrator.buildAll({});
+
+            expect(result.merged.functionEnvironments).toEqual({
+                auth: {
+                    QUEUE_A: 'url-a',
+                    QUEUE_B: 'url-b',
+                    SHARED: 'from-b',
+                },
+                workerA: { QUEUE_A: 'url-a' },
+            });
+        });
     });
 });
 

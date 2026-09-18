@@ -30,9 +30,7 @@ const {
 const {
     GetUserFromAdopterJwt,
 } = require('./user/use-cases/get-user-from-adopter-jwt');
-const {
-    AuthenticateUser,
-} = require('./user/use-cases/authenticate-user');
+const { AuthenticateUser } = require('./user/use-cases/authenticate-user');
 
 const {
     CredentialRepository,
@@ -43,18 +41,14 @@ const {
 const {
     IntegrationMappingRepository,
 } = require('./integrations/repositories/integration-mapping-repository');
-const {
-    CreateProcess,
-} = require('./integrations/use-cases/create-process');
+const { CreateProcess } = require('./integrations/use-cases/create-process');
 const {
     UpdateProcessState,
 } = require('./integrations/use-cases/update-process-state');
 const {
     UpdateProcessMetrics,
 } = require('./integrations/use-cases/update-process-metrics');
-const {
-    GetProcess,
-} = require('./integrations/use-cases/get-process');
+const { GetProcess } = require('./integrations/use-cases/get-process');
 const { Cryptor } = require('./encrypt');
 const {
     BaseError,
@@ -72,9 +66,17 @@ const {
     LoadIntegrationContextUseCase,
 } = require('./integrations/index');
 const {
-    createReportingRouter,
-    createReportingRepository,
+    ReportBase,
+    IntegrationsReport,
+    BUILTIN_REPORTS,
+    createReportCommands,
 } = require('./reporting/index');
+const {
+    createTelemetry,
+    getTelemetry,
+    CANONICAL_COUNTERS,
+} = require('./telemetry/index');
+const { createUsageRepository } = require('./usage/index');
 const { TimeoutCatcher } = require('./lambda/index');
 const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
 const {
@@ -144,8 +146,16 @@ module.exports = {
     GetProcess,
 
     // reporting
-    createReportingRouter,
-    createReportingRepository,
+    ReportBase,
+    IntegrationsReport,
+    BUILTIN_REPORTS,
+    createReportCommands,
+
+    // telemetry
+    createTelemetry,
+    getTelemetry,
+    CANONICAL_COUNTERS,
+    createUsageRepository,
 
     // application - Command factories for integration developers
     application,
@@ -156,6 +166,7 @@ module.exports = {
     createCredentialCommands: application.createCredentialCommands,
     createProcessCommands: application.createProcessCommands,
     createSchedulerCommands: application.createSchedulerCommands,
+    createUsageCommands: application.createUsageCommands,
     findIntegrationContextByExternalEntityId:
         application.findIntegrationContextByExternalEntityId,
     integrationCommands: application.integrationCommands,

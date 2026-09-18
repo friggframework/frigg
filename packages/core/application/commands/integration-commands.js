@@ -89,9 +89,21 @@ function createIntegrationCommands({ integrationClass } = {}) {
         }
     }
 
+    /**
+     * Report-shaped projection (derived counters + timestamps) — the
+     * cross-integration read that reports (ADR-010) consume via commands.
+     */
+    async function listForReport(filter = {}) {
+        try {
+            return await integrationRepository.findAllForReport(filter);
+        } catch (error) {
+            return mapErrorToResponse(error);
+        }
+    }
+
     // The remaining commands hydrate/modify integrations for a specific class.
     if (!integrationClass) {
-        return { findIntegrationById, listIntegrations };
+        return { findIntegrationById, listIntegrations, listForReport };
     }
 
     const moduleRepository = createModuleRepository();
@@ -154,6 +166,7 @@ function createIntegrationCommands({ integrationClass } = {}) {
     return {
         findIntegrationById,
         listIntegrations,
+        listForReport,
 
         /**
          * Find integration context by external entity ID and type

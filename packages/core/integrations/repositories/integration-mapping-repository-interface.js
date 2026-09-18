@@ -78,6 +78,20 @@ class IntegrationMappingRepositoryInterface {
     }
 
     /**
+     * Count mappings grouped by integration id, for a bounded set of ids.
+     * Adapters must drain the full grouped result (a deployment can have more
+     * than one first-batch of distinct integration ids).
+     *
+     * @returns {Promise<Map<string, number>>} Map of integrationId (string) → count
+     * @abstract
+     */
+    async countByIntegrationIds(ids) {
+        throw new Error(
+            'Method countByIntegrationIds must be implemented by subclass'
+        );
+    }
+
+    /**
      * Find mapping by ID
      *
      * @param {string|number} id - The mapping ID

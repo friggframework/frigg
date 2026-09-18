@@ -8,6 +8,7 @@
  */
 
 const { buildEnvironment } = require('../environment-builder');
+const { nestedNodeModulesExcludes } = require('./nested-node-modules');
 
 /**
  * Create base serverless definition with core functions and resources
@@ -64,8 +65,7 @@ function createBaseDefinition(
             'node_modules/prettier/**',
             'node_modules/eslint/**',
 
-            // Exclude ALL nested node_modules (catch any package with nested dependencies)
-            'node_modules/**/node_modules/**',
+            ...nestedNodeModulesExcludes(AppDefinition, usePrismaLayer),
 
             // Exclude build tools (not needed at runtime)
             'node_modules/esbuild/**',
@@ -311,16 +311,7 @@ function createBaseDefinition(
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
                 ],
             },
-            reporting: {
-                handler: 'node_modules/@friggframework/core/handlers/routers/reporting.handler',
-                ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
-                skipEsbuild: true,  // Handlers in node_modules don't need bundling
-                package: skipEsbuildPackageConfig,
-                events: [
-                    { httpApi: { path: '/api/v2/reports', method: 'GET' } },
-                    { httpApi: { path: '/api/v2/reports/{proxy+}', method: 'GET' } },
-                ],
-            },
+            // Reporting is an admin operation (ADR-010): the report router runs on the admin-scripts Lambda, not as a standalone function here.
             // Note: dbMigrate removed - MigrationBuilder now handles migration infrastructure
             // See: packages/devtools/infrastructure/domains/database/migration-builder.js
         },

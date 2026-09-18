@@ -229,13 +229,16 @@ describe('MigrationBuilder', () => {
             expect(result.functions.dbMigrationRouter.skipEsbuild).toBe(true);
             expect(result.functions.dbMigrationRouter.timeout).toBe(30);
             expect(result.functions.dbMigrationRouter.memorySize).toBe(512);
-            expect(result.functions.dbMigrationRouter.events).toHaveLength(3);
+            expect(result.functions.dbMigrationRouter.events).toHaveLength(4);
             // Must match core's Express router mounted under /admin/db-migrate.
             expect(result.functions.dbMigrationRouter.events).toContainEqual({
                 httpApi: { path: '/admin/db-migrate/status', method: 'GET' },
             });
             expect(result.functions.dbMigrationRouter.events).toContainEqual({
                 httpApi: { path: '/admin/db-migrate', method: 'POST' },
+            });
+            expect(result.functions.dbMigrationRouter.events).toContainEqual({
+                httpApi: { path: '/admin/db-migrate/resolve', method: 'POST' },
             });
             expect(result.functions.dbMigrationRouter.events).toContainEqual({
                 httpApi: { path: '/admin/db-migrate/{processId}', method: 'GET' },
@@ -318,5 +321,134 @@ describe('MigrationBuilder', () => {
             );
         });
     });
+
+    describe('scoped environment (lambda.scopedEnvironment)', () => {
+        beforeEach(() => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+        });
+
+        it('scopes migration vars to the migration functions, keeping DB_TYPE global', async () => {
+            const result = await builder.build(
+                { lambda: { scopedEnvironment: true } },
+                {}
+            );
+
+            expect(result.environment.S3_BUCKET_NAME).toBeUndefined();
+            expect(result.environment.MIGRATION_STATUS_BUCKET).toBeUndefined();
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toBeUndefined();
+            expect(result.environment.DB_TYPE).toBe('postgresql');
+
+            for (const fnName of ['dbMigrationRouter', 'dbMigrationWorker']) {
+                expect(result.functionEnvironments[fnName]).toMatchObject({
+                    S3_BUCKET_NAME: { Ref: 'FriggMigrationStatusBucket' },
+                    MIGRATION_STATUS_BUCKET: {
+                        Ref: 'FriggMigrationStatusBucket',
+                    },
+                    DB_MIGRATION_QUEUE_URL: { Ref: 'DbMigrationQueue' },
+                });
+            }
+        });
+
+        it('broadcasts app-wide when the flag is off', async () => {
+            const result = await builder.build({}, {});
+
+            expect(result.environment.S3_BUCKET_NAME).toEqual({
+                Ref: 'FriggMigrationStatusBucket',
+            });
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toEqual({
+                Ref: 'DbMigrationQueue',
+            });
+            expect(result.functionEnvironments).toBeUndefined();
+        });
+    });
+
+    describe('scoped environment (external migration resources)', () => {
+        // managementMode='managed' + vpcIsolation='shared' resolves both
+        // resources to EXTERNAL when discovered, driving the external path.
+        const externalDiscovery = {
+            migrationStatusBucket: 'external-migration-bucket',
+            migrationQueueUrl:
+                'https://sqs.us-east-1.amazonaws.com/123456789012/external-migration-queue',
+        };
+
+        beforeEach(() => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+        });
+
+        it('scopes external migration vars to the migration functions, keeping DB_TYPE global', async () => {
+            const result = await builder.build(
+                {
+                    managementMode: 'managed',
+                    vpcIsolation: 'shared',
+                    lambda: { scopedEnvironment: true },
+                },
+                externalDiscovery
+            );
+
+            expect(result.environment.S3_BUCKET_NAME).toBeUndefined();
+            expect(result.environment.MIGRATION_STATUS_BUCKET).toBeUndefined();
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toBeUndefined();
+            expect(result.environment.DB_TYPE).toBe('postgresql');
+
+            for (const fnName of ['dbMigrationRouter', 'dbMigrationWorker']) {
+                expect(result.functionEnvironments[fnName]).toMatchObject({
+                    S3_BUCKET_NAME: externalDiscovery.migrationStatusBucket,
+                    MIGRATION_STATUS_BUCKET:
+                        externalDiscovery.migrationStatusBucket,
+                    DB_MIGRATION_QUEUE_URL: externalDiscovery.migrationQueueUrl,
+                });
+            }
+        });
+
+        it('broadcasts external migration vars app-wide when the flag is off', async () => {
+            const result = await builder.build(
+                {
+                    managementMode: 'managed',
+                    vpcIsolation: 'shared',
+                },
+                externalDiscovery
+            );
+
+            expect(result.environment.S3_BUCKET_NAME).toBe(
+                externalDiscovery.migrationStatusBucket
+            );
+            expect(result.environment.MIGRATION_STATUS_BUCKET).toBe(
+                externalDiscovery.migrationStatusBucket
+            );
+            expect(result.environment.DB_MIGRATION_QUEUE_URL).toBe(
+                externalDiscovery.migrationQueueUrl
+            );
+            expect(result.environment.DB_TYPE).toBe('postgresql');
+            expect(result.functionEnvironments).toBeUndefined();
+        });
+    });
 });
 
+
+describe('MigrationBuilder nested node_modules (lambda.keepNestedNodeModules)', () => {
+    const baseAppDefinition = { database: { postgres: { enable: true } } };
+    const workerAndRouter = (result) => [
+        result.functions.dbMigrationWorker,
+        result.functions.dbMigrationRouter,
+    ];
+
+    it('excludes every nested node_modules by default', async () => {
+        const result = await new MigrationBuilder().build(baseAppDefinition, {});
+
+        for (const fn of workerAndRouter(result)) {
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
+        }
+    });
+
+    it('keeps nested node_modules when the app opts in, still excluding nested Frigg copies', async () => {
+        const result = await new MigrationBuilder().build(
+            { ...baseAppDefinition, lambda: { keepNestedNodeModules: true } },
+            {}
+        );
+
+        for (const fn of workerAndRouter(result)) {
+            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+        }
+    });
+});

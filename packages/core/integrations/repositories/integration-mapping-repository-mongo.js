@@ -134,6 +134,28 @@ class IntegrationMappingRepositoryMongo extends IntegrationMappingRepositoryInte
     }
 
     /**
+     * Count mappings grouped by integration id for a bounded id set.
+     *
+     * @param {Array<string>} ids - Integration ids
+     * @returns {Promise<Map<string, number>>} integrationId (string) → count
+     */
+    async countByIntegrationIds(ids = []) {
+        const counts = new Map();
+        if (!ids || ids.length === 0) return counts;
+
+        const groups = await this.prisma.integrationMapping.groupBy({
+            by: ['integrationId'],
+            where: { integrationId: { in: ids } },
+            _count: { _all: true },
+        });
+
+        for (const group of groups) {
+            counts.set(String(group.integrationId), group._count._all);
+        }
+        return counts;
+    }
+
+    /**
      * Find mapping by ID
      * @param {string} id - Mapping ID
      * @returns {Promise<Object|null>} Mapping object with string IDs or null

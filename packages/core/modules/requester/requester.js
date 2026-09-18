@@ -1,10 +1,20 @@
 const fetch = require('node-fetch');
+const { AsyncLocalStorage } = require('async_hooks');
 const { Delegate } = require('../../core');
 const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
+const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 const MAX_AUTH_RETRIES = 3;
+
+// This context marks the async call chain that holds the refresh slot, and
+// names the requester that holds it. Token requests re-enter _rawRequest
+// through this._post. A 401 from inside that chain must fail fast: if it
+// joins the refresh in flight, it awaits its own promise and hangs. The
+// identity keeps a second requester used inside the chain out of the check.
+// AsyncLocalStorage reaches the nested calls without help from the subclasses.
+const refreshContext = new AsyncLocalStorage();
 
 class Requester extends Delegate {
     constructor(params) {
@@ -13,6 +23,11 @@ class Requester extends Delegate {
         this.isRefreshable = false;
         this.refreshCount = 0;
         this.authGraceRetryCount = 0;
+        // Concurrent 401s share one refreshAuth() run. See _refreshAuthOnce().
+        this._inFlightRefresh = null;
+        // This counter increases when the tokens change. A stale 401 (the
+        // token changed already) then retries and does not refresh again.
+        this._authGeneration = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
         this.agent = get(params, 'agent', null);
@@ -44,6 +59,40 @@ class Requester extends Delegate {
         // Allow passing in the fetch function
         // Instance methods can use this.fetch without differentiating
         this.fetch = get(params, 'fetch', fetch);
+
+        // Defaults to the process singleton. Pass an integration's bound
+        // `this.telemetry` to attribute out-of-band requests — setup/OAuth calls
+        // made before an integration context exists aren't rolled up otherwise.
+        this.telemetry = (params && params.telemetry) || getTelemetry();
+    }
+
+    /**
+     * Redact secrets/PII from a URL before it touches telemetry. Many API
+     * modules embed credentials in the query string (?api_key=, ?token=,
+     * presigned signatures) or in userinfo — those must never reach a span,
+     * the bus, or an exporter. Keep only protocol + host + path (enough for
+     * North Star endpoint matching).
+     */
+    _sanitizeUrl(url) {
+        const raw = String(url);
+        try {
+            const u = new URL(raw);
+            return `${u.protocol}//${u.host}${u.pathname}`;
+        } catch (_) {
+            // Relative/opaque URL: drop the query string at minimum.
+            return raw.split('?')[0];
+        }
+    }
+
+    /** Bounded module label for the apimodule.requests metric. */
+    _telemetryModuleLabel() {
+        return (
+            this.moduleName ||
+            this.delegate?.name ||
+            this.delegate?.constructor?.name ||
+            this.constructor?.name ||
+            'unknown'
+        );
     }
 
     parsedBody = async (resp) => {
@@ -61,15 +110,81 @@ class Requester extends Delegate {
     };
 
     /**
+     * Instrumenting entry point. Wraps the whole logical request —
+     * including retry/refresh recursion — in a single span + one
+     * `frigg.apimodule.requests` counter, emitted on the `attempt === 0`
+     * boundary so retries are never double-counted. The full URL rides the
+     * span only; the metric carries bounded labels {module, method, status}
+     * — never endpoint.
+     *
      * @param {string} url - The request URL, relative or absolute.
      * @param {Object} options - Fetch options (method, headers, body, query,
      *   returnFullRes, etc.) built by the `_get`/`_post`/`_patch`/`_put`/
      *   `_delete` wrappers.
      * @param {number} attempt - 0-based count of retries already made for
+     *   this call. Non-zero only if a caller re-enters directly; normal
+     *   retries recurse through `_rawRequest` instead (see below).
+     */
+    async _request(url, options = {}, attempt = 0) {
+        if (attempt !== 0) {
+            return this._rawRequest(url, options, attempt);
+        }
+
+        const telemetry = this.telemetry;
+        if (!telemetry || typeof telemetry.span !== 'function') {
+            return this._rawRequest(url, options, 0);
+        }
+
+        const module = this._telemetryModuleLabel();
+        const method = (options.method || 'GET').toUpperCase();
+        const safeUrl = this._sanitizeUrl(url);
+
+        return telemetry.span('frigg.apimodule.request', async (span) => {
+            if (span && typeof span.setAttributes === 'function') {
+                span.setAttributes({
+                    'frigg.module': module,
+                    'http.request.method': method,
+                    // Redacted (no query/userinfo) — never emit raw URLs.
+                    'url.path': safeUrl,
+                });
+            }
+            // Redacted url (unbounded) rides the bus-only context for North Star
+            // derived-from-trace matching — never a metric label.
+            const busContext = { url: safeUrl };
+            try {
+                const result = await this._rawRequest(url, options, 0);
+                telemetry.count(
+                    'frigg.apimodule.requests',
+                    1,
+                    { module, method, status: 'ok' },
+                    busContext
+                );
+                return result;
+            } catch (err) {
+                const code = err?.status ?? err?.statusCode;
+                const status = code ? String(code) : 'error';
+                if (span && typeof span.setAttribute === 'function' && code) {
+                    span.setAttribute('http.response.status_code', code);
+                }
+                telemetry.count(
+                    'frigg.apimodule.requests',
+                    1,
+                    { module, method, status },
+                    busContext
+                );
+                throw err;
+            }
+        });
+    }
+
+    /**
+     * @param {string} url - The request URL, relative or absolute.
+     * @param {Object} options - Fetch options, as built by `_request`.
+     * @param {number} attempt - 0-based count of retries already made for
      *   this call. Indexes `this.backOff` for the next delay and is passed
      *   back in on each recursive retry.
      */
-    async _request(url, options, attempt = 0) {
+    async _rawRequest(url, options, attempt = 0) {
         let encodedUrl = encodeURI(url);
         if (options.query) {
             let queryBuild = '?';
@@ -82,6 +197,10 @@ class Requester extends Delegate {
         }
 
         options.headers = await this.addAuthHeaders(options.headers);
+
+        // A 401 that arrives after a concurrent refresh is stale. It is not
+        // proof that the new token failed.
+        const authGenerationAtDispatch = this._authGeneration;
 
         if (this.agent) options.agent = this.agent;
 
@@ -131,7 +250,7 @@ class Requester extends Delegate {
                     clearRequestTimer();
                     const delay = this.backOff[attempt] * 1000;
                     await new Promise((resolve) => setTimeout(resolve, delay));
-                    return this._request(url, options, attempt + 1);
+                    return this._rawRequest(url, options, attempt + 1);
                 }
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
@@ -161,10 +280,30 @@ class Requester extends Delegate {
                 clearRequestTimer();
                 const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
-                return this._request(url, options, attempt + 1);
+                return this._rawRequest(url, options, attempt + 1);
             }
 
             if (status === 401) {
+                // A 401 from inside the refresh flow means the provider
+                // rejected the credential itself (invalid_client). A new
+                // refresh cannot help. A join would await this same call.
+                if (this._isInsideRefreshFlow()) {
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
+                }
+
+                const tokenReplacedWhileInFlight =
+                    this._authGeneration !== authGenerationAtDispatch;
+                if (this.isRefreshable && tokenReplacedWhileInFlight) {
+                    // This request did not try the current token. Retry with
+                    // it. Do not spend one more provider-side rotation.
+                    clearRequestTimer();
+                    return this._rawRequest(url, options, attempt + 1);
+                }
+
                 if (!this.isRefreshable) {
                     // Up to MAX_AUTH_RETRIES grace retries before invalidating
                     // — a 401 alone isn't proof the credential is bad.
@@ -179,7 +318,7 @@ class Requester extends Delegate {
                         await new Promise((resolve) =>
                             setTimeout(resolve, delay)
                         );
-                        return this._request(url, options, attempt + 1);
+                        return this._rawRequest(url, options, attempt + 1);
                     }
 
                     throw await this._invalidateAuth(
@@ -189,19 +328,30 @@ class Requester extends Delegate {
                     );
                 }
 
-                if (this.refreshCount < MAX_AUTH_RETRIES) {
-                    this.refreshCount++;
-                    const refreshSucceeded = await this.refreshAuth();
-                    if (refreshSucceeded) {
-                        clearRequestTimer();
-                        return this._request(url, options, attempt + 1);
-                    }
+                // Concurrent 401s share one refresh. Independent refreshes
+                // kill each other, because many providers use single-use
+                // refresh tokens. Only the initiator spends the retry budget.
+                const refreshAlreadyInFlight = Boolean(this._inFlightRefresh);
 
+                if (
+                    !refreshAlreadyInFlight &&
+                    this.refreshCount >= MAX_AUTH_RETRIES
+                ) {
                     throw await this._invalidateAuth(
                         encodedUrl,
                         options,
                         response
                     );
+                }
+
+                if (!refreshAlreadyInFlight) {
+                    this.refreshCount++;
+                }
+
+                const refreshSucceeded = await this._refreshAuthOnce();
+                if (refreshSucceeded) {
+                    clearRequestTimer();
+                    return this._rawRequest(url, options, attempt + 1);
                 }
 
                 throw await this._invalidateAuth(encodedUrl, options, response);
@@ -324,6 +474,64 @@ class Requester extends Delegate {
             returnFullRes: options.returnFullRes || true,
         };
         return this._request(options.url, fetchOptions);
+    }
+
+    /**
+     * Runs one refreshAuth() at a time. The first caller starts the refresh.
+     * Callers that arrive during the refresh await the same promise. The
+     * check-and-store step is synchronous. Thus two concurrent callers
+     * cannot both start a refresh.
+     *
+     * @returns {Promise<boolean>} True if the refresh succeeded.
+     */
+    _refreshAuthOnce() {
+        if (!this._inFlightRefresh) {
+            // Keep .finally last. The stored promise must be the promise
+            // that clears the slot. Then the slot is free before a waiter
+            // resumes.
+            this._inFlightRefresh = this._adoptOrRefresh().finally(() => {
+                this._inFlightRefresh = null;
+            });
+        }
+        return this._inFlightRefresh;
+    }
+
+    /**
+     * Adopts a newer stored credential, or refreshes. Both steps run inside
+     * the marker, because the marker must cover the whole time this instance
+     * holds the slot. The adoption lives here, not in refreshAuth(), so a
+     * module that overrides refreshAuth() still gets it.
+     *
+     * @returns {Promise<boolean>} True if the instance holds a usable token.
+     */
+    async _adoptOrRefresh() {
+        const refreshSucceeded = await refreshContext.run(
+            { requester: this },
+            async () => {
+                if (await this._adoptNewerCredential()) return true;
+                return this.refreshAuth();
+            }
+        );
+        if (refreshSucceeded) this._authGeneration++;
+        return refreshSucceeded;
+    }
+
+    /**
+     * Hook for requesters that hold a rotating stored credential. Return true
+     * when the instance adopted a newer stored credential and needs no
+     * refresh. A module backed by a vendor SDK overrides this, calls super,
+     * and then copies the adopted tokens into its SDK client.
+     *
+     * @returns {Promise<boolean>} True if the instance adopted a newer
+     *   credential.
+     */
+    async _adoptNewerCredential() {
+        return false;
+    }
+
+    /** True while this instance runs its own refresh. */
+    _isInsideRefreshFlow() {
+        return refreshContext.getStore()?.requester === this;
     }
 
     async refreshAuth() {

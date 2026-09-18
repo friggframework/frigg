@@ -285,6 +285,24 @@ const appDefinition = {
 
 > ℹ️ When `usePrismaLambdaLayer: false`, Prisma stays inside each bundle and the runtime automatically loads the correct binary. No extra configuration is required.
 
+**Keeping nested node_modules in Lambda packages:**
+
+By default every function package excludes `node_modules/**/node_modules/**`. npm only nests a package when the root copy cannot satisfy a dependant, so the exclusion makes a package resolve whatever version is hoisted, and it removes the package entirely when the root copy is a dev dependency. The first `require` of such a package then fails at Lambda init with `Runtime.ImportModuleError`.
+
+To ship the dependency tree the way npm resolved it, opt in per app:
+
+```javascript
+const appDefinition = {
+    name: 'my-app',
+    lambda: {
+        keepNestedNodeModules: true,
+    },
+    integrations: [{ Definition: { name: 'salesforce' } }],
+};
+```
+
+Nested copies of `@friggframework/*`, `aws-sdk`, `@aws-sdk/*` and, when the Prisma layer is enabled, `@prisma/*` and `.prisma` stay excluded: the app's single core, the Lambda runtime and the layer provide them. Expect each function package to grow by the size of the nested directories that remain (a few MB compressed in a typical app). The default stays unchanged for apps that do not set the flag.
+
 ## Usage Examples
 
 ### Basic Deployment

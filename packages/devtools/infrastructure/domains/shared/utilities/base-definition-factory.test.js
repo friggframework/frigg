@@ -289,3 +289,31 @@ describe('Base Definition Factory', () => {
     });
 });
 
+
+describe('nested node_modules (lambda.keepNestedNodeModules)', () => {
+    const build = (appDefinition) => createBaseDefinition(appDefinition, {}, {}, true);
+
+    it('excludes every nested node_modules from the core function packages by default', () => {
+        const result = build({ name: 'test-app' });
+
+        for (const fn of ['auth', 'user', 'health']) {
+            expect(result.functions[fn].package.exclude).toContain('node_modules/**/node_modules/**');
+        }
+    });
+
+    it('keeps nested node_modules when the app opts in, still excluding nested Frigg, AWS SDK and Prisma copies', () => {
+        const result = build({ name: 'test-app', lambda: { keepNestedNodeModules: true } });
+
+        for (const fn of ['auth', 'user', 'health']) {
+            const { exclude } = result.functions[fn].package;
+            expect(exclude).not.toContain('node_modules/**/node_modules/**');
+            expect(exclude).toEqual(
+                expect.arrayContaining([
+                    'node_modules/**/node_modules/@friggframework/**',
+                    'node_modules/**/node_modules/@aws-sdk/**',
+                    'node_modules/**/node_modules/@prisma/**',
+                ])
+            );
+        }
+    });
+});

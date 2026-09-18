@@ -188,6 +188,81 @@ exports.handler = async (event, context) => {
         }
     }
 
+    if (action === 'resolve') {
+        const { migrationName, resolveAction = 'applied' } = event;
+        console.log(`\n========================================`);
+        console.log(
+            `Action: resolve (migration=${migrationName}, mode=${resolveAction})`
+        );
+        console.log(`========================================`);
+
+        if (!migrationName) {
+            return {
+                statusCode: 400,
+                body: { success: false, error: 'migrationName is required' },
+            };
+        }
+        if (!/^\d{14}_[a-z0-9_]+$/i.test(migrationName)) {
+            return {
+                statusCode: 400,
+                body: {
+                    success: false,
+                    error: 'migrationName is not a valid migration identifier',
+                },
+            };
+        }
+        if (!['applied', 'rolled-back'].includes(resolveAction)) {
+            return {
+                statusCode: 400,
+                body: {
+                    success: false,
+                    error: 'resolveAction must be "applied" or "rolled-back"',
+                },
+            };
+        }
+        if (dbType !== 'postgresql') {
+            return {
+                statusCode: 400,
+                body: {
+                    success: false,
+                    error: `Migration resolve is only supported for postgresql, not "${dbType}"`,
+                },
+            };
+        }
+
+        try {
+            const result = await prismaRunner.runPrismaMigrateResolve(
+                migrationName,
+                resolveAction,
+                true
+            );
+            if (!result.success) {
+                return {
+                    statusCode: 500,
+                    body: {
+                        success: false,
+                        error: sanitizeError(result.error),
+                    },
+                };
+            }
+            return {
+                statusCode: 200,
+                body: {
+                    success: true,
+                    message: `Migration ${migrationName} marked as ${resolveAction}`,
+                    migrationName,
+                    action: resolveAction,
+                },
+            };
+        } catch (error) {
+            console.error('❌ Migration resolve failed:', error.message);
+            return {
+                statusCode: 500,
+                body: { success: false, error: sanitizeError(error.message) },
+            };
+        }
+    }
+
     // Otherwise, handle migration (existing code)
     console.log(`\n========================================`);
     console.log(`Action: migrate (migrationId=${migrationId || 'new'})`);

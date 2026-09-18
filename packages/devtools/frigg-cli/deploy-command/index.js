@@ -267,11 +267,55 @@ async function runPostDeploymentHealthCheck(stackName, options) {
     }
 }
 
+/**
+ * Push SSM-offloaded parameters before deploying so they exist before new
+ * code cold-starts (ADR-027). A push failure aborts the deploy: shipping
+ * code whose parameters are missing would fail every cold start anyway.
+ */
+async function pushOffloadedParametersOrAbort(appDefinition, options) {
+    const {
+        getOffloadedKeys,
+    } = require('../../infrastructure/domains/parameters/offload-utils');
+    if (!appDefinition || getOffloadedKeys(appDefinition).length === 0) {
+        return;
+    }
+
+    require('dotenv').config();
+    const { pushOffloadedParameters } = require('../ssm-command');
+
+    console.log('🔒 Pushing SSM-offloaded parameters before deploy...');
+    try {
+        const { pushed } = await pushOffloadedParameters(
+            appDefinition,
+            options.stage,
+            options
+        );
+        console.log(`   ✓ ${pushed.length} parameter(s) up to date`);
+    } catch (error) {
+        console.error(`\n✗ SSM parameter push failed: ${error.message}`);
+        const pushedBeforeFailure = error.pushed || [];
+        if (pushedBeforeFailure.length === 0) {
+            console.error('   Deployment aborted — no parameters were changed.');
+        } else {
+            const names = pushedBeforeFailure.map((p) => p.name).join(', ');
+            console.error(
+                `   Deployment aborted, but ${pushedBeforeFailure.length} parameter(s) were already pushed and are now live in Parameter Store: ${names}`
+            );
+            console.error(
+                '   Those values will take effect on old Lambda code at its next SSM cache TTL refresh. Redeploy soon so the running code matches.'
+            );
+        }
+        process.exit(1);
+    }
+}
+
 async function deployCommand(options) {
     console.log('Deploying the serverless application...');
 
     const appDefinition = loadAppDefinition();
     const environment = validateAndBuildEnvironment(appDefinition, options);
+
+    await pushOffloadedParametersOrAbort(appDefinition, options);
 
     // Execute deployment
     const exitCode = await executeServerlessDeployment(environment, options);

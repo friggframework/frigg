@@ -137,6 +137,15 @@ describe('createAdminScriptCommands', () => {
             expect(result).toHaveProperty('code', 'EXECUTION_NOT_FOUND');
             expect(result.reason).toContain('non-existent');
         });
+
+        it('404s a REPORT row so a script lookup never returns a report execution', async () => {
+            mockAdminScriptExecutionRepo.findExecutionById.mockResolvedValue({ id: 'r1', type: 'REPORT', state: 'COMPLETED' });
+
+            const result = await commands.findExecutionById('r1');
+
+            expect(result).toHaveProperty('error', 404);
+            expect(result).toHaveProperty('code', 'EXECUTION_NOT_FOUND');
+        });
     });
 
     describe('findExecutionsByName', () => {

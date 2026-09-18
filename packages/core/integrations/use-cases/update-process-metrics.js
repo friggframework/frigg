@@ -16,11 +16,13 @@
  *
  *   2. Derived-fields phase — duration, recordsPerSecond,
  *      estimatedCompletion. Computed from the post-atomic snapshot and
- *      written via the legacy (non-atomic) `update()` method.
- *      Intentionally best-effort: under concurrent writers they reflect
- *      "whichever handler wrote last" — the same semantics they had
- *      before and all they've ever guaranteed. Preserved for backward
- *      compatibility with consumers (UI, WebSocket listeners).
+ *      written through the same atomic primitive, scoped to only those
+ *      three paths. The values themselves stay best-effort (under
+ *      concurrent writers they reflect "whichever handler wrote last"),
+ *      but the write can no longer clobber another caller's counters.
+ *      Writing the full context/results blob here — as the legacy
+ *      `update()` path did — replayed phase 1's snapshot over the row and
+ *      permanently discarded increments landed in between.
  *
  * Optionally broadcasts progress via WebSocket service if provided.
  *
@@ -124,44 +126,48 @@ class UpdateProcessMetrics {
             throw processNotFound(`Process not found: ${processId}`);
         }
 
-        // Phase 2: derived metrics (non-atomic, best-effort). Preserved
-        // for backward compatibility — these were always stale under
-        // concurrent writers even before this refactor.
+        // Phase 2: derived metrics. Written through the SAME atomic path
+        // as phase 1, touching ONLY the paths this phase owns. Writing the
+        // whole context/results blob here (as the legacy `update()` did)
+        // replayed phase 1's snapshot over the row and silently discarded
+        // any increment a concurrent caller had landed in between.
         const context = updatedProcess.context || {};
-        const results = updatedProcess.results || { aggregateData: {} };
-        if (!results.aggregateData) results.aggregateData = {};
 
         if (context.processedRecords > 0 || context.totalRecords > 0) {
             const startTime = new Date(
                 context.startTime || updatedProcess.createdAt
             );
             const elapsed = Date.now() - startTime.getTime();
-            results.aggregateData.duration = elapsed;
 
-            if (elapsed > 0 && context.processedRecords > 0) {
-                results.aggregateData.recordsPerSecond =
-                    context.processedRecords / (elapsed / 1000);
-            } else {
-                results.aggregateData.recordsPerSecond = 0;
-            }
+            const recordsPerSecond =
+                elapsed > 0 && context.processedRecords > 0
+                    ? context.processedRecords / (elapsed / 1000)
+                    : 0;
 
-            if (context.totalRecords > 0 && context.processedRecords > 0) {
+            const set = {
+                'results.aggregateData.duration': elapsed,
+                'results.aggregateData.recordsPerSecond': recordsPerSecond,
+            };
+
+            if (
+                context.totalRecords > 0 &&
+                context.processedRecords > 0 &&
+                recordsPerSecond > 0
+            ) {
                 const remaining =
                     context.totalRecords - context.processedRecords;
-                if (results.aggregateData.recordsPerSecond > 0) {
-                    const etaMs =
-                        (remaining / results.aggregateData.recordsPerSecond) *
-                        1000;
-                    const eta = new Date(Date.now() + etaMs);
-                    context.estimatedCompletion = eta.toISOString();
-                }
+                const etaMs = (remaining / recordsPerSecond) * 1000;
+                set['context.estimatedCompletion'] = new Date(
+                    Date.now() + etaMs
+                ).toISOString();
             }
 
             try {
-                updatedProcess = await this.processRepository.update(
-                    processId,
-                    { context, results }
-                );
+                const withDerived =
+                    await this.processRepository.applyProcessUpdate(processId, {
+                        set,
+                    });
+                if (withDerived) updatedProcess = withDerived;
             } catch (error) {
                 // Derived-field write failures are NON-FATAL — atomic
                 // counters from phase 1 already landed. Log and return the

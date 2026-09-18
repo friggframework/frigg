@@ -144,6 +144,7 @@ class BuilderOrchestrator {
             iamStatements: [],
             environment: {},
             functions: {},
+            functionEnvironments: {},
             layers: {},
             plugins: [],
             custom: {},
@@ -170,6 +171,19 @@ class BuilderOrchestrator {
             // Merge functions
             if (result.functions) {
                 Object.assign(merged.functions, result.functions);
+            }
+
+            // Merge function-scoped environment maps (applied by the
+            // composer once base + builder functions all exist)
+            if (result.functionEnvironments) {
+                for (const [fnName, env] of Object.entries(
+                    result.functionEnvironments
+                )) {
+                    merged.functionEnvironments[fnName] = {
+                        ...merged.functionEnvironments[fnName],
+                        ...env,
+                    };
+                }
             }
 
             // Merge layers
