@@ -1,5 +1,5 @@
 {
-  "count": 29,
+  "count": 30,
   "adrs": [
     {
       "num": 1,
@@ -270,6 +270,16 @@
       "theme": "Infra & deploy",
       "summary": "Offloads large secrets to SSM and scopes env vars per function so Lambdas stay under the 4KB environment limit as the integration count grows.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/027-ssm-parameter-offload-and-env-scoping.md"
+    },
+    {
+      "num": 30,
+      "id": "030",
+      "title": "Integration Versioning",
+      "status": "Proposed",
+      "date": "2026-09-27",
+      "theme": "Data & migrations",
+      "summary": "Opens the integration version contract: how versions are declared, compared, gated, and made compatible, which ADR-013's record migrations key off. Exploratory: the decision is deliberately deferred pending research.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/030-integration-versioning.md"
     },
     {
       "num": 31,
