@@ -22,6 +22,15 @@ const {
 const {
     IntegrationMappingRepositoryPostgres,
 } = require('./integration-mapping-repository-postgres');
+const {
+    IntegrationMappingRepositoryMongo,
+} = require('./integration-mapping-repository-mongo');
+const {
+    IntegrationMappingRepositoryDocumentDB,
+} = require('./integration-mapping-repository-documentdb');
+const {
+    IntegrationMappingRepositoryInterface,
+} = require('./integration-mapping-repository-interface');
 
 function makeRepo({ rows = [], total = 0 } = {}) {
     const repo = new IntegrationMappingRepositoryPostgres();
@@ -468,6 +477,37 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                     repo.queryMappings('12', { take: 10 })
                 ).resolves.toEqual({ mappings: [], total: 0 });
             }
+        );
+    });
+});
+
+describe.each([
+    ['MongoDB', IntegrationMappingRepositoryMongo],
+    ['DocumentDB', IntegrationMappingRepositoryDocumentDB],
+])('IntegrationMappingRepository%s.queryMappings', (dbName, Repository) => {
+    it('is not supported yet and never touches the database', async () => {
+        const repo = new Repository();
+        repo.prisma = {
+            $runCommandRaw: jest.fn(),
+            integrationMapping: { findMany: jest.fn() },
+        };
+
+        await expect(
+            repo.queryMappings('507f1f77bcf86cd799439011', { take: 10 })
+        ).rejects.toThrow(`queryMappings is not supported on ${dbName} yet`);
+        expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
+        expect(repo.prisma.integrationMapping.findMany).not.toHaveBeenCalled();
+    });
+});
+
+describe('IntegrationMappingRepositoryInterface.queryMappings', () => {
+    it('must be implemented by an adapter', async () => {
+        await expect(
+            new IntegrationMappingRepositoryInterface().queryMappings('1', {
+                take: 10,
+            })
+        ).rejects.toThrow(
+            'Method queryMappings must be implemented by subclass'
         );
     });
 });

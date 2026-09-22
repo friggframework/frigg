@@ -88,6 +88,14 @@ class IntegrationMappingRepositoryMongo extends IntegrationMappingRepositoryInte
     }
 
     /**
+     * Not implemented for MongoDB yet; only the PostgreSQL adapter supports it.
+     * @throws {Error} Always
+     */
+    async queryMappings() {
+        throw new Error('queryMappings is not supported on MongoDB yet');
+    }
+
+    /**
      * Delete a mapping by integration and source ID
      * Replaces: IntegrationMapping.deleteOne({ integration, sourceId })
      *

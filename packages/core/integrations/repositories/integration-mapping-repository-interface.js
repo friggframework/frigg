@@ -53,6 +53,43 @@ class IntegrationMappingRepositoryInterface {
     }
 
     /**
+     * Query one filtered, ordered page of an integration's mappings without
+     * loading every row. Rows have the same shape as findMappingsByIntegration.
+     *
+     * Paths address the `mapping` JSON by identifier-only segments
+     * (`'mapping.c2h.lastStatus'`), or the `sourceId` column. Conditions:
+     * - `{ path: 'mapping.…', op: 'exists' | 'notExists' }` — JSON null counts
+     *   as absent; notExists is the exact negation of exists.
+     * - `{ path: 'mapping.…', op: 'in', value: string[] }` — matches JSON strings.
+     * - `{ path: 'sourceId', op: 'notStartsWith', value: string }` — a NULL
+     *   sourceId matches.
+     *
+     * Only rows whose `mapping` is a JSON object can match, so rows still
+     * holding ciphertext from before an encryption opt-out never do. Adapters
+     * refuse to run while field-level encryption is enabled and still encrypts
+     * `mapping` on write; opt out with
+     * `appDefinition.encryption.disable = { IntegrationMapping: ['mapping'] }`.
+     *
+     * @param {string|number} integrationId - The integration ID
+     * @param {Object} query
+     * @param {Array<Object>} [query.where=[]] - Conditions ANDed together; an
+     *   entry may be `{ anyOf: Condition[] }` (one level, ORed)
+     * @param {{path: string, direction: 'asc'|'desc'}} [query.orderBy] - A
+     *   mapping path; nulls last, ties broken by id in the same direction.
+     *   Without it rows are ordered by id ascending.
+     * @param {number} [query.skip=0] - Rows to skip (integer ≥ 0)
+     * @param {number} query.take - Page size (integer 1–500)
+     * @param {string[]} [query.omit=[]] - Top-level mapping keys to leave out of
+     *   the returned rows; such projected rows must not be written back
+     * @returns {Promise<{mappings: Array<Object>, total: number}>} The page, and
+     *   the number of rows matching `where`
+     * @abstract
+     */
+    async queryMappings(integrationId, query) {
+        throw new Error('Method queryMappings must be implemented by subclass');
+    }
+
+    /**
      * Delete a specific mapping
      *
      * @param {string|number} integrationId - The integration ID
