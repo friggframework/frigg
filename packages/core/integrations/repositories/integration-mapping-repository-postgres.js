@@ -1,8 +1,13 @@
-const { prisma } = require('../../database/prisma');
+const { prisma, getEncryptionConfig } = require('../../database/prisma');
+const {
+    getFieldsToEncryptOnWrite,
+    loadCustomEncryptionSchema,
+} = require('../../database/encryption/encryption-schema-registry');
 const {
     IntegrationMappingRepositoryInterface,
 } = require('./integration-mapping-repository-interface');
 const { strictIntId } = require('./report-id');
+const { validateMappingQuery } = require('./integration-mapping-query');
 
 /**
  * PostgreSQL Integration Mapping Repository Adapter
@@ -214,6 +219,130 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
             );
         }
         return counts;
+    }
+
+    /**
+     * Query one page of an integration's mappings in a single round trip,
+     * filtering and ordering inside Postgres instead of loading every row.
+     *
+     * The SQL text is fixed: every caller value, JSON paths included (as
+     * text[]), is a positional parameter, and the sort direction comes from
+     * the ASC/DESC whitelist in integration-mapping-query.js.
+     *
+     * @param {string} integrationId
+     * @param {Object} query - See IntegrationMappingRepositoryInterface.queryMappings
+     * @returns {Promise<{mappings: Array<Object>, total: number}>}
+     */
+    async queryMappings(integrationId, query) {
+        const { where, orderBy, skip, take, omit } =
+            validateMappingQuery(query);
+        const intIntegrationId = strictIntId(integrationId);
+        this._assertMappingWrittenUnencrypted();
+
+        const params = [];
+        const bind = (v) => {
+            params.push(v);
+            return `$${params.length}`;
+        };
+
+        const whereSql = [
+            `"integrationId" = ${bind(intIntegrationId)}::int`,
+            `jsonb_typeof("mapping") = 'object'`,
+            ...where.map((entry) => this._whereEntrySql(entry, bind)),
+        ].join(' AND ');
+        const whereParams = [...params];
+
+        const mappingSql =
+            omit.length > 0
+                ? `"mapping" - ${bind(omit)}::text[] AS "mapping"`
+                : `"mapping"`;
+        const orderSql = orderBy ? this._orderSql(orderBy, bind) : `"id" ASC`;
+
+        const pageSql = `
+            SELECT "id", "integrationId", "sourceId", ${mappingSql}, "createdAt", "updatedAt"
+            FROM "IntegrationMapping"
+            WHERE ${whereSql}
+            ORDER BY ${orderSql}
+            OFFSET ${bind(skip)}::bigint
+            LIMIT ${bind(take)}::int
+        `;
+        const countSql = `
+            SELECT COUNT(*)::int AS "total"
+            FROM "IntegrationMapping"
+            WHERE ${whereSql}
+        `;
+
+        const [rows, countRows] = await Promise.all([
+            this.prisma.$queryRawUnsafe(pageSql, ...params),
+            this.prisma.$queryRawUnsafe(countSql, ...whereParams),
+        ]);
+
+        return {
+            mappings: rows.map((row) => this._convertMappingIds(row)),
+            total: countRows[0].total,
+        };
+    }
+
+    /**
+     * queryMappings reads the stored JSON, so it needs `mapping` written as
+     * plain JSON. The app's opt-out (`encryption.disable`) is registered
+     * lazily, when the Prisma client is created, so load it before deciding.
+     * @private
+     */
+    _assertMappingWrittenUnencrypted() {
+        if (!getEncryptionConfig().enabled) return;
+
+        const encryptsMapping = () =>
+            getFieldsToEncryptOnWrite('IntegrationMapping').includes('mapping');
+        if (encryptsMapping()) loadCustomEncryptionSchema();
+        if (encryptsMapping()) {
+            throw new Error(
+                "queryMappings: field-level encryption still encrypts IntegrationMapping.mapping on write, so it cannot be queried. Opt out with appDefinition.encryption.disable = { IntegrationMapping: ['mapping'] }."
+            );
+        }
+    }
+
+    /**
+     * One where entry: a condition, or an anyOf group as a parenthesized OR.
+     * @private
+     */
+    _whereEntrySql(entry, bind) {
+        if (!entry.anyOf) return this._conditionSql(entry, bind);
+        const alternatives = entry.anyOf.map((condition) =>
+            this._conditionSql(condition, bind)
+        );
+        return `(${alternatives.join(' OR ')})`;
+    }
+
+    /**
+     * SQL predicate for one validated queryMappings condition. `exists`
+     * treats JSON null as absent, and `notExists` is its exact negation.
+     * @private
+     */
+    _conditionSql({ segments, op, value }, bind) {
+        if (op === 'notStartsWith') {
+            const prefix = bind(value);
+            return `("sourceId" IS NULL OR NOT starts_with("sourceId", ${prefix}::text))`;
+        }
+
+        const path = `${bind(segments)}::text[]`;
+        if (op === 'in') {
+            const values = bind(value);
+            return `(jsonb_typeof("mapping" #> ${path}) = 'string' AND "mapping" #>> ${path} = ANY(${values}::text[]))`;
+        }
+
+        const type = `COALESCE(jsonb_typeof("mapping" #> ${path}), 'null')`;
+        return op === 'exists' ? `${type} <> 'null'` : `${type} = 'null'`;
+    }
+
+    /**
+     * NULLIF folds JSON null into SQL NULL, so both sort after every value.
+     * @private
+     */
+    _orderSql({ segments, direction }, bind) {
+        const path = bind(segments);
+        const value = `NULLIF("mapping" #> ${path}::text[], 'null'::jsonb)`;
+        return `${value} ${direction} NULLS LAST, "id" ${direction}`;
     }
 
     /**
