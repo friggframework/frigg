@@ -1,6 +1,6 @@
 const { prisma } = require('../../database/prisma');
 const {
-    getMappingFieldsEncryptedOnWrite,
+    assertMappingWrittenUnencrypted,
 } = require('../../database/encryption/integration-mapping-encryption');
 const {
     IntegrationMappingRepositoryInterface,
@@ -247,7 +247,7 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
         const { where, orderBy, skip, take, omit } =
             validateMappingQuery(query);
         const intIntegrationId = strictIntId(integrationId);
-        this._assertMappingWrittenUnencrypted();
+        assertMappingWrittenUnencrypted();
 
         const params = [];
         const bind = (v) => {
@@ -292,20 +292,6 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
                 .map(({ __total, ...row }) => this._convertMappingIds(row)),
             total: rows[0].__total,
         };
-    }
-
-    /** @private */
-    _assertMappingWrittenUnencrypted() {
-        const fields = getMappingFieldsEncryptedOnWrite();
-        if (fields.length === 0) return;
-
-        const encrypted = fields
-            .map((field) => `IntegrationMapping.${field}`)
-            .join(', ');
-        const optOut = fields.map((field) => `'${field}'`).join(', ');
-        throw new Error(
-            `queryMappings: field-level encryption still encrypts ${encrypted} on write, so it cannot be queried. Opt out by adding ${optOut} to appDefinition.encryption.disable.IntegrationMapping.`
-        );
     }
 
     /**

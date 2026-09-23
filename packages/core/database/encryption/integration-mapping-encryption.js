@@ -21,6 +21,23 @@ function getMappingFieldsEncryptedOnWrite() {
     return fields;
 }
 
+/**
+ * @throws {Error} When field-level encryption still encrypts `mapping`, or a
+ *   nested `mapping.*` path, on write, naming the opt-out that lifts it
+ */
+function assertMappingWrittenUnencrypted() {
+    const fields = getMappingFieldsEncryptedOnWrite();
+    if (fields.length === 0) return;
+
+    const encrypted = fields
+        .map((field) => `IntegrationMapping.${field}`)
+        .join(', ');
+    const optOut = fields.map((field) => `'${field}'`).join(', ');
+    throw new Error(
+        `queryMappings: field-level encryption still encrypts ${encrypted} on write, so it cannot be queried. Opt out by adding ${optOut} to appDefinition.encryption.disable.IntegrationMapping.`
+    );
+}
+
 function encryptedMappingFields() {
     if (!getEncryptionConfig().enabled) return [];
 
@@ -36,6 +53,7 @@ function resetMappingEncryptionCheck() {
 }
 
 module.exports = {
+    assertMappingWrittenUnencrypted,
     getMappingFieldsEncryptedOnWrite,
     resetMappingEncryptionCheck,
 };
