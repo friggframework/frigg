@@ -814,6 +814,22 @@ export AES_KEY=$(openssl rand -hex 16)  # Generate 32-char key
 ❌ Query on encrypted fields (not supported)
 ❌ Manually decrypt data (use extension)
 
+`IntegrationMappingRepository.queryMappings()` (PostgreSQL) filters and sorts
+inside the `mapping` JSON, so it refuses to run while field-level encryption
+still encrypts `IntegrationMapping.mapping` on write. Opt the field out in the
+app definition, together with any nested `mapping.*` path that
+`encryption.schema` encrypts:
+
+```javascript
+encryption: {
+    disable: { IntegrationMapping: ['mapping'] },
+}
+```
+
+The opt-out applies to writes only. Rows written encrypted before it stay
+readable, but `queryMappings()` does not match them until they are written
+again.
+
 ## Future Enhancements
 
 ### Planned

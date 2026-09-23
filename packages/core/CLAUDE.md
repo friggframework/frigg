@@ -211,7 +211,31 @@ packages/core/
 - `integration-repository-factory.js` - Creates database-specific repositories
 - `integration-repository-mongo.js` - MongoDB implementation
 - `integration-repository-postgres.js` - PostgreSQL implementation
-- `integration-mapping-repository-*.js` - Mapping data persistence
+- `integration-mapping-repository-*.js` - Mapping data persistence.
+  `queryMappings(integrationId, { where, orderBy, skip, take, omit })`
+  returns `{ mappings, total }`: one filtered, ordered page of an
+  integration's mappings, for callers that cannot load every row through
+  `findMappingsByIntegration`. `where` is an array of ANDed conditions
+  (at most 20); an entry may be `{ anyOf: [...] }`, ORed, one level deep.
+  Conditions are `{ path: 'mapping.<segment>...', op: 'exists' | 'notExists' }`
+  (JSON null counts as absent), `{ path: 'mapping.…', op: 'in', value: string[] }`
+  (1–500 strings) and `{ path: 'sourceId', op: 'notStartsWith', value }`
+  (a NULL sourceId matches). `orderBy` is `{ path: 'mapping.…', direction:
+  'asc' | 'desc' }`, nulls last, ties broken by id in the same direction;
+  without it rows come in id order. `take` is 1–500. `omit` lists top-level
+  mapping keys to leave out of the rows; never write such rows back. Path
+  segments must match `^[A-Za-z_][A-Za-z0-9_]*$`. **PostgreSQL only**: the
+  MongoDB, DocumentDB and legacy repositories inherit the port's
+  "not supported by this database adapter yet" error. It also refuses to run
+  while field-level encryption still encrypts `IntegrationMapping.mapping` on
+  write (see `database/encryption/README.md`). Validation lives in
+  `integration-mapping-query.js`; a new operator is one entry in its
+  `OPERATORS` table and one in the Postgres adapter's `CONDITION_SQL`.
+  **Cost**: one SQL statement per call, which reads every row of the
+  integration and evaluates the JSON paths per row, because no JSON index
+  exists. With ~4 KB mappings on PostgreSQL 16 that is about 0.3 s per call
+  at 10⁴ rows per integration and 2.5–3 s at 10⁵; a deep offset or an empty
+  page past the end costs about the same as the first page.
 - `process-repository-*.js` - Process (long-running job) persistence.
   Implements `applyProcessUpdate(processId, ops)` — a race-safe alternative
   to `update(id, patch)` that routes increments, sets, and bounded-array
