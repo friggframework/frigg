@@ -2,6 +2,7 @@ const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require('@aws-sdk/
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
+const { readQueueDelivery } = require('../queues/queue-delivery');
 
 const sqs = new SQSClient({ region: process.env.AWS_REGION });
 
@@ -42,7 +43,7 @@ class Worker {
             try {
                 const runParams = JSON.parse(record.body);
                 this._validateParams(runParams);
-                await this._run(runParams, context);
+                await this._run(runParams, context, readQueueDelivery(record));
                 console.log(`[Worker] record success`, {
                     messageId: record.messageId,
                     event: runParams?.event,
