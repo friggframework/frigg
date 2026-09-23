@@ -64,11 +64,12 @@ class IntegrationMappingRepositoryInterface {
      * - `{ path: 'sourceId', op: 'notStartsWith', value: string }` — a NULL
      *   sourceId matches.
      *
-     * Only rows whose `mapping` is a JSON object can match, so rows still
-     * holding ciphertext from before an encryption opt-out never do. Adapters
-     * refuse to run while field-level encryption is enabled and still encrypts
-     * `mapping` on write; opt out with
-     * `appDefinition.encryption.disable = { IntegrationMapping: ['mapping'] }`.
+     * Only rows whose `mapping` is a JSON object can match, so rows whose
+     * whole `mapping` is still ciphertext from before an encryption opt-out
+     * never do. Adapters refuse to run while field-level encryption is enabled
+     * and still encrypts `mapping`, or a path inside it, on write; opt out with
+     * `appDefinition.encryption.disable = { IntegrationMapping: ['mapping'] }`
+     * plus any nested `mapping.…` path a custom schema encrypts.
      *
      * @param {string|number} integrationId - The integration ID
      * @param {Object} query

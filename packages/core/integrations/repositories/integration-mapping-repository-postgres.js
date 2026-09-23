@@ -284,20 +284,28 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
     }
 
     /**
-     * queryMappings reads the stored JSON, so it needs `mapping` written as
-     * plain JSON. The app's opt-out (`encryption.disable`) is registered
-     * lazily, when the Prisma client is created, so load it before deciding.
+     * queryMappings reads the stored JSON, so it needs `mapping`, and every
+     * path inside it, written as plain JSON. The app's opt-out
+     * (`encryption.disable`) is registered lazily, when the Prisma client is
+     * created, so load it before deciding.
      * @private
      */
     _assertMappingWrittenUnencrypted() {
         if (!getEncryptionConfig().enabled) return;
 
-        const encryptsMapping = () =>
-            getFieldsToEncryptOnWrite('IntegrationMapping').includes('mapping');
-        if (encryptsMapping()) loadCustomEncryptionSchema();
-        if (encryptsMapping()) {
+        const encryptedMappingFields = () =>
+            getFieldsToEncryptOnWrite('IntegrationMapping').filter(
+                (field) => field === 'mapping' || field.startsWith('mapping.')
+            );
+        if (encryptedMappingFields().length > 0) loadCustomEncryptionSchema();
+        const fields = encryptedMappingFields();
+        if (fields.length > 0) {
+            const encrypted = fields
+                .map((field) => `IntegrationMapping.${field}`)
+                .join(', ');
+            const optOut = fields.map((field) => `'${field}'`).join(', ');
             throw new Error(
-                "queryMappings: field-level encryption still encrypts IntegrationMapping.mapping on write, so it cannot be queried. Opt out with appDefinition.encryption.disable = { IntegrationMapping: ['mapping'] }."
+                `queryMappings: field-level encryption still encrypts ${encrypted} on write, so it cannot be queried. Opt out by adding ${optOut} to appDefinition.encryption.disable.IntegrationMapping.`
             );
         }
     }

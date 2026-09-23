@@ -16,7 +16,9 @@ jest.mock('../../database/encryption/encryption-schema-registry', () => ({
 
 const {
     loadCustomEncryptionSchema,
+    registerCustomSchema,
     registerEncryptionOptOut,
+    resetCustomSchema,
     resetEncryptionOptOut,
 } = require('../../database/encryption/encryption-schema-registry');
 const {
@@ -414,6 +416,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             );
             loadCustomEncryptionSchema.mockReset();
             resetEncryptionOptOut();
+            resetCustomSchema();
         });
 
         afterEach(() => {
@@ -422,6 +425,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                 else process.env[key] = value;
             }
             resetEncryptionOptOut();
+            resetCustomSchema();
         });
 
         const enableEncryption = () => {
@@ -458,6 +462,50 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
 
         it('runs when the opt-out is already registered', async () => {
             enableEncryption();
+            registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
+            const { repo } = makeRepo();
+
+            await expect(
+                repo.queryMappings('12', { take: 10 })
+            ).resolves.toEqual({ mappings: [], total: 0 });
+        });
+
+        it('refuses to query while a custom schema still encrypts a nested mapping path', async () => {
+            enableEncryption();
+            registerCustomSchema({
+                IntegrationMapping: { fields: ['mapping.secret'] },
+            });
+            registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
+            const { repo } = makeRepo();
+
+            await expect(
+                repo.queryMappings('12', { take: 10 })
+            ).rejects.toThrow(
+                /queryMappings: field-level encryption still encrypts IntegrationMapping\.mapping\.secret on write/
+            );
+            expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+        });
+
+        it('runs when the nested mapping path is opted out too', async () => {
+            enableEncryption();
+            registerCustomSchema({
+                IntegrationMapping: { fields: ['mapping.secret'] },
+            });
+            registerEncryptionOptOut({
+                IntegrationMapping: ['mapping', 'mapping.secret'],
+            });
+            const { repo } = makeRepo();
+
+            await expect(
+                repo.queryMappings('12', { take: 10 })
+            ).resolves.toEqual({ mappings: [], total: 0 });
+        });
+
+        it('ignores an encrypted field that only shares the mapping prefix', async () => {
+            enableEncryption();
+            registerCustomSchema({
+                IntegrationMapping: { fields: ['mappingVersion'] },
+            });
             registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
             const { repo } = makeRepo();
 
