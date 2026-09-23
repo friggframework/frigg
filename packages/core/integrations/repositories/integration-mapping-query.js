@@ -9,6 +9,8 @@
 
 const SEGMENT_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const MAX_TAKE = 500;
+const MAX_IN_VALUES = 500;
+const MAX_CONDITIONS = 20;
 const SQL_DIRECTIONS = { asc: 'ASC', desc: 'DESC' };
 
 const OPS_BY_FIELD = {
@@ -41,8 +43,19 @@ function validateMappingQuery(query) {
         );
     }
 
+    const whereEntries = where.map(toWhereEntry);
+    const conditionCount = whereEntries.reduce(
+        (count, entry) => count + (entry.anyOf ? entry.anyOf.length : 1),
+        0
+    );
+    if (conditionCount > MAX_CONDITIONS) {
+        throw new Error(
+            `queryMappings: where must have at most ${MAX_CONDITIONS} conditions, anyOf members included`
+        );
+    }
+
     return {
-        where: where.map(toWhereEntry),
+        where: whereEntries,
         orderBy: orderBy === undefined ? null : toOrderBy(orderBy),
         skip,
         take,
@@ -116,6 +129,11 @@ function toCondition({ path, op, value }) {
         ) {
             throw new Error(
                 `queryMappings: 'in' value must be a non-empty array of strings on '${path}'`
+            );
+        }
+        if (value.length > MAX_IN_VALUES) {
+            throw new Error(
+                `queryMappings: 'in' value must have at most ${MAX_IN_VALUES} strings on '${path}'`
             );
         }
         return { field, segments, op, value };

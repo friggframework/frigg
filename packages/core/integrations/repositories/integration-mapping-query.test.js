@@ -130,6 +130,27 @@ describe('validateMappingQuery', () => {
             }
         );
 
+        const inCondition = (count) => ({
+            path: 'mapping.c2h.lastStatus',
+            op: 'in',
+            value: Array.from({ length: count }, (_, i) => `status${i}`),
+        });
+
+        it('accepts in with 500 values', () => {
+            expect(
+                validateMappingQuery(withCondition(inCondition(500))).where[0]
+                    .value
+            ).toHaveLength(500);
+        });
+
+        it('rejects in with more than 500 values', () => {
+            expect(() =>
+                validateMappingQuery(withCondition(inCondition(501)))
+            ).toThrow(
+                /queryMappings: 'in' value must have at most 500 strings on 'mapping\.c2h\.lastStatus'/
+            );
+        });
+
         it.each([[undefined], [''], [7], [['clockwork:']]])(
             'rejects notStartsWith with value %j',
             (value) => {
@@ -198,6 +219,37 @@ describe('validateMappingQuery', () => {
                     })
                 )
             ).toThrow(/queryMappings: nested anyOf is not supported/);
+        });
+
+        const exists = (i) => ({ path: `mapping.f${i}`, op: 'exists' });
+        const conditions = (count) =>
+            Array.from({ length: count }, (_, i) => exists(i));
+
+        it('accepts 20 conditions, anyOf members included', () => {
+            const where = [
+                ...conditions(17),
+                { anyOf: [exists(17), exists(18), exists(19)] },
+            ];
+
+            expect(
+                validateMappingQuery({ where, take: 10 }).where
+            ).toHaveLength(18);
+        });
+
+        it.each([
+            ['top-level conditions', conditions(21)],
+            [
+                'conditions once anyOf members are counted',
+                [
+                    ...conditions(18),
+                    { anyOf: [exists(18), exists(19), exists(20)] },
+                ],
+            ],
+            ['members of one anyOf', [{ anyOf: conditions(21) }]],
+        ])('rejects more than 20 %s', (_, where) => {
+            expect(() => validateMappingQuery({ where, take: 10 })).toThrow(
+                /queryMappings: where must have at most 20 conditions, anyOf members included/
+            );
         });
     });
 

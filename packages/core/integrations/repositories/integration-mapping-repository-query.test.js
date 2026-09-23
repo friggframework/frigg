@@ -396,6 +396,38 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
         });
 
+        it.each([
+            [
+                'more than 500 in values',
+                [
+                    {
+                        path: 'mapping.c2h.lastStatus',
+                        op: 'in',
+                        value: Array.from({ length: 501 }, (_, i) => `s${i}`),
+                    },
+                ],
+                /at most 500 strings/,
+            ],
+            [
+                'more than 20 conditions',
+                Array.from({ length: 21 }, (_, i) => ({
+                    path: `mapping.f${i}`,
+                    op: 'exists',
+                })),
+                /at most 20 conditions/,
+            ],
+        ])(
+            'rejects %s before touching the database',
+            async (_, where, message) => {
+                const { repo } = makeRepo();
+
+                await expect(
+                    repo.queryMappings('12', { where, take: 10 })
+                ).rejects.toThrow(message);
+                expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+            }
+        );
+
         it('rejects a partially numeric integration id instead of truncating it', async () => {
             const { repo } = makeRepo();
 

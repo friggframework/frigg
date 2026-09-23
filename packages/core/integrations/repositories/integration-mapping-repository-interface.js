@@ -60,7 +60,8 @@ class IntegrationMappingRepositoryInterface {
      * (`'mapping.c2h.lastStatus'`), or the `sourceId` column. Conditions:
      * - `{ path: 'mapping.…', op: 'exists' | 'notExists' }` — JSON null counts
      *   as absent; notExists is the exact negation of exists.
-     * - `{ path: 'mapping.…', op: 'in', value: string[] }` — matches JSON strings.
+     * - `{ path: 'mapping.…', op: 'in', value: string[] }` — matches JSON
+     *   strings; 1–500 values.
      * - `{ path: 'sourceId', op: 'notStartsWith', value: string }` — a NULL
      *   sourceId matches.
      *
@@ -74,7 +75,8 @@ class IntegrationMappingRepositoryInterface {
      * @param {string|number} integrationId - The integration ID
      * @param {Object} query
      * @param {Array<Object>} [query.where=[]] - Conditions ANDed together; an
-     *   entry may be `{ anyOf: Condition[] }` (one level, ORed)
+     *   entry may be `{ anyOf: Condition[] }` (one level, ORed). At most 20
+     *   conditions, anyOf members included.
      * @param {{path: string, direction: 'asc'|'desc'}} [query.orderBy] - A
      *   mapping path; nulls last, ties broken by id in the same direction.
      *   Without it rows are ordered by id ascending.
