@@ -56,6 +56,11 @@ class IntegrationMappingRepositoryInterface {
      * Query one filtered, ordered page of an integration's mappings without
      * loading every row. Rows have the same shape as findMappingsByIntegration.
      *
+     * Cost: each call is O(rows of the integration × mapping size) in the
+     * database, because JSON paths are evaluated per row and no JSON index
+     * exists. That is fine at ~10⁴ rows per integration and takes seconds per
+     * call at 10⁵+.
+     *
      * Paths address the `mapping` JSON by identifier-only segments
      * (`'mapping.c2h.lastStatus'`), or the `sourceId` column. Conditions:
      * - `{ path: 'mapping.…', op: 'exists' | 'notExists' }` — JSON null counts
