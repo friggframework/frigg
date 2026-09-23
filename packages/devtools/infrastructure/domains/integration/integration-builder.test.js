@@ -4,6 +4,10 @@
  * Tests integration-specific Lambda functions and SQS queues
  */
 
+const {
+    INTEGRATION_QUEUE_MAX_RECEIVE_COUNT,
+    QUEUE_MAX_RECEIVE_COUNT_ENV,
+} = require('@friggframework/core/queues/queue-delivery');
 const { IntegrationBuilder } = require('./integration-builder');
 const { ValidationResult } = require('../shared/base-builder');
 
@@ -205,6 +209,54 @@ describe('IntegrationBuilder', () => {
                     'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                 },
             });
+        });
+
+        it('takes the redrive max receive count from the core runtime contract', async () => {
+            const result = await integrationBuilder.build(
+                { integrations: [{ Definition: { name: 'test' } }] },
+                {}
+            );
+
+            expect(
+                result.resources.TestQueue.Properties.RedrivePolicy
+                    .maxReceiveCount
+            ).toBe(INTEGRATION_QUEUE_MAX_RECEIVE_COUNT);
+        });
+
+        it('tells the queue worker the max receive count of the queue it owns', async () => {
+            const result = await integrationBuilder.build(
+                { integrations: [{ Definition: { name: 'test' } }] },
+                {}
+            );
+
+            expect(
+                result.functions.testQueueWorker.environment[
+                    QUEUE_MAX_RECEIVE_COUNT_ENV
+                ]
+            ).toBe('3');
+        });
+
+        it('leaves the max receive count unset for an external queue', async () => {
+            const result = await integrationBuilder.build(
+                {
+                    integrations: [
+                        {
+                            Definition: { name: 'test' },
+                            ownership: { queue: 'external' },
+                            queue: {
+                                url: 'https://sqs.us-east-1.amazonaws.com/123456789012/test-queue',
+                            },
+                        },
+                    ],
+                },
+                {}
+            );
+
+            expect(
+                result.functions.testQueueWorker.environment?.[
+                    QUEUE_MAX_RECEIVE_COUNT_ENV
+                ]
+            ).toBeUndefined();
         });
 
         it('should create queue worker function', async () => {
