@@ -83,6 +83,17 @@ class IntegrationMappingRepository extends IntegrationMappingRepositoryInterface
     }
 
     /**
+     * Not implemented on this legacy repository; the adapters from
+     * createIntegrationMappingRepository() support it.
+     * @throws {Error} Always
+     */
+    async queryMappings() {
+        throw new Error(
+            'queryMappings is not supported on the legacy IntegrationMappingRepository; use createIntegrationMappingRepository()'
+        );
+    }
+
+    /**
      * Delete a mapping by integration and source ID
      * Replaces: IntegrationMapping.deleteOne({ integration, sourceId })
      *

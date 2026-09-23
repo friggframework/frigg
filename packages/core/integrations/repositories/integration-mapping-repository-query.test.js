@@ -33,6 +33,9 @@ const {
 const {
     IntegrationMappingRepositoryInterface,
 } = require('./integration-mapping-repository-interface');
+const {
+    IntegrationMappingRepository,
+} = require('./integration-mapping-repository');
 
 function makeRepo({ rows = [], total = rows.length, fallbackTotal = 0 } = {}) {
     const repo = new IntegrationMappingRepositoryPostgres();
@@ -634,6 +637,22 @@ describe.each([
         ).rejects.toThrow(`queryMappings is not supported on ${dbName} yet`);
         expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
         expect(repo.prisma.integrationMapping.findMany).not.toHaveBeenCalled();
+    });
+});
+
+describe('IntegrationMappingRepository.queryMappings', () => {
+    it('is not supported on the legacy repository, points to the factory, and never touches the database', async () => {
+        const prismaClient = {
+            $queryRawUnsafe: jest.fn(),
+            integrationMapping: { findMany: jest.fn() },
+        };
+        const repo = new IntegrationMappingRepository(prismaClient);
+
+        await expect(repo.queryMappings('12', { take: 10 })).rejects.toThrow(
+            'queryMappings is not supported on the legacy IntegrationMappingRepository; use createIntegrationMappingRepository()'
+        );
+        expect(prismaClient.$queryRawUnsafe).not.toHaveBeenCalled();
+        expect(prismaClient.integrationMapping.findMany).not.toHaveBeenCalled();
     });
 });
 
