@@ -21,6 +21,7 @@ const {
     resetCustomSchema,
     resetEncryptionOptOut,
 } = require('../../database/encryption/encryption-schema-registry');
+const { logger } = require('../../database/encryption/logger');
 const {
     IntegrationMappingRepositoryPostgres,
 } = require('./integration-mapping-repository-postgres');
@@ -618,6 +619,37 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                 ).resolves.toEqual({ mappings: [], total: 0 });
             }
         );
+
+        it('checks once per repository, so a stage without keys warns once, not per query', async () => {
+            process.env.STAGE = 'production';
+            delete process.env.AES_KEY_ID;
+            delete process.env.KMS_KEY_ARN;
+            const warn = jest
+                .spyOn(logger, 'warn')
+                .mockImplementation(() => {});
+            const { repo } = makeRepo();
+
+            await repo.queryMappings('12', { take: 10 });
+            await repo.queryMappings('12', { take: 10 });
+
+            const noKeyWarnings = warn.mock.calls.filter(([message]) =>
+                /No encryption keys configured/.test(message)
+            );
+            expect(noKeyWarnings).toHaveLength(1);
+            warn.mockRestore();
+        });
+
+        it('checks again on every call while it refuses', async () => {
+            enableEncryption();
+            const { repo } = makeRepo();
+
+            for (let call = 0; call < 2; call += 1) {
+                await expect(
+                    repo.queryMappings('12', { take: 10 })
+                ).rejects.toThrow(/field-level encryption still encrypts/);
+            }
+            expect(loadCustomEncryptionSchema).toHaveBeenCalledTimes(2);
+        });
     });
 });
 

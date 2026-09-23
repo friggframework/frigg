@@ -9,6 +9,11 @@ const {
 const { strictIntId } = require('./report-id');
 const { validateMappingQuery } = require('./integration-mapping-query');
 
+const encryptedMappingFields = () =>
+    getFieldsToEncryptOnWrite('IntegrationMapping').filter(
+        (field) => field === 'mapping' || field.startsWith('mapping.')
+    );
+
 /**
  * PostgreSQL Integration Mapping Repository Adapter
  * Handles persistence of integration mappings used for data transformation
@@ -301,27 +306,30 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
      * queryMappings reads the stored JSON, so it needs `mapping`, and every
      * path inside it, written as plain JSON. The app's opt-out
      * (`encryption.disable`) is registered lazily, when the Prisma client is
-     * created, so load it before deciding.
+     * created, so load it before deciding. The stage, the keys and the app
+     * definition do not change at runtime, so a passed check is kept.
      * @private
      */
     _assertMappingWrittenUnencrypted() {
-        if (!getEncryptionConfig().enabled) return;
+        if (this._mappingWrittenUnencrypted) return;
 
-        const encryptedMappingFields = () =>
-            getFieldsToEncryptOnWrite('IntegrationMapping').filter(
-                (field) => field === 'mapping' || field.startsWith('mapping.')
-            );
-        if (encryptedMappingFields().length > 0) loadCustomEncryptionSchema();
-        const fields = encryptedMappingFields();
-        if (fields.length > 0) {
-            const encrypted = fields
-                .map((field) => `IntegrationMapping.${field}`)
-                .join(', ');
-            const optOut = fields.map((field) => `'${field}'`).join(', ');
-            throw new Error(
-                `queryMappings: field-level encryption still encrypts ${encrypted} on write, so it cannot be queried. Opt out by adding ${optOut} to appDefinition.encryption.disable.IntegrationMapping.`
-            );
+        if (getEncryptionConfig().enabled) {
+            if (encryptedMappingFields().length > 0) {
+                loadCustomEncryptionSchema();
+            }
+            const fields = encryptedMappingFields();
+            if (fields.length > 0) {
+                const encrypted = fields
+                    .map((field) => `IntegrationMapping.${field}`)
+                    .join(', ');
+                const optOut = fields.map((field) => `'${field}'`).join(', ');
+                throw new Error(
+                    `queryMappings: field-level encryption still encrypts ${encrypted} on write, so it cannot be queried. Opt out by adding ${optOut} to appDefinition.encryption.disable.IntegrationMapping.`
+                );
+            }
         }
+
+        this._mappingWrittenUnencrypted = true;
     }
 
     /**
