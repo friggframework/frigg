@@ -1,4 +1,8 @@
 const { DocumentDBEncryptionService } = require('../documentdb-encryption-service');
+const {
+    registerEncryptionOptOut,
+    resetEncryptionOptOut,
+} = require('../encryption/encryption-schema-registry');
 
 describe('DocumentDBEncryptionService', () => {
     let service;
@@ -127,6 +131,25 @@ describe('DocumentDBEncryptionService', () => {
             expect(encrypted.username).toBe('YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVk');
             // Plain field should be encrypted
             expect(encrypted.hashword).toBe('encrypted:plain_text');
+        });
+    });
+
+    describe('write-side opt-out', () => {
+        afterEach(() => {
+            resetEncryptionOptOut();
+        });
+
+        it('writes a field the app opted out of encryption as plain data', async () => {
+            registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
+            const doc = { integrationId: 'i1', mapping: { crmId: '1' } };
+
+            const encrypted = await service.encryptFields(
+                'IntegrationMapping',
+                doc
+            );
+
+            expect(encrypted.mapping).toEqual({ crmId: '1' });
+            expect(mockCryptor.encrypt).not.toHaveBeenCalled();
         });
     });
 
