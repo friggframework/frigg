@@ -44,8 +44,9 @@ const CONDITION_EXPRESSIONS = {
  *
  * @param {*} integrationId - The value IntegrationMapping.integrationId is stored as
  * @param {ReturnType<import('./integration-mapping-query').validateMappingQuery>} query
- * @returns {{match: Object, page: Object[]}} `match` selects the matching
- *   documents; `page` sorts, skips and limits them
+ * @returns {{match: Object, page: Object[], sort: Object}} `match` selects
+ *   the matching documents; `page` sorts, skips and limits them; `sort` is
+ *   the $sort stage inside `page`
  */
 function buildMappingQueryStages(
     integrationId,
@@ -62,16 +63,17 @@ function buildMappingQueryStages(
             },
         },
     };
+    const sort = { $sort: sortSpec(orderBy) };
     const page = [
         ...(orderBy
             ? [{ $addFields: { [SORT_KEY]: sortKey(orderBy.path) } }]
             : []),
         ...(omit.length > 0 ? [{ $project: omitProjection(omit) }] : []),
-        { $sort: sortSpec(orderBy) },
+        sort,
         ...(skip > 0 ? [{ $skip: skip }] : []),
         { $limit: take },
     ];
-    return { match, page };
+    return { match, page, sort };
 }
 
 function entryExpression(entry) {
