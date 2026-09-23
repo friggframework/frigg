@@ -603,49 +603,33 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
 });
 
 describe.each([
-    ['MongoDB', IntegrationMappingRepositoryMongo],
-    ['DocumentDB', IntegrationMappingRepositoryDocumentDB],
-])('IntegrationMappingRepository%s.queryMappings', (dbName, Repository) => {
+    ['IntegrationMappingRepositoryMongo', IntegrationMappingRepositoryMongo],
+    [
+        'IntegrationMappingRepositoryDocumentDB',
+        IntegrationMappingRepositoryDocumentDB,
+    ],
+    ['IntegrationMappingRepository (legacy)', IntegrationMappingRepository],
+    [
+        'IntegrationMappingRepositoryInterface',
+        IntegrationMappingRepositoryInterface,
+    ],
+])('%s.queryMappings', (_, Repository) => {
     it('is not supported yet and never touches the database', async () => {
         const repo = new Repository();
         repo.prisma = {
+            $queryRawUnsafe: jest.fn(),
             $runCommandRaw: jest.fn(),
             integrationMapping: { findMany: jest.fn() },
         };
 
         await expect(
             repo.queryMappings('507f1f77bcf86cd799439011', { take: 10 })
-        ).rejects.toThrow(`queryMappings is not supported on ${dbName} yet`);
+        ).rejects.toThrow(
+            'queryMappings is not supported by this database adapter yet'
+        );
+        expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
         expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
         expect(repo.prisma.integrationMapping.findMany).not.toHaveBeenCalled();
-    });
-});
-
-describe('IntegrationMappingRepository.queryMappings', () => {
-    it('is not supported on the legacy repository, points to the factory, and never touches the database', async () => {
-        const prismaClient = {
-            $queryRawUnsafe: jest.fn(),
-            integrationMapping: { findMany: jest.fn() },
-        };
-        const repo = new IntegrationMappingRepository(prismaClient);
-
-        await expect(repo.queryMappings('12', { take: 10 })).rejects.toThrow(
-            'queryMappings is not supported on the legacy IntegrationMappingRepository; use createIntegrationMappingRepository()'
-        );
-        expect(prismaClient.$queryRawUnsafe).not.toHaveBeenCalled();
-        expect(prismaClient.integrationMapping.findMany).not.toHaveBeenCalled();
-    });
-});
-
-describe('IntegrationMappingRepositoryInterface.queryMappings', () => {
-    it('must be implemented by an adapter', async () => {
-        await expect(
-            new IntegrationMappingRepositoryInterface().queryMappings('1', {
-                take: 10,
-            })
-        ).rejects.toThrow(
-            'Method queryMappings must be implemented by subclass'
-        );
     });
 });
 

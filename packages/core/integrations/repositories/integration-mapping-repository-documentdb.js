@@ -179,14 +179,6 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
         return decryptedDocs.map((doc) => this._mapMapping(doc));
     }
 
-    /**
-     * Not implemented for DocumentDB yet; only the PostgreSQL adapter supports it.
-     * @throws {Error} Always
-     */
-    async queryMappings() {
-        throw new Error('queryMappings is not supported on DocumentDB yet');
-    }
-
     async deleteMapping(integrationId, sourceId) {
         const filter = this._compositeFilter(integrationId, sourceId);
         const result = await deleteOne(

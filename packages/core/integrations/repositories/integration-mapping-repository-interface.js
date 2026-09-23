@@ -91,10 +91,11 @@ class IntegrationMappingRepositoryInterface {
      *   the returned rows; such projected rows must not be written back
      * @returns {Promise<{mappings: Array<Object>, total: number}>} The page, and
      *   the number of rows matching `where`
-     * @abstract
      */
     async queryMappings(integrationId, query) {
-        throw new Error('Method queryMappings must be implemented by subclass');
+        throw new Error(
+            'queryMappings is not supported by this database adapter yet'
+        );
     }
 
     /**
