@@ -1,12 +1,3 @@
-/**
- * Validation for IntegrationMappingRepository.queryMappings().
- *
- * Backend-agnostic: enforces the query shape BEFORE an adapter builds a
- * database command, so every adapter rejects the same input. Paths come out
- * split into identifier-only segments that adapters pass as bound
- * parameters; nothing from the query is spliced into SQL text.
- */
-
 const SEGMENT_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const MAX_TAKE = 500;
 const MAX_IN_VALUES = 500;
@@ -20,6 +11,13 @@ const OPERATORS = {
     notStartsWith: { fields: ['sourceId'], value: toPrefix },
 };
 
+/**
+ * Checks a queryMappings query and normalizes it for an adapter.
+ *
+ * @param {Object} query - See IntegrationMappingRepositoryInterface.queryMappings
+ * @returns {{where: Array<Object>, orderBy: ({path: string[], direction: 'asc'|'desc'}|null), skip: number, take: number, omit: string[]}}
+ * @throws {Error} When the query does not fit that shape
+ */
 function validateMappingQuery(query) {
     if (!isPlainObject(query)) {
         throw new Error('queryMappings: query must be an object');
