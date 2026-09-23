@@ -239,15 +239,6 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
     }
 
     /**
-     * Query one page of an integration's mappings, filtering and ordering
-     * inside Postgres instead of loading every row. The total rides on the
-     * page as a window count, so one statement reads the matching rows once;
-     * only an empty page after the first needs a second, count-only statement.
-     *
-     * The SQL text is fixed: every caller value, JSON paths included (as
-     * text[]), is a positional parameter, and the sort direction comes from
-     * the ASC/DESC whitelist in integration-mapping-query.js.
-     *
      * @param {string} integrationId
      * @param {Object} query - See IntegrationMappingRepositoryInterface.queryMappings
      * @returns {Promise<{mappings: Array<Object>, total: number}>}
@@ -269,49 +260,38 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
             `jsonb_typeof("mapping") = 'object'`,
             ...where.map((entry) => this._whereEntrySql(entry, bind)),
         ].join(' AND ');
-        const whereParams = [...params];
-
+        const orderSql = orderBy ? this._orderSql(orderBy, bind) : `"id" ASC`;
         const mappingSql =
             omit.length > 0
                 ? `"mapping" - ${bind(omit)}::text[] AS "mapping"`
                 : `"mapping"`;
-        const orderSql = orderBy ? this._orderSql(orderBy, bind) : `"id" ASC`;
 
-        const pageSql = `
+        const sql = `
+            WITH "matched" AS (
+                SELECT "id", "integrationId", "sourceId", "mapping", "createdAt", "updatedAt"
+                FROM "IntegrationMapping"
+                WHERE ${whereSql}
+            ),
+            "page" AS (
+                SELECT * FROM "matched"
+                ORDER BY ${orderSql}
+                OFFSET ${bind(skip)}::bigint
+                LIMIT ${bind(take)}::int
+            )
             SELECT "id", "integrationId", "sourceId", ${mappingSql}, "createdAt", "updatedAt",
-                (COUNT(*) OVER ())::int AS "__total"
-            FROM "IntegrationMapping"
-            WHERE ${whereSql}
+                (SELECT COUNT(*)::int FROM "matched") AS "__total"
+            FROM (VALUES (1)) AS "one"
+            LEFT JOIN "page" ON true
             ORDER BY ${orderSql}
-            OFFSET ${bind(skip)}::bigint
-            LIMIT ${bind(take)}::int
         `;
-        const rows = await this.prisma.$queryRawUnsafe(pageSql, ...params);
+        const rows = await this.prisma.$queryRawUnsafe(sql, ...params);
 
         return {
-            mappings: rows.map((row) => {
-                const mapping = this._convertMappingIds(row);
-                delete mapping.__total;
-                return mapping;
-            }),
-            total: await this._totalMatches(rows, skip, whereSql, whereParams),
+            mappings: rows
+                .filter((row) => row.id !== null)
+                .map(({ __total, ...row }) => this._convertMappingIds(row)),
+            total: rows[0].__total,
         };
-    }
-
-    /**
-     * An empty page is either past the end (count again) or, at skip 0,
-     * proof that nothing matches.
-     * @private
-     */
-    async _totalMatches(pageRows, skip, whereSql, whereParams) {
-        if (pageRows.length > 0) return pageRows[0].__total;
-        if (skip === 0) return 0;
-
-        const [{ total }] = await this.prisma.$queryRawUnsafe(
-            `SELECT COUNT(*)::int AS "total" FROM "IntegrationMapping" WHERE ${whereSql}`,
-            ...whereParams
-        );
-        return total;
     }
 
     /** @private */
