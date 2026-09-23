@@ -79,13 +79,17 @@ class IntegrationMappingRepositoryInterface {
      *   conditions, anyOf members included.
      * @param {{path: string, direction: 'asc'|'desc'}} [query.orderBy] - A
      *   mapping path; nulls last, ties broken by id in the same direction.
-     *   Without it rows are ordered by id ascending.
+     *   Values order string < number < boolean < array < object. Strings
+     *   compare by the database collation on PostgreSQL and by code point on
+     *   MongoDB and DocumentDB; arrays and objects order among themselves
+     *   only on PostgreSQL. Without it rows are ordered by id ascending.
      * @param {number} [query.skip=0] - Rows to skip (integer ≥ 0)
      * @param {number} query.take - Page size (integer 1–500)
      * @param {string[]} [query.omit=[]] - Top-level mapping keys to leave out of
      *   the returned rows; such projected rows must not be written back
      * @returns {Promise<{mappings: Array<Object>, total: number}>} The page, and
-     *   the number of rows matching `where`
+     *   the number of rows matching `where` (counted by a separate command on
+     *   DocumentDB, so not from the page's snapshot)
      */
     async queryMappings(integrationId, query) {
         throw new Error(

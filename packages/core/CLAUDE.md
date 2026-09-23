@@ -224,18 +224,39 @@ packages/core/
   'asc' | 'desc' }`, nulls last, ties broken by id in the same direction;
   without it rows come in id order. `take` is 1–500. `omit` lists top-level
   mapping keys to leave out of the rows; never write such rows back. Path
-  segments must match `^[A-Za-z_][A-Za-z0-9_]*$`. **PostgreSQL only**: the
-  MongoDB, DocumentDB and legacy repositories inherit the port's
-  "not supported by this database adapter yet" error. It also refuses to run
-  while field-level encryption still encrypts `IntegrationMapping.mapping` on
-  write (see `database/encryption/README.md`). Validation lives in
-  `integration-mapping-query.js`; a new operator is one entry in its
-  `OPERATORS` table and one in the Postgres adapter's `CONDITION_SQL`.
-  **Cost**: one SQL statement per call, which reads every row of the
-  integration and evaluates the JSON paths per row, because no JSON index
-  exists. With ~4 KB mappings on PostgreSQL 16 that is about 0.3 s per call
-  at 10⁴ rows per integration and 2.5–3 s at 10⁵; a deep offset or an empty
-  page past the end costs about the same as the first page.
+  segments must match `^[A-Za-z_][A-Za-z0-9_]*$`. The PostgreSQL, MongoDB and
+  DocumentDB adapters give the same pages and totals;
+  `integration-mapping-repository-query-parity.test.js` checks that against
+  real databases when `QUERY_MAPPINGS_PARITY_MONGO_URL` /
+  `QUERY_MAPPINGS_PARITY_POSTGRES_URL` are set. Two orderings still differ:
+  strings compare by the database collation on PostgreSQL and by code point
+  on MongoDB and DocumentDB, and arrays or objects at the sort path order
+  among themselves only on PostgreSQL (the other adapters fall back to id).
+  The legacy `IntegrationMappingRepository` inherits the port's
+  "not supported by this database adapter yet" error. Every adapter refuses
+  to run while field-level encryption still encrypts
+  `IntegrationMapping.mapping` on write (see `database/encryption/README.md`).
+  Validation lives in `integration-mapping-query.js`; a new operator is one
+  entry in its `OPERATORS` table, one in the Postgres adapter's
+  `CONDITION_SQL` and one in `CONDITION_EXPRESSIONS` in
+  `integration-mapping-query-pipeline.js`, the aggregation stages both
+  MongoDB-protocol adapters share. Those stages may only use what Amazon
+  DocumentDB 4.0 and 5.0 support (no `$facet`, `$getField`, `$set` or
+  `$unset`).
+  **Cost**: PostgreSQL answers in one SQL statement, which reads every row
+  of the integration and evaluates the JSON paths per row, because no JSON
+  index exists. With ~4 KB mappings on PostgreSQL 16 that is about 0.3 s per
+  call at 10⁴ rows per integration and 2.5–3 s at 10⁵. MongoDB answers in one
+  aggregate: the `integrationId` index narrows `$match` to the integration,
+  the `$expr` is then evaluated per document, and `$facet` returns the page
+  with its `$count`, so a page (after `omit`) must fit the 16 MB document
+  limit. DocumentDB has no `$facet`: the page and the count are two
+  concurrent aggregates, so the total does not come from the same snapshot
+  as the page. Both sort in memory on a computed key (`allowDiskUse`). With
+  ~4 KB mappings on MongoDB 7 that is about 0.05–0.1 s per call at 10⁴ rows
+  per integration and 0.5–0.7 s at 10⁵ (the DocumentDB pipeline, run on
+  MongoDB, 0.6–0.8 s). On every adapter a deep offset or an empty page past
+  the end costs about the same as the first page.
 - `process-repository-*.js` - Process (long-running job) persistence.
   Implements `applyProcessUpdate(processId, ops)` — a race-safe alternative
   to `update(id, patch)` that routes increments, sets, and bounded-array

@@ -814,11 +814,12 @@ export AES_KEY=$(openssl rand -hex 16)  # Generate 32-char key
 ❌ Query on encrypted fields (not supported)
 ❌ Manually decrypt data (use extension)
 
-`IntegrationMappingRepository.queryMappings()` (PostgreSQL) filters and sorts
-inside the `mapping` JSON, so it refuses to run while field-level encryption
-still encrypts `IntegrationMapping.mapping` on write. Opt the field out in the
-app definition, together with any nested `mapping.*` path that
-`encryption.schema` encrypts:
+The integration mapping repositories' `queryMappings()` (PostgreSQL, MongoDB
+and DocumentDB) filters and sorts inside the `mapping` JSON, so it refuses to
+run while field-level encryption still encrypts `IntegrationMapping.mapping` on
+write. Opt the field out in the app definition, together with any nested
+`mapping.*` path that `encryption.schema` encrypts; the Prisma extension and
+`DocumentDBEncryptionService` both honor the opt-out:
 
 ```javascript
 encryption: {
