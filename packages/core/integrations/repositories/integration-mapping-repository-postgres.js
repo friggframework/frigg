@@ -222,8 +222,10 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
     }
 
     /**
-     * Query one page of an integration's mappings in a single round trip,
-     * filtering and ordering inside Postgres instead of loading every row.
+     * Query one page of an integration's mappings, filtering and ordering
+     * inside Postgres instead of loading every row. The total rides on the
+     * page as a window count, so one statement reads the matching rows once;
+     * only an empty page after the first needs a second, count-only statement.
      *
      * The SQL text is fixed: every caller value, JSON paths included (as
      * text[]), is a positional parameter, and the sort direction comes from
@@ -259,28 +261,40 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
         const orderSql = orderBy ? this._orderSql(orderBy, bind) : `"id" ASC`;
 
         const pageSql = `
-            SELECT "id", "integrationId", "sourceId", ${mappingSql}, "createdAt", "updatedAt"
+            SELECT "id", "integrationId", "sourceId", ${mappingSql}, "createdAt", "updatedAt",
+                (COUNT(*) OVER ())::int AS "__total"
             FROM "IntegrationMapping"
             WHERE ${whereSql}
             ORDER BY ${orderSql}
             OFFSET ${bind(skip)}::bigint
             LIMIT ${bind(take)}::int
         `;
-        const countSql = `
-            SELECT COUNT(*)::int AS "total"
-            FROM "IntegrationMapping"
-            WHERE ${whereSql}
-        `;
-
-        const [rows, countRows] = await Promise.all([
-            this.prisma.$queryRawUnsafe(pageSql, ...params),
-            this.prisma.$queryRawUnsafe(countSql, ...whereParams),
-        ]);
+        const rows = await this.prisma.$queryRawUnsafe(pageSql, ...params);
 
         return {
-            mappings: rows.map((row) => this._convertMappingIds(row)),
-            total: countRows[0].total,
+            mappings: rows.map((row) => {
+                const mapping = this._convertMappingIds(row);
+                delete mapping.__total;
+                return mapping;
+            }),
+            total: await this._totalMatches(rows, skip, whereSql, whereParams),
         };
+    }
+
+    /**
+     * An empty page is either past the end (count again) or, at skip 0,
+     * proof that nothing matches.
+     * @private
+     */
+    async _totalMatches(pageRows, skip, whereSql, whereParams) {
+        if (pageRows.length > 0) return pageRows[0].__total;
+        if (skip === 0) return 0;
+
+        const [{ total }] = await this.prisma.$queryRawUnsafe(
+            `SELECT COUNT(*)::int AS "total" FROM "IntegrationMapping" WHERE ${whereSql}`,
+            ...whereParams
+        );
+        return total;
     }
 
     /**

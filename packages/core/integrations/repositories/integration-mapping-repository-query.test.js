@@ -1,10 +1,10 @@
 /**
  * SQL-generation tests for IntegrationMappingRepositoryPostgres.queryMappings.
  *
- * These stub `prisma.$queryRawUnsafe` to capture the page and count SQL with
- * their bound parameters. The contract under test: the SQL text is fixed and
- * every caller-supplied value, JSON paths included, reaches Postgres only as
- * a bound parameter.
+ * These stub `prisma.$queryRawUnsafe` to capture the page SQL, and the
+ * fallback count SQL, with their bound parameters. The contract under test:
+ * the SQL text is fixed and every caller-supplied value, JSON paths included,
+ * reaches Postgres only as a bound parameter.
  */
 
 jest.mock('../../database/encryption/encryption-schema-registry', () => ({
@@ -34,29 +34,32 @@ const {
     IntegrationMappingRepositoryInterface,
 } = require('./integration-mapping-repository-interface');
 
-function makeRepo({ rows = [], total = 0 } = {}) {
+function makeRepo({ rows = [], total = rows.length, fallbackTotal = 0 } = {}) {
     const repo = new IntegrationMappingRepositoryPostgres();
     const calls = [];
     repo.prisma = {
         $queryRawUnsafe: jest.fn(async (sql, ...params) => {
             calls.push({ sql, params });
-            return isCount(sql) ? [{ total }] : rows;
+            return isPage(sql)
+                ? rows.map((row) => ({ ...row, __total: total }))
+                : [{ total: fallbackTotal }];
         }),
     };
     return {
         repo,
-        page: () => calls.find((call) => !isCount(call.sql)),
-        count: () => calls.find((call) => isCount(call.sql)),
+        calls,
+        page: () => calls.find((call) => isPage(call.sql)),
+        count: () => calls.find((call) => !isPage(call.sql)),
     };
 }
 
-const isCount = (sql) => /COUNT\(\*\)/.test(sql);
+const isPage = (sql) => /COUNT\(\*\) OVER \(\)/.test(sql);
 
 describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
     it('binds the integration id as an int and returns string ids with the total', async () => {
         const createdAt = new Date('2026-01-01T00:00:00Z');
         const updatedAt = new Date('2026-01-02T00:00:00Z');
-        const { repo, page, count } = makeRepo({
+        const { repo, page, calls } = makeRepo({
             rows: [
                 {
                     id: 5,
@@ -74,7 +77,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
 
         expect(page().sql).toMatch(/"integrationId" = \$1::int/);
         expect(page().params[0]).toBe(12);
-        expect(count().params).toEqual([12]);
+        expect(calls).toHaveLength(1);
         expect(result).toEqual({
             mappings: [
                 {
@@ -91,12 +94,83 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
     });
 
     it('only matches rows whose mapping is a JSON object, so ciphertext strings never match', async () => {
-        const { repo, page, count } = makeRepo();
+        const { repo, page } = makeRepo();
 
         await repo.queryMappings('12', { take: 10 });
 
         expect(page().sql).toMatch(/jsonb_typeof\("mapping"\) = 'object'/);
-        expect(count().sql).toMatch(/jsonb_typeof\("mapping"\) = 'object'/);
+    });
+
+    describe('total', () => {
+        const row = (id) => ({
+            id,
+            integrationId: 12,
+            sourceId: `hubspot:${id}`,
+            mapping: { crmId: String(id) },
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+            updatedAt: new Date('2026-01-01T00:00:00Z'),
+        });
+
+        it('reads the total from a window count on the page, in one statement', async () => {
+            const { repo, page, calls } = makeRepo({
+                rows: [row(1), row(2)],
+                total: 42,
+            });
+
+            const { total } = await repo.queryMappings('12', { take: 2 });
+
+            expect(normalize(page().sql)).toContain(
+                `"updatedAt", (COUNT(*) OVER ())::int AS "__total" FROM "IntegrationMapping"`
+            );
+            expect(calls).toHaveLength(1);
+            expect(total).toBe(42);
+        });
+
+        it('leaves the window column out of the returned rows', async () => {
+            const { repo } = makeRepo({ rows: [row(1)], total: 1 });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings[0]).not.toHaveProperty('__total');
+        });
+
+        it('uses the window total when a later page has rows', async () => {
+            const { repo, calls } = makeRepo({ rows: [row(51)], total: 51 });
+
+            const { total } = await repo.queryMappings('12', {
+                skip: 50,
+                take: 10,
+            });
+
+            expect(calls).toHaveLength(1);
+            expect(total).toBe(51);
+        });
+
+        it('returns 0 for an empty first page without counting again', async () => {
+            const { repo, calls } = makeRepo({ fallbackTotal: 99 });
+
+            const result = await repo.queryMappings('12', { take: 10 });
+
+            expect(calls).toHaveLength(1);
+            expect(result).toEqual({ mappings: [], total: 0 });
+        });
+
+        it('counts in a second statement only when a page after the first is empty', async () => {
+            const { repo, calls, count } = makeRepo({ fallbackTotal: 12 });
+
+            const result = await repo.queryMappings('12', {
+                skip: 50,
+                take: 10,
+            });
+
+            expect(calls).toHaveLength(2);
+            expect(normalize(count().sql)).toMatch(
+                /^SELECT COUNT\(\*\)::int AS "total" FROM "IntegrationMapping" WHERE /
+            );
+            expect(count().sql).not.toMatch(/OVER|OFFSET|LIMIT/);
+            expect(count().params).toEqual([12]);
+            expect(result).toEqual({ mappings: [], total: 12 });
+        });
     });
 
     describe('conditions', () => {
@@ -240,7 +314,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             expect(normalize(page().sql)).toContain('ORDER BY "id" ASC');
         });
 
-        it('keeps ORDER BY out of the count query', async () => {
+        it('keeps ORDER BY out of the fallback count query', async () => {
             const { repo, count } = makeRepo();
 
             await repo.queryMappings('12', {
@@ -248,6 +322,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                     path: 'mapping.c2h.lastAttemptAt',
                     direction: 'desc',
                 },
+                skip: 10,
                 take: 10,
             });
 
@@ -277,7 +352,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
         });
 
         it('subtracts omitted top-level keys from the returned mapping', async () => {
-            const { repo, page, count } = makeRepo();
+            const { repo, page } = makeRepo();
 
             await repo.queryMappings('12', {
                 omit: ['changeLog', 'lastCanonical'],
@@ -287,7 +362,6 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             expect(page().sql).toContain(`"mapping" - $2::text[] AS "mapping"`);
             expect(page().params[1]).toEqual(['changeLog', 'lastCanonical']);
             expect(page().sql).not.toContain('changeLog');
-            expect(count().params).toEqual([12]);
         });
 
         it('selects the whole mapping when nothing is omitted', async () => {
@@ -326,8 +400,8 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
         const whereClause = (sql) =>
             normalize(sql).match(/WHERE (.*?)(?: ORDER BY|$)/)[1];
 
-        it('counts with exactly the WHERE clause and parameters of the page query', async () => {
-            const { repo, page, count } = makeRepo({ total: 3 });
+        it('falls back to a count with exactly the WHERE clause and parameters of the page query', async () => {
+            const { repo, page, count } = makeRepo({ fallbackTotal: 3 });
 
             const { total } = await repo.queryMappings(
                 '12',
@@ -363,23 +437,6 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                 );
                 expect(sql).not.toMatch(/'\{/);
             }
-        });
-
-        it('runs the page and count queries in parallel', async () => {
-            const { repo } = makeRepo();
-            let inFlight = 0;
-            let maxInFlight = 0;
-            repo.prisma.$queryRawUnsafe = jest.fn(async (sql) => {
-                inFlight += 1;
-                maxInFlight = Math.max(maxInFlight, inFlight);
-                await new Promise((resolve) => setImmediate(resolve));
-                inFlight -= 1;
-                return isCount(sql) ? [{ total: 0 }] : [];
-            });
-
-            await repo.queryMappings('12', syncedRecordsQuery);
-
-            expect(maxInFlight).toBe(2);
         });
     });
 
@@ -484,11 +541,11 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             loadCustomEncryptionSchema.mockImplementation(() =>
                 registerEncryptionOptOut({ IntegrationMapping: ['mapping'] })
             );
-            const { repo } = makeRepo({ total: 1 });
+            const { repo } = makeRepo();
 
             await expect(
                 repo.queryMappings('12', { take: 10 })
-            ).resolves.toEqual({ mappings: [], total: 1 });
+            ).resolves.toEqual({ mappings: [], total: 0 });
             expect(loadCustomEncryptionSchema).toHaveBeenCalled();
         });
 
