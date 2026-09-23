@@ -226,7 +226,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                     {
                         path: 'sourceId',
                         op: 'notStartsWith',
-                        value: "clockwork:'%_",
+                        value: "reverse:'%_",
                     },
                 ],
                 take: 10,
@@ -235,8 +235,8 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             expect(page().sql).toContain(
                 `("sourceId" IS NULL OR NOT starts_with("sourceId", $2::text))`
             );
-            expect(page().params[1]).toBe("clockwork:'%_");
-            expect(page().sql).not.toContain('clockwork');
+            expect(page().params[1]).toBe("reverse:'%_");
+            expect(page().sql).not.toContain('reverse');
         });
 
         it('ANDs top-level conditions and ORs an anyOf group inside parentheses', async () => {
@@ -250,7 +250,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                             {
                                 path: 'sourceId',
                                 op: 'notStartsWith',
-                                value: 'clockwork:',
+                                value: 'reverse:',
                             },
                             { path: 'mapping.crmId', op: 'notExists' },
                         ],
@@ -269,7 +269,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             expect(page().params.slice(0, 4)).toEqual([
                 12,
                 ['c2h'],
-                'clockwork:',
+                'reverse:',
                 ['crmId'],
             ]);
         });
@@ -370,7 +370,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
         });
     });
 
-    describe('the Synced Records query', () => {
+    describe('a status-filtered page query', () => {
         const syncedRecordsQuery = {
             where: [
                 { path: 'mapping.c2h', op: 'exists' },
@@ -380,7 +380,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                         {
                             path: 'sourceId',
                             op: 'notStartsWith',
-                            value: 'clockwork:',
+                            value: 'reverse:',
                         },
                         { path: 'mapping.crmId', op: 'notExists' },
                     ],
@@ -408,7 +408,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                 ['c2h'],
                 ['c2h', 'lastStatus'],
                 ['failed'],
-                'clockwork:',
+                'reverse:',
                 ['crmId'],
                 ['c2h', 'lastAttemptAt'],
                 ['changeLog', 'lastCanonical', 'lastExtra'],
@@ -423,7 +423,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             await repo.queryMappings('12', syncedRecordsQuery);
 
             expect(page().sql).not.toMatch(
-                /c2h|lastStatus|failed|clockwork|crmId|lastAttemptAt|changeLog|lastCanonical|lastExtra/
+                /c2h|lastStatus|failed|reverse|crmId|lastAttemptAt|changeLog|lastCanonical|lastExtra/
             );
             expect(page().sql).not.toMatch(/'\{/);
         });

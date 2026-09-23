@@ -9,7 +9,7 @@ const consumerQuery = () => ({
                 {
                     path: 'sourceId',
                     op: 'notStartsWith',
-                    value: 'clockwork:',
+                    value: 'reverse:',
                 },
                 { path: 'mapping.crmId', op: 'notExists' },
             ],
@@ -22,7 +22,7 @@ const consumerQuery = () => ({
 });
 
 describe('validateMappingQuery', () => {
-    it('normalizes the Synced Records query into fields and path segments', () => {
+    it('normalizes a filtered, sorted page query into fields and path segments', () => {
         expect(validateMappingQuery(consumerQuery())).toEqual({
             where: [
                 { field: 'mapping', path: ['c2h'], op: 'exists' },
@@ -37,7 +37,7 @@ describe('validateMappingQuery', () => {
                         {
                             field: 'sourceId',
                             op: 'notStartsWith',
-                            value: 'clockwork:',
+                            value: 'reverse:',
                         },
                         {
                             field: 'mapping',
@@ -152,7 +152,7 @@ describe('validateMappingQuery', () => {
             );
         });
 
-        it.each([[undefined], [''], [7], [['clockwork:']]])(
+        it.each([[undefined], [''], [7], [['reverse:']]])(
             'rejects notStartsWith with value %j',
             (value) => {
                 expect(() =>
