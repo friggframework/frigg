@@ -55,7 +55,7 @@ class MyWorker extends Worker {
     async _run(params, context = {}, delivery) {
         // Your job processing logic here
         // params are already JSON.parsed from SQS message body
-        // delivery is { receiveCount, maxReceiveCount, isLastAttempt } (see ../CLAUDE.md "Queue handler delivery")
+        // delivery is { receiveCount, maxReceiveCount, isLastAttempt }
     }
     
     _validateParams(params) {
