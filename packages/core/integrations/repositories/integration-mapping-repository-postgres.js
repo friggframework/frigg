@@ -8,6 +8,24 @@ const {
 const { strictIntId } = require('./report-id');
 const { validateMappingQuery } = require('./integration-mapping-query');
 
+const COLUMNS = { mapping: '"mapping"', sourceId: '"sourceId"' };
+const SQL_DIRECTIONS = { asc: 'ASC', desc: 'DESC' };
+
+const jsonPathOperand = (column, path) => ({
+    json: `${column} #> ${path}::text[]`,
+    text: `${column} #>> ${path}::text[]`,
+});
+const jsonType = (json) => `COALESCE(jsonb_typeof(${json}), 'null')`;
+
+const CONDITION_SQL = {
+    exists: ({ json }) => `${jsonType(json)} <> 'null'`,
+    notExists: ({ json }) => `${jsonType(json)} = 'null'`,
+    in: ({ json, text, value }) =>
+        `(jsonb_typeof(${json}) = 'string' AND ${text} = ANY(${value}::text[]))`,
+    notStartsWith: ({ text, value }) =>
+        `(${text} IS NULL OR NOT starts_with(${text}, ${value}::text))`,
+};
+
 /**
  * PostgreSQL Integration Mapping Repository Adapter
  * Handles persistence of integration mappings used for data transformation
@@ -327,30 +345,26 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
      * treats JSON null as absent, and `notExists` is its exact negation.
      * @private
      */
-    _conditionSql({ segments, op, value }, bind) {
-        if (op === 'notStartsWith') {
-            const prefix = bind(value);
-            return `("sourceId" IS NULL OR NOT starts_with("sourceId", ${prefix}::text))`;
-        }
-
-        const path = `${bind(segments)}::text[]`;
-        if (op === 'in') {
-            const values = bind(value);
-            return `(jsonb_typeof("mapping" #> ${path}) = 'string' AND "mapping" #>> ${path} = ANY(${values}::text[]))`;
-        }
-
-        const type = `COALESCE(jsonb_typeof("mapping" #> ${path}), 'null')`;
-        return op === 'exists' ? `${type} <> 'null'` : `${type} = 'null'`;
+    _conditionSql({ field, path, op, value }, bind) {
+        const column = COLUMNS[field];
+        const operand = path
+            ? jsonPathOperand(column, bind(path))
+            : { text: column };
+        return CONDITION_SQL[op]({
+            ...operand,
+            value: value === undefined ? undefined : bind(value),
+        });
     }
 
     /**
      * NULLIF folds JSON null into SQL NULL, so both sort after every value.
      * @private
      */
-    _orderSql({ segments, direction }, bind) {
-        const path = bind(segments);
-        const value = `NULLIF("mapping" #> ${path}::text[], 'null'::jsonb)`;
-        return `${value} ${direction} NULLS LAST, "id" ${direction}`;
+    _orderSql({ path, direction }, bind) {
+        const { json } = jsonPathOperand(COLUMNS.mapping, bind(path));
+        const value = `NULLIF(${json}, 'null'::jsonb)`;
+        const sqlDirection = SQL_DIRECTIONS[direction];
+        return `${value} ${sqlDirection} NULLS LAST, "id" ${sqlDirection}`;
     }
 
     /**

@@ -22,13 +22,13 @@ const consumerQuery = () => ({
 });
 
 describe('validateMappingQuery', () => {
-    it('normalizes the Synced Records query into segments', () => {
+    it('normalizes the Synced Records query into fields and path segments', () => {
         expect(validateMappingQuery(consumerQuery())).toEqual({
             where: [
-                { field: 'mapping', segments: ['c2h'], op: 'exists' },
+                { field: 'mapping', path: ['c2h'], op: 'exists' },
                 {
                     field: 'mapping',
-                    segments: ['c2h', 'lastStatus'],
+                    path: ['c2h', 'lastStatus'],
                     op: 'in',
                     value: ['failed'],
                 },
@@ -36,21 +36,20 @@ describe('validateMappingQuery', () => {
                     anyOf: [
                         {
                             field: 'sourceId',
-                            segments: [],
                             op: 'notStartsWith',
                             value: 'clockwork:',
                         },
                         {
                             field: 'mapping',
-                            segments: ['crmId'],
+                            path: ['crmId'],
                             op: 'notExists',
                         },
                     ],
                 },
             ],
             orderBy: {
-                segments: ['c2h', 'lastAttemptAt'],
-                direction: 'DESC',
+                path: ['c2h', 'lastAttemptAt'],
+                direction: 'desc',
             },
             skip: 50,
             take: 25,
@@ -94,7 +93,7 @@ describe('validateMappingQuery', () => {
             expect(
                 validateMappingQuery(
                     withCondition({ path: 'mapping._a1.B_2', op: 'exists' })
-                ).where[0].segments
+                ).where[0].path
             ).toEqual(['_a1', 'B_2']);
         });
     });
@@ -102,6 +101,8 @@ describe('validateMappingQuery', () => {
     describe('operators', () => {
         it.each([
             [{ path: 'sourceId', op: 'exists' }],
+            [{ path: 'mapping.crmId', op: 'toString' }],
+            [{ path: 'mapping.crmId', op: '__proto__' }],
             [{ path: 'sourceId', op: 'notExists' }],
             [{ path: 'sourceId', op: 'in', value: ['a'] }],
             [{ path: 'mapping.crmId', op: 'notStartsWith', value: 'a' }],
@@ -313,16 +314,13 @@ describe('validateMappingQuery', () => {
             expect(validateMappingQuery({ take: 1 }).orderBy).toBeNull();
         });
 
-        it.each([
-            ['asc', 'ASC'],
-            ['desc', 'DESC'],
-        ])('maps direction %j to %j', (direction, expected) => {
+        it.each([['asc'], ['desc']])('keeps direction %j', (direction) => {
             expect(
                 validateMappingQuery({
                     orderBy: { path: 'mapping.a', direction },
                     take: 1,
                 }).orderBy.direction
-            ).toBe(expected);
+            ).toBe(direction);
         });
 
         it.each([

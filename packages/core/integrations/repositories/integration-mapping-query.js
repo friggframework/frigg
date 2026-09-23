@@ -11,11 +11,13 @@ const SEGMENT_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const MAX_TAKE = 500;
 const MAX_IN_VALUES = 500;
 const MAX_CONDITIONS = 20;
-const SQL_DIRECTIONS = { asc: 'ASC', desc: 'DESC' };
+const DIRECTIONS = ['asc', 'desc'];
 
-const OPS_BY_FIELD = {
-    mapping: ['exists', 'notExists', 'in'],
-    sourceId: ['notStartsWith'],
+const OPERATORS = {
+    exists: { fields: ['mapping'] },
+    notExists: { fields: ['mapping'] },
+    in: { fields: ['mapping'], value: toStringList },
+    notStartsWith: { fields: ['sourceId'], value: toPrefix },
 };
 
 function validateMappingQuery(query) {
@@ -73,12 +75,12 @@ function toOrderBy(orderBy) {
             "queryMappings: orderBy.path must be a mapping path ('mapping.<segment>...')"
         );
     }
-    if (!Object.hasOwn(SQL_DIRECTIONS, orderBy.direction)) {
+    if (!DIRECTIONS.includes(orderBy.direction)) {
         throw new Error(
             "queryMappings: orderBy.direction must be 'asc' or 'desc'"
         );
     }
-    return { segments, direction: SQL_DIRECTIONS[orderBy.direction] };
+    return { path: segments, direction: orderBy.direction };
 }
 
 function toWhereEntry(entry) {
@@ -110,45 +112,62 @@ function isPlainObject(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * `{ path: 'mapping.c2h.lastStatus', op: 'in', value: ['failed'] }` →
+ * `{ field: 'mapping', path: ['c2h', 'lastStatus'], op: 'in', value: ['failed'] }`.
+ * A `sourceId` condition has no `path`; an op without a value has no `value`.
+ */
 function toCondition({ path, op, value }) {
     const { field, segments } = parsePath(path);
-    const allowed = OPS_BY_FIELD[field];
-    if (!allowed.includes(op)) {
+    const operator = Object.hasOwn(OPERATORS, op) ? OPERATORS[op] : null;
+    if (!operator?.fields.includes(field)) {
         throw new Error(
             `queryMappings: op ${JSON.stringify(
                 op
-            )} is not allowed on '${path}' (allowed: ${allowed.join(', ')})`
+            )} is not allowed on '${path}' (allowed: ${operatorsOn(field).join(
+                ', '
+            )})`
         );
     }
+    return {
+        field,
+        ...(segments.length > 0 && { path: segments }),
+        op,
+        ...(operator.value && { value: operator.value(value, path) }),
+    };
+}
 
-    if (op === 'in') {
-        if (
-            !Array.isArray(value) ||
-            value.length === 0 ||
-            !value.every((v) => typeof v === 'string')
-        ) {
-            throw new Error(
-                `queryMappings: 'in' value must be a non-empty array of strings on '${path}'`
-            );
-        }
-        if (value.length > MAX_IN_VALUES) {
-            throw new Error(
-                `queryMappings: 'in' value must have at most ${MAX_IN_VALUES} strings on '${path}'`
-            );
-        }
-        return { field, segments, op, value };
+function operatorsOn(field) {
+    return Object.keys(OPERATORS).filter((op) =>
+        OPERATORS[op].fields.includes(field)
+    );
+}
+
+function toStringList(value, path) {
+    if (
+        !Array.isArray(value) ||
+        value.length === 0 ||
+        !value.every((v) => typeof v === 'string')
+    ) {
+        throw new Error(
+            `queryMappings: 'in' value must be a non-empty array of strings on '${path}'`
+        );
     }
-
-    if (op === 'notStartsWith') {
-        if (typeof value !== 'string' || value.length === 0) {
-            throw new Error(
-                `queryMappings: 'notStartsWith' value must be a non-empty string on '${path}'`
-            );
-        }
-        return { field, segments, op, value };
+    if (value.length > MAX_IN_VALUES) {
+        throw new Error(
+            `queryMappings: 'in' value must have at most ${MAX_IN_VALUES} strings on '${path}'`
+        );
     }
+    return value;
+}
 
-    return { field, segments, op };
+function toPrefix(value, path) {
+    if (typeof value !== 'string' || value.length === 0) {
+        throw new Error(
+            `queryMappings: 'notStartsWith' value must be a non-empty string on '${path}'`
+        );
+    }
+    return value;
 }
 
 /**
@@ -173,4 +192,4 @@ function parsePath(path) {
     return { field, segments };
 }
 
-module.exports = { SEGMENT_REGEX, validateMappingQuery };
+module.exports = { validateMappingQuery };
