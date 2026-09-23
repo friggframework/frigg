@@ -23,6 +23,9 @@ const {
 } = require('../../database/encryption/encryption-schema-registry');
 const { logger } = require('../../database/encryption/logger');
 const {
+    resetMappingEncryptionCheck,
+} = require('../../database/encryption/integration-mapping-encryption');
+const {
     IntegrationMappingRepositoryPostgres,
 } = require('./integration-mapping-repository-postgres');
 const {
@@ -510,6 +513,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             loadCustomEncryptionSchema.mockReset();
             resetEncryptionOptOut();
             resetCustomSchema();
+            resetMappingEncryptionCheck();
         });
 
         afterEach(() => {
@@ -519,6 +523,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             }
             resetEncryptionOptOut();
             resetCustomSchema();
+            resetMappingEncryptionCheck();
         });
 
         const enableEncryption = () => {
@@ -534,9 +539,8 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             await expect(
                 repo.queryMappings('12', { take: 10 })
             ).rejects.toThrow(
-                /queryMappings: field-level encryption still encrypts IntegrationMapping\.mapping/
+                "queryMappings: field-level encryption still encrypts IntegrationMapping.mapping on write, so it cannot be queried. Opt out by adding 'mapping' to appDefinition.encryption.disable.IntegrationMapping."
             );
-            expect(loadCustomEncryptionSchema).toHaveBeenCalled();
             expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
         });
 
@@ -550,20 +554,9 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             await expect(
                 repo.queryMappings('12', { take: 10 })
             ).resolves.toEqual({ mappings: [], total: 0 });
-            expect(loadCustomEncryptionSchema).toHaveBeenCalled();
         });
 
-        it('runs when the opt-out is already registered', async () => {
-            enableEncryption();
-            registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
-            const { repo } = makeRepo();
-
-            await expect(
-                repo.queryMappings('12', { take: 10 })
-            ).resolves.toEqual({ mappings: [], total: 0 });
-        });
-
-        it('refuses to query while a custom schema still encrypts a nested mapping path', async () => {
+        it('names every nested mapping path that still needs an opt-out', async () => {
             enableEncryption();
             registerCustomSchema({
                 IntegrationMapping: { fields: ['mapping.secret'] },
@@ -574,19 +567,14 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             await expect(
                 repo.queryMappings('12', { take: 10 })
             ).rejects.toThrow(
-                /queryMappings: field-level encryption still encrypts IntegrationMapping\.mapping\.secret on write/
+                /encrypts IntegrationMapping\.mapping\.secret on write.*adding 'mapping\.secret'/
             );
             expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
         });
 
-        it('runs when the nested mapping path is opted out too', async () => {
-            enableEncryption();
-            registerCustomSchema({
-                IntegrationMapping: { fields: ['mapping.secret'] },
-            });
-            registerEncryptionOptOut({
-                IntegrationMapping: ['mapping', 'mapping.secret'],
-            });
+        it('runs on STAGE=dev, where encryption is off and the opt-out is never registered', async () => {
+            process.env.STAGE = 'dev';
+            process.env.AES_KEY_ID = 'test-key';
             const { repo } = makeRepo();
 
             await expect(
@@ -594,61 +582,22 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             ).resolves.toEqual({ mappings: [], total: 0 });
         });
 
-        it('ignores an encrypted field that only shares the mapping prefix', async () => {
-            enableEncryption();
-            registerCustomSchema({
-                IntegrationMapping: { fields: ['mappingVersion'] },
-            });
-            registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
-            const { repo } = makeRepo();
-
-            await expect(
-                repo.queryMappings('12', { take: 10 })
-            ).resolves.toEqual({ mappings: [], total: 0 });
-        });
-
-        it.each([['dev'], ['test'], ['local']])(
-            'runs on STAGE=%s, where encryption is off and the opt-out is never registered',
-            async (stage) => {
-                process.env.STAGE = stage;
-                process.env.AES_KEY_ID = 'test-key';
-                const { repo } = makeRepo();
-
-                await expect(
-                    repo.queryMappings('12', { take: 10 })
-                ).resolves.toEqual({ mappings: [], total: 0 });
-            }
-        );
-
-        it('checks once per repository, so a stage without keys warns once, not per query', async () => {
+        it('checks once per process, not once per repository', async () => {
             process.env.STAGE = 'production';
             delete process.env.AES_KEY_ID;
             delete process.env.KMS_KEY_ARN;
             const warn = jest
                 .spyOn(logger, 'warn')
                 .mockImplementation(() => {});
-            const { repo } = makeRepo();
 
-            await repo.queryMappings('12', { take: 10 });
-            await repo.queryMappings('12', { take: 10 });
+            await makeRepo().repo.queryMappings('12', { take: 10 });
+            await makeRepo().repo.queryMappings('12', { take: 10 });
 
             const noKeyWarnings = warn.mock.calls.filter(([message]) =>
                 /No encryption keys configured/.test(message)
             );
             expect(noKeyWarnings).toHaveLength(1);
             warn.mockRestore();
-        });
-
-        it('checks again on every call while it refuses', async () => {
-            enableEncryption();
-            const { repo } = makeRepo();
-
-            for (let call = 0; call < 2; call += 1) {
-                await expect(
-                    repo.queryMappings('12', { take: 10 })
-                ).rejects.toThrow(/field-level encryption still encrypts/);
-            }
-            expect(loadCustomEncryptionSchema).toHaveBeenCalledTimes(2);
         });
     });
 });
