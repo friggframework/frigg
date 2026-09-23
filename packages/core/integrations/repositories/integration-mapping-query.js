@@ -111,8 +111,8 @@ function isPlainObject(value) {
 }
 
 /**
- * `{ path: 'mapping.c2h.lastStatus', op: 'in', value: ['failed'] }` →
- * `{ field: 'mapping', path: ['c2h', 'lastStatus'], op: 'in', value: ['failed'] }`.
+ * `{ path: 'mapping.outbound.status', op: 'in', value: ['failed'] }` →
+ * `{ field: 'mapping', path: ['outbound', 'status'], op: 'in', value: ['failed'] }`.
  * A `sourceId` condition has no `path`; an op without a value has no `value`.
  */
 function toCondition({ path, op, value }) {
@@ -169,7 +169,7 @@ function toPrefix(value, path) {
 }
 
 /**
- * `'mapping.c2h.lastStatus'` → `{ field: 'mapping', segments: ['c2h', 'lastStatus'] }`,
+ * `'mapping.outbound.status'` → `{ field: 'mapping', segments: ['outbound', 'status'] }`,
  * `'sourceId'` → `{ field: 'sourceId', segments: [] }`.
  */
 function parsePath(path) {

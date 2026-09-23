@@ -57,7 +57,7 @@ class IntegrationMappingRepositoryInterface {
      * loading every row. Rows have the same shape as findMappingsByIntegration.
      *
      * Paths address the `mapping` JSON by identifier-only segments
-     * (`'mapping.c2h.lastStatus'`), or the `sourceId` column. Conditions:
+     * (`'mapping.outbound.status'`), or the `sourceId` column. Conditions:
      * - `{ path: 'mapping.…', op: 'exists' | 'notExists' }` — JSON null counts
      *   as absent; notExists is the exact negation of exists.
      * - `{ path: 'mapping.…', op: 'in', value: string[] }` — matches JSON

@@ -28,192 +28,192 @@ const CIPHERTEXT =
 
 const FIXTURES = [
     [
-        'c2h-failed-a',
-        'crm:1',
+        'outbound-failed-a',
+        'record:1',
         {
-            crmId: '1',
-            c2h: {
-                lastStatus: 'failed',
-                lastAttemptAt: '2026-01-03T00:00:00.000Z',
+            externalId: '1',
+            outbound: {
+                status: 'failed',
+                attemptedAt: '2026-01-03T00:00:00.000Z',
             },
-            changeLog: [{ at: 1 }],
-            lastCanonical: { name: 'a' },
+            history: [{ at: 1 }],
+            snapshot: { name: 'a' },
         },
     ],
     [
-        'c2h-failed-b',
-        'crm:2',
+        'outbound-failed-b',
+        'record:2',
         {
-            crmId: '2',
-            c2h: {
-                lastStatus: 'failed',
-                lastAttemptAt: '2026-01-01T00:00:00.000Z',
+            externalId: '2',
+            outbound: {
+                status: 'failed',
+                attemptedAt: '2026-01-01T00:00:00.000Z',
             },
-            changeLog: ['x'],
+            history: ['x'],
         },
     ],
     [
-        'c2h-skipped',
-        'crm:3',
+        'outbound-skipped',
+        'record:3',
         {
-            crmId: '3',
-            c2h: {
-                lastStatus: 'skipped',
-                lastAttemptAt: '2026-01-02T00:00:00.000Z',
-            },
-        },
-    ],
-    [
-        'c2h-synced-tie',
-        'crm:4',
-        {
-            crmId: '4',
-            c2h: {
-                lastStatus: 'synced',
-                lastAttemptAt: '2026-01-02T00:00:00.000Z',
+            externalId: '3',
+            outbound: {
+                status: 'skipped',
+                attemptedAt: '2026-01-02T00:00:00.000Z',
             },
         },
     ],
     [
-        'reverse-no-crm',
-        'reverse:5',
+        'outbound-synced-tie',
+        'record:4',
         {
-            h2c: {
-                lastStatus: 'failed',
-                lastAttemptAt: '2026-01-05T00:00:00.000Z',
+            externalId: '4',
+            outbound: {
+                status: 'synced',
+                attemptedAt: '2026-01-02T00:00:00.000Z',
             },
         },
     ],
     [
-        'reverse-with-crm',
-        'reverse:6',
+        'alias-without-external-id',
+        'alias:5',
         {
-            crmId: '6',
-            c2h: {
-                lastStatus: 'failed',
-                lastAttemptAt: '2026-01-06T00:00:00.000Z',
+            inbound: {
+                status: 'failed',
+                attemptedAt: '2026-01-05T00:00:00.000Z',
             },
-            h2c: { lastStatus: 'synced' },
+        },
+    ],
+    [
+        'alias-with-external-id',
+        'alias:6',
+        {
+            externalId: '6',
+            outbound: {
+                status: 'failed',
+                attemptedAt: '2026-01-06T00:00:00.000Z',
+            },
+            inbound: { status: 'synced' },
         },
     ],
     [
         'null-source',
         null,
         {
-            crmId: '7',
-            c2h: { lastStatus: 'failed' },
-            h2c: { lastStatus: 'failed', lastAttemptAt: 7 },
+            externalId: '7',
+            outbound: { status: 'failed' },
+            inbound: { status: 'failed', attemptedAt: 7 },
         },
     ],
     [
         'status-null',
-        'crm:8',
-        { c2h: { lastStatus: null, lastAttemptAt: null } },
+        'record:8',
+        { outbound: { status: null, attemptedAt: null } },
     ],
     [
         'status-array',
-        'crm:9',
-        { c2h: { lastStatus: ['failed'], lastAttemptAt: [1, 2] } },
+        'record:9',
+        { outbound: { status: ['failed'], attemptedAt: [1, 2] } },
     ],
     [
-        'c2h-array',
-        'crm:10',
+        'outbound-array',
+        'record:10',
         {
-            c2h: [
+            outbound: [
                 {
-                    lastStatus: 'failed',
-                    lastAttemptAt: '2026-01-09T00:00:00.000Z',
+                    status: 'failed',
+                    attemptedAt: '2026-01-09T00:00:00.000Z',
                 },
             ],
         },
     ],
-    ['c2h-string', 'crm:11', { c2h: 'failed' }],
+    ['outbound-string', 'record:11', { outbound: 'failed' }],
     [
-        'c2h-null',
-        'crm:12',
-        { c2h: null, h2c: { lastStatus: 'skipped', lastAttemptAt: 3 } },
+        'outbound-null',
+        'record:12',
+        { outbound: null, inbound: { status: 'skipped', attemptedAt: 3 } },
     ],
     [
         'attempt-number',
-        'crm:13',
-        { c2h: { lastStatus: 'failed', lastAttemptAt: 42 } },
+        'record:13',
+        { outbound: { status: 'failed', attemptedAt: 42 } },
     ],
     [
         'attempt-bool',
-        'crm:14',
-        { c2h: { lastStatus: 'skipped', lastAttemptAt: false } },
+        'record:14',
+        { outbound: { status: 'skipped', attemptedAt: false } },
     ],
     [
         'attempt-object',
-        'crm:15',
-        { c2h: { lastStatus: 'failed', lastAttemptAt: { at: 1 } } },
+        'record:15',
+        { outbound: { status: 'failed', attemptedAt: { at: 1 } } },
     ],
     [
         'status-dollar',
-        'crm:16',
+        'record:16',
         {
-            c2h: {
-                lastStatus: '$failed',
-                lastAttemptAt: '2026-01-04T00:00:00.000Z',
+            outbound: {
+                status: '$failed',
+                attemptedAt: '2026-01-04T00:00:00.000Z',
             },
         },
     ],
-    ['prefix-dot', 'a.b:17', { c2h: { lastStatus: 'failed' } }],
-    ['prefix-dot-lookalike', 'aXb:18', { c2h: { lastStatus: 'failed' } }],
+    ['prefix-dot', 'a.b:17', { outbound: { status: 'failed' } }],
+    ['prefix-dot-lookalike', 'aXb:18', { outbound: { status: 'failed' } }],
     [
         'prefix-group',
         '(x)+:19',
-        { h2c: { lastStatus: 'failed', lastAttemptAt: 1 } },
+        { inbound: { status: 'failed', attemptedAt: 1 } },
     ],
-    ['prefix-anchors', '^$:20', { h2c: { lastStatus: 'skipped' } }],
-    ['prefix-class', '[x]:21', { c2h: { lastStatus: 'skipped' } }],
-    ['prefix-backslash', '\\:22', { c2h: { lastStatus: 'synced' } }],
+    ['prefix-anchors', '^$:20', { inbound: { status: 'skipped' } }],
+    ['prefix-class', '[x]:21', { outbound: { status: 'skipped' } }],
+    ['prefix-backslash', '\\:22', { outbound: { status: 'synced' } }],
     [
         'prefix-wildcard',
         '.*:23',
-        { h2c: { lastStatus: 'synced', lastAttemptAt: 2 } },
+        { inbound: { status: 'synced', attemptedAt: 2 } },
     ],
     [
         'prefix-unicode',
         'é😀:24',
         {
-            c2h: {
-                lastStatus: 'failed',
-                lastAttemptAt: '2026-01-07T00:00:00.000Z',
+            outbound: {
+                status: 'failed',
+                attemptedAt: '2026-01-07T00:00:00.000Z',
             },
         },
     ],
-    ['mapping-ciphertext', 'crm:25', CIPHERTEXT],
-    ['mapping-array', 'crm:26', [{ c2h: { lastStatus: 'failed' } }]],
-    ['mapping-empty', 'crm:27', {}],
+    ['mapping-ciphertext', 'record:25', CIPHERTEXT],
+    ['mapping-array', 'record:26', [{ outbound: { status: 'failed' } }]],
+    ['mapping-empty', 'record:27', {}],
 ].map(([key, sourceId, mapping]) => ({ key, sourceId, mapping }));
 
 const OTHER_INTEGRATION_FIXTURES = [
     {
         key: 'other-failed',
-        sourceId: 'crm:1',
+        sourceId: 'record:1',
         mapping: {
-            crmId: '1',
-            c2h: {
-                lastStatus: 'failed',
-                lastAttemptAt: '2026-01-01T00:00:00.000Z',
+            externalId: '1',
+            outbound: {
+                status: 'failed',
+                attemptedAt: '2026-01-01T00:00:00.000Z',
             },
         },
     },
     {
         key: 'other-null-source',
         sourceId: null,
-        mapping: { h2c: { lastStatus: 'failed' } },
+        mapping: { inbound: { status: 'failed' } },
     },
 ];
 
-const REVERSE_GROUP = {
+const ALIAS_GROUP = {
     anyOf: [
-        { path: 'sourceId', op: 'notStartsWith', value: 'reverse:' },
-        { path: 'mapping.crmId', op: 'notExists' },
+        { path: 'sourceId', op: 'notStartsWith', value: 'alias:' },
+        { path: 'mapping.externalId', op: 'notExists' },
     ],
 };
-const OMIT = ['changeLog', 'lastCanonical'];
+const OMIT = ['history', 'snapshot'];
 const PAGES = [
     [0, 1],
     [0, 3],
@@ -226,7 +226,7 @@ const PAGES = [
 
 function statusQueries() {
     const queries = [];
-    for (const direction of ['c2h', 'h2c']) {
+    for (const direction of ['outbound', 'inbound']) {
         for (const statuses of [
             null,
             ['failed'],
@@ -234,7 +234,7 @@ function statusQueries() {
             ['synced'],
             ['$failed'],
         ]) {
-            for (const reverse of [false, true]) {
+            for (const withAlias of [false, true]) {
                 for (const sort of [undefined, 'asc', 'desc']) {
                     for (const [skip, take] of PAGES) {
                         queries.push({
@@ -243,17 +243,17 @@ function statusQueries() {
                                 ...(statuses
                                     ? [
                                           {
-                                              path: `mapping.${direction}.lastStatus`,
+                                              path: `mapping.${direction}.status`,
                                               op: 'in',
                                               value: statuses,
                                           },
                                       ]
                                     : []),
-                                ...(reverse ? [REVERSE_GROUP] : []),
+                                ...(withAlias ? [ALIAS_GROUP] : []),
                             ],
                             ...(sort && {
                                 orderBy: {
-                                    path: `mapping.${direction}.lastAttemptAt`,
+                                    path: `mapping.${direction}.attemptedAt`,
                                     direction: sort,
                                 },
                             }),
@@ -271,7 +271,7 @@ function statusQueries() {
 
 function edgeQueries() {
     const prefixes = [
-        'reverse:',
+        'alias:',
         'a.b',
         '(x)+',
         '^$',
@@ -279,16 +279,16 @@ function edgeQueries() {
         '\\',
         '.*',
         'é😀',
-        'crm:1',
+        'record:1',
     ];
     const paths = [
-        'mapping.c2h',
-        'mapping.c2h.lastStatus',
-        'mapping.c2h.lastAttemptAt',
-        'mapping.c2h.lastAttemptAt.at',
-        'mapping.c2h.lastStatus.x',
-        'mapping.crmId',
-        'mapping.h2c.lastAttemptAt',
+        'mapping.outbound',
+        'mapping.outbound.status',
+        'mapping.outbound.attemptedAt',
+        'mapping.outbound.attemptedAt.at',
+        'mapping.outbound.status.x',
+        'mapping.externalId',
+        'mapping.inbound.attemptedAt',
     ];
     return [
         ...prefixes.map((value) => ({
@@ -307,10 +307,10 @@ function edgeQueries() {
         ]),
         ...['asc', 'desc'].flatMap((direction) =>
             [
-                'mapping.crmId',
-                'mapping.c2h.lastAttemptAt',
-                'mapping.h2c.lastAttemptAt',
-                'mapping.c2h.lastAttemptAt.at',
+                'mapping.externalId',
+                'mapping.outbound.attemptedAt',
+                'mapping.inbound.attemptedAt',
+                'mapping.outbound.attemptedAt.at',
             ].map((path) => ({
                 orderBy: { path, direction },
                 take: 500,
@@ -321,12 +321,12 @@ function edgeQueries() {
                 {
                     anyOf: [
                         {
-                            path: 'mapping.c2h.lastStatus',
+                            path: 'mapping.outbound.status',
                             op: 'in',
                             value: ['synced'],
                         },
                         {
-                            path: 'mapping.h2c.lastStatus',
+                            path: 'mapping.inbound.status',
                             op: 'in',
                             value: ['synced'],
                         },
@@ -335,7 +335,11 @@ function edgeQueries() {
             ],
             take: 500,
         },
-        { where: [], take: 500, omit: ['c2h', 'h2c', 'crmId', 'missing'] },
+        {
+            where: [],
+            take: 500,
+            omit: ['outbound', 'inbound', 'externalId', 'missing'],
+        },
     ];
 }
 

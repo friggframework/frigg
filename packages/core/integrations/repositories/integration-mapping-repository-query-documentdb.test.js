@@ -48,8 +48,8 @@ function makeRepo({ docs = [], total = docs.length } = {}) {
 const storedDoc = (overrides = {}) => ({
     _id: '65a0000000000000000000b1',
     integrationId: INTEGRATION_ID,
-    sourceId: 'crm:1',
-    mapping: { crmId: '1' },
+    sourceId: 'record:1',
+    mapping: { externalId: '1' },
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
     ...overrides,
@@ -93,8 +93,8 @@ describe('IntegrationMappingRepositoryDocumentDB.queryMappings', () => {
                 {
                     id: '65a0000000000000000000b1',
                     integrationId: INTEGRATION_ID,
-                    sourceId: 'crm:1',
-                    mapping: { crmId: '1' },
+                    sourceId: 'record:1',
+                    mapping: { externalId: '1' },
                     createdAt: '2026-01-01T00:00:00.000Z',
                     updatedAt: '2026-01-02T00:00:00.000Z',
                 },
@@ -108,23 +108,30 @@ describe('IntegrationMappingRepositoryDocumentDB.queryMappings', () => {
 
         await repo.queryMappings(INTEGRATION_ID, {
             where: [
-                { path: 'mapping.c2h', op: 'exists' },
-                { path: 'mapping.c2h.lastStatus', op: 'in', value: ['failed'] },
+                { path: 'mapping.outbound', op: 'exists' },
+                {
+                    path: 'mapping.outbound.status',
+                    op: 'in',
+                    value: ['failed'],
+                },
                 {
                     anyOf: [
                         {
                             path: 'sourceId',
                             op: 'notStartsWith',
-                            value: 'reverse:',
+                            value: 'alias:',
                         },
-                        { path: 'mapping.crmId', op: 'notExists' },
+                        { path: 'mapping.externalId', op: 'notExists' },
                     ],
                 },
             ],
-            orderBy: { path: 'mapping.c2h.lastAttemptAt', direction: 'desc' },
+            orderBy: {
+                path: 'mapping.outbound.attemptedAt',
+                direction: 'desc',
+            },
             skip: 25,
             take: 25,
-            omit: ['changeLog', 'lastCanonical', 'lastExtra'],
+            omit: ['history', 'snapshot', 'extras'],
         });
 
         const stages = page().pipeline.map((stage) => Object.keys(stage)[0]);
@@ -149,9 +156,9 @@ describe('IntegrationMappingRepositoryDocumentDB.queryMappings', () => {
         expect(page().pipeline[6]).toEqual(sort);
         expect(page().pipeline[2]).toEqual({
             $project: {
-                'mapping.changeLog': 0,
-                'mapping.lastCanonical': 0,
-                'mapping.lastExtra': 0,
+                'mapping.history': 0,
+                'mapping.snapshot': 0,
+                'mapping.extras': 0,
             },
         });
         expect(count().pipeline).toEqual([
@@ -175,7 +182,7 @@ describe('IntegrationMappingRepositoryDocumentDB.queryMappings', () => {
         repo.encryptionService = {
             decryptFields: jest.fn(async (_, doc) => ({
                 ...doc,
-                mapping: { crmId: 'decrypted' },
+                mapping: { externalId: 'decrypted' },
             })),
         };
 
@@ -187,7 +194,7 @@ describe('IntegrationMappingRepositoryDocumentDB.queryMappings', () => {
             'IntegrationMapping',
             storedDoc()
         );
-        expect(mappings[0].mapping).toEqual({ crmId: 'decrypted' });
+        expect(mappings[0].mapping).toEqual({ externalId: 'decrypted' });
     });
 
     describe('total', () => {

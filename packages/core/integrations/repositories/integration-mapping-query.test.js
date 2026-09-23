@@ -2,33 +2,33 @@ const { validateMappingQuery } = require('./integration-mapping-query');
 
 const consumerQuery = () => ({
     where: [
-        { path: 'mapping.c2h', op: 'exists' },
-        { path: 'mapping.c2h.lastStatus', op: 'in', value: ['failed'] },
+        { path: 'mapping.outbound', op: 'exists' },
+        { path: 'mapping.outbound.status', op: 'in', value: ['failed'] },
         {
             anyOf: [
                 {
                     path: 'sourceId',
                     op: 'notStartsWith',
-                    value: 'reverse:',
+                    value: 'alias:',
                 },
-                { path: 'mapping.crmId', op: 'notExists' },
+                { path: 'mapping.externalId', op: 'notExists' },
             ],
         },
     ],
-    orderBy: { path: 'mapping.c2h.lastAttemptAt', direction: 'desc' },
+    orderBy: { path: 'mapping.outbound.attemptedAt', direction: 'desc' },
     skip: 50,
     take: 25,
-    omit: ['changeLog', 'lastCanonical', 'lastExtra'],
+    omit: ['history', 'snapshot', 'extras'],
 });
 
 describe('validateMappingQuery', () => {
     it('normalizes a filtered, sorted page query into fields and path segments', () => {
         expect(validateMappingQuery(consumerQuery())).toEqual({
             where: [
-                { field: 'mapping', path: ['c2h'], op: 'exists' },
+                { field: 'mapping', path: ['outbound'], op: 'exists' },
                 {
                     field: 'mapping',
-                    path: ['c2h', 'lastStatus'],
+                    path: ['outbound', 'status'],
                     op: 'in',
                     value: ['failed'],
                 },
@@ -37,23 +37,23 @@ describe('validateMappingQuery', () => {
                         {
                             field: 'sourceId',
                             op: 'notStartsWith',
-                            value: 'reverse:',
+                            value: 'alias:',
                         },
                         {
                             field: 'mapping',
-                            path: ['crmId'],
+                            path: ['externalId'],
                             op: 'notExists',
                         },
                     ],
                 },
             ],
             orderBy: {
-                path: ['c2h', 'lastAttemptAt'],
+                path: ['outbound', 'attemptedAt'],
                 direction: 'desc',
             },
             skip: 50,
             take: 25,
-            omit: ['changeLog', 'lastCanonical', 'lastExtra'],
+            omit: ['history', 'snapshot', 'extras'],
         });
     });
 
@@ -61,19 +61,19 @@ describe('validateMappingQuery', () => {
 
     describe('paths', () => {
         it.each([
-            'mapping.c2h$',
-            "mapping.c2h'",
-            'mapping.c2h"',
+            'mapping.outbound$',
+            "mapping.outbound'",
+            'mapping.outbound"',
             'mapping.1st',
             'mapping.a-b',
             'mapping.a b',
-            'mapping.c2h}',
-            'mapping.c2h,x',
-            'mapping..c2h',
+            'mapping.outbound}',
+            'mapping.outbound,x',
+            'mapping..outbound',
             'mapping.',
             'mapping',
-            'mapping.c2h[0]',
-            'context.c2h',
+            'mapping.outbound[0]',
+            'context.outbound',
             'sourceId.x',
             'id',
             '',
@@ -101,13 +101,13 @@ describe('validateMappingQuery', () => {
     describe('operators', () => {
         it.each([
             [{ path: 'sourceId', op: 'exists' }],
-            [{ path: 'mapping.crmId', op: 'toString' }],
-            [{ path: 'mapping.crmId', op: '__proto__' }],
+            [{ path: 'mapping.externalId', op: 'toString' }],
+            [{ path: 'mapping.externalId', op: '__proto__' }],
             [{ path: 'sourceId', op: 'notExists' }],
             [{ path: 'sourceId', op: 'in', value: ['a'] }],
-            [{ path: 'mapping.crmId', op: 'notStartsWith', value: 'a' }],
-            [{ path: 'mapping.crmId', op: 'equals', value: 'a' }],
-            [{ path: 'mapping.crmId' }],
+            [{ path: 'mapping.externalId', op: 'notStartsWith', value: 'a' }],
+            [{ path: 'mapping.externalId', op: 'equals', value: 'a' }],
+            [{ path: 'mapping.externalId' }],
         ])('rejects an op that does not fit the path: %j', (condition) => {
             expect(() =>
                 validateMappingQuery(withCondition(condition))
@@ -120,7 +120,7 @@ describe('validateMappingQuery', () => {
                 expect(() =>
                     validateMappingQuery(
                         withCondition({
-                            path: 'mapping.c2h.lastStatus',
+                            path: 'mapping.outbound.status',
                             op: 'in',
                             value,
                         })
@@ -132,7 +132,7 @@ describe('validateMappingQuery', () => {
         );
 
         const inCondition = (count) => ({
-            path: 'mapping.c2h.lastStatus',
+            path: 'mapping.outbound.status',
             op: 'in',
             value: Array.from({ length: count }, (_, i) => `status${i}`),
         });
@@ -148,11 +148,11 @@ describe('validateMappingQuery', () => {
             expect(() =>
                 validateMappingQuery(withCondition(inCondition(501)))
             ).toThrow(
-                /queryMappings: 'in' value must have at most 500 strings on 'mapping\.c2h\.lastStatus'/
+                /queryMappings: 'in' value must have at most 500 strings on 'mapping\.outbound\.status'/
             );
         });
 
-        it.each([[undefined], [''], [7], [['reverse:']]])(
+        it.each([[undefined], [''], [7], [['alias:']]])(
             'rejects notStartsWith with value %j',
             (value) => {
                 expect(() =>
@@ -184,7 +184,7 @@ describe('validateMappingQuery', () => {
             }
         );
 
-        it.each([[{}], ['mapping.c2h'], [{ path: 'mapping.c2h' }]])(
+        it.each([[{}], ['mapping.outbound'], [{ path: 'mapping.outbound' }]])(
             'rejects a where that is not an array: %j',
             (where) => {
                 expect(() => validateMappingQuery({ where, take: 10 })).toThrow(
@@ -195,8 +195,8 @@ describe('validateMappingQuery', () => {
 
         it.each([
             [null],
-            ['mapping.c2h'],
-            [[{ path: 'mapping.c2h', op: 'exists' }]],
+            ['mapping.outbound'],
+            [[{ path: 'mapping.outbound', op: 'exists' }]],
         ])('rejects a where entry of %j', (entry) => {
             expect(() =>
                 validateMappingQuery({ where: [entry], take: 10 })
@@ -300,7 +300,7 @@ describe('validateMappingQuery', () => {
             [['']],
             [[7]],
             [[null]],
-            ['changeLog'],
+            ['history'],
             [{}],
         ])('rejects omit %j', (omit) => {
             expect(() => validateMappingQuery({ omit, take: 1 })).toThrow(

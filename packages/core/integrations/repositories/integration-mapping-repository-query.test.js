@@ -66,8 +66,8 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                 {
                     id: 5,
                     integrationId: 12,
-                    sourceId: 'hubspot:1',
-                    mapping: { crmId: '1' },
+                    sourceId: 'source:1',
+                    mapping: { externalId: '1' },
                     createdAt,
                     updatedAt,
                 },
@@ -85,8 +85,8 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                 {
                     id: '5',
                     integrationId: '12',
-                    sourceId: 'hubspot:1',
-                    mapping: { crmId: '1' },
+                    sourceId: 'source:1',
+                    mapping: { externalId: '1' },
                     createdAt,
                     updatedAt,
                 },
@@ -107,8 +107,8 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
         const row = (id) => ({
             id,
             integrationId: 12,
-            sourceId: `hubspot:${id}`,
-            mapping: { crmId: String(id) },
+            sourceId: `source:${id}`,
+            mapping: { externalId: String(id) },
             createdAt: new Date('2026-01-01T00:00:00Z'),
             updatedAt: new Date('2026-01-01T00:00:00Z'),
         });
@@ -163,29 +163,29 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             const { repo, page } = makeRepo();
 
             await repo.queryMappings('12', {
-                where: [{ path: 'mapping.c2h', op: 'exists' }],
+                where: [{ path: 'mapping.outbound', op: 'exists' }],
                 take: 10,
             });
 
             expect(page().sql).toContain(
                 `COALESCE(jsonb_typeof("mapping" #> $2::text[]), 'null') <> 'null'`
             );
-            expect(page().params[1]).toEqual(['c2h']);
-            expect(page().sql).not.toContain('c2h');
+            expect(page().params[1]).toEqual(['outbound']);
+            expect(page().sql).not.toContain('outbound');
         });
 
         it('notExists is the exact negation of exists (missing or JSON null)', async () => {
             const { repo, page } = makeRepo();
 
             await repo.queryMappings('12', {
-                where: [{ path: 'mapping.crmId', op: 'notExists' }],
+                where: [{ path: 'mapping.externalId', op: 'notExists' }],
                 take: 10,
             });
 
             expect(page().sql).toContain(
                 `COALESCE(jsonb_typeof("mapping" #> $2::text[]), 'null') = 'null'`
             );
-            expect(page().params[1]).toEqual(['crmId']);
+            expect(page().params[1]).toEqual(['externalId']);
         });
 
         it('in matches JSON strings against a bound text[] of values', async () => {
@@ -194,7 +194,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             await repo.queryMappings('12', {
                 where: [
                     {
-                        path: 'mapping.c2h.lastStatus',
+                        path: 'mapping.outbound.status',
                         op: 'in',
                         value: ['failed', 'skipped'],
                     },
@@ -206,10 +206,10 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                 `(jsonb_typeof("mapping" #> $2::text[]) = 'string' AND "mapping" #>> $2::text[] = ANY($3::text[]))`
             );
             expect(page().params.slice(1, 3)).toEqual([
-                ['c2h', 'lastStatus'],
+                ['outbound', 'status'],
                 ['failed', 'skipped'],
             ]);
-            expect(page().sql).not.toMatch(/lastStatus|failed|skipped/);
+            expect(page().sql).not.toMatch(/status|failed|skipped/);
         });
 
         it('notStartsWith binds the prefix and keeps rows with a NULL sourceId', async () => {
@@ -220,7 +220,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                     {
                         path: 'sourceId',
                         op: 'notStartsWith',
-                        value: "reverse:'%_",
+                        value: "alias:'%_",
                     },
                 ],
                 take: 10,
@@ -229,8 +229,8 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             expect(page().sql).toContain(
                 `("sourceId" IS NULL OR NOT starts_with("sourceId", $2::text))`
             );
-            expect(page().params[1]).toBe("reverse:'%_");
-            expect(page().sql).not.toContain('reverse');
+            expect(page().params[1]).toBe("alias:'%_");
+            expect(page().sql).not.toContain('alias');
         });
 
         it('ANDs top-level conditions and ORs an anyOf group inside parentheses', async () => {
@@ -238,15 +238,15 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
 
             await repo.queryMappings('12', {
                 where: [
-                    { path: 'mapping.c2h', op: 'exists' },
+                    { path: 'mapping.outbound', op: 'exists' },
                     {
                         anyOf: [
                             {
                                 path: 'sourceId',
                                 op: 'notStartsWith',
-                                value: 'reverse:',
+                                value: 'alias:',
                             },
-                            { path: 'mapping.crmId', op: 'notExists' },
+                            { path: 'mapping.externalId', op: 'notExists' },
                         ],
                     },
                 ],
@@ -262,9 +262,9 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             );
             expect(page().params.slice(0, 4)).toEqual([
                 12,
-                ['c2h'],
-                'reverse:',
-                ['crmId'],
+                ['outbound'],
+                'alias:',
+                ['externalId'],
             ]);
         });
     });
@@ -279,15 +279,18 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                 const { repo, page } = makeRepo();
 
                 await repo.queryMappings('12', {
-                    orderBy: { path: 'mapping.c2h.lastAttemptAt', direction },
+                    orderBy: {
+                        path: 'mapping.outbound.attemptedAt',
+                        direction,
+                    },
                     take: 10,
                 });
 
                 expect(normalize(page().sql)).toContain(
                     `ORDER BY NULLIF("mapping" #> $2::text[], 'null'::jsonb) ${sql} NULLS LAST, "id" ${sql}`
                 );
-                expect(page().params[1]).toEqual(['c2h', 'lastAttemptAt']);
-                expect(page().sql).not.toContain('lastAttemptAt');
+                expect(page().params[1]).toEqual(['outbound', 'attemptedAt']);
+                expect(page().sql).not.toContain('attemptedAt');
             }
         );
 
@@ -304,7 +307,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
 
             await repo.queryMappings('12', {
                 orderBy: {
-                    path: 'mapping.c2h.lastAttemptAt',
+                    path: 'mapping.outbound.attemptedAt',
                     direction: 'desc',
                 },
                 take: 10,
@@ -342,15 +345,15 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             const { repo, page } = makeRepo();
 
             await repo.queryMappings('12', {
-                omit: ['changeLog', 'lastCanonical'],
+                omit: ['history', 'snapshot'],
                 take: 10,
             });
 
             expect(normalize(page().sql)).toContain(
                 `SELECT "id", "integrationId", "sourceId", "mapping" - $2::text[] AS "mapping", "createdAt", "updatedAt", (SELECT COUNT(*)`
             );
-            expect(page().params[1]).toEqual(['changeLog', 'lastCanonical']);
-            expect(page().sql).not.toContain('changeLog');
+            expect(page().params[1]).toEqual(['history', 'snapshot']);
+            expect(page().sql).not.toContain('history');
         });
 
         it('selects the whole mapping when nothing is omitted', async () => {
@@ -365,31 +368,38 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
     });
 
     describe('a status-filtered page query', () => {
-        const syncedRecordsQuery = {
+        const pageQuery = {
             where: [
-                { path: 'mapping.c2h', op: 'exists' },
-                { path: 'mapping.c2h.lastStatus', op: 'in', value: ['failed'] },
+                { path: 'mapping.outbound', op: 'exists' },
+                {
+                    path: 'mapping.outbound.status',
+                    op: 'in',
+                    value: ['failed'],
+                },
                 {
                     anyOf: [
                         {
                             path: 'sourceId',
                             op: 'notStartsWith',
-                            value: 'reverse:',
+                            value: 'alias:',
                         },
-                        { path: 'mapping.crmId', op: 'notExists' },
+                        { path: 'mapping.externalId', op: 'notExists' },
                     ],
                 },
             ],
-            orderBy: { path: 'mapping.c2h.lastAttemptAt', direction: 'desc' },
+            orderBy: {
+                path: 'mapping.outbound.attemptedAt',
+                direction: 'desc',
+            },
             skip: 25,
             take: 25,
-            omit: ['changeLog', 'lastCanonical', 'lastExtra'],
+            omit: ['history', 'snapshot', 'extras'],
         };
 
         it('filters the table once, in the matched CTE', async () => {
             const { repo, page } = makeRepo();
 
-            await repo.queryMappings('12', syncedRecordsQuery);
+            await repo.queryMappings('12', pageQuery);
 
             const sql = normalize(page().sql);
             expect(sql).toMatch(
@@ -399,13 +409,13 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             expect(sql.match(/WHERE/g)).toHaveLength(1);
             expect(page().params).toEqual([
                 12,
-                ['c2h'],
-                ['c2h', 'lastStatus'],
+                ['outbound'],
+                ['outbound', 'status'],
                 ['failed'],
-                'reverse:',
-                ['crmId'],
-                ['c2h', 'lastAttemptAt'],
-                ['changeLog', 'lastCanonical', 'lastExtra'],
+                'alias:',
+                ['externalId'],
+                ['outbound', 'attemptedAt'],
+                ['history', 'snapshot', 'extras'],
                 25,
                 25,
             ]);
@@ -414,10 +424,10 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
         it('never puts a path segment or value into the SQL text', async () => {
             const { repo, page } = makeRepo();
 
-            await repo.queryMappings('12', syncedRecordsQuery);
+            await repo.queryMappings('12', pageQuery);
 
             expect(page().sql).not.toMatch(
-                /c2h|lastStatus|failed|reverse|crmId|lastAttemptAt|changeLog|lastCanonical|lastExtra/
+                /outbound|status|failed|alias|externalId|attemptedAt|history|snapshot|extras/
             );
             expect(page().sql).not.toMatch(/'\{/);
         });
@@ -429,7 +439,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
 
             await expect(
                 repo.queryMappings('12', {
-                    where: [{ path: "mapping.c2h'", op: 'exists' }],
+                    where: [{ path: "mapping.outbound'", op: 'exists' }],
                     take: 10,
                 })
             ).rejects.toThrow(/queryMappings: invalid path/);
@@ -441,7 +451,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
                 'more than 500 in values',
                 [
                     {
-                        path: 'mapping.c2h.lastStatus',
+                        path: 'mapping.outbound.status',
                         op: 'in',
                         value: Array.from({ length: 501 }, (_, i) => `s${i}`),
                     },

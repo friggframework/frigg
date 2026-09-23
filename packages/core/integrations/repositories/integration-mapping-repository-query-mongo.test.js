@@ -43,8 +43,8 @@ function makeRepo({ mappings = [], total = mappings.length } = {}) {
 const rawDoc = (overrides = {}) => ({
     _id: { $oid: '65a0000000000000000000b1' },
     integrationId: { $oid: INTEGRATION_ID },
-    sourceId: 'crm:1',
-    mapping: { crmId: '1' },
+    sourceId: 'record:1',
+    mapping: { externalId: '1' },
     createdAt: { $date: '2026-01-01T00:00:00.000Z' },
     updatedAt: { $date: '2026-01-02T00:00:00.000Z' },
     ...overrides,
@@ -83,8 +83,8 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
                 {
                     id: '65a0000000000000000000b1',
                     integrationId: INTEGRATION_ID,
-                    sourceId: 'crm:1',
-                    mapping: { crmId: '1' },
+                    sourceId: 'record:1',
+                    mapping: { externalId: '1' },
                     createdAt: new Date('2026-01-01T00:00:00.000Z'),
                     updatedAt: new Date('2026-01-02T00:00:00.000Z'),
                 },
@@ -94,37 +94,44 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
     });
 
     describe('a status-filtered page query', () => {
-        const syncedRecordsQuery = {
+        const pageQuery = {
             where: [
-                { path: 'mapping.c2h', op: 'exists' },
-                { path: 'mapping.c2h.lastStatus', op: 'in', value: ['failed'] },
+                { path: 'mapping.outbound', op: 'exists' },
+                {
+                    path: 'mapping.outbound.status',
+                    op: 'in',
+                    value: ['failed'],
+                },
                 {
                     anyOf: [
                         {
                             path: 'sourceId',
                             op: 'notStartsWith',
-                            value: 'reverse:',
+                            value: 'alias:',
                         },
-                        { path: 'mapping.crmId', op: 'notExists' },
+                        { path: 'mapping.externalId', op: 'notExists' },
                     ],
                 },
             ],
-            orderBy: { path: 'mapping.c2h.lastAttemptAt', direction: 'desc' },
+            orderBy: {
+                path: 'mapping.outbound.attemptedAt',
+                direction: 'desc',
+            },
             skip: 25,
             take: 25,
-            omit: ['changeLog', 'lastCanonical', 'lastExtra'],
+            omit: ['history', 'snapshot', 'extras'],
         };
         const LAST_STATUS = {
             $cond: [
-                { $eq: [{ $type: '$mapping.c2h' }, 'object'] },
-                '$mapping.c2h.lastStatus',
+                { $eq: [{ $type: '$mapping.outbound' }, 'object'] },
+                '$mapping.outbound.status',
                 null,
             ],
         };
         const LAST_ATTEMPT_AT = {
             $cond: [
-                { $eq: [{ $type: '$mapping.c2h' }, 'object'] },
-                '$mapping.c2h.lastAttemptAt',
+                { $eq: [{ $type: '$mapping.outbound' }, 'object'] },
+                '$mapping.outbound.attemptedAt',
                 null,
             ],
         };
@@ -132,7 +139,7 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
         it('filters inside $expr, resolving a nested path only through objects', async () => {
             const { repo, command } = makeRepo();
 
-            await repo.queryMappings(INTEGRATION_ID, syncedRecordsQuery);
+            await repo.queryMappings(INTEGRATION_ID, pageQuery);
 
             expect(command().pipeline[0]).toEqual({
                 $match: {
@@ -142,7 +149,7 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
                             { $eq: [{ $type: '$mapping' }, 'object'] },
                             {
                                 $ne: [
-                                    { $ifNull: ['$mapping.c2h', null] },
+                                    { $ifNull: ['$mapping.outbound', null] },
                                     null,
                                 ],
                             },
@@ -173,10 +180,10 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
                                                         $substrCP: [
                                                             '$sourceId',
                                                             0,
-                                                            8,
+                                                            6,
                                                         ],
                                                     },
-                                                    { $literal: 'reverse:' },
+                                                    { $literal: 'alias:' },
                                                 ],
                                             },
                                             true,
@@ -186,7 +193,7 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
                                         $eq: [
                                             {
                                                 $ifNull: [
-                                                    '$mapping.crmId',
+                                                    '$mapping.externalId',
                                                     null,
                                                 ],
                                             },
@@ -204,7 +211,7 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
         it('sorts by a type-ranked key with nulls last, omits keys before the sort, then skips and limits', async () => {
             const { repo, command } = makeRepo();
 
-            await repo.queryMappings(INTEGRATION_ID, syncedRecordsQuery);
+            await repo.queryMappings(INTEGRATION_ID, pageQuery);
 
             expect(command().pipeline[1].$facet.mappings).toEqual([
                 {
@@ -312,9 +319,9 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
                 },
                 {
                     $project: {
-                        'mapping.changeLog': 0,
-                        'mapping.lastCanonical': 0,
-                        'mapping.lastExtra': 0,
+                        'mapping.history': 0,
+                        'mapping.snapshot': 0,
+                        'mapping.extras': 0,
                     },
                 },
                 {
@@ -335,7 +342,7 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
 
             await repo.queryMappings(INTEGRATION_ID, {
                 orderBy: {
-                    path: 'mapping.c2h.lastAttemptAt',
+                    path: 'mapping.outbound.attemptedAt',
                     direction: 'asc',
                 },
                 take: 10,
@@ -471,7 +478,7 @@ describe('IntegrationMappingRepositoryMongo.queryMappings', () => {
 
             await expect(
                 repo.queryMappings(INTEGRATION_ID, {
-                    where: [{ path: 'mapping.c2h.$x', op: 'exists' }],
+                    where: [{ path: 'mapping.outbound.$x', op: 'exists' }],
                     take: 10,
                 })
             ).rejects.toThrow(/queryMappings: invalid path/);
