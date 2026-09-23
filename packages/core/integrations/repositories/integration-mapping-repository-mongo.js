@@ -1,7 +1,25 @@
 const { prisma } = require('../../database/prisma');
 const {
+    assertMappingWrittenUnencrypted,
+} = require('../../database/encryption/integration-mapping-encryption');
+const {
     IntegrationMappingRepositoryInterface,
 } = require('./integration-mapping-repository-interface');
+const { validateMappingQuery } = require('./integration-mapping-query');
+const {
+    buildMappingQueryStages,
+} = require('./integration-mapping-query-pipeline');
+
+const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
+
+const fromRawDate = (raw) => new Date(raw.$date);
+
+function strictObjectId(id) {
+    if (typeof id !== 'string' || !OBJECT_ID_REGEX.test(id)) {
+        throw new TypeError(`Invalid ID: ${id} is not an ObjectId`);
+    }
+    return id;
+}
 
 /**
  * MongoDB Integration Mapping Repository Adapter
@@ -153,6 +171,57 @@ class IntegrationMappingRepositoryMongo extends IntegrationMappingRepositoryInte
             counts.set(String(group.integrationId), group._count._all);
         }
         return counts;
+    }
+
+    /**
+     * @param {string} integrationId
+     * @param {Object} query - See IntegrationMappingRepositoryInterface.queryMappings
+     * @returns {Promise<{mappings: Array<Object>, total: number}>}
+     */
+    async queryMappings(integrationId, query) {
+        const validated = validateMappingQuery(query);
+        const objectId = strictObjectId(integrationId);
+        assertMappingWrittenUnencrypted();
+        const { match, page } = buildMappingQueryStages(
+            { $oid: objectId },
+            validated
+        );
+
+        const result = await this.prisma.$runCommandRaw({
+            aggregate: 'IntegrationMapping',
+            pipeline: [
+                match,
+                {
+                    $facet: {
+                        mappings: page,
+                        total: [{ $count: 'total' }],
+                    },
+                },
+            ],
+            cursor: {},
+            allowDiskUse: true,
+        });
+        const [{ mappings, total }] = result.cursor.firstBatch;
+
+        return {
+            mappings: mappings.map((doc) => this._fromRawMapping(doc)),
+            total: total[0]?.total ?? 0,
+        };
+    }
+
+    /**
+     * A raw aggregate document, in the shape findMappingsByIntegration returns.
+     * @private
+     */
+    _fromRawMapping(doc) {
+        return {
+            id: doc._id.$oid,
+            integrationId: doc.integrationId.$oid,
+            sourceId: doc.sourceId ?? null,
+            mapping: doc.mapping ?? null,
+            createdAt: fromRawDate(doc.createdAt),
+            updatedAt: fromRawDate(doc.updatedAt),
+        };
     }
 
     /**

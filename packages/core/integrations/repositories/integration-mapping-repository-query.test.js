@@ -29,9 +29,6 @@ const {
     IntegrationMappingRepositoryPostgres,
 } = require('./integration-mapping-repository-postgres');
 const {
-    IntegrationMappingRepositoryMongo,
-} = require('./integration-mapping-repository-mongo');
-const {
     IntegrationMappingRepositoryDocumentDB,
 } = require('./integration-mapping-repository-documentdb');
 const {
@@ -585,7 +582,6 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
 });
 
 describe.each([
-    ['IntegrationMappingRepositoryMongo', IntegrationMappingRepositoryMongo],
     [
         'IntegrationMappingRepositoryDocumentDB',
         IntegrationMappingRepositoryDocumentDB,
