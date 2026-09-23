@@ -388,6 +388,16 @@ class MyIntegration extends IntegrationBase {
 }
 ```
 
+### Queue Handler Delivery
+
+Handlers reached through the integration queue receive
+`{ data, context, delivery }`. `delivery` is
+`{ receiveCount, maxReceiveCount, isLastAttempt }`; `isLastAttempt` is `true`
+only when SQS will move the message to the DLQ if this attempt fails, and
+`false` whenever that is unknown. Use it to end a run or count lost work on
+the final try instead of leaving the run in progress. See
+`packages/core/CLAUDE.md` ("Queue handler delivery") for the full contract.
+
 ---
 
 ## Sync Orchestration
