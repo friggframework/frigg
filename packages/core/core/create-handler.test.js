@@ -310,6 +310,26 @@ describe('createHandler — logger scope and records (ADR-048)', () => {
         expect(inside).toMatchObject({ requestId: 'req-123', handlerName: 'MyHandler' });
     });
 
+    it('keeps path, header names and query keys off the other records', async () => {
+        await build(async () => getLogger('integration.test').info('inside'))(httpApiV2Event(), ctx());
+        const inside = sink.records.find((r) => r.message === 'inside');
+        for (const key of ['path', 'headerNames', 'queryKeys']) {
+            expect(inside).not.toHaveProperty(key);
+            expect(inside.invocation).not.toHaveProperty(key);
+        }
+    });
+
+    it('sets the route template, not the concrete path, for REST v1', async () => {
+        await build(async () => getLogger('integration.test').info('inside'))(
+            { httpMethod: 'GET', resource: '/api/integrations/{id}', path: '/api/integrations/abc123', headers: {} },
+            ctx()
+        );
+        const inside = sink.records.find((r) => r.message === 'inside');
+        expect(inside.route).toBe('/api/integrations/{id}');
+        expect(JSON.stringify(inside)).not.toContain('abc123');
+        expect(sink.records.find((r) => r.eventName === 'frigg.handler.invoked').path).toBe('/api/integrations/abc123');
+    });
+
     it('sets method and route (not path) for HTTP', async () => {
         await build(async () => getLogger('integration.test').info('inside'))(httpApiV2Event(), ctx());
         const inside = sink.records.find((r) => r.message === 'inside');
@@ -343,7 +363,10 @@ describe('createHandler — logger scope and records (ADR-048)', () => {
             level: 'INFO',
             logger: 'frigg.handler',
             requestId: 'req-123',
-            invocation: { source: 'http', headerNames: expect.arrayContaining(['x-frigg-api-key']) },
+            path: '/api/authorize',
+            headerNames: expect.arrayContaining(['x-frigg-api-key']),
+            queryKeys: expect.arrayContaining(['code']),
+            invocation: { source: 'http', method: 'GET', route: '/api/authorize', routeKey: 'GET /api/authorize' },
         });
         expect(sink.records).toContainNoSecretWindow(SECRETS);
     });

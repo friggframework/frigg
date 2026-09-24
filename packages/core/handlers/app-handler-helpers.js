@@ -39,10 +39,11 @@ const createApp = (applyMiddleware) => {
             });
             res.status(statusCode).json({ error: 'Internal Server Error' });
         } else {
+            // A client error needs no stack; the logger scrubs the reason.
             log.warn('Request rejected', {
                 eventName: 'frigg.http.request_rejected',
                 statusCode,
-                error: boomError,
+                reason: boomError.message,
             });
             res.status(statusCode).json({ error: err.message });
         }

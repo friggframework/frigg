@@ -3,8 +3,10 @@ const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
 const { runMessageScope } = require('./invocation-scope');
+const { getLogger } = require('../logs');
 
 const sqs = new SQSClient({ region: process.env.AWS_REGION });
+const log = getLogger('frigg.worker');
 
 class Worker {
     async getQueueURL(params) {
@@ -55,15 +57,18 @@ class Worker {
                         // Treat as success so SQS deletes it from the queue.
                         // Logged explicitly — silent discards made prod debugging
                         // extremely hard; keep this visible.
-                        console.warn(`[Worker] record halted (discarded, no retry)`, {
-                            messageId: record.messageId,
-                            event: parsedEvent,
-                            reason: error.message,
+                        log.error('Record halted (discarded, no retry)', {
+                            eventName: 'frigg.worker.record_halted',
                             statusCode: error.statusCode,
+                            error,
                         });
                         return;
                     }
-                    console.error(`[Worker] Failed to process record ${record.messageId}:`, error);
+                    // The message goes back to SQS, so WARN (ADR-048 §4).
+                    log.warn('Record failed, returned for retry', {
+                        eventName: 'frigg.worker.record_failed',
+                        error,
+                    });
                     batchItemFailures.push({ itemIdentifier: record.messageId });
                 }
             });

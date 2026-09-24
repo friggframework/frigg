@@ -6,6 +6,7 @@ const { getLogger, toSanitizedSurrogate } = require('../logs');
 const {
     summarizeLambdaEvent,
     toScopeInvocation,
+    toRequestDetails,
 } = require('../logs/summarize-event');
 const {
     runInvocationScope,
@@ -64,6 +65,7 @@ const createHandler = (optionByName = {}) => {
                 try {
                     log.info('Handler invoked', {
                         eventName: 'frigg.handler.invoked',
+                        ...toRequestDetails(eventSummary),
                     });
 
                     // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.

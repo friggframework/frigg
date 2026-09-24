@@ -362,4 +362,66 @@ describe('Worker - AWS SDK v3', () => {
             expect(worker._run).toHaveBeenCalledTimes(3);
         });
     });
+
+    describe('run() failure records (ADR-048 §4)', () => {
+        const { createMemorySink } = require('../logs');
+        const { HaltError } = require('../errors/halt-error');
+        const { SECRETS } = require('../logs/__fixtures__/secrets');
+
+        const axiosError = () => {
+            const error = new Error(`Request failed: GET https://api.example.com/x?api_key=${SECRETS.apiKeyQuery}`);
+            error.name = 'AxiosError';
+            error.config = { headers: { Authorization: `Bearer ${SECRETS.bearer}` } };
+            error.request = { _header: `GET /x HTTP/1.1\r\nAuthorization: Bearer ${SECRETS.bearer}\r\n` };
+            error.response = { status: 401, data: { access_token: SECRETS.accessToken } };
+            return error;
+        };
+        const secrets = [SECRETS.apiKeyQuery, SECRETS.bearer, SECRETS.accessToken];
+        const body = JSON.stringify({ event: 'SYNC', data: {} });
+
+        let sink;
+        let spies;
+        beforeEach(() => {
+            sink = createMemorySink();
+            spies = ['log', 'warn', 'error'].map((m) => jest.spyOn(console, m).mockImplementation(() => {}));
+        });
+        afterEach(() => jest.restoreAllMocks());
+
+        const consoleText = () => JSON.stringify(spies.flatMap((spy) => spy.mock.calls), (_k, v) =>
+            v instanceof Error ? { message: v.message, stack: v.stack, ...v } : v);
+
+        it('writes one WARN frigg.worker.record_failed for a retried record and no raw error to console', async () => {
+            worker._run = jest.fn().mockRejectedValue(axiosError());
+            const result = await worker.run({ Records: [{ messageId: 'm-1', body, attributes: { ApproximateReceiveCount: '2' } }] });
+
+            expect(result).toEqual({ batchItemFailures: [{ itemIdentifier: 'm-1' }] });
+            const failed = sink.records.filter((r) => r.eventName === 'frigg.worker.record_failed');
+            expect(failed).toEqual([
+                expect.objectContaining({
+                    level: 'WARN',
+                    logger: 'frigg.worker',
+                    messageId: 'm-1',
+                    receiveCount: 2,
+                    error: expect.objectContaining({ type: 'AxiosError', status: 401 }),
+                }),
+            ]);
+            expect(sink.records).toContainNoSecretWindow(secrets);
+            expect(consoleText()).toContainNoSecretWindow(secrets);
+            expect(spies[2]).not.toHaveBeenCalled();
+        });
+
+        it('writes one ERROR frigg.worker.record_halted for a halt and no raw error to console', async () => {
+            const halt = new HaltError(`stop: Authorization: Bearer ${SECRETS.bearer}`);
+            worker._run = jest.fn().mockRejectedValue(halt);
+            const result = await worker.run({ Records: [{ messageId: 'm-2', body, attributes: {} }] });
+
+            expect(result).toEqual({ batchItemFailures: [] });
+            expect(sink.records.filter((r) => r.eventName === 'frigg.worker.record_halted')).toEqual([
+                expect.objectContaining({ level: 'ERROR', messageId: 'm-2', error: expect.objectContaining({ type: 'HaltError' }) }),
+            ]);
+            expect(sink.records).toContainNoSecretWindow([SECRETS.bearer]);
+            expect(consoleText()).toContainNoSecretWindow([SECRETS.bearer]);
+            expect(spies[1]).not.toHaveBeenCalled();
+        });
+    });
 });

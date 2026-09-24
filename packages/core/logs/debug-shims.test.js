@@ -95,8 +95,8 @@ describe('logs/debug-shims', () => {
                     source: 'http',
                     method: 'GET',
                     route: '/api/authorize',
-                    headerNames: expect.arrayContaining(['authorization']),
                 },
+                headerNames: expect.arrayContaining(['authorization']),
             });
             expect(record.invocation).not.toHaveProperty('body');
             expect(record.invocation).not.toHaveProperty('headers');

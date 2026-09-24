@@ -75,8 +75,10 @@ One record, shown on several lines (stdout has it on one line):
 | `stage` | string | `STAGE` | when set |
 | `requestId` | string | invocation scope, from `context.awsRequestId` | inside `createHandler` and the DLQ processor |
 | `handlerName` | string | the `eventName` option of `createHandler` | inside `createHandler` |
-| `method`, `route`, `routeKey` | string | the HTTP event | HTTP invocations |
-| `invocation` | object | the redacted event summary: `{ source, method, route, routeKey, queryKeys, headerNames }` for HTTP, `{ source, recordCount }` for SQS, else `{ source }` | inside an invocation scope |
+| `method`, `routeKey` | string | the HTTP event | HTTP invocations |
+| `route` | string | the route template, never the concrete path: REST v1 `resource`, or the path part of the HTTP API v2 `routeKey` (`/api/integrations/{id}`); the path only when the event has no template | HTTP invocations |
+| `invocation` | object | the bounded event summary: `{ source, method, route, routeKey }` for HTTP, `{ source, recordCount }` for SQS, else `{ source }` | inside an invocation scope |
+| `path`, `queryKeys`, `headerNames` | string, string[], string[] | the concrete request path, the query keys and header names (never values) | only on the INFO `frigg.handler.invoked` record |
 | `messageId`, `receiveCount` | string, number | message scope, from the SQS record | inside `Worker.run` and the DLQ processor |
 | `processId`, `integrationId`, `integrationEvent` | string | message scope (the message body), or the integration context | when known |
 | `integrationType`, `userId`, `version` | string | the ADR-011 integration context | when known |

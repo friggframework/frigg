@@ -32,13 +32,26 @@ function unique(list) {
     return [...new Set(list)];
 }
 
+// The route template keeps ids out of the field: REST v1 `resource`, or the
+// path part of an HTTP API v2 `routeKey` such as `GET /api/{id}`.
+function routeTemplate(event, path) {
+    if (typeof event.resource === 'string' && event.resource) {
+        return event.resource;
+    }
+    if (typeof event.routeKey === 'string') {
+        const space = event.routeKey.indexOf(' ');
+        if (space > 0) return event.routeKey.slice(space + 1);
+    }
+    return path;
+}
+
 function summarizeHttp(event) {
     const path = event.path || event.rawPath;
     const summary = {
         source: 'http',
         method: event.httpMethod || event.requestContext?.http?.method,
         path,
-        route: path,
+        route: routeTemplate(event, path),
         queryKeys: unique([
             ...objectKeys(event.queryStringParameters),
             ...objectKeys(event.multiValueQueryStringParameters),
@@ -98,8 +111,6 @@ function toScopeInvocation(summary) {
             source: 'http',
             method: summary.method,
             route: summary.route,
-            queryKeys: summary.queryKeys ?? [],
-            headerNames: summary.headerNames ?? [],
         };
         if (summary.routeKey) invocation.routeKey = summary.routeKey;
         return invocation;
@@ -107,4 +118,19 @@ function toScopeInvocation(summary) {
     return { source: summary.source };
 }
 
-module.exports = { summarizeLambdaEvent, summarizeMessageBody, toScopeInvocation };
+// Per-request detail for the one entry record, never for the scope.
+function toRequestDetails(summary) {
+    if (!summary || summary.source !== 'http') return {};
+    return {
+        path: summary.path,
+        queryKeys: summary.queryKeys ?? [],
+        headerNames: summary.headerNames ?? [],
+    };
+}
+
+module.exports = {
+    summarizeLambdaEvent,
+    summarizeMessageBody,
+    toScopeInvocation,
+    toRequestDetails,
+};

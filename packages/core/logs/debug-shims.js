@@ -1,7 +1,11 @@
 const util = require('node:util');
 const { getLogger } = require('./logger');
 const { getContext } = require('./context');
-const { summarizeLambdaEvent, toScopeInvocation } = require('./summarize-event');
+const {
+    summarizeLambdaEvent,
+    toScopeInvocation,
+    toRequestDetails,
+} = require('./summarize-event');
 
 // Deprecated. Kept for one major version; use getLogger or this.logger.
 const LEGACY_LOGGER_NAME = 'frigg.legacy';
@@ -28,8 +32,10 @@ function initDebugLog(...initMessages) {
     const log = legacy();
     if (!log.isLevelEnabled('DEBUG')) return;
     const event = initMessages.find((m) => m && typeof m === 'object');
+    const summary = summarizeLambdaEvent(event);
     log.debug('Debug log initialized', {
-        invocation: toScopeInvocation(summarizeLambdaEvent(event)),
+        invocation: toScopeInvocation(summary),
+        ...toRequestDetails(summary),
     });
 }
 

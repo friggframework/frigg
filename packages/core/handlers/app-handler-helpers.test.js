@@ -57,6 +57,17 @@ describe('createApp error middleware (ADR-048 Phase 2)', () => {
         expect(sink.records).toContainNoSecretWindow([SECRETS.bearer, SECRETS.friggApiKey]);
     });
 
+    it('scrubs the reason of a 4xx', async () => {
+        const router = express.Router();
+        router.get('/fail', () => {
+            throw Boom.unauthorized(`bad token Authorization: Bearer ${SECRETS.bearer}`);
+        });
+        const res = await request(router);
+        expect(res.status).toBe(401);
+        expect(byEvent('frigg.http.request_rejected')).toHaveLength(1);
+        expect(sink.records).toContainNoSecretWindow([SECRETS.bearer]);
+    });
+
     it('logs one WARN frigg.http.request_rejected for a 4xx and returns the message', async () => {
         const router = express.Router();
         router.get('/fail', () => {
@@ -67,7 +78,9 @@ describe('createApp error middleware (ADR-048 Phase 2)', () => {
         expect(res).toEqual({ status: 404, body: { error: 'No such integration' } });
         const rejected = byEvent('frigg.http.request_rejected');
         expect(rejected).toHaveLength(1);
-        expect(rejected[0]).toMatchObject({ level: 'WARN', statusCode: 404, error: { message: 'No such integration' } });
+        expect(rejected[0]).toMatchObject({ level: 'WARN', statusCode: 404, reason: 'No such integration' });
+        expect(rejected[0]).not.toHaveProperty('error');
+        expect(JSON.stringify(rejected[0])).not.toMatch(/\n\s+at /);
         expect(sink.records.filter((r) => r.level === 'ERROR')).toHaveLength(0);
     });
 });
