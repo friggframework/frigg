@@ -237,7 +237,7 @@ function redactUrl(url) {
             )}${redactHash(u.hash)}`;
         }
         if (raw.startsWith('/')) {
-            const u = new URL(raw, 'http://relative.invalid');
+            const u = new URL(raw, 'https://relative.invalid');
             return `${redactPath(raw.match(RAW_RELATIVE_PATH)[0])}${redactParams(
                 u.search,
                 '?'

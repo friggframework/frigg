@@ -1,22 +1,59 @@
-// Fake values only. They avoid real provider prefixes so push protection stays quiet.
+// Fake values, generated at load time so secret scanners find no literal in
+// the source. A fixed seed per name keeps every run identical.
+const MIXED = 'BCDFGHJKLMNPQRSTVWXZbcdfghjkmnpqrstvwxz23456789';
+const HEX = '0123456789abcdef';
+
+function seededRandom(name) {
+    let seed = [...name].reduce(
+        (h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619),
+        2166136261
+    );
+    return () => {
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), seed | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+function draw(name, alphabet, length) {
+    const next = seededRandom(name);
+    let out = '';
+    for (let i = 0; i < length; i += 1) {
+        out += alphabet[Math.floor(next() * alphabet.length)];
+    }
+    return out;
+}
+
+// The fixed 'Zq' + 'B7k' start puts upper case, lower case and a digit in every token.
+function fakeToken(name, length = 28) {
+    return `ZqB7k${draw(name, MIXED, length - 5)}`;
+}
+
+const base64url = (value) => Buffer.from(value).toString('base64url');
+
 const SECRETS = Object.freeze({
-    bearer: 'ZqvbLv8tZrQ8kNM5Jq4SRrvrMpRC',
-    apiKeyQuery: 'ZqGkGLq6NLF7vXc7cJTWV4BwX3Ld',
-    friggApiKey: 'Zq4kPQhzWCfJXwXxq7KKSMcpt5bk',
-    cookie: 'ZqKBfkjbBx63hpkzVMfQnw8S3wNS',
-    oauthCode: 'ZqMNW4x97kwsvhwk48BnsXD3JCCB',
-    codeVerifier: 'Zq64cfH4zmrmJmxHpNRG6z8QTdDh',
-    password: 'ZqtkDW2Cbh5kH7SnbK4FGQLRxJLT',
-    clientSecret: 'ZqVbQLw3kDGwxHgrBW32MKLHJgtr',
-    accessToken: 'Zqnw6cnh5ZXpQLB5njSxZKQDPhJc',
-    refreshToken: 'ZqhDdt92NR5cvMsvQ6DFmM2qfJFS',
-    idToken: 'ZqCGFMSgJDmq8NKJ6ZG4vSjVd6Gw',
-    hashword: 'ZqvVPT8cjhxtt9cddR2NqrHSzP66',
-    dbPassword: 'ZqZkGTVwpk38sVnHhKZzWFg9djPW',
-    signature: 'Zq7b634PtgG9Ft4BJ9cjrMTZXjNX',
-    jwt: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmYWtlLXVzZXItMTIzNDUifQ.ZmFrZVNpZ25hdHVyZUZvclRlc3RzT25seQ',
-    hexToken: '9f2c4e7a1b3d5f8e0a6c2b4d7e9f1a3c5b7d9e2f',
-    base64Run: 'QmFzZTY0RmFrZVNlY3JldFZhbHVlRm9yVGVzdHNPbmx5MTIzNDU2Nzg5MA==',
+    bearer: fakeToken('bearer'),
+    apiKeyQuery: fakeToken('apiKeyQuery'),
+    friggApiKey: fakeToken('friggApiKey'),
+    cookie: fakeToken('cookie'),
+    oauthCode: fakeToken('oauthCode'),
+    codeVerifier: fakeToken('codeVerifier'),
+    password: fakeToken('password'),
+    clientSecret: fakeToken('clientSecret'),
+    accessToken: fakeToken('accessToken'),
+    refreshToken: fakeToken('refreshToken'),
+    idToken: fakeToken('idToken'),
+    hashword: fakeToken('hashword'),
+    dbPassword: fakeToken('dbPassword'),
+    signature: fakeToken('signature'),
+    jwt: [
+        base64url(JSON.stringify({ alg: 'HS256' })),
+        base64url(JSON.stringify({ sub: `fake-${draw('jwtSub', MIXED, 8)}` })),
+        base64url(draw('jwtSig', MIXED, 24)),
+    ].join('.'),
+    hexToken: draw('hexToken', HEX, 40),
+    base64Run: Buffer.from(draw('base64Run', MIXED, 42)).toString('base64'),
 });
 
-module.exports = { SECRETS };
+module.exports = { SECRETS, fakeToken };

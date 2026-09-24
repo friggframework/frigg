@@ -1,14 +1,14 @@
 // ADR-048 §14 redaction vectors. Each vector is one log call that carries
 // secrets; the suite asserts that no 8-char window of them reaches a record.
-const { SECRETS: S } = require('./secrets');
+const { SECRETS: S, fakeToken } = require('./secrets');
 const { httpApiV2Event, restV1Event, sqsEvent } = require('./events');
 const { summarizeLambdaEvent } = require('../summarize-event');
 
 const secretUrl = `https://api.example.com/v1/items?api_key=${S.apiKeyQuery}`;
-const SIGNATURE_VALUE = 'fakeSgnValue2Gh9Tc5Wp7LmQx3';
+const SIGNATURE_VALUE = fakeToken('signatureValue', 27);
 
 // Built by concatenation so push protection does not match the prefixes.
-const TOKEN_TAIL = 'ZqPr3fixTail8Hn2Kd8Ws1Yc6';
+const TOKEN_TAIL = fakeToken('prefixTail', 25);
 const PREFIXED_TOKENS = [
     'sk_' + 'live_' + TOKEN_TAIL,
     'whsec' + '_' + TOKEN_TAIL,

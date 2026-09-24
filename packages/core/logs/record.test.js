@@ -3,6 +3,7 @@ const { getLogger } = require('./logger');
 const { createMemorySink } = require('./sinks');
 const runtime = require('./logger-runtime');
 const { runInContext } = require('./context');
+const { SECRETS } = require('./__fixtures__/secrets');
 const { withEnv } = require('./__fixtures__/with-env');
 
 const base = (overrides = {}) =>
@@ -156,7 +157,7 @@ describe('logs/record', () => {
         it('adds call-site invocation detail under the scope invocation; scope keys win', () => {
             runInContext({ log: { invocation: { source: 'http', method: 'GET', route: '/a/{id}' } } }, () => {
                 getLogger('integration.test').info('x', {
-                    invocation: { method: 'POST', path: '/a/1', headers: { authorization: 'Bearer ZqvbLv8tZrQ8kNM5Jq4SRrvrMpRC' } },
+                    invocation: { method: 'POST', path: '/a/1', headers: { authorization: `Bearer ${SECRETS.bearer}` } },
                 });
             });
             expect(sink.records[0].invocation).toEqual({
