@@ -9,7 +9,30 @@
  *   prisma-postgresql) runs the PostgreSQL adapter.
  */
 
+jest.mock('../../database/encryption/encryption-schema-registry', () => ({
+    ...jest.requireActual(
+        '../../database/encryption/encryption-schema-registry'
+    ),
+    loadCustomEncryptionSchema: jest.fn(),
+}));
+
 const { ObjectId } = require('bson');
+const { Cryptor } = require('../../encrypt/Cryptor');
+const {
+    createEncryptionExtension,
+} = require('../../database/encryption/prisma-encryption-extension');
+const {
+    registerCustomSchema,
+    registerEncryptionOptOut,
+    resetCustomSchema,
+    resetEncryptionOptOut,
+} = require('../../database/encryption/encryption-schema-registry');
+const {
+    resetMappingEncryptionCheck,
+} = require('../../database/encryption/integration-mapping-encryption');
+const {
+    DocumentDBEncryptionService,
+} = require('../../database/documentdb-encryption-service');
 const {
     IntegrationMappingRepositoryMongo,
 } = require('./integration-mapping-repository-mongo');
@@ -434,13 +457,16 @@ function mongoClient() {
 
 const newObjectIdHex = () => new ObjectId().toHexString();
 
+const withEncryption = (client, cryptor) =>
+    cryptor ? client.$extends(createEncryptionExtension({ cryptor })) : client;
+
 const LEGS = [
     {
         name: 'MongoDB',
         url: MONGO_URL,
         compareIds: compareHex,
-        async setUp() {
-            const client = mongoClient();
+        async setUp({ cryptor } = {}) {
+            const client = withEncryption(mongoClient(), cryptor);
             const repo = new IntegrationMappingRepositoryMongo();
             repo.prisma = client;
             const integrationIds = [newObjectIdHex(), newObjectIdHex()];
@@ -466,10 +492,15 @@ const LEGS = [
         name: 'DocumentDB',
         url: MONGO_URL,
         compareIds: compareHex,
-        async setUp() {
+        async setUp({ cryptor } = {}) {
             const client = mongoClient();
             const repo = new IntegrationMappingRepositoryDocumentDB();
             repo.prisma = client;
+            if (cryptor) {
+                repo.encryptionService = new DocumentDBEncryptionService({
+                    cryptor,
+                });
+            }
             const integrationIds = [newObjectIdHex(), newObjectIdHex()];
             return {
                 repo,
@@ -489,11 +520,14 @@ const LEGS = [
         name: 'PostgreSQL',
         url: POSTGRES_URL,
         compareIds: compareInts,
-        async setUp() {
+        async setUp({ cryptor } = {}) {
             const {
                 PrismaClient,
             } = require('../../generated/prisma-postgresql');
-            const client = new PrismaClient({ datasourceUrl: POSTGRES_URL });
+            const client = withEncryption(
+                new PrismaClient({ datasourceUrl: POSTGRES_URL }),
+                cryptor
+            );
             const repo = new IntegrationMappingRepositoryPostgres();
             repo.prisma = client;
             const integrations = [
@@ -594,3 +628,109 @@ describeLegs('queryMappings parity on %s', (_, leg) => {
         expect(mappings).toEqual(expected);
     });
 });
+
+describeLegs(
+    'queryMappings on %s after a nested mapping path is opted out of encryption',
+    (_, leg) => {
+        const ENV_KEYS = ['STAGE', 'AES_KEY_ID', 'AES_KEY', 'KMS_KEY_ARN'];
+        const LEGACY = { externalId: 'legacy', apiSecret: 'legacy-secret' };
+        const FRESH = { externalId: 'fresh', apiSecret: 'fresh-secret' };
+        let savedEnv;
+        let context;
+
+        beforeAll(async () => {
+            context = await leg.setUp({
+                cryptor: new Cryptor({ shouldUseAws: false }),
+            });
+
+            savedEnv = Object.fromEntries(
+                ENV_KEYS.map((key) => [key, process.env[key]])
+            );
+            process.env.STAGE = 'production';
+            process.env.AES_KEY_ID = 'parity-key';
+            process.env.AES_KEY = '12345678901234567890123456789012';
+            delete process.env.KMS_KEY_ARN;
+            registerCustomSchema({
+                IntegrationMapping: { fields: ['mapping.apiSecret'] },
+            });
+            registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
+            resetMappingEncryptionCheck();
+
+            const [integrationId] = context.integrationIds;
+            await context.seed(integrationId, {
+                sourceId: 'record:legacy',
+                mapping: LEGACY,
+            });
+            registerEncryptionOptOut({
+                IntegrationMapping: ['mapping', 'mapping.apiSecret'],
+            });
+            await context.seed(integrationId, {
+                sourceId: 'record:fresh',
+                mapping: FRESH,
+            });
+        }, 60000);
+
+        afterAll(async () => {
+            await context?.tearDown();
+            for (const [key, value] of Object.entries(savedEnv ?? {})) {
+                if (value === undefined) delete process.env[key];
+                else process.env[key] = value;
+            }
+            resetEncryptionOptOut();
+            resetCustomSchema();
+            resetMappingEncryptionCheck();
+        });
+
+        it('returns the path plain on rows written before the opt-out, like findMappingsByIntegration', async () => {
+            const [integrationId] = context.integrationIds;
+
+            const { mappings, total } = await context.repo.queryMappings(
+                integrationId,
+                { take: 10 }
+            );
+            const found = await context.repo.findMappingsByIntegration(
+                integrationId
+            );
+
+            expect(total).toBe(2);
+            expect(mappings.map((row) => row.mapping)).toEqual([LEGACY, FRESH]);
+            expect(mappings).toEqual(
+                [...found].sort((a, b) => leg.compareIds(a.id, b.id))
+            );
+        });
+
+        it('matches that path only on rows written after the opt-out', async () => {
+            const [integrationId] = context.integrationIds;
+
+            const { mappings } = await context.repo.queryMappings(
+                integrationId,
+                {
+                    where: [
+                        {
+                            path: 'mapping.apiSecret',
+                            op: 'in',
+                            value: ['legacy-secret', 'fresh-secret'],
+                        },
+                    ],
+                    take: 10,
+                }
+            );
+
+            expect(mappings.map((row) => row.mapping)).toEqual([FRESH]);
+        });
+
+        it('leaves an omitted path out of the decrypted rows', async () => {
+            const [integrationId] = context.integrationIds;
+
+            const { mappings } = await context.repo.queryMappings(
+                integrationId,
+                { take: 10, omit: ['apiSecret'] }
+            );
+
+            expect(mappings.map((row) => row.mapping)).toEqual([
+                { externalId: 'legacy' },
+                { externalId: 'fresh' },
+            ]);
+        });
+    }
+);
