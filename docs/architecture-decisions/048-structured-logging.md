@@ -755,6 +755,8 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
 | The Prisma error text changes (`prisma.js:103`) | None |
 | `FRIGG_LOG_LEVEL=DEBUG` now applies to all of core | Set `INFO` |
 | An existing `appDefinition.logging` block takes effect (`LoggingConfig`, retention) | Remove the block |
+| `createHandler` rethrows a sanitized surrogate (name, message, `statusCode`, `code`), so `instanceof`, custom properties and `cause` are gone | None (security) |
+| `FetchError` messages drop `statusText` (`METHOD url status`) | Read `error.response.statusText` |
 
 - Local runs also write JSON. A developer reads raw lines or pipes them to
   a JSON viewer, for example `jq`.
