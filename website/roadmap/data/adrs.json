@@ -308,7 +308,7 @@
       "status": "Proposed",
       "date": "2026-09-23",
       "theme": "Observability & ops",
-      "summary": "Replaces ad-hoc console logging with one Frigg-owned logger port in core that writes one redacted JSON record per line to stdout, with a fixed field set, six levels, ADR-011 correlation and trace ids, and redaction by construction. JSON is the only output format, in every stage; the upgrade changes need maintainer ratification, and the Lambda log format and retention in devtools are opt-in.",
+      "summary": "Replaces ad-hoc console logging with one Frigg-owned logger port in core that writes one redacted JSON record per line to stdout, with a fixed field set, six levels, ADR-011 correlation and trace ids, and redaction by construction. JSON is the only output format, in every stage; other destinations connect as sinks that only translate and send, the upgrade changes need maintainer ratification, and the Lambda log format and retention in devtools are opt-in.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/048-structured-logging.md"
     }
   ]

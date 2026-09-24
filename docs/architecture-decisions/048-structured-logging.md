@@ -14,8 +14,10 @@ This document is written in ASD-STE100 Simplified Technical English.
 - **Port** means a Frigg-owned interface. An adapter implements it.
 - **Provider adapter** means the ADR-028 code that connects core to one
   host, for example AWS Lambda or Netlify.
-- **Sink** means an output target of the logger: stdout, or `memory` in
-  tests.
+- **Sink** means an output target of the logger: the stdout sink, the
+  `memory` sink in tests, or a destination sink (§11).
+- **Destination** means a log service outside the Frigg process, for
+  example Datadog, Better Stack or an OTel collector.
 - **Bindings** means the fields that a child logger adds to each record.
 - **Composition root** means the code that builds objects and injects their
   dependencies.
@@ -106,7 +108,10 @@ ids.**
   `this.telemetry` (`integration-base.js:62-65`), with bindings read per
   record. `Requester` takes an injected `logger` with a singleton fallback
   (`requester.js:63-66`). An API module that calls it raises its core floor
-  or uses `this.logger?.`. Composition roots inject it into use cases.
+  or uses `this.logger?.`. `Module` binds `entityId` and `credentialId` on
+  its `Requester` logger (`module.js:31-32`). `IntegrationBase` cannot bind
+  them, because one integration has more than one entity. Composition roots
+  inject the logger into use cases.
 - **Packages covered.** In: core, admin-scripts, the provider adapters, and
   API modules through `Requester`, with a lint rule in api-module-library.
   Out: CLI output (over 500 `frigg-cli` calls are UX) and the browser UIs.
@@ -126,7 +131,8 @@ ids.**
   through the logger.
 - Tests use the `memory` sink and assert on records, not on console spies.
   `memory` is not an output format.
-- v1 has no transports, worker threads or network sink.
+- Core ships no transport, worker thread or network sink. A destination
+  connects through a destination sink (§11).
 
 ### 3. The record contract
 
@@ -141,6 +147,7 @@ ids.**
 | | `messageId`, `processId`, `executionId`, `method`, `route` | When known |
 | | `invocation` (working name) | The §6 event summary, nested |
 | Integration | `integrationId`, `integrationType`, `userId`, `version` | ADR-011 set, verbatim |
+| | `entityId`, `credentialId` | When known. `Module` binds both (§1) |
 | | `integrationEvent` | For example, `ON_WEBHOOK` |
 | Event | `eventName` | The `logger` namespace, then `.<action>` |
 | Trace | `trace_id`, `span_id`, `trace_flags` | OTel names, hex, with a span only |
@@ -155,12 +162,21 @@ ids.**
   unsampled span still has ids, and `trace_flags` tells the cases apart.
 - **Reserved keys.** The logger never emits `tenantId`, `type`, `time`,
   `record`, `errorType`, `errorMessage` or `stackTrace` (Lambda), or
-  `service`, `env`, `host`, `source` or `status` (Datadog). A Datadog
+  `service`, `env`, `host`, `source` or `status` (Datadog), or `severity`
+  (GCP). A destination sink maps the record to these keys (§11). A Datadog
   pipeline must remap `version`.
+- **Stability.** The record contract is public from the first release that
+  contains PR A. Queries, subscription filters and sinks read it. All
+  working names in this table are final before PR A merges. After that, a
+  release can add a field. A rename or a removal needs a core major
+  version. ADR-011 makes its counter registry additive (`011:210-212`) but
+  does not cover renames, so this ADR adds the major-version rule. Records
+  carry no schema version. A consumer learns the schema from the core
+  version that the app deploys.
 - **Precedence.** Required, resource and trace fields win, then scope, then
   child bindings, then call-site fields. A losing key goes to `droppedKeys`
   (working name). The initial caps are 2,048 characters per string, 16 KB
-  per record, object depth 6 and `cause` depth 3. The contract has about 20
+  per record, object depth 6 and `cause` depth 3. The contract has about 25
   fields, far below the 200 that CloudWatch Logs Insights discovers.
 
 **Rule: high-cardinality ids belong on logs, never on metric labels.** This
@@ -363,12 +379,117 @@ This ADR amends ADR-011 for the logs signal. ADR-011 names one abstraction
 second port and keeps logs off the OTel SDK. The record is not the
 "proprietary format" of `011:241`, because a collector converts it to OTLP:
 the `telemetryapi` receiver and a `transform` processor. An optional OTLP
-sink waits for the Logs API in `@opentelemetry/api` 1.x and then flushes in
-`runInvocationScope`. The seven `[Frigg][telemetry]` and `[Frigg][usage]`
+sink is one more destination sink (§11), in its own package. It maps the
+record to an OTLP LogRecord and exports it in `send`, so it needs no Logs
+API. It waits until the OTel JS logs SDK and exporter packages are stable.
+The seven `[Frigg][telemetry]` and `[Frigg][usage]`
 warns move to the logger. This is safe, because the logger never calls the
 bus.
 
-### 11. Deployment (devtools, opt-in)
+### 11. Log destinations (sinks)
+
+The stdout sink stays the source of truth. Each destination connects
+through a destination sink. Core owns the buffer, the flush and the failure
+rules, so a destination supplies only the translation and the send.
+
+```js
+// A destination (illustrative, working names)
+const datadog = {
+    name: 'datadog',
+    minLevel: 'WARN',
+    translate: (record) => ({ ...record, status: record.level }),
+    send: (batch, { signal }) =>
+        fetch(DATADOG_INTAKE_URL, {
+            method: 'POST',
+            headers: { 'DD-API-KEY': process.env.DD_API_KEY },
+            body: JSON.stringify(batch),
+            signal,
+        }),
+};
+
+// App definition
+logging: { level: 'INFO', sinks: [datadog] },
+```
+
+- **Contract.** A destination supplies `name`, `minLevel`,
+  `translate(record)` and `send(batch, { signal })`. Core does the rest.
+- **Input.** `translate` gets the final record after the §6 pipeline:
+  plain JSON data, deep-frozen. `JSON.stringify(record)` equals the stdout
+  line. A sink never sees the raw call-site arguments. It adds only constant
+  fields from its own config.
+- **stdout stays on.** A destination sink never replaces the stdout sink.
+  Only tests swap stdout for `memory`.
+- **Level.** A sink `minLevel` is the same as or stricter than the
+  effective level (§5). A missing `minLevel` means the effective level. The
+  logger raises a less strict value to the effective level and warns one
+  time. Case does not matter.
+- **Buffer.** Core keeps one buffer for each sink in the process, not in
+  the scope. It holds at most 1,000 records or 1 MB (working values). When
+  it is full, core drops the new record and counts it. One flush of a sink
+  runs at a time, and it sends every buffered record.
+- **Flush.** `runInvocationScope` flushes in its `finally`. PR A moves
+  `flushTelemetry` and `flushUsageRollup` there (`create-handler.js:240-247`).
+  The usage rollup runs first, with no bound, as today
+  (`create-handler.js:26-58`). Then telemetry and all sinks run in parallel
+  against one deadline: `flushTimeoutMs` (`create-handler.js:139`), with
+  `OTEL_FLUSH_TIMEOUT_MS` or 500 ms as its default (`:14-18`). The deadline
+  never passes the remaining invocation time. With no destination sink, the
+  flush adds no wait.
+- **Deadline.** At the deadline, core aborts `send` through the
+  `AbortSignal`, drops the unsent batch and counts it. It never retries the
+  batch in a later invocation. A late rejection never becomes an unhandled
+  rejection. stdout still has every record.
+- **Why each invocation.** With no registered Lambda extension, the runtime
+  gets no shutdown time, and core cannot require an extension. So a sink
+  sends at the end of each invocation and needs no teardown. ADR-017 open
+  question 3 (`017:114`) stays open for other extensions.
+- **Failures.** A sink error never reaches the handler and never logs
+  through the logger. Core writes one fixed stderr line,
+  `frigg.logger.sink_failed`, with the sink name, the error `type` and
+  `code`, and the drop count. It never writes the error message or the URL,
+  because a URL path can hold a token. After 3 failed flushes in a row
+  (working value), core disables the sink for the life of the process and
+  writes `frigg.logger.sink_disabled`.
+- **No logging code in a sink.** `send` uses its own HTTP client, never
+  `Requester` or other core code that logs.
+- **Translation.** The sink sets vendor keys that the logger never emits,
+  for example Datadog `status` and `service`, or GCP `severity` (§3
+  reserved keys).
+- **Credentials.** A sink reads its credential from `process.env` at send
+  time, never at module load and never as a literal in `logging.sinks`.
+  Devtools also loads the app definition at build time. The deploy supplies
+  the value through SSM offload (ADR-027) or Secrets Manager. ADR-038 and
+  ADR-039 can replace this source when they are accepted.
+- **Registration.** `appDefinition.logging.sinks` copies the declaration
+  shape of `telemetry.subscribers`: an array, validated like
+  `resolveSubscribers` (`telemetry-config.js:70-88`). It does not use the
+  bus. `loadAppDefinition` must return `logging`, which it drops today
+  (`app-definition-loader.js:33-62`). `runInvocationScope`, not the logger,
+  reads the list one time for each cold start and registers it (§1 leaf
+  rule), so the raw handlers get sinks too. Core skips a sink with a
+  duplicate name or a missing member, and warns one time.
+- **Before registration.** A record written before the first scope opens,
+  INIT records included, goes to stdout only. So an alert on an INIT
+  `FATAL` reads the stdout log group.
+- **ADR-017.** Core extensions do not exist in code yet: core loads only
+  integration extensions (`integration-base.js:720`). This ADR proposes an
+  optional `logSink` member for the ADR-017 extension contract
+  (`017:58-75`). When ADR-017 ships, core adds each `logSink` to the same
+  list.
+- **On AWS, prefer out-of-process shipping.** By default, Lambda sends
+  stdout to CloudWatch Logs. It can also deliver logs to Amazon S3 or Amazon
+  Data Firehose. Out-of-process shipping keeps the send, the credential and
+  its failures out of the invocation. The central guide
+  (`docs/guides/LOGGING.md`, §13) recommends these first: Firehose delivery,
+  a subscription filter, a vendor Lambda extension or an OTel collector
+  layer. Devtools v1 adds none of them. An in-process sink in a VPC needs an
+  egress path.
+- **Timing.** PR A builds the internal sink interface that the stdout and
+  `memory` sinks use. The destination contract, the public `logging.sinks`
+  registration and its schema entry ship with the first real destination.
+  A real sink then tests the contract before it becomes public.
+
+### 12. Deployment (devtools, opt-in)
 
 The provider adapter owns the AWS settings (ADR-028). An absent
 `appDefinition.logging` changes nothing.
@@ -389,16 +510,17 @@ The provider adapter owns the AWS settings (ADR-028). An absent
   definition that sets `format: 'json'` stays valid. The schema also lacks
   `telemetry` (`:676`).
 
-### 12. Sequencing
+### 13. Sequencing
 
 | PR | Content |
 |---|---|
 | 0: spike | The Open question 3 checks. On a failure, keep the Lambda `Text` log format. |
-| A: foundation | Port, sinks, pipeline, config, scope, shims, §6 items 8-11 with the fix for the `init.body` mutation (`fetch-error.js:16-19`), guards |
+| A: foundation | Port, internal sink interface, pipeline, config, scope, shims, §6 items 8-11 with the fix for the `init.body` mutation (`fetch-error.js:16-19`), guards, and the central guide `docs/guides/LOGGING.md` (field reference, levels, query cookbook, destination options) |
 | B: security call sites | 5xx, `createHandler` catch, `testAuth`, `oauth-2`, `hashword`, websocket body, messages, DLQ body as length and SHA-256 |
 | Devtools | Opt-in block, osls floor, schema. After PR A, because JSON at `INFO` drops the `console.debug` replay. |
 | C to n | Queue, use cases, routers, scheduler, db-migration, telemetry, `EncryptionLogger`, Prisma, admin-scripts, raw handlers |
 | Final | `no-console` becomes `error` |
+| First destination | When needed: the destination contract, the public `logging.sinks` registration, its schema entry and the first destination package (§11) |
 
 The #643 redaction becomes the shim summary, and ADR-034 security
 requirement 4 points here. #540 is superseded: its OAuth-callback steps
@@ -407,14 +529,14 @@ File the api-module-library leaks there (`next` @48ea8647):
 `stripe/api.js:52` (refresh token), `deel/definition.js:15` (OAuth code) and
 `frontify/api.js:250` (raw response).
 
-### 13. Enforcement
+### 14. Enforcement
 
 Deterministic checks, in the style of ADR-043 §5 (open PR #646):
 
 - **Lint.** `no-console: error` in `packages/core/.eslintrc.json` and a new
-  admin-scripts config, with an override for the sink file. The shared
-  `packages/eslint-config/index.js:33` stays `warn`. Ban
-  `process.stdout.write` outside the sink. The `error` rule comes last,
+  admin-scripts config, with an override for the stdout sink file. The
+  shared `packages/eslint-config/index.js:33` stays `warn`. Ban
+  `process.stdout.write` outside the stdout sink. The `error` rule comes last,
   because it fails CI while one call remains.
 - **Lint in CI.** The Linter step runs only when Tests pass
   (`frigg-ci.js.yml:58-65`). Tests on `next` fail today, so lint does not
@@ -431,6 +553,11 @@ Deterministic checks, in the style of ADR-043 §5 (open PR #646):
   module (extend `telemetry-service.test.js:6-21`). Required fields exist,
   and call sites cannot replace context fields. A `frigg.*` `WARN` with no
   `eventName` fails. Nested scopes keep usage attribution.
+- **Sinks.** A test sink gets only redacted, deep-frozen records. A sink
+  that throws, hangs or rejects late does not change the handler result,
+  pass the deadline or cause an unhandled rejection. A sink that always
+  fails keeps a bounded buffer and is disabled after 3 flushes. A failing
+  sink with a token in its URL path writes no token to stderr.
 
 ## Usage examples
 
@@ -584,7 +711,7 @@ fields @timestamp, level, message, eventName, error.message
 
 | Today | With this ADR |
 |---|---|
-| `console.log(...)` | A lint error in runtime packages (§13) |
+| `console.log(...)` | A lint error in runtime packages (§14) |
 | Ids inside the message text | Ids as fields. The message stays fixed, so a query groups it |
 | Payloads at `INFO` | The logger drops `body`, `payload` and `response` (§6 item 7). Log counts or keys |
 | Log, then rethrow | Throw with `cause`. The boundary logs one time (§4) |
@@ -594,6 +721,14 @@ fields @timestamp, level, message, eventName, error.message
 
 ### Positive
 
+- Framework records in every Frigg app have one shape, and one central
+  guide (`docs/guides/LOGGING.md`) describes them. A person who debugs or
+  monitors a Frigg app does not need the conventions of each repo.
+- Records link to database objects by id (`integrationId`, `processId`,
+  `entityId`, `credentialId`, `executionId`). A tool can trace a record to
+  its rows.
+- After the first destination ships, a new destination is one sink that
+  translates and sends the record, with no core change.
 - One record shape for all code that logs through the port. Logs Insights
   finds top-level fields with no parse step.
 - Records through the logger and span exception events carry no secret.
@@ -628,6 +763,9 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
 - Deployed `dev` loses the raw dumps. JSON adds bytes. `writeSync` blocks,
   and it drops a record after the retries.
 - Frigg owns redaction code with edge cases (cycles, `BigInt`, getters).
+- An in-process sink adds up to the flush deadline to each invocation,
+  drops the records that it cannot send in time, and can send personal data
+  from `DEBUG` records to a third party.
 - `DEBUG` in production can store personal data with no expiry.
 - An id that code learns late, for example a new `processId`, is only on
   the records that name it. A query joins the others by `requestId`.
@@ -649,11 +787,17 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
   and no redaction, and it leaked axios headers in a probe. Winston is the
   heaviest option. Bunyan has had no release since 2021.
 - **The OTel Logs SDK now.** Rejected. It is 0.x "Development", with
-  breaking changes in 2026, and it needs a flush on each invocation.
+  breaking changes in 2026.
 - **Logs on `TelemetryService` or the event bus.** Rejected. The bus is
   semver-stable and synchronous (`telemetry-event-bus.js:7-21`), and
   telemetry logs its own failures, so the path can recurse.
 - **A logger plugin type (ADR-016).** Rejected. The default needs no package.
+  A destination is optional, so under ADR-015 it is an extension, not a
+  plugin. Until ADR-017 ships, it registers as a sink (§11).
+- **Destinations as ADR-017 hooks.** Rejected. ADR-017 hooks are async
+  handlers on named runtime events (`017:66-69`), not a channel for each
+  record. A hook for each record adds an await to every record and can
+  recurse through code that logs.
 - **`console.*` with objects on the RIC.** Rejected. The RIC nests fields
   under `message`, and it works only on AWS.
 - **A second, human-readable format.** Rejected. One format keeps one
@@ -694,14 +838,16 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
 - [ADR-012](./012-database-schema-migrations.md): "credential-safe" logs.
 - [ADR-014](./014-consolidate-adr-register.md): the filing rules.
 - [ADR-016](./016-plugins.md): a sink is not a plugin type (Alternatives).
-- [ADR-017](./017-core-extensions.md): alerting and audit use the bus.
+- [ADR-017](./017-core-extensions.md): amended. An extension can export
+  `logSink`, which joins the §11 sink list.
 - [ADR-018](./018-integration-extensions.md): the shadowed-handler warn.
 - [ADR-031](./031-concurrent-oauth-credential-refresh.md): the ack log line.
 - [ADR-042](./042-in-process-single-flight-token-refresh.md): ALS precedent.
-- Open PR #644: ADR-028 and ADR-029 (provider adapter), ADR-038 (secrets).
+- Open PR #644: ADR-028 and ADR-029 (provider adapter), ADR-038 and ADR-039
+  (secrets, sink credentials).
 - Open PRs #641, #644: ADR-032 Integration Deletion (the message arrays).
 - Open PRs #643, #644: ADR-034 API-Key Login (the denylist floor).
-- Open PR #646: ADR-043 ADR Lifecycle — One Register, No RFC Tier (§13).
+- Open PR #646: ADR-043 ADR Lifecycle — One Register, No RFC Tier (§14).
 - Open PR #648: ADR-044 and ADR-047 (retry, halt, `skipRecord` levels).
 - Key code: `packages/core/logs/logger.js`,
   `packages/core/core/create-handler.js`, `packages/core/core/Worker.js`,
