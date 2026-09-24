@@ -8,6 +8,7 @@ const {
     updateOne,
     deleteOne,
     deleteMany,
+    aggregate,
     aggregateDrained,
 } = require('../../database/documentdb-utils');
 const {
@@ -16,6 +17,20 @@ const {
 const {
     DocumentDBEncryptionService,
 } = require('../../database/documentdb-encryption-service');
+const {
+    assertMappingWrittenUnencrypted,
+} = require('../../database/encryption/integration-mapping-encryption');
+const { validateMappingQuery } = require('./integration-mapping-query');
+const {
+    buildMappingQueryStages,
+} = require('./integration-mapping-query-pipeline');
+
+function storedIntegrationId(id) {
+    if (!['string', 'number'].includes(typeof id) || id === '') {
+        throw new TypeError(`Invalid ID: ${id}`);
+    }
+    return String(id);
+}
 
 class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositoryInterface {
     constructor() {
@@ -177,6 +192,44 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
         );
 
         return decryptedDocs.map((doc) => this._mapMapping(doc));
+    }
+
+    /**
+     * @param {string} integrationId
+     * @param {Object} query - See IntegrationMappingRepositoryInterface.queryMappings
+     * @returns {Promise<{mappings: Array<Object>, total: number}>}
+     */
+    async queryMappings(integrationId, query) {
+        const validated = validateMappingQuery(query);
+        const stored = storedIntegrationId(integrationId);
+        assertMappingWrittenUnencrypted();
+        const { match, page, sort } = buildMappingQueryStages(
+            stored,
+            validated
+        );
+
+        const [docs, counts] = await Promise.all([
+            aggregateDrained(
+                this.prisma,
+                'IntegrationMapping',
+                [match, ...page, sort],
+                { allowDiskUse: true }
+            ),
+            aggregate(this.prisma, 'IntegrationMapping', [
+                match,
+                { $count: 'total' },
+            ]),
+        ]);
+        const decryptedDocs = await Promise.all(
+            docs.map((doc) =>
+                this.encryptionService.decryptFields('IntegrationMapping', doc)
+            )
+        );
+
+        return {
+            mappings: decryptedDocs.map((doc) => this._mapMapping(doc)),
+            total: counts[0]?.total ?? 0,
+        };
     }
 
     async deleteMapping(integrationId, sourceId) {

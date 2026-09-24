@@ -53,6 +53,54 @@ class IntegrationMappingRepositoryInterface {
     }
 
     /**
+     * Query one filtered, ordered page of an integration's mappings without
+     * loading every row. Rows have the same shape as findMappingsByIntegration
+     * and are decrypted the same way.
+     *
+     * Paths address the `mapping` JSON by identifier-only segments
+     * (`'mapping.outbound.status'`), or the `sourceId` column. Conditions:
+     * - `{ path: 'mapping.…', op: 'exists' | 'notExists' }` — JSON null counts
+     *   as absent; notExists is the exact negation of exists.
+     * - `{ path: 'mapping.…', op: 'in', value: string[] }` — matches JSON
+     *   strings; 1–500 values.
+     * - `{ path: 'sourceId', op: 'notStartsWith', value: string }` — a NULL
+     *   sourceId matches.
+     *
+     * Only rows whose `mapping` is a JSON object can match, so rows whose
+     * whole `mapping` is still ciphertext from before an encryption opt-out
+     * never do. A nested path still encrypted from before its opt-out comes
+     * back plain, but conditions and orderBy on it see the ciphertext.
+     * Adapters refuse to run while field-level encryption is enabled
+     * and still encrypts `mapping`, or a path inside it, on write; opt out with
+     * `appDefinition.encryption.disable = { IntegrationMapping: ['mapping'] }`
+     * plus any nested `mapping.…` path a custom schema encrypts.
+     *
+     * @param {string|number} integrationId - The integration ID
+     * @param {Object} query
+     * @param {Array<Object>} [query.where=[]] - Conditions ANDed together; an
+     *   entry may be `{ anyOf: Condition[] }` (one level, ORed). At most 20
+     *   conditions, anyOf members included.
+     * @param {{path: string, direction: 'asc'|'desc'}} [query.orderBy] - A
+     *   mapping path; nulls last, ties broken by id in the same direction.
+     *   Values order string < number < boolean < array < object. Strings
+     *   compare by the database collation on PostgreSQL and by code point on
+     *   MongoDB and DocumentDB; arrays and objects order among themselves
+     *   only on PostgreSQL. Without it rows are ordered by id ascending.
+     * @param {number} [query.skip=0] - Rows to skip (integer ≥ 0)
+     * @param {number} query.take - Page size (integer 1–500)
+     * @param {string[]} [query.omit=[]] - Top-level mapping keys to leave out of
+     *   the returned rows; such projected rows must not be written back
+     * @returns {Promise<{mappings: Array<Object>, total: number}>} The page, and
+     *   the number of rows matching `where` (counted by a separate command on
+     *   DocumentDB, so not from the page's snapshot)
+     */
+    async queryMappings(integrationId, query) {
+        throw new Error(
+            'queryMappings is not supported by this database adapter yet'
+        );
+    }
+
+    /**
      * Delete a specific mapping
      *
      * @param {string|number} integrationId - The integration ID
