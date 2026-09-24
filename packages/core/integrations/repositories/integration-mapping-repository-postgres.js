@@ -1,6 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const {
     assertMappingWrittenUnencrypted,
+    decryptQueriedMappings,
 } = require('../../database/encryption/integration-mapping-encryption');
 const {
     IntegrationMappingRepositoryInterface,
@@ -285,13 +286,13 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
             ORDER BY ${orderSql}
         `;
         const rows = await this.prisma.$queryRawUnsafe(sql, ...params);
-
-        return {
-            mappings: rows
+        const mappings = await decryptQueriedMappings(
+            rows
                 .filter((row) => row.id !== null)
-                .map(({ __total, ...row }) => this._convertMappingIds(row)),
-            total: rows[0].__total,
-        };
+                .map(({ __total, ...row }) => this._convertMappingIds(row))
+        );
+
+        return { mappings, total: rows[0].__total };
     }
 
     /**

@@ -12,6 +12,7 @@ const {
 } = require('./encryption-schema-registry');
 const { logger } = require('./logger');
 const {
+    decryptQueriedMappings,
     getMappingFieldsEncryptedOnWrite,
     resetMappingEncryptionCheck,
 } = require('./integration-mapping-encryption');
@@ -135,5 +136,46 @@ describe('getMappingFieldsEncryptedOnWrite', () => {
         resetMappingEncryptionCheck();
 
         expect(getMappingFieldsEncryptedOnWrite()).toEqual(['mapping']);
+    });
+});
+
+describe('decryptQueriedMappings', () => {
+    const ENV_KEYS = ['STAGE', 'NODE_ENV', 'AES_KEY_ID', 'KMS_KEY_ARN'];
+    const rows = [{ id: '1', mapping: { externalId: '1' } }];
+    let savedEnv;
+
+    beforeEach(() => {
+        savedEnv = Object.fromEntries(
+            ENV_KEYS.map((key) => [key, process.env[key]])
+        );
+        loadCustomEncryptionSchema.mockReset();
+        resetEncryptionOptOut();
+        resetCustomSchema();
+        resetMappingEncryptionCheck();
+    });
+
+    afterEach(() => {
+        for (const [key, value] of Object.entries(savedEnv)) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+        }
+        resetEncryptionOptOut();
+        resetCustomSchema();
+        resetMappingEncryptionCheck();
+    });
+
+    it('hands back the same rows while encryption is off', async () => {
+        process.env.STAGE = 'dev';
+
+        await expect(decryptQueriedMappings(rows)).resolves.toBe(rows);
+    });
+
+    it('hands back the same rows when the schema lists nothing besides mapping', async () => {
+        process.env.STAGE = 'production';
+        process.env.AES_KEY_ID = 'test-key';
+        delete process.env.KMS_KEY_ARN;
+        registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
+
+        await expect(decryptQueriedMappings(rows)).resolves.toBe(rows);
     });
 });

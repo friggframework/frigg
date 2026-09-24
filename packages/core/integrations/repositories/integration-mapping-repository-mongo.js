@@ -1,6 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const {
     assertMappingWrittenUnencrypted,
+    decryptQueriedMappings,
 } = require('../../database/encryption/integration-mapping-encryption');
 const {
     IntegrationMappingRepositoryInterface,
@@ -204,7 +205,9 @@ class IntegrationMappingRepositoryMongo extends IntegrationMappingRepositoryInte
         const [{ mappings, total }] = result.cursor.firstBatch;
 
         return {
-            mappings: mappings.map((doc) => this._fromRawMapping(doc)),
+            mappings: await decryptQueriedMappings(
+                mappings.map((doc) => this._fromRawMapping(doc))
+            ),
             total: total[0]?.total ?? 0,
         };
     }

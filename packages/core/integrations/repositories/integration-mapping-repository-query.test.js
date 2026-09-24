@@ -22,6 +22,7 @@ const {
     resetEncryptionOptOut,
 } = require('../../database/encryption/encryption-schema-registry');
 const { logger } = require('../../database/encryption/logger');
+const { Cryptor } = require('../../encrypt/Cryptor');
 const {
     resetMappingEncryptionCheck,
 } = require('../../database/encryption/integration-mapping-encryption');
@@ -584,6 +585,131 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
             );
             expect(noKeyWarnings).toHaveLength(1);
             warn.mockRestore();
+        });
+    });
+
+    describe('decryption on read', () => {
+        const ENV_KEYS = [
+            'STAGE',
+            'NODE_ENV',
+            'AES_KEY_ID',
+            'AES_KEY',
+            'KMS_KEY_ARN',
+        ];
+        let savedEnv;
+
+        beforeEach(() => {
+            savedEnv = Object.fromEntries(
+                ENV_KEYS.map((key) => [key, process.env[key]])
+            );
+            process.env.STAGE = 'production';
+            process.env.AES_KEY_ID = 'test-key';
+            process.env.AES_KEY = '12345678901234567890123456789012';
+            delete process.env.KMS_KEY_ARN;
+            loadCustomEncryptionSchema.mockReset();
+            resetEncryptionOptOut();
+            resetCustomSchema();
+            resetMappingEncryptionCheck();
+        });
+
+        afterEach(() => {
+            for (const [key, value] of Object.entries(savedEnv)) {
+                if (value === undefined) delete process.env[key];
+                else process.env[key] = value;
+            }
+            resetEncryptionOptOut();
+            resetCustomSchema();
+            resetMappingEncryptionCheck();
+            jest.restoreAllMocks();
+        });
+
+        const optOutOfNestedSecret = () => {
+            registerCustomSchema({
+                IntegrationMapping: { fields: ['mapping.apiSecret'] },
+            });
+            registerEncryptionOptOut({
+                IntegrationMapping: ['mapping', 'mapping.apiSecret'],
+            });
+        };
+        const row = (mapping) => ({
+            id: 5,
+            integrationId: 12,
+            sourceId: 'record:1',
+            mapping,
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+            updatedAt: new Date('2026-01-02T00:00:00Z'),
+        });
+
+        it('decrypts a nested path encrypted before the app opted it out, as findMappingsByIntegration does', async () => {
+            optOutOfNestedSecret();
+            const ciphertext = await new Cryptor({
+                shouldUseAws: false,
+            }).encrypt('plain-secret');
+            const { repo } = makeRepo({
+                rows: [row({ externalId: '1', apiSecret: ciphertext })],
+            });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings).toEqual([
+                {
+                    id: '5',
+                    integrationId: '12',
+                    sourceId: 'record:1',
+                    mapping: { externalId: '1', apiSecret: 'plain-secret' },
+                    createdAt: new Date('2026-01-01T00:00:00Z'),
+                    updatedAt: new Date('2026-01-02T00:00:00Z'),
+                },
+            ]);
+        });
+
+        it('leaves a row written after the opt-out untouched', async () => {
+            optOutOfNestedSecret();
+            const decrypt = jest.spyOn(Cryptor.prototype, 'decrypt');
+            const { repo } = makeRepo({
+                rows: [row({ externalId: '1', apiSecret: 'plain-secret' })],
+            });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings[0].mapping).toEqual({
+                externalId: '1',
+                apiSecret: 'plain-secret',
+            });
+            expect(decrypt).not.toHaveBeenCalled();
+        });
+
+        it('never calls the cryptor when the schema lists nothing inside mapping', async () => {
+            registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
+            const decrypt = jest.spyOn(Cryptor.prototype, 'decrypt');
+            const ciphertext = await new Cryptor({
+                shouldUseAws: false,
+            }).encrypt('plain-secret');
+            const { repo } = makeRepo({
+                rows: [row({ externalId: '1', apiSecret: ciphertext })],
+            });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings[0].mapping.apiSecret).toBe(ciphertext);
+            expect(decrypt).not.toHaveBeenCalled();
+        });
+
+        it('never calls the cryptor while encryption is off', async () => {
+            process.env.STAGE = 'dev';
+            optOutOfNestedSecret();
+            const ciphertext = await new Cryptor({
+                shouldUseAws: false,
+            }).encrypt('plain-secret');
+            const decrypt = jest.spyOn(Cryptor.prototype, 'decrypt');
+            const { repo } = makeRepo({
+                rows: [row({ externalId: '1', apiSecret: ciphertext })],
+            });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings[0].mapping.apiSecret).toBe(ciphertext);
+            expect(decrypt).not.toHaveBeenCalled();
         });
     });
 });

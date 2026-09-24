@@ -54,7 +54,8 @@ class IntegrationMappingRepositoryInterface {
 
     /**
      * Query one filtered, ordered page of an integration's mappings without
-     * loading every row. Rows have the same shape as findMappingsByIntegration.
+     * loading every row. Rows have the same shape as findMappingsByIntegration
+     * and are decrypted the same way.
      *
      * Paths address the `mapping` JSON by identifier-only segments
      * (`'mapping.outbound.status'`), or the `sourceId` column. Conditions:
@@ -67,7 +68,9 @@ class IntegrationMappingRepositoryInterface {
      *
      * Only rows whose `mapping` is a JSON object can match, so rows whose
      * whole `mapping` is still ciphertext from before an encryption opt-out
-     * never do. Adapters refuse to run while field-level encryption is enabled
+     * never do. A nested path still encrypted from before its opt-out comes
+     * back plain, but conditions and orderBy on it see the ciphertext.
+     * Adapters refuse to run while field-level encryption is enabled
      * and still encrypts `mapping`, or a path inside it, on write; opt out with
      * `appDefinition.encryption.disable = { IntegrationMapping: ['mapping'] }`
      * plus any nested `mapping.…` path a custom schema encrypts.
