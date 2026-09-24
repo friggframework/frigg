@@ -5,6 +5,9 @@ same field set and the correlation ids of ADR-011. The decision is
 [ADR-048](../architecture-decisions/048-structured-logging.md). This guide
 tells you how to write, read and test logs.
 
+For integration and API module code, start with
+[Logging in an Integration](./LOGGING-IN-INTEGRATIONS.md).
+
 ## Quick start
 
 In an integration or an API module, use `this.logger`. It already has its name

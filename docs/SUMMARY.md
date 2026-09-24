@@ -19,6 +19,7 @@
 
 * [Cooking with Frigg](guides/cooking-with-frigg.md)
 * [Logging](guides/LOGGING.md)
+  * [Logging in an Integration](guides/LOGGING-IN-INTEGRATIONS.md)
 
 ## 💭 Explanation (Understanding) <a href="#explanation" id="explanation"></a>
 
