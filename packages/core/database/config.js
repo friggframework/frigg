@@ -125,16 +125,9 @@ let cachedDbType = null;
  */
 const PRISMA_LOG_LEVEL = process.env.PRISMA_LOG_LEVEL || 'error,warn';
 
-/**
- * Enable Prisma query logging for performance monitoring
- * @type {boolean}
- */
-const PRISMA_QUERY_LOGGING = process.env.PRISMA_QUERY_LOGGING === 'true';
-
 module.exports = {
     getDatabaseType, // Export for testing and direct use
     PRISMA_LOG_LEVEL,
-    PRISMA_QUERY_LOGGING,
 };
 
 /**

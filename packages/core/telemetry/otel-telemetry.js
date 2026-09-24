@@ -17,6 +17,7 @@ const {
     runWithTelemetryContext,
     mergeTelemetryContext,
 } = require('./telemetry-context');
+const { serializeError } = require('../logs/serialize');
 
 const TRACER_NAME = 'frigg';
 const METRIC_EXPORT_INTERVAL_MS =
@@ -138,6 +139,15 @@ class OtelTelemetry {
         this._bus.emit('event', payload);
     }
 
+    getActiveSpanContext() {
+        const spanContext = otelApi.trace.getActiveSpan()?.spanContext();
+        if (!spanContext || !otelApi.isSpanContextValid(spanContext)) {
+            return null;
+        }
+        const { traceId, spanId, traceFlags } = spanContext;
+        return { traceId, spanId, traceFlags };
+    }
+
     startSpan(name, options) {
         return this._tracer.startSpan(name, options);
     }
@@ -150,10 +160,16 @@ class OtelTelemetry {
                 span.setStatus({ code: otelApi.SpanStatusCode.OK });
                 return result;
             } catch (err) {
-                span.recordException(err);
+                const serialized = serializeError(err);
+                span.recordException({
+                    name: serialized.type,
+                    message: serialized.message,
+                    stack: serialized.stack,
+                    code: serialized.code,
+                });
                 span.setStatus({
                     code: otelApi.SpanStatusCode.ERROR,
-                    message: err && err.message,
+                    message: serialized.message,
                 });
                 throw err;
             } finally {

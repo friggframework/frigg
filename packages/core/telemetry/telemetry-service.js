@@ -8,6 +8,7 @@ const { createTelemetryEventBus } = require('./telemetry-event-bus');
  *   count(name, value?, attributes?, context?) · event(name, attributes?, context?)
  *   span(name, fn) · startSpan(name?) · withContext(context, fn)
  *   on(eventType, cb) · forceFlush() · shutdown() · isEnabled()
+ *   getActiveSpanContext() → { traceId, spanId, traceFlags } | null
  */
 
 /**
