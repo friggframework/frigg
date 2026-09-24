@@ -90,6 +90,34 @@ describe('IntegrationBase logger', () => {
         expect(sink.records[0]).not.toHaveProperty('credentialId');
     });
 
+    it('a record inside send() carries integrationEvent', async () => {
+        class SendingIntegration extends HubspotIntegration {
+            constructor(params) {
+                super(params);
+                this.events = {
+                    SYNC_NOW: {
+                        type: 'USER_ACTION',
+                        handler: async () => this.logger.info('syncing'),
+                    },
+                };
+            }
+        }
+        const integration = new SendingIntegration();
+        hydrate(integration);
+        integration.registerEventHandlers();
+
+        await integration.send('SYNC_NOW');
+        integration.logger.info('outside');
+
+        const inside = sink.records.find((r) => r.message === 'syncing');
+        const outside = sink.records.find((r) => r.message === 'outside');
+        expect(inside).toMatchObject({
+            integrationEvent: 'SYNC_NOW',
+            integrationId: 'int_1',
+        });
+        expect(outside).not.toHaveProperty('integrationEvent');
+    });
+
     it('falls back to integration.unknown without a Definition name', () => {
         class Nameless extends IntegrationBase {
             static Definition = { modules: {} };
