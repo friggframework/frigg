@@ -424,15 +424,15 @@ class IntegrationBase {
      */
     async reconcileAuthStatus(authPassed) {
         if (!authPassed) {
-            console.log(
-                `[Frigg] Integration ${this.id} failed to authenticate`
-            );
+            this.logger.warn('Integration failed to authenticate', {
+                eventName: `${this.logger.name}.auth_failed`,
+            });
             await this.persistStatus('ERROR');
         }
         if (authPassed && this.status === 'ERROR') {
-            console.log(
-                `[Frigg] auth confirmed for integration ${this.id} — clearing ERROR → ENABLED`
-            );
+            this.logger.info('Auth confirmed, clearing ERROR', {
+                eventName: `${this.logger.name}.auth_confirmed`,
+            });
             await this.persistStatus('ENABLED');
         }
     }
@@ -628,12 +628,22 @@ class IntegrationBase {
         this[key] = module;
     }
 
+    // The raw error can echo a request with its credentials, and messages
+    // reach end users, so only a fixed text is stored.
     addError(error) {
         if (!this.messages.errors) {
             this.messages.errors = [];
         }
-        this.messages.errors.push(error);
+        this.messages.errors.push({
+            title: 'Integration Error',
+            message: `Integration ${this.id} hit an error. Contact support.`,
+            timestamp: Date.now(),
+        });
         this.status = 'ERROR';
+        this.logger.error('Integration error recorded', {
+            eventName: `${this.logger.name}.error_recorded`,
+            error,
+        });
     }
 
     addWarning(warning) {
@@ -652,9 +662,10 @@ class IntegrationBase {
     async persistStatus(status) {
         await this.updateIntegrationStatus.execute(this.id, status);
         this.status = status;
-        console.log(
-            `[Frigg] Integration ${this.id} status changed to ${status}`
-        );
+        this.logger.info('Integration status changed', {
+            eventName: `${this.logger.name}.status_changed`,
+            integrationStatus: status,
+        });
     }
 
     /**
@@ -766,10 +777,14 @@ class IntegrationBase {
                 // it wins. Warn if the binding tried to wire an override that's now ignored.
                 if (this.events[eventName]) {
                     if (typeof handlers[eventName] === 'string') {
-                        console.warn(
-                            `[Frigg] Integration "${integrationName}" binding "${bindingName}": ` +
-                                `handler "${handlers[eventName]}" for event "${eventName}" is ignored because ` +
-                                `this.events["${eventName}"] was already set (subclass constructor or earlier merge)`
+                        this.logger.warn(
+                            `Binding handler "${handlers[eventName]}" for event "${eventName}" is ignored because this.events["${eventName}"] was already set`,
+                            {
+                                eventName: `${this.logger.name}.extension_handler_shadowed`,
+                                bindingName,
+                                handler: handlers[eventName],
+                                event: eventName,
+                            }
                         );
                     }
                     continue;
@@ -871,19 +886,12 @@ class IntegrationBase {
             if (this.status === 'ERROR') return;
 
             const moduleName = notifier?.name;
-            const detail =
-                object?.reason || object?.statusCode
-                    ? ` (status ${object?.statusCode ?? '?'}: ${
-                          object?.reason ?? 'no reason given'
-                      })`
-                    : '';
-            console.log(
-                `[Frigg] Module ${
-                    moduleName || '?'
-                } reported invalid credentials for integration ${
-                    this.id
-                } — marking ERROR${detail}`
-            );
+            this.logger.warn('Module reported invalid credentials, marking ERROR', {
+                eventName: `${this.logger.name}.credentials_invalidated`,
+                moduleName,
+                statusCode: object?.statusCode,
+                reason: object?.reason,
+            });
             await this._recordCredentialRejection(
                 moduleName,
                 object?.statusCode
@@ -894,13 +902,10 @@ class IntegrationBase {
 
         if (delegateString === 'CREDENTIAL_VALIDATED') {
             if (this.status !== 'ERROR') return;
-            console.log(
-                `[Frigg] Module ${
-                    notifier?.name || '?'
-                } reported valid credentials for integration ${
-                    this.id
-                } — clearing ERROR → ENABLED`
-            );
+            this.logger.info('Module reported valid credentials, clearing ERROR', {
+                eventName: `${this.logger.name}.credentials_validated`,
+                moduleName: notifier?.name,
+            });
             await this.persistStatus('ENABLED');
         }
     }
@@ -922,10 +927,10 @@ class IntegrationBase {
                 Date.now()
             );
         } catch (error) {
-            console.error(
-                `[Frigg] Failed to record credential rejection for integration ${this.id}:`,
-                error
-            );
+            this.logger.error('Failed to record credential rejection', {
+                eventName: `${this.logger.name}.credential_rejection_record_failed`,
+                error,
+            });
         }
     }
 }

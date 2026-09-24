@@ -22,6 +22,11 @@ const {
 } = require('../../../database/documentdb-utils');
 const { UserRepositoryDocumentDB } = require('../user-repository-documentdb');
 const { DocumentDBEncryptionService } = require('../../../database/documentdb-encryption-service');
+const { createMemorySink } = require('../../../logs');
+const { SECRETS } = require('../../../logs/__fixtures__/secrets');
+
+const recordsFor = (sink, eventName) =>
+    sink.records.filter((r) => r.eventName === eventName);
 
 describe('UserRepositoryDocumentDB - Encryption Integration', () => {
     let repository;
@@ -987,6 +992,7 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
             jest.spyOn(bcrypt, 'hash').mockResolvedValue('$2b$10$hash');
 
             const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            const sink = createMemorySink();
 
             const insertedId = new ObjectId();
 
@@ -1016,21 +1022,21 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 })
             ).rejects.toThrow(/Failed to create individual user: Document not found after insert/);
 
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                '[UserRepositoryDocumentDB] User not found after insert',
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
+            expect(recordsFor(sink, 'frigg.user.not_found_after_insert')).toEqual([
                 expect.objectContaining({
+                    level: 'ERROR',
                     insertedId: expect.any(String),
-                    params: expect.objectContaining({
-                        username: 'testuser'
-                    })
-                })
-            );
+                    paramKeys: ['username', 'hashword'],
+                }),
+            ]);
 
             consoleErrorSpy.mockRestore();
         });
 
         it('throws when organization user not found after insert', async () => {
             const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            const sink = createMemorySink();
 
             const insertedId = new ObjectId();
 
@@ -1058,21 +1064,23 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 })
             ).rejects.toThrow(/Failed to create organization user: Document not found after insert/);
 
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                '[UserRepositoryDocumentDB] Organization user not found after insert',
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
+            expect(
+                recordsFor(sink, 'frigg.user.organization_not_found_after_insert')
+            ).toEqual([
                 expect.objectContaining({
+                    level: 'ERROR',
                     insertedId: expect.any(String),
-                    params: expect.objectContaining({
-                        appOrgId: 'org-123'
-                    })
-                })
-            );
+                    paramKeys: ['appOrgId'],
+                }),
+            ]);
 
             consoleErrorSpy.mockRestore();
         });
 
         it('throws when individual user not found after update', async () => {
             const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            const sink = createMemorySink();
 
             mockEncryptionService.encryptFields.mockResolvedValue({
                 name: 'Updated',
@@ -1095,23 +1103,18 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 repository.updateIndividualUser(fromObjectId(testUserId), {
                     email: 'new@example.com',
                 })
-            ).rejects.toThrow(/Failed to update individual user: Document not found after update/);
-
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                '[UserRepositoryDocumentDB] Individual user not found after update',
-                expect.objectContaining({
-                    userId: expect.any(String),
-                    updates: expect.objectContaining({
-                        email: 'new@example.com'
-                    })
-                })
+            ).rejects.toThrow(
+                `Failed to update user ${fromObjectId(testUserId)}: not found after update`
             );
+
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
 
             consoleErrorSpy.mockRestore();
         });
 
         it('throws when organization user not found after update', async () => {
             const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            const sink = createMemorySink();
 
             mockEncryptionService.encryptFields.mockResolvedValue({
                 name: 'Updated',
@@ -1134,19 +1137,61 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 repository.updateOrganizationUser(fromObjectId(testUserId), {
                     name: 'Updated Name',
                 })
-            ).rejects.toThrow(/Failed to update organization user: Document not found after update/);
-
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                '[UserRepositoryDocumentDB] Organization user not found after update',
-                expect.objectContaining({
-                    userId: expect.any(String),
-                    updates: expect.objectContaining({
-                        name: 'Updated Name'
-                    })
-                })
+            ).rejects.toThrow(
+                `Failed to update user ${fromObjectId(testUserId)}: not found after update`
             );
 
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
+
             consoleErrorSpy.mockRestore();
+        });
+    });
+
+    describe('No secret in failure paths (ADR-048 Phase 2)', () => {
+        it('updateIndividualUser with a hashword rejects and logs nothing of it', async () => {
+            const consoleSpies = ['log', 'warn', 'error'].map((method) =>
+                jest.spyOn(console, method).mockImplementation()
+            );
+            const sink = createMemorySink();
+            mockEncryptionService.encryptFields.mockImplementation(
+                async (_model, doc) => doc
+            );
+            const bcrypt = require('bcryptjs');
+            jest.spyOn(bcrypt, 'hash').mockResolvedValue(SECRETS.hashword);
+            prisma.$runCommandRaw.mockImplementation((command) => {
+                if (command.update) return Promise.resolve({ n: 1, ok: 1 });
+                if (command.find) {
+                    return Promise.resolve({ cursor: { firstBatch: [] }, ok: 1 });
+                }
+            });
+
+            const error = await repository
+                .updateIndividualUser(fromObjectId(testUserId), {
+                    hashword: SECRETS.password,
+                })
+                .catch((e) => e);
+
+            expect(error.message).toBe(
+                `Failed to update user ${fromObjectId(testUserId)}: not found after update`
+            );
+            expect(sink.records).toContainNoSecretWindow(SECRETS);
+            consoleSpies.forEach((spy) => {
+                expect(spy).not.toHaveBeenCalled();
+                spy.mockRestore();
+            });
+        });
+
+        it('_mapUser(null) writes WARN map_user_null', () => {
+            const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+            const sink = createMemorySink();
+
+            expect(repository._mapUser(null)).toBeNull();
+
+            expect(recordsFor(sink, 'frigg.user.map_user_null')[0].level).toBe(
+                'WARN'
+            );
+            expect(consoleWarn).not.toHaveBeenCalled();
+            consoleWarn.mockRestore();
         });
     });
 

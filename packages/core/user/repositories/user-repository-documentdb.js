@@ -17,6 +17,9 @@ const { ClientSafeError } = require('../../errors');
 const {
     DocumentDBEncryptionService,
 } = require('../../database/documentdb-encryption-service');
+const { getLogger } = require('../../logs');
+
+const log = getLogger('frigg.user');
 
 /**
  * User repository for DocumentDB.
@@ -145,17 +148,11 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
         // Defensive check: verify document was found after insert
         if (!created) {
-            console.error(
-                '[UserRepositoryDocumentDB] User not found after insert',
-                {
-                    insertedId: fromObjectId(insertedId),
-                    params: {
-                        username: params.username,
-                        appUserId: params.appUserId,
-                        email: params.email,
-                    },
-                }
-            );
+            log.error('User not found after insert', {
+                eventName: 'frigg.user.not_found_after_insert',
+                insertedId: fromObjectId(insertedId),
+                paramKeys: Object.keys(params),
+            });
             throw new Error(
                 'Failed to create individual user: Document not found after insert. ' +
                     'This indicates a database consistency issue.'
@@ -195,16 +192,11 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
         // Defensive check: verify document was found after insert
         if (!created) {
-            console.error(
-                '[UserRepositoryDocumentDB] Organization user not found after insert',
-                {
-                    insertedId: fromObjectId(insertedId),
-                    params: {
-                        appOrgId: params.appOrgId,
-                        name: params.name,
-                    },
-                }
-            );
+            log.error('Organization user not found after insert', {
+                eventName: 'frigg.user.organization_not_found_after_insert',
+                insertedId: fromObjectId(insertedId),
+                paramKeys: Object.keys(params),
+            });
             throw new Error(
                 'Failed to create organization user: Document not found after insert. ' +
                     'This indicates a database consistency issue.'
@@ -291,16 +283,8 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
         // Defensive check: verify document was found after update
         if (!updated) {
-            console.error(
-                '[UserRepositoryDocumentDB] Individual user not found after update',
-                {
-                    userId: fromObjectId(objectId),
-                    updates,
-                }
-            );
             throw new Error(
-                'Failed to update individual user: Document not found after update. ' +
-                    'This indicates a database consistency issue.'
+                `Failed to update user ${userId}: not found after update`
             );
         }
 
@@ -332,16 +316,8 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         const updated = await findOne(this.prisma, 'User', { _id: objectId });
 
         if (!updated) {
-            console.error(
-                '[UserRepositoryDocumentDB] Organization user not found after update',
-                {
-                    userId: fromObjectId(objectId),
-                    updates,
-                }
-            );
             throw new Error(
-                'Failed to update organization user: Document not found after update. ' +
-                    'This indicates a database consistency issue.'
+                `Failed to update user ${userId}: not found after update`
             );
         }
 
@@ -363,9 +339,9 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
     _mapUser(doc) {
         if (!doc) {
-            console.warn(
-                '[UserRepositoryDocumentDB] _mapUser received null/undefined document'
-            );
+            log.warn('_mapUser received a null document', {
+                eventName: 'frigg.user.map_user_null',
+            });
             return null;
         }
 

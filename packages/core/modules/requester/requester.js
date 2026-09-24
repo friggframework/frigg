@@ -5,6 +5,7 @@ const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
 const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 const { getLogger } = require('../../logs');
+const { redactUrl } = require('../../logs/redact');
 const { getLoggerScope } = require('../../logs/context');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
@@ -375,6 +376,7 @@ class Requester extends Delegate {
             // the response body (response.text()) — timer must still be
             // alive to catch a stalled body stream.
             if (status >= 400) {
+                this._logRequestFailed(encodedUrl, options, status);
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
                     init: options,
@@ -406,6 +408,18 @@ class Requester extends Delegate {
         } finally {
             clearRequestTimer();
         }
+    }
+
+    _logRequestFailed(encodedUrl, options, status) {
+        const logger = this.logger;
+        if (!logger.isLevelEnabled('DEBUG')) return;
+        logger.debug('Request failed', {
+            eventName: `${logger.name}.request_failed`,
+            method: (options.method || 'GET').toUpperCase(),
+            url: redactUrl(encodedUrl),
+            statusCode: status,
+            headerNames: Object.keys(options.headers || {}),
+        });
     }
 
     async _invalidateAuth(encodedUrl, options, response) {

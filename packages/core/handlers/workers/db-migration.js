@@ -55,6 +55,9 @@ const {
 
 // Inject prisma-runner as dependency
 const prismaRunner = require('../../database/utils/prisma-runner');
+const { getLogger } = require('../../logs');
+
+const log = getLogger('frigg.database.migration');
 
 // Use S3 repository for migration status tracking (no User table dependency)
 const bucketName = process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
@@ -144,7 +147,6 @@ exports.handler = async (event, context) => {
     console.log('========================================');
     console.log('Database Migration Lambda Started');
     console.log('========================================');
-    console.log('Event:', JSON.stringify(event, null, 2));
     console.log('Context:', JSON.stringify({
         requestId: context.requestId,
         functionName: context.functionName,
@@ -156,6 +158,15 @@ exports.handler = async (event, context) => {
 
     // Check for action parameter (direct invocation for status checks)
     const action = event.action || 'migrate'; // Default to migration
+
+    // targetStage, not stage: the record's own stage field would win.
+    log.info('Database migration invoked', {
+        eventName: 'frigg.database.migration.invoked',
+        migrationId,
+        dbType,
+        targetStage: stage,
+        action,
+    });
 
     // Handle checkStatus action
     if (action === 'checkStatus') {
