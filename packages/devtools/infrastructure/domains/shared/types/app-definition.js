@@ -100,10 +100,28 @@
  */
 
 /**
+ * Integration queue tuning knobs (optional, all defaults preserved when unset).
+ * Bounds enforced at template-generation time — see validateQueueConfig /
+ * validateWorkerConfig in integration-builder.js.
+ *
+ * @typedef {Object} IntegrationQueueDefinition
+ * @property {number} [visibilityTimeout] - SQS VisibilityTimeout seconds. Range 0..43200. Default 1800.
+ * @property {number} [messageRetentionPeriod] - SQS MessageRetentionPeriod seconds. Range 60..1209600. Default 345600 (4 days).
+ * @property {number} [maxReceiveCount] - DLQ redrive policy maxReceiveCount. Range 1..1000. Default 3.
+ * @property {Object} [worker] - Queue-worker Lambda + event-source-mapping tuning
+ * @property {number} [worker.batchSize] - SQS event batchSize. Range 1..10000. Default 1.
+ * @property {number} [worker.maximumBatchingWindow] - SQS event MaximumBatchingWindowInSeconds. Range 0..300. Default unset. NOTE: serverless-framework key, not the longer CFN property name.
+ * @property {number} [worker.maximumConcurrency] - SQS ESM ScalingConfig.MaximumConcurrency. Range 2..1000. Default unset.
+ * @property {number} [worker.reservedConcurrency] - Lambda ReservedConcurrency. Range 0..1000. Default 20.
+ * @property {number} [worker.timeout] - Queue-worker Lambda execution timeout (seconds). Range 1..900. Default 900.
+ */
+
+/**
  * Integration configuration
  * @typedef {Object} IntegrationDefinition
  * @property {Object} Definition - Integration definition object
  * @property {string} Definition.name - Integration name
+ * @property {IntegrationQueueDefinition} [Definition.queue] - Optional SQS + queue-worker tuning
  */
 
 /**
