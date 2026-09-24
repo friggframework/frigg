@@ -278,16 +278,16 @@ const appDefinition = {
   `LoggingConfig`, no retention and no `FRIGG_LOG_LEVEL`, and
   `frameworkVersion` stays as it is.
 - **`level`** (`trace` … `fatal`, all lower or all upper case):
-  - Devtools sets `provider.logs.lambda` to
-    `{ logFormat: 'JSON', applicationLogLevel: <LEVEL>, systemLogLevel: 'INFO' }`
-    for every function. Do not set a function-level `logs` block: it
-    replaces the provider block, it does not merge with it.
-  - A level other than `info` also sets the literal `FRIGG_LOG_LEVEL=<LEVEL>`
+  - A level other than `info` sets the literal `FRIGG_LOG_LEVEL=<LEVEL>`
     on every function. It wins over `environment: { FRIGG_LOG_LEVEL: true }`,
     and it also applies under `frigg start` (a local run without it
     defaults to `DEBUG`).
-  - Setting a level raises `frameworkVersion` to `>=3.58.0`, the first osls
-    version with `LoggingConfig`. An unknown level fails the build.
+  - An unknown level fails the build.
+  - Lambda stays on its default `Text` log format for now. The Lambda JSON
+    `LoggingConfig` (`provider.logs.lambda`, `frameworkVersion >=3.58.0`)
+    waits for the ADR-048 Phase 0 checks; `FRIGG_LOG_LEVEL` filters in
+    process until then. When it is on, do not set a function-level `logs`
+    block: it replaces the provider block, it does not merge with it.
 - **`retentionInDays`** sets `provider.logRetentionInDays` for every Lambda
   log group. Allowed values are the CloudWatch list (1, 3, 5, 7, 14, 30, 60,
   90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288,
