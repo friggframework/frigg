@@ -260,7 +260,38 @@ An in-process sink in a VPC needs an egress path.
 
 ## Deployment: the `logging` block
 
-TODO: filled in from the devtools work (Phase 3).
+```js
+const appDefinition = {
+    logging: { level: 'info', retentionInDays: 30 },
+};
+```
+
+- **No block, no change.** Without `logging`, devtools emits no
+  `LoggingConfig`, no retention and no `FRIGG_LOG_LEVEL`, and
+  `frameworkVersion` stays as it is.
+- **`level`** (`trace` … `fatal`, all lower or all upper case):
+  - Devtools sets `provider.logs.lambda` to
+    `{ logFormat: 'JSON', applicationLogLevel: <LEVEL>, systemLogLevel: 'INFO' }`
+    for every function. Do not set a function-level `logs` block: it
+    replaces the provider block, it does not merge with it.
+  - A level other than `info` also sets the literal `FRIGG_LOG_LEVEL=<LEVEL>`
+    on every function. It wins over `environment: { FRIGG_LOG_LEVEL: true }`,
+    and it also applies under `frigg start` (a local run without it
+    defaults to `DEBUG`).
+  - Setting a level raises `frameworkVersion` to `>=3.58.0`, the first osls
+    version with `LoggingConfig`. An unknown level fails the build.
+- **`retentionInDays`** sets `provider.logRetentionInDays` for every Lambda
+  log group. Allowed values are the CloudWatch list (1, 3, 5, 7, 14, 30, 60,
+  90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288,
+  3653). Any other value fails the build before CloudFormation starts. The
+  deployment IAM policy grants `logs:DeleteRetentionPolicy`, so you can
+  remove the setting later.
+- **`format`** accepts only `json`.
+- **SSM offload:** `FRIGG_LOG_LEVEL`, `AWS_LAMBDA_LOG_LEVEL`,
+  `AWS_LAMBDA_LOG_FORMAT`, `OTEL_FLUSH_TIMEOUT_MS`, `DEBUG_VERBOSE` and
+  `PRISMA_LOG_LEVEL` are read at INIT, so they never move to SSM.
+- **`frigg init`** writes `logging: { level: 'info', retentionInDays: 30 }`
+  for new apps.
 
 ## Testing
 
