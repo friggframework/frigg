@@ -235,7 +235,11 @@ packages/core/
   The legacy `IntegrationMappingRepository` inherits the port's
   "not supported by this database adapter yet" error. Every adapter refuses
   to run while field-level encryption still encrypts
-  `IntegrationMapping.mapping` on write (see `database/encryption/README.md`).
+  `IntegrationMapping.mapping` on write (see `database/encryption/README.md`),
+  and returns rows decrypted like `findMappingsByIntegration`. PostgreSQL and
+  MongoDB decrypt through `decryptQueriedMappings`
+  (`database/encryption/integration-mapping-encryption.js`), a no-op while
+  encryption is off or lists no `IntegrationMapping` field besides `mapping`.
   Validation lives in `integration-mapping-query.js`; a new operator is one
   entry in its `OPERATORS` table, one in the Postgres adapter's
   `CONDITION_SQL` and one in `CONDITION_EXPRESSIONS` in

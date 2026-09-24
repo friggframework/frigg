@@ -829,7 +829,10 @@ encryption: {
 
 The opt-out applies to writes only. Rows written encrypted before it stay
 readable, but `queryMappings()` does not match them until they are written
-again.
+again. It returns the rows it matches decrypted, like
+`findMappingsByIntegration()`: a nested `mapping.*` path written encrypted
+before its opt-out reads plain, though conditions and ordering on that path
+still see the ciphertext until the row is written again.
 
 ## Future Enhancements
 
