@@ -56,7 +56,9 @@ const MAX_SCRUB_INPUT = 65536;
 const URL_IN_TEXT = /\b[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^\s"'<>`]+/g;
 const URL_TRAILING_PUNCT = /[.,;:!?)\]}]+$/;
 const ABSOLUTE_URL = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
-const ROOT_SLASH = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/?#]*\//;
+const RAW_ABSOLUTE_PATH = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/?#]*([^?#]*)/;
+const RAW_RELATIVE_PATH = /^[^?#]*/;
+const PATH_TOKEN_SEGMENT = /^[A-Za-z0-9_.~-]{20,}$/;
 const PREFIXED_TOKEN =
     /(?<![A-Za-z0-9_-])(?:(?:sk|rk)_(?:live|test)_|whsec_|xox[abprs]-|gh[opsu]_|github_pat_|shp(?:at|ss)_|glpat-|npm_)[A-Za-z0-9_-]{16,}|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g;
 const JWT = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
@@ -196,11 +198,18 @@ function redactHash(hash) {
     return scrubTokens(hash);
 }
 
+// A long segment mixing upper case, lower case and digits is an opaque
+// token (webhook secrets live in paths); hex ids and UUIDs lack one class.
+function redactPathSegment(segment) {
+    if (PATH_TOKEN_SEGMENT.test(segment) && hasMixedClasses(segment)) {
+        return redacted(segment);
+    }
+    return scrubTokens(segment, { segment: true });
+}
+
+// The raw path, not URL#pathname, which percent-encodes `{proxy+}`.
 function redactPath(pathname) {
-    return pathname
-        .split('/')
-        .map((segment) => scrubTokens(segment, { segment: true }))
-        .join('/');
+    return pathname.split('/').map(redactPathSegment).join('/');
 }
 
 function redactUrlFallback(raw) {
@@ -221,8 +230,7 @@ function redactUrl(url) {
     try {
         if (ABSOLUTE_URL.test(raw)) {
             const u = new URL(raw);
-            const path =
-                u.pathname === '/' && !ROOT_SLASH.test(raw) ? '' : u.pathname;
+            const path = raw.match(RAW_ABSOLUTE_PATH)[1];
             return `${u.protocol}//${u.host}${redactPath(path)}${redactParams(
                 u.search,
                 '?'
@@ -230,7 +238,7 @@ function redactUrl(url) {
         }
         if (raw.startsWith('/')) {
             const u = new URL(raw, 'http://relative.invalid');
-            return `${redactPath(u.pathname)}${redactParams(
+            return `${redactPath(raw.match(RAW_RELATIVE_PATH)[0])}${redactParams(
                 u.search,
                 '?'
             )}${redactHash(u.hash)}`;

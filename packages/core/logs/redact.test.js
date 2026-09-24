@@ -514,3 +514,60 @@ describe('provider token prefixes', () => {
         expect(scrubString(`id ${short}`)).toBe(`id ${short}`);
     });
 });
+
+describe('redactUrl path segment tokens', () => {
+    it('scrubs a 20+ char mixed-case segment with digits', () => {
+        expect(redactUrl(`/webhooks/${SECRETS.bearer}`)).toBe(
+            `/webhooks/[REDACTED:${SECRETS.bearer.length}]`
+        );
+        expect(redactUrl(`https://h.example/hooks/${SECRETS.bearer}/x`)).toBe(
+            `https://h.example/hooks/[REDACTED:${SECRETS.bearer.length}]/x`
+        );
+    });
+
+    it.each([
+        ['a 24-hex Mongo id', '/api/integrations/6ab56cd0da45152586f8311d'],
+        ['an upper-case 24-hex id', '/api/entities/6AB56CD0DA45152586F8311D'],
+        ['a UUID', '/api/processes/3f0e8a2c-9b1d-4c7e-8f2a-1b3c5d7e9f01'],
+        ['a proxy route', '/api/{proxy+}'],
+        ['route words', '/api/integrations/oauth/callback'],
+        ['kebab and snake words', '/api/user-actions/refresh_config_options'],
+        ['a numeric id', '/api/contacts/1234567890123456789012'],
+        ['a short mixed segment', '/api/Ab12Cd34'],
+    ])('keeps %s', (_label, path) => {
+        expect(redactUrl(path)).toBe(path);
+    });
+});
+
+describe('request summaries through redactUrl', () => {
+    const {
+        summarizeExpressRequest,
+        summarizeLambdaEvent,
+        toRequestInvocation,
+    } = require('./summarize-event');
+
+    it('summarizeExpressRequest scrubs a token in the path', () => {
+        const summary = summarizeExpressRequest({
+            method: 'POST',
+            path: `/webhooks/${SECRETS.bearer}`,
+            query: {},
+            headers: {},
+        });
+        expect(summary.path).toBe(`/webhooks/[REDACTED:${SECRETS.bearer.length}]`);
+        expect(summary).toContainNoSecretWindow(SECRETS);
+    });
+
+    it('toRequestInvocation scrubs a token in a Lambda path', () => {
+        const path = `/webhooks/${SECRETS.bearer}`;
+        const event = {
+            version: '2.0',
+            routeKey: 'POST /webhooks/{token}',
+            rawPath: path,
+            headers: {},
+            requestContext: { http: { method: 'POST', path } },
+        };
+        const invocation = toRequestInvocation(summarizeLambdaEvent(event));
+        expect(invocation.path).toBe(`/webhooks/[REDACTED:${SECRETS.bearer.length}]`);
+        expect(invocation).toContainNoSecretWindow(SECRETS);
+    });
+});
