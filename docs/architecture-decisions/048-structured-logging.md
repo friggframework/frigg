@@ -315,15 +315,17 @@ it leaked the `x-frigg-*` keys, cookies, the OAuth `code` and `id_token`.
 
 - **One ambient context.** Extend the telemetry store and change `run` to
   merge, not replace (`telemetry-context.js:16-20`). An inner `undefined`
-  keeps the outer value, and an explicit `null` clears it.
+  keeps the outer value, and an explicit `null` replaces it with `null`.
+  The record omits `null` values.
 - **Logger keys.** `requestId`, `method`, `route`, `messageId`, `processId`
   and the event summary live in a separate nested object of the store.
   `mergeTelemetryContext` and baggage skip it, so the semver-stable bus
   payload does not change.
 - **Invocation scope.** One helper, `runInvocationScope` (working name),
   opens the scope and runs a bounded flush. `createHandler` opens it before
-  `create-handler.js:148`. The provider adapters use it, and so do the 7 raw
-  handlers: the DLQ processor, two db-migration and four admin-scripts.
+  `create-handler.js:148`. The DLQ processor uses it too. The provider
+  adapters and the other raw handlers (two db-migration, four admin-scripts)
+  adopt it incrementally (§13).
 - **Message scope.** The SQS `records` array (`create-handler.js:99-120`)
   never enters the invocation scope. `Worker.run` and the DLQ processor open
   one scope per message (`Worker.js:27-66`). It reads the Frigg ids that the
@@ -429,8 +431,9 @@ logging: { level: 'INFO', sinks: [datadog] },
   runs at a time, and it sends every buffered record.
 - **Flush.** `runInvocationScope` flushes in its `finally`. PR A moves
   `flushTelemetry` and `flushUsageRollup` there (`create-handler.js:240-247`).
-  The usage rollup runs first, with no bound, as today
-  (`create-handler.js:26-58`). Then telemetry and all sinks run in parallel
+  The usage rollup runs first, with no bound (`create-handler.js:26-58`).
+  This reverses today's order, which flushes telemetry first
+  (`create-handler.js:242-247`). Then telemetry and all sinks run in parallel
   against one deadline: `flushTimeoutMs` (`create-handler.js:139`), with
   `OTEL_FLUSH_TIMEOUT_MS` or 500 ms as its default (`:14-18`). The deadline
   never passes the remaining invocation time. With no destination sink, the
@@ -518,8 +521,7 @@ The provider adapter owns the AWS settings (ADR-028). An absent
 | A: foundation | Port, internal sink interface, pipeline, config, scope, shims, §6 items 8-11 with the fix for the `init.body` mutation (`fetch-error.js:16-19`), guards, and the central guide `docs/guides/LOGGING.md` (field reference, levels, query cookbook, destination options) |
 | B: security call sites | 5xx, `createHandler` catch, `testAuth`, `oauth-2`, `hashword`, websocket body, messages, DLQ body as length and SHA-256 |
 | Devtools | Opt-in block, osls floor, schema. After PR A, because JSON at `INFO` drops the `console.debug` replay. |
-| C to n | Queue, use cases, routers, scheduler, db-migration, telemetry, `EncryptionLogger`, Prisma, admin-scripts, raw handlers |
-| Final | `no-console` becomes `error` |
+| Incremental | Not scheduled. New code uses the logger. Existing call sites (queue, use cases, routers, scheduler, db-migration, telemetry, `EncryptionLogger`, Prisma, admin-scripts, raw handlers) move when someone changes them. |
 | First destination | When needed: the destination contract, the public `logging.sinks` registration, its schema entry and the first destination package (§11) |
 
 The #643 redaction becomes the shim summary, and ADR-034 security
@@ -533,14 +535,14 @@ File the api-module-library leaks there (`next` @48ea8647):
 
 Deterministic checks, in the style of ADR-043 §5 (open PR #646):
 
-- **Lint.** `no-console: error` in `packages/core/.eslintrc.json` and a new
-  admin-scripts config, with an override for the stdout sink file. The
-  shared `packages/eslint-config/index.js:33` stays `warn`. Ban
-  `process.stdout.write` outside the stdout sink. The `error` rule comes last,
-  because it fails CI while one call remains.
+- **Lint.** `no-console: error` in `packages/core/logs/.eslintrc.json`,
+  with an override for the stdout sink file. Ban `process.stdout.write`
+  there, outside the stdout sink. The rest of core and admin-scripts keep
+  the shared `warn` (`packages/eslint-config/index.js:33`), because
+  adoption is incremental (§13).
 - **Lint in CI.** The Linter step runs only when Tests pass
   (`frigg-ci.js.yml:58-65`). Tests on `next` fail today, so lint does not
-  run. Add a lint step that runs when Tests fail.
+  run. A lint step that runs when Tests fail is a separate change.
 - **Redaction suite.** Fixtures include a `Requester` `FetchError` with
   `?api_key=` and `Authorization`, and an HTTP API v2 event with
   `x-frigg-api-key`, cookies and an OAuth `code`. They also cover each other
@@ -752,14 +754,16 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
 | Admin logs persist redacted (`005:68`) | None (security) |
 | The Prisma error text changes (`prisma.js:103`) | None |
 | `FRIGG_LOG_LEVEL=DEBUG` now applies to all of core | Set `INFO` |
+| An existing `appDefinition.logging` block takes effect (`LoggingConfig`, retention) | Remove the block |
 
 - Local runs also write JSON. A developer reads raw lines or pipes them to
   a JSON viewer, for example `jq`.
-- No format restores today's text. About 338 call sites and at least 14
-  test files must change
+- No format restores today's text. A call site that moves to the logger
+  changes its output, and its tests change with it
   (`integration-base-receive-notification.test.js:131-133`).
-- Log groups mix text and JSON until the Final PR. API-module calls, adopter
-  code and libraries bypass the logger.
+- Adoption is incremental, so log groups mix text and JSON with no end
+  date. The text lines carry no correlation ids and skip redaction.
+  API-module calls, adopter code and libraries bypass the logger.
 - Deployed `dev` loses the raw dumps. JSON adds bytes. `writeSync` blocks,
   and it drops a record after the retries.
 - Frigg owns redaction code with edge cases (cycles, `BigInt`, getters).
