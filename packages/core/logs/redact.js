@@ -14,8 +14,8 @@ const DENIED_SUFFIXES = [
 ];
 
 // Core encryption registry leaves and exact names the suffix rule does not
-// cover. `header` is Node's raw `_header` request text. `domain` stays
-// allowed: it is too common a key.
+// cover. `header` is Node's raw `_header` request text. `domain` is not
+// seeded (too common); a module can still register it as a credential field.
 const deniedKeys = new Set([
     'hashword',
     'cookies',
@@ -24,6 +24,29 @@ const deniedKeys = new Set([
     'auth',
     'header',
 ]);
+
+// Record-contract fields. A credential field with one of these names must not
+// blank the field in every record.
+const PROTECTED_KEYS = new Set(
+    [
+        'integrationId',
+        'integrationType',
+        'userId',
+        'version',
+        'entityId',
+        'credentialId',
+        'requestId',
+        'messageId',
+        'processId',
+        'integrationEvent',
+        'eventName',
+        'handlerName',
+        'method',
+        'route',
+        'routeKey',
+        'statusCode',
+    ].map((key) => key.toLowerCase())
+);
 
 const PAIR_KEYS = new Set(['code', 'codeverifier']);
 const DIGEST_KEY = /(sha(1|256)|hash|digest|checksum)$/;
@@ -34,6 +57,8 @@ const URL_IN_TEXT = /\b[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^\s"'<>`]+/g;
 const URL_TRAILING_PUNCT = /[.,;:!?)\]}]+$/;
 const ABSOLUTE_URL = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 const ROOT_SLASH = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/?#]*\//;
+const PREFIXED_TOKEN =
+    /(?<![A-Za-z0-9_-])(?:(?:sk|rk)_(?:live|test)_|whsec_|xox[abprs]-|gh[opsu]_|github_pat_|shp(?:at|ss)_|glpat-|npm_)[A-Za-z0-9_-]{16,}|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g;
 const JWT = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
 const AUTH_SCHEME = /\b(Bearer|bearer|BEARER|Basic|basic|BASIC|Token|token|TOKEN)(\s+)([A-Za-z0-9._~+/=-]{8,})/g;
 const AUTH_SCHEME_WORD = /^(bearer|basic|token)$/i;
@@ -62,7 +87,7 @@ function normalizeKey(key) {
 
 function isDeniedKey(key) {
     const normalized = normalizeKey(key);
-    if (!normalized) return false;
+    if (!normalized || PROTECTED_KEYS.has(normalized)) return false;
     if (deniedKeys.has(normalized)) return true;
     return DENIED_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
 }
@@ -80,13 +105,19 @@ function isPairKey(key, { withState = false } = {}) {
     );
 }
 
+// Returns the leaves it skipped as record-contract keys, so a caller can warn.
 function addDeniedKeys(keys) {
-    if (!Array.isArray(keys)) return;
+    const ignored = [];
+    if (!Array.isArray(keys)) return ignored;
     for (const key of keys) {
         if (typeof key !== 'string') continue;
-        const leaf = normalizeKey(key.split('.').pop());
-        if (leaf) deniedKeys.add(leaf);
+        const rawLeaf = key.split('.').pop();
+        const leaf = normalizeKey(rawLeaf);
+        if (!leaf) continue;
+        if (PROTECTED_KEYS.has(leaf)) ignored.push(rawLeaf);
+        else deniedKeys.add(leaf);
     }
+    return ignored;
 }
 
 function hasMixedClasses(run) {
@@ -107,7 +138,8 @@ function isRedactedValue(value) {
 }
 
 function scrubTokens(text, { allowHex = false, segment = false } = {}) {
-    let out = text.replace(JWT, redacted);
+    let out = text.replace(PREFIXED_TOKEN, redacted);
+    out = out.replace(JWT, redacted);
     out = out.replace(AUTH_SCHEME, (match, scheme, space, credential) => {
         const classes = [/[A-Z]/, /[a-z]/, /[0-9]/, /[._~+/=-]/].filter((re) =>
             re.test(credential)

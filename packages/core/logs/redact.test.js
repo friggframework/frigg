@@ -425,3 +425,92 @@ describe('denylist review fixes', () => {
         ).toEqual({ rawHeaders: ['Authorization', 'Host'] });
     });
 });
+
+describe('record-contract keys are protected from the denylist', () => {
+    const contractKeys = [
+        'integrationId',
+        'integrationType',
+        'userId',
+        'version',
+        'entityId',
+        'credentialId',
+        'requestId',
+        'messageId',
+        'processId',
+        'integrationEvent',
+        'eventName',
+        'handlerName',
+        'method',
+        'route',
+        'routeKey',
+        'statusCode',
+    ];
+
+    it('addDeniedKeys skips contract keys in any spelling and returns them', () => {
+        const ignored = addDeniedKeys([
+            'data.user_id',
+            'data.account_pin',
+            'status_code',
+            'integration-id',
+        ]);
+
+        expect(ignored).toEqual(['user_id', 'status_code', 'integration-id']);
+        expect(isDeniedKey('userId')).toBe(false);
+        expect(isDeniedKey('statusCode')).toBe(false);
+        expect(isDeniedKey('accountPin')).toBe(true);
+    });
+
+    it.each(contractKeys)('never denies %s', (key) => {
+        addDeniedKeys([key]);
+        expect(isDeniedKey(key)).toBe(false);
+    });
+
+    it('keeps contract fields in a serialized record', () => {
+        addDeniedKeys(['user_id', 'domain']);
+        expect(redactValue({ userId: 'u1', domain: 'acme.example' })).toEqual({
+            userId: 'u1',
+            domain: '[REDACTED]',
+        });
+    });
+
+    it('returns an empty list when nothing is ignored', () => {
+        expect(addDeniedKeys(['data.other_pin'])).toEqual([]);
+        expect(addDeniedKeys(undefined)).toEqual([]);
+    });
+});
+
+describe('provider token prefixes', () => {
+    const body = 'ABCdef1234567890abcdefGHIJ';
+    const cases = [
+        ['sk_' + 'live_', body],
+        ['sk_' + 'test_', body],
+        ['rk_' + 'live_', body],
+        ['rk_' + 'test_', body],
+        ['whsec' + '_', body],
+        ['xox' + 'b-', '1234567890-' + body],
+        ['xox' + 'p-', body],
+        ['gh' + 'p_', body],
+        ['gh' + 'o_', body],
+        ['gh' + 's_', body],
+        ['gh' + 'u_', body],
+        ['github' + '_pat_', body],
+        ['shp' + 'at_', body],
+        ['shp' + 'ss_', body],
+        ['gl' + 'pat-', body],
+        ['np' + 'm_', body],
+        ['AK' + 'IA', 'ABCDEFGHIJ234567'],
+        ['AS' + 'IA', 'ABCDEFGHIJ234567'],
+    ];
+
+    it.each(cases)('scrubs %s tokens', (prefix, rest) => {
+        const token = prefix + rest;
+        expect(scrubString(`key ${token} used`)).toBe(
+            `key [REDACTED:${token.length}] used`
+        );
+    });
+
+    it('keeps a prefix with a short tail', () => {
+        const short = 'sk_' + 'live_' + 'abc';
+        expect(scrubString(`id ${short}`)).toBe(`id ${short}`);
+    });
+});

@@ -7,6 +7,16 @@ const { summarizeLambdaEvent } = require('../summarize-event');
 const secretUrl = `https://api.example.com/v1/items?api_key=${S.apiKeyQuery}`;
 const SIGNATURE_VALUE = 'fakeSgnValue2Gh9Tc5Wp7LmQx3';
 
+// Built by concatenation so push protection does not match the prefixes.
+const TOKEN_TAIL = 'ZqPr3fixTail8Hn2Kd8Ws1Yc6';
+const PREFIXED_TOKENS = [
+    'sk_' + 'live_' + TOKEN_TAIL,
+    'whsec' + '_' + TOKEN_TAIL,
+    'xox' + 'b-' + TOKEN_TAIL,
+    'gh' + 'p_' + TOKEN_TAIL,
+    'AK' + 'IA' + 'ZQPR3FIXTAIL8HN2',
+];
+
 function errorWithMessage(message, name = 'Error') {
     const error = new Error(message);
     error.name = name;
@@ -187,6 +197,13 @@ function vectors() {
             level: 'info',
             fields: () => ({ note: `blob ${S.base64Run} end` }),
             secrets: [S.base64Run],
+        },
+        {
+            name: 'provider token prefixes',
+            level: 'warn',
+            message: () => `provider rejected ${PREFIXED_TOKENS.join(' and ')}`,
+            fields: () => ({ note: PREFIXED_TOKENS.join(',') }),
+            secrets: PREFIXED_TOKENS,
         },
         {
             name: '40-hex token',

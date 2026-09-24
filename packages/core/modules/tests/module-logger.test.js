@@ -62,6 +62,18 @@ describe('Module logger', () => {
         expect(sink.records[0].logger).toBe('module.testmodule');
     });
 
+    it('names the logger module.unknown when moduleName is missing', () => {
+        class LenientModule extends Module {
+            validateDefinition() {}
+        }
+        const definition = makeDefinition();
+        delete definition.moduleName;
+        const module = new LenientModule({ definition, entity: { id: 'ent-1' } });
+        module.credentialRepository = {};
+
+        expect(module.logger.name).toBe('module.unknown');
+    });
+
     it('passes its logger to the api params', () => {
         const module = makeModule({ entity: { id: 'ent-1' } });
         expect(typeof module.logger.info).toBe('function');

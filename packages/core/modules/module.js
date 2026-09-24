@@ -32,7 +32,7 @@ class Module extends Delegate {
         this.credential = entityObj?.credential;
         this.definition = definition;
         this.name = this.definition.moduleName;
-        this.logger = getLogger(`module.${this.name}`).child(() => ({
+        this.logger = getLogger(`module.${this.name ?? 'unknown'}`).child(() => ({
             entityId: this.entity?.id,
             credentialId:
                 this.credential?.id ??

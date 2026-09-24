@@ -9,6 +9,7 @@ jest.mock('@friggframework/core/utils', () => ({
 const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const { loadAppDefinition } = require('./app-definition-loader');
 const { isDeniedKey } = require('../logs/redact');
+const { createMemorySink } = require('../logs');
 
 function writeBackend(definition) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'frigg-app-def-'));
@@ -75,5 +76,39 @@ describe('loadAppDefinition', () => {
         dirs.push(writeBackend({ integrations: [{}], encryption: { schema: 'x' } }));
 
         expect(loadAppDefinition().integrations).toEqual([{}]);
+    });
+
+    it('keeps record-contract keys and warns once per ignored key', () => {
+        const sink = createMemorySink();
+        const definition = {
+            integrations: [
+                {
+                    Definition: {
+                        modules: {
+                            acme: {
+                                definition: {
+                                    encryption: {
+                                        credentialFields: ['user_id', 'domain', 'account_id'],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            ],
+        };
+        dirs.push(writeBackend(definition));
+        loadAppDefinition();
+        dirs.push(writeBackend(definition));
+        loadAppDefinition();
+
+        expect(isDeniedKey('userId')).toBe(false);
+        expect(isDeniedKey('accountId')).toBe(true);
+        const warnings = sink.records.filter(
+            (r) => r.eventName === 'frigg.logger.denied_key_ignored'
+        );
+        expect(warnings).toEqual([
+            expect.objectContaining({ level: 'WARN', key: 'user_id' }),
+        ]);
     });
 });
