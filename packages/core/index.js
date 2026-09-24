@@ -11,6 +11,7 @@ const {
     Worker,
     loadInstalledModules,
     createHandler,
+    runInvocationScope,
 } = require('./core/index');
 const {
     prisma,
@@ -118,6 +119,7 @@ module.exports = {
     Worker,
     loadInstalledModules,
     createHandler,
+    runInvocationScope,
 
     // database
     prisma,

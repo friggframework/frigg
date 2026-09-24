@@ -84,6 +84,10 @@ function setSpanContextProvider(provider) {
     state().spanContextProvider = typeof provider === 'function' ? provider : null;
 }
 
+function getSpanContextProvider() {
+    return state().spanContextProvider;
+}
+
 function getSpanContext() {
     const provider = state().spanContextProvider;
     if (!provider) return null;
@@ -126,6 +130,7 @@ module.exports = {
     hasFlushableSinks,
     flushSinks,
     setSpanContextProvider,
+    getSpanContextProvider,
     getSpanContext,
     recordViolation,
     takeViolationsForTests,

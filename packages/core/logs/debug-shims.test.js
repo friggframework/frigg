@@ -110,6 +110,14 @@ describe('logs/debug-shims', () => {
             expect(sink.records[1].invocation).toEqual({ source: 'other' });
         });
 
+        it('writes nothing inside an invocation scope', async () => {
+            const { runInvocationScope } = require('../core/invocation-scope');
+            await runInvocationScope({ requestId: 'r-1' }, async () => {
+                initDebugLog('Event', httpApiV2Event());
+            });
+            expect(sink.records).toHaveLength(0);
+        });
+
         it('writes nothing inside a scope', () => {
             runInContext({ log: { requestId: 'r-1' } }, () => {
                 initDebugLog('Event', httpApiV2Event());

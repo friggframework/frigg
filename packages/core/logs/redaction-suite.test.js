@@ -61,4 +61,48 @@ describe('logs redaction suite (ADR-048 §14)', () => {
         expect(memory.records[0].error.message).toContain('?api_key=REDACTED');
         expect(memory.records[1].message).toContain('?api_key=REDACTED');
     });
+
+    describe('Error vectors through telemetry.span (span events)', () => {
+        const { InMemorySpanExporter } = require('@opentelemetry/sdk-trace-base');
+        const { createTelemetry } = require('../telemetry/telemetry-service');
+
+        const errorOf = (vector) => {
+            if (vector.message) {
+                const message = vector.message();
+                if (message instanceof Error) return message;
+            }
+            const error = vector.fields?.().error;
+            return error instanceof Error ? error : null;
+        };
+        const errorVectors = vectors()
+            .map((v) => [v.name, v])
+            .filter(([, v]) => errorOf(v));
+
+        it('covers at least the FetchError, cause-chain, aggregate and Prisma vectors', () => {
+            expect(errorVectors.length).toBeGreaterThanOrEqual(5);
+        });
+
+        async function spanTextFor(error) {
+            const traceExporter = new InMemorySpanExporter();
+            const telemetry = createTelemetry({ exporter: { type: 'otlp', traceExporter } });
+            await telemetry.span('vector', async () => { throw error; }).catch(() => {});
+            await telemetry.forceFlush();
+            const span = traceExporter.getFinishedSpans().find((s) => s.name === 'vector');
+            expect(span.events.some((e) => e.name === 'exception')).toBe(true);
+            return JSON.stringify({ events: span.events, status: span.status, attributes: span.attributes });
+        }
+
+        it.each(errorVectors)('%s', async (_name, vector) => {
+            expect(await spanTextFor(errorOf(vector))).toContainNoSecretWindow(vector.secrets);
+        });
+
+        it('a real Requester FetchError', async () => {
+            const error = await requesterFetchError();
+            expect(await spanTextFor(error)).toContainNoSecretWindow([
+                SECRETS.apiKeyQuery,
+                SECRETS.bearer,
+                SECRETS.accessToken,
+            ]);
+        });
+    });
 });

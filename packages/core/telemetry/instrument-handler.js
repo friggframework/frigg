@@ -1,3 +1,5 @@
+const { getLoggerScope } = require('../logs/context');
+
 /**
  * Wraps a single integration handler invocation with a span + the
  * `frigg.handler.invocations` counter. Shared by the two
@@ -16,6 +18,15 @@
  * @param {{event: string, eventType: string}} descriptor Event name + bounded type.
  * @param {Function} fn The handler invocation.
  */
+// The trace link to the logs (ADR-048 §7): span attributes only, never labels.
+function scopeIdAttributes() {
+    const { requestId, messageId } = getLoggerScope();
+    const attributes = {};
+    if (requestId !== undefined && requestId !== null) attributes.requestId = requestId;
+    if (messageId !== undefined && messageId !== null) attributes.messageId = messageId;
+    return attributes;
+}
+
 async function instrumentHandler(telemetry, descriptor = {}, fn) {
     if (!telemetry || typeof telemetry.span !== 'function') {
         return fn();
@@ -36,6 +47,7 @@ async function instrumentHandler(telemetry, descriptor = {}, fn) {
                     integration_type: integrationType,
                     event: eventType,
                     event_name: eventName,
+                    ...scopeIdAttributes(),
                 });
             }
             // `event_name` (potentially high-cardinality action id) rides the
@@ -77,6 +89,7 @@ async function instrumentHandler(telemetry, descriptor = {}, fn) {
                 userId: context.userId,
                 integrationType: context.integrationType,
                 version: context.version,
+                log: { integrationEvent: eventName },
             },
             runInstrumented
         );

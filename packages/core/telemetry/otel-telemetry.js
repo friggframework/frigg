@@ -18,6 +18,10 @@ const {
     mergeTelemetryContext,
 } = require('./telemetry-context');
 const { serializeError } = require('../logs/serialize');
+const { LOGGER_SCOPE_KEY } = require('../logs/context');
+
+const BAGGAGE_TYPES = new Set(['string', 'number', 'boolean', 'bigint']);
+const isBaggageValue = (value) => BAGGAGE_TYPES.has(typeof value);
 
 const TRACER_NAME = 'frigg';
 const METRIC_EXPORT_INTERVAL_MS =
@@ -186,10 +190,9 @@ class OtelTelemetry {
      */
     async withContext(attributes = {}, fn) {
         const entries = {};
-        for (const [key, value] of Object.entries(attributes)) {
-            if (value !== undefined && value !== null) {
-                entries[key] = { value: String(value) };
-            }
+        for (const [key, value] of Object.entries(attributes || {})) {
+            if (key === LOGGER_SCOPE_KEY || !isBaggageValue(value)) continue;
+            entries[key] = { value: String(value) };
         }
         const baggage = otelApi.propagation.createBaggage(entries);
         const ctx = otelApi.propagation.setBaggage(

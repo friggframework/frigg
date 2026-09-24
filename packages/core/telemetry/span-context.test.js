@@ -146,3 +146,58 @@ describe('getActiveSpanContext', () => {
         expect(seen).toBeNull();
     });
 });
+
+describe('log records inside telemetry.span (ADR-048 §3 trace fields)', () => {
+    const { InMemorySpanExporter } = require('@opentelemetry/sdk-trace-base');
+    const { getLogger, createMemorySink } = require('../logs');
+    const {
+        setTelemetryForTests,
+        resetTelemetryRuntimeForTests,
+    } = require('./telemetry-runtime');
+
+    let sink;
+    beforeEach(() => {
+        sink = createMemorySink();
+    });
+    afterEach(() => resetTelemetryRuntimeForTests());
+
+    it('carries trace_id, span_id and trace_flags of the active span', async () => {
+        const traceExporter = new InMemorySpanExporter();
+        const telemetry = createTelemetry({
+            exporter: { type: 'otlp', traceExporter },
+        });
+        setTelemetryForTests(telemetry);
+
+        await telemetry.span('op', async () => {
+            getLogger('integration.test').info('inside');
+        });
+        getLogger('integration.test').info('outside');
+        await telemetry.forceFlush();
+
+        const span = traceExporter.getFinishedSpans().find((s) => s.name === 'op');
+        const [inside, outside] = sink.records;
+        expect(inside.trace_id).toBe(span.spanContext().traceId);
+        expect(inside.trace_id).toMatch(/^[0-9a-f]{32}$/);
+        expect(inside.span_id).toBe(span.spanContext().spanId);
+        expect(inside.span_id).toMatch(/^[0-9a-f]{16}$/);
+        expect(inside.trace_flags).toBe('01');
+        for (const key of ['trace_id', 'span_id', 'trace_flags']) {
+            expect(outside).not.toHaveProperty(key);
+        }
+    });
+
+    it('adds no trace keys on the NoOp path', async () => {
+        const telemetry = createTelemetry();
+        setTelemetryForTests(telemetry);
+        await telemetry.span('op', async () => {
+            getLogger('integration.test').info('inside');
+        });
+        expect(sink.records[0]).not.toHaveProperty('trace_id');
+    });
+
+    it('adds no trace keys and does not throw for a service without getActiveSpanContext', () => {
+        setTelemetryForTests({ span: async (_n, fn) => fn(), isEnabled: () => false });
+        expect(() => getLogger('integration.test').info('x')).not.toThrow();
+        expect(sink.records[0]).not.toHaveProperty('trace_id');
+    });
+});
