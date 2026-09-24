@@ -501,6 +501,10 @@ The provider adapter owns the AWS settings (ADR-028). An absent
   'JSON'`, the upper-case `applicationLogLevel`, and `systemLogLevel:
   'INFO'`. Devtools emits the env var only when it is not the default,
   because `FRIGG_*` stays global (`027:130`).
+- Until the Phase 0 checks pass (Open question 3), devtools emits no
+  `provider.logs.lambda` and no `frameworkVersion` floor: Lambda stays on
+  `Text` and `FRIGG_LOG_LEVEL` filters in process. One constant in
+  `logging-config.js` turns the block on.
 - `retentionInDays` sets `provider.logRetentionInDays`.
 - Raise the `osls` floor from `^3.40.1` to `>=3.58.0`, the first version with
   `LoggingConfig` (`packages/devtools/package.json:64`,
@@ -757,6 +761,12 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
 | An existing `appDefinition.logging` block takes effect (`LoggingConfig`, retention) | Remove the block |
 | `createHandler` rethrows a sanitized surrogate (name, message, `statusCode`, `code`), so `instanceof`, custom properties and `cause` are gone | None (security) |
 | `FetchError` messages drop `statusText` (`METHOD url status`) | Read `error.response.statusText` |
+| A nested `withContext` merges: an inner `undefined` id keeps the outer value in the bus payload (§7) | Pass `null` to clear an id |
+| `IntegrationBase.addError()` stores a fixed message with the integration id, not the caller's error text | Read the `integration.<name>.error_recorded` record |
+| `DeleteIntegrationForUser` stores a fixed message and throws a new `Error` with the old one as `cause` | Read `error.cause` |
+| The OAuth2 "Token refresh failed" line moves from `console.error` to `DEBUG` | `FRIGG_LOG_LEVEL=DEBUG` |
+| `appDefinition.logging.format` accepts only `json` in the schema | Remove `format` |
+| `database/config.js` no longer exports the unused `PRISMA_QUERY_LOGGING` | None |
 
 - Local runs also write JSON. A developer reads raw lines or pipes them to
   a JSON viewer, for example `jq`.
