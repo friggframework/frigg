@@ -9,9 +9,10 @@ const RETENTION_DAYS = [
 // First osls version that compiles provider.logs.lambda into LoggingConfig.
 const LOGGING_CONFIG_FRAMEWORK_VERSION = '>=3.58.0';
 
-// ADR-048 Open question 3 (Phase 0 spike). Set to false to leave Lambda on
-// its default Text format; FRIGG_LOG_LEVEL then filters in process alone.
-const EMIT_LAMBDA_JSON_LOGGING_CONFIG = true;
+// ADR-048 Open question 3: off until the Phase 0 spike proves Lambda JSON mode
+// keeps direct fd 1 lines intact. Until then Lambda stays on Text and
+// FRIGG_LOG_LEVEL filters in process.
+const EMIT_LAMBDA_JSON_LOGGING_CONFIG = false;
 
 function normalizeLogLevel(level) {
     const normalized = typeof level === 'string' ? level.toUpperCase() : level;
@@ -37,9 +38,13 @@ function validateRetentionInDays(retentionInDays) {
  * Returns an empty object when logging is absent (ADR-048 §12: no change).
  *
  * @param {Object} [logging] - appDefinition.logging
+ * @param {{ lambdaJson?: boolean }} [options]
  * @returns {{ frameworkVersion?: string, provider?: Object }}
  */
-function buildLoggingProviderConfig(logging) {
+function buildLoggingProviderConfig(
+    logging,
+    { lambdaJson = EMIT_LAMBDA_JSON_LOGGING_CONFIG } = {}
+) {
     if (!logging) return {};
 
     const provider = {};
@@ -47,8 +52,8 @@ function buildLoggingProviderConfig(logging) {
 
     if (logging.level !== undefined) {
         const level = normalizeLogLevel(logging.level);
-        result.frameworkVersion = LOGGING_CONFIG_FRAMEWORK_VERSION;
-        if (EMIT_LAMBDA_JSON_LOGGING_CONFIG) {
+        if (lambdaJson) {
+            result.frameworkVersion = LOGGING_CONFIG_FRAMEWORK_VERSION;
             provider.logs = {
                 lambda: {
                     logFormat: 'JSON',

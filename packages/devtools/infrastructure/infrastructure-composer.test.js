@@ -239,18 +239,14 @@ describe('composeServerlessDefinition', () => {
     });
 
     describe('Logging (ADR-048)', () => {
-        it('carries logging into provider.logs, FRIGG_LOG_LEVEL and logRetentionInDays', async () => {
+        it('carries logging into FRIGG_LOG_LEVEL and logRetentionInDays, with no Lambda LoggingConfig by default', async () => {
             const result = await composeServerlessDefinition({
                 integrations: [mockIntegration],
                 logging: { level: 'debug', retentionInDays: 30 },
             });
 
-            expect(result.frameworkVersion).toBe('>=3.58.0');
-            expect(result.provider.logs.lambda).toEqual({
-                logFormat: 'JSON',
-                applicationLogLevel: 'DEBUG',
-                systemLogLevel: 'INFO',
-            });
+            expect(result.frameworkVersion).toBe('>=3.17.0');
+            expect(result.provider.logs).toBeUndefined();
             expect(result.provider.logRetentionInDays).toBe(30);
             expect(result.provider.environment.FRIGG_LOG_LEVEL).toBe('DEBUG');
         });

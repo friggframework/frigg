@@ -330,30 +330,12 @@ describe('logging (ADR-048)', () => {
         expect(result.frameworkVersion).toBe('>=3.17.0');
     });
 
-    it('maps logging.level to provider.logs.lambda and sets frameworkVersion >=3.58.0', () => {
+    it('validates logging.level but leaves the Lambda log format and frameworkVersion alone by default', () => {
         const result = build({ level: 'warn' });
 
-        expect(result.provider.logs).toEqual({
-            lambda: {
-                logFormat: 'JSON',
-                applicationLogLevel: 'WARN',
-                systemLogLevel: 'INFO',
-            },
-        });
-        expect(result.provider.logRetentionInDays).toBeUndefined();
-        expect(result.frameworkVersion).toBe('>=3.58.0');
+        expect(result.provider.logs).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.17.0');
     });
-
-    it.each(['info', 'INFO', 'Info', 'fatal', 'TRACE'])(
-        'accepts level "%s" in any case',
-        (level) => {
-            const result = build({ level });
-
-            expect(result.provider.logs.lambda.applicationLogLevel).toBe(
-                level.toUpperCase()
-            );
-        }
-    );
 
     it.each(['verbose', 'warning', '', 3])('throws on unknown level %p', (level) => {
         expect(() => build({ level })).toThrow(/logging\.level/);
@@ -380,10 +362,9 @@ describe('logging (ADR-048)', () => {
         }
     );
 
-    it('sets both level and retention together', () => {
+    it('sets retention when level is also set', () => {
         const result = build({ level: 'debug', retentionInDays: 14 });
 
-        expect(result.provider.logs.lambda.applicationLogLevel).toBe('DEBUG');
         expect(result.provider.logRetentionInDays).toBe(14);
     });
 });
