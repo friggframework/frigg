@@ -4,6 +4,8 @@ const { Delegate } = require('../../core');
 const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
 const { getTelemetry } = require('../../telemetry/telemetry-runtime');
+const { getLogger } = require('../../logs');
+const { getLoggerScope } = require('../../logs/context');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 const MAX_AUTH_RETRIES = 3;
@@ -64,6 +66,18 @@ class Requester extends Delegate {
         // `this.telemetry` to attribute out-of-band requests — setup/OAuth calls
         // made before an integration context exists aren't rolled up otherwise.
         this.telemetry = (params && params.telemetry) || getTelemetry();
+
+        // Not `get(params, 'logger')`: it throws when the key is missing.
+        this._logger = params?.logger ?? null;
+    }
+
+    // Resolved per read, so a delegate set after construction names the logger.
+    get logger() {
+        return this._logger ?? getLogger(`module.${this._telemetryModuleLabel()}`);
+    }
+
+    set logger(logger) {
+        this._logger = logger ?? null;
     }
 
     /**
@@ -141,11 +155,14 @@ class Requester extends Delegate {
 
         return telemetry.span('frigg.apimodule.request', async (span) => {
             if (span && typeof span.setAttributes === 'function') {
+                const { requestId, messageId } = getLoggerScope();
                 span.setAttributes({
                     'frigg.module': module,
                     'http.request.method': method,
                     // Redacted (no query/userinfo) — never emit raw URLs.
                     'url.path': safeUrl,
+                    ...(requestId !== undefined && { requestId }),
+                    ...(messageId !== undefined && { messageId }),
                 });
             }
             // Redacted url (unbounded) rides the bus-only context for North Star

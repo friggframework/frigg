@@ -21,6 +21,7 @@ const { validateExtensionBinding } = require('./extension');
 const { getTelemetry } = require('../telemetry/telemetry-runtime');
 const { instrumentHandler } = require('../telemetry/instrument-handler');
 const { bindTelemetryContext } = require('../telemetry/bind-telemetry-context');
+const { getLogger } = require('../logs');
 
 const constantsToBeMigrated = {
     defaultEvents: {
@@ -63,6 +64,10 @@ class IntegrationBase {
     telemetry = bindTelemetryContext(getTelemetry(), () =>
         this.getTelemetryContext()
     );
+
+    logger = getLogger(
+        `integration.${this.constructor.Definition?.name ?? 'unknown'}`
+    ).child(() => this.getLoggerBindings());
 
     static getOptionDetails() {
         const options = new Options({
@@ -252,6 +257,14 @@ class IntegrationBase {
             stage: process.env.STAGE || process.env.NODE_ENV || null,
             appName: process.env.FRIGG_STACK || null,
         };
+    }
+
+    // Stage and appName are record resource fields; binding them would
+    // only land in droppedKeys.
+    getLoggerBindings() {
+        const { integrationId, integrationType, userId, version } =
+            this.getTelemetryContext();
+        return { integrationId, integrationType, userId, version };
     }
 
     assertHydrated(message = 'Integration instance is not hydrated') {

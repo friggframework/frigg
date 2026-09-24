@@ -1,6 +1,6 @@
 const { Delegate } = require('../core');
 const _ = require('lodash');
-const { flushDebugLog } = require('../logs');
+const { flushDebugLog, getLogger } = require('../logs');
 const { ModuleConstants } = require('./ModuleConstants');
 const {
     createCredentialRepository,
@@ -32,6 +32,14 @@ class Module extends Delegate {
         this.credential = entityObj?.credential;
         this.definition = definition;
         this.name = this.definition.moduleName;
+        this.logger = getLogger(`module.${this.name}`).child(() => ({
+            entityId: this.entity?.id,
+            credentialId:
+                this.credential?.id ??
+                (typeof this.credential === 'string'
+                    ? this.credential
+                    : undefined),
+        }));
         this.modelName = this.definition.modelName;
         this.apiClass = this.definition.API;
 
@@ -49,6 +57,7 @@ class Module extends Delegate {
         const apiParams = {
             ...this.definition.env,
             delegate: this,
+            logger: this.logger,
             ...(state ? { state } : {}),
             ...(this.credential?.data
                 ? this.apiParamsFromCredential(this.credential.data)
@@ -226,6 +235,7 @@ class Module extends Delegate {
     async deauthorize() {
         //todo: Check if this is correct, we're instantiating a new api without params (credentials, tokens, etc...)
         this.api = new this.apiClass();
+        this.api.logger = this.logger;
 
         // Remove persisted credential (if any)
         if (this.entity?.credential) {
@@ -234,6 +244,7 @@ class Module extends Delegate {
 
             // Delete credential via repository
             await this.credentialRepository.deleteCredentialById(credentialId);
+            this.credential = undefined;
 
             // Unset credential reference on the Entity document
             const entityId = this.entity.id;
