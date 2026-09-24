@@ -326,6 +326,21 @@ describe('Worker - AWS SDK v3', () => {
             expect(sink.records[1]).not.toHaveProperty('receiveCount');
         });
 
+        it('does not carry record 1 ids onto a record 2 that has none', async () => {
+            worker._run = async () => getLogger('integration.test').info('inside');
+            await worker.run({
+                Records: [
+                    record('m-1', '4', { processId: 'p-1', integrationId: 'i-1' }),
+                    { body: JSON.stringify({ data: {} }) },
+                ],
+            });
+            expect(sink.records).toHaveLength(2);
+            for (const key of ['messageId', 'receiveCount', 'processId', 'integrationId', 'integrationEvent']) {
+                expect(sink.records[1]).not.toHaveProperty(key);
+            }
+            expect(sink.records[0]).toMatchObject({ messageId: 'm-1', receiveCount: 4 });
+        });
+
         it('keeps the invocation scope (requestId survives)', async () => {
             worker._run = async () => getLogger('integration.test').info('inside');
             await runInContext({ log: { requestId: 'r-1' } }, () =>

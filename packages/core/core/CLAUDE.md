@@ -214,7 +214,9 @@ const handler = createHandler({
    - Logs full error details internally
 
 2. **Server-to-Server Errors**: `isUserFacingResponse: false`
-   - Re-throws original error for AWS handling
+   - Logs one ERROR, then rethrows a sanitized surrogate for AWS handling:
+     a fresh `Error` with the sanitized `name`, `message`, `stack`, plus
+     `statusCode` and `code`. `instanceof` checks and custom properties are gone
    - Used for SQS, SNS, and internal API calls
    - Enables proper retry mechanisms
 
@@ -657,7 +659,7 @@ describe('Health Handler', () => {
 const { createHandler } = require('@friggframework/core/core');
 
 const testHandler = createHandler({
-    isUserFacingResponse: false, // Get full errors in tests
+    isUserFacingResponse: false, // Rethrows a sanitized surrogate (name, message, statusCode, code; not the original instance)
     shouldUseDatabase: false,    // Mock/skip DB in tests
     method: yourTestMethod
 });

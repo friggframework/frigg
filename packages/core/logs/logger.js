@@ -88,11 +88,13 @@ class Logger {
 
     _log(level, message, fields) {
         const state = runtime.state();
-        if (state.inWrite) return;
+        if (state.inLog) return;
         try {
             const config = runtime.getConfig();
             emitConfigWarnings();
             if (LEVELS[level] < config.threshold) return;
+            // Set before fields, bindings and sinks run: any of them may log.
+            state.inLog = true;
 
             const record = buildRecord({
                 level,
@@ -111,25 +113,22 @@ class Logger {
                     message: record.message,
                 });
             }
-            writeToSinks(state, record);
+            writeToSinks(record);
         } catch {
             // The logger never throws.
+        } finally {
+            state.inLog = false;
         }
     }
 }
 
-function writeToSinks(state, record) {
-    state.inWrite = true;
-    try {
-        for (const sink of runtime.getSinks()) {
-            try {
-                sink.write(record);
-            } catch {
-                // One failing sink must not stop the others.
-            }
+function writeToSinks(record) {
+    for (const sink of runtime.getSinks()) {
+        try {
+            sink.write(record);
+        } catch {
+            // One failing sink must not stop the others.
         }
-    } finally {
-        state.inWrite = false;
     }
 }
 

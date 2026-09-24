@@ -314,3 +314,22 @@ describe('runMessageScope', () => {
         expect(runMessageScope({ messageId: 'm', attributes: { ApproximateReceiveCount: 'x' } }, () => getLoggerScope())).toEqual({ messageId: 'm' });
     });
 });
+
+describe('withDeadline clamp', () => {
+    it('clamps a timeout above 2^31-1 so it does not fire at once', async () => {
+        jest.useFakeTimers();
+        try {
+            const spy = jest.spyOn(global, 'setTimeout');
+            let settled = false;
+            withDeadline(2 ** 31 + 1000, () => new Promise(() => {})).then(() => {
+                settled = true;
+            });
+            expect(spy.mock.calls[0][1]).toBe(2 ** 31 - 1);
+            await jest.advanceTimersByTimeAsync(10);
+            expect(settled).toBe(false);
+        } finally {
+            jest.clearAllTimers();
+            jest.useRealTimers();
+        }
+    });
+});

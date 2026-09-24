@@ -122,6 +122,27 @@ describe('DLQ Processor', () => {
         expect(failed()[1]).not.toHaveProperty('integrationId');
     });
 
+    it('keeps a separate message scope per record', async () => {
+        await dlqProcessor({
+            Records: [
+                {
+                    messageId: 'msg-1',
+                    body: JSON.stringify({ event: 'ON_WEBHOOK', data: { integrationId: '100', processId: 'p-1' } }),
+                    attributes: { ApproximateReceiveCount: '5' },
+                },
+                { body: 'not json', attributes: {} },
+            ],
+        });
+        const second = sink.records.filter((r) => r.bodyLength === 8);
+        expect(second.length).toBe(2);
+        for (const record of second) {
+            for (const key of ['messageId', 'receiveCount', 'integrationId', 'processId', 'integrationEvent']) {
+                expect(record).not.toHaveProperty(key);
+            }
+        }
+        expect(failed()[0]).toMatchObject({ messageId: 'msg-1', receiveCount: 5, processId: 'p-1' });
+    });
+
     it('should return empty batchItemFailures (all messages acknowledged)', async () => {
         const event = {
             Records: [{

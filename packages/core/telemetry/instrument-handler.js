@@ -1,4 +1,4 @@
-const { getLoggerScope } = require('../logs/context');
+const { getLoggerScope, runInContext } = require('../logs/context');
 
 /**
  * Wraps a single integration handler invocation with a span + the
@@ -82,6 +82,11 @@ async function instrumentHandler(telemetry, descriptor = {}, fn) {
             }
         });
 
+    // The logger scope goes straight into the one store, so a custom
+    // telemetry service never sees the logger sub-object.
+    const runInLoggerScope = () =>
+        runInContext({ log: { integrationEvent: eventName } }, runInstrumented);
+
     if (typeof telemetry.withContext === 'function') {
         return telemetry.withContext(
             {
@@ -89,12 +94,11 @@ async function instrumentHandler(telemetry, descriptor = {}, fn) {
                 userId: context.userId,
                 integrationType: context.integrationType,
                 version: context.version,
-                log: { integrationEvent: eventName },
             },
-            runInstrumented
+            runInLoggerScope
         );
     }
-    return runInstrumented();
+    return runInLoggerScope();
 }
 
 module.exports = { instrumentHandler };

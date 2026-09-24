@@ -5,7 +5,11 @@ const { toContainNoSecretWindow } = require('./__fixtures__/matchers');
 expect.extend({ toContainNoSecretWindow });
 
 const resetToMemory = () =>
-    resetLoggerForTests({ level: 'TRACE', sinks: [createMemorySink({ install: false })] });
+    resetLoggerForTests({
+        level: 'TRACE',
+        sinks: [createMemorySink({ install: false })],
+        trackViolations: true,
+    });
 
 // Also at load: records written at require time must not reach fd 1.
 resetToMemory();

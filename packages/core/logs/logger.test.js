@@ -179,3 +179,69 @@ describe('logs/logger', () => {
         });
     });
 });
+
+describe('logs/logger review fixes', () => {
+    let sink;
+    beforeEach(() => {
+        sink = createMemorySink({ install: false });
+        resetLoggerForTests({ level: 'TRACE', sinks: [sink] });
+    });
+    afterEach(() => {
+        resetLoggerForTests({ level: 'TRACE', sinks: [createMemorySink({ install: false })], trackViolations: true });
+    });
+
+    it('keeps no violations when tracking is off (production default)', () => {
+        resetLoggerForTests({ level: 'TRACE', sinks: [sink], trackViolations: false });
+        for (let i = 0; i < 1000; i += 1) getLogger('frigg.area').warn('no event name');
+        expect(sink.records).toHaveLength(1000);
+        expect(takeViolationsForTests()).toEqual([]);
+    });
+
+    it('keeps the tracking setting across a reset that does not name it', () => {
+        resetLoggerForTests({ level: 'TRACE', sinks: [sink], trackViolations: true });
+        resetLoggerForTests({ level: 'TRACE', sinks: [sink] });
+        getLogger('frigg.area').warn('no event name');
+        expect(takeViolationsForTests()).toHaveLength(1);
+    });
+
+    it('drops records that a field getter writes while the record is built', () => {
+        const log = getLogger('integration.test');
+        const fields = {};
+        Object.defineProperty(fields, 'noisy', {
+            enumerable: true,
+            get: () => {
+                log.info('from getter');
+                return 'value';
+            },
+        });
+        log.info('outer', fields);
+        expect(sink.records.map((r) => r.message)).toEqual(['outer']);
+        expect(sink.records[0].noisy).toBe('value');
+    });
+
+    it('drops records that a binding function writes', () => {
+        const log = getLogger('integration.test');
+        const child = log.child(() => {
+            log.warn('from binding');
+            return { a: 1 };
+        });
+        child.info('outer');
+        expect(sink.records.map((r) => r.message)).toEqual(['outer']);
+    });
+
+    it('still writes the config warnings on the first record', () => {
+        const saved = process.env.FRIGG_LOG_LEVEL;
+        process.env.FRIGG_LOG_LEVEL = 'bogus';
+        try {
+            resetLoggerForTests({ sinks: [sink] });
+            getLogger('integration.test').info('first');
+            expect(sink.records.map((r) => r.eventName ?? r.message)).toEqual([
+                'frigg.logger.invalid_level',
+                'first',
+            ]);
+        } finally {
+            if (saved === undefined) delete process.env.FRIGG_LOG_LEVEL;
+            else process.env.FRIGG_LOG_LEVEL = saved;
+        }
+    });
+});

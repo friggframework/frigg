@@ -110,7 +110,8 @@ function buildRecord({
     now = new Date(),
 } = {}) {
     const dropPayloads = LEVELS[level] >= LEVELS.INFO;
-    const callSite = readFields(fields);
+    // log.error('msg', err): own props of an Error (axios config, request) must not become fields.
+    const callSite = readFields(isError(fields) ? { error: fields } : fields);
     const record = {
         timestamp: now.toISOString(),
         level,

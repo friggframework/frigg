@@ -48,6 +48,8 @@ declare module "@friggframework/core/logs" {
   export function resetLoggerForTests(options?: {
     level?: LogLevel | Lowercase<LogLevel>;
     sinks?: LogSink[];
+    /** Record frigg.* WARN+ records without eventName. Kept across resets that omit it. */
+    trackViolations?: boolean;
   }): void;
   export function serializeError(error: unknown): SerializedError;
   export function redactValue(value: unknown): unknown;

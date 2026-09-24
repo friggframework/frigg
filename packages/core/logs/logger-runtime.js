@@ -11,7 +11,8 @@ function state() {
             sinks: null,
             spanContextProvider: null,
             warned: new Set(),
-            inWrite: false,
+            inLog: false,
+            trackViolations: false,
             violations: [],
         };
     }
@@ -102,15 +103,17 @@ function getSpanContext() {
     return null;
 }
 
+// Off in production, so a warm container never grows this list.
 function recordViolation(violation) {
-    state().violations.push(violation);
+    const s = state();
+    if (s.trackViolations) s.violations.push(violation);
 }
 
 function takeViolationsForTests() {
     return state().violations.splice(0);
 }
 
-function resetLoggerForTests({ level, sinks } = {}) {
+function resetLoggerForTests({ level, sinks, trackViolations } = {}) {
     const s = state();
     s.config = null;
     s.levelOverride = parseLevel(level);
@@ -118,7 +121,8 @@ function resetLoggerForTests({ level, sinks } = {}) {
     s.spanContextProvider = null;
     s.warned.clear();
     s.violations.length = 0;
-    s.inWrite = false;
+    s.inLog = false;
+    if (typeof trackViolations === 'boolean') s.trackViolations = trackViolations;
 }
 
 module.exports = {

@@ -60,6 +60,30 @@ describe('logs/record', () => {
             expect(record.error).toMatchObject({ type: 'TypeError', message: 'Bad thing', code: 'E_BAD' });
         });
 
+        it('puts an Error passed as fields under error, not its own props at the top level', () => {
+            const error = new Error('Request failed with status code 401');
+            error.name = 'AxiosError';
+            error.code = 'ERR_BAD_REQUEST';
+            error.config = { headers: { 'X-Api-Key': 'fakeFriggHeaderKey3Jm7Tq9Vx2Np' } };
+            error.request = { _header: 'GET /v1 HTTP/1.1\r\nX-Api-Key: fakeFriggHeaderKey3Jm7Tq9Vx2Np\r\n' };
+            error.response = { status: 401, data: { access_token: 'fakeAccessToken1Kx7Ns4Gv9Rb2' } };
+            getLogger('integration.test').error('Call failed', error);
+            const record = sink.records[0];
+            expect(record.message).toBe('Call failed');
+            expect(record.error).toMatchObject({
+                type: 'AxiosError',
+                message: 'Request failed with status code 401',
+                code: 'ERR_BAD_REQUEST',
+                status: 401,
+            });
+            expect(record.error.stack).toEqual(expect.any(String));
+            for (const key of ['config', 'request', 'code', 'name']) {
+                expect(record).not.toHaveProperty(key);
+            }
+            expect(JSON.stringify(record)).not.toContain('fakeFriggHeaderKey3Jm7Tq9Vx2Np');
+            expect(JSON.stringify(record)).not.toContain('fakeAccessToken1Kx7Ns4Gv9Rb2');
+        });
+
         it('keeps a call-site error when the message is also an Error', () => {
             getLogger('integration.test').error(new Error('as message'), { error: new Error('as field') });
             expect(sink.records[0].message).toBe('as message');

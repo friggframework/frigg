@@ -12,6 +12,9 @@ const DEFAULT_FLUSH_TIMEOUT_MS =
 // Lambda timeout.
 const FLUSH_MARGIN_MS = 50;
 
+// setTimeout fires at once for a delay above this.
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
 /**
  * Fold the invocation's buffered usage counters into the durable store, then
  * clear the buffer. On an SQS redelivery (ApproximateReceiveCount > 1) we
@@ -97,7 +100,7 @@ function withDeadline(ms, fn) {
         timer = setTimeout(() => {
             controller.abort();
             finish();
-        }, ms);
+        }, Math.min(ms, MAX_TIMER_MS));
         let work;
         try {
             work = Promise.resolve(fn(controller.signal));

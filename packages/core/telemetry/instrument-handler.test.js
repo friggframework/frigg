@@ -174,3 +174,47 @@ describe('instrumentHandler and the logger scope (ADR-048 §7)', () => {
         expect(span.attributes).not.toHaveProperty('messageId');
     });
 });
+
+describe('instrumentHandler with a custom telemetry service', () => {
+    const { getLogger, createMemorySink } = require('../logs');
+
+    function customTelemetry() {
+        const contexts = [];
+        return {
+            contexts,
+            getContext: () => CTX,
+            span: async (_name, fn) => fn({ setAttributes() {} }),
+            count() {},
+            withContext: async (context, fn) => {
+                contexts.push(context);
+                return fn();
+            },
+        };
+    }
+
+    it('never passes the logger sub-object to withContext', async () => {
+        const telemetry = customTelemetry();
+        await instrumentHandler(telemetry, { event: 'ON_WEBHOOK', eventType: 'WEBHOOK' }, async () => 'ok');
+        expect(telemetry.contexts).toEqual([
+            {
+                integrationId: CTX.integrationId,
+                userId: CTX.userId,
+                integrationType: CTX.integrationType,
+                version: CTX.version,
+            },
+        ]);
+    });
+
+    it('still puts integrationEvent on records, with or without withContext', async () => {
+        const sink = createMemorySink();
+        const telemetry = customTelemetry();
+        await instrumentHandler(telemetry, { event: 'ON_WEBHOOK', eventType: 'WEBHOOK' }, async () =>
+            getLogger('integration.hubspot').info('with')
+        );
+        delete telemetry.withContext;
+        await instrumentHandler(telemetry, { event: 'ON_CRON', eventType: 'CRON' }, async () =>
+            getLogger('integration.hubspot').info('without')
+        );
+        expect(sink.records.map((r) => r.integrationEvent)).toEqual(['ON_WEBHOOK', 'ON_CRON']);
+    });
+});

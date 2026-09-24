@@ -106,6 +106,12 @@ Call-site fields go next to these, at the top level.
   `error.cause`. It always writes the record.
 - **Null.** `null` and `undefined` fields are left out.
 
+### Nested scopes merge
+
+`telemetry.withContext(ids, fn)` now merges into the outer scope instead of
+replacing it. An inner `undefined` id keeps the outer value; an explicit `null`
+clears it (stored as `null`, left out of log records).
+
 ### Redaction
 
 Redaction runs inside the logger for every record. Call sites carry no
