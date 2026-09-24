@@ -238,9 +238,11 @@ Today one failed queue message writes its stack twice
 - When `AWS_LAMBDA_LOG_LEVEL` is set, the less verbose level wins. The
   logger warns one time when the two differ.
 - `EncryptionLogger` already reads `FRIGG_LOG_LEVEL` with the same level
-  names (`encryption/logger.js:8-21`), and it becomes a child logger.
+  names (`encryption/logger.js:8-21`), and it becomes a child logger when
+  the encryption code adopts the logger (§13).
   `DEBUG_VERBOSE=1` means `DEBUG` until the shims go.
-- **Prisma** uses event mode. `PRISMA_LOG_LEVEL` still selects the events
+- **Prisma** uses event mode when the database code adopts the logger
+  (§13). `PRISMA_LOG_LEVEL` still selects the events
   (`prisma.js:100-102`). `query` is `TRACE` with no `params`, and `info` is
   `DEBUG`. `errorFormat` becomes `'colorless'`, with no ANSI codes
   (`prisma.js:103`).
@@ -364,7 +366,8 @@ it leaked the `x-frigg-*` keys, cookies, the OAuth `code` and `id_token`.
 - **Operational logs**: this ADR, to stdout.
 - **Admin execution logs** (ADR-005, ADR-010): `AdminScriptContext.log`
   stores `data` verbatim with no cap (`admin-script-context.js:140-149`).
-  It keeps persisting, through §6 and with a cap. Persisted and returned
+  When admin-scripts adopt the logger (§13), it keeps persisting, through §6
+  and with a cap. Persisted and returned
   errors use the serializer (`script-runner.js:130-134,154-157`). Each entry
   mirrors to `frigg.admin.script` with `executionId`. Its `data` mirrors only
   at `DEBUG`.
@@ -385,7 +388,7 @@ sink is one more destination sink (§11), in its own package. It maps the
 record to an OTLP LogRecord and exports it in `send`, so it needs no Logs
 API. It waits until the OTel JS logs SDK and exporter packages are stable.
 The seven `[Frigg][telemetry]` and `[Frigg][usage]`
-warns move to the logger. This is safe, because the logger never calls the
+warns move to the logger incrementally (§13). This is safe, because the logger never calls the
 bus.
 
 ### 11. Log destinations (sinks)
@@ -540,10 +543,11 @@ File the api-module-library leaks there (`next` @48ea8647):
 Deterministic checks, in the style of ADR-043 §5 (open PR #646):
 
 - **Lint.** `no-console: error` in `packages/core/logs/.eslintrc.json`,
-  with an override for the stdout sink file. Ban `process.stdout.write`
-  there, outside the stdout sink. The rest of core and admin-scripts keep
-  the shared `warn` (`packages/eslint-config/index.js:33`), because
-  adoption is incremental (§13).
+  with an override for the stdout sink file. The rest of core and
+  admin-scripts keep the shared `no-console: warn`
+  (`packages/eslint-config/index.js:33`), because adoption is incremental
+  (§13). Ban `process.stdout.write` and `process.stderr.write` in all of core
+  outside the stdout sink: `error` in `logs/`, `warn` elsewhere.
 - **Lint in CI.** The Linter step runs only when Tests pass
   (`frigg-ci.js.yml:58-65`). Tests on `next` fail today, so lint does not
   run. A lint step that runs when Tests fail is a separate change.
@@ -755,8 +759,6 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
 | `FetchError` loses the query and dev detail | None (security) |
 | `debug()` stops the replay on error | `FRIGG_LOG_LEVEL=DEBUG` |
 | A halt logs `ERROR`, not `WARN` (`create-handler.js:225`) | None |
-| Admin logs persist redacted (`005:68`) | None (security) |
-| The Prisma error text changes (`prisma.js:103`) | None |
 | `FRIGG_LOG_LEVEL=DEBUG` now applies to all of core | Set `INFO` |
 | An existing `appDefinition.logging` block takes effect (`LoggingConfig`, retention) | Remove the block |
 | `createHandler` rethrows a sanitized surrogate (name, message, `statusCode`, `code`), so `instanceof`, custom properties and `cause` are gone | None (security) |
@@ -767,6 +769,11 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
 | The OAuth2 "Token refresh failed" line moves from `console.error` to `DEBUG` | `FRIGG_LOG_LEVEL=DEBUG` |
 | `appDefinition.logging.format` accepts only `json` in the schema | Remove `format` |
 | `database/config.js` no longer exports the unused `PRISMA_QUERY_LOGGING` | None |
+| `createHandler` flushes the usage rollup before telemetry, the reverse of today's order (§11) | None |
+
+Two changes arrive later, when their areas adopt the logger (§13): admin
+logs persist redacted (`005:68`), and the Prisma error text changes
+(`prisma.js:103`). Each needs the same ratification then.
 
 - Local runs also write JSON. A developer reads raw lines or pipes them to
   a JSON viewer, for example `jq`.
