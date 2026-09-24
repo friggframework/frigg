@@ -238,6 +238,7 @@ Resources:
               - 'logs:FilterLogEvents'
               - 'logs:PutLogEvents'
               - 'logs:PutRetentionPolicy'
+              - 'logs:DeleteRetentionPolicy'
             Resource:
               - !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*frigg*'
               - !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*frigg*:*'

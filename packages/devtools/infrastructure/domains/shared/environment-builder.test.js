@@ -147,6 +147,67 @@ describe('Environment Builder', () => {
         });
     });
 
+    describe('logging env (ADR-048)', () => {
+        it.each(['debug', 'WARN', 'Error'])(
+            'emits literal upper-case FRIGG_LOG_LEVEL for level "%s"',
+            (level) => {
+                const result = getAppEnvironmentVars({ logging: { level } });
+
+                expect(result.FRIGG_LOG_LEVEL).toBe(level.toUpperCase());
+            }
+        );
+
+        it.each(['info', 'INFO'])(
+            'emits nothing for the default level "%s"',
+            (level) => {
+                const result = getAppEnvironmentVars({ logging: { level } });
+
+                expect(result).not.toHaveProperty('FRIGG_LOG_LEVEL');
+            }
+        );
+
+        it('emits nothing when logging or logging.level is absent', () => {
+            expect(getAppEnvironmentVars({})).not.toHaveProperty(
+                'FRIGG_LOG_LEVEL'
+            );
+            expect(
+                getAppEnvironmentVars({ logging: { retentionInDays: 30 } })
+            ).not.toHaveProperty('FRIGG_LOG_LEVEL');
+        });
+
+        it('lets logging.level win over an environment passthrough', () => {
+            const result = getAppEnvironmentVars({
+                environment: { FRIGG_LOG_LEVEL: true },
+                logging: { level: 'error' },
+            });
+
+            expect(result.FRIGG_LOG_LEVEL).toBe('ERROR');
+        });
+
+        it('drops an environment passthrough when logging.level is INFO', () => {
+            const result = getAppEnvironmentVars({
+                environment: { FRIGG_LOG_LEVEL: true },
+                logging: { level: 'info' },
+            });
+
+            expect(result).not.toHaveProperty('FRIGG_LOG_LEVEL');
+        });
+
+        it('keeps an environment passthrough when logging.level is absent', () => {
+            const result = getAppEnvironmentVars({
+                environment: { FRIGG_LOG_LEVEL: true },
+            });
+
+            expect(result.FRIGG_LOG_LEVEL).toBe("${env:FRIGG_LOG_LEVEL, ''}");
+        });
+
+        it('throws on an unknown level', () => {
+            expect(() =>
+                getAppEnvironmentVars({ logging: { level: 'verbose' } })
+            ).toThrow(/logging\.level/);
+        });
+    });
+
     describe("getAppEnvironmentVars() - 'ssm' offload", () => {
         const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
 

@@ -1,4 +1,11 @@
-const { generateIAMCloudFormation, getFeatureSummary } = require('./iam-generator');
+const fs = require('fs');
+const path = require('path');
+const {
+    generateIAMCloudFormation,
+    getFeatureSummary,
+    generateBasicIAMPolicy,
+    generateFullIAMPolicy,
+} = require('./iam-generator');
 
 describe('IAM Generator', () => {
     describe('getFeatureSummary', () => {
@@ -248,6 +255,28 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('apigateway:POST');
             expect(yaml).toContain('lambda:ListVersionsByFunction');
             expect(yaml).toContain('iam:ListPolicyVersions');
+        });
+
+        it('should grant logs:DeleteRetentionPolicy so logging.retentionInDays can be removed', () => {
+            const yaml = generateIAMCloudFormation({
+                appName: 'test-app',
+                features: getFeatureSummary({ name: 'test-app' }).features,
+            });
+
+            expect(yaml).toContain('logs:PutRetentionPolicy');
+            expect(yaml).toContain('logs:DeleteRetentionPolicy');
+        });
+
+        it('should grant logs:DeleteRetentionPolicy in the static policy templates', () => {
+            for (const policy of [generateBasicIAMPolicy(), generateFullIAMPolicy()]) {
+                const actions = policy.Statement.flatMap((statement) => statement.Action);
+                expect(actions).toContain('logs:DeleteRetentionPolicy');
+            }
+            const stackYaml = fs.readFileSync(
+                path.join(__dirname, 'templates/frigg-deployment-iam-stack.yaml'),
+                'utf8'
+            );
+            expect(stackYaml).toContain("'logs:DeleteRetentionPolicy'");
         });
 
         it('should include internal-error-queue pattern in SQS resources', () => {

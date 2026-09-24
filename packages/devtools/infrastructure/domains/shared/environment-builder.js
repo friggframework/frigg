@@ -13,6 +13,7 @@ const {
     isSsmOffloadActive,
     getOffloadedKeys,
 } = require('../parameters/offload-utils');
+const { normalizeLogLevel } = require('./utilities/logging-config');
 
 // OTLP-family exporters read their endpoint/headers from these standard env
 // vars (ADR-011). When such an exporter is configured we auto-register them as
@@ -42,6 +43,20 @@ function addTelemetryEnvPassthrough(appDefinition, envVars) {
         if (offloadedKeys?.has(key)) continue;
         envVars[key] = `\${env:${key}, ''}`;
     }
+}
+
+// ADR-048 §12: logging.level wins over an `environment` passthrough. INFO is
+// the core default, so it emits no env var.
+function addLoggingEnv(appDefinition, envVars) {
+    const level = appDefinition?.logging?.level;
+    if (level === undefined) return;
+
+    const normalized = normalizeLogLevel(level);
+    if (normalized === 'INFO') {
+        delete envVars.FRIGG_LOG_LEVEL;
+        return;
+    }
+    envVars.FRIGG_LOG_LEVEL = normalized;
 }
 
 /**
@@ -119,6 +134,8 @@ function getAppEnvironmentVars(appDefinition) {
         envVars[key] = `\${env:${key}, ''}`;
         envKeys.push(key);
     }
+
+    addLoggingEnv(appDefinition, envVars);
 
     if (envKeys.length > 0) {
         console.log(

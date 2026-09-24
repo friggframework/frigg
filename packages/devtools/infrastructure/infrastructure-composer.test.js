@@ -150,7 +150,7 @@ describe('composeServerlessDefinition', () => {
 
             expect(result.service).toBe('test-app');
             expect(result.provider.name).toBe('aws');
-            expect(result.provider.runtime).toBe('nodejs20.x');
+            expect(result.provider.runtime).toBe('nodejs22.x');
             expect(result.provider.region).toBe('us-east-1');
             expect(result.provider.stage).toBe('${opt:stage}');
             expect(result.frameworkVersion).toBe('>=3.17.0');
@@ -235,6 +235,54 @@ describe('composeServerlessDefinition', () => {
             const result = await composeServerlessDefinition(appDefinition);
 
             expect(result.provider.environment).not.toHaveProperty('CUSTOM_FLAG');
+        });
+    });
+
+    describe('Logging (ADR-048)', () => {
+        it('carries logging into provider.logs, FRIGG_LOG_LEVEL and logRetentionInDays', async () => {
+            const result = await composeServerlessDefinition({
+                integrations: [mockIntegration],
+                logging: { level: 'debug', retentionInDays: 30 },
+            });
+
+            expect(result.frameworkVersion).toBe('>=3.58.0');
+            expect(result.provider.logs.lambda).toEqual({
+                logFormat: 'JSON',
+                applicationLogLevel: 'DEBUG',
+                systemLogLevel: 'INFO',
+            });
+            expect(result.provider.logRetentionInDays).toBe(30);
+            expect(result.provider.environment.FRIGG_LOG_LEVEL).toBe('DEBUG');
+        });
+
+        it('sets no function-level logs, which would replace the provider block', async () => {
+            const result = await composeServerlessDefinition({
+                integrations: [mockIntegration],
+                logging: { level: 'warn' },
+            });
+
+            const functions = Object.values(result.functions);
+            expect(functions.length).toBeGreaterThan(0);
+            expect(functions.every((fn) => fn.logs === undefined)).toBe(true);
+        });
+
+        it('lets logging.level win over environment: { FRIGG_LOG_LEVEL: true }', async () => {
+            const result = await composeServerlessDefinition({
+                integrations: [],
+                environment: { FRIGG_LOG_LEVEL: true },
+                logging: { level: 'error' },
+            });
+
+            expect(result.provider.environment.FRIGG_LOG_LEVEL).toBe('ERROR');
+        });
+
+        it('changes nothing when logging is absent', async () => {
+            const result = await composeServerlessDefinition({ integrations: [] });
+
+            expect(result.frameworkVersion).toBe('>=3.17.0');
+            expect(result.provider.logs).toBeUndefined();
+            expect(result.provider.logRetentionInDays).toBeUndefined();
+            expect(result.provider.environment).not.toHaveProperty('FRIGG_LOG_LEVEL');
         });
     });
 

@@ -467,6 +467,7 @@ function generateIAMCloudFormation(options = {}) {
                 'logs:FilterLogEvents',
                 'logs:PutLogEvents',
                 'logs:PutRetentionPolicy',
+                'logs:DeleteRetentionPolicy',
             ],
             Resource: [
                 {

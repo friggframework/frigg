@@ -317,3 +317,73 @@ describe('nested node_modules (lambda.keepNestedNodeModules)', () => {
         }
     });
 });
+
+describe('logging (ADR-048)', () => {
+    const build = (logging) =>
+        createBaseDefinition({ name: 'test-app', ...(logging && { logging }) }, {}, {});
+
+    it('emits no logs, logRetentionInDays or frameworkVersion change when logging is absent', () => {
+        const result = build();
+
+        expect(result.provider.logs).toBeUndefined();
+        expect(result.provider.logRetentionInDays).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.17.0');
+    });
+
+    it('maps logging.level to provider.logs.lambda and sets frameworkVersion >=3.58.0', () => {
+        const result = build({ level: 'warn' });
+
+        expect(result.provider.logs).toEqual({
+            lambda: {
+                logFormat: 'JSON',
+                applicationLogLevel: 'WARN',
+                systemLogLevel: 'INFO',
+            },
+        });
+        expect(result.provider.logRetentionInDays).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.58.0');
+    });
+
+    it.each(['info', 'INFO', 'Info', 'fatal', 'TRACE'])(
+        'accepts level "%s" in any case',
+        (level) => {
+            const result = build({ level });
+
+            expect(result.provider.logs.lambda.applicationLogLevel).toBe(
+                level.toUpperCase()
+            );
+        }
+    );
+
+    it.each(['verbose', 'warning', '', 3])('throws on unknown level %p', (level) => {
+        expect(() => build({ level })).toThrow(/logging\.level/);
+    });
+
+    it('maps retentionInDays to provider.logRetentionInDays without a logs block', () => {
+        const result = build({ retentionInDays: 30 });
+
+        expect(result.provider.logRetentionInDays).toBe(30);
+        expect(result.provider.logs).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.17.0');
+    });
+
+    it('accepts 1096, which CloudWatch allows but the osls schema omits', () => {
+        expect(build({ retentionInDays: 1096 }).provider.logRetentionInDays).toBe(1096);
+    });
+
+    it.each([10, 0, -1, 30.5, '30'])(
+        'throws on retentionInDays %p, which CloudWatch rejects',
+        (retentionInDays) => {
+            expect(() => build({ retentionInDays })).toThrow(
+                /logging\.retentionInDays/
+            );
+        }
+    );
+
+    it('sets both level and retention together', () => {
+        const result = build({ level: 'debug', retentionInDays: 14 });
+
+        expect(result.provider.logs.lambda.applicationLogLevel).toBe('DEBUG');
+        expect(result.provider.logRetentionInDays).toBe(14);
+    });
+});

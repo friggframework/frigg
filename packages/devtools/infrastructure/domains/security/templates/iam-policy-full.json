@@ -183,7 +183,8 @@
         "logs:DescribeLogStreams",
         "logs:FilterLogEvents",
         "logs:PutLogEvents",
-        "logs:PutRetentionPolicy"
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy"
       ],
       "Resource": [
         "arn:aws:logs:*:*:log-group:/aws/lambda/*frigg*",
