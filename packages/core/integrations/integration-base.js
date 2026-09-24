@@ -778,7 +778,7 @@ class IntegrationBase {
                 if (this.events[eventName]) {
                     if (typeof handlers[eventName] === 'string') {
                         this.logger.warn(
-                            `Binding handler "${handlers[eventName]}" for event "${eventName}" is ignored because this.events["${eventName}"] was already set`,
+                            'Binding handler is ignored: the event is already set',
                             {
                                 eventName: `${this.logger.name}.extension_handler_shadowed`,
                                 bindingName,

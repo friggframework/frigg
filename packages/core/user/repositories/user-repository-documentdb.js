@@ -148,13 +148,8 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
         // Defensive check: verify document was found after insert
         if (!created) {
-            log.error('User not found after insert', {
-                eventName: 'frigg.user.not_found_after_insert',
-                insertedId: fromObjectId(insertedId),
-                paramKeys: Object.keys(params),
-            });
             throw new Error(
-                'Failed to create individual user: Document not found after insert. ' +
+                `Failed to create individual user: Document not found after insert (insertedId ${fromObjectId(insertedId)}). ` +
                     'This indicates a database consistency issue.'
             );
         }
@@ -192,13 +187,8 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
         // Defensive check: verify document was found after insert
         if (!created) {
-            log.error('Organization user not found after insert', {
-                eventName: 'frigg.user.organization_not_found_after_insert',
-                insertedId: fromObjectId(insertedId),
-                paramKeys: Object.keys(params),
-            });
             throw new Error(
-                'Failed to create organization user: Document not found after insert. ' +
+                `Failed to create organization user: Document not found after insert (insertedId ${fromObjectId(insertedId)}). ` +
                     'This indicates a database consistency issue.'
             );
         }
@@ -284,7 +274,8 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         // Defensive check: verify document was found after update
         if (!updated) {
             throw new Error(
-                `Failed to update user ${userId}: not found after update`
+                'Failed to update individual user: Document not found after update. ' +
+                    'This indicates a database consistency issue.'
             );
         }
 
@@ -317,7 +308,8 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
 
         if (!updated) {
             throw new Error(
-                `Failed to update user ${userId}: not found after update`
+                'Failed to update organization user: Document not found after update. ' +
+                    'This indicates a database consistency issue.'
             );
         }
 

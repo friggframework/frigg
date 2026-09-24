@@ -65,6 +65,10 @@ describe('OAuth2Requester logs (ADR-048 Phase 2)', () => {
         const [failed] = byEvent('module.hubspot.token_refresh_failed');
         expect(failed.level).toBe('DEBUG');
         expect(failed.statusCode).toBe(401);
+        expect(failed.reason).toBe(
+            'POST https://auth.example.com/oauth/token 401'
+        );
+        expect(failed).not.toHaveProperty('error');
         expect(failed).not.toHaveProperty('response_data');
         expect(sink.records).toContainNoSecretWindow(SECRETS);
         expectNoConsole();

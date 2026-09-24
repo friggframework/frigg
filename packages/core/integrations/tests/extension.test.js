@@ -2,7 +2,6 @@ jest.mock('../../database/config', () => ({
     DB_TYPE: 'mongodb',
     getDatabaseType: jest.fn(() => 'mongodb'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 const {
@@ -521,7 +520,9 @@ describe('IntegrationBase._mergeExtensions (via initialize)', () => {
                 event: 'TEST_EVENT',
             }),
         ]);
-        expect(shadowed[0].message).toMatch(/handler "onCustomEvent".*ignored/);
+        expect(shadowed[0].message).toBe(
+            'Binding handler is ignored: the event is already set'
+        );
     });
 
     it('binds the handler to the integration instance (this-context preserved)', async () => {

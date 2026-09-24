@@ -23,7 +23,6 @@ jest.mock('../config', () => ({
     DB_TYPE: 'postgresql',
     getDatabaseType: jest.fn(() => 'postgresql'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');

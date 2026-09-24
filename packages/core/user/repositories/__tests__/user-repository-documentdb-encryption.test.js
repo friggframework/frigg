@@ -1020,16 +1020,12 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     username: 'testuser',
                     hashword: 'password',
                 })
-            ).rejects.toThrow(/Failed to create individual user: Document not found after insert/);
+            ).rejects.toThrow(
+                /^Failed to create individual user: Document not found after insert \(insertedId [0-9a-f]{24}\)\. This indicates a database consistency issue\.$/
+            );
 
             expect(consoleErrorSpy).not.toHaveBeenCalled();
-            expect(recordsFor(sink, 'frigg.user.not_found_after_insert')).toEqual([
-                expect.objectContaining({
-                    level: 'ERROR',
-                    insertedId: expect.any(String),
-                    paramKeys: ['username', 'hashword'],
-                }),
-            ]);
+            expect(sink.records.filter((r) => r.logger === 'frigg.user')).toEqual([]);
 
             consoleErrorSpy.mockRestore();
         });
@@ -1062,18 +1058,12 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 repository.createOrganizationUser({
                     appOrgId: 'org-123',
                 })
-            ).rejects.toThrow(/Failed to create organization user: Document not found after insert/);
+            ).rejects.toThrow(
+                /^Failed to create organization user: Document not found after insert \(insertedId [0-9a-f]{24}\)\. This indicates a database consistency issue\.$/
+            );
 
             expect(consoleErrorSpy).not.toHaveBeenCalled();
-            expect(
-                recordsFor(sink, 'frigg.user.organization_not_found_after_insert')
-            ).toEqual([
-                expect.objectContaining({
-                    level: 'ERROR',
-                    insertedId: expect.any(String),
-                    paramKeys: ['appOrgId'],
-                }),
-            ]);
+            expect(sink.records.filter((r) => r.logger === 'frigg.user')).toEqual([]);
 
             consoleErrorSpy.mockRestore();
         });
@@ -1104,7 +1094,8 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     email: 'new@example.com',
                 })
             ).rejects.toThrow(
-                `Failed to update user ${fromObjectId(testUserId)}: not found after update`
+                'Failed to update individual user: Document not found after update. ' +
+                    'This indicates a database consistency issue.'
             );
 
             expect(consoleErrorSpy).not.toHaveBeenCalled();
@@ -1138,7 +1129,8 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     name: 'Updated Name',
                 })
             ).rejects.toThrow(
-                `Failed to update user ${fromObjectId(testUserId)}: not found after update`
+                'Failed to update organization user: Document not found after update. ' +
+                    'This indicates a database consistency issue.'
             );
 
             expect(consoleErrorSpy).not.toHaveBeenCalled();
@@ -1172,7 +1164,8 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 .catch((e) => e);
 
             expect(error.message).toBe(
-                `Failed to update user ${fromObjectId(testUserId)}: not found after update`
+                'Failed to update individual user: Document not found after update. ' +
+                    'This indicates a database consistency issue.'
             );
             expect(sink.records).toContainNoSecretWindow(SECRETS);
             consoleSpies.forEach((spy) => {

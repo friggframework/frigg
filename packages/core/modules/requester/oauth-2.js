@@ -357,7 +357,7 @@ class OAuth2Requester extends Requester {
                 eventName: `${this.logger.name}.token_refresh_failed`,
                 statusCode:
                     error?.statusCode ?? error?.status ?? error?.response?.status,
-                error,
+                reason: error?.message,
             });
 
             if (!this._isDefinitiveAuthRejection(error)) {
