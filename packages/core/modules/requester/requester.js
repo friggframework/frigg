@@ -255,15 +255,12 @@ class Requester extends Delegate {
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
                     init: options,
-                    responseBody: isTimeout
-                        ? `Request timed out after ${timeoutMs}ms`
-                        : e,
+                    cause: e,
                 });
                 if (isTimeout) {
                     // Flag + machine-readable fields so callers can
                     // distinguish a timeout from a generic network error
-                    // without parsing the message (which FetchError
-                    // sanitizes outside of STAGE=dev).
+                    // without parsing the message.
                     fetchError.isTimeout = true;
                     fetchError.timeoutMs = timeoutMs;
                 }
@@ -387,7 +384,8 @@ class Requester extends Delegate {
             // If the abort fired during body consumption, node-fetch emits
             // the error as an AbortError on the body stream. Surface the
             // same isTimeout flag callers use for header-phase timeouts.
-            throw this._maybeFlagTimeoutDuringBodyRead(e, timeoutMs);
+            const flagged = this._maybeFlagTimeoutDuringBodyRead(e, timeoutMs);
+            throw this._wrapFetchLibraryError(flagged, encodedUrl, options);
         } finally {
             clearRequestTimer();
         }
@@ -401,6 +399,29 @@ class Requester extends Delegate {
         });
         await this.notify(this.DLGT_INVALID_AUTH, fetchError);
         return fetchError;
+    }
+
+    // node-fetch names its own error class FetchError too, and its message
+    // holds the raw URL. Only our class passes through unwrapped.
+    _wrapFetchLibraryError(err, encodedUrl, options) {
+        if (!err || typeof err !== 'object' || err instanceof FetchError) {
+            return err;
+        }
+        const isFetchLibraryError =
+            err.name === 'FetchError' ||
+            err.name === 'AbortError' ||
+            typeof err.type === 'string';
+        if (!isFetchLibraryError) return err;
+        const wrapped = new FetchError({
+            resource: encodedUrl,
+            init: options,
+            cause: err,
+        });
+        if (err.isTimeout) {
+            wrapped.isTimeout = true;
+            wrapped.timeoutMs = err.timeoutMs;
+        }
+        return wrapped;
     }
 
     _maybeFlagTimeoutDuringBodyRead(err, timeoutMs) {
