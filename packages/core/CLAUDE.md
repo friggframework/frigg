@@ -437,22 +437,24 @@ if (!userId) {
 
 ### 9. Logging System (`/logs`)
 
-**Purpose**: Structured logging with debug capabilities.
+**Purpose**: One redacted JSON record per line to stdout (ADR-048). See `docs/guides/LOGGING.md`.
 
-**Functions**:
-- `debug(message, data)` - Debug logging
-- `initDebugLog(eventName, event)` - Initialize debug context
-- `flushDebugLog(error)` - Flush logs on error
+**Rules**:
+- `logs/` is a leaf: it requires only Node built-ins and sibling `logs/` files.
+- Integrations and API modules use `this.logger`; core uses one `getLogger('frigg.<area>')` per module.
+- Fixed message text; ids and counts go into fields. `frigg.*` records at WARN and above need an `eventName` (`<logger name>.<action>`); tests fail without it.
+- Log an error one time, at the boundary (`createHandler`, the express middleware, `Worker.run`, the DLQ processor). Inner code throws with `cause`.
+- Use `statusCode`, not `status` (reserved key). `body`, `payload`, `response` are dropped at INFO and above.
+- Tests assert on `createMemorySink()` records by `eventName`, not on console spies.
+- `debug`, `initDebugLog`, `flushDebugLog` are deprecated shims.
 
 **Usage**:
 
 ```javascript
-const { debug, initDebugLog, flushDebugLog } = require('@friggframework/core');
+const { getLogger } = require('../logs');
+const log = getLogger('frigg.core.sync');
 
-initDebugLog('MyIntegration', event);
-debug('Processing request', { userId, action });
-// ... your code ...
-flushDebugLog(); // On error
+log.warn('Sync skipped', { eventName: 'frigg.core.sync.skipped', processId });
 ```
 
 ### 10. Lambda Utilities (`/lambda`)
@@ -660,8 +662,7 @@ Use test doubles from `@friggframework/test` package for consistent mocking.
 ### Optional
 
 - `SECRET_ARN` - AWS Secrets Manager ARN for auto-injection
-- `DEBUG` - Debug logging pattern
-- `LOG_LEVEL` - Logging level (debug, info, warn, error)
+- `FRIGG_LOG_LEVEL` - Minimum log level (`TRACE` … `FATAL`, default `INFO`; `DEBUG` on local runs)
 
 ## Version Information
 

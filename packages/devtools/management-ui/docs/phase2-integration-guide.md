@@ -277,8 +277,9 @@ const migration = await phase2Workflows.migrateProject('/path/to/project', {
 
 Enable debug logging:
 ```bash
-DEBUG=frigg:* npm run dev:server
+FRIGG_LOG_LEVEL=debug npm run dev:server
 ```
+See the [Logging guide](../../../../docs/guides/LOGGING.md).
 
 ### Health Checks
 

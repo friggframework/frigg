@@ -18,6 +18,7 @@
 ## ✅ How-To Guides (Goals) <a href="#guides" id="guides"></a>
 
 * [Cooking with Frigg](guides/cooking-with-frigg.md)
+* [Logging](guides/LOGGING.md)
 
 ## 💭 Explanation (Understanding) <a href="#explanation" id="explanation"></a>
 
