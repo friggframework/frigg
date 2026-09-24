@@ -6,9 +6,20 @@ const { get } = require('../../assertions');
 const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 const { getLogger } = require('../../logs');
 const { redactUrl } = require('../../logs/redact');
+const { toSanitizedSurrogate } = require('../../logs/serialize');
 const { getLoggerScope } = require('../../logs/context');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
+
+// A node-fetch error message holds the raw URL, and util.inspect prints the
+// cause chain, so the FetchError keeps only a sanitized copy.
+function sanitizedCause(err) {
+    const surrogate = toSanitizedSurrogate(err);
+    for (const key of ['errno', 'type']) {
+        if (typeof err?.[key] === 'string') surrogate[key] = err[key];
+    }
+    return surrogate;
+}
 const MAX_AUTH_RETRIES = 3;
 
 // This context marks the async call chain that holds the refresh slot, and
@@ -273,7 +284,7 @@ class Requester extends Delegate {
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
                     init: options,
-                    cause: e,
+                    cause: sanitizedCause(e),
                 });
                 if (isTimeout) {
                     // Flag + machine-readable fields so callers can
@@ -446,7 +457,7 @@ class Requester extends Delegate {
         const wrapped = new FetchError({
             resource: encodedUrl,
             init: options,
-            cause: err,
+            cause: sanitizedCause(err),
         });
         if (err.isTimeout) {
             wrapped.isTimeout = true;

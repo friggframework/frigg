@@ -7,10 +7,23 @@ const DENIED_SUFFIXES = [
     'signature',
     'authorization',
     'cookie',
+    'pwd',
+    'passphrase',
+    'credentials',
+    'sessionid',
 ];
 
-// Core encryption registry leaves that the suffix rule does not cover.
-const deniedKeys = new Set(['hashword', 'cookies', 'apikeyvalue', 'mapping']);
+// Core encryption registry leaves and exact names the suffix rule does not
+// cover. `header` is Node's raw `_header` request text. `domain` stays
+// allowed: it is too common a key.
+const deniedKeys = new Set([
+    'hashword',
+    'cookies',
+    'apikeyvalue',
+    'mapping',
+    'auth',
+    'header',
+]);
 
 const PAIR_KEYS = new Set(['code', 'codeverifier']);
 const DIGEST_KEY = /(sha(1|256)|hash|digest|checksum)$/;
@@ -22,7 +35,11 @@ const URL_TRAILING_PUNCT = /[.,;:!?)\]}]+$/;
 const ABSOLUTE_URL = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 const ROOT_SLASH = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/?#]*\//;
 const JWT = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
-const AUTH_SCHEME = /\b(Bearer|bearer|BEARER|Basic|basic|BASIC)(\s+)([A-Za-z0-9._~+/=-]{8,})/g;
+const AUTH_SCHEME = /\b(Bearer|bearer|BEARER|Basic|basic|BASIC|Token|token|TOKEN)(\s+)([A-Za-z0-9._~+/=-]{8,})/g;
+const AUTH_SCHEME_WORD = /^(bearer|basic|token)$/i;
+const COLON_PAIR = /(?<![A-Za-z0-9_-])([A-Za-z_][A-Za-z0-9_.-]{0,99})(["']?)(\s*:\s*)(["']?)([^\s"',;{}]+)/g;
+const COOKIE_LINE = /(?<![A-Za-z0-9_-])((?:set-)?cookie)(\s*:\s*)([^\r\n]+)/gi;
+const CODE_PAIR = /(?<![A-Za-z0-9_.-])code=/;
 const JSON_PAIR = /"([^"\\]{1,100})"(\s*:\s*)"((?:[^"\\]|\\.)*)"/g;
 const TEXT_PAIR = /(?<![A-Za-z0-9_.-])([A-Za-z0-9_.-]{1,100})=([^\s&"'<>,;)]+)/g;
 const HEX_RUN = /(?<![A-Za-z0-9])[0-9a-fA-F]{40,}(?![A-Za-z0-9])/g;
@@ -54,8 +71,13 @@ function isDigestKey(key) {
     return DIGEST_KEY.test(normalizeKey(key));
 }
 
-function isPairKey(key) {
-    return isDeniedKey(key) || PAIR_KEYS.has(normalizeKey(key));
+function isPairKey(key, { withState = false } = {}) {
+    const normalized = normalizeKey(key);
+    return (
+        isDeniedKey(key) ||
+        PAIR_KEYS.has(normalized) ||
+        (withState && normalized === 'state')
+    );
 }
 
 function addDeniedKeys(keys) {
@@ -72,6 +94,7 @@ function hasMixedClasses(run) {
 }
 
 function isPathLike(run) {
+    if (!run.startsWith('/')) return false;
     const segments = run.split('/');
     if (segments.length < 3) return false;
     return segments.every(
@@ -96,8 +119,19 @@ function scrubTokens(text, { allowHex = false, segment = false } = {}) {
             ? `"${key}"${colon}"${redacted(value)}"`
             : match
     );
+    out = out.replace(COOKIE_LINE, (match, key, colon, value) =>
+        isRedactedValue(value) ? match : `${key}${colon}${redacted(value)}`
+    );
+    out = out.replace(COLON_PAIR, (match, key, close, colon, open, value) =>
+        isDeniedKey(key) &&
+        !isRedactedValue(value) &&
+        !AUTH_SCHEME_WORD.test(value)
+            ? `${key}${close}${colon}${open}${redacted(value)}`
+            : match
+    );
+    const withState = CODE_PAIR.test(out);
     out = out.replace(TEXT_PAIR, (match, key, value) =>
-        isPairKey(key) && !isRedactedValue(value)
+        isPairKey(key, { withState }) && !isRedactedValue(value)
             ? `${key}=${redacted(value)}`
             : match
     );

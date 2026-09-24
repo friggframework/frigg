@@ -372,3 +372,15 @@ describe('toSanitizedSurrogate', () => {
         expect(surrogate.message).toBe('plain');
     });
 });
+
+describe('serializeValue headers review fix', () => {
+    it('reduces a Map under headers to names', () => {
+        const headers = new Map([
+            ['authorization', SECRETS.bearer],
+            ['host', 'h'],
+        ]);
+        expect(serializeValue({ headers })).toEqual({
+            headers: ['authorization', 'host'],
+        });
+    });
+});

@@ -1,3 +1,4 @@
+const util = require('node:util');
 const { Requester } = require('./requester');
 const { FetchError } = require('../../errors');
 const { SECRETS } = require('../../logs/__fixtures__/secrets');
@@ -59,11 +60,35 @@ describe('Requester FetchError boundary', () => {
         const error = await requester._get({ url }).catch((e) => e);
 
         expect(error).toBeInstanceOf(FetchError);
-        expect(error.cause).toBe(cause);
-        expect(error.cause.code).toBe('ECONNRESET');
+        expect(error.cause).not.toBe(cause);
+        expect(error.cause).toMatchObject({
+            name: 'FetchError',
+            code: 'ECONNRESET',
+            errno: 'ECONNRESET',
+            type: 'system',
+        });
+        expect(error.cause.message).toBe(
+            `request to ${sanitizedUrl} failed, reason: socket hang up`
+        );
         expect(error.message).toBe(`GET ${sanitizedUrl} ECONNRESET`);
         expect(error.statusCode).toBeUndefined();
         expect(error.message).toContainNoSecretWindow(SECRETS);
+    });
+
+    it('leaks no secret through util.inspect or the stack', async () => {
+        const cause = nodeFetchError(
+            `request to ${url} failed, reason: Authorization: Bearer ${SECRETS.bearer}`,
+            'system',
+            { code: 'ECONNRESET' }
+        );
+        const requester = makeRequester(jest.fn().mockRejectedValue(cause));
+
+        const error = await requester._get({ url }).catch((e) => e);
+
+        expect(util.inspect(error, { depth: 10 })).toContainNoSecretWindow(SECRETS);
+        expect(String(error.stack)).toContainNoSecretWindow(SECRETS);
+        expect(String(error.cause.stack)).toContainNoSecretWindow(SECRETS);
+        expect(error.stack.split('\n')[0]).toContain(sanitizedUrl);
     });
 
     it('keeps isTimeout and timeoutMs on a header-phase timeout', async () => {
@@ -140,7 +165,8 @@ describe('Requester FetchError boundary', () => {
         const error = await requester._get({ url }).catch((e) => e);
 
         expect(error).toBeInstanceOf(FetchError);
-        expect(error.cause).toBe(cause);
+        expect(error.cause).toMatchObject({ name: 'FetchError', type: 'invalid-json' });
+        expect(util.inspect(error, { depth: 10 })).toContainNoSecretWindow(SECRETS);
         expect(error.message).toBe(`GET ${sanitizedUrl} FetchError`);
         expect(error.message).toContainNoSecretWindow(SECRETS);
         expect(error.isTimeout).toBeUndefined();

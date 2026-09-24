@@ -11,7 +11,7 @@ const MAX_DEPTH = 6;
 const MAX_CAUSE_DEPTH = 3;
 const MAX_STRING = 2048;
 const MAX_AGGREGATE_ERRORS = 10;
-const HEADER_KEYS = new Set(['headers', 'multivalueheaders']);
+const HEADER_KEYS = new Set(['headers', 'multivalueheaders', 'rawheaders']);
 
 function attempt(fn, fallback) {
     try {
@@ -54,7 +54,11 @@ function isHeadersLike(value) {
 function headerNames(value) {
     if (value === null || value === undefined) return value;
     if (typeof value !== 'object') return '[REDACTED]';
+    if (value instanceof Map) return [...value.keys()].map(String);
     if (Array.isArray(value)) {
+        if (value.every((entry) => typeof entry === 'string')) {
+            return value.filter((_entry, i) => i % 2 === 0);
+        }
         return value.every(Array.isArray)
             ? value.map((entry) => cleanString(String(entry[0])))
             : '[REDACTED]';

@@ -8,6 +8,7 @@ jest.mock('@friggframework/core/utils', () => ({
 
 const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const { loadAppDefinition } = require('./app-definition-loader');
+const { isDeniedKey } = require('../logs/redact');
 
 function writeBackend(definition) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'frigg-app-def-'));
@@ -40,5 +41,39 @@ describe('loadAppDefinition', () => {
         dirs.push(writeBackend({ integrations: [] }));
 
         expect(loadAppDefinition().logging).toBeNull();
+    });
+
+    it('registers module credential fields and custom schema leaves as denied log keys', () => {
+        expect(isDeniedKey('acmePinCode')).toBe(false);
+        expect(isDeniedKey('ledgerPin')).toBe(false);
+        dirs.push(
+            writeBackend({
+                integrations: [
+                    {
+                        Definition: {
+                            modules: {
+                                acme: {
+                                    definition: {
+                                        encryption: { credentialFields: ['acme_pin_code'] },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+                encryption: { schema: { Ledger: { fields: ['data.ledger_pin'] } } },
+            })
+        );
+
+        loadAppDefinition();
+
+        expect(isDeniedKey('acmePinCode')).toBe(true);
+        expect(isDeniedKey('ledgerPin')).toBe(true);
+    });
+
+    it('still loads when an integration has an unexpected shape', () => {
+        dirs.push(writeBackend({ integrations: [{}], encryption: { schema: 'x' } }));
+
+        expect(loadAppDefinition().integrations).toEqual([{}]);
     });
 });

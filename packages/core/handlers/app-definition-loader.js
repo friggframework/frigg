@@ -2,6 +2,31 @@ const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const path = require('node:path');
 const fs = require('fs-extra');
 const { resolveTelemetryConfig } = require('../telemetry/telemetry-config');
+const { addDeniedKeys } = require('../logs/redact');
+const {
+    extractCredentialFieldsFromModules,
+} = require('../database/encryption/encryption-schema-registry');
+const {
+    getModulesDefinitionFromIntegrationClasses,
+} = require('../integrations/utils/map-integration-dto');
+
+// Handlers without a database never load the encryption registry, so the
+// credential leaf keys are registered for redaction here too.
+function registerCredentialLogKeys(appDefinition, integrations) {
+    try {
+        extractCredentialFieldsFromModules(
+            getModulesDefinitionFromIntegrationClasses(integrations)
+        );
+    } catch {
+        // An odd integration shape must not stop the app from loading.
+    }
+    const schema = appDefinition.encryption?.schema;
+    if (schema && typeof schema === 'object') {
+        for (const config of Object.values(schema)) {
+            addDeniedKeys(config?.fields);
+        }
+    }
+}
 
 /**
  * Loads the App definition from the nearest backend package
@@ -38,6 +63,8 @@ function loadAppDefinition() {
         admin = {},
         logging = null,
     } = appDefinition;
+
+    registerCredentialLogKeys(appDefinition, integrations);
 
     // Degrade consistently: an invalid telemetry block must never take down a
     // router bundle that loads the app definition at module scope (telemetry is

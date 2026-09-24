@@ -342,10 +342,86 @@ describe('encryption registry hooks', () => {
     });
 
     it('extractCredentialFieldsFromModules adds module credential leaves', () => {
-        expect(isDeniedKey('vendorPassphrase')).toBe(false);
+        expect(isDeniedKey('vendorPinCode')).toBe(false);
         registry.extractCredentialFieldsFromModules([
-            { encryption: { credentialFields: ['vendor_passphrase'] } },
+            { encryption: { credentialFields: ['vendor_pin_code'] } },
         ]);
-        expect(isDeniedKey('vendorPassphrase')).toBe(true);
+        expect(isDeniedKey('vendorPinCode')).toBe(true);
+    });
+});
+
+describe('scrubString review fixes', () => {
+    it.each([
+        ['x-api-key: ', SECRETS.friggApiKey, ''],
+        ['password: ', 'hunter2', ' next'],
+        ['{ access_token: "', SECRETS.accessToken, '" }'],
+        ["{ client_secret: '", SECRETS.clientSecret, "' }"],
+    ])('scrubs "key: value" text for denied keys: %s', (prefix, secret, suffix) => {
+        const out = scrubString(`failed with ${prefix}${secret}${suffix}`);
+        expect(out).not.toContain(secret);
+        expect(out).toContain(`[REDACTED:${secret.length}]`);
+    });
+
+    it('keeps "key: value" text for other keys', () => {
+        expect(scrubString('status: 500, retry: later')).toBe(
+            'status: 500, retry: later'
+        );
+    });
+
+    it('scrubs a plain-text Cookie header to the end of the line', () => {
+        const out = scrubString(
+            `Cookie: session=${SECRETS.cookie}; theme=dark\nnext line`
+        );
+        expect(out).toContainNoSecretWindow([SECRETS.cookie]);
+        expect(out).not.toContain('theme=dark');
+        expect(out).toContain('\nnext line');
+    });
+
+    it('scrubs the Token authorization scheme', () => {
+        const out = scrubString(`Authorization: Token ${SECRETS.bearer}`);
+        expect(out).toContainNoSecretWindow([SECRETS.bearer]);
+        expect(out).toContain('Token [REDACTED:');
+    });
+
+    it('scrubs state next to a code pair, and keeps state alone', () => {
+        const out = scrubString(`callback code=${SECRETS.oauthCode}&state=abc123xyz`);
+        expect(out).not.toContain('abc123xyz');
+        expect(scrubString('integration state=ERROR')).toBe(
+            'integration state=ERROR'
+        );
+    });
+
+    it('scrubs a base64 run with inner slashes and no leading slash', () => {
+        const key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
+        expect(scrubString(`secret ${key} end`)).toBe(
+            `secret [REDACTED:${key.length}] end`
+        );
+    });
+
+    it('keeps a stack path with a leading slash', () => {
+        const frame =
+            '    at handler (/var/task/node_modules/Frigg2Core/Modules3Req/requester.js:276:21)';
+        expect(scrubString(frame)).toBe(frame);
+    });
+});
+
+describe('denylist review fixes', () => {
+    it.each(['pwd', 'dbPwd', 'passphrase', 'auth', 'credentials', 'awsCredentials', 'sessionId', 'session_id', '_header'])(
+        'denies %s',
+        (key) => {
+            expect(isDeniedKey(key)).toBe(true);
+        }
+    );
+
+    it('does not deny domain (too common)', () => {
+        expect(isDeniedKey('domain')).toBe(false);
+    });
+
+    it('reduces rawHeaders to the names at even indexes', () => {
+        expect(
+            redactValue({
+                rawHeaders: ['Authorization', `Bearer ${SECRETS.bearer}`, 'Host', 'h'],
+            })
+        ).toEqual({ rawHeaders: ['Authorization', 'Host'] });
     });
 });
