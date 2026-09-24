@@ -3,6 +3,8 @@ const {
     summarizeMessageBody,
     toScopeInvocation,
     toRequestDetails,
+    toRequestInvocation,
+    summarizeExpressRequest,
 } = require('./summarize-event');
 const { httpApiV2Event, restV1Event, sqsEvent } = require('./__fixtures__/events');
 const { SECRETS } = require('./__fixtures__/secrets');
@@ -140,6 +142,57 @@ describe('logs/summarize-event', () => {
             });
             expect(toRequestDetails(summarizeLambdaEvent(sqsEvent()))).toEqual({});
             expect(toRequestDetails(undefined)).toEqual({});
+        });
+
+        it('redacts token-looking path segments', () => {
+            const hex = summarizeLambdaEvent({
+                httpMethod: 'GET',
+                path: `/api/keys/${SECRETS.hexToken}/rotate`,
+            });
+            const hook = summarizeLambdaEvent({
+                routeKey: 'POST /webhooks/{token}',
+                rawPath: `/webhooks/${SECRETS.base64Run}`,
+                requestContext: { http: { method: 'POST' } },
+            });
+            expect(toRequestDetails(hex).path).toBe('/api/keys/[REDACTED:40]/rotate');
+            expect(toRequestDetails(hook).path).toMatch(/^\/webhooks\/\[REDACTED:\d+\]$/);
+            expect([toRequestDetails(hex), toRequestDetails(hook)]).toContainNoSecretWindow([
+                SECRETS.hexToken,
+                SECRETS.base64Run,
+            ]);
+        });
+
+        it('toRequestInvocation is the scope invocation plus the request details', () => {
+            expect(toRequestInvocation(summarizeLambdaEvent(httpApiV2Event()))).toEqual({
+                source: 'http',
+                method: 'GET',
+                route: '/api/authorize',
+                routeKey: 'GET /api/authorize',
+                path: '/api/authorize',
+                queryKeys: ['code', 'state', 'api_key'],
+                headerNames: ['x-frigg-api-key', 'authorization', 'cookie', 'content-type'],
+            });
+            expect(toRequestInvocation(summarizeLambdaEvent(sqsEvent()))).toEqual({
+                source: 'sqs',
+                recordCount: 2,
+            });
+        });
+
+        it('summarizeExpressRequest gives the same shape from an express request', () => {
+            const req = {
+                method: 'POST',
+                path: `/api/keys/${SECRETS.hexToken}`,
+                query: { api_key: SECRETS.apiKeyQuery },
+                headers: { authorization: `Bearer ${SECRETS.bearer}`, Accept: 'json' },
+            };
+            expect(summarizeExpressRequest(req)).toEqual({
+                source: 'http',
+                method: 'POST',
+                path: '/api/keys/[REDACTED:40]',
+                queryKeys: ['api_key'],
+                headerNames: ['authorization', 'accept'],
+            });
+            expect(summarizeExpressRequest(undefined)).toEqual({ source: 'http' });
         });
 
         it('maps other and empty summaries to source only', () => {

@@ -135,7 +135,7 @@ describe('createQueueWorker — integration deleted mid-flight', () => {
         }));
 
         jest.spyOn(console, 'warn').mockImplementation();
-        jest.spyOn(console, 'error').mockImplementation();
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation();
         jest.spyOn(console, 'log').mockImplementation();
 
         const QueueWorker = createQueueWorker(FakeIntegration);
@@ -147,6 +147,8 @@ describe('createQueueWorker — integration deleted mid-flight', () => {
                 {}
             )
         ).rejects.toBe(boom);
+        // The Worker boundary logs the rethrown error one time (ADR-048 §4).
+        expect(errorSpy).not.toHaveBeenCalled();
     });
 
     it('discards the message when the integration is IN_DELETION (teardown in progress)', async () => {

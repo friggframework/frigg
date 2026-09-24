@@ -78,6 +78,29 @@ function buildMessage(message, callSite) {
     return '[non-string message]';
 }
 
+const INVOCATION_KEY = 'invocation';
+
+function isPlainObject(value) {
+    return (
+        value !== null &&
+        typeof value === 'object' &&
+        Object.getPrototypeOf(value) === Object.prototype
+    );
+}
+
+// A boundary adds request detail to the scope's invocation; scope keys win.
+function extendInvocation(scoped, detail, dropped) {
+    const merged = { ...scoped };
+    for (const [key, value] of Object.entries(detail)) {
+        if (!Object.prototype.hasOwnProperty.call(scoped, key)) {
+            merged[key] = value;
+        } else if (JSON.stringify(scoped[key]) !== JSON.stringify(value)) {
+            dropped.add(`${INVOCATION_KEY}.${key}`);
+        }
+    }
+    return merged;
+}
+
 function traceFields(spanContext) {
     if (
         !spanContext ||
@@ -135,7 +158,8 @@ function buildRecord({
                 OWNED_KEYS.has(key) ||
                 RESERVED_KEYS.has(key) ||
                 (dropPayloads && PAYLOAD_KEYS.has(key)) ||
-                Object.prototype.hasOwnProperty.call(record, key)
+                (Object.prototype.hasOwnProperty.call(record, key) &&
+                    !canExtendInvocation(key, value))
             ) {
                 dropped.add(key);
                 continue;
@@ -149,10 +173,18 @@ function buildRecord({
             const value =
                 key === 'error' ? serializeError(accepted[key]) : safe?.[key];
             if (value === undefined || value === null) continue;
+            if (key === INVOCATION_KEY && isPlainObject(record[key])) {
+                record[key] = extendInvocation(record[key], value, dropped);
+                continue;
+            }
             record[key] = value;
             if (isCallSite) callSiteKeys.push(key);
         }
     };
+    const canExtendInvocation = (key, value) =>
+        key === INVOCATION_KEY &&
+        isPlainObject(record[key]) &&
+        isPlainObject(value);
     place(readFields(scope), false);
     place(readFields(bindings), false);
     place(callSite, true);

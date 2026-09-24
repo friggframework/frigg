@@ -1,5 +1,6 @@
 const { createHandler } = require('@friggframework/core');
 const { getLogger } = require('../logs');
+const { summarizeExpressRequest } = require('../logs/summarize-event');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -35,6 +36,7 @@ const createApp = (applyMiddleware) => {
             log.error('Request failed', {
                 eventName: 'frigg.http.request_failed',
                 statusCode,
+                invocation: summarizeExpressRequest(req),
                 error: boomError,
             });
             res.status(statusCode).json({ error: 'Internal Server Error' });

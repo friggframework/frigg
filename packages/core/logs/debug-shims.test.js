@@ -95,9 +95,11 @@ describe('logs/debug-shims', () => {
                     source: 'http',
                     method: 'GET',
                     route: '/api/authorize',
+                    path: '/api/authorize',
+                    headerNames: expect.arrayContaining(['authorization']),
                 },
-                headerNames: expect.arrayContaining(['authorization']),
             });
+            expect(record).not.toHaveProperty('headerNames');
             expect(record.invocation).not.toHaveProperty('body');
             expect(record.invocation).not.toHaveProperty('headers');
             expect(record).toContainNoSecretWindow(SECRETS);

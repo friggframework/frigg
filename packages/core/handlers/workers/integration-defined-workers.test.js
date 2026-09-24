@@ -126,6 +126,7 @@ describe('Webhook Queue Worker', () => {
         });
 
         it('should log errors with integration context', async () => {
+            const sink = require('../../logs').createMemorySink();
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
             const FailingIntegration = class extends TestWebhookIntegration {
@@ -148,11 +149,17 @@ describe('Webhook Queue Worker', () => {
 
             const result = await failingWorker.run(sqsEvent, {});
             expect(result.batchItemFailures).toHaveLength(1);
-            // Error is logged by createQueueWorker._run with integration context
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Error in ON_WEBHOOK for test-webhook'),
-                expect.any(Error)
-            );
+            // The Worker boundary logs the error one time, with the message scope.
+            expect(consoleSpy).not.toHaveBeenCalled();
+            expect(
+                sink.records.filter((r) => r.eventName === 'frigg.worker.record_failed')
+            ).toEqual([
+                expect.objectContaining({
+                    messageId: 'msg-1',
+                    integrationEvent: 'ON_WEBHOOK',
+                    error: expect.objectContaining({ message: 'Test error' }),
+                }),
+            ]);
 
             consoleSpy.mockRestore();
         });

@@ -273,11 +273,6 @@ const createQueueWorker = (integrationClass) => {
                     return;
                 }
 
-                console.error(
-                    `Error in ${params.event} for ${integrationName}:`,
-                    error
-                );
-
                 // 4xx HTTP errors are permanent — the requester already
                 // attempted token refresh (401) and backoff (429/5xx).
                 // By the time a 4xx reaches here, retrying won't help.

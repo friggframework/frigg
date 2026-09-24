@@ -27,24 +27,22 @@ function extractQueueName(eventSourceARN) {
 // The body can hold credentials, so only its size and digest are logged.
 function describeBody(body) {
     const text = typeof body === 'string' ? body : String(body ?? '');
+    let parsed = true;
+    try {
+        JSON.parse(text);
+    } catch {
+        parsed = false;
+    }
     return {
+        parsed,
         bodyLength: Buffer.byteLength(text),
         bodySha256: crypto.createHash('sha256').update(text).digest('hex'),
     };
 }
 
-function isJson(body) {
-    try {
-        JSON.parse(body);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
 function logRecord(record) {
-    const body = describeBody(record.body);
-    if (!isJson(record.body)) {
+    const { parsed, ...body } = describeBody(record.body);
+    if (!parsed) {
         log.warn('DLQ message body is not JSON', {
             eventName: 'frigg.queue.dlq.body_unparsed',
             ...body,

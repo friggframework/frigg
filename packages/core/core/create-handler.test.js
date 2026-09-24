@@ -327,7 +327,9 @@ describe('createHandler — logger scope and records (ADR-048)', () => {
         const inside = sink.records.find((r) => r.message === 'inside');
         expect(inside.route).toBe('/api/integrations/{id}');
         expect(JSON.stringify(inside)).not.toContain('abc123');
-        expect(sink.records.find((r) => r.eventName === 'frigg.handler.invoked').path).toBe('/api/integrations/abc123');
+        expect(sink.records.find((r) => r.eventName === 'frigg.handler.invoked').invocation.path).toBe(
+            '/api/integrations/abc123'
+        );
     });
 
     it('sets method and route (not path) for HTTP', async () => {
@@ -363,11 +365,20 @@ describe('createHandler — logger scope and records (ADR-048)', () => {
             level: 'INFO',
             logger: 'frigg.handler',
             requestId: 'req-123',
-            path: '/api/authorize',
-            headerNames: expect.arrayContaining(['x-frigg-api-key']),
-            queryKeys: expect.arrayContaining(['code']),
-            invocation: { source: 'http', method: 'GET', route: '/api/authorize', routeKey: 'GET /api/authorize' },
+            invocation: {
+                source: 'http',
+                method: 'GET',
+                route: '/api/authorize',
+                routeKey: 'GET /api/authorize',
+                path: '/api/authorize',
+                headerNames: expect.arrayContaining(['x-frigg-api-key']),
+                queryKeys: expect.arrayContaining(['code']),
+            },
         });
+        for (const key of ['path', 'headerNames', 'queryKeys']) {
+            expect(invoked[0]).not.toHaveProperty(key);
+        }
+        expect(invoked[0]).not.toHaveProperty('droppedKeys');
         expect(sink.records).toContainNoSecretWindow(SECRETS);
     });
 
@@ -431,6 +442,31 @@ describe('createHandler — logger scope and records (ADR-048)', () => {
         const res = await build(async () => { throw error; })({}, ctx());
         expect(res.statusCode).toBe(400);
         expect(byEvent('frigg.handler.rejected')[0].statusCode).toBe(400);
+    });
+
+    it.each([
+        ['failed (server-to-server)', 'frigg.handler.failed', false, () => new Error('boom')],
+        ['failed (user-facing)', 'frigg.handler.failed', true, () => new Error('boom')],
+        ['halted', 'frigg.handler.halted', false, () => new HaltError('stop')],
+    ])('the %s record carries the full redacted request summary', async (_label, eventName, isUserFacingResponse, makeError) => {
+        const event = {
+            httpMethod: 'POST',
+            resource: '/webhooks/{proxy+}',
+            path: `/webhooks/${SECRETS.hexToken}`,
+            headers: { authorization: `Bearer ${SECRETS.bearer}` },
+            queryStringParameters: { api_key: SECRETS.apiKeyQuery },
+        };
+        await build(async () => { throw makeError(); }, { isUserFacingResponse })(event, ctx()).catch(() => {});
+        const [record] = byEvent(eventName);
+        expect(record.invocation).toEqual({
+            source: 'http',
+            method: 'POST',
+            route: '/webhooks/{proxy+}',
+            path: '/webhooks/[REDACTED:40]',
+            queryKeys: ['api_key'],
+            headerNames: ['authorization'],
+        });
+        expect(sink.records).toContainNoSecretWindow([SECRETS.hexToken, SECRETS.bearer, SECRETS.apiKeyQuery]);
     });
 
     it('puts a call-site requestId into droppedKeys', async () => {

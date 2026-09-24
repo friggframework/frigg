@@ -78,7 +78,7 @@ One record, shown on several lines (stdout has it on one line):
 | `method`, `routeKey` | string | the HTTP event | HTTP invocations |
 | `route` | string | the route template, never the concrete path: REST v1 `resource`, or the path part of the HTTP API v2 `routeKey` (`/api/integrations/{id}`); the path only when the event has no template | HTTP invocations |
 | `invocation` | object | the bounded event summary: `{ source, method, route, routeKey }` for HTTP, `{ source, recordCount }` for SQS, else `{ source }` | inside an invocation scope |
-| `path`, `queryKeys`, `headerNames` | string, string[], string[] | the concrete request path, the query keys and header names (never values) | only on the INFO `frigg.handler.invoked` record |
+| `invocation.path`, `invocation.queryKeys`, `invocation.headerNames` | string, string[], string[] | the full request summary: the concrete path after `redactUrl` (token-looking segments become `[REDACTED:<len>]`), the query keys and the header names, never values | only on `frigg.handler.invoked` (INFO), `frigg.handler.failed` and `frigg.handler.halted` (ERROR), and `frigg.http.request_failed` (ERROR) |
 | `messageId`, `receiveCount` | string, number | message scope, from the SQS record | inside `Worker.run` and the DLQ processor |
 | `processId`, `integrationId`, `integrationEvent` | string | message scope (the message body), or the integration context | when known |
 | `integrationType`, `userId`, `version` | string | the ADR-011 integration context | when known |
@@ -107,6 +107,9 @@ Call-site fields go next to these, at the top level.
   drops call-site fields largest first, then `error.stack`, then
   `error.cause`. It always writes the record.
 - **Null.** `null` and `undefined` fields are left out.
+- **`invocation` detail.** A call-site `invocation` object adds keys to the
+  scope's `invocation`; a key the scope already has keeps the scope value
+  (`droppedKeys` gets `invocation.<key>` when they differ).
 
 ### Nested scopes merge
 

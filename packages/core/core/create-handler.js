@@ -6,7 +6,7 @@ const { getLogger, toSanitizedSurrogate } = require('../logs');
 const {
     summarizeLambdaEvent,
     toScopeInvocation,
-    toRequestDetails,
+    toRequestInvocation,
 } = require('../logs/summarize-event');
 const {
     runInvocationScope,
@@ -58,6 +58,8 @@ const createHandler = (optionByName = {}) => {
             routeKey: eventSummary.routeKey,
             invocation: toScopeInvocation(eventSummary),
         };
+        // The full redacted summary goes only on the entry and failure records.
+        const requestInvocation = toRequestInvocation(eventSummary);
 
         return runInvocationScope(
             scopeFields,
@@ -65,7 +67,7 @@ const createHandler = (optionByName = {}) => {
                 try {
                     log.info('Handler invoked', {
                         eventName: 'frigg.handler.invoked',
-                        ...toRequestDetails(eventSummary),
+                        invocation: requestInvocation,
                     });
 
                     // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.
@@ -86,30 +88,41 @@ const createHandler = (optionByName = {}) => {
                     // Run the Lambda
                     return await method(event, context);
                 } catch (error) {
-                    // Don't leak implementation details to end users.
-                    if (isUserFacingResponse) {
-                        // Allow client-safe errors to pass through with their actual message
-                        if (error.isClientSafe === true) {
-                            const statusCode = error.statusCode || 400;
-                            log.warn('Request rejected', {
-                                eventName: 'frigg.handler.rejected',
-                                statusCode,
-                                error,
-                            });
-                            return {
-                                statusCode,
-                                body: JSON.stringify({
-                                    error: error.message,
-                                }),
-                            };
-                        }
-
-                        log.error('Handler failed', {
-                            eventName: 'frigg.handler.failed',
+                    // Allow client-safe errors to pass through with their actual message
+                    if (isUserFacingResponse && error.isClientSafe === true) {
+                        const statusCode = error.statusCode || 400;
+                        log.warn('Request rejected', {
+                            eventName: 'frigg.handler.rejected',
+                            statusCode,
                             error,
                         });
+                        return {
+                            statusCode,
+                            body: JSON.stringify({
+                                error: error.message,
+                            }),
+                        };
+                    }
 
-                        // Hide other errors with generic message
+                    // Server-to-server: halt errors succeed and won't be
+                    // retried, so the halt itself is the failure record.
+                    if (!isUserFacingResponse && error.isHaltError === true) {
+                        log.error('Handler halted', {
+                            eventName: 'frigg.handler.halted',
+                            invocation: requestInvocation,
+                            error,
+                        });
+                        return;
+                    }
+
+                    log.error('Handler failed', {
+                        eventName: 'frigg.handler.failed',
+                        invocation: requestInvocation,
+                        error,
+                    });
+
+                    // Don't leak implementation details to end users.
+                    if (isUserFacingResponse) {
                         return {
                             statusCode: 500,
                             body: JSON.stringify({
@@ -118,22 +131,6 @@ const createHandler = (optionByName = {}) => {
                         };
                     }
 
-                    // Handle server-to-server responses.
-
-                    // Halt errors succeed and won't be retried, so the halt
-                    // itself is the failure record.
-                    if (error.isHaltError === true) {
-                        log.error('Handler halted', {
-                            eventName: 'frigg.handler.halted',
-                            error,
-                        });
-                        return;
-                    }
-
-                    log.error('Handler failed', {
-                        eventName: 'frigg.handler.failed',
-                        error,
-                    });
                     // The Lambda runtime writes a rethrown error itself, so
                     // rethrow a sanitized copy (ADR-048 §6 item 11).
                     throw toSanitizedSurrogate(error);

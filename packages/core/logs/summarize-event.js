@@ -1,3 +1,5 @@
+const { redactUrl } = require('./redact');
+
 // Best-effort extraction of the logical event/processId/integrationId from a
 // JSON message body. Used only for log correlation. Never throws.
 function summarizeMessageBody(bodyStr) {
@@ -118,14 +120,36 @@ function toScopeInvocation(summary) {
     return { source: summary.source };
 }
 
-// Per-request detail for the one entry record, never for the scope.
+// Per-request detail for the entry and failure records, never for the
+// scope. A raw path can hold a token, so it goes through redactUrl.
 function toRequestDetails(summary) {
     if (!summary || summary.source !== 'http') return {};
     return {
-        path: summary.path,
+        path: redactUrl(summary.path ?? ''),
         queryKeys: summary.queryKeys ?? [],
         headerNames: summary.headerNames ?? [],
     };
+}
+
+// The full redacted request summary (ADR-048 §6: it goes under `invocation`).
+function toRequestInvocation(summary) {
+    return { ...toScopeInvocation(summary), ...toRequestDetails(summary) };
+}
+
+// The same shape from an express request, for the express error boundary.
+function summarizeExpressRequest(req) {
+    try {
+        if (!req || typeof req !== 'object') return { source: 'http' };
+        return {
+            source: 'http',
+            method: req.method,
+            path: redactUrl(req.path ?? ''),
+            queryKeys: objectKeys(req.query),
+            headerNames: unique(objectKeys(req.headers).map((name) => name.toLowerCase())),
+        };
+    } catch {
+        return { source: 'http' };
+    }
 }
 
 module.exports = {
@@ -133,4 +157,6 @@ module.exports = {
     summarizeMessageBody,
     toScopeInvocation,
     toRequestDetails,
+    toRequestInvocation,
+    summarizeExpressRequest,
 };

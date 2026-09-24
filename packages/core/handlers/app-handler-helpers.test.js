@@ -53,8 +53,26 @@ describe('createApp error middleware (ADR-048 Phase 2)', () => {
             statusCode: 500,
             error: { type: 'Error' },
         });
+        expect(failed[0].invocation).toEqual({
+            source: 'http',
+            method: 'GET',
+            path: '/fail',
+            queryKeys: [],
+            headerNames: expect.arrayContaining(['authorization', 'x-frigg-api-key']),
+        });
         expect(byEvent('frigg.legacy.error')).toHaveLength(0);
         expect(sink.records).toContainNoSecretWindow([SECRETS.bearer, SECRETS.friggApiKey]);
+    });
+
+    it('redacts the path and keeps only query keys on the 500 record', async () => {
+        const router = express.Router();
+        router.get('/keys/:key', () => {
+            throw new Error('boom');
+        });
+        await request(router, { path: `/keys/${SECRETS.hexToken}?api_key=${SECRETS.apiKeyQuery}` });
+        const [failed] = byEvent('frigg.http.request_failed');
+        expect(failed.invocation).toMatchObject({ path: '/keys/[REDACTED:40]', queryKeys: ['api_key'] });
+        expect(sink.records).toContainNoSecretWindow([SECRETS.hexToken, SECRETS.apiKeyQuery]);
     });
 
     it('scrubs the reason of a 4xx', async () => {

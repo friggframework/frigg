@@ -290,6 +290,7 @@ describe('Worker - AWS SDK v3', () => {
         });
 
         let sink;
+        const inside = () => sink.records.filter((r) => r.message === 'inside');
         beforeEach(() => {
             sink = createMemorySink();
             jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -303,7 +304,7 @@ describe('Worker - AWS SDK v3', () => {
             await worker.run({
                 Records: [record('m-1', '2', { processId: 'p-1', integrationId: 'i-1' })],
             });
-            expect(sink.records[0]).toMatchObject({
+            expect(inside()[0]).toMatchObject({
                 messageId: 'm-1',
                 receiveCount: 2,
                 processId: 'p-1',
@@ -320,10 +321,10 @@ describe('Worker - AWS SDK v3', () => {
                     { messageId: 'm-2', attributes: {}, body: JSON.stringify({ event: 'OTHER', data: {} }) },
                 ],
             });
-            expect(sink.records[0]).toMatchObject({ messageId: 'm-1', processId: 'p-1' });
-            expect(sink.records[1]).toMatchObject({ messageId: 'm-2', integrationEvent: 'OTHER' });
-            expect(sink.records[1]).not.toHaveProperty('processId');
-            expect(sink.records[1]).not.toHaveProperty('receiveCount');
+            expect(inside()[0]).toMatchObject({ messageId: 'm-1', processId: 'p-1' });
+            expect(inside()[1]).toMatchObject({ messageId: 'm-2', integrationEvent: 'OTHER' });
+            expect(inside()[1]).not.toHaveProperty('processId');
+            expect(inside()[1]).not.toHaveProperty('receiveCount');
         });
 
         it('does not carry record 1 ids onto a record 2 that has none', async () => {
@@ -334,11 +335,11 @@ describe('Worker - AWS SDK v3', () => {
                     { body: JSON.stringify({ data: {} }) },
                 ],
             });
-            expect(sink.records).toHaveLength(2);
+            expect(inside()).toHaveLength(2);
             for (const key of ['messageId', 'receiveCount', 'processId', 'integrationId', 'integrationEvent']) {
-                expect(sink.records[1]).not.toHaveProperty(key);
+                expect(inside()[1]).not.toHaveProperty(key);
             }
-            expect(sink.records[0]).toMatchObject({ messageId: 'm-1', receiveCount: 4 });
+            expect(inside()[0]).toMatchObject({ messageId: 'm-1', receiveCount: 4 });
         });
 
         it('keeps the invocation scope (requestId survives)', async () => {
@@ -346,7 +347,7 @@ describe('Worker - AWS SDK v3', () => {
             await runInContext({ log: { requestId: 'r-1' } }, () =>
                 worker.run({ Records: [record('m-1', '1', {})] })
             );
-            expect(sink.records[0]).toMatchObject({ requestId: 'r-1', messageId: 'm-1' });
+            expect(inside()[0]).toMatchObject({ requestId: 'r-1', messageId: 'm-1' });
         });
 
         it('keeps the halt and failure behaviour inside the scope', async () => {
@@ -422,6 +423,34 @@ describe('Worker - AWS SDK v3', () => {
             expect(sink.records).toContainNoSecretWindow([SECRETS.bearer]);
             expect(consoleText()).toContainNoSecretWindow([SECRETS.bearer]);
             expect(spies[1]).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('run() record lifecycle records', () => {
+        const { createMemorySink } = require('../logs');
+        let sink;
+        let logSpy;
+        beforeEach(() => {
+            sink = createMemorySink();
+            logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+        });
+        afterEach(() => jest.restoreAllMocks());
+
+        it('writes DEBUG record_started and record_succeeded with the scope ids, not console.log per record', async () => {
+            worker._run = jest.fn().mockResolvedValue(undefined);
+            await worker.run({
+                Records: [{ messageId: 'm-9', body: JSON.stringify({ event: 'SYNC', data: {} }), attributes: { ApproximateReceiveCount: '1' } }],
+            });
+            const lifecycle = sink.records.filter((r) => r.logger === 'frigg.worker');
+            expect(lifecycle.map((r) => [r.level, r.eventName])).toEqual([
+                ['DEBUG', 'frigg.worker.record_started'],
+                ['DEBUG', 'frigg.worker.record_succeeded'],
+            ]);
+            for (const record of lifecycle) {
+                expect(record).toMatchObject({ messageId: 'm-9', receiveCount: 1, integrationEvent: 'SYNC' });
+            }
+            const perRecord = logSpy.mock.calls.filter(([text]) => /record (begin|success)/.test(String(text)));
+            expect(perRecord).toEqual([]);
         });
     });
 });

@@ -29,28 +29,14 @@ class Worker {
 
         for (const record of records) {
             await runMessageScope(record, async () => {
-                // Log record entry with SQS-provided attributes useful for tracing
-                // delivery history (ApproximateReceiveCount for retries, etc.).
-                let parsedEvent;
-                try {
-                    parsedEvent = JSON.parse(record.body)?.event;
-                } catch {
-                    parsedEvent = undefined;
-                }
-                console.log(`[Worker] record begin`, {
-                    messageId: record.messageId,
-                    event: parsedEvent,
-                    receiveCount: record.attributes?.ApproximateReceiveCount,
-                });
+                // messageId, receiveCount and the event come from the scope.
+                log.debug('Record started', { eventName: 'frigg.worker.record_started' });
 
                 try {
                     const runParams = JSON.parse(record.body);
                     this._validateParams(runParams);
                     await this._run(runParams, context);
-                    console.log(`[Worker] record success`, {
-                        messageId: record.messageId,
-                        event: runParams?.event,
-                    });
+                    log.debug('Record succeeded', { eventName: 'frigg.worker.record_succeeded' });
                 } catch (error) {
                     if (error.isHaltError) {
                         // HaltError means "discard this message, don't retry".

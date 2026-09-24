@@ -153,6 +153,28 @@ describe('logs/record', () => {
             expect(sink.records[0].droppedKeys).toEqual(['requestId', 'processId']);
         });
 
+        it('adds call-site invocation detail under the scope invocation; scope keys win', () => {
+            runInContext({ log: { invocation: { source: 'http', method: 'GET', route: '/a/{id}' } } }, () => {
+                getLogger('integration.test').info('x', {
+                    invocation: { method: 'POST', path: '/a/1', headers: { authorization: 'Bearer ZqvbLv8tZrQ8kNM5Jq4SRrvrMpRC' } },
+                });
+            });
+            expect(sink.records[0].invocation).toEqual({
+                source: 'http',
+                method: 'GET',
+                route: '/a/{id}',
+                path: '/a/1',
+                headers: ['authorization'],
+            });
+            expect(sink.records[0].droppedKeys).toEqual(['invocation.method']);
+        });
+
+        it('keeps a call-site invocation as is when the scope has none', () => {
+            getLogger('integration.test').info('x', { invocation: { source: 'http', path: '/a/1' } });
+            expect(sink.records[0].invocation).toEqual({ source: 'http', path: '/a/1' });
+            expect(sink.records[0]).not.toHaveProperty('droppedKeys');
+        });
+
         it('keeps a child requestId when no scope sets one', () => {
             getLogger('integration.test').child({ requestId: 'r-child' }).info('x');
             expect(sink.records[0].requestId).toBe('r-child');
