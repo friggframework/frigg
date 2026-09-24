@@ -1,0 +1,13 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "Frigg Framework",
+  "description": "Open-source, serverless-native framework for building direct/native integrations, maintained by Left Hook.",
+  "branch": "next",
+  "folders": ["docs"],
+  "excludeFolders": ["website", "node_modules", "**/dist", "**/__tests__"],
+  "rules": [
+    "Frigg is serverless-native (AWS Lambda) and cloud-agnostic; adopters own their stack.",
+    "Integrations extend IntegrationBase; API modules are installed with `frigg install <name>`.",
+    "The authoritative API-module catalog and roadmap live at /roadmap/ on friggframework.org."
+  ]
+}
