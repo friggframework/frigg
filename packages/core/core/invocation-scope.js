@@ -1,4 +1,5 @@
 const { runInContext } = require('../logs/context');
+const { summarizeMessageBody } = require('../logs/summarize-event');
 const { flushSinks, hasFlushableSinks } = require('../logs/logger-runtime');
 
 // Bounds the tail latency telemetry adds to every warm invocation. Kept low so
@@ -180,8 +181,38 @@ async function runInvocationScope(fields, fn, opts = {}) {
     });
 }
 
+function toCount(value) {
+    const count = Number(value);
+    return value !== undefined && value !== null && Number.isFinite(count)
+        ? count
+        : undefined;
+}
+
+/**
+ * Open the logger scope for one SQS message: messageId, receiveCount and the
+ * Frigg ids the body carries. No flush; the invocation scope owns that.
+ */
+function runMessageScope(record, fn) {
+    const { event, processId, integrationId } = summarizeMessageBody(
+        record?.body
+    );
+    return runInContext(
+        {
+            log: {
+                messageId: record?.messageId,
+                receiveCount: toCount(record?.attributes?.ApproximateReceiveCount),
+                integrationEvent: event,
+                processId,
+                integrationId,
+            },
+        },
+        fn
+    );
+}
+
 module.exports = {
     runInvocationScope,
+    runMessageScope,
     withDeadline,
     flushTelemetry,
     flushUsageRollup,

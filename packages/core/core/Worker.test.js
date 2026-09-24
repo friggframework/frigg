@@ -277,5 +277,74 @@ describe('Worker - AWS SDK v3', () => {
             expect(worker._run).toHaveBeenCalledWith({ task: 'ok' }, {});
         });
     });
-});
 
+    describe('run() message scope (ADR-048 §7)', () => {
+        const { getLogger, createMemorySink } = require('../logs');
+        const { runInContext } = require('../logs/context');
+        const { HaltError } = require('../errors/halt-error');
+
+        const record = (messageId, receiveCount, data) => ({
+            messageId,
+            attributes: { ApproximateReceiveCount: receiveCount },
+            body: JSON.stringify({ event: 'PROCESS_BATCH', data }),
+        });
+
+        let sink;
+        beforeEach(() => {
+            sink = createMemorySink();
+            jest.spyOn(console, 'log').mockImplementation(() => {});
+            jest.spyOn(console, 'warn').mockImplementation(() => {});
+            jest.spyOn(console, 'error').mockImplementation(() => {});
+        });
+        afterEach(() => jest.restoreAllMocks());
+
+        it('gives records inside _run the message ids from the SQS record and body', async () => {
+            worker._run = async () => getLogger('integration.test').info('inside');
+            await worker.run({
+                Records: [record('m-1', '2', { processId: 'p-1', integrationId: 'i-1' })],
+            });
+            expect(sink.records[0]).toMatchObject({
+                messageId: 'm-1',
+                receiveCount: 2,
+                processId: 'p-1',
+                integrationId: 'i-1',
+                integrationEvent: 'PROCESS_BATCH',
+            });
+        });
+
+        it('opens one scope per record, with no leak across records', async () => {
+            worker._run = async () => getLogger('integration.test').info('inside');
+            await worker.run({
+                Records: [
+                    record('m-1', '1', { processId: 'p-1' }),
+                    { messageId: 'm-2', attributes: {}, body: JSON.stringify({ event: 'OTHER', data: {} }) },
+                ],
+            });
+            expect(sink.records[0]).toMatchObject({ messageId: 'm-1', processId: 'p-1' });
+            expect(sink.records[1]).toMatchObject({ messageId: 'm-2', integrationEvent: 'OTHER' });
+            expect(sink.records[1]).not.toHaveProperty('processId');
+            expect(sink.records[1]).not.toHaveProperty('receiveCount');
+        });
+
+        it('keeps the invocation scope (requestId survives)', async () => {
+            worker._run = async () => getLogger('integration.test').info('inside');
+            await runInContext({ log: { requestId: 'r-1' } }, () =>
+                worker.run({ Records: [record('m-1', '1', {})] })
+            );
+            expect(sink.records[0]).toMatchObject({ requestId: 'r-1', messageId: 'm-1' });
+        });
+
+        it('keeps the halt and failure behaviour inside the scope', async () => {
+            worker._run = jest
+                .fn()
+                .mockRejectedValueOnce(new HaltError('stop'))
+                .mockRejectedValueOnce(new Error('boom'))
+                .mockResolvedValueOnce(undefined);
+            const result = await worker.run({
+                Records: [record('m-1', '1', {}), record('m-2', '1', {}), record('m-3', '1', {})],
+            });
+            expect(result).toEqual({ batchItemFailures: [{ itemIdentifier: 'm-2' }] });
+            expect(worker._run).toHaveBeenCalledTimes(3);
+        });
+    });
+});

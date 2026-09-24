@@ -2,6 +2,7 @@ const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require('@aws-sdk/
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
+const { runMessageScope } = require('./invocation-scope');
 
 const sqs = new SQSClient({ region: process.env.AWS_REGION });
 
@@ -25,45 +26,47 @@ class Worker {
         );
 
         for (const record of records) {
-            // Log record entry with SQS-provided attributes useful for tracing
-            // delivery history (ApproximateReceiveCount for retries, etc.).
-            let parsedEvent;
-            try {
-                parsedEvent = JSON.parse(record.body)?.event;
-            } catch {
-                parsedEvent = undefined;
-            }
-            console.log(`[Worker] record begin`, {
-                messageId: record.messageId,
-                event: parsedEvent,
-                receiveCount: record.attributes?.ApproximateReceiveCount,
-            });
-
-            try {
-                const runParams = JSON.parse(record.body);
-                this._validateParams(runParams);
-                await this._run(runParams, context);
-                console.log(`[Worker] record success`, {
-                    messageId: record.messageId,
-                    event: runParams?.event,
-                });
-            } catch (error) {
-                if (error.isHaltError) {
-                    // HaltError means "discard this message, don't retry".
-                    // Treat as success so SQS deletes it from the queue.
-                    // Logged explicitly — silent discards made prod debugging
-                    // extremely hard; keep this visible.
-                    console.warn(`[Worker] record halted (discarded, no retry)`, {
-                        messageId: record.messageId,
-                        event: parsedEvent,
-                        reason: error.message,
-                        statusCode: error.statusCode,
-                    });
-                    continue;
+            await runMessageScope(record, async () => {
+                // Log record entry with SQS-provided attributes useful for tracing
+                // delivery history (ApproximateReceiveCount for retries, etc.).
+                let parsedEvent;
+                try {
+                    parsedEvent = JSON.parse(record.body)?.event;
+                } catch {
+                    parsedEvent = undefined;
                 }
-                console.error(`[Worker] Failed to process record ${record.messageId}:`, error);
-                batchItemFailures.push({ itemIdentifier: record.messageId });
-            }
+                console.log(`[Worker] record begin`, {
+                    messageId: record.messageId,
+                    event: parsedEvent,
+                    receiveCount: record.attributes?.ApproximateReceiveCount,
+                });
+
+                try {
+                    const runParams = JSON.parse(record.body);
+                    this._validateParams(runParams);
+                    await this._run(runParams, context);
+                    console.log(`[Worker] record success`, {
+                        messageId: record.messageId,
+                        event: runParams?.event,
+                    });
+                } catch (error) {
+                    if (error.isHaltError) {
+                        // HaltError means "discard this message, don't retry".
+                        // Treat as success so SQS deletes it from the queue.
+                        // Logged explicitly — silent discards made prod debugging
+                        // extremely hard; keep this visible.
+                        console.warn(`[Worker] record halted (discarded, no retry)`, {
+                            messageId: record.messageId,
+                            event: parsedEvent,
+                            reason: error.message,
+                            statusCode: error.statusCode,
+                        });
+                        return;
+                    }
+                    console.error(`[Worker] Failed to process record ${record.messageId}:`, error);
+                    batchItemFailures.push({ itemIdentifier: record.messageId });
+                }
+            });
         }
 
         if (batchItemFailures.length > 0) {

@@ -1,5 +1,6 @@
 const {
     runInvocationScope,
+    runMessageScope,
     withDeadline,
     flushTelemetry,
     flushUsageRollup,
@@ -284,5 +285,32 @@ describe('runInvocationScope exports', () => {
         const { runInvocationScope: fromScope } = require('./invocation-scope');
         expect(require('./index').runInvocationScope).toBe(fromScope);
         expect(require('../index').runInvocationScope).toBe(fromScope);
+    });
+});
+
+describe('runMessageScope', () => {
+    const { getLoggerScope } = require('../logs/context');
+    const { mergeTelemetryContext } = require('../telemetry/telemetry-context');
+
+    it('puts messageId, receiveCount and the body ids into the logger scope', async () => {
+        const record = {
+            messageId: 'm-1',
+            attributes: { ApproximateReceiveCount: '3' },
+            body: JSON.stringify({ event: 'E', data: { processId: 'p-1', integrationId: 'i-1', token: 'x' } }),
+        };
+        const scope = await runMessageScope(record, async () => getLoggerScope());
+        expect(scope).toEqual({
+            messageId: 'm-1',
+            receiveCount: 3,
+            integrationEvent: 'E',
+            processId: 'p-1',
+            integrationId: 'i-1',
+        });
+    });
+
+    it('returns fn\'s value, adds no bus context and tolerates bad records', async () => {
+        expect(runMessageScope({ body: 'not json' }, () => mergeTelemetryContext())).toBeUndefined();
+        expect(runMessageScope(undefined, () => getLoggerScope())).toEqual({});
+        expect(runMessageScope({ messageId: 'm', attributes: { ApproximateReceiveCount: 'x' } }, () => getLoggerScope())).toEqual({ messageId: 'm' });
     });
 });
