@@ -18,9 +18,9 @@ class IntegrationEventDispatcher {
         );
     }
 
-    async dispatchJob({ event, data, context }) {
+    async dispatchJob({ event, data, context, delivery }) {
         return this._dispatch(event, (instance, handler) =>
-            handler.call(instance, { data, context })
+            handler.call(instance, { data, context, delivery })
         );
     }
 

@@ -414,6 +414,43 @@ const decrypted = await cryptor.decrypt(encrypted);
 - `integration-event-dispatcher.js` - Routes events to integration handlers
 - Supports lifecycle events and user actions
 
+**Queue handler delivery**: a handler dispatched from the integration queue
+(any `this.events` entry reached through SQS, including `ON_WEBHOOK` and
+scheduled jobs) receives `{ data, context, delivery }`. HTTP-dispatched
+handlers (`{ req, res, next }`) and `this.on` events do not.
+
+| Field | Type | Value |
+|---|---|---|
+| `delivery.receiveCount` | `number \| undefined` | SQS `ApproximateReceiveCount` of this delivery |
+| `delivery.maxReceiveCount` | `number \| undefined` | Receives allowed before SQS moves the message to the DLQ (`FRIGG_QUEUE_MAX_RECEIVE_COUNT`) |
+| `delivery.isLastAttempt` | `boolean` | `true` only when both counts are known and `receiveCount >= maxReceiveCount` |
+
+`isLastAttempt` is `false` when either count is unknown: a local or non-SQS
+invocation, or a queue whose redrive policy the stack does not own
+(`ownership.queue: 'external'`). The value is information only: core still
+rethrows retryable errors and discards halt errors (4xx except 408/429).
+
+Use it to end a run or count lost work on the final try: when a retryable
+error (429, 5xx, network) is about to be rethrown and `isLastAttempt` is
+`true`, the message goes to the DLQ next, so mark the run failed or count the
+message's records as failed before rethrowing.
+
+```javascript
+async processBatch({ data, delivery }) {
+    try {
+        await this.syncPage(data);
+    } catch (error) {
+        if (delivery?.isLastAttempt) await this.failRun(data.processId, error);
+        throw error;
+    }
+}
+```
+
+The single source of the max receive count is
+`INTEGRATION_QUEUE_MAX_RECEIVE_COUNT` in `queues/queue-delivery.js`. The
+devtools integration builder uses it for the queue's `RedrivePolicy` and sets
+it as `FRIGG_QUEUE_MAX_RECEIVE_COUNT` on the queue worker function.
+
 ### 8. Error Handling (`/errors`)
 
 **Purpose**: Standardized error types with proper HTTP semantics.
@@ -662,6 +699,7 @@ Use test doubles from `@friggframework/test` package for consistent mocking.
 - `SECRET_ARN` - AWS Secrets Manager ARN for auto-injection
 - `DEBUG` - Debug logging pattern
 - `LOG_LEVEL` - Logging level (debug, info, warn, error)
+- `FRIGG_QUEUE_MAX_RECEIVE_COUNT` - Set by devtools on integration queue workers whose queue the stack owns; feeds `delivery.maxReceiveCount`
 
 ## Version Information
 
