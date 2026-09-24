@@ -1,5 +1,5 @@
 {
-  "count": 30,
+  "count": 31,
   "adrs": [
     {
       "num": 1,
@@ -300,6 +300,16 @@
       "theme": "Data & migrations",
       "summary": "Coordinates concurrent 401s inside one Lambda invocation: one shared token refresh per api-module instance, a fail-fast guard for a 401 raised inside the refresh itself, and a token-generation check so stale 401s retry instead of refreshing again.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/042-in-process-single-flight-token-refresh.md"
+    },
+    {
+      "num": 48,
+      "id": "048",
+      "title": "Structured Logging",
+      "status": "Proposed",
+      "date": "2026-09-23",
+      "theme": "Observability & ops",
+      "summary": "Replaces ad-hoc console logging with one Frigg-owned logger port in core that writes one redacted JSON record per line to stdout, with a fixed field set, six levels, ADR-011 correlation and trace ids, and redaction by construction. JSON is the only output format, in every stage; other destinations connect as sinks that only translate and send, the upgrade changes need maintainer ratification, and the Lambda log format and retention in devtools are opt-in.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/048-structured-logging.md"
     }
   ]
 }
