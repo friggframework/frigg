@@ -1,0 +1,542 @@
+const fetch = require('node-fetch');
+const { AsyncLocalStorage } = require('async_hooks');
+const { Delegate } = require('../../core');
+const { FetchError } = require('../../errors');
+const { get } = require('../../assertions');
+const { getTelemetry } = require('../../telemetry/telemetry-runtime');
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
+const MAX_AUTH_RETRIES = 3;
+
+// This context marks the async call chain that holds the refresh slot, and
+// names the requester that holds it. Token requests re-enter _rawRequest
+// through this._post. A 401 from inside that chain must fail fast: if it
+// joins the refresh in flight, it awaits its own promise and hangs. The
+// identity keeps a second requester used inside the chain out of the check.
+// AsyncLocalStorage reaches the nested calls without help from the subclasses.
+const refreshContext = new AsyncLocalStorage();
+
+class Requester extends Delegate {
+    constructor(params) {
+        super(params);
+        this.backOff = get(params, 'backOff', [1, 3, 10, 30, 60, 180]);
+        this.isRefreshable = false;
+        this.refreshCount = 0;
+        this.authGraceRetryCount = 0;
+        // Concurrent 401s share one refreshAuth() run. See _refreshAuthOnce().
+        this._inFlightRefresh = null;
+        // This counter increases when the tokens change. A stale 401 (the
+        // token changed already) then retries and does not refresh again.
+        this._authGeneration = 0;
+        this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
+        this.delegateTypes.push(this.DLGT_INVALID_AUTH);
+        this.agent = get(params, 'agent', null);
+
+        // Per-attempt HTTP timeout. Without this the framework called fetch()
+        // with no AbortController and no timeout — a silently-hung TCP
+        // connection (server accepts but never responds) blocked the calling
+        // promise forever, cascading into stalled batches, stalled syncs,
+        // and worker-lambda timeouts.
+        //
+        // Configuration precedence:
+        //   1. Instance param:   new Requester({ requestTimeoutMs: 30_000 })
+        //   2. Class static:     static requestTimeoutMs = 30_000
+        //   3. Default:          DEFAULT_REQUEST_TIMEOUT_MS (60s)
+        //
+        // Pass 0 (or null) to disable the timeout entirely — reserved for
+        // test doubles and documented long-running endpoints.
+        // Intentionally NOT using `get(params, ...)` here — the Frigg
+        // `get` helper throws RequiredPropertyError if the key is missing
+        // and no default is provided, which would collide with the fall-
+        // through to the class-level static override.
+        const instanceTimeout = params?.requestTimeoutMs;
+        this.requestTimeoutMs =
+            instanceTimeout !== undefined && instanceTimeout !== null
+                ? instanceTimeout
+                : this.constructor.requestTimeoutMs ??
+                  DEFAULT_REQUEST_TIMEOUT_MS;
+
+        // Allow passing in the fetch function
+        // Instance methods can use this.fetch without differentiating
+        this.fetch = get(params, 'fetch', fetch);
+
+        // Defaults to the process singleton. Pass an integration's bound
+        // `this.telemetry` to attribute out-of-band requests — setup/OAuth calls
+        // made before an integration context exists aren't rolled up otherwise.
+        this.telemetry = (params && params.telemetry) || getTelemetry();
+    }
+
+    /**
+     * Redact secrets/PII from a URL before it touches telemetry. Many API
+     * modules embed credentials in the query string (?api_key=, ?token=,
+     * presigned signatures) or in userinfo — those must never reach a span,
+     * the bus, or an exporter. Keep only protocol + host + path (enough for
+     * North Star endpoint matching).
+     */
+    _sanitizeUrl(url) {
+        const raw = String(url);
+        try {
+            const u = new URL(raw);
+            return `${u.protocol}//${u.host}${u.pathname}`;
+        } catch (_) {
+            // Relative/opaque URL: drop the query string at minimum.
+            return raw.split('?')[0];
+        }
+    }
+
+    /** Bounded module label for the apimodule.requests metric. */
+    _telemetryModuleLabel() {
+        return (
+            this.moduleName ||
+            this.delegate?.name ||
+            this.delegate?.constructor?.name ||
+            this.constructor?.name ||
+            'unknown'
+        );
+    }
+
+    parsedBody = async (resp) => {
+        const contentType = resp.headers.get('Content-Type') || '';
+
+        if (
+            contentType.match(/^application\/json/) ||
+            contentType.match(/^application\/vnd.api\+json/) ||
+            contentType.match(/^application\/hal\+json/)
+        ) {
+            return resp.json();
+        }
+
+        return resp.text();
+    };
+
+    /**
+     * Instrumenting entry point. Wraps the whole logical request —
+     * including retry/refresh recursion — in a single span + one
+     * `frigg.apimodule.requests` counter, emitted on the `attempt === 0`
+     * boundary so retries are never double-counted. The full URL rides the
+     * span only; the metric carries bounded labels {module, method, status}
+     * — never endpoint.
+     *
+     * @param {string} url - The request URL, relative or absolute.
+     * @param {Object} options - Fetch options (method, headers, body, query,
+     *   returnFullRes, etc.) built by the `_get`/`_post`/`_patch`/`_put`/
+     *   `_delete` wrappers.
+     * @param {number} attempt - 0-based count of retries already made for
+     *   this call. Non-zero only if a caller re-enters directly; normal
+     *   retries recurse through `_rawRequest` instead (see below).
+     */
+    async _request(url, options = {}, attempt = 0) {
+        if (attempt !== 0) {
+            return this._rawRequest(url, options, attempt);
+        }
+
+        const telemetry = this.telemetry;
+        if (!telemetry || typeof telemetry.span !== 'function') {
+            return this._rawRequest(url, options, 0);
+        }
+
+        const module = this._telemetryModuleLabel();
+        const method = (options.method || 'GET').toUpperCase();
+        const safeUrl = this._sanitizeUrl(url);
+
+        return telemetry.span('frigg.apimodule.request', async (span) => {
+            if (span && typeof span.setAttributes === 'function') {
+                span.setAttributes({
+                    'frigg.module': module,
+                    'http.request.method': method,
+                    // Redacted (no query/userinfo) — never emit raw URLs.
+                    'url.path': safeUrl,
+                });
+            }
+            // Redacted url (unbounded) rides the bus-only context for North Star
+            // derived-from-trace matching — never a metric label.
+            const busContext = { url: safeUrl };
+            try {
+                const result = await this._rawRequest(url, options, 0);
+                telemetry.count(
+                    'frigg.apimodule.requests',
+                    1,
+                    { module, method, status: 'ok' },
+                    busContext
+                );
+                return result;
+            } catch (err) {
+                const code = err?.status ?? err?.statusCode;
+                const status = code ? String(code) : 'error';
+                if (span && typeof span.setAttribute === 'function' && code) {
+                    span.setAttribute('http.response.status_code', code);
+                }
+                telemetry.count(
+                    'frigg.apimodule.requests',
+                    1,
+                    { module, method, status },
+                    busContext
+                );
+                throw err;
+            }
+        });
+    }
+
+    /**
+     * @param {string} url - The request URL, relative or absolute.
+     * @param {Object} options - Fetch options, as built by `_request`.
+     * @param {number} attempt - 0-based count of retries already made for
+     *   this call. Indexes `this.backOff` for the next delay and is passed
+     *   back in on each recursive retry.
+     */
+    async _rawRequest(url, options, attempt = 0) {
+        let encodedUrl = encodeURI(url);
+        if (options.query) {
+            let queryBuild = '?';
+            for (const key in options.query) {
+                queryBuild += `${encodeURIComponent(key)}=${encodeURIComponent(
+                    options.query[key]
+                )}&`;
+            }
+            encodedUrl += queryBuild.slice(0, -1);
+        }
+
+        options.headers = await this.addAuthHeaders(options.headers);
+
+        // A 401 that arrives after a concurrent refresh is stale. It is not
+        // proof that the new token failed.
+        const authGenerationAtDispatch = this._authGeneration;
+
+        if (this.agent) options.agent = this.agent;
+
+        // Per-attempt timeout — fresh AbortController per call so the retry
+        // recursion (with its own backoff sleeps) always gets a clean
+        // signal. Timer is cleared in the finally block regardless of
+        // outcome.
+        const timeoutMs = this.requestTimeoutMs;
+        const controller = timeoutMs > 0 ? new AbortController() : null;
+        const timeoutHandle = controller
+            ? setTimeout(() => controller.abort(), timeoutMs)
+            : null;
+        const fetchOptions = controller
+            ? { ...options, signal: controller.signal }
+            : options;
+
+        // Timer must stay active through body consumption. node-fetch v2
+        // resolves the fetch() promise when headers arrive, not when the
+        // body is fully read — so a server that sends headers and then
+        // stalls the body would still hang parsedBody() or
+        // FetchError.create()'s response.text() call. We clear the timer
+        // only after the body is fully consumed (success path) or
+        // deliberately before each recursive retry so the new attempt
+        // starts with its own fresh timer.
+        let timerCleared = false;
+        const clearRequestTimer = () => {
+            if (!timerCleared && timeoutHandle) {
+                clearTimeout(timeoutHandle);
+                timerCleared = true;
+            }
+        };
+
+        try {
+            let response;
+            try {
+                response = await this.fetch(encodedUrl, fetchOptions);
+            } catch (e) {
+                // AbortController fires AbortError (name) / ETIMEDOUT-shaped
+                // errors (type on node-fetch) when we hit the timeout. No
+                // retry on timeout: a slow endpoint is a downstream problem,
+                // and each retry would wait another `timeoutMs` before giving
+                // up — amplifying the hang into a per-record multi-minute
+                // stall at batch scale.
+                const isTimeout =
+                    e?.name === 'AbortError' || e?.type === 'aborted';
+                if (e?.code === 'ECONNRESET' && attempt < this.backOff.length) {
+                    clearRequestTimer();
+                    const delay = this.backOff[attempt] * 1000;
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                    return this._rawRequest(url, options, attempt + 1);
+                }
+                const fetchError = await FetchError.create({
+                    resource: encodedUrl,
+                    init: options,
+                    responseBody: isTimeout
+                        ? `Request timed out after ${timeoutMs}ms`
+                        : e,
+                });
+                if (isTimeout) {
+                    // Flag + machine-readable fields so callers can
+                    // distinguish a timeout from a generic network error
+                    // without parsing the message (which FetchError
+                    // sanitizes outside of STAGE=dev).
+                    fetchError.isTimeout = true;
+                    fetchError.timeoutMs = timeoutMs;
+                }
+                throw fetchError;
+            }
+
+            const { status } = response;
+
+            // If the status is retriable and there are back off requests left, retry the request
+            if (
+                (status === 429 || status >= 500) &&
+                attempt < this.backOff.length
+            ) {
+                clearRequestTimer();
+                const delay = this.backOff[attempt] * 1000;
+                await new Promise((resolve) => setTimeout(resolve, delay));
+                return this._rawRequest(url, options, attempt + 1);
+            }
+
+            if (status === 401) {
+                // A 401 from inside the refresh flow means the provider
+                // rejected the credential itself (invalid_client). A new
+                // refresh cannot help. A join would await this same call.
+                if (this._isInsideRefreshFlow()) {
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
+                }
+
+                const tokenReplacedWhileInFlight =
+                    this._authGeneration !== authGenerationAtDispatch;
+                if (this.isRefreshable && tokenReplacedWhileInFlight) {
+                    // This request did not try the current token. Retry with
+                    // it. Do not spend one more provider-side rotation.
+                    clearRequestTimer();
+                    return this._rawRequest(url, options, attempt + 1);
+                }
+
+                if (!this.isRefreshable) {
+                    // Up to MAX_AUTH_RETRIES grace retries before invalidating
+                    // — a 401 alone isn't proof the credential is bad.
+                    if (
+                        this.authGraceRetryCount < MAX_AUTH_RETRIES &&
+                        this.authGraceRetryCount < this.backOff.length
+                    ) {
+                        const delay =
+                            this.backOff[this.authGraceRetryCount] * 1000;
+                        this.authGraceRetryCount++;
+                        clearRequestTimer();
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, delay)
+                        );
+                        return this._rawRequest(url, options, attempt + 1);
+                    }
+
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
+                }
+
+                // Concurrent 401s share one refresh. Independent refreshes
+                // kill each other, because many providers use single-use
+                // refresh tokens. Only the initiator spends the retry budget.
+                const refreshAlreadyInFlight = Boolean(this._inFlightRefresh);
+
+                if (
+                    !refreshAlreadyInFlight &&
+                    this.refreshCount >= MAX_AUTH_RETRIES
+                ) {
+                    throw await this._invalidateAuth(
+                        encodedUrl,
+                        options,
+                        response
+                    );
+                }
+
+                if (!refreshAlreadyInFlight) {
+                    this.refreshCount++;
+                }
+
+                const refreshSucceeded = await this._refreshAuthOnce();
+                if (refreshSucceeded) {
+                    clearRequestTimer();
+                    return this._rawRequest(url, options, attempt + 1);
+                }
+
+                throw await this._invalidateAuth(encodedUrl, options, response);
+            }
+
+            // If the error wasn't retried, throw. FetchError.create reads
+            // the response body (response.text()) — timer must still be
+            // alive to catch a stalled body stream.
+            if (status >= 400) {
+                const fetchError = await FetchError.create({
+                    resource: encodedUrl,
+                    init: options,
+                    response,
+                });
+                throw this._maybeFlagTimeoutDuringBodyRead(
+                    fetchError,
+                    timeoutMs
+                );
+            }
+
+            // Successful response: reset the per-instance refresh budget so
+            // a later 401 in the same Requester lifetime can attempt refresh
+            // again instead of silently falling through.
+            this.refreshCount = 0;
+            this.authGraceRetryCount = 0;
+
+            // parsedBody consumes the response body stream. If the server
+            // stalls mid-stream the timer (still armed) aborts it.
+            return options.returnFullRes
+                ? response
+                : await this.parsedBody(response);
+        } catch (e) {
+            // If the abort fired during body consumption, node-fetch emits
+            // the error as an AbortError on the body stream. Surface the
+            // same isTimeout flag callers use for header-phase timeouts.
+            throw this._maybeFlagTimeoutDuringBodyRead(e, timeoutMs);
+        } finally {
+            clearRequestTimer();
+        }
+    }
+
+    async _invalidateAuth(encodedUrl, options, response) {
+        const fetchError = await FetchError.create({
+            resource: encodedUrl,
+            init: options,
+            response,
+        });
+        await this.notify(this.DLGT_INVALID_AUTH, fetchError);
+        return fetchError;
+    }
+
+    _maybeFlagTimeoutDuringBodyRead(err, timeoutMs) {
+        if (!err || typeof err !== 'object') return err;
+        if (err.isTimeout) return err;
+        const isAbort = err.name === 'AbortError' || err.type === 'aborted';
+        if (!isAbort) return err;
+        err.isTimeout = true;
+        err.timeoutMs = timeoutMs;
+        return err;
+    }
+
+    async _get(options) {
+        const fetchOptions = {
+            method: 'GET',
+            credentials: 'include',
+            headers: options.headers || {},
+            query: options.query || {},
+            returnFullRes: options.returnFullRes || false,
+        };
+
+        const res = await this._request(options.url, fetchOptions);
+        return res;
+    }
+
+    async _post(options, stringify = true) {
+        const fetchOptions = {
+            method: 'POST',
+            credentials: 'include',
+            headers: options.headers || {},
+            query: options.query || {},
+            body: stringify ? JSON.stringify(options.body) : options.body,
+            returnFullRes: options.returnFullRes || false,
+        };
+        const res = await this._request(options.url, fetchOptions);
+        return res;
+    }
+
+    async _patch(options, stringify = true) {
+        const fetchOptions = {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: options.headers || {},
+            query: options.query || {},
+            body: stringify ? JSON.stringify(options.body) : options.body,
+            returnFullRes: options.returnFullRes || false,
+        };
+        const res = await this._request(options.url, fetchOptions);
+        return res;
+    }
+
+    async _put(options, stringify = true) {
+        const fetchOptions = {
+            method: 'PUT',
+            credentials: 'include',
+            headers: options.headers || {},
+            query: options.query || {},
+            body: stringify ? JSON.stringify(options.body) : options.body,
+            returnFullRes: options.returnFullRes || false,
+        };
+        const res = await this._request(options.url, fetchOptions);
+        return res;
+    }
+
+    async _delete(options) {
+        const fetchOptions = {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: options.headers || {},
+            query: options.query || {},
+            returnFullRes: options.returnFullRes || true,
+        };
+        return this._request(options.url, fetchOptions);
+    }
+
+    /**
+     * Runs one refreshAuth() at a time. The first caller starts the refresh.
+     * Callers that arrive during the refresh await the same promise. The
+     * check-and-store step is synchronous. Thus two concurrent callers
+     * cannot both start a refresh.
+     *
+     * @returns {Promise<boolean>} True if the refresh succeeded.
+     */
+    _refreshAuthOnce() {
+        if (!this._inFlightRefresh) {
+            // Keep .finally last. The stored promise must be the promise
+            // that clears the slot. Then the slot is free before a waiter
+            // resumes.
+            this._inFlightRefresh = this._adoptOrRefresh().finally(() => {
+                this._inFlightRefresh = null;
+            });
+        }
+        return this._inFlightRefresh;
+    }
+
+    /**
+     * Adopts a newer stored credential, or refreshes. Both steps run inside
+     * the marker, because the marker must cover the whole time this instance
+     * holds the slot. The adoption lives here, not in refreshAuth(), so a
+     * module that overrides refreshAuth() still gets it.
+     *
+     * @returns {Promise<boolean>} True if the instance holds a usable token.
+     */
+    async _adoptOrRefresh() {
+        const refreshSucceeded = await refreshContext.run(
+            { requester: this },
+            async () => {
+                if (await this._adoptNewerCredential()) return true;
+                return this.refreshAuth();
+            }
+        );
+        if (refreshSucceeded) this._authGeneration++;
+        return refreshSucceeded;
+    }
+
+    /**
+     * Hook for requesters that hold a rotating stored credential. Return true
+     * when the instance adopted a newer stored credential and needs no
+     * refresh. A module backed by a vendor SDK overrides this, calls super,
+     * and then copies the adopted tokens into its SDK client.
+     *
+     * @returns {Promise<boolean>} True if the instance adopted a newer
+     *   credential.
+     */
+    async _adoptNewerCredential() {
+        return false;
+    }
+
+    /** True while this instance runs its own refresh. */
+    _isInsideRefreshFlow() {
+        return refreshContext.getStore()?.requester === this;
+    }
+
+    async refreshAuth() {
+        throw new Error('refreshAuth not yet defined in child of Requester');
+    }
+}
+
+module.exports = { Requester };

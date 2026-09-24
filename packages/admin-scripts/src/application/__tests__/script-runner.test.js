@@ -1,0 +1,308 @@
+const { ScriptRunner, createScriptRunner } = require('../script-runner');
+const { ScriptFactory } = require('../script-factory');
+const { AdminScriptBase } = require('../admin-script-base');
+
+// Mock dependencies
+jest.mock('../admin-script-context');
+jest.mock('@friggframework/core/application/commands/admin-script-commands');
+
+const { createAdminScriptContext } = require('../admin-script-context');
+const {
+    createAdminScriptCommands,
+} = require('@friggframework/core/application/commands/admin-script-commands');
+
+describe('ScriptRunner', () => {
+    let scriptFactory;
+    let mockCommands;
+    let mockContext;
+    let testScript;
+
+    class TestScript extends AdminScriptBase {
+        static Definition = {
+            name: 'test-script',
+            version: '1.0.0',
+            description: 'Test script',
+            config: {
+                timeout: 300000,
+                maxRetries: 0,
+                requireIntegrationInstance: false,
+            },
+        };
+
+        async execute(params) {
+            return { success: true, params };
+        }
+    }
+
+    beforeEach(() => {
+        scriptFactory = new ScriptFactory([TestScript]);
+
+        mockCommands = {
+            createExecution: jest.fn(),
+            updateExecutionState: jest.fn(),
+            completeExecution: jest.fn(),
+        };
+
+        mockContext = {
+            log: jest.fn(),
+            getExecutionId: jest.fn(),
+            getLogs: jest.fn(() => []),
+        };
+
+        createAdminScriptCommands.mockReturnValue(mockCommands);
+        createAdminScriptContext.mockReturnValue(mockContext);
+
+        mockCommands.createExecution.mockResolvedValue({
+            id: 'exec-123',
+        });
+        mockCommands.updateExecutionState.mockResolvedValue({});
+        mockCommands.completeExecution.mockResolvedValue({ success: true });
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    describe('execute()', () => {
+        it('should execute script successfully', async () => {
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            const result = await runner.execute(
+                'test-script',
+                { foo: 'bar' },
+                {
+                    trigger: 'MANUAL',
+                    mode: 'async',
+                    audit: { apiKeyName: 'test-key' },
+                }
+            );
+
+            expect(result.status).toBe('COMPLETED');
+            expect(result.scriptName).toBe('test-script');
+            expect(result.output).toEqual({
+                success: true,
+                params: { foo: 'bar' },
+            });
+            expect(result.executionId).toBe('exec-123');
+            expect(result.metrics.durationMs).toBeGreaterThanOrEqual(0);
+
+            expect(mockCommands.createExecution).toHaveBeenCalledWith({
+                scriptName: 'test-script',
+                scriptVersion: '1.0.0',
+                trigger: 'MANUAL',
+                mode: 'async',
+                input: { foo: 'bar' },
+                audit: { apiKeyName: 'test-key' },
+            });
+
+            expect(mockCommands.updateExecutionState).toHaveBeenCalledWith(
+                'exec-123',
+                'RUNNING'
+            );
+
+            expect(mockCommands.completeExecution).toHaveBeenCalledWith(
+                'exec-123',
+                expect.objectContaining({
+                    state: 'COMPLETED',
+                    output: { success: true, params: { foo: 'bar' } },
+                    metrics: expect.objectContaining({
+                        durationMs: expect.any(Number),
+                    }),
+                })
+            );
+        });
+
+        it('should throw error if trigger is not provided', async () => {
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            await expect(
+                runner.execute('test-script', { foo: 'bar' }, {})
+            ).rejects.toThrow('options.trigger is required');
+        });
+
+        it('should throw error if options are omitted entirely', async () => {
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            await expect(
+                runner.execute('test-script', { foo: 'bar' })
+            ).rejects.toThrow('options.trigger is required');
+        });
+
+        it('should handle script execution failure', async () => {
+            class FailingScript extends AdminScriptBase {
+                static Definition = {
+                    name: 'failing-script',
+                    version: '1.0.0',
+                    description: 'Failing script',
+                    config: { timeout: 300000, maxRetries: 0 },
+                };
+
+                async execute() {
+                    throw new Error('Script failed');
+                }
+            }
+
+            scriptFactory.register(FailingScript);
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            const result = await runner.execute(
+                'failing-script',
+                {},
+                {
+                    trigger: 'MANUAL',
+                    mode: 'sync',
+                }
+            );
+
+            expect(result.status).toBe('FAILED');
+            expect(result.scriptName).toBe('failing-script');
+            expect(result.error.message).toBe('Script failed');
+
+            expect(mockCommands.completeExecution).toHaveBeenCalledWith(
+                'exec-123',
+                expect.objectContaining({
+                    state: 'FAILED',
+                    error: expect.objectContaining({
+                        message: 'Script failed',
+                    }),
+                })
+            );
+        });
+
+        it('should throw error if integrationFactory required but not provided', async () => {
+            class IntegrationScript extends AdminScriptBase {
+                static Definition = {
+                    name: 'integration-script',
+                    version: '1.0.0',
+                    description: 'Integration script',
+                    config: {
+                        requireIntegrationInstance: true,
+                    },
+                };
+
+                async execute() {
+                    return {};
+                }
+            }
+
+            scriptFactory.register(IntegrationScript);
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+                integrationFactory: null,
+            });
+
+            await expect(
+                runner.execute('integration-script', {}, { trigger: 'MANUAL' })
+            ).rejects.toThrow(
+                'Script "integration-script" requires integrationFactory but none was provided'
+            );
+        });
+
+        it('should reuse existing execution ID when provided', async () => {
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            const result = await runner.execute(
+                'test-script',
+                { foo: 'bar' },
+                {
+                    trigger: 'QUEUE',
+                    executionId: 'existing-exec-456',
+                }
+            );
+
+            expect(result.executionId).toBe('existing-exec-456');
+            expect(mockCommands.createExecution).not.toHaveBeenCalled();
+            expect(mockCommands.updateExecutionState).toHaveBeenCalledWith(
+                'existing-exec-456',
+                'RUNNING'
+            );
+        });
+
+        it('reports COMPLETED even when persisting completion fails', async () => {
+            // Commands return an error object (never throw). A successful script
+            // must not be misreported as FAILED if the completion write fails.
+            mockCommands.completeExecution.mockResolvedValue({
+                error: 500,
+                reason: 'DB write failed',
+            });
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            const result = await runner.execute(
+                'test-script',
+                {},
+                { trigger: 'MANUAL' }
+            );
+
+            expect(result.status).toBe('COMPLETED');
+            expect(result.stateUpdateFailed).toBe(true);
+        });
+
+        it('throws when the execution record cannot be created', async () => {
+            mockCommands.createExecution.mockResolvedValue({
+                error: 500,
+                reason: 'DB down',
+            });
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            await expect(
+                runner.execute('test-script', {}, { trigger: 'MANUAL' })
+            ).rejects.toThrow('DB down');
+        });
+
+        it('persists collected logs on completion', async () => {
+            mockContext.getLogs.mockReturnValue([
+                { level: 'info', message: 'hi' },
+            ]);
+            const runner = new ScriptRunner({
+                scriptFactory,
+                commands: mockCommands,
+            });
+
+            await runner.execute('test-script', {}, { trigger: 'MANUAL' });
+
+            expect(mockCommands.completeExecution).toHaveBeenCalledWith(
+                'exec-123',
+                expect.objectContaining({
+                    logs: [{ level: 'info', message: 'hi' }],
+                })
+            );
+        });
+    });
+
+    describe('createScriptRunner()', () => {
+        it('should throw when no scriptFactory is provided', () => {
+            expect(() => createScriptRunner()).toThrow(
+                'ScriptRunner requires a scriptFactory'
+            );
+        });
+
+        it('should create runner with an injected factory', () => {
+            const customFactory = new ScriptFactory();
+            const runner = createScriptRunner({ scriptFactory: customFactory });
+            expect(runner).toBeInstanceOf(ScriptRunner);
+            expect(runner.scriptFactory).toBe(customFactory);
+        });
+    });
+});

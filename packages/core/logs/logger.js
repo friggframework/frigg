@@ -1,14 +1,10 @@
 const util = require('util');
-const aws = require('aws-sdk');
 
 // Except in some outlier circumstances, for example steam or event error handlers, this should be the only place that calls `console.*`.  That way, this file can be modified to log everything properly on a variety of platforms because all the logging code is here in one place.
 /* eslint-disable no-console */
 
 const logs = [];
 let flushCalled = false;
-
-// Log AWS SDK calls
-aws.config.logger = { log: debug };
 
 function debug(...messages) {
     if (messages.length) {

@@ -1,0 +1,218 @@
+/* Monitoring Dashboard Styles */
+.monitoring-dashboard {
+    @apply p-6 max-w-7xl mx-auto;
+}
+
+/* Status indicators */
+.status-indicator {
+    @apply inline-block w-3 h-3 rounded-full;
+}
+
+.status-indicator.success {
+    @apply bg-green-500;
+}
+
+.status-indicator.warning {
+    @apply bg-yellow-500;
+}
+
+.status-indicator.error {
+    @apply bg-red-500;
+}
+
+.status-indicator.inactive {
+    @apply bg-gray-400;
+}
+
+/* Metric cards */
+.metric-card {
+    @apply border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow;
+}
+
+.metric-value {
+    @apply text-2xl font-mono font-bold;
+}
+
+.metric-label {
+    @apply text-sm text-gray-600 mb-1;
+}
+
+/* Progress bars for charts */
+.progress-bar {
+    @apply w-full bg-gray-200 rounded-full overflow-hidden;
+}
+
+.progress-fill {
+    @apply h-full transition-all duration-300 ease-in-out;
+}
+
+/* Health indicators */
+.health-good {
+    @apply text-green-600;
+}
+
+.health-warning {
+    @apply text-yellow-600;
+}
+
+.health-critical {
+    @apply text-red-600;
+}
+
+/* Responsive grid layouts */
+.metrics-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.metrics-grid-2 {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4;
+}
+
+.metrics-grid-3 {
+    @apply grid grid-cols-1 md:grid-cols-3 gap-4;
+}
+
+.metrics-grid-4 {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4;
+}
+
+/* Animation for real-time updates */
+@keyframes pulse-update {
+    0% { background-color: rgba(59, 130, 246, 0.1); }
+    50% { background-color: rgba(59, 130, 246, 0.2); }
+    100% { background-color: transparent; }
+}
+
+.metric-updated {
+    animation: pulse-update 1s ease-in-out;
+}
+
+/* Loading states */
+.metric-loading {
+    @apply animate-pulse bg-gray-200 rounded;
+}
+
+/* Error states */
+.metric-error {
+    @apply border-red-300 bg-red-50 text-red-700;
+}
+
+/* Success states */
+.metric-success {
+    @apply border-green-300 bg-green-50 text-green-700;
+}
+
+/* Warning states */
+.metric-warning {
+    @apply border-yellow-300 bg-yellow-50 text-yellow-700;
+}
+
+/* Chart containers */
+.chart-container {
+    @apply w-full h-64 flex items-center justify-center;
+}
+
+.chart-placeholder {
+    @apply text-gray-400 text-center;
+}
+
+/* Real-time indicators */
+.real-time-indicator {
+    @apply inline-flex items-center gap-1 text-xs text-green-600;
+}
+
+.real-time-indicator::before {
+    content: '';
+    @apply w-2 h-2 bg-green-500 rounded-full animate-pulse;
+}
+
+/* Latency visualization */
+.latency-bar {
+    @apply flex h-6 rounded overflow-hidden;
+}
+
+.latency-segment {
+    @apply flex items-center justify-center text-xs text-white font-mono;
+}
+
+/* Connection status */
+.connection-status {
+    @apply flex items-center gap-2 text-sm;
+}
+
+.connection-dot {
+    @apply w-2 h-2 rounded-full;
+}
+
+.connection-dot.connected {
+    @apply bg-green-500 animate-pulse;
+}
+
+.connection-dot.disconnected {
+    @apply bg-red-500;
+}
+
+.connection-dot.connecting {
+    @apply bg-yellow-500 animate-spin;
+}
+
+/* Monitoring dashboard specific overrides */
+.monitoring-dashboard .card {
+    @apply border border-gray-200 rounded-lg bg-white shadow-sm;
+}
+
+.monitoring-dashboard .card:hover {
+    @apply shadow-md;
+}
+
+/* Navigation tabs */
+.monitoring-nav {
+    @apply flex gap-2 mb-6;
+}
+
+.monitoring-nav button {
+    @apply px-4 py-2 rounded text-sm font-medium transition-colors;
+}
+
+.monitoring-nav button.active {
+    @apply bg-blue-600 text-white;
+}
+
+.monitoring-nav button:not(.active) {
+    @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 768px) {
+    .monitoring-dashboard {
+        @apply p-4;
+    }
+    
+    .metrics-grid-4 {
+        @apply grid-cols-1;
+    }
+    
+    .metrics-grid-3 {
+        @apply grid-cols-1;
+    }
+    
+    .metrics-grid-2 {
+        @apply grid-cols-1;
+    }
+}
+
+/* Dark mode support (future enhancement) */
+@media (prefers-color-scheme: dark) {
+    .monitoring-dashboard {
+        @apply text-gray-100;
+    }
+    
+    .monitoring-dashboard .card {
+        @apply bg-gray-800 border-gray-700;
+    }
+    
+    .metric-label {
+        @apply text-gray-400;
+    }
+}

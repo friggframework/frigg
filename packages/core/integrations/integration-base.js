@@ -1,139 +1,486 @@
-const { IntegrationMapping } = require('./integration-mapping');
+const {
+    createIntegrationMappingRepository,
+} = require('./repositories/integration-mapping-repository-factory');
+const { Options } = require('./options');
+const {
+    UpdateIntegrationStatus,
+} = require('./use-cases/update-integration-status');
+const {
+    createIntegrationRepository,
+} = require('./repositories/integration-repository-factory');
+const {
+    UpdateIntegrationMessages,
+} = require('./use-cases/update-integration-messages');
+const {
+    PatchIntegrationConfig,
+} = require('./use-cases/patch-integration-config');
+const {
+    UpdateIntegrationConfig,
+} = require('./use-cases/update-integration-config');
+const { validateExtensionBinding } = require('./extension');
+const { getTelemetry } = require('../telemetry/telemetry-runtime');
+const { instrumentHandler } = require('../telemetry/instrument-handler');
+const { bindTelemetryContext } = require('../telemetry/bind-telemetry-context');
+
+const constantsToBeMigrated = {
+    defaultEvents: {
+        ON_CREATE: 'ON_CREATE',
+        ON_UPDATE: 'ON_UPDATE',
+        ON_DELETE: 'ON_DELETE',
+        GET_CONFIG_OPTIONS: 'GET_CONFIG_OPTIONS',
+        REFRESH_CONFIG_OPTIONS: 'REFRESH_CONFIG_OPTIONS',
+        GET_USER_ACTIONS: 'GET_USER_ACTIONS',
+        GET_USER_ACTION_OPTIONS: 'GET_USER_ACTION_OPTIONS',
+        REFRESH_USER_ACTION_OPTIONS: 'REFRESH_USER_ACTION_OPTIONS',
+        WEBHOOK_RECEIVED: 'WEBHOOK_RECEIVED', // HTTP handler, no DB
+        ON_WEBHOOK: 'ON_WEBHOOK', // Queue worker, DB-connected
+        // etc...
+    },
+    types: {
+        LIFE_CYCLE_EVENT: 'LIFE_CYCLE_EVENT',
+        USER_ACTION: 'USER_ACTION',
+    },
+};
 
 class IntegrationBase {
+    // todo: maybe we can pass this as Dependency Injection in the sub-class constructor
+    integrationRepository = createIntegrationRepository();
+    integrationMappingRepository = createIntegrationMappingRepository();
+    updateIntegrationStatus = new UpdateIntegrationStatus({
+        integrationRepository: this.integrationRepository,
+    });
+    updateIntegrationMessages = new UpdateIntegrationMessages({
+        integrationRepository: this.integrationRepository,
+    });
+    patchIntegrationConfig = new PatchIntegrationConfig({
+        integrationRepository: this.integrationRepository,
+    });
+    updateIntegrationConfig = new UpdateIntegrationConfig({
+        integrationRepository: this.integrationRepository,
+    });
+
+    // this.telemetry.count('records.synced', n, { entity: 'contact' })
+    telemetry = bindTelemetryContext(getTelemetry(), () =>
+        this.getTelemetryContext()
+    );
+
+    static getOptionDetails() {
+        const options = new Options({
+            module: Object.values(this.Definition.modules)[0], // This is a placeholder until we revamp the frontend
+            ...this.Definition,
+        });
+        return options.get();
+    }
+
     /**
-     * CHILDREN SHOULD SPECIFY A CONFIG
+     * CHILDREN SHOULD SPECIFY A DEFINITION FOR THE INTEGRATION
      */
-    static Config = {
+    static Definition = {
         name: 'Integration Name',
         version: '0.0.0', // Integration Version, used for migration and storage purposes, as well as display
         supportedVersions: [], // Eventually usable for deprecation and future test version purposes
 
-        // an array of events that are process(able) by this Integration
-        events: [],
+        modules: {},
+        // Tier 3 Integration Extensions — see packages/core/integrations/EXTENSIONS.md
+        // Shape: { [bindingName]: { extension, handlers?: { [eventName]: methodName } } }
+        extensions: {},
+        // usage: { canonical: ['records.synced'], custom: { 'deals.enriched': { unit, label } } }
+        usage: {},
+        display: {
+            name: 'Integration Name',
+            logo: '',
+            description: '',
+            // etc...
+        },
     };
 
     static getName() {
-        return this.Config.name;
+        return this.Definition.name;
     }
 
     static getCurrentVersion() {
-        return this.Config.version;
+        return this.Definition.version;
     }
 
-    constructor(params) {
-        this.delegateTypes = [];
-        this.userActions = [];
-    }
+    // REMOVED: registerEventHandlers() - Event handling is now done by IntegrationEventDispatcher
 
-    //psuedo delegate for backwards compatability
-    async receiveNotification(notifier, delegateString, object = null) {}
+    constructor(params = {}) {
+        this.modules = {};
+        this.events = this.events || {};
+        this.messages = { errors: [], warnings: [] };
+        this._isHydrated = false;
 
-    async notify(delegateString, object = null) {
-        if (!this.delegateTypes.includes(delegateString)) {
-            throw new Error(
-                `delegateString:${delegateString} is not defined in delegateTypes`
-            );
+        if (params && Object.keys(params).length > 0) {
+            this.setIntegrationRecord({
+                record: {
+                    id: params.id,
+                    userId: params.userId,
+                    entities: params.entities,
+                    config: params.config,
+                    status: params.status,
+                    version: params.version,
+                    messages: params.messages,
+                },
+                modules: params.modules || [],
+            });
         }
-        return this.receiveNotification(this, delegateString, object);
+
+        this.defaultEvents = {
+            [constantsToBeMigrated.defaultEvents.ON_CREATE]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.onCreate,
+            },
+            [constantsToBeMigrated.defaultEvents.ON_UPDATE]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.onUpdate,
+            },
+            [constantsToBeMigrated.defaultEvents.ON_DELETE]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.onDelete,
+            },
+            [constantsToBeMigrated.defaultEvents.GET_CONFIG_OPTIONS]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.getConfigOptions,
+            },
+            [constantsToBeMigrated.defaultEvents.REFRESH_CONFIG_OPTIONS]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.refreshConfigOptions,
+            },
+            [constantsToBeMigrated.defaultEvents.GET_USER_ACTIONS]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.loadUserActions,
+            },
+            [constantsToBeMigrated.defaultEvents.GET_USER_ACTION_OPTIONS]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.getActionOptions,
+            },
+            [constantsToBeMigrated.defaultEvents.REFRESH_USER_ACTION_OPTIONS]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.refreshActionOptions,
+            },
+            [constantsToBeMigrated.defaultEvents.WEBHOOK_RECEIVED]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.onWebhookReceived,
+            },
+            [constantsToBeMigrated.defaultEvents.ON_WEBHOOK]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.onWebhook,
+            },
+        };
     }
 
-    async validateConfig() {
-        const configOptions = await this.getConfigOptions();
-        const currentConfig = this.record.config;
-        let needsConfig = false;
-        for (const option of configOptions) {
-            if (option.required) {
-                // For now, just make sure the key exists. We should add more dynamic/better validation later.
-                if (
-                    !Object.prototype.hasOwnProperty.call(
-                        currentConfig,
-                        option.key
-                    )
-                ) {
-                    needsConfig = true;
-                    this.record.messages.warnings.push({
-                        title: 'Config Validation Error',
-                        message: `Missing required field of ${option.label}`,
-                        timestamp: Date.now(),
-                    });
+    // todo: debate wether we want to keep this pattern to set the record or not.
+    /**
+     * Persist the database record and module instances onto this integration instance.
+     * Accepts either a plain object containing the persisted fields or an object with
+     * a `record` property plus a `modules` collection.
+     * @param {Object} payload
+     * @param {Object} [payload.record]
+     * @param {Array} [payload.modules]
+     */
+    setIntegrationRecord(payload = {}) {
+        if (!payload || Object.keys(payload).length === 0) {
+            throw new Error('setIntegrationRecord requires integration data');
+        }
+
+        const integrationRecord = payload.record;
+        const integrationModules = payload.modules ?? [];
+
+        if (!integrationRecord) {
+            throw new Error('Integration record not provided');
+        }
+
+        const { id, userId, entities, config, status, version, messages } =
+            integrationRecord;
+
+        this.id = id;
+        this.userId = userId;
+        this.entities = entities;
+        this.config = config;
+        this.status = status;
+        this.version = version;
+        this.messages = messages || { errors: [], warnings: [] };
+
+        this.modules = this._appendModules(integrationModules);
+
+        this.record = {
+            id: this.id,
+            userId: this.userId,
+            entities: this.entities,
+            config: this.config,
+            status: this.status,
+            version: this.version,
+            messages: this.messages,
+        };
+
+        this._isHydrated = Boolean(this.id);
+
+        // Log the instance-open exactly once per hydrated instance, so an
+        // integration is visible in telemetry even on a path that never
+        // dispatches a handler. integration_type + the full id context are
+        // attached automatically by the bound telemetry service.
+        if (this._isHydrated && !this._instantiationLogged) {
+            this._instantiationLogged = true;
+            try {
+                this.telemetry.event('frigg.integration.instantiated');
+            } catch (_) {
+                // Telemetry must never break integration hydration.
+            }
+        }
+
+        return this;
+    }
+
+    get isHydrated() {
+        return this._isHydrated;
+    }
+
+    /**
+     * Standard telemetry identifier set. Assembled from the
+     * hydrated record (integrationId, userId, version), the static Definition
+     * (integrationType, version fallback), and the environment (stage, appName).
+     * High-cardinality ids (integrationId, userId) ride span baggage only — never
+     * metric labels.
+     */
+    getTelemetryContext() {
+        const Definition = this.constructor.Definition || {};
+        return {
+            integrationId: this.id ?? null,
+            integrationType: Definition.name ?? null,
+            userId: this.userId ?? null,
+            version: this.version ?? Definition.version ?? null,
+            stage: process.env.STAGE || process.env.NODE_ENV || null,
+            appName: process.env.FRIGG_STACK || null,
+        };
+    }
+
+    assertHydrated(message = 'Integration instance is not hydrated') {
+        if (!this.isHydrated) {
+            throw new Error(message);
+        }
+    }
+
+    /**
+     * Returns the modules as object with keys as module names.
+     * Uses the keys from Definition.modules to attach modules correctly.
+     *
+     * Example:
+     *   Definition.modules = { attio: {...}, quo: { definition: { getName: () => 'quo-attio' } } }
+     *   Module with getName()='quo-attio' gets attached as this.quo (not this['quo-attio'])
+     *
+     * @private
+     * @param {Array} integrationModules - Array of module instances
+     * @returns {Object} The modules object
+     */
+    _appendModules(integrationModules) {
+        const modules = {};
+
+        // Build reverse mapping: definition.getName() → referenceKey
+        // e.g., 'quo-attio' → 'quo', 'attio' → 'attio'
+        const moduleNameToKey = {};
+        if (this.constructor.Definition?.modules) {
+            for (const [key, moduleConfig] of Object.entries(
+                this.constructor.Definition.modules
+            )) {
+                const definition = moduleConfig.definition;
+                if (definition) {
+                    // Use getName() if available, fallback to moduleName
+                    const definitionName =
+                        typeof definition.getName === 'function'
+                            ? definition.getName()
+                            : definition.moduleName;
+                    if (definitionName) {
+                        moduleNameToKey[definitionName] = key;
+                    }
                 }
             }
         }
-        if (needsConfig) {
-            this.record.status = 'NEEDS_CONFIG';
-            await this.record.save();
+
+        for (const module of integrationModules) {
+            const moduleName =
+                typeof module.getName === 'function'
+                    ? module.getName()
+                    : module.name;
+
+            // Use the reference key from Definition.modules if available,
+            // otherwise fall back to moduleName
+            const key = moduleNameToKey[moduleName] || moduleName;
+
+            if (key) {
+                modules[key] = module;
+                this[key] = module;
+            }
+
+            // Wire the Delegate pattern so Module can notify this integration
+            // of events it cannot handle itself (e.g. credential invalidation
+            // needing an Integration.status flip). Without this, Module.notify
+            // silently no-ops and Integration.status never updates on auth
+            // failure.
+            if (module && typeof module === 'object') {
+                module.delegate = this;
+            }
         }
+
+        return modules;
     }
 
+    /**
+     * Check the current config against the required fields declared by
+     * `getConfigOptions()`. Config options use the react-jsonschema-form shape,
+     * so the required top-level keys live in `jsonSchema.required`. Records a
+     * warning for each missing field. Does not change integration status —
+     * the caller decides the consequence (see `onCreate`/`onUpdate`), the same
+     * separation `testAuth`/`reconcileAuthStatus` use for the auth axis.
+     * @returns {Promise<boolean>} True when a required field is missing.
+     */
+    async validateConfig() {
+        const { jsonSchema } = await this.getConfigOptions();
+        const currentConfig = this.getConfig() || {};
+        const requiredKeys = Array.isArray(jsonSchema?.required)
+            ? jsonSchema.required
+            : [];
+        let needsConfig = false;
+        for (const key of requiredKeys) {
+            if (!Object.prototype.hasOwnProperty.call(currentConfig, key)) {
+                needsConfig = true;
+                const label = jsonSchema?.properties?.[key]?.title || key;
+                await this.updateIntegrationMessages.execute(
+                    this.id,
+                    'warnings',
+                    'Config Validation Error',
+                    `Missing required field of ${label}`,
+                    Date.now()
+                );
+            }
+        }
+        return needsConfig;
+    }
+
+    /**
+     * Verify every module's credentials. Records a diagnostic error message
+     * per failing module and returns whether all passed. Does not directly
+     * change integration status — the caller decides the consequence (see
+     * reconcileAuthStatus), so a passive check and an active reconnect can
+     * react differently. (A module can still fire a credential-invalidated
+     * delegate that flips status via receiveNotification, independent of this
+     * return value.)
+     * @returns {Promise<boolean>} True when every module authenticated.
+     */
     async testAuth() {
         let didAuthPass = true;
 
-        try {
-            await this.primary.testAuth();
-        } catch {
-            didAuthPass = false;
-            this.record.messages.errors.push({
-                title: 'Authentication Error',
-                message: `There was an error with your ${this.primary.constructor.getName()} Entity.
-                Please reconnect/re-authenticate, or reach out to Support for assistance.`,
-                timestamp: Date.now(),
-            });
+        for (const module of Object.keys(this.constructor.Definition.modules)) {
+            try {
+                const authPassed = await this[module].testAuth();
+                if (!authPassed) {
+                    throw new Error(
+                        `testAuth returned false for module ${module}`
+                    );
+                }
+            } catch {
+                didAuthPass = false;
+                await this.updateIntegrationMessages.execute(
+                    this.id,
+                    'errors',
+                    'Authentication Error',
+                    this._authErrorMessage(this[module].getName()),
+                    Date.now()
+                );
+            }
         }
 
-        try {
-            await this.target.testAuth();
-        } catch {
-            didAuthPass = false;
-            this.record.messages.errors.push({
-                title: 'Authentication Error',
-                message: `There was an error with your ${this.target.constructor.getName()} Entity.
-            Please reconnect/re-authenticate, or reach out to Support for assistance.`,
-                timestamp: Date.now(),
-            });
-        }
+        return didAuthPass;
+    }
 
-        if (!didAuthPass) {
-            this.record.status = 'ERROR';
-            this.record.markModified('messages.error');
-            await this.record.save();
+    /**
+     * @param {string} [moduleName] - The module whose credentials failed.
+     * @param {number} [statusCode] - HTTP status the module rejected us with.
+     * @returns {string} A user-facing message.
+     */
+    _authErrorMessage(moduleName, statusCode) {
+        const status = statusCode ? ` (HTTP ${statusCode})` : '';
+        return `There was an error with your ${moduleName} Entity${status}. Please reconnect/re-authenticate, or reach out to Support for assistance.`;
+    }
+
+    /**
+     * Reconcile the auth-health axis (ERROR ↔ ENABLED) from a testAuth result.
+     * On success it never clears DISABLED — a user pause is not an auth-health
+     * state, so it is only lifted by a deliberate reconnect. On failure the
+     * integration is marked ERROR regardless of its prior status.
+     * @param {boolean} authPassed - The result of testAuth().
+     */
+    async reconcileAuthStatus(authPassed) {
+        if (!authPassed) {
+            console.log(
+                `[Frigg] Integration ${this.id} failed to authenticate`
+            );
+            await this.persistStatus('ERROR');
+        }
+        if (authPassed && this.status === 'ERROR') {
+            console.log(
+                `[Frigg] auth confirmed for integration ${this.id} — clearing ERROR → ENABLED`
+            );
+            await this.persistStatus('ENABLED');
         }
     }
 
     async getMapping(sourceId) {
-        return IntegrationMapping.findBy(this.record.id, sourceId);
+        // todo: not sure we should call the repository directly from here
+        return this.integrationMappingRepository.findMappingBy(
+            this.id,
+            sourceId
+        );
     }
 
     async upsertMapping(sourceId, mapping) {
         if (!sourceId) {
             throw new Error(`sourceId must be set`);
         }
-        return await IntegrationMapping.upsert(
-            this.record.id,
+        // todo: not sure we should call the repository directly from here
+        return await this.integrationMappingRepository.upsertMapping(
+            this.id,
             sourceId,
             mapping
         );
     }
 
-    async getAndSetUserActions() {
-        this.userActions = await this.getUserActions();
-        if (this.record?.config) {
-            this.record.config.userActions = this.userActions;
-            await this.record.save();
-        }
-        return this.userActions;
-    }
-
     /**
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
-    async onCreate(params) {
-        this.record.status = 'ENABLED';
-        await this.record.save();
-        return this.record;
+    /**
+     * Default post-create lifecycle hook. The integration is born IN_CREATION;
+     * moved to NEEDS_CONFIG when validateConfig finds a required field
+     * missing, otherwise enabled. If this hook throws, the integration is
+     * left IN_CREATION — a visibly incomplete create rather than a healthy
+     * looking one. Children can override to run their own setup (and then own
+     * their status transition, calling `super.onCreate()` to keep this default).
+     */
+    async onCreate() {
+        const needsConfig = await this.validateConfig();
+        await this.persistStatus(needsConfig ? 'NEEDS_CONFIG' : 'ENABLED');
     }
 
-    async onUpdate(params) {}
+    /**
+     * Default post-update lifecycle hook: merges any submitted config in as a
+     * patch, then re-validates. A NEEDS_CONFIG integration moves to ENABLED
+     * once nothing required is missing — other statuses (DISABLED, ERROR,
+     * IN_CREATION, IN_DELETION) are left alone; a config edit shouldn't
+     * silently un-pause or auto-heal those. Children can override to run
+     * their own update logic.
+     * @param {Object} [params]
+     * @param {Object} [params.config] - Keys to merge into the existing config.
+     */
+    async onUpdate(params) {
+        if (params?.config) {
+            await this.patchConfig(params.config);
+        }
+        const needsConfig = await this.validateConfig();
+        if (needsConfig) {
+            await this.persistStatus('NEEDS_CONFIG');
+        } else if (this.status === 'NEEDS_CONFIG') {
+            await this.persistStatus('ENABLED');
+        }
+    }
 
     async onDelete(params) {}
 
@@ -153,11 +500,33 @@ class IntegrationBase {
         return options;
     }
 
-    async getUserActions() {
-        return [];
+    async loadDynamicUserActions() {
+        // Child class should override this method to load dynamic user actions.
+        // Dynamic user actions should return in the same form a valid event object
+
+        return {};
+    }
+    async loadUserActions({ actionType } = {}) {
+        const userActions = {};
+        for (const [key, event] of Object.entries(this.events)) {
+            if (event.type === constantsToBeMigrated.types.USER_ACTION) {
+                if (!actionType || event.userActionType === actionType) {
+                    userActions[key] = event;
+                }
+            }
+        }
+        const dynamicUserActions = await this.loadDynamicUserActions();
+        const filteredDynamicActions = actionType
+            ? Object.fromEntries(
+                  Object.entries(dynamicUserActions).filter(
+                      ([_, event]) => event.userActionType === actionType
+                  )
+              )
+            : dynamicUserActions;
+        return { ...userActions, ...filteredDynamicActions };
     }
 
-    async getActionOptions() {
+    async getActionOptions(actionId, data) {
         const options = {
             jsonSchema: {},
             uiSchema: {},
@@ -171,6 +540,380 @@ class IntegrationBase {
             uiSchema: {},
         };
         return options;
+    }
+
+    /**
+     * WEBHOOK EVENT HANDLERS
+     */
+    async onWebhookReceived({ req, res }) {
+        // Default: queue webhook for processing
+        const body = req.body;
+        const integrationId = req.params.integrationId || null;
+
+        await this.queueWebhook({
+            integrationId,
+            body,
+            headers: req.headers,
+            query: req.query,
+        });
+
+        res.status(200).json({ received: true });
+    }
+
+    async onWebhook({ data }) {
+        // Default: no-op, integrations override this
+    }
+
+    /**
+     * Queue a webhook for asynchronous worker dispatch.
+     *
+     * The dispatch event defaults to `ON_WEBHOOK` for backward compatibility
+     * with the `Definition.webhooks: true` path. Extensions (and any caller
+     * that needs the worker to invoke a specific bound handler) can override
+     * by passing `event` in the payload — it's stripped from the payload and
+     * used as the SQS message's dispatch event.
+     *
+     * @param {Object} data - Webhook payload. May include `event` to override
+     *   the default `ON_WEBHOOK` dispatch event. All other fields are passed
+     *   through to the worker as the `data` field of the SQS message.
+     */
+    async queueWebhook(data) {
+        const { QueuerUtil } = require('../queues');
+
+        const queueName = `${this.constructor.Definition.name
+            .toUpperCase()
+            .replace(/-/g, '_')}_QUEUE_URL`;
+        const queueUrl = process.env[queueName];
+
+        if (!queueUrl) {
+            throw new Error(`Queue URL not found for ${queueName}`);
+        }
+
+        const { event: dispatchEvent, ...payload } = data || {};
+
+        return QueuerUtil.send(
+            {
+                event: dispatchEvent || 'ON_WEBHOOK',
+                data: payload,
+            },
+            queueUrl
+        );
+    }
+
+    // === Domain Methods (moved from Integration.js) ===
+
+    getConfig() {
+        return this.config;
+    }
+
+    getModule(key) {
+        return this.modules[key];
+    }
+
+    setModule(key, module) {
+        this.modules[key] = module;
+        this[key] = module;
+    }
+
+    addError(error) {
+        if (!this.messages.errors) {
+            this.messages.errors = [];
+        }
+        this.messages.errors.push(error);
+        this.status = 'ERROR';
+    }
+
+    addWarning(warning) {
+        if (!this.messages.warnings) {
+            this.messages.warnings = [];
+        }
+        this.messages.warnings.push(warning);
+    }
+
+    /**
+     * Persist a status change and keep the in-memory field in sync. The
+     * single place that couples both writes, so no caller can update the
+     * database while leaving `this.status` stale.
+     * @param {string} status - The new integration status.
+     */
+    async persistStatus(status) {
+        await this.updateIntegrationStatus.execute(this.id, status);
+        this.status = status;
+        console.log(
+            `[Frigg] Integration ${this.id} status changed to ${status}`
+        );
+    }
+
+    /**
+     * Merge a partial update into config and keep the in-memory field in
+     * sync with what was actually persisted — not a local `{...this.config,
+     * ...patch}` guess, which would silently drop keys a concurrent writer
+     * already landed. Throws if the merge fails.
+     * @param {Object} patch - Keys to merge into the existing config.
+     */
+    async patchConfig(patch) {
+        const updated = await this.patchIntegrationConfig.execute(
+            this.id,
+            patch
+        );
+        this.config = updated.config;
+        return this.config;
+    }
+
+    /**
+     * Replace config entirely and keep the in-memory field in sync. Keys
+     * omitted from the new config are deleted. Throws if the write fails.
+     * @param {Object} config - The new configuration object.
+     */
+    async updateConfig(config) {
+        const updated = await this.updateIntegrationConfig.execute(
+            this.id,
+            config
+        );
+        this.config = updated.config;
+        return this.config;
+    }
+
+    isActive() {
+        return this.status === 'ENABLED' || this.status === 'ACTIVE';
+    }
+
+    needsConfiguration() {
+        return this.status === 'NEEDS_CONFIG';
+    }
+
+    hasErrors() {
+        return this.status === 'ERROR';
+    }
+
+    belongsToUser(userId) {
+        return this.userId.toString() === userId.toString();
+    }
+
+    registerEventHandlers() {
+        this.on = {
+            ...this.defaultEvents,
+            ...this.events,
+        };
+    }
+
+    /**
+     * Merge Tier 3 Integration Extension events into `this.events`.
+     *
+     * For each binding declared on `static Definition.extensions`, this method:
+     *   1. Validates the extension bundle shape and binding handlers
+     *   2. For each event the extension declares, resolves the handler in priority order:
+     *      a. Subclass-defined `this.events[eventName]` (set in the constructor) — wins; if a
+     *         binding tried to override that event with `handlers`, we log a warning so the
+     *         author knows their override is shadowed.
+     *      b. A method-name string in `binding.handlers[eventName]` → method on this instance
+     *      c. The extension's own default `handler` function
+     *      d. Otherwise throw — neither side provided a handler
+     *   3. Binds the resolved function to this instance and writes it to `this.events[eventName]`
+     *
+     * Two bindings declaring the same event throw a deterministic conflict error — silent
+     * "first/last writer wins" makes routing bugs nearly impossible to diagnose.
+     *
+     * @private
+     */
+    _mergeExtensions() {
+        const extensions = this.constructor.Definition?.extensions || {};
+        const integrationName = this.constructor.Definition?.name;
+        // Tracks which event names have been claimed by an extension binding during
+        // this merge — distinct from subclass-defined events on `this.events`.
+        const mergedByExtension = new Map();
+
+        for (const [bindingName, binding] of Object.entries(extensions)) {
+            if (!binding || typeof binding !== 'object') {
+                throw new Error(
+                    `Integration "${integrationName}" extension binding "${bindingName}" must be an object`
+                );
+            }
+            const { extension, handlers = {} } = binding;
+            validateExtensionBinding(
+                extension,
+                bindingName,
+                integrationName,
+                binding
+            );
+
+            const extEvents = extension.events || {};
+            for (const [eventName, eventDef] of Object.entries(extEvents)) {
+                // Conflict detection: another extension binding already claimed this event name.
+                if (mergedByExtension.has(eventName)) {
+                    const prev = mergedByExtension.get(eventName);
+                    throw new Error(
+                        `Integration "${integrationName}" extension event conflict: ` +
+                            `event "${eventName}" is declared by both binding "${prev}" and binding "${bindingName}" — ` +
+                            `use distinct event names per binding or omit duplicates`
+                    );
+                }
+
+                // Subclass shadowing: if the subclass set this.events[eventName] before initialize(),
+                // it wins. Warn if the binding tried to wire an override that's now ignored.
+                if (this.events[eventName]) {
+                    if (typeof handlers[eventName] === 'string') {
+                        console.warn(
+                            `[Frigg] Integration "${integrationName}" binding "${bindingName}": ` +
+                                `handler "${handlers[eventName]}" for event "${eventName}" is ignored because ` +
+                                `this.events["${eventName}"] was already set (subclass constructor or earlier merge)`
+                        );
+                    }
+                    continue;
+                }
+
+                let fn;
+                const override = handlers[eventName];
+                if (typeof override === 'string') {
+                    if (typeof this[override] !== 'function') {
+                        throw new Error(
+                            `Integration "${integrationName}" extension binding "${bindingName}": handler method "${override}" not found on instance`
+                        );
+                    }
+                    fn = this[override];
+                } else if (typeof eventDef.handler === 'function') {
+                    fn = eventDef.handler;
+                } else {
+                    throw new Error(
+                        `Extension "${extension.name}" event "${eventName}" has no default handler and binding "${bindingName}" did not provide one`
+                    );
+                }
+
+                this.events[eventName] = {
+                    type: eventDef.type,
+                    handler: fn.bind(this),
+                };
+                mergedByExtension.set(eventName, bindingName);
+            }
+        }
+    }
+
+    async initialize() {
+        try {
+            const additionalUserActions = await this.loadDynamicUserActions();
+            this.events = { ...this.events, ...additionalUserActions };
+        } catch (e) {
+            this.addError(e);
+        }
+
+        this._mergeExtensions();
+        this.registerEventHandlers();
+    }
+
+    async send(event, object) {
+        if (!this.on[event]) {
+            throw new Error(
+                `Event ${event} is not defined in the Integration event object`
+            );
+        }
+        // Auto-instrument. This is the seam for user
+        // actions, config-options, and lifecycle events dispatched via `this.on`
+        // (the queue/webhook/route paths go through IntegrationEventDispatcher).
+        return instrumentHandler(
+            this.telemetry,
+            { event, eventType: this.on[event].type },
+            () => this.on[event].handler.call(this, object)
+        );
+    }
+
+    getOptionDetails() {
+        const options = new Options({
+            module: Object.values(this.constructor.Definition.modules)[0],
+            ...this.constructor.Definition,
+        });
+        return options.get();
+    }
+
+    // Legacy method for backward compatibility
+    async loadModules() {
+        // This method was used in the old architecture for loading modules
+        // In the new architecture, modules are injected via constructor
+        // For backward compatibility, this is a no-op
+        return;
+    }
+
+    /**
+     * Receives notifications from modules (the Delegate pattern) when
+     * something integration-level needs attention. Today this catches the
+     * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
+     * and flips this integration's status to ERROR so the queue worker
+     * stops processing further webhooks until the user re-authorizes.
+     *
+     * Modules are wired to this delegate in `_appendModules()`, which runs
+     * during `setIntegrationRecord()` — this covers every construction path
+     * (HTTP read, queue worker, create/update/delete flows, etc.).
+     *
+     * The delegate string below must match `Module.DLGT_CREDENTIAL_INVALIDATED`
+     * in `packages/core/modules/module.js`.
+     *
+     * @param {Object} notifier - The module that fired the event
+     * @param {string} delegateString - Event type string
+     * @param {Object} [object] - Optional event payload
+     * @returns {Promise<void>}
+     */
+    async receiveNotification(notifier, delegateString, object = null) {
+        if (!this.id) return;
+
+        if (delegateString === 'CREDENTIAL_INVALIDATED') {
+            if (this.status === 'ERROR') return;
+
+            const moduleName = notifier?.name;
+            const detail =
+                object?.reason || object?.statusCode
+                    ? ` (status ${object?.statusCode ?? '?'}: ${
+                          object?.reason ?? 'no reason given'
+                      })`
+                    : '';
+            console.log(
+                `[Frigg] Module ${
+                    moduleName || '?'
+                } reported invalid credentials for integration ${
+                    this.id
+                } — marking ERROR${detail}`
+            );
+            await this._recordCredentialRejection(
+                moduleName,
+                object?.statusCode
+            );
+            await this.persistStatus('ERROR');
+            return;
+        }
+
+        if (delegateString === 'CREDENTIAL_VALIDATED') {
+            if (this.status !== 'ERROR') return;
+            console.log(
+                `[Frigg] Module ${
+                    notifier?.name || '?'
+                } reported valid credentials for integration ${
+                    this.id
+                } — clearing ERROR → ENABLED`
+            );
+            await this.persistStatus('ENABLED');
+        }
+    }
+
+    /**
+     * Takes no `reason`: the delegate's is a FetchError message echoing the
+     * request, Authorization header included outside prod, and this is shown to
+     * end users. Best-effort so it cannot block the caller's status flip.
+     * @param {string} [moduleName] - The module that reported the rejection.
+     * @param {number} [statusCode] - HTTP status the module rejected us with.
+     */
+    async _recordCredentialRejection(moduleName, statusCode) {
+        try {
+            await this.updateIntegrationMessages.execute(
+                this.id,
+                'errors',
+                'Authentication Error',
+                this._authErrorMessage(moduleName, statusCode),
+                Date.now()
+            );
+        } catch (error) {
+            console.error(
+                `[Frigg] Failed to record credential rejection for integration ${this.id}:`,
+                error
+            );
+        }
     }
 }
 

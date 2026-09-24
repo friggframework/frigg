@@ -1,0 +1,371 @@
+/**
+ * Verification Test: Repository Fix for PostgreSQL Decryption Bug
+ *
+ * This test verifies that the fix in ModuleRepositoryPostgres successfully
+ * decrypts credentials when fetching entities (after removing `include`).
+ *
+ * Expected Behavior After Fix:
+ * - All repository methods should return decrypted credentials
+ * - No encrypted tokens should leak through to the application layer
+ */
+
+// Set up test environment for PostgreSQL with encryption
+process.env.DB_TYPE = 'postgresql';
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/frigg?schema=public';
+process.env.STAGE = 'integration-test';
+process.env.AES_KEY_ID = 'test-key-id';
+process.env.AES_KEY = 'test-aes-key-32-characters-long!';
+
+// Mock config to return postgresql
+jest.mock('../config', () => ({
+    DB_TYPE: 'postgresql',
+    getDatabaseType: jest.fn(() => 'postgresql'),
+    PRISMA_LOG_LEVEL: 'error,warn',
+    PRISMA_QUERY_LOGGING: false,
+}));
+
+const { prisma, connectPrisma, disconnectPrisma } = require('../prisma');
+const { ModuleRepositoryPostgres } = require('../../modules/repositories/module-repository-postgres');
+
+describe('Repository Fix Verification - PostgreSQL Decryption', () => {
+    let repository;
+    let testCredentialId;
+    let testEntityId;
+    let testUserId;
+    const TEST_TOKEN = 'my-secret-access-token-12345';
+    const TEST_REFRESH_TOKEN = 'my-secret-refresh-token-67890';
+    const TEST_DOMAIN = 'example-test.com';
+
+    beforeAll(async () => {
+        await connectPrisma();
+        repository = new ModuleRepositoryPostgres();
+    });
+
+    afterAll(async () => {
+        // Cleanup test data
+        if (testEntityId) {
+            await prisma.entity.deleteMany({
+                where: { id: parseInt(testEntityId, 10) }
+            }).catch(() => {});
+        }
+        if (testCredentialId) {
+            await prisma.credential.deleteMany({
+                where: { id: testCredentialId }
+            }).catch(() => {});
+        }
+        if (testUserId) {
+            await prisma.user.deleteMany({
+                where: { id: testUserId }
+            }).catch(() => {});
+        }
+
+        await disconnectPrisma();
+    });
+
+    afterEach(async () => {
+        // Clean up after each test
+        if (testEntityId) {
+            await prisma.entity.deleteMany({
+                where: { id: parseInt(testEntityId, 10) }
+            }).catch(() => {});
+            testEntityId = null;
+        }
+        if (testCredentialId) {
+            await prisma.credential.deleteMany({
+                where: { id: testCredentialId }
+            }).catch(() => {});
+            testCredentialId = null;
+        }
+        if (testUserId) {
+            await prisma.user.deleteMany({
+                where: { id: testUserId }
+            }).catch(() => {});
+            testUserId = null;
+        }
+    });
+
+    test('✅ FIX VERIFICATION: findEntityById returns decrypted credential', async () => {
+        // Setup: Create user, credential, and entity
+        const user = await prisma.user.create({
+            data: {
+                type: 'INDIVIDUAL',
+                hashword: 'test-hash'
+            }
+        });
+        testUserId = user.id;
+
+        const credential = await prisma.credential.create({
+            data: {
+                userId: testUserId,
+                externalId: 'test-cred-findEntityById',
+                data: {
+                    access_token: TEST_TOKEN,
+                    refresh_token: TEST_REFRESH_TOKEN,
+                    domain: TEST_DOMAIN,
+                },
+            },
+        });
+        testCredentialId = credential.id;
+
+        const entity = await prisma.entity.create({
+            data: {
+                userId: testUserId,
+                credentialId: testCredentialId,
+                moduleName: 'test-module',
+                externalId: 'test-entity-findById',
+            },
+        });
+        testEntityId = entity.id.toString();
+
+        // Test: Fetch via repository
+        const result = await repository.findEntityById(testEntityId);
+
+        // Verify: Credential is decrypted
+        expect(result).toBeDefined();
+        expect(result.credential).toBeDefined();
+        expect(result.credential.data.access_token).toBe(TEST_TOKEN);
+        expect(result.credential.data.refresh_token).toBe(TEST_REFRESH_TOKEN);
+        expect(result.credential.data.domain).toBe(TEST_DOMAIN);
+
+        // Verify: No encrypted format (shouldn't contain ':' pattern)
+        expect(result.credential.data.access_token).not.toContain(':');
+
+        console.log('✅ findEntityById: Credential successfully decrypted!');
+    });
+
+    test('✅ FIX VERIFICATION: findEntitiesByUserId returns decrypted credentials', async () => {
+        // Setup
+        const user = await prisma.user.create({
+            data: {
+                type: 'INDIVIDUAL',
+                hashword: 'test-hash'
+            }
+        });
+        testUserId = user.id;
+
+        const credential = await prisma.credential.create({
+            data: {
+                userId: testUserId,
+                externalId: 'test-cred-findByUserId',
+                data: {
+                    access_token: TEST_TOKEN,
+                    domain: TEST_DOMAIN,
+                },
+            },
+        });
+        testCredentialId = credential.id;
+
+        const entity = await prisma.entity.create({
+            data: {
+                userId: testUserId,
+                credentialId: testCredentialId,
+                moduleName: 'test-module',
+                externalId: 'test-entity-findByUserId',
+            },
+        });
+        testEntityId = entity.id.toString();
+
+        // Test
+        const results = await repository.findEntitiesByUserId(testUserId.toString());
+
+        // Verify
+        expect(results).toBeDefined();
+        expect(results.length).toBeGreaterThan(0);
+        const firstEntity = results[0];
+        expect(firstEntity.credential).toBeDefined();
+        expect(firstEntity.credential.data.access_token).toBe(TEST_TOKEN);
+        expect(firstEntity.credential.data.access_token).not.toContain(':');
+
+        console.log('✅ findEntitiesByUserId: Credentials successfully decrypted!');
+    });
+
+    test('✅ FIX VERIFICATION: findEntitiesByIds returns decrypted credentials', async () => {
+        // Setup
+        const user = await prisma.user.create({
+            data: {
+                type: 'INDIVIDUAL',
+                hashword: 'test-hash'
+            }
+        });
+        testUserId = user.id;
+
+        const credential = await prisma.credential.create({
+            data: {
+                userId: testUserId,
+                externalId: 'test-cred-findByIds',
+                data: {
+                    access_token: TEST_TOKEN,
+                    domain: TEST_DOMAIN,
+                },
+            },
+        });
+        testCredentialId = credential.id;
+
+        const entity = await prisma.entity.create({
+            data: {
+                userId: testUserId,
+                credentialId: testCredentialId,
+                moduleName: 'test-module',
+                externalId: 'test-entity-findByIds',
+            },
+        });
+        testEntityId = entity.id.toString();
+
+        // Test
+        const results = await repository.findEntitiesByIds([testEntityId]);
+
+        // Verify
+        expect(results).toBeDefined();
+        expect(results.length).toBe(1);
+        expect(results[0].credential).toBeDefined();
+        expect(results[0].credential.data.access_token).toBe(TEST_TOKEN);
+        expect(results[0].credential.data.access_token).not.toContain(':');
+
+        console.log('✅ findEntitiesByIds: Credentials successfully decrypted!');
+    });
+
+    test('✅ FIX VERIFICATION: createEntity returns decrypted credential', async () => {
+        // Setup
+        const user = await prisma.user.create({
+            data: {
+                type: 'INDIVIDUAL',
+                hashword: 'test-hash'
+            }
+        });
+        testUserId = user.id;
+
+        const credential = await prisma.credential.create({
+            data: {
+                userId: testUserId,
+                externalId: 'test-cred-create',
+                data: {
+                    access_token: TEST_TOKEN,
+                    domain: TEST_DOMAIN,
+                },
+            },
+        });
+        testCredentialId = credential.id;
+
+        // Test: Create entity via repository
+        const entity = await repository.createEntity({
+            userId: testUserId.toString(),
+            credentialId: testCredentialId.toString(),
+            moduleName: 'test-module',
+            externalId: 'test-entity-create',
+        });
+
+        testEntityId = entity.id;
+
+        // Verify
+        expect(entity).toBeDefined();
+        expect(entity.credential).toBeDefined();
+        expect(entity.credential.data.access_token).toBe(TEST_TOKEN);
+        expect(entity.credential.data.access_token).not.toContain(':');
+
+        console.log('✅ createEntity: Credential successfully decrypted!');
+    });
+
+    test('✅ FIX VERIFICATION: updateEntity returns decrypted credential', async () => {
+        // Setup
+        const user = await prisma.user.create({
+            data: {
+                type: 'INDIVIDUAL',
+                hashword: 'test-hash'
+            }
+        });
+        testUserId = user.id;
+
+        const credential = await prisma.credential.create({
+            data: {
+                userId: testUserId,
+                externalId: 'test-cred-update',
+                data: {
+                    access_token: TEST_TOKEN,
+                    domain: TEST_DOMAIN,
+                },
+            },
+        });
+        testCredentialId = credential.id;
+
+        const entity = await prisma.entity.create({
+            data: {
+                userId: testUserId,
+                credentialId: testCredentialId,
+                moduleName: 'test-module',
+                externalId: 'test-entity-update',
+            },
+        });
+        testEntityId = entity.id.toString();
+
+        // Test: Update entity via repository
+        const updated = await repository.updateEntity(testEntityId, {
+            name: 'Updated Name',
+        });
+
+        // Verify
+        expect(updated).toBeDefined();
+        expect(updated.name).toBe('Updated Name');
+        expect(updated.credential).toBeDefined();
+        expect(updated.credential.data.access_token).toBe(TEST_TOKEN);
+        expect(updated.credential.data.access_token).not.toContain(':');
+
+        console.log('✅ updateEntity: Credential successfully decrypted!');
+    });
+
+    test('📊 COMPARISON: Verify tokens are encrypted in database but decrypted in repository', async () => {
+        // Setup
+        const user = await prisma.user.create({
+            data: {
+                type: 'INDIVIDUAL',
+                hashword: 'test-hash'
+            }
+        });
+        testUserId = user.id;
+
+        const credential = await prisma.credential.create({
+            data: {
+                userId: testUserId,
+                externalId: 'test-cred-comparison',
+                data: {
+                    access_token: TEST_TOKEN,
+                    domain: TEST_DOMAIN,
+                },
+            },
+        });
+        testCredentialId = credential.id;
+
+        const entity = await prisma.entity.create({
+            data: {
+                userId: testUserId,
+                credentialId: testCredentialId,
+                moduleName: 'test-module',
+                externalId: 'test-entity-comparison',
+            },
+        });
+        testEntityId = entity.id.toString();
+
+        // 1. Check raw database (should be encrypted)
+        const rawCred = await prisma.$queryRaw`
+            SELECT data FROM "Credential" WHERE id = ${testCredentialId}
+        `;
+        const rawToken = rawCred[0].data.access_token;
+
+        // 2. Check via repository (should be decrypted)
+        const repoEntity = await repository.findEntityById(testEntityId);
+        const repoToken = repoEntity.credential.data.access_token;
+
+        console.log('\n📊 COMPARISON RESULTS:');
+        console.log('Raw DB token (encrypted):', rawToken.substring(0, 50) + '...');
+        console.log('Repository token (decrypted):', repoToken);
+
+        // Verify database has encrypted version
+        expect(rawToken).toContain(':');
+        expect(rawToken.split(':')).toHaveLength(4);
+
+        // Verify repository returns decrypted version
+        expect(repoToken).toBe(TEST_TOKEN);
+        expect(repoToken).not.toContain(':');
+
+        console.log('✅ Database stores encrypted, repository returns decrypted - FIX WORKS!');
+    });
+});
