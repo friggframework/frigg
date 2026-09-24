@@ -86,14 +86,14 @@ const createHandler = (optionByName = {}) => {
                 } catch (error) {
                     // Don't leak implementation details to end users.
                     if (isUserFacingResponse) {
-                        log.error('Handler failed', {
-                            eventName: 'frigg.handler.failed',
-                            error,
-                        });
-
                         // Allow client-safe errors to pass through with their actual message
                         if (error.isClientSafe === true) {
                             const statusCode = error.statusCode || 400;
+                            log.warn('Request rejected', {
+                                eventName: 'frigg.handler.rejected',
+                                statusCode,
+                                error,
+                            });
                             return {
                                 statusCode,
                                 body: JSON.stringify({
@@ -101,6 +101,11 @@ const createHandler = (optionByName = {}) => {
                                 }),
                             };
                         }
+
+                        log.error('Handler failed', {
+                            eventName: 'frigg.handler.failed',
+                            error,
+                        });
 
                         // Hide other errors with generic message
                         return {

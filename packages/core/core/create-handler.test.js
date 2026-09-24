@@ -391,12 +391,23 @@ describe('createHandler — logger scope and records (ADR-048)', () => {
         expect(byEvent('frigg.handler.failed')).toHaveLength(1);
     });
 
-    it('logs one ERROR for a client-safe error and returns its status', async () => {
-        const error = Object.assign(new Error('Bad input'), { isClientSafe: true, statusCode: 422 });
+    it('logs one WARN frigg.handler.rejected for a client-safe error and returns its status', async () => {
+        const error = Object.assign(new Error(`Bad input, Authorization: Bearer ${SECRETS.bearer}`), { isClientSafe: true, statusCode: 422 });
         const res = await build(async () => { throw error; })({}, ctx());
         expect(res.statusCode).toBe(422);
-        expect(JSON.parse(res.body)).toEqual({ error: 'Bad input' });
-        expect(byEvent('frigg.handler.failed')).toHaveLength(1);
+        expect(JSON.parse(res.body).error).toContain('Bad input');
+        const rejected = byEvent('frigg.handler.rejected');
+        expect(rejected).toHaveLength(1);
+        expect(rejected[0]).toMatchObject({ level: 'WARN', statusCode: 422, error: { status: 422 } });
+        expect(sink.records).toContainNoSecretWindow([SECRETS.bearer]);
+        expect(sink.records.filter((r) => r.level === 'ERROR')).toHaveLength(0);
+    });
+
+    it('defaults the rejected status to 400', async () => {
+        const error = Object.assign(new Error('Bad input'), { isClientSafe: true });
+        const res = await build(async () => { throw error; })({}, ctx());
+        expect(res.statusCode).toBe(400);
+        expect(byEvent('frigg.handler.rejected')[0].statusCode).toBe(400);
     });
 
     it('puts a call-site requestId into droppedKeys', async () => {

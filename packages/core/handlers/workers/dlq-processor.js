@@ -5,6 +5,18 @@
  * This handler MUST NOT throw. If it throws, the message goes back to
  * the DLQ and creates an infinite loop. All errors are caught and logged.
  */
+const crypto = require('node:crypto');
+const { getLogger } = require('../../logs');
+const {
+    summarizeLambdaEvent,
+    toScopeInvocation,
+} = require('../../logs/summarize-event');
+const {
+    runInvocationScope,
+    runMessageScope,
+} = require('../../core/invocation-scope');
+
+const log = getLogger('frigg.queue.dlq');
 
 function extractQueueName(eventSourceARN) {
     if (!eventSourceARN) return 'UNKNOWN';
@@ -12,50 +24,66 @@ function extractQueueName(eventSourceARN) {
     return parts[parts.length - 1] || 'UNKNOWN';
 }
 
-function parseMessageBody(body) {
+// The body can hold credentials, so only its size and digest are logged.
+function describeBody(body) {
+    const text = typeof body === 'string' ? body : String(body ?? '');
+    return {
+        bodyLength: Buffer.byteLength(text),
+        bodySha256: crypto.createHash('sha256').update(text).digest('hex'),
+    };
+}
+
+function isJson(body) {
     try {
-        const parsed = JSON.parse(body);
-        return {
-            event: parsed.event || 'UNKNOWN',
-            integrationId: parsed.data?.integrationId || null,
-            processId: parsed.data?.processId || null,
-            data: parsed.data,
-        };
-    } catch (error) {
-        console.warn('[DLQ] Failed to parse message body', { error: error.message, body });
-        return {
-            event: 'UNKNOWN',
-            integrationId: null,
-            processId: null,
-            rawBody: body,
-        };
+        JSON.parse(body);
+        return true;
+    } catch {
+        return false;
     }
 }
 
-async function dlqProcessor(event) {
+function logRecord(record) {
+    const body = describeBody(record.body);
+    if (!isJson(record.body)) {
+        log.warn('DLQ message body is not JSON', {
+            eventName: 'frigg.queue.dlq.body_unparsed',
+            ...body,
+        });
+    }
+    // messageId, receiveCount and the body ids come from the message scope.
+    log.error('Message reached the DLQ', {
+        eventName: 'frigg.queue.dlq.message_failed',
+        sentTimestamp: record.attributes?.SentTimestamp,
+        sourceQueue: extractQueueName(record.eventSourceARN),
+        ...body,
+    });
+}
+
+async function dlqProcessor(event, context) {
     if (!event?.Records?.length) return { batchItemFailures: [] };
 
-    for (const record of event.Records) {
-        try {
-            const parsed = parseMessageBody(record.body);
-
-            console.error('[DLQ] Failed message', {
-                messageId: record.messageId,
-                event: parsed.event,
-                integrationId: parsed.integrationId,
-                processId: parsed.processId,
-                receiveCount: record.attributes?.ApproximateReceiveCount,
-                sentTimestamp: record.attributes?.SentTimestamp,
-                sourceQueue: extractQueueName(record.eventSourceARN),
-                ...(parsed.rawBody !== undefined && { rawBody: parsed.rawBody }),
-            });
-        } catch (error) {
-            console.error('[DLQ] Error processing DLQ record', {
-                messageId: record.messageId,
-                error: error.message,
-            });
-        }
-    }
+    await runInvocationScope(
+        {
+            requestId: context?.awsRequestId,
+            handlerName: 'dlqProcessor',
+            invocation: toScopeInvocation(summarizeLambdaEvent(event)),
+        },
+        async () => {
+            for (const record of event.Records) {
+                await runMessageScope(record, async () => {
+                    try {
+                        logRecord(record);
+                    } catch (error) {
+                        log.error('DLQ record failed', {
+                            eventName: 'frigg.queue.dlq.record_failed',
+                            error,
+                        });
+                    }
+                });
+            }
+        },
+        { shouldUseDatabase: false, context }
+    );
 
     return { batchItemFailures: [] };
 }

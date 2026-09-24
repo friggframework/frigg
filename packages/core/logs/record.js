@@ -1,6 +1,5 @@
 const { LEVELS } = require('./levels');
 const { serializeValue, serializeError } = require('./serialize');
-const { isDeniedKey } = require('./redact');
 
 const MAX_RECORD_BYTES = 16 * 1024;
 const REQUIRED_KEYS = ['timestamp', 'level', 'message', 'logger'];
@@ -99,10 +98,6 @@ function byteLength(record) {
     return Buffer.byteLength(JSON.stringify(record));
 }
 
-function serializeField(key, value) {
-    return key === 'error' ? serializeError(value) : serializeValue(value);
-}
-
 function buildRecord({
     level,
     logger,
@@ -132,6 +127,7 @@ function buildRecord({
     const dropped = new Set();
     const callSiteKeys = [];
     const place = (source, isCallSite) => {
+        const accepted = {};
         for (const [key, value] of Object.entries(source)) {
             if (value === undefined || value === null) continue;
             if (
@@ -143,9 +139,16 @@ function buildRecord({
                 dropped.add(key);
                 continue;
             }
-            const safe = isDeniedKey(key) ? '[REDACTED]' : serializeField(key, value);
-            if (safe === undefined || safe === null) continue;
-            record[key] = safe;
+            accepted[key] = value;
+        }
+        // One pass over the object, so key rules (denied keys, digests,
+        // headers, OAuth shapes) apply to top-level fields too.
+        const safe = serializeValue(accepted);
+        for (const key of Object.keys(accepted)) {
+            const value =
+                key === 'error' ? serializeError(accepted[key]) : safe?.[key];
+            if (value === undefined || value === null) continue;
+            record[key] = value;
             if (isCallSite) callSiteKeys.push(key);
         }
     };

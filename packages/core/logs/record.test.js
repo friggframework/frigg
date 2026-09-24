@@ -254,6 +254,19 @@ describe('logs/record', () => {
             expect(text).not.toContain('fakeLoginPassword4Tg7Bn2Vc9Ls');
         });
 
+        it('applies the key rules to top-level fields: digests, headers and OAuth shapes', () => {
+            const hex = 'cec74cb6bb062cf7ca06e1f7ba6e29a1fa1ef3c1b112bf54358e9346edbe2c91';
+            getLogger('integration.test').info('x', {
+                bodySha256: hex,
+                headers: { authorization: 'Bearer fakeBearerToken7Q2w9XzLm4Pv8Rt3', accept: 'json' },
+            });
+            getLogger('integration.test').debug('callback', { code: 'fakeOauthAuthCode2Mv9Qs4Xt7Hb', state: 'abc' });
+            expect(sink.records[0].bodySha256).toBe(hex);
+            expect(JSON.stringify(sink.records[0].headers)).toContain('authorization');
+            expect(JSON.stringify(sink.records)).not.toContain('fakeBearerToken7Q2w9XzLm4Pv8Rt3');
+            expect(JSON.stringify(sink.records)).not.toContain('fakeOauthAuthCode2Mv9Qs4Xt7Hb');
+        });
+
         it('replaces a throwing field getter and keeps the other fields', () => {
             const fields = { ok: 1 };
             Object.defineProperty(fields, 'bad', { enumerable: true, get: () => { throw new Error('x'); } });
