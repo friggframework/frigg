@@ -43,13 +43,20 @@ inside the scope gets these fields, from any logger:
 | Entry point | Fields from the scope |
 |---|---|
 | HTTP route, user action, form, OAuth callback (`createHandler`) | `requestId`, `handlerName`, `method`, `route`, `invocation` |
-| Webhook receipt (`createHandler`) | same as HTTP |
-| Queue job (`Worker`, `QUEUE` events) | `requestId`, plus `messageId`, `receiveCount`, `processId`, `integrationId`, `integrationEvent` from the message |
+| Webhook receipt (`createHandler`) | same as HTTP, plus `integrationId` from the route (`POST .../webhooks/:integrationId`, and a `Definition.routes` path with `:integrationId`). It goes on log records only, never into telemetry or usage attribution, because it comes from an unauthenticated URL. The plain `POST .../webhooks` route has no id |
+| Queue job (`Worker`, `QUEUE` events) | `requestId`, plus `messageId`, `receiveCount` and `integrationEvent` from the SQS record, and `integrationId`, `processId` from the message body (`data.*` first, then the top level) |
 | Integration event (`this.send(event)`: `USER_ACTION`, `CRON`, `QUEUE`, `WEBHOOK`) | `integrationEvent` |
 | Inside a telemetry span (`this.telemetry.span(...)`) | `trace_id`, `span_id`, `trace_flags` |
 
 So a query by `requestId` finds every record of one invocation, and a query
 by `processId` finds every record of one sync across queue messages.
+
+Put `integrationId` and `processId` in every queue message you send (in
+`data` or at the top level), or the worker records cannot carry them. The
+framework cannot resolve them later.
+
+When the integration is hydrated, its own ids win over a logger-only id from
+the route or the message body.
 
 ## Writing a record
 

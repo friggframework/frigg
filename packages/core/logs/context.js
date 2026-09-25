@@ -77,8 +77,15 @@ function getLoggerScope() {
         for (const key of INTEGRATION_KEYS) {
             if (store[key] !== undefined) scope[key] = store[key];
         }
-        if (isPlainObject(store[LOGGER_SCOPE_KEY])) {
-            Object.assign(scope, store[LOGGER_SCOPE_KEY]);
+        // A set (hydrated) id beats a logger-only one, e.g. from a URL or a
+        // message body; a null id leaves the logger-only value in place.
+        const loggerKeys = store[LOGGER_SCOPE_KEY];
+        if (isPlainObject(loggerKeys)) {
+            for (const [key, value] of Object.entries(loggerKeys)) {
+                if (scope[key] === undefined || scope[key] === null) {
+                    scope[key] = value;
+                }
+            }
         }
         scope = Object.freeze(scope);
         scopeByStore.set(store, scope);

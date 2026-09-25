@@ -1,14 +1,15 @@
 const { redactUrl } = require('./redact');
 
 // Best-effort extraction of the logical event/processId/integrationId from a
-// JSON message body. Used only for log correlation. Never throws.
+// JSON message body: `data.*` first, then the top level. Used only for log
+// correlation. Never throws.
 function summarizeMessageBody(bodyStr) {
     try {
         const parsed = JSON.parse(bodyStr);
         return {
             event: parsed?.event,
-            processId: parsed?.data?.processId,
-            integrationId: parsed?.data?.integrationId,
+            processId: parsed?.data?.processId ?? parsed?.processId,
+            integrationId: parsed?.data?.integrationId ?? parsed?.integrationId,
         };
     } catch {
         return {};

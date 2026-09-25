@@ -327,6 +327,20 @@ describe('Worker - AWS SDK v3', () => {
             expect(inside()[1]).not.toHaveProperty('receiveCount');
         });
 
+        it('reads integrationId and processId from the message top level too', async () => {
+            await worker.run({
+                Records: [{
+                    messageId: 'm-top',
+                    attributes: { ApproximateReceiveCount: '1' },
+                    body: JSON.stringify({ event: 'FETCH_PERSON_PAGE', integrationId: 'i-top', processId: 'p-top', data: { page: 1 } }),
+                }],
+            });
+            const lifecycle = sink.records.filter((r) => r.eventName === 'frigg.worker.record_succeeded');
+            expect(lifecycle).toEqual([
+                expect.objectContaining({ integrationId: 'i-top', processId: 'p-top', integrationEvent: 'FETCH_PERSON_PAGE' }),
+            ]);
+        });
+
         it('does not carry record 1 ids onto a record 2 that has none', async () => {
             worker._run = async () => getLogger('integration.test').info('inside');
             await worker.run({

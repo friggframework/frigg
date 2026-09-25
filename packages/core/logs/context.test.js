@@ -122,6 +122,12 @@ describe('logs/context', () => {
         );
     });
 
+    it('lets a set top-level id beat the same key in the log sub-object', () => {
+        runInContext({ integrationId: 'from-store', userId: null, log: { integrationId: 'from-url', userId: 'u-log' } }, () => {
+            expect(getLoggerScope()).toEqual({ integrationId: 'from-store', userId: 'u-log' });
+        });
+    });
+
     it('getLoggerScope omits ids that are not set', () => {
         runInContext({ integrationId: 'i-1' }, () => {
             expect(getLoggerScope()).toEqual({ integrationId: 'i-1' });

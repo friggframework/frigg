@@ -216,3 +216,47 @@ describe('createQueueWorker — process missing at hydration', () => {
         });
     });
 });
+
+describe('loadRouterFromObject — logger scope for a route :integrationId', () => {
+    const express = require('express');
+    const { loadRouterFromObject } = require('./backend-utils');
+    const { getLoggerScope } = require('../logs/context');
+    const { mergeTelemetryContext } = require('../telemetry/telemetry-context');
+
+    class FakeIntegration {
+        static Definition = { name: 'fake' };
+        async initialize() {}
+    }
+
+    async function call(routeDef, path) {
+        const app = express();
+        app.use(loadRouterFromObject(FakeIntegration, routeDef));
+        const server = await new Promise((resolve) => {
+            const s = app.listen(0, () => resolve(s));
+        });
+        try {
+            await fetch(`http://127.0.0.1:${server.address().port}${path}`);
+        } finally {
+            await new Promise((resolve) => server.close(resolve));
+        }
+    }
+
+    afterEach(() => jest.clearAllMocks());
+
+    it.each([
+        ['with :integrationId', '/items/:integrationId', '/items/int-42', { integrationId: 'int-42' }],
+        ['without it', '/items', '/items', {}],
+    ])('route %s', async (_label, routePath, requestPath, expected) => {
+        jest.spyOn(console, 'log').mockImplementation();
+        let seen;
+        IntegrationEventDispatcher.mockImplementation(() => ({
+            dispatchHttp: async () => {
+                seen = { scope: getLoggerScope(), bus: mergeTelemetryContext() };
+                return {};
+            },
+        }));
+        await call({ path: routePath, method: 'GET', event: 'X' }, requestPath);
+        expect(seen.scope).toEqual(expected);
+        expect(seen.bus).toBeUndefined();
+    });
+});

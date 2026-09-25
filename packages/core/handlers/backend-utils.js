@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const { runInContext, LOGGER_SCOPE_KEY } = require('../logs/context');
 const { Worker } = require('@friggframework/core');
 const {
     IntegrationEventDispatcher,
@@ -38,12 +39,11 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
             const dispatcher = new IntegrationEventDispatcher(
                 integrationInstance
             );
-            const result = await dispatcher.dispatchHttp({
-                event,
-                req,
-                res,
-                next,
-            });
+            // Logs only: a route :integrationId is unauthenticated input.
+            const result = await runInContext(
+                { [LOGGER_SCOPE_KEY]: { integrationId: req.params?.integrationId } },
+                () => dispatcher.dispatchHttp({ event, req, res, next })
+            );
             res.json(result);
         } catch (error) {
             next(error);

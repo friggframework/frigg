@@ -114,7 +114,22 @@ describe('logs/summarize-event', () => {
             )
         ).toEqual({ event: 'E', processId: 'p', integrationId: 'i' });
         expect(summarizeMessageBody('not json')).toEqual({});
+        expect(summarizeMessageBody(null)).toEqual({});
         expect(summarizeMessageBody(undefined)).toEqual({});
+    });
+
+    it('summarizeMessageBody also reads top-level integrationId and processId; data wins', () => {
+        expect(
+            summarizeMessageBody(JSON.stringify({ event: 'FETCH_PERSON_PAGE', integrationId: 'i-top', processId: 'p-top', data: { page: 2 } }))
+        ).toEqual({ event: 'FETCH_PERSON_PAGE', processId: 'p-top', integrationId: 'i-top' });
+        expect(
+            summarizeMessageBody(JSON.stringify({ event: 'E', integrationId: 'i-top', processId: 'p-top', data: { integrationId: 'i-data', processId: 'p-data' } }))
+        ).toEqual({ event: 'E', processId: 'p-data', integrationId: 'i-data' });
+        expect(summarizeMessageBody(JSON.stringify({ event: 'E', data: { processId: 'p' } }))).toEqual({
+            event: 'E',
+            processId: 'p',
+            integrationId: undefined,
+        });
     });
 
     describe('toScopeInvocation', () => {
