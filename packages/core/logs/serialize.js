@@ -1,7 +1,7 @@
 const {
-    isDeniedKey,
-    isDigestKey,
-    isOAuthCallbackShape,
+    isDeniedNormalized,
+    isDigestNormalized,
+    isOAuthCallbackShapeNormalized,
     normalizeKey,
     redactUrl,
     scrubString,
@@ -27,8 +27,10 @@ function cutString(value) {
     return value.slice(0, MAX_STRING - suffix.length) + suffix;
 }
 
-function cleanString(value, key) {
-    return cutString(scrubString(value, { allowHex: isDigestKey(key) }));
+function cleanString(value, normalizedKey = '') {
+    return cutString(
+        scrubString(value, { allowHex: isDigestNormalized(normalizedKey) })
+    );
 }
 
 function isError(value) {
@@ -73,10 +75,13 @@ function headerNames(value) {
 
 function walkObject(value, depth, seen) {
     const keys = Object.keys(value);
-    const dropAll = isOAuthCallbackShape(keys);
+    const normalizedKeys = keys.map(normalizeKey);
+    const dropAll = isOAuthCallbackShapeNormalized(normalizedKeys);
     const out = {};
-    for (const key of keys) {
-        if (dropAll || isDeniedKey(key)) {
+    for (let i = 0; i < keys.length; i += 1) {
+        const key = keys[i];
+        const normalized = normalizedKeys[i];
+        if (dropAll || isDeniedNormalized(normalized)) {
             out[key] = '[REDACTED]';
             continue;
         }
@@ -87,11 +92,11 @@ function walkObject(value, depth, seen) {
             out[key] = '[Getter threw]';
             continue;
         }
-        if (HEADER_KEYS.has(normalizeKey(key))) {
+        if (HEADER_KEYS.has(normalized)) {
             out[key] = attempt(() => headerNames(child), '[Unserializable]');
             continue;
         }
-        const result = walk(child, depth + 1, seen, key);
+        const result = walk(child, depth + 1, seen, normalized);
         if (result !== undefined) out[key] = result;
     }
     return out;
@@ -102,11 +107,12 @@ function walkContainer(value, depth, seen) {
         const out = {};
         for (const [k, v] of value) {
             const key = String(k);
-            if (isDeniedKey(key)) {
+            const normalized = normalizeKey(key);
+            if (isDeniedNormalized(normalized)) {
                 out[key] = '[REDACTED]';
                 continue;
             }
-            const result = walk(v, depth + 1, seen, key);
+            const result = walk(v, depth + 1, seen, normalized);
             if (result !== undefined) out[key] = result;
         }
         return out;
@@ -151,10 +157,10 @@ function walkSpecial(value) {
     return undefined;
 }
 
-function walk(value, depth, seen, key) {
+function walk(value, depth, seen, normalizedKey) {
     switch (typeof value) {
         case 'string':
-            return cleanString(value, key);
+            return cleanString(value, normalizedKey);
         case 'number':
             return Number.isFinite(value) ? value : String(value);
         case 'boolean':
@@ -313,6 +319,7 @@ function toSanitizedSurrogate(err) {
 }
 
 module.exports = {
+    isError,
     serializeValue,
     serializeError,
     toSanitizedSurrogate,

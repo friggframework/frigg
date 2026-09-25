@@ -69,16 +69,11 @@ function hasFlushableSinks() {
 }
 
 async function flushSinks({ signal } = {}) {
-    const flushes = getSinks()
-        .filter((sink) => typeof sink.flush === 'function')
-        .map((sink) => {
-            try {
-                return Promise.resolve(sink.flush({ signal }));
-            } catch (error) {
-                return Promise.reject(error);
-            }
-        });
-    await Promise.allSettled(flushes);
+    await Promise.allSettled(
+        getSinks()
+            .filter((sink) => typeof sink.flush === 'function')
+            .map(async (sink) => sink.flush({ signal }))
+    );
 }
 
 function setSpanContextProvider(provider) {
@@ -117,7 +112,7 @@ function resetLoggerForTests({ level, sinks, trackViolations } = {}) {
     const s = state();
     s.config = null;
     s.levelOverride = parseLevel(level);
-    s.sinks = Array.isArray(sinks) ? [...sinks] : [require('./sinks').createStdoutSink()];
+    setSinks(sinks);
     s.spanContextProvider = null;
     s.warned.clear();
     s.violations.length = 0;

@@ -167,7 +167,7 @@ describe('logs/record', () => {
                 path: '/a/1',
                 headers: ['authorization'],
             });
-            expect(sink.records[0].droppedKeys).toEqual(['invocation.method']);
+            expect(sink.records[0]).not.toHaveProperty('droppedKeys');
         });
 
         it('keeps a call-site invocation as is when the scope has none', () => {

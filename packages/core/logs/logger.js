@@ -5,31 +5,33 @@ const { buildRecord, DEFAULT_LOGGER_NAME } = require('./record');
 
 const LOGGER_OWN_NAME = 'frigg.logger';
 
-function copyBindings(bindings) {
-    const copy = {};
-    if (!bindings || typeof bindings !== 'object') return copy;
+function copyBindings(bindings, into = {}) {
+    if (!bindings || typeof bindings !== 'object') return into;
     for (const key of Object.keys(bindings)) {
         try {
-            copy[key] = bindings[key];
+            into[key] = bindings[key];
         } catch {
             // A throwing getter drops only that binding.
         }
     }
-    return copy;
+    return into;
 }
 
+// One plain object per record. Static sources were copied at child() time.
 function evaluateBindings(sources) {
     const merged = {};
     for (const source of sources) {
-        let value = source;
-        if (typeof source === 'function') {
-            try {
-                value = source();
-            } catch {
-                continue;
-            }
+        if (typeof source !== 'function') {
+            Object.assign(merged, source);
+            continue;
         }
-        Object.assign(merged, copyBindings(value));
+        let value;
+        try {
+            value = source();
+        } catch {
+            continue;
+        }
+        copyBindings(value, merged);
     }
     return merged;
 }

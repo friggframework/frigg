@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const { deepFreeze } = require('./record');
 
 const DEFAULT_MAX_RETRIES = 10;
 const MAX_SLEEP_MS = 20;
@@ -42,40 +43,33 @@ function createStdoutSink({
             }
             let offset = 0;
             let retries = 0;
+            // EAGAIN and a zero-byte write share one bounded retry budget.
+            const retry = () => {
+                if (retries >= maxRetries) {
+                    reportFailure('EAGAIN');
+                    return false;
+                }
+                retries += 1;
+                sleep(Math.min(retries, MAX_SLEEP_MS));
+                return true;
+            };
             while (offset < buffer.length) {
                 let written;
                 try {
                     written = writeSync(fd, buffer, offset, buffer.length - offset);
                 } catch (error) {
-                    if (error?.code === 'EAGAIN' && retries < maxRetries) {
-                        retries += 1;
-                        sleep(Math.min(retries, MAX_SLEEP_MS));
-                        continue;
-                    }
-                    reportFailure(error?.code);
-                    return;
-                }
-                if (!(written > 0)) {
-                    if (retries >= maxRetries) {
-                        reportFailure('EAGAIN');
+                    if (error?.code !== 'EAGAIN') {
+                        reportFailure(error?.code);
                         return;
                     }
-                    retries += 1;
-                    sleep(Math.min(retries, MAX_SLEEP_MS));
+                    if (!retry()) return;
                     continue;
                 }
-                offset += written;
+                if (written > 0) offset += written;
+                else if (!retry()) return;
             }
         },
     };
-}
-
-function deepFreeze(value) {
-    if (value && typeof value === 'object') {
-        for (const key of Object.keys(value)) deepFreeze(value[key]);
-        Object.freeze(value);
-    }
-    return value;
 }
 
 function createMemorySink({ install = true } = {}) {

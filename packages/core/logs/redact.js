@@ -1,3 +1,5 @@
+const { CONTRACT_KEYS } = require('./contract-keys');
+
 const DENIED_SUFFIXES = [
     'token',
     'secret',
@@ -27,27 +29,9 @@ const deniedKeys = new Set([
 
 // Record-contract fields. A credential field with one of these names must not
 // blank the field in every record.
-const PROTECTED_KEYS = new Set(
-    [
-        'integrationId',
-        'integrationType',
-        'userId',
-        'version',
-        'entityId',
-        'credentialId',
-        'requestId',
-        'messageId',
-        'processId',
-        'integrationEvent',
-        'eventName',
-        'handlerName',
-        'method',
-        'route',
-        'routeKey',
-        'statusCode',
-    ].map((key) => key.toLowerCase())
-);
+const PROTECTED_KEYS = new Set(CONTRACT_KEYS.map(normalizeKey));
 
+const DENIED_SUFFIX = new RegExp(`(?:${DENIED_SUFFIXES.join('|')})$`);
 const PAIR_KEYS = new Set(['code', 'codeverifier']);
 const DIGEST_KEY = /(sha(1|256)|hash|digest|checksum)$/;
 
@@ -71,7 +55,6 @@ const JSON_PAIR = /"([^"\\]{1,100})"(\s*:\s*)"((?:[^"\\]|\\.)*)"/g;
 const TEXT_PAIR = /(?<![A-Za-z0-9_.-])([A-Za-z0-9_.-]{1,100})=([^\s&"'<>,;)]+)/g;
 const HEX_RUN = /(?<![A-Za-z0-9])[0-9a-fA-F]{40,}(?![A-Za-z0-9])/g;
 const BASE64_RUN = /(?<![A-Za-z0-9+/=_-])[A-Za-z0-9+/_-]{40,}={0,2}(?![A-Za-z0-9+/=_-])/g;
-const BASE64_SEGMENT_RUN = /(?<![A-Za-z0-9+=_-])[A-Za-z0-9+_-]{40,}={0,2}(?![A-Za-z0-9+=_-])/g;
 const FORM_TEXT = /^[A-Za-z0-9_.%[\]-]+=[^&\s]*(?:&[A-Za-z0-9_.%[\]-]+=[^&\s]*)+$/;
 const PATH_SEGMENT = /^[A-Za-z0-9_-]*$/;
 
@@ -87,15 +70,23 @@ function normalizeKey(key) {
     return key.toLowerCase().replace(/[-_\s]/g, '');
 }
 
-function isDeniedKey(key) {
-    const normalized = normalizeKey(key);
+// The *Normalized variants take a normalizeKey() result, so a walk
+// normalizes each key once.
+function isDeniedNormalized(normalized) {
     if (!normalized || PROTECTED_KEYS.has(normalized)) return false;
-    if (deniedKeys.has(normalized)) return true;
-    return DENIED_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+    return deniedKeys.has(normalized) || DENIED_SUFFIX.test(normalized);
+}
+
+function isDeniedKey(key) {
+    return isDeniedNormalized(normalizeKey(key));
+}
+
+function isDigestNormalized(normalized) {
+    return DIGEST_KEY.test(normalized);
 }
 
 function isDigestKey(key) {
-    return DIGEST_KEY.test(normalizeKey(key));
+    return isDigestNormalized(normalizeKey(key));
 }
 
 function isPairKey(key, { withState = false } = {}) {
@@ -139,7 +130,7 @@ function isRedactedValue(value) {
     return value === 'REDACTED' || value.startsWith('[REDACTED');
 }
 
-function scrubTokens(text, { allowHex = false, segment = false } = {}) {
+function scrubTokens(text, { allowHex = false } = {}) {
     let out = text.replace(PREFIXED_TOKEN, redacted);
     out = out.replace(JWT, redacted);
     out = out.replace(AUTH_SCHEME, (match, scheme, space, credential) => {
@@ -170,8 +161,8 @@ function scrubTokens(text, { allowHex = false, segment = false } = {}) {
             : match
     );
     if (!allowHex) out = out.replace(HEX_RUN, redacted);
-    out = out.replace(segment ? BASE64_SEGMENT_RUN : BASE64_RUN, (run) =>
-        hasMixedClasses(run) && (segment || !isPathLike(run))
+    out = out.replace(BASE64_RUN, (run) =>
+        hasMixedClasses(run) && !isPathLike(run)
             ? redacted(run)
             : run
     );
@@ -204,7 +195,7 @@ function redactPathSegment(segment) {
     if (PATH_TOKEN_SEGMENT.test(segment) && hasMixedClasses(segment)) {
         return redacted(segment);
     }
-    return scrubTokens(segment, { segment: true });
+    return scrubTokens(segment);
 }
 
 // The raw path, not URL#pathname, which percent-encodes `{proxy+}`.
@@ -308,12 +299,13 @@ function scrubString(str, { allowHex = false } = {}) {
     }
 }
 
+function isOAuthCallbackShapeNormalized(normalizedKeys) {
+    const keys = new Set(normalizedKeys);
+    return keys.has('code') && (keys.has('state') || keys.has('codeverifier'));
+}
+
 function isOAuthCallbackShape(keys) {
-    const normalized = new Set(keys.map(normalizeKey));
-    return (
-        normalized.has('code') &&
-        (normalized.has('state') || normalized.has('codeverifier'))
-    );
+    return isOAuthCallbackShapeNormalized(keys.map(normalizeKey));
 }
 
 function redactValue(value) {
@@ -324,8 +316,11 @@ function redactValue(value) {
 module.exports = {
     normalizeKey,
     isDeniedKey,
+    isDeniedNormalized,
     isDigestKey,
+    isDigestNormalized,
     isOAuthCallbackShape,
+    isOAuthCallbackShapeNormalized,
     addDeniedKeys,
     redactUrl,
     scrubString,

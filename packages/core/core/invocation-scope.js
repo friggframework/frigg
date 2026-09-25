@@ -1,4 +1,4 @@
-const { runInContext } = require('../logs/context');
+const { runInContext, LOGGER_SCOPE_KEY } = require('../logs/context');
 const { summarizeMessageBody } = require('../logs/summarize-event');
 const { flushSinks, hasFlushableSinks } = require('../logs/logger-runtime');
 
@@ -164,22 +164,19 @@ async function runInvocationScope(fields, fn, opts = {}) {
         flushTimeoutMs = DEFAULT_FLUSH_TIMEOUT_MS,
         context,
     } = opts;
-    return runInContext({ log: { ...(fields || {}) } }, async () => {
+    return runInContext({ [LOGGER_SCOPE_KEY]: { ...(fields || {}) } }, async () => {
         try {
             return await fn();
         } finally {
-            try {
-                await flushInvocation({
-                    telemetry,
-                    usageRollup,
-                    eventSummary,
-                    shouldUseDatabase,
-                    flushTimeoutMs,
-                    context,
-                });
-            } catch (_) {
-                // A flush must never change the handler result.
-            }
+            // Every step is guarded, so a flush never changes the result.
+            await flushInvocation({
+                telemetry,
+                usageRollup,
+                eventSummary,
+                shouldUseDatabase,
+                flushTimeoutMs,
+                context,
+            });
         }
     });
 }
@@ -201,7 +198,7 @@ function runMessageScope(record, fn) {
     );
     return runInContext(
         {
-            log: {
+            [LOGGER_SCOPE_KEY]: {
                 messageId: record?.messageId,
                 receiveCount: toCount(record?.attributes?.ApproximateReceiveCount),
                 integrationEvent: event,

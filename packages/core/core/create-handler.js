@@ -6,7 +6,7 @@ const { getLogger, toSanitizedSurrogate } = require('../logs');
 const {
     summarizeLambdaEvent,
     toScopeInvocation,
-    toRequestInvocation,
+    toRequestDetails,
 } = require('../logs/summarize-event');
 const {
     runInvocationScope,
@@ -58,8 +58,9 @@ const createHandler = (optionByName = {}) => {
             routeKey: eventSummary.routeKey,
             invocation: toScopeInvocation(eventSummary),
         };
-        // The full redacted summary goes only on the entry and failure records.
-        const requestInvocation = toRequestInvocation(eventSummary);
+        // Path, query keys and header names go only on the entry and failure
+        // records; the logger adds them to the scope's invocation.
+        const requestDetails = toRequestDetails(eventSummary);
 
         return runInvocationScope(
             scopeFields,
@@ -67,7 +68,7 @@ const createHandler = (optionByName = {}) => {
                 try {
                     log.info('Handler invoked', {
                         eventName: 'frigg.handler.invoked',
-                        invocation: requestInvocation,
+                        invocation: requestDetails,
                     });
 
                     // If enabled (i.e. if SECRET_ARN is set in process.env) Fetch secrets from AWS Secrets Manager, and set them as environment variables.
@@ -109,7 +110,7 @@ const createHandler = (optionByName = {}) => {
                     if (!isUserFacingResponse && error.isHaltError === true) {
                         log.error('Handler halted', {
                             eventName: 'frigg.handler.halted',
-                            invocation: requestInvocation,
+                            invocation: requestDetails,
                             error,
                         });
                         return;
@@ -117,7 +118,7 @@ const createHandler = (optionByName = {}) => {
 
                     log.error('Handler failed', {
                         eventName: 'frigg.handler.failed',
-                        invocation: requestInvocation,
+                        invocation: requestDetails,
                         error,
                     });
 

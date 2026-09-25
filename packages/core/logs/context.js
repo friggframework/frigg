@@ -64,15 +64,24 @@ function getContext() {
     return als().getStore() ?? null;
 }
 
+// The store is frozen per scope, so one scope object per store is enough.
+const EMPTY_SCOPE = Object.freeze({});
+const scopeByStore = new WeakMap();
+
 function getLoggerScope() {
     const store = getContext();
-    if (!store) return {};
-    const scope = {};
-    for (const key of INTEGRATION_KEYS) {
-        if (store[key] !== undefined) scope[key] = store[key];
-    }
-    if (isPlainObject(store[LOGGER_SCOPE_KEY])) {
-        Object.assign(scope, store[LOGGER_SCOPE_KEY]);
+    if (!store) return EMPTY_SCOPE;
+    let scope = scopeByStore.get(store);
+    if (!scope) {
+        scope = {};
+        for (const key of INTEGRATION_KEYS) {
+            if (store[key] !== undefined) scope[key] = store[key];
+        }
+        if (isPlainObject(store[LOGGER_SCOPE_KEY])) {
+            Object.assign(scope, store[LOGGER_SCOPE_KEY]);
+        }
+        scope = Object.freeze(scope);
+        scopeByStore.set(store, scope);
     }
     return scope;
 }
@@ -89,4 +98,5 @@ module.exports = {
     getContext,
     getLoggerScope,
     hasOnlyLoggerKeys,
+    isPlainObject,
 };

@@ -1,41 +1,16 @@
 const { LEVELS } = require('./levels');
-const { serializeValue, serializeError } = require('./serialize');
+const { serializeValue, serializeError, isError } = require('./serialize');
+const { isPlainObject } = require('./context');
+const {
+    RESOURCE_KEYS,
+    DROPPED_KEYS_FIELD,
+    OWNED_KEYS,
+    RESERVED_KEYS,
+    PAYLOAD_KEYS,
+} = require('./contract-keys');
 
 const MAX_RECORD_BYTES = 16 * 1024;
-const REQUIRED_KEYS = ['timestamp', 'level', 'message', 'logger'];
-const RESOURCE_KEYS = ['appName', 'stage'];
-const TRACE_KEYS = ['trace_id', 'span_id', 'trace_flags'];
-const DROPPED_KEYS_FIELD = 'droppedKeys';
-const OWNED_KEYS = new Set([
-    ...REQUIRED_KEYS,
-    ...RESOURCE_KEYS,
-    ...TRACE_KEYS,
-    DROPPED_KEYS_FIELD,
-]);
-const RESERVED_KEYS = new Set([
-    'tenantId',
-    'type',
-    'time',
-    'record',
-    'errorType',
-    'errorMessage',
-    'stackTrace',
-    'service',
-    'env',
-    'host',
-    'source',
-    'status',
-    'severity',
-]);
-const PAYLOAD_KEYS = new Set(['body', 'rawBody', 'payload', 'response']);
 const DEFAULT_LOGGER_NAME = 'frigg.unknown';
-
-function isError(value) {
-    return (
-        value instanceof Error ||
-        Object.prototype.toString.call(value) === '[object Error]'
-    );
-}
 
 function deepFreeze(value) {
     if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -64,39 +39,31 @@ function readFields(source) {
     return result;
 }
 
+// Returns the message text. An Error message is serialized once; when the
+// call site has no `error`, that result becomes the record's `error`.
 function buildMessage(message, callSite) {
     if (typeof message === 'string') {
-        return serializeValue(message);
+        return { text: serializeValue(message) };
     }
-    if (message === undefined || message === null) return '';
+    if (message === undefined || message === null) return { text: '' };
     if (isError(message)) {
         const error = serializeError(message);
-        if (callSite.error === undefined) callSite.error = message;
-        return typeof error?.message === 'string' ? error.message : '';
+        const text = typeof error?.message === 'string' ? error.message : '';
+        if (callSite.error !== undefined) return { text };
+        callSite.error = message;
+        return { text, error };
     }
     if (callSite.value === undefined) callSite.value = message;
-    return '[non-string message]';
+    return { text: '[non-string message]' };
 }
 
 const INVOCATION_KEY = 'invocation';
 
-function isPlainObject(value) {
-    return (
-        value !== null &&
-        typeof value === 'object' &&
-        Object.getPrototypeOf(value) === Object.prototype
-    );
-}
-
 // A boundary adds request detail to the scope's invocation; scope keys win.
-function extendInvocation(scoped, detail, dropped) {
+function extendInvocation(scoped, detail) {
     const merged = { ...scoped };
-    for (const [key, value] of Object.entries(detail)) {
-        if (!Object.prototype.hasOwnProperty.call(scoped, key)) {
-            merged[key] = value;
-        } else if (JSON.stringify(scoped[key]) !== JSON.stringify(value)) {
-            dropped.add(`${INVOCATION_KEY}.${key}`);
-        }
+    for (const key of Object.keys(detail)) {
+        if (!(key in merged)) merged[key] = detail[key];
     }
     return merged;
 }
@@ -121,6 +88,60 @@ function byteLength(record) {
     return Buffer.byteLength(JSON.stringify(record));
 }
 
+function isDroppedKey(key, dropPayloads) {
+    return (
+        OWNED_KEYS.has(key) ||
+        RESERVED_KEYS.has(key) ||
+        (dropPayloads && PAYLOAD_KEYS.has(key))
+    );
+}
+
+// Filters and serializes one source. `error` is serialized on its own, once
+// (or taken from `preSerializedError`), and never walked by serializeValue.
+function prepareSource(source, dropPayloads, preSerializedError) {
+    const accepted = {};
+    const keys = [];
+    const dropped = [];
+    let rawError;
+    for (const [key, value] of Object.entries(source)) {
+        if (value === undefined || value === null) continue;
+        if (isDroppedKey(key, dropPayloads)) {
+            dropped.push(key);
+            continue;
+        }
+        keys.push(key);
+        if (key === 'error') rawError = value;
+        else accepted[key] = value;
+    }
+    // One pass over the object, so key rules (denied keys, digests,
+    // headers, OAuth shapes) apply to top-level fields too.
+    const safe = serializeValue(accepted);
+    const entries = [];
+    for (const key of keys) {
+        const value =
+            key === 'error'
+                ? preSerializedError ?? serializeError(rawError)
+                : safe?.[key];
+        if (value !== undefined && value !== null) entries.push([key, value]);
+    }
+    return { entries, dropped };
+}
+
+// The scope object is frozen and shared by every record of one scope.
+const preparedScopes = new WeakMap();
+
+function prepareScope(scope, dropPayloads) {
+    if (!scope || typeof scope !== 'object') return { entries: [], dropped: [] };
+    let byLevel = preparedScopes.get(scope);
+    if (!byLevel) {
+        byLevel = {};
+        preparedScopes.set(scope, byLevel);
+    }
+    const slot = dropPayloads ? 'info' : 'debug';
+    if (!byLevel[slot]) byLevel[slot] = prepareSource(scope, dropPayloads);
+    return byLevel[slot];
+}
+
 function buildRecord({
     level,
     logger,
@@ -135,10 +156,11 @@ function buildRecord({
     const dropPayloads = LEVELS[level] >= LEVELS.INFO;
     // log.error('msg', err): own props of an Error (axios config, request) must not become fields.
     const callSite = readFields(isError(fields) ? { error: fields } : fields);
+    const built = buildMessage(message, callSite);
     const record = {
         timestamp: now.toISOString(),
         level,
-        message: buildMessage(message, callSite),
+        message: built.text,
         logger: typeof logger === 'string' && logger ? logger : DEFAULT_LOGGER_NAME,
     };
     for (const key of RESOURCE_KEYS) {
@@ -150,52 +172,37 @@ function buildRecord({
 
     const dropped = new Set();
     const callSiteKeys = [];
-    const place = (source, isCallSite) => {
-        const accepted = {};
-        for (const [key, value] of Object.entries(source)) {
-            if (value === undefined || value === null) continue;
-            if (
-                OWNED_KEYS.has(key) ||
-                RESERVED_KEYS.has(key) ||
-                (dropPayloads && PAYLOAD_KEYS.has(key)) ||
-                (Object.prototype.hasOwnProperty.call(record, key) &&
-                    !canExtendInvocation(key, value))
-            ) {
-                dropped.add(key);
-                continue;
-            }
-            accepted[key] = value;
-        }
-        // One pass over the object, so key rules (denied keys, digests,
-        // headers, OAuth shapes) apply to top-level fields too.
-        const safe = serializeValue(accepted);
-        for (const key of Object.keys(accepted)) {
-            const value =
-                key === 'error' ? serializeError(accepted[key]) : safe?.[key];
-            if (value === undefined || value === null) continue;
-            if (key === INVOCATION_KEY && isPlainObject(record[key])) {
-                record[key] = extendInvocation(record[key], value, dropped);
+    const place = ({ entries, dropped: droppedHere }, isCallSite) => {
+        for (const key of droppedHere) dropped.add(key);
+        for (const [key, value] of entries) {
+            if (Object.prototype.hasOwnProperty.call(record, key)) {
+                if (
+                    key === INVOCATION_KEY &&
+                    isPlainObject(record[key]) &&
+                    isPlainObject(value)
+                ) {
+                    record[key] = extendInvocation(record[key], value);
+                } else {
+                    dropped.add(key);
+                }
                 continue;
             }
             record[key] = value;
             if (isCallSite) callSiteKeys.push(key);
         }
     };
-    const canExtendInvocation = (key, value) =>
-        key === INVOCATION_KEY &&
-        isPlainObject(record[key]) &&
-        isPlainObject(value);
-    place(readFields(scope), false);
-    place(readFields(bindings), false);
-    place(callSite, true);
+    place(prepareScope(scope, dropPayloads), false);
+    place(prepareSource(bindings || {}, dropPayloads), false);
+    place(prepareSource(callSite, dropPayloads, built.error), true);
 
-    const measure = () => {
+    const setDroppedKeys = () => {
         delete record[DROPPED_KEYS_FIELD];
         if (dropped.size) record[DROPPED_KEYS_FIELD] = [...dropped];
-        return byteLength(record);
     };
+    setDroppedKeys();
+    let size = byteLength(record);
 
-    if (measure() > MAX_RECORD_BYTES) {
+    if (size > MAX_RECORD_BYTES) {
         const bySize = callSiteKeys
             .filter((key) => key !== 'error')
             .map((key) => [key, Buffer.byteLength(JSON.stringify(record[key]))])
@@ -203,27 +210,30 @@ function buildRecord({
         for (const [key] of bySize) {
             delete record[key];
             dropped.add(key);
-            if (measure() <= MAX_RECORD_BYTES) break;
+            setDroppedKeys();
+            size = byteLength(record);
+            if (size <= MAX_RECORD_BYTES) break;
         }
     }
     for (const part of ['stack', 'cause']) {
         if (
+            size > MAX_RECORD_BYTES &&
             record.error &&
             typeof record.error === 'object' &&
-            record.error[part] !== undefined &&
-            measure() > MAX_RECORD_BYTES
+            record.error[part] !== undefined
         ) {
             const { [part]: _removed, ...rest } = record.error;
             record.error = rest;
+            size = byteLength(record);
         }
     }
-    measure();
 
     return deepFreeze(record);
 }
 
 module.exports = {
     buildRecord,
+    deepFreeze,
     MAX_RECORD_BYTES,
     RESERVED_KEYS,
     PAYLOAD_KEYS,
