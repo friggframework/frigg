@@ -176,6 +176,24 @@ describe('logs/record', () => {
             expect(sink.records[0]).not.toHaveProperty('droppedKeys');
         });
 
+        it('drops a binding that repeats the scope value without listing it', () => {
+            runInContext({ integrationId: 'i-1', integrationType: 'hubspot', log: { requestId: 'r-1' } }, () => {
+                getLogger('integration.test')
+                    .child({ integrationId: 'i-1', integrationType: 'hubspot' })
+                    .info('x', { requestId: 'r-1' });
+            });
+            expect(sink.records[0]).toMatchObject({ integrationId: 'i-1', integrationType: 'hubspot', requestId: 'r-1' });
+            expect(sink.records[0]).not.toHaveProperty('droppedKeys');
+        });
+
+        it('still lists a binding that conflicts with the scope value', () => {
+            runInContext({ integrationId: 'i-1' }, () => {
+                getLogger('integration.test').child({ integrationId: 'i-2', userId: 'u-1' }).info('x');
+            });
+            expect(sink.records[0]).toMatchObject({ integrationId: 'i-1', userId: 'u-1' });
+            expect(sink.records[0].droppedKeys).toEqual(['integrationId']);
+        });
+
         it('keeps a child requestId when no scope sets one', () => {
             getLogger('integration.test').child({ requestId: 'r-child' }).info('x');
             expect(sink.records[0].requestId).toBe('r-child');

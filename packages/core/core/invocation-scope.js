@@ -128,9 +128,19 @@ async function flushInvocation({
     flushTimeoutMs,
     context,
 }) {
-    // ADR-048 §11: usage first and unbounded, then one deadline for the rest.
-    await flushUsageRollup(usageRollup, eventSummary, shouldUseDatabase);
+    // ADR-048 §11: the deadline is fixed at flush start. The usage rollup
+    // emits no telemetry, so it runs in parallel with no bound of its own.
+    const deadline = Math.min(
+        flushTimeoutMs,
+        remainingTimeMs(context) - FLUSH_MARGIN_MS
+    );
+    await Promise.all([
+        flushUsageRollup(usageRollup, eventSummary, shouldUseDatabase),
+        flushBounded(telemetry, deadline),
+    ]);
+}
 
+function flushBounded(telemetry, deadline) {
     const flushes = [];
     if (isTelemetryEnabled(telemetry)) {
         flushes.push((signal) => flushTelemetry(telemetry, { signal }));
@@ -138,14 +148,8 @@ async function flushInvocation({
     if (hasFlushableSinks()) {
         flushes.push((signal) => flushSinks({ signal }));
     }
-    if (!flushes.length) return;
-
-    const deadline = Math.min(
-        flushTimeoutMs,
-        remainingTimeMs(context) - FLUSH_MARGIN_MS
-    );
-    if (!(deadline > 0)) return;
-    await withDeadline(deadline, (signal) =>
+    if (!flushes.length || !(deadline > 0)) return undefined;
+    return withDeadline(deadline, (signal) =>
         Promise.allSettled(flushes.map((flush) => flush(signal)))
     );
 }

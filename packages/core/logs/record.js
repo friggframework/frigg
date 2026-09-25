@@ -84,6 +84,15 @@ function traceFields(spanContext) {
     };
 }
 
+function sameValue(a, b) {
+    if (a === b) return true;
+    return (
+        typeof a === 'object' &&
+        typeof b === 'object' &&
+        JSON.stringify(a) === JSON.stringify(b)
+    );
+}
+
 function byteLength(record) {
     return Buffer.byteLength(JSON.stringify(record));
 }
@@ -182,7 +191,8 @@ function buildRecord({
                     isPlainObject(value)
                 ) {
                     record[key] = extendInvocation(record[key], value);
-                } else {
+                } else if (!sameValue(record[key], value)) {
+                    // A repeat of the winning value is no conflict.
                     dropped.add(key);
                 }
                 continue;

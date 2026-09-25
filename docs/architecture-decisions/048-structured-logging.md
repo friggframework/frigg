@@ -434,13 +434,13 @@ logging: { level: 'INFO', sinks: [datadog] },
   runs at a time, and it sends every buffered record.
 - **Flush.** `runInvocationScope` flushes in its `finally`. PR A moves
   `flushTelemetry` and `flushUsageRollup` there (`create-handler.js:240-247`).
-  The usage rollup runs first, with no bound (`create-handler.js:26-58`).
-  This reverses today's order, which flushes telemetry first
-  (`create-handler.js:242-247`). Then telemetry and all sinks run in parallel
-  against one deadline: `flushTimeoutMs` (`create-handler.js:139`), with
-  `OTEL_FLUSH_TIMEOUT_MS` or 500 ms as its default (`:14-18`). The deadline
-  never passes the remaining invocation time. With no destination sink, the
-  flush adds no wait.
+  Telemetry and all sinks run in parallel against one deadline:
+  `flushTimeoutMs` (`create-handler.js:139`), with `OTEL_FLUSH_TIMEOUT_MS` or
+  500 ms as its default (`:14-18`). Core computes the deadline when the flush
+  starts, and it never passes the remaining invocation time. The usage rollup
+  (`create-handler.js:26-58`) emits no telemetry, so it runs in parallel with
+  the bounded telemetry and sink flush, with no bound of its own. With no
+  destination sink, the flush adds no wait.
 - **Deadline.** At the deadline, core aborts `send` through the
   `AbortSignal`, drops the unsent batch and counts it. It never retries the
   batch in a later invocation. A late rejection never becomes an unhandled
@@ -769,7 +769,6 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
 | The OAuth2 "Token refresh failed" line moves from `console.error` to `DEBUG` | `FRIGG_LOG_LEVEL=DEBUG` |
 | `appDefinition.logging.format` accepts only `json` in the schema | Remove `format` |
 | `database/config.js` no longer exports the unused `PRISMA_QUERY_LOGGING` | None |
-| `createHandler` flushes the usage rollup before telemetry, the reverse of today's order (§11) | None |
 
 Two changes arrive later, when their areas adopt the logger (§13): admin
 logs persist redacted (`005:68`), and the Prisma error text changes

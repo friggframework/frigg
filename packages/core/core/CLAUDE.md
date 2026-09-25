@@ -158,8 +158,9 @@ class MyIntegration extends Delegate {
 
 5. **Flush** (in `runInvocationScope`'s `finally`):
    ```javascript
-   // Usage rollup first (unbounded), then telemetry + log sinks in parallel
-   // under one deadline: min(flushTimeoutMs, remaining time - 50 ms).
+   // Telemetry + log sinks under one deadline, fixed at flush start:
+   // min(flushTimeoutMs, remaining time - 50 ms). The usage rollup runs in
+   // parallel with no bound of its own.
    ```
 
 ### SQS Job Processing Lifecycle

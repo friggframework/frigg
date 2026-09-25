@@ -66,28 +66,62 @@ describe('core/invocation-scope', () => {
         await expect(runInvocationScope(undefined, async () => 'ok')).resolves.toBe('ok');
     });
 
-    it('runs the usage rollup first, then telemetry and sinks in parallel', async () => {
-        const order = [];
-        let releaseTelemetry;
+    it('runs the usage rollup in parallel with telemetry and sinks: all start before any finishes', async () => {
+        const started = [];
+        const finished = [];
+        const startedBeforeFirstFinish = [];
+        const gate = (name) => new Promise((resolve) => {
+            started.push(name);
+            setTimeout(() => {
+                if (!finished.length) startedBeforeFirstFinish.push(...started);
+                finished.push(name);
+                resolve();
+            }, 5);
+        });
+        const usageRollup = { flush: jest.fn(() => gate('usage')), discard: jest.fn() };
+        const telemetry = enabledTelemetry(() => gate('telemetry'));
+        setSinks([sink, flushingSink(() => gate('sink'))]);
+
+        await runInvocationScope({}, async () => 'ok', { telemetry, usageRollup, flushTimeoutMs: 1000 });
+        expect(startedBeforeFirstFinish.sort()).toEqual(['sink', 'telemetry', 'usage']);
+        expect(finished).toHaveLength(3);
+    });
+
+    it('still flushes telemetry when the usage rollup outlasts the remaining time', async () => {
+        const forceFlush = jest.fn(async () => {});
+        let remaining = 300;
         const usageRollup = {
             flush: jest.fn(async () => {
-                await tick();
-                order.push('usage');
+                await new Promise((resolve) => setTimeout(resolve, 30));
+                remaining = 0;
             }),
             discard: jest.fn(),
         };
-        const telemetry = enabledTelemetry(() => new Promise((resolve) => {
-            order.push('telemetry:start');
-            releaseTelemetry = () => { order.push('telemetry:end'); resolve(); };
-        }));
-        setSinks([sink, flushingSink(async () => {
-            order.push('sink:start');
-            await tick();
-            releaseTelemetry();
-        })]);
+        await runInvocationScope({}, async () => 'ok', {
+            telemetry: enabledTelemetry(forceFlush),
+            usageRollup,
+            flushTimeoutMs: 100,
+            context: { getRemainingTimeInMillis: () => remaining },
+        });
+        expect(usageRollup.flush).toHaveBeenCalledTimes(1);
+        expect(forceFlush).toHaveBeenCalledTimes(1);
+    });
 
-        await runInvocationScope({}, async () => 'ok', { telemetry, usageRollup, flushTimeoutMs: 1000 });
-        expect(order).toEqual(['usage', 'telemetry:start', 'sink:start', 'telemetry:end']);
+    it('waits for a usage rollup that takes longer than the deadline', async () => {
+        let usageDone = false;
+        const usageRollup = {
+            flush: async () => {
+                await new Promise((resolve) => setTimeout(resolve, 60));
+                usageDone = true;
+            },
+            discard() {},
+        };
+        await runInvocationScope({}, async () => 'ok', {
+            telemetry: enabledTelemetry(async () => {}),
+            usageRollup,
+            flushTimeoutMs: 10,
+        });
+        expect(usageDone).toBe(true);
     });
 
     it('lets a forceFlush that resolves after 30 ms complete under flushTimeoutMs 100', async () => {
