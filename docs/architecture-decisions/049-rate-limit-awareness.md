@@ -117,6 +117,10 @@ waits in process for a short wait. For a long wait it throws a typed error with
 `retryAt`. The queue worker defers the message to `retryAt` instead of spending
 a delivery. #653 stays the fallback when no hint exists.
 
+The [appendix](#appendix-code-sketches) shows code sketches for each part.
+They are illustrative. The implementation PRs can change names and
+signatures.
+
 ### 1. The API-module contract
 
 An API module can declare a static policy. All fields are optional.
@@ -347,3 +351,275 @@ cannot buy.
    integration instead of scheduling it?
 8. Is the message shape a schema change, or a JSON body in the existing
    message field? Who owns the hint text and its translation?
+
+## Appendix: Code Sketches
+
+These sketches show the proposed API. They are illustrative, not final.
+
+### A.1 API module: headers and a body reason (HubSpot-style)
+
+The 10-second window comes from the provider docs. The body tells which
+limit was hit, so `classify()` turns a daily limit into a wait until the
+reset.
+
+```js
+class Api extends OAuth2Requester {
+    static rateLimit = {
+        scope: 'entity',                                  // one portal, one budget
+        windows: [{ name: 'burst', limit: 110, perMs: 10_000 }],
+        maxConcurrency: 10,
+        parsers: ['retryAfter', 'resetHeaders'],          // built-ins, tried in order
+
+        classify({ status, body }) {
+            if (status !== 429) return null;
+            if (body?.policyName === 'DAILY') {
+                return { reason: 'daily', retryAt: nextMidnight('UTC'), source: 'body' };
+            }
+            return { reason: 'burst', waitMs: 10_000, policy: body?.policyName, source: 'body' };
+        },
+
+        userHints: {
+            daily: {
+                links: [{
+                    label: 'API usage limits',
+                    url: 'https://developers.hubspot.com/docs/developer-tooling/platform/usage-guidelines',
+                }],
+            },
+        },
+    };
+}
+```
+
+### A.2 API module: limits only in the docs (QuickBooks-style)
+
+The response says nothing useful, but the docs say "wait 60 seconds". That
+value becomes a minimum for every wait.
+
+```js
+class Api extends OAuth2Requester {
+    static rateLimit = {
+        scope: 'entity',                                  // one company file (realm)
+        windows: [
+            { name: 'burst', limit: 10, perMs: 1_000 },
+            { name: 'burst', limit: 500, perMs: 60_000 },
+        ],
+        maxConcurrency: 10,
+        minRetryAfterMs: 60_000,
+    };
+}
+```
+
+### A.3 API module: a client that is not the Requester (Salesforce on jsforce)
+
+Salesforce signals its 24-hour limit with a 403. Today the queue worker halts
+that error at once. The module calls the exported classifier around its own
+client. The response has no reset time, so the policy sets a probe interval.
+
+```js
+const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
+
+class Api extends OAuth2Requester {
+    static rateLimit = {
+        scope: 'entity',                                  // one org, one 24 h budget
+        windows: [{ name: 'daily', rollingMs: 24 * 60 * 60_000 }],
+        classify({ body }) {
+            if (body?.errorCode !== 'REQUEST_LIMIT_EXCEEDED') return null;
+            return { reason: 'daily', waitMs: 60 * 60_000, source: 'static' };
+        },
+    };
+
+    async withLimits(call) {
+        try {
+            return await call();
+        } catch (err) {
+            const hint = classifyRateLimit(Api.rateLimit, {
+                status: err.statusCode,
+                body: { errorCode: err.errorCode },
+                headers: {},
+            });
+            if (!hint) throw err;
+            throw new RateLimitError({ hint, module: this.name, cause: err });
+        }
+    }
+
+    query(soql) {
+        return this.withLimits(() => this.conn.query(soql));
+    }
+}
+```
+
+### A.4 API module: declares nothing
+
+No change: the same calls, the same fixed backoff, the same redelivery.
+
+```js
+class Api extends ApiKeyRequester {
+    static requestTimeoutMs = 30_000;
+    // no rateLimit: backOff [1, 3, 10, 30, 60, 180] s, then SQS redelivery, as today
+}
+```
+
+### A.5 Requester: the throttled branch
+
+This branch replaces the fixed ladder at `requester.js:276-284`.
+
+```js
+const policy = this.constructor.rateLimit;
+
+if (isThrottled(response, policy)) {                  // 429, or classify() returns a hint
+    const hint = await resolveRateLimitHint(policy, response, {
+        attempt,
+        backOff: this.backOff,
+        now: Date.now(),
+    });                                               // classify → parsers → policy → backOff
+    const waitMs = Math.max(hint.waitMs, policy?.minRetryAfterMs ?? 0) + jitter(hint.waitMs);
+
+    if (waitMs <= inProcessBudgetMs(policy, this.requestTimeoutMs) && attempt < this.backOff.length) {
+        clearRequestTimer();
+        await sleep(waitMs);
+        return this._rawRequest(url, options, attempt + 1);
+    }
+
+    throw await RateLimitError.create({
+        resource: encodedUrl,
+        init: options,
+        response,
+        hint,
+        module: this.name,
+    });
+}
+```
+
+### A.6 Requester: a built-in parser and the budget
+
+```js
+function parseRetryAfter(value, now = Date.now()) {
+    if (!value) return null;
+    const seconds = Number(value);
+    if (Number.isFinite(seconds)) {
+        return { waitMs: seconds * 1000, source: 'header' };
+    }
+    const at = Date.parse(value);                     // HTTP-date or ISO timestamp
+    if (Number.isNaN(at)) return null;
+    return { retryAt: new Date(at), waitMs: Math.max(0, at - now), source: 'header' };
+}
+
+function inProcessBudgetMs(policy, requestTimeoutMs) {
+    const left = invocationDeadline() - Date.now() - requestTimeoutMs; // set by Worker.run
+    return Math.min(policy?.maxInProcessWaitMs ?? 60_000, left);
+}
+```
+
+### A.7 `RateLimitError`
+
+```js
+class RateLimitError extends FetchError {
+    constructor({ hint, module, ...fetchErrorArgs }) {
+        super(fetchErrorArgs);
+        this.name = 'RateLimitError';
+        this.isRateLimited = true;
+        this.retryAt = hint.retryAt ?? new Date(Date.now() + hint.waitMs);
+        this.reason = hint.reason;                    // burst | daily | monthly | concurrency
+        this.policy = hint.policy;
+        this.source = hint.source;                    // header | body | static | backoff
+        this.module = module;
+    }
+}
+```
+
+### A.8 Queue worker: the halt rule
+
+```js
+const status = error.statusCode;
+if (
+    status && status >= 400 && status < 500 &&
+    status !== 408 && status !== 429 &&
+    !error.isRateLimited                              // new: a 403 limit is not a halt
+) {
+    error.isHaltError = true;
+}
+```
+
+### A.9 Queue worker: defer in `Worker.run`
+
+A deferred record counts as handled, so SQS does not count a failed receive.
+The worker sends first and acknowledges after. If the Lambda stops between
+the two, SQS delivers the original again, so delivery stays at least once.
+
+```js
+// inside run(), per record
+} catch (error) {
+    const outcome = error.isRateLimited ? await this.defer(record, error) : null;
+    if (outcome === 'acked') continue;                // re-sent or scheduled
+    if (outcome !== 'failed' && error.isHaltError) continue;
+    batchItemFailures.push({ itemIdentifier: record.messageId });
+}
+
+async defer(record, error) {
+    const body = JSON.parse(record.body);
+    const deferrals = (body._frigg?.deferrals ?? 0) + 1;
+    const waitMs = error.retryAt.getTime() - Date.now();
+    if (deferrals > MAX_DEFERRALS || waitMs > MAX_DEFERRED_MS) return null;   // rethrow path, #653
+
+    const next = { ...body, _frigg: { ...body._frigg, deferrals } };
+    await recordRateLimitWait(body.data?.processId, error, deferrals);         // context.rateLimit
+
+    if (waitMs <= 900_000) {
+        await this.send({ ...next, QueueUrl: this.queueUrl }, Math.ceil(waitMs / 1000));
+        return 'acked';
+    }
+    if (this.scheduler) {
+        await this.scheduler.scheduleOneTime({
+            scheduleName: `defer-${record.messageId}`,
+            scheduleAt: error.retryAt,
+            queueResourceId: this.queueArn,
+            payload: next,
+        });
+        return 'acked';
+    }
+    await this.changeVisibility(record, Math.min(waitMs, 12 * 60 * 60_000));
+    return 'failed';                                  // back at retryAt, one delivery used
+}
+```
+
+### A.10 Integration queue handler
+
+Nothing is required. The handler keeps rethrowing, and core defers. #653
+still covers failures that are not limits, and limits with no hint.
+
+```js
+async onSyncPage({ data, delivery }) {
+    try {
+        await this.syncPage(data);
+    } catch (error) {
+        if (error.isRateLimited) throw error;         // core defers it to retryAt
+        if (delivery?.isLastAttempt) {                // friggframework/frigg#653
+            return this.failRun(data.processId, error);
+        }
+        throw error;
+    }
+}
+```
+
+### A.11 `RATE_LIMITED` message for a UI
+
+The UI shows `retryAt` in the user's local time, for example "Limit reached.
+The next refresh is at 20:00 your time. We continue then."
+
+```json
+{
+  "code": "RATE_LIMITED",
+  "module": "hubspot",
+  "reason": "daily",
+  "retryAt": "2026-09-26T23:00:00Z",
+  "scheduled": true,
+  "actions": [
+    { "type": "RETRY_WHEN_READY" },
+    {
+      "type": "LINK",
+      "label": "API usage limits",
+      "url": "https://developers.hubspot.com/docs/developer-tooling/platform/usage-guidelines"
+    }
+  ]
+}
+```
