@@ -1094,7 +1094,7 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     email: 'new@example.com',
                 })
             ).rejects.toThrow(
-                'Failed to update individual user: Document not found after update. ' +
+                `Failed to update individual user: Document not found after update (userId ${fromObjectId(testUserId)}). ` +
                     'This indicates a database consistency issue.'
             );
 
@@ -1129,7 +1129,7 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                     name: 'Updated Name',
                 })
             ).rejects.toThrow(
-                'Failed to update organization user: Document not found after update. ' +
+                `Failed to update organization user: Document not found after update (userId ${fromObjectId(testUserId)}). ` +
                     'This indicates a database consistency issue.'
             );
 
@@ -1164,7 +1164,7 @@ describe('UserRepositoryDocumentDB - Encryption Integration', () => {
                 .catch((e) => e);
 
             expect(error.message).toBe(
-                'Failed to update individual user: Document not found after update. ' +
+                `Failed to update individual user: Document not found after update (userId ${fromObjectId(testUserId)}). ` +
                     'This indicates a database consistency issue.'
             );
             expect(sink.records).toContainNoSecretWindow(SECRETS);

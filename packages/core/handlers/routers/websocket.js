@@ -1,5 +1,5 @@
 const { createHandler } = require('@friggframework/core');
-const { createWebsocketConnectionRepository } = require('../../database/websocket-connection-repository-factory');
+const { createWebsocketConnectionRepository } = require('../../websocket/repositories/websocket-connection-repository-factory');
 const { getLogger } = require('../../logs');
 
 const log = getLogger('frigg.websocket');

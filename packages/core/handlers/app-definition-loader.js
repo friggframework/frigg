@@ -2,8 +2,7 @@ const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const path = require('node:path');
 const fs = require('fs-extra');
 const { resolveTelemetryConfig } = require('../telemetry/telemetry-config');
-const { addDeniedKeys } = require('../logs/redact');
-const { getLogger } = require('../logs');
+const { registerDeniedKeys } = require('../logs/denied-keys');
 const {
     extractCredentialFieldsFromModules,
 } = require('../database/encryption/encryption-schema-registry');
@@ -13,32 +12,18 @@ const {
 
 // Handlers without a database never load the encryption registry, so the
 // credential leaf keys are registered for redaction here too.
-const warnedIgnoredKeys = new Set();
-
-function warnIgnoredKeys(ignored) {
-    for (const key of ignored) {
-        if (warnedIgnoredKeys.has(key)) continue;
-        warnedIgnoredKeys.add(key);
-        getLogger('frigg.logger').warn(
-            'Credential field name is a record field; it stays visible in logs',
-            { eventName: 'frigg.logger.denied_key_ignored', key }
-        );
-    }
-}
-
 function registerCredentialLogKeys(appDefinition, integrations) {
     try {
-        const fields = extractCredentialFieldsFromModules(
+        extractCredentialFieldsFromModules(
             getModulesDefinitionFromIntegrationClasses(integrations)
         );
-        warnIgnoredKeys(addDeniedKeys(fields));
     } catch {
         // An odd integration shape must not stop the app from loading.
     }
     const schema = appDefinition.encryption?.schema;
     if (schema && typeof schema === 'object') {
         for (const config of Object.values(schema)) {
-            warnIgnoredKeys(addDeniedKeys(config?.fields));
+            registerDeniedKeys(config?.fields);
         }
     }
 }

@@ -341,6 +341,25 @@ describe('encryption registry hooks', () => {
         expect(isDeniedKey('bankRoutingPin')).toBe(true);
     });
 
+    it('registerCustomSchema warns for a record-contract field name', () => {
+        const { createMemorySink } = require('./sinks');
+        const sink = createMemorySink();
+
+        registry.registerCustomSchema({
+            Credential: { fields: ['data.message_id'] },
+        });
+        registry.extractCredentialFieldsFromModules([
+            { encryption: { credentialFields: ['process_id'] } },
+        ]);
+
+        expect(
+            sink.records
+                .filter((r) => r.eventName === 'frigg.logger.denied_key_ignored')
+                .map((r) => r.key)
+        ).toEqual(['message_id', 'process_id']);
+        expect(isDeniedKey('messageId')).toBe(false);
+    });
+
     it('extractCredentialFieldsFromModules adds module credential leaves', () => {
         expect(isDeniedKey('vendorPinCode')).toBe(false);
         registry.extractCredentialFieldsFromModules([

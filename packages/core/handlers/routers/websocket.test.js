@@ -6,12 +6,9 @@ const mockRepository = {
     createConnection: jest.fn(),
     deleteConnection: jest.fn(),
 };
-// websocket.js requires this path, which does not exist (the factory lives
-// in websocket/repositories/), so the mock must be virtual.
 jest.mock(
-    '../../database/websocket-connection-repository-factory',
-    () => ({ createWebsocketConnectionRepository: () => mockRepository }),
-    { virtual: true }
+    '../../websocket/repositories/websocket-connection-repository-factory',
+    () => ({ createWebsocketConnectionRepository: () => mockRepository })
 );
 
 const { handler } = require('./websocket');
