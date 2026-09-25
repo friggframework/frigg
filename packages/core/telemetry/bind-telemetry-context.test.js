@@ -10,6 +10,11 @@ function baseSpy() {
         on: jest.fn(() => () => {}),
         forceFlush: jest.fn(),
         isEnabled: jest.fn(() => true),
+        getActiveSpanContext: jest.fn(() => ({
+            traceId: 't',
+            spanId: 's',
+            traceFlags: 1,
+        })),
     };
 }
 
@@ -74,6 +79,24 @@ describe('bindTelemetryContext', () => {
         expect(base.on).toHaveBeenCalledWith('metric', expect.any(Function));
         expect(base.forceFlush).toHaveBeenCalled();
         expect(bound.isEnabled()).toBe(true);
+    });
+
+    it('delegates getActiveSpanContext to the base', () => {
+        const base = baseSpy();
+        const bound = bindTelemetryContext(base, () => ({}));
+        expect(bound.getActiveSpanContext()).toEqual({
+            traceId: 't',
+            spanId: 's',
+            traceFlags: 1,
+        });
+        expect(base.getActiveSpanContext).toHaveBeenCalled();
+    });
+
+    it('returns null from getActiveSpanContext when the base lacks it', () => {
+        const base = baseSpy();
+        delete base.getActiveSpanContext;
+        const bound = bindTelemetryContext(base, () => ({}));
+        expect(bound.getActiveSpanContext()).toBeNull();
     });
 
     it('returns a falsy base unchanged', () => {

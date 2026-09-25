@@ -11,6 +11,7 @@ const {
     Worker,
     loadInstalledModules,
     createHandler,
+    runInvocationScope,
 } = require('./core/index');
 const {
     prisma,
@@ -78,7 +79,17 @@ const {
 } = require('./telemetry/index');
 const { createUsageRepository } = require('./usage/index');
 const { TimeoutCatcher } = require('./lambda/index');
-const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
+const {
+    getLogger,
+    createMemorySink,
+    resetLoggerForTests,
+    serializeError,
+    redactValue,
+    toSanitizedSurrogate,
+    debug,
+    initDebugLog,
+    flushDebugLog,
+} = require('./logs/index');
 const {
     Credential,
     Entity,
@@ -108,6 +119,7 @@ module.exports = {
     Worker,
     loadInstalledModules,
     createHandler,
+    runInvocationScope,
 
     // database
     prisma,
@@ -175,6 +187,12 @@ module.exports = {
     TimeoutCatcher,
 
     // logs
+    getLogger,
+    createMemorySink,
+    resetLoggerForTests,
+    serializeError,
+    redactValue,
+    toSanitizedSurrogate,
     debug,
     initDebugLog,
     flushDebugLog,

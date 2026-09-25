@@ -7,6 +7,7 @@
 
 const { createTelemetry } = require('./telemetry-service');
 const { NoOpTelemetry } = require('./no-op-telemetry');
+const loggerRuntime = require('../logs/logger-runtime');
 
 const UNSET = Symbol('unset');
 
@@ -21,12 +22,27 @@ function loadTelemetryConfig() {
     return loadAppDefinition();
 }
 
+function activeSpanContext() {
+    const telemetry = state.telemetry;
+    return telemetry && typeof telemetry.getActiveSpanContext === 'function'
+        ? telemetry.getActiveSpanContext()
+        : null;
+}
+
+// resetLoggerForTests clears the provider, so check on every call.
+function ensureSpanContextProvider() {
+    if (loggerRuntime.getSpanContextProvider() !== activeSpanContext) {
+        loggerRuntime.setSpanContextProvider(activeSpanContext);
+    }
+}
+
 /**
  * The process telemetry service. Created lazily on first use and reused for the
  * life of the Lambda container, so the OTel SDK initialises at most once per cold
  * start. Never throws — any failure falls back to the no-op.
  */
 function getTelemetry() {
+    ensureSpanContextProvider();
     if (state.telemetry) return state.telemetry;
     try {
         const { telemetry = {} } = loadTelemetryConfig();
@@ -136,6 +152,7 @@ function resetTelemetryRuntimeForTests() {
 function setTelemetryForTests(telemetry) {
     state = newState();
     state.telemetry = telemetry;
+    ensureSpanContextProvider();
 }
 
 module.exports = {

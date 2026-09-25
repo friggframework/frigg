@@ -2,7 +2,6 @@ jest.mock('../../database/config', () => ({
     DB_TYPE: 'mongodb',
     getDatabaseType: jest.fn(() => 'mongodb'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 jest.mock('../app-definition-loader', () => {
@@ -51,6 +50,34 @@ jest.mock('../app-definition-loader', () => {
         }
     }
 
+    class LoggingWebhookIntegration extends IntegrationBase {
+        static Definition = {
+            name: 'logging-webhook',
+            version: '1.0.0',
+            modules: {},
+            webhooks: true,
+        };
+
+        constructor(params) {
+            super(params);
+            this.events = {
+                WEBHOOK_RECEIVED: {
+                    handler: async ({ req, res }) => {
+                        const { mergeTelemetryContext } = require('../../telemetry/telemetry-context');
+                        global.__webhookBusContext = mergeTelemetryContext();
+                        this.logger.info('Webhook received', { eventName: 'integration.logging-webhook.received' });
+                        if (req.params.integrationId) {
+                            this.setIntegrationRecord?.({ record: { id: req.params.integrationId, userId: 'u-1' } });
+                            this.id = req.params.integrationId;
+                            this.logger.info('Webhook hydrated', { eventName: 'integration.logging-webhook.hydrated' });
+                        }
+                        res.status(200).json({ ok: true });
+                    },
+                },
+            };
+        }
+    }
+
     class NoWebhookIntegration extends IntegrationBase {
         static Definition = {
             name: 'no-webhook',
@@ -64,6 +91,7 @@ jest.mock('../app-definition-loader', () => {
             integrations: [
                 WebhookEnabledIntegration,
                 AdvancedWebhookIntegration,
+                LoggingWebhookIntegration,
                 NoWebhookIntegration,
             ],
         }),
@@ -122,5 +150,49 @@ describe('Integration Webhook Routers', () => {
             expect(handlers['no-webhookWebhook']).toBeUndefined();
         });
     });
-});
 
+    describe('logger scope (ADR-048)', () => {
+        const invoke = (path) =>
+            handlers['logging-webhookWebhook'].handler(
+                {
+                    version: '2.0',
+                    routeKey: 'POST /api/logging-webhook-integration/webhooks/{proxy+}',
+                    rawPath: path,
+                    rawQueryString: '',
+                    headers: { 'content-type': 'application/json' },
+                    requestContext: { http: { method: 'POST', path }, requestId: 'r' },
+                    body: '{}',
+                    isBase64Encoded: false,
+                },
+                { awsRequestId: 'req-hook' }
+            );
+
+        let sink;
+        beforeEach(() => {
+            sink = require('../../logs').createMemorySink();
+            delete global.__webhookBusContext;
+        });
+
+        it('puts the route integrationId on records, not on the telemetry bus', async () => {
+            const res = await invoke('/api/logging-webhook-integration/webhooks/int-777');
+            expect(res.statusCode).toBe(200);
+            const received = sink.records.find((r) => r.eventName === 'integration.logging-webhook.received');
+            expect(received).toMatchObject({ integrationId: 'int-777', requestId: 'req-hook' });
+            expect(global.__webhookBusContext?.integrationId ?? null).toBeNull();
+        });
+
+        it('adds no droppedKeys when the hydrated binding repeats the id', async () => {
+            await invoke('/api/logging-webhook-integration/webhooks/int-777');
+            const hydrated = sink.records.find((r) => r.eventName === 'integration.logging-webhook.hydrated');
+            expect(hydrated).toMatchObject({ integrationId: 'int-777' });
+            expect(hydrated).not.toHaveProperty('droppedKeys');
+        });
+
+        it('adds no integrationId on the route without an id', async () => {
+            await invoke('/api/logging-webhook-integration/webhooks');
+            const received = sink.records.find((r) => r.eventName === 'integration.logging-webhook.received');
+            expect(received).toBeDefined();
+            expect(received).not.toHaveProperty('integrationId');
+        });
+    });
+});

@@ -21,13 +21,13 @@ This file provides guidance to Claude Code when working with the Frigg Framework
 - **Database Connection Management**: Automatic MongoDB connection with pooling
 - **Secrets Management**: AWS Secrets Manager integration via `SECRET_ARN` env var
 - **Error Sanitization**: Prevents internal details from leaking to end users
-- **Debug Logging**: Request/response logging with structured debug info
+- **Invocation Scope**: `runInvocationScope` puts `requestId`, `route` and the redacted event summary on every record, then flushes usage, telemetry and sinks
 - **Connection Optimization**: `context.callbackWaitsForEmptyEventLoop = false` for reuse
 
 **Handler Configuration Options**:
 ```javascript
 const handler = createHandler({
-    eventName: 'MyIntegration',           // For logging/debugging
+    eventName: 'MyIntegration',           // Logged as handlerName
     isUserFacingResponse: true,           // true = sanitize errors, false = pass through
     method: async (event, context) => {}, // Your Lambda function logic
     shouldUseDatabase: true               // false = skip MongoDB connection
@@ -129,7 +129,8 @@ class MyIntegration extends Delegate {
 ### Lambda Handler Lifecycle
 1. **Pre-Execution Setup**:
    ```javascript
-   initDebugLog(eventName, event);           // Debug logging setup
+   runInvocationScope({ requestId, handlerName, method, route, invocation }, …); // Logger scope for the invocation
+   log.info('Handler invoked', { eventName: 'frigg.handler.invoked' });
    await secretsToEnv();                     // Secrets Manager injection
    await parametersToEnv();                  // SSM Parameter Store fetch (only when SSM_PARAMETER_PREFIX + FRIGG_SSM_OFFLOADED_KEYS are set)
    context.callbackWaitsForEmptyEventLoop = false; // Connection pooling
@@ -149,12 +150,21 @@ class MyIntegration extends Delegate {
 
 4. **Error Handling & Cleanup**:
    ```javascript
-   flushDebugLog(error);                    // Debug info flush on error
-   // Sanitized error response for user-facing endpoints
+   // One record at the boundary: WARN frigg.handler.rejected (client-safe),
+   // ERROR frigg.handler.failed, or ERROR frigg.handler.halted (halt, no retry).
+   // Sanitized error response for user-facing endpoints; server-to-server
+   // errors are rethrown as a sanitized surrogate (toSanitizedSurrogate).
+   ```
+
+5. **Flush** (in `runInvocationScope`'s `finally`):
+   ```javascript
+   // Telemetry + log sinks under one deadline, fixed at flush start:
+   // min(flushTimeoutMs, remaining time - 50 ms). The usage rollup runs in
+   // parallel with no bound of its own.
    ```
 
 ### SQS Job Processing Lifecycle
-1. **Batch Processing**: Process all records in `event.Records` sequentially
+1. **Batch Processing**: Process all records in `event.Records` sequentially, each inside `runMessageScope` (adds `messageId`, `receiveCount`, `processId`, `integrationId`, `integrationEvent` to its records)
 2. **Message Parsing**: JSON.parse message body for parameters  
 3. **Validation**: Run custom validation on parsed parameters
 4. **Execution**: Call `_run()` method with validated parameters
@@ -205,7 +215,9 @@ const handler = createHandler({
    - Logs full error details internally
 
 2. **Server-to-Server Errors**: `isUserFacingResponse: false`
-   - Re-throws original error for AWS handling
+   - Logs one ERROR, then rethrows a sanitized surrogate for AWS handling:
+     a fresh `Error` with the sanitized `name`, `message`, `stack`, plus
+     `statusCode` and `code`. `instanceof` checks and custom properties are gone
    - Used for SQS, SNS, and internal API calls
    - Enables proper retry mechanisms
 
@@ -214,12 +226,14 @@ const handler = createHandler({
    - Prevents infinite retries for known issues
    - Used for graceful degradation scenarios
 
-### Debug Logging Strategy
+### Logging Strategy
 ```javascript
-initDebugLog(eventName, event);  // Start logging context
-// ... your code ...
-flushDebugLog(error);           // Flush on error (includes full context)
+const { getLogger } = require('../logs');
+const log = getLogger('frigg.core.sync');
+log.info('Sync started', { eventName: 'frigg.core.sync.started', processId });
+// Throw with cause; the boundary logs the error one time.
 ```
+See `docs/guides/LOGGING.md`.
 
 ## Integration Development Patterns
 
@@ -646,7 +660,7 @@ describe('Health Handler', () => {
 const { createHandler } = require('@friggframework/core/core');
 
 const testHandler = createHandler({
-    isUserFacingResponse: false, // Get full errors in tests
+    isUserFacingResponse: false, // Rethrows a sanitized surrogate (name, message, statusCode, code; not the original instance)
     shouldUseDatabase: false,    // Mock/skip DB in tests
     method: yourTestMethod
 });

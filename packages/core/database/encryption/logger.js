@@ -17,9 +17,12 @@ class EncryptionLogger {
         this.minLevel = this._getMinLevel();
     }
 
+    // FRIGG_LOG_LEVEL also takes TRACE and FATAL (ADR-048); this logger has
+    // no such levels, so they map to its nearest ones.
     _getMinLevel() {
-        const level = process.env.FRIGG_LOG_LEVEL || 'INFO';
-        return LOG_LEVELS[level.toUpperCase()] ?? LOG_LEVELS.INFO;
+        const level = (process.env.FRIGG_LOG_LEVEL || 'INFO').trim().toUpperCase();
+        const mapped = { TRACE: 'DEBUG', FATAL: 'ERROR' }[level] ?? level;
+        return LOG_LEVELS[mapped] ?? LOG_LEVELS.INFO;
     }
 
     _shouldLog(level) {

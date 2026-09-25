@@ -277,5 +277,194 @@ describe('Worker - AWS SDK v3', () => {
             expect(worker._run).toHaveBeenCalledWith({ task: 'ok' }, {});
         });
     });
-});
 
+    describe('run() message scope (ADR-048 §7)', () => {
+        const { getLogger, createMemorySink } = require('../logs');
+        const { runInContext } = require('../logs/context');
+        const { HaltError } = require('../errors/halt-error');
+
+        const record = (messageId, receiveCount, data) => ({
+            messageId,
+            attributes: { ApproximateReceiveCount: receiveCount },
+            body: JSON.stringify({ event: 'PROCESS_BATCH', data }),
+        });
+
+        let sink;
+        const inside = () => sink.records.filter((r) => r.message === 'inside');
+        beforeEach(() => {
+            sink = createMemorySink();
+            jest.spyOn(console, 'log').mockImplementation(() => {});
+            jest.spyOn(console, 'warn').mockImplementation(() => {});
+            jest.spyOn(console, 'error').mockImplementation(() => {});
+        });
+        afterEach(() => jest.restoreAllMocks());
+
+        it('gives records inside _run the message ids from the SQS record and body', async () => {
+            worker._run = async () => getLogger('integration.test').info('inside');
+            await worker.run({
+                Records: [record('m-1', '2', { processId: 'p-1', integrationId: 'i-1' })],
+            });
+            expect(inside()[0]).toMatchObject({
+                messageId: 'm-1',
+                receiveCount: 2,
+                processId: 'p-1',
+                integrationId: 'i-1',
+                integrationEvent: 'PROCESS_BATCH',
+            });
+        });
+
+        it('opens one scope per record, with no leak across records', async () => {
+            worker._run = async () => getLogger('integration.test').info('inside');
+            await worker.run({
+                Records: [
+                    record('m-1', '1', { processId: 'p-1' }),
+                    { messageId: 'm-2', attributes: {}, body: JSON.stringify({ event: 'OTHER', data: {} }) },
+                ],
+            });
+            expect(inside()[0]).toMatchObject({ messageId: 'm-1', processId: 'p-1' });
+            expect(inside()[1]).toMatchObject({ messageId: 'm-2', integrationEvent: 'OTHER' });
+            expect(inside()[1]).not.toHaveProperty('processId');
+            expect(inside()[1]).not.toHaveProperty('receiveCount');
+        });
+
+        it('reads integrationId and processId from the message top level too', async () => {
+            await worker.run({
+                Records: [{
+                    messageId: 'm-top',
+                    attributes: { ApproximateReceiveCount: '1' },
+                    body: JSON.stringify({ event: 'FETCH_PERSON_PAGE', integrationId: 'i-top', processId: 'p-top', data: { page: 1 } }),
+                }],
+            });
+            const lifecycle = sink.records.filter((r) => r.eventName === 'frigg.worker.record_succeeded');
+            expect(lifecycle).toEqual([
+                expect.objectContaining({ integrationId: 'i-top', processId: 'p-top', integrationEvent: 'FETCH_PERSON_PAGE' }),
+            ]);
+        });
+
+        it('does not carry record 1 ids onto a record 2 that has none', async () => {
+            worker._run = async () => getLogger('integration.test').info('inside');
+            await worker.run({
+                Records: [
+                    record('m-1', '4', { processId: 'p-1', integrationId: 'i-1' }),
+                    { body: JSON.stringify({ data: {} }) },
+                ],
+            });
+            expect(inside()).toHaveLength(2);
+            for (const key of ['messageId', 'receiveCount', 'processId', 'integrationId', 'integrationEvent']) {
+                expect(inside()[1]).not.toHaveProperty(key);
+            }
+            expect(inside()[0]).toMatchObject({ messageId: 'm-1', receiveCount: 4 });
+        });
+
+        it('keeps the invocation scope (requestId survives)', async () => {
+            worker._run = async () => getLogger('integration.test').info('inside');
+            await runInContext({ log: { requestId: 'r-1' } }, () =>
+                worker.run({ Records: [record('m-1', '1', {})] })
+            );
+            expect(inside()[0]).toMatchObject({ requestId: 'r-1', messageId: 'm-1' });
+        });
+
+        it('keeps the halt and failure behaviour inside the scope', async () => {
+            worker._run = jest
+                .fn()
+                .mockRejectedValueOnce(new HaltError('stop'))
+                .mockRejectedValueOnce(new Error('boom'))
+                .mockResolvedValueOnce(undefined);
+            const result = await worker.run({
+                Records: [record('m-1', '1', {}), record('m-2', '1', {}), record('m-3', '1', {})],
+            });
+            expect(result).toEqual({ batchItemFailures: [{ itemIdentifier: 'm-2' }] });
+            expect(worker._run).toHaveBeenCalledTimes(3);
+        });
+    });
+
+    describe('run() failure records (ADR-048 §4)', () => {
+        const { createMemorySink } = require('../logs');
+        const { HaltError } = require('../errors/halt-error');
+        const { SECRETS } = require('../logs/__fixtures__/secrets');
+
+        const axiosError = () => {
+            const error = new Error(`Request failed: GET https://api.example.com/x?api_key=${SECRETS.apiKeyQuery}`);
+            error.name = 'AxiosError';
+            error.config = { headers: { Authorization: `Bearer ${SECRETS.bearer}` } };
+            error.request = { _header: `GET /x HTTP/1.1\r\nAuthorization: Bearer ${SECRETS.bearer}\r\n` };
+            error.response = { status: 401, data: { access_token: SECRETS.accessToken } };
+            return error;
+        };
+        const secrets = [SECRETS.apiKeyQuery, SECRETS.bearer, SECRETS.accessToken];
+        const body = JSON.stringify({ event: 'SYNC', data: {} });
+
+        let sink;
+        let spies;
+        beforeEach(() => {
+            sink = createMemorySink();
+            spies = ['log', 'warn', 'error'].map((m) => jest.spyOn(console, m).mockImplementation(() => {}));
+        });
+        afterEach(() => jest.restoreAllMocks());
+
+        const consoleText = () => JSON.stringify(spies.flatMap((spy) => spy.mock.calls), (_k, v) =>
+            v instanceof Error ? { message: v.message, stack: v.stack, ...v } : v);
+
+        it('writes one WARN frigg.worker.record_failed for a retried record and no raw error to console', async () => {
+            worker._run = jest.fn().mockRejectedValue(axiosError());
+            const result = await worker.run({ Records: [{ messageId: 'm-1', body, attributes: { ApproximateReceiveCount: '2' } }] });
+
+            expect(result).toEqual({ batchItemFailures: [{ itemIdentifier: 'm-1' }] });
+            const failed = sink.records.filter((r) => r.eventName === 'frigg.worker.record_failed');
+            expect(failed).toEqual([
+                expect.objectContaining({
+                    level: 'WARN',
+                    logger: 'frigg.worker',
+                    messageId: 'm-1',
+                    receiveCount: 2,
+                    error: expect.objectContaining({ type: 'AxiosError', status: 401 }),
+                }),
+            ]);
+            expect(sink.records).toContainNoSecretWindow(secrets);
+            expect(consoleText()).toContainNoSecretWindow(secrets);
+            expect(spies[2]).not.toHaveBeenCalled();
+        });
+
+        it('writes one ERROR frigg.worker.record_halted for a halt and no raw error to console', async () => {
+            const halt = new HaltError(`stop: Authorization: Bearer ${SECRETS.bearer}`);
+            worker._run = jest.fn().mockRejectedValue(halt);
+            const result = await worker.run({ Records: [{ messageId: 'm-2', body, attributes: {} }] });
+
+            expect(result).toEqual({ batchItemFailures: [] });
+            expect(sink.records.filter((r) => r.eventName === 'frigg.worker.record_halted')).toEqual([
+                expect.objectContaining({ level: 'ERROR', messageId: 'm-2', error: expect.objectContaining({ type: 'HaltError' }) }),
+            ]);
+            expect(sink.records).toContainNoSecretWindow([SECRETS.bearer]);
+            expect(consoleText()).toContainNoSecretWindow([SECRETS.bearer]);
+            expect(spies[1]).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('run() record lifecycle records', () => {
+        const { createMemorySink } = require('../logs');
+        let sink;
+        let logSpy;
+        beforeEach(() => {
+            sink = createMemorySink();
+            logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+        });
+        afterEach(() => jest.restoreAllMocks());
+
+        it('writes DEBUG record_started and record_succeeded with the scope ids, not console.log per record', async () => {
+            worker._run = jest.fn().mockResolvedValue(undefined);
+            await worker.run({
+                Records: [{ messageId: 'm-9', body: JSON.stringify({ event: 'SYNC', data: {} }), attributes: { ApproximateReceiveCount: '1' } }],
+            });
+            const lifecycle = sink.records.filter((r) => r.logger === 'frigg.worker');
+            expect(lifecycle.map((r) => [r.level, r.eventName])).toEqual([
+                ['DEBUG', 'frigg.worker.record_started'],
+                ['DEBUG', 'frigg.worker.record_succeeded'],
+            ]);
+            for (const record of lifecycle) {
+                expect(record).toMatchObject({ messageId: 'm-9', receiveCount: 1, integrationEvent: 'SYNC' });
+            }
+            const perRecord = logSpy.mock.calls.filter(([text]) => /record (begin|success)/.test(String(text)));
+            expect(perRecord).toEqual([]);
+        });
+    });
+});

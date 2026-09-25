@@ -299,14 +299,14 @@
                 "minLength": 32
               }
             },
-            "LOG_LEVEL": {
-              "value": "debug",
+            "FRIGG_LOG_LEVEL": {
+              "value": "DEBUG",
               "required": false,
-              "description": "Application log level",
+              "description": "Minimum log level (ADR-048)",
               "validation": {
-                "enum": ["error", "warn", "info", "debug", "trace"]
+                "enum": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
               },
-              "defaultValue": "info"
+              "defaultValue": "INFO"
             }
           },
           "integrations": {

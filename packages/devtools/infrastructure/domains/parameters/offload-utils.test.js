@@ -190,4 +190,17 @@ describe('offload-utils', () => {
             expect(FRAMEWORK_ENV_BLOCKLIST.has(key)).toBe(true);
         }
     });
+
+    it('blocklist covers the logger keys read at INIT (ADR-048)', () => {
+        for (const key of [
+            'FRIGG_LOG_LEVEL',
+            'AWS_LAMBDA_LOG_LEVEL',
+            'AWS_LAMBDA_LOG_FORMAT',
+            'OTEL_FLUSH_TIMEOUT_MS',
+            'DEBUG_VERBOSE',
+            'PRISMA_LOG_LEVEL',
+        ]) {
+            expect(FRAMEWORK_ENV_BLOCKLIST.has(key)).toBe(true);
+        }
+    });
 });

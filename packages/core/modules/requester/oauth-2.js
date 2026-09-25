@@ -136,13 +136,13 @@ class OAuth2Requester extends Requester {
             this.refresh_token = newRefreshToken;
         } else {
             if (this.refresh_token) {
-                console.log(
-                    '[Frigg] No refresh_token in response, preserving existing'
-                );
+                this.logger.debug('No refresh_token in response, preserving existing', {
+                    eventName: `${this.logger.name}.refresh_token_preserved`,
+                });
             } else {
-                console.log(
-                    '[Frigg] Current refresh_token is null and no new refresh_token in response'
-                );
+                this.logger.debug('No refresh_token in response and none held', {
+                    eventName: `${this.logger.name}.refresh_token_absent`,
+                });
             }
         }
         const accessExpiresIn = get(params, 'expires_in', null);
@@ -265,7 +265,9 @@ class OAuth2Requester extends Requester {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
         };
-        console.log('[Frigg] Refreshing access token with options');
+        this.logger.debug('Refreshing access token', {
+            eventName: `${this.logger.name}.token_refresh_request`,
+        });
         const response = await this._post(options, false);
         await this.setTokens(response);
         return response;
@@ -323,12 +325,14 @@ class OAuth2Requester extends Requester {
         }
 
         try {
-            console.log('[Frigg] Starting token refresh', {
-                grant_type: this.grant_type,
-                has_refresh_token: !!this.refresh_token,
-                has_client_id: !!this.client_id,
-                has_client_secret: !!this.client_secret,
-                has_token_uri: !!this.tokenUri,
+            // Field names avoid the denied suffixes (token, secret), which
+            // would redact these booleans.
+            this.logger.debug('Starting token refresh', {
+                eventName: `${this.logger.name}.token_refresh_started`,
+                grantType: this.grant_type,
+                refreshTokenPresent: !!this.refresh_token,
+                clientIdPresent: !!this.client_id,
+                clientSecretPresent: !!this.client_secret,
                 tokenUri: this.tokenUri,
             });
 
@@ -343,15 +347,17 @@ class OAuth2Requester extends Requester {
                 const tokenRes = await this.getTokenFromClientCredentials();
                 if (!tokenRes) return false;
             }
-            console.log('[Frigg] Token refresh succeeded');
+            this.logger.info('Token refresh succeeded', {
+                eventName: `${this.logger.name}.token_refreshed`,
+            });
             return true;
         } catch (error) {
             const moduleName = this.delegate?.name ?? 'unknown module';
-            console.error(`[Frigg] Token refresh failed for ${moduleName}`, {
-                error_message: error?.message,
-                error_name: error?.name,
-                response_status: error?.response?.status,
-                response_data: error?.response?.data,
+            this.logger.debug('Token refresh failed', {
+                eventName: `${this.logger.name}.token_refresh_failed`,
+                statusCode:
+                    error?.statusCode ?? error?.status ?? error?.response?.status,
+                reason: error?.message,
             });
 
             if (!this._isDefinitiveAuthRejection(error)) {
@@ -405,9 +411,9 @@ class OAuth2Requester extends Requester {
         for (const delayMs of this.credentialReloadBackoffMs) {
             await new Promise((resolve) => setTimeout(resolve, delayMs));
             if (await this._adoptNewerCredential()) {
-                console.log(
-                    '[Frigg] Adopted a newer credential after a refresh rejection',
-                    { module: this._telemetryModuleLabel() }
+                this.logger.info(
+                    'Adopted a newer credential after a refresh rejection',
+                    { eventName: `${this.logger.name}.credential_adopted` }
                 );
                 this.telemetry?.count?.('frigg.auth.refresh_race_recovered', 1, {
                     module: this._telemetryModuleLabel(),

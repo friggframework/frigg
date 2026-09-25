@@ -17,6 +17,11 @@ const {
     runWithTelemetryContext,
     mergeTelemetryContext,
 } = require('./telemetry-context');
+const { serializeError } = require('../logs/serialize');
+const { LOGGER_SCOPE_KEY } = require('../logs/context');
+
+const BAGGAGE_TYPES = new Set(['string', 'number', 'boolean', 'bigint']);
+const isBaggageValue = (value) => BAGGAGE_TYPES.has(typeof value);
 
 const TRACER_NAME = 'frigg';
 const METRIC_EXPORT_INTERVAL_MS =
@@ -138,6 +143,15 @@ class OtelTelemetry {
         this._bus.emit('event', payload);
     }
 
+    getActiveSpanContext() {
+        const spanContext = otelApi.trace.getActiveSpan()?.spanContext();
+        if (!spanContext || !otelApi.isSpanContextValid(spanContext)) {
+            return null;
+        }
+        const { traceId, spanId, traceFlags } = spanContext;
+        return { traceId, spanId, traceFlags };
+    }
+
     startSpan(name, options) {
         return this._tracer.startSpan(name, options);
     }
@@ -150,10 +164,16 @@ class OtelTelemetry {
                 span.setStatus({ code: otelApi.SpanStatusCode.OK });
                 return result;
             } catch (err) {
-                span.recordException(err);
+                const serialized = serializeError(err);
+                span.recordException({
+                    name: serialized.type,
+                    message: serialized.message,
+                    stack: serialized.stack,
+                    code: serialized.code,
+                });
                 span.setStatus({
                     code: otelApi.SpanStatusCode.ERROR,
-                    message: err && err.message,
+                    message: serialized.message,
                 });
                 throw err;
             } finally {
@@ -170,10 +190,9 @@ class OtelTelemetry {
      */
     async withContext(attributes = {}, fn) {
         const entries = {};
-        for (const [key, value] of Object.entries(attributes)) {
-            if (value !== undefined && value !== null) {
-                entries[key] = { value: String(value) };
-            }
+        for (const [key, value] of Object.entries(attributes || {})) {
+            if (key === LOGGER_SCOPE_KEY || !isBaggageValue(value)) continue;
+            entries[key] = { value: String(value) };
         }
         const baggage = otelApi.propagation.createBaggage(entries);
         const ctx = otelApi.propagation.setBaggage(

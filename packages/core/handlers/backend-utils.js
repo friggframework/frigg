@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const { runInContext, LOGGER_SCOPE_KEY } = require('../logs/context');
 const { Worker } = require('@friggframework/core');
 const {
     IntegrationEventDispatcher,
@@ -19,6 +20,7 @@ const {
 const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../integrations/utils/map-integration-dto');
+const { processNotFound } = require('../integrations/use-cases/process-errors');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
     const router = Router();
@@ -37,12 +39,11 @@ const loadRouterFromObject = (IntegrationClass, routerObject) => {
             const dispatcher = new IntegrationEventDispatcher(
                 integrationInstance
             );
-            const result = await dispatcher.dispatchHttp({
-                event,
-                req,
-                res,
-                next,
-            });
+            // Logs only: a route :integrationId is unauthenticated input.
+            const result = await runInContext(
+                { [LOGGER_SCOPE_KEY]: { integrationId: req.params?.integrationId } },
+                () => dispatcher.dispatchHttp({ event, req, res, next })
+            );
             res.json(result);
         } catch (error) {
             next(error);
@@ -149,7 +150,7 @@ const loadIntegrationForProcess = async (processId, integrationClass) => {
     const process = await processRepository.findById(processId);
 
     if (!process) {
-        throw new Error(`Process not found: ${processId}`);
+        throw processNotFound(`Process not found: ${processId}`);
     }
 
     const instance = await getIntegrationInstance.execute(
@@ -272,11 +273,6 @@ const createQueueWorker = (integrationClass) => {
                     );
                     return;
                 }
-
-                console.error(
-                    `Error in ${params.event} for ${integrationName}:`,
-                    error
-                );
 
                 // 4xx HTTP errors are permanent — the requester already
                 // attempted token refresh (401) and backoff (429/5xx).

@@ -2,8 +2,11 @@ const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require('@aws-sdk/
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
+const { runMessageScope } = require('./invocation-scope');
+const { getLogger } = require('../logs');
 
 const sqs = new SQSClient({ region: process.env.AWS_REGION });
+const log = getLogger('frigg.worker');
 
 class Worker {
     async getQueueURL(params) {
@@ -25,45 +28,36 @@ class Worker {
         );
 
         for (const record of records) {
-            // Log record entry with SQS-provided attributes useful for tracing
-            // delivery history (ApproximateReceiveCount for retries, etc.).
-            let parsedEvent;
-            try {
-                parsedEvent = JSON.parse(record.body)?.event;
-            } catch {
-                parsedEvent = undefined;
-            }
-            console.log(`[Worker] record begin`, {
-                messageId: record.messageId,
-                event: parsedEvent,
-                receiveCount: record.attributes?.ApproximateReceiveCount,
-            });
+            await runMessageScope(record, async () => {
+                // messageId, receiveCount and the event come from the scope.
+                log.debug('Record started', { eventName: 'frigg.worker.record_started' });
 
-            try {
-                const runParams = JSON.parse(record.body);
-                this._validateParams(runParams);
-                await this._run(runParams, context);
-                console.log(`[Worker] record success`, {
-                    messageId: record.messageId,
-                    event: runParams?.event,
-                });
-            } catch (error) {
-                if (error.isHaltError) {
-                    // HaltError means "discard this message, don't retry".
-                    // Treat as success so SQS deletes it from the queue.
-                    // Logged explicitly — silent discards made prod debugging
-                    // extremely hard; keep this visible.
-                    console.warn(`[Worker] record halted (discarded, no retry)`, {
-                        messageId: record.messageId,
-                        event: parsedEvent,
-                        reason: error.message,
-                        statusCode: error.statusCode,
+                try {
+                    const runParams = JSON.parse(record.body);
+                    this._validateParams(runParams);
+                    await this._run(runParams, context);
+                    log.debug('Record succeeded', { eventName: 'frigg.worker.record_succeeded' });
+                } catch (error) {
+                    if (error.isHaltError) {
+                        // HaltError means "discard this message, don't retry".
+                        // Treat as success so SQS deletes it from the queue.
+                        // Logged explicitly — silent discards made prod debugging
+                        // extremely hard; keep this visible.
+                        log.error('Record halted (discarded, no retry)', {
+                            eventName: 'frigg.worker.record_halted',
+                            statusCode: error.statusCode,
+                            error,
+                        });
+                        return;
+                    }
+                    // The message goes back to SQS, so WARN (ADR-048 §4).
+                    log.warn('Record failed, returned for retry', {
+                        eventName: 'frigg.worker.record_failed',
+                        error,
                     });
-                    continue;
+                    batchItemFailures.push({ itemIdentifier: record.messageId });
                 }
-                console.error(`[Worker] Failed to process record ${record.messageId}:`, error);
-                batchItemFailures.push({ itemIdentifier: record.messageId });
-            }
+            });
         }
 
         if (batchItemFailures.length > 0) {
