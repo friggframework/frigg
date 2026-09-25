@@ -185,3 +185,34 @@ describe('createQueueWorker — integration deleted mid-flight', () => {
         );
     });
 });
+
+describe('createQueueWorker — process missing at hydration', () => {
+    class FakeIntegration {
+        static Definition = { name: 'fake' };
+    }
+
+    afterEach(() => jest.clearAllMocks());
+
+    it('throws a coded PROCESS_NOT_FOUND error, so the worker record carries the code', async () => {
+        const {
+            createProcessRepository,
+        } = require('../integrations/repositories/process-repository-factory');
+        createProcessRepository.mockReturnValue({
+            findById: jest.fn().mockResolvedValue(null),
+        });
+        createIntegrationRepository.mockReturnValue({
+            findIntegrationById: jest.fn(),
+        });
+        jest.spyOn(console, 'log').mockImplementation();
+
+        const QueueWorker = createQueueWorker(FakeIntegration);
+        const worker = new QueueWorker();
+
+        await expect(
+            worker._run({ event: 'FETCH_PAGE', data: { processId: 'p-404' } }, {})
+        ).rejects.toMatchObject({
+            code: 'PROCESS_NOT_FOUND',
+            message: 'Process not found: p-404',
+        });
+    });
+});

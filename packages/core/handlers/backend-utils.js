@@ -19,6 +19,7 @@ const {
 const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../integrations/utils/map-integration-dto');
+const { processNotFound } = require('../integrations/use-cases/process-errors');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
     const router = Router();
@@ -149,7 +150,7 @@ const loadIntegrationForProcess = async (processId, integrationClass) => {
     const process = await processRepository.findById(processId);
 
     if (!process) {
-        throw new Error(`Process not found: ${processId}`);
+        throw processNotFound(`Process not found: ${processId}`);
     }
 
     const instance = await getIntegrationInstance.execute(
