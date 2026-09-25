@@ -300,7 +300,7 @@ rethrow it as the Errors section says.
 
 ## Setting the level
 
-The default is `INFO`. A local run (`frigg start`) defaults to `DEBUG`.
+The default is `INFO` in a deployed stage and `DEBUG` in a local run.
 
 Set the level per app in the app definition:
 
@@ -312,12 +312,31 @@ const appDefinition = {
 };
 ```
 
-- `level` sets `FRIGG_LOG_LEVEL` on every function when it is not `info`.
+- `level` sets `FRIGG_LOG_LEVEL` on every deployed function when it is not
+  `info`.
 - `retentionInDays` sets how long CloudWatch keeps the logs. Without it, log
-  groups never expire.
-- To debug one stage, set `FRIGG_LOG_LEVEL=DEBUG` on that stage and set it
-  back afterwards. `DEBUG` in production can hold more data than you want to
+  groups never expire, so set it in every app.
+- To debug a deployed stage, change `FRIGG_LOG_LEVEL` on the function in the
+  Lambda console (the next deploy sets it back), or deploy with a different
+  `logging.level`. `DEBUG` in production can hold more data than you want to
   keep.
+
+### Locally, with `frigg start`
+
+| You set | Local handlers log at |
+|---|---|
+| Nothing | `DEBUG` (the local default) |
+| `logging.level` in the app definition | that level, `info` included |
+| `FRIGG_LOG_LEVEL` in the shell or in `.env` | that level; it wins over `logging.level` |
+
+```bash
+FRIGG_LOG_LEVEL=warn frigg start
+```
+
+serverless-offline passes only `AWS_*` shell variables to handlers, so
+`frigg start` puts the shell `FRIGG_LOG_LEVEL` into the function
+environment for you. This happens only for the local run: a deploy never
+reads `FRIGG_LOG_LEVEL` from the shell.
 
 Details: [Deployment: the `logging` block](./LOGGING.md#deployment-the-logging-block).
 

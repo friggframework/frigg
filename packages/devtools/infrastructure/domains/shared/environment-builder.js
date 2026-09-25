@@ -49,9 +49,22 @@ function addTelemetryEnvPassthrough(appDefinition, envVars) {
 // the core default, so it emits no env var.
 function addLoggingEnv(appDefinition, envVars) {
     const level = appDefinition?.logging?.level;
-    if (level === undefined) return;
+    const normalized = level === undefined ? undefined : normalizeLogLevel(level);
 
-    const normalized = normalizeLogLevel(level);
+    // serverless-offline copies only AWS_* shell vars into handlers, so under
+    // frigg start the shell level must travel through provider.environment.
+    if (process.env.FRIGG_SKIP_AWS_DISCOVERY === 'true') {
+        const shellLevel = process.env.FRIGG_LOG_LEVEL?.trim();
+        if (shellLevel) {
+            envVars.FRIGG_LOG_LEVEL = shellLevel;
+            return;
+        }
+        // Emit INFO too: without it the local DEBUG default (IS_OFFLINE) wins.
+        if (normalized) envVars.FRIGG_LOG_LEVEL = normalized;
+        return;
+    }
+
+    if (normalized === undefined) return;
     if (normalized === 'INFO') {
         delete envVars.FRIGG_LOG_LEVEL;
         return;

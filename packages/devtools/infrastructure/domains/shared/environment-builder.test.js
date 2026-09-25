@@ -206,6 +206,64 @@ describe('Environment Builder', () => {
                 getAppEnvironmentVars({ logging: { level: 'verbose' } })
             ).toThrow(/logging\.level/);
         });
+
+        describe('under frigg start (FRIGG_SKIP_AWS_DISCOVERY=true)', () => {
+            const saved = {};
+            const setEnv = (vars) => {
+                for (const [key, value] of Object.entries(vars)) {
+                    saved[key] = process.env[key];
+                    if (value === undefined) delete process.env[key];
+                    else process.env[key] = value;
+                }
+            };
+
+            beforeEach(() => setEnv({ FRIGG_SKIP_AWS_DISCOVERY: 'true', FRIGG_LOG_LEVEL: undefined }));
+
+            afterEach(() => {
+                for (const [key, value] of Object.entries(saved)) {
+                    if (value === undefined) delete process.env[key];
+                    else process.env[key] = value;
+                }
+            });
+
+            it('passes the shell FRIGG_LOG_LEVEL to the handlers, which serverless-offline would drop', () => {
+                setEnv({ FRIGG_LOG_LEVEL: 'warn' });
+
+                expect(getAppEnvironmentVars({}).FRIGG_LOG_LEVEL).toBe('warn');
+            });
+
+            it('lets the shell FRIGG_LOG_LEVEL win over logging.level', () => {
+                setEnv({ FRIGG_LOG_LEVEL: 'error' });
+
+                expect(
+                    getAppEnvironmentVars({ logging: { level: 'debug' } }).FRIGG_LOG_LEVEL
+                ).toBe('error');
+            });
+
+            it('emits logging.level INFO, so the local DEBUG default does not replace it', () => {
+                expect(
+                    getAppEnvironmentVars({ logging: { level: 'info' } }).FRIGG_LOG_LEVEL
+                ).toBe('INFO');
+            });
+
+            it('ignores an empty shell value', () => {
+                setEnv({ FRIGG_LOG_LEVEL: '  ' });
+
+                expect(getAppEnvironmentVars({})).not.toHaveProperty('FRIGG_LOG_LEVEL');
+                expect(
+                    getAppEnvironmentVars({ logging: { level: 'warn' } }).FRIGG_LOG_LEVEL
+                ).toBe('WARN');
+            });
+
+            it('does not read the shell value outside frigg start', () => {
+                setEnv({ FRIGG_SKIP_AWS_DISCOVERY: undefined, FRIGG_LOG_LEVEL: 'error' });
+
+                expect(getAppEnvironmentVars({})).not.toHaveProperty('FRIGG_LOG_LEVEL');
+                expect(
+                    getAppEnvironmentVars({ logging: { level: 'info' } })
+                ).not.toHaveProperty('FRIGG_LOG_LEVEL');
+            });
+        });
     });
 
     describe("getAppEnvironmentVars() - 'ssm' offload", () => {

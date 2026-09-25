@@ -285,9 +285,11 @@ const appDefinition = {
   `frameworkVersion` stays as it is.
 - **`level`** (`trace` … `fatal`, all lower or all upper case):
   - A level other than `info` sets the literal `FRIGG_LOG_LEVEL=<LEVEL>`
-    on every function. It wins over `environment: { FRIGG_LOG_LEVEL: true }`,
-    and it also applies under `frigg start` (a local run without it
-    defaults to `DEBUG`).
+    on every function. It wins over `environment: { FRIGG_LOG_LEVEL: true }`.
+  - Under `frigg start`, `logging.level` applies too, `info` included (a
+    local run without a level defaults to `DEBUG`). A `FRIGG_LOG_LEVEL` in
+    the shell or in `.env` wins over it, for the local run only. Deploys
+    never read the shell value.
   - An unknown level fails the build.
   - Lambda stays on its default `Text` log format for now. The Lambda JSON
     `LoggingConfig` (`provider.logs.lambda`, `frameworkVersion >=3.58.0`)
