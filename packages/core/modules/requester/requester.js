@@ -1,15 +1,26 @@
 const fetch = require('node-fetch');
 const { AsyncLocalStorage } = require('async_hooks');
 const { Delegate } = require('../../core');
-const { FetchError } = require('../../errors');
+const { remainingInvocationMs } = require('../../core/invocation-deadline');
+const { FetchError, RateLimitError } = require('../../errors');
 const { get } = require('../../assertions');
 const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 const { getLogger } = require('../../logs');
 const { redactUrl } = require('../../logs/redact');
 const { toSanitizedSurrogate } = require('../../logs/serialize');
 const { getLoggerScope } = require('../../logs/context');
+const {
+    classifyRateLimit,
+    computeScopeKey,
+    computeWaitMs,
+    headerValue,
+    inProcessBudgetMs,
+    readRateLimitPolicy,
+    resolveRateLimitHint,
+} = require('./rate-limit');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
+const JSON_CONTENT_TYPE = /^application\/(json|vnd\.api\+json|hal\+json)/;
 
 // A node-fetch error message holds the raw URL, and util.inspect prints the
 // cause chain, so the FetchError keeps only a sanitized copy.
@@ -34,6 +45,7 @@ class Requester extends Delegate {
     constructor(params) {
         super(params);
         this.backOff = get(params, 'backOff', [1, 3, 10, 30, 60, 180]);
+        this._rateLimitPolicy = readRateLimitPolicy(this.constructor);
         this.isRefreshable = false;
         this.refreshCount = 0;
         this.authGraceRetryCount = 0;
@@ -212,8 +224,11 @@ class Requester extends Delegate {
      * @param {number} attempt - 0-based count of retries already made for
      *   this call. Indexes `this.backOff` for the next delay and is passed
      *   back in on each recursive retry.
+     * @param {number} waitedMs - Milliseconds this call has slept already
+     *   for a wait that a provider or a policy set. It counts against the
+     *   in-process cap.
      */
-    async _rawRequest(url, options, attempt = 0) {
+    async _rawRequest(url, options, attempt = 0, waitedMs = 0) {
         let encodedUrl = encodeURI(url);
         if (options.query) {
             let queryBuild = '?';
@@ -298,11 +313,79 @@ class Requester extends Delegate {
 
             const { status } = response;
 
+            const throttle = await this._detectThrottle(
+                response,
+                status,
+                attempt
+            );
+            if (throttle?.throttled) {
+                const { hint } = throttle;
+                if (hint.source === 'backoff') {
+                    if (attempt < this.backOff.length) {
+                        clearRequestTimer();
+                        const delay = this.backOff[attempt] * 1000;
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, delay)
+                        );
+                        return this._rawRequest(
+                            url,
+                            options,
+                            attempt + 1,
+                            waitedMs
+                        );
+                    }
+                } else {
+                    const budgetMs = inProcessBudgetMs({
+                        policy: this._rateLimitPolicy,
+                        requestTimeoutMs: this.requestTimeoutMs,
+                        remainingMs: remainingInvocationMs(),
+                        waitedMs,
+                    });
+                    const { waitMs, fits } = computeWaitMs({
+                        hint,
+                        policy: this._rateLimitPolicy,
+                        budgetMs,
+                    });
+                    this._logRateLimited({
+                        status,
+                        hint,
+                        waitMs,
+                        attempt,
+                        waitedMs,
+                        action: fits ? 'wait' : 'throw',
+                    });
+                    if (fits) {
+                        clearRequestTimer();
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, waitMs)
+                        );
+                        return this._rawRequest(
+                            url,
+                            options,
+                            attempt + 1,
+                            waitedMs + waitMs
+                        );
+                    }
+                    this._logRequestFailed(encodedUrl, options, status);
+                    const rateLimitError = await RateLimitError.create({
+                        resource: encodedUrl,
+                        init: options,
+                        response,
+                        responseBody: throttle.responseBody,
+                        hint,
+                        waitMs,
+                        module: this._telemetryModuleLabel(),
+                        scopeKey: computeScopeKey(this._rateLimitPolicy, this),
+                    });
+                    throw this._maybeFlagTimeoutDuringBodyRead(
+                        rateLimitError,
+                        timeoutMs
+                    );
+                }
+            }
+
             // If the status is retriable and there are back off requests left, retry the request
-            if (
-                (status === 429 || status >= 500) &&
-                attempt < this.backOff.length
-            ) {
+            if (status >= 500 && attempt < this.backOff.length) {
                 clearRequestTimer();
                 const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
@@ -392,6 +475,7 @@ class Requester extends Delegate {
                     resource: encodedUrl,
                     init: options,
                     response,
+                    responseBody: throttle?.responseBody,
                 });
                 throw this._maybeFlagTimeoutDuringBodyRead(
                     fetchError,
@@ -419,6 +503,90 @@ class Requester extends Delegate {
         } finally {
             clearRequestTimer();
         }
+    }
+
+    /**
+     * Decides whether a response says a limit was hit. A 429 always does. A
+     * 4xx or 5xx other than 401 does only when the module's classify() names
+     * a limit. The body is read here, once, only for classify(); the text is
+     * handed on so the error need not read the stream again.
+     *
+     * @returns {Promise<{throttled: boolean, hint?: object, responseBody?: string}|null>}
+     */
+    async _detectThrottle(response, status, attempt) {
+        const policy = this._rateLimitPolicy;
+        const canClassify =
+            typeof policy?.classify === 'function' &&
+            status >= 400 &&
+            status !== 401;
+        if (status !== 429 && !canClassify) return null;
+
+        let responseBody;
+        let body;
+        if (canClassify) {
+            ({ text: responseBody, json: body } =
+                await this._readBodyForClassify(response));
+        }
+
+        const signal = { status, headers: response.headers, body };
+        const options = {
+            attempt,
+            backOff: this.backOff,
+            now: Date.now(),
+            onClassifyError: (error) => this._logClassifyFailed(status, error),
+        };
+        if (status === 429) {
+            return {
+                throttled: true,
+                hint: resolveRateLimitHint(policy, signal, options),
+                responseBody,
+            };
+        }
+        const hint = classifyRateLimit(policy, signal, options);
+        return { throttled: Boolean(hint), hint, responseBody };
+    }
+
+    async _readBodyForClassify(response) {
+        if (response.bodyUsed || typeof response.text !== 'function') {
+            return {};
+        }
+        const text = await response.text();
+        if (
+            !JSON_CONTENT_TYPE.test(
+                headerValue(response.headers, 'content-type') || ''
+            )
+        ) {
+            return { text };
+        }
+        try {
+            return { text, json: JSON.parse(text) };
+        } catch {
+            return { text };
+        }
+    }
+
+    _logRateLimited({ status, hint, waitMs, attempt, waitedMs, action }) {
+        const logger = this.logger;
+        logger.info('Rate limited', {
+            eventName: `${logger.name}.rate_limited`,
+            statusCode: status,
+            waitMs,
+            retryAt: new Date(Date.now() + waitMs).toISOString(),
+            reason: hint.reason,
+            hintSource: hint.source,
+            attempt,
+            waitedMs,
+            action,
+        });
+    }
+
+    _logClassifyFailed(status, error) {
+        const logger = this.logger;
+        logger.warn('Rate limit classifier failed', {
+            eventName: `${logger.name}.rate_limit_classify_failed`,
+            statusCode: status,
+            error,
+        });
     }
 
     _logRequestFailed(encodedUrl, options, status) {
