@@ -2,13 +2,38 @@ const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const path = require('node:path');
 const fs = require('fs-extra');
 const { resolveTelemetryConfig } = require('../telemetry/telemetry-config');
+const { registerDeniedKeys } = require('../logs/denied-keys');
+const {
+    extractCredentialFieldsFromModules,
+} = require('../database/encryption/encryption-schema-registry');
+const {
+    getModulesDefinitionFromIntegrationClasses,
+} = require('../integrations/utils/map-integration-dto');
+
+// Handlers without a database never load the encryption registry, so the
+// credential leaf keys are registered for redaction here too.
+function registerCredentialLogKeys(appDefinition, integrations) {
+    try {
+        extractCredentialFieldsFromModules(
+            getModulesDefinitionFromIntegrationClasses(integrations)
+        );
+    } catch {
+        // An odd integration shape must not stop the app from loading.
+    }
+    const schema = appDefinition.encryption?.schema;
+    if (schema && typeof schema === 'object') {
+        for (const config of Object.values(schema)) {
+            registerDeniedKeys(config?.fields);
+        }
+    }
+}
 
 /**
  * Loads the App definition from the nearest backend package
  * @function loadAppDefinition
  * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
  * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object}} An object containing the application definition.
+ * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null}} An object containing the application definition.
  * @throws {Error} Throws error if backend package.json cannot be found.
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
  * @example
@@ -36,7 +61,10 @@ function loadAppDefinition() {
         adminScripts = [],
         reports = [],
         admin = {},
+        logging = null,
     } = appDefinition;
+
+    registerCredentialLogKeys(appDefinition, integrations);
 
     // Degrade consistently: an invalid telemetry block must never take down a
     // router bundle that loads the app definition at module scope (telemetry is
@@ -59,7 +87,15 @@ function loadAppDefinition() {
         };
     }
 
-    return { integrations, userConfig, adminScripts, reports, admin, telemetry };
+    return {
+        integrations,
+        userConfig,
+        adminScripts,
+        reports,
+        admin,
+        telemetry,
+        logging,
+    };
 }
 
 module.exports = {

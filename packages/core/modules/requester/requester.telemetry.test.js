@@ -98,3 +98,48 @@ describe('Requester — apimodule.requests instrumentation (ADR-011 P7)', () => 
         expect(apiMetrics[0].attributes.status).not.toBe('ok');
     });
 });
+
+describe('Requester — trace link to the logger scope (ADR-048 §7)', () => {
+    const { runInContext } = require('../../logs/context');
+
+    function spanHarness() {
+        const attributes = {};
+        const span = {
+            setAttributes: (attrs) => Object.assign(attributes, attrs),
+            setAttribute: (key, value) => {
+                attributes[key] = value;
+            },
+        };
+        const telemetry = new NoOpTelemetry({ bus: createTelemetryEventBus() });
+        telemetry.span = async (_name, fn) => fn(span);
+        const requester = new TestRequester({
+            telemetry,
+            fetch: async () => jsonOk(),
+            backOff: [],
+        });
+        return { requester, attributes };
+    }
+
+    it('puts requestId and messageId from the scope on the request span', async () => {
+        const { requester, attributes } = spanHarness();
+
+        await runInContext({ log: { requestId: 'req-1', messageId: 'msg-1' } }, () =>
+            requester._request('https://api.example.com/x', { method: 'GET' })
+        );
+
+        expect(attributes).toMatchObject({
+            requestId: 'req-1',
+            messageId: 'msg-1',
+        });
+    });
+
+    it('adds no id attributes outside a scope', async () => {
+        const { requester, attributes } = spanHarness();
+
+        await requester._request('https://api.example.com/x', { method: 'GET' });
+
+        expect(attributes).not.toHaveProperty('requestId');
+        expect(attributes).not.toHaveProperty('messageId');
+        expect(attributes['url.path']).toBe('https://api.example.com/x');
+    });
+});

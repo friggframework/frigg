@@ -116,3 +116,105 @@ describe('instrumentHandler (ADR-011 P6)', () => {
         expect(result).toBe('ran');
     });
 });
+
+describe('instrumentHandler and the logger scope (ADR-048 §7)', () => {
+    const otelApi = require('@opentelemetry/api');
+    const { InMemorySpanExporter } = require('@opentelemetry/sdk-trace-base');
+    const { createTelemetry } = require('./telemetry-service');
+    const { getLogger, createMemorySink } = require('../logs');
+    const { runInContext } = require('../logs/context');
+
+    it('puts integrationEvent into the logger scope; the bus payload stays as before', async () => {
+        const sink = createMemorySink();
+        const { telemetry, metrics } = harness();
+        await instrumentHandler(
+            telemetry,
+            { event: 'ON_WEBHOOK', eventType: 'WEBHOOK' },
+            async () => getLogger('integration.hubspot').info('inside')
+        );
+        expect(sink.records[0]).toMatchObject({ ...CTX, integrationEvent: 'ON_WEBHOOK' });
+        const m = metrics.find((x) => x.name === 'frigg.handler.invocations');
+        expect(m.context).toStrictEqual({ ...CTX, event_name: 'ON_WEBHOOK' });
+    });
+
+    function otelHarness() {
+        const traceExporter = new InMemorySpanExporter();
+        const base = createTelemetry({ exporter: { type: 'otlp', traceExporter } });
+        return { traceExporter, telemetry: bindTelemetryContext(base, () => CTX) };
+    }
+
+    it('keeps logger keys out of the baggage', async () => {
+        const { telemetry } = otelHarness();
+        let keys;
+        await runInContext({ log: { requestId: 'r-1' } }, () =>
+            instrumentHandler(telemetry, { event: 'E', eventType: 'QUEUE' }, async () => {
+                const baggage = otelApi.propagation.getBaggage(otelApi.context.active());
+                keys = baggage.getAllEntries().map(([key]) => key).sort();
+            })
+        );
+        expect(keys).toEqual(['integrationId', 'integrationType', 'userId', 'version']);
+    });
+
+    it('sets requestId and messageId from the scope on the handler span', async () => {
+        const { telemetry, traceExporter } = otelHarness();
+        await runInContext({ log: { requestId: 'r-1', messageId: 'm-1' } }, () =>
+            instrumentHandler(telemetry, { event: 'E', eventType: 'QUEUE' }, async () => 'ok')
+        );
+        await telemetry.forceFlush();
+        const span = traceExporter.getFinishedSpans().find((s) => s.name === 'frigg.handler.QUEUE');
+        expect(span.attributes).toMatchObject({ requestId: 'r-1', messageId: 'm-1' });
+    });
+
+    it('sets no id attributes outside a scope', async () => {
+        const { telemetry, traceExporter } = otelHarness();
+        await instrumentHandler(telemetry, { event: 'E', eventType: 'CRON' }, async () => 'ok');
+        await telemetry.forceFlush();
+        const span = traceExporter.getFinishedSpans().find((s) => s.name === 'frigg.handler.CRON');
+        expect(span.attributes).not.toHaveProperty('requestId');
+        expect(span.attributes).not.toHaveProperty('messageId');
+    });
+});
+
+describe('instrumentHandler with a custom telemetry service', () => {
+    const { getLogger, createMemorySink } = require('../logs');
+
+    function customTelemetry() {
+        const contexts = [];
+        return {
+            contexts,
+            getContext: () => CTX,
+            span: async (_name, fn) => fn({ setAttributes() {} }),
+            count() {},
+            withContext: async (context, fn) => {
+                contexts.push(context);
+                return fn();
+            },
+        };
+    }
+
+    it('never passes the logger sub-object to withContext', async () => {
+        const telemetry = customTelemetry();
+        await instrumentHandler(telemetry, { event: 'ON_WEBHOOK', eventType: 'WEBHOOK' }, async () => 'ok');
+        expect(telemetry.contexts).toEqual([
+            {
+                integrationId: CTX.integrationId,
+                userId: CTX.userId,
+                integrationType: CTX.integrationType,
+                version: CTX.version,
+            },
+        ]);
+    });
+
+    it('still puts integrationEvent on records, with or without withContext', async () => {
+        const sink = createMemorySink();
+        const telemetry = customTelemetry();
+        await instrumentHandler(telemetry, { event: 'ON_WEBHOOK', eventType: 'WEBHOOK' }, async () =>
+            getLogger('integration.hubspot').info('with')
+        );
+        delete telemetry.withContext;
+        await instrumentHandler(telemetry, { event: 'ON_CRON', eventType: 'CRON' }, async () =>
+            getLogger('integration.hubspot').info('without')
+        );
+        expect(sink.records.map((r) => r.integrationEvent)).toEqual(['ON_WEBHOOK', 'ON_CRON']);
+    });
+});

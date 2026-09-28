@@ -2,6 +2,7 @@ const express = require('express');
 const { get } = require('../assertions');
 const Boom = require('@hapi/boom');
 const catchAsyncError = require('express-async-handler');
+const { getLogger } = require('../logs');
 const {
     createIntegrationRepository,
 } = require('./repositories/integration-repository-factory');
@@ -69,6 +70,8 @@ const { AuthenticateUser } = require('../user/use-cases/authenticate-user');
 const {
     ProcessAuthorizationCallback,
 } = require('../modules/use-cases/process-authorization-callback');
+
+const log = getLogger('frigg.integrations');
 
 function createIntegrationRouter() {
     const { integrations: integrationClasses, userConfig } =
@@ -536,29 +539,27 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 params.data && typeof params.data === 'object'
                     ? Object.keys(params.data)
                     : [];
-            console.log(
-                `[Frigg] POST /api/authorize userId=${userId} entityType=${params.entityType} dataKeys=${JSON.stringify(dataKeys)}`
+            log.debug('Authorize requested', {
+                userId,
+                entityType: params.entityType,
+                dataKeys,
+            });
+
+            const entityDetails = await processAuthorizationCallback.execute(
+                userId,
+                params.entityType,
+                params.data
             );
 
-            try {
-                const entityDetails =
-                    await processAuthorizationCallback.execute(
-                        userId,
-                        params.entityType,
-                        params.data
-                    );
+            log.info('Entity authorized', {
+                eventName: 'frigg.integrations.authorized',
+                userId,
+                entityType: params.entityType,
+                credentialId: entityDetails?.credential_id,
+                entityId: entityDetails?.entity_id,
+            });
 
-                console.log(
-                    `[Frigg] POST /api/authorize success userId=${userId} entityType=${params.entityType} credentialId=${entityDetails?.credential_id} entityId=${entityDetails?.entity_id}`
-                );
-
-                res.json(entityDetails);
-            } catch (err) {
-                console.error(
-                    `[Frigg] POST /api/authorize failed userId=${userId} entityType=${params.entityType} error=${err?.message || err}`
-                );
-                throw err;
-            }
+            res.json(entityDetails);
         })
     );
 

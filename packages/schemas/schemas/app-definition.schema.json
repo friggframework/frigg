@@ -621,18 +621,23 @@
     },
     "logging": {
       "type": "object",
-      "description": "Logging configuration",
+      "description": "Logging configuration (ADR-048). An absent block changes nothing in the deployment.",
       "properties": {
         "level": {
           "type": "string",
-          "description": "Log level",
-          "enum": ["error", "warn", "info", "debug", "trace"],
+          "description": "Minimum log level, in lower or upper case. Sets FRIGG_LOG_LEVEL (when not info) and the Lambda application log level.",
+          "enum": ["trace", "debug", "info", "warn", "error", "fatal", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"],
           "default": "info"
+        },
+        "retentionInDays": {
+          "type": "integer",
+          "description": "CloudWatch log retention for every Lambda log group, in days",
+          "enum": [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653]
         },
         "format": {
           "type": "string",
-          "description": "Log format",
-          "enum": ["json", "text", "combined"],
+          "description": "Log format. Records are always JSON lines.",
+          "enum": ["json"],
           "default": "json"
         }
       },
@@ -715,7 +720,8 @@
         }
       },
       "logging": {
-        "level": "info"
+        "level": "info",
+        "retentionInDays": 30
       }
     }
   ]

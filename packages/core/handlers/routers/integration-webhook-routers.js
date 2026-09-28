@@ -1,6 +1,7 @@
 const { createAppHandler } = require('./../app-handler-helpers');
 const { loadAppDefinition } = require('../app-definition-loader');
 const { Router } = require('express');
+const { runInContext, LOGGER_SCOPE_KEY } = require('../../logs/context');
 const {
     IntegrationEventDispatcher,
 } = require('../integration-event-dispatcher');
@@ -55,12 +56,18 @@ for (const IntegrationClass of integrationClasses) {
             const dispatcher = new IntegrationEventDispatcher(
                 integrationInstance
             );
-            await dispatcher.dispatchHttp({
-                event: 'WEBHOOK_RECEIVED',
-                req,
-                res,
-                next,
-            });
+            // Logs only: the id comes from an unauthenticated URL, so it must
+            // not reach the telemetry context that drives usage attribution.
+            await runInContext(
+                { [LOGGER_SCOPE_KEY]: { integrationId: req.params.integrationId } },
+                () =>
+                    dispatcher.dispatchHttp({
+                        event: 'WEBHOOK_RECEIVED',
+                        req,
+                        res,
+                        next,
+                    })
+            );
         } catch (error) {
             next(error);
         }

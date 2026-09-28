@@ -2,10 +2,13 @@ jest.mock('../../database/config', () => ({
     DB_TYPE: 'mongodb',
     getDatabaseType: jest.fn(() => 'mongodb'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 const { IntegrationBase } = require('../integration-base');
+const { createMemorySink } = require('../../logs');
+
+const invalidatedRecords = (sink) =>
+    sink.records.filter((r) => r.eventName?.endsWith('.credentials_invalidated'));
 
 describe('IntegrationBase.receiveNotification', () => {
     let integration;
@@ -115,42 +118,39 @@ describe('IntegrationBase.receiveNotification', () => {
         });
     });
 
-    it('includes the diagnostic reason and status code in the log line when present', async () => {
-        const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-        try {
-            await integration.receiveNotification(
-                { name: 'testmodule' },
-                'CREDENTIAL_INVALIDATED',
-                {
-                    credentialId: 'cred-1',
-                    moduleName: 'testmodule',
-                    reason: 'Unauthorized',
-                    statusCode: 401,
-                }
-            );
-            expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('401'));
-            expect(logSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Unauthorized')
-            );
-        } finally {
-            logSpy.mockRestore();
-        }
+    it('includes the diagnostic reason and status code in the record when present', async () => {
+        const sink = createMemorySink();
+        await integration.receiveNotification(
+            { name: 'testmodule' },
+            'CREDENTIAL_INVALIDATED',
+            {
+                credentialId: 'cred-1',
+                moduleName: 'testmodule',
+                reason: 'Unauthorized',
+                statusCode: 401,
+            }
+        );
+        expect(invalidatedRecords(sink)).toEqual([
+            expect.objectContaining({
+                level: 'WARN',
+                moduleName: 'testmodule',
+                statusCode: 401,
+                reason: 'Unauthorized',
+            }),
+        ]);
     });
 
-    it('logs the plain message with no diagnostic suffix when none is provided', async () => {
-        const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-        try {
-            await integration.receiveNotification(
-                { name: 'testmodule' },
-                'CREDENTIAL_INVALIDATED',
-                { credentialId: 'cred-1', moduleName: 'testmodule' }
-            );
-            expect(logSpy).toHaveBeenCalledWith(
-                '[Frigg] Module testmodule reported invalid credentials for integration int-1 — marking ERROR'
-            );
-        } finally {
-            logSpy.mockRestore();
-        }
+    it('writes the record without statusCode or reason when none is provided', async () => {
+        const sink = createMemorySink();
+        await integration.receiveNotification(
+            { name: 'testmodule' },
+            'CREDENTIAL_INVALIDATED',
+            { credentialId: 'cred-1', moduleName: 'testmodule' }
+        );
+        const [record] = invalidatedRecords(sink);
+        expect(record.moduleName).toBe('testmodule');
+        expect(record).not.toHaveProperty('statusCode');
+        expect(record).not.toHaveProperty('reason');
     });
 
     describe('recorded diagnostic', () => {
@@ -201,19 +201,19 @@ describe('IntegrationBase.receiveNotification', () => {
             mockUpdateIntegrationMessages.execute.mockRejectedValue(
                 new Error('db write failed')
             );
-            const errorSpy = jest
-                .spyOn(console, 'error')
-                .mockImplementation(() => {});
+            const sink = createMemorySink();
 
-            try {
-                await integration.receiveNotification(
-                    { name: 'testmodule' },
-                    'CREDENTIAL_INVALIDATED',
-                    { credentialId: 'cred-1', statusCode: 401 }
-                );
-            } finally {
-                errorSpy.mockRestore();
-            }
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'CREDENTIAL_INVALIDATED',
+                { credentialId: 'cred-1', statusCode: 401 }
+            );
+
+            expect(
+                sink.records.filter((r) =>
+                    r.eventName?.endsWith('.credential_rejection_record_failed')
+                )
+            ).toHaveLength(1);
 
             expect(mockUpdateIntegrationStatus.execute).toHaveBeenCalledWith(
                 'int-1',

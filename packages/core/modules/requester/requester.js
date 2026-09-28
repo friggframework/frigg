@@ -4,8 +4,22 @@ const { Delegate } = require('../../core');
 const { FetchError } = require('../../errors');
 const { get } = require('../../assertions');
 const { getTelemetry } = require('../../telemetry/telemetry-runtime');
+const { getLogger } = require('../../logs');
+const { redactUrl } = require('../../logs/redact');
+const { toSanitizedSurrogate } = require('../../logs/serialize');
+const { getLoggerScope } = require('../../logs/context');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
+
+// A node-fetch error message holds the raw URL, and util.inspect prints the
+// cause chain, so the FetchError keeps only a sanitized copy.
+function sanitizedCause(err) {
+    const surrogate = toSanitizedSurrogate(err);
+    for (const key of ['errno', 'type']) {
+        if (typeof err?.[key] === 'string') surrogate[key] = err[key];
+    }
+    return surrogate;
+}
 const MAX_AUTH_RETRIES = 3;
 
 // This context marks the async call chain that holds the refresh slot, and
@@ -64,6 +78,18 @@ class Requester extends Delegate {
         // `this.telemetry` to attribute out-of-band requests — setup/OAuth calls
         // made before an integration context exists aren't rolled up otherwise.
         this.telemetry = (params && params.telemetry) || getTelemetry();
+
+        // Not `get(params, 'logger')`: it throws when the key is missing.
+        this._logger = params?.logger ?? null;
+    }
+
+    // Resolved per read, so a delegate set after construction names the logger.
+    get logger() {
+        return this._logger ?? getLogger(`module.${this._telemetryModuleLabel()}`);
+    }
+
+    set logger(logger) {
+        this._logger = logger ?? null;
     }
 
     /**
@@ -141,11 +167,14 @@ class Requester extends Delegate {
 
         return telemetry.span('frigg.apimodule.request', async (span) => {
             if (span && typeof span.setAttributes === 'function') {
+                const { requestId, messageId } = getLoggerScope();
                 span.setAttributes({
                     'frigg.module': module,
                     'http.request.method': method,
                     // Redacted (no query/userinfo) — never emit raw URLs.
                     'url.path': safeUrl,
+                    ...(requestId !== undefined && { requestId }),
+                    ...(messageId !== undefined && { messageId }),
                 });
             }
             // Redacted url (unbounded) rides the bus-only context for North Star
@@ -255,15 +284,12 @@ class Requester extends Delegate {
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
                     init: options,
-                    responseBody: isTimeout
-                        ? `Request timed out after ${timeoutMs}ms`
-                        : e,
+                    cause: sanitizedCause(e),
                 });
                 if (isTimeout) {
                     // Flag + machine-readable fields so callers can
                     // distinguish a timeout from a generic network error
-                    // without parsing the message (which FetchError
-                    // sanitizes outside of STAGE=dev).
+                    // without parsing the message.
                     fetchError.isTimeout = true;
                     fetchError.timeoutMs = timeoutMs;
                 }
@@ -361,6 +387,7 @@ class Requester extends Delegate {
             // the response body (response.text()) — timer must still be
             // alive to catch a stalled body stream.
             if (status >= 400) {
+                this._logRequestFailed(encodedUrl, options, status);
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
                     init: options,
@@ -387,10 +414,23 @@ class Requester extends Delegate {
             // If the abort fired during body consumption, node-fetch emits
             // the error as an AbortError on the body stream. Surface the
             // same isTimeout flag callers use for header-phase timeouts.
-            throw this._maybeFlagTimeoutDuringBodyRead(e, timeoutMs);
+            const flagged = this._maybeFlagTimeoutDuringBodyRead(e, timeoutMs);
+            throw this._wrapFetchLibraryError(flagged, encodedUrl, options);
         } finally {
             clearRequestTimer();
         }
+    }
+
+    _logRequestFailed(encodedUrl, options, status) {
+        const logger = this.logger;
+        if (!logger.isLevelEnabled('DEBUG')) return;
+        logger.debug('Request failed', {
+            eventName: `${logger.name}.request_failed`,
+            method: (options.method || 'GET').toUpperCase(),
+            url: redactUrl(encodedUrl),
+            statusCode: status,
+            headerNames: Object.keys(options.headers || {}),
+        });
     }
 
     async _invalidateAuth(encodedUrl, options, response) {
@@ -401,6 +441,29 @@ class Requester extends Delegate {
         });
         await this.notify(this.DLGT_INVALID_AUTH, fetchError);
         return fetchError;
+    }
+
+    // node-fetch names its own error class FetchError too, and its message
+    // holds the raw URL. Only our class passes through unwrapped.
+    _wrapFetchLibraryError(err, encodedUrl, options) {
+        if (!err || typeof err !== 'object' || err instanceof FetchError) {
+            return err;
+        }
+        const isFetchLibraryError =
+            err.name === 'FetchError' ||
+            err.name === 'AbortError' ||
+            typeof err.type === 'string';
+        if (!isFetchLibraryError) return err;
+        const wrapped = new FetchError({
+            resource: encodedUrl,
+            init: options,
+            cause: sanitizedCause(err),
+        });
+        if (err.isTimeout) {
+            wrapped.isTimeout = true;
+            wrapped.timeoutMs = err.timeoutMs;
+        }
+        return wrapped;
     }
 
     _maybeFlagTimeoutDuringBodyRead(err, timeoutMs) {

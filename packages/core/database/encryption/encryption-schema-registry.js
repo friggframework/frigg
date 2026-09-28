@@ -9,6 +9,7 @@
  */
 
 const { logger } = require('./logger');
+const { registerDeniedKeys } = require('../../logs/denied-keys');
 
 /**
  * Core encryption schema (immutable - cannot be overridden by custom schemas)
@@ -120,6 +121,7 @@ function registerCustomSchema(schema) {
     }
 
     customSchema = { ...schema };
+    registerDeniedKeys(Object.values(schema).flatMap((config) => config.fields));
     logger.info(
         `Registered custom encryption schema for models: ${Object.keys(customSchema).join(', ')}`
     );
@@ -149,6 +151,7 @@ function extractCredentialFieldsFromModules(moduleDefinitions) {
         }
     }
 
+    registerDeniedKeys(fields);
     return [...new Set(fields)];
 }
 

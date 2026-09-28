@@ -1,5 +1,6 @@
 const { v4: uuid } = require('uuid');
 const { SQSClient, SendMessageCommand, SendMessageBatchCommand } = require('@aws-sdk/client-sqs');
+const { summarizeMessageBody } = require('../logs/summarize-event');
 
 const awsConfigOptions = () => {
     const config = {};
@@ -17,21 +18,6 @@ const awsConfigOptions = () => {
 };
 
 const sqs = new SQSClient(awsConfigOptions());
-
-// Best-effort extraction of the logical event/processId/integrationId from a
-// JSON message body. Used only for log correlation — never throws.
-const summarizeMessageBody = (bodyStr) => {
-    try {
-        const parsed = JSON.parse(bodyStr);
-        return {
-            event: parsed?.event,
-            processId: parsed?.data?.processId,
-            integrationId: parsed?.data?.integrationId,
-        };
-    } catch {
-        return {};
-    }
-};
 
 // Inspect SendMessageBatchResult for partial failures and log them.
 // AWS SendMessageBatch can succeed at the HTTP level while individual entries

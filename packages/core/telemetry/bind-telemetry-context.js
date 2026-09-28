@@ -67,6 +67,10 @@ function bindTelemetryContext(base, getContext) {
                 ? base.shutdown(...args)
                 : undefined,
         isEnabled: (...args) => base.isEnabled(...args),
+        getActiveSpanContext: () =>
+            typeof base.getActiveSpanContext === 'function'
+                ? base.getActiveSpanContext()
+                : null,
     };
 }
 

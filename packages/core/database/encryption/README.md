@@ -680,7 +680,11 @@ The encryption system uses **fail-fast error handling**:
 
 ### Logging Configuration
 
-Configure log verbosity with `FRIGG_LOG_LEVEL`:
+`FRIGG_LOG_LEVEL` is the one Frigg log level. The level rules, the record
+fields and the redaction rules are in the
+[Logging guide](../../../../docs/guides/LOGGING.md). The encryption logger
+still writes text lines through `console` with the same level names until it
+moves to the structured logger (ADR-048, incremental adoption).
 
 ```bash
 # Production (minimal logging)

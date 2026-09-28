@@ -26,7 +26,7 @@
     "lodash": "4.18.1",
     "node-cache": "^5.1.2",
     "open": "^8.4.2",
-    "osls": "^3.40.1",
+    "osls": "^3.58.0",
     "semver": "^7.6.0",
     "validate-npm-package-name": "^5.0.0"
   },

@@ -246,3 +246,4 @@ the single opt-in for rollup + report inclusion.
 - Instrumentation + extension seams: integration events (`USER_ACTION`/`CRON`/`QUEUE`/`WEBHOOK`),
   `createFriggCommands`, the `Worker` queue base, the module-plugin system.
 - OpenTelemetry: https://opentelemetry.io/
+- [ADR-048: Structured Logging](./048-structured-logging.md): amends the logs signal.

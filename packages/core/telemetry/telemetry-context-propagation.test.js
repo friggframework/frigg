@@ -68,3 +68,34 @@ describe('ambient telemetry context propagation (ADR-011 attribution fix)', () =
         expect(metrics[0].context).toBeUndefined();
     });
 });
+
+describe('OTel baggage from withContext (ADR-048 §7)', () => {
+    const otelApi = require('@opentelemetry/api');
+    const { runInContext } = require('../logs/context');
+
+    it('holds only primitive ids: no logger keys, no requestId, no [object Object]', async () => {
+        const telemetry = createTelemetry({
+            exporter: { type: 'otlp', traceExporter: new InMemorySpanExporter() },
+        });
+        let entries;
+        await runInContext({ log: { requestId: 'r-1' } }, () =>
+            telemetry.withContext(
+                {
+                    integrationId: 'int_1',
+                    version: 2,
+                    log: { requestId: 'r-2' },
+                    nested: { a: 1 },
+                    fn: () => {},
+                },
+                async () => {
+                    const baggage = otelApi.propagation.getBaggage(otelApi.context.active());
+                    entries = Object.fromEntries(
+                        baggage.getAllEntries().map(([key, entry]) => [key, entry.value])
+                    );
+                }
+            )
+        );
+        expect(entries).toEqual({ integrationId: 'int_1', version: '2' });
+        expect(JSON.stringify(entries)).not.toContain('[object Object]');
+    });
+});
