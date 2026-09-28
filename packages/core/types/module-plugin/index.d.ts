@@ -1,5 +1,6 @@
 declare module "@friggframework/module-plugin" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
+  import type { RateLimitHint } from "@friggframework/errors";
 
   export interface Credential {
     id?: string;
@@ -22,8 +23,59 @@ declare module "@friggframework/module-plugin" {
   export type MappedEntity = Entity & { id: string; type: any };
 
 
+  export type RateLimitScope =
+    | "credential"
+    | "entity"
+    | "app"
+    | ((requester: Requester) => string | number | null | undefined);
+
+  export type RateLimitSignal = {
+    status?: number;
+    headers?: { get(name: string): string | null } | object;
+    body?: unknown;
+  };
+
+  export type RateLimitWindow = {
+    name: string;
+    limit?: number;
+    perMs?: number;
+    rollingMs?: number;
+    resets?: { at: string; tz: string };
+  };
+
+  export type RateLimitPolicy = {
+    /** The key a limit counts against. Default `entity`. */
+    scope?: RateLimitScope;
+    windows?: RateLimitWindow[];
+    maxConcurrency?: number;
+    /** A wait never shorter than this, for every throttled response. */
+    minRetryAfterMs?: number;
+    /** The most a request sleeps in process, in total. Default 300000. */
+    maxInProcessWaitMs?: number;
+    /** Header parsers, in order. Default all three. */
+    parsers?: Array<"retryAfter" | "resetHeaders" | "ietf">;
+    /**
+     * Recognises a limit that is not a plain 429, or names its reason. Returns
+     * null when the response is not a limit. A hint with no time takes its
+     * time from the parsers or the policy.
+     */
+    classify?(
+      signal: RateLimitSignal
+    ): Partial<Omit<RateLimitHint, "source">> & {
+      source?: "header" | "body" | "static";
+    } | null | undefined;
+    userHints?: Record<
+      string,
+      { links?: Array<{ label: string; url: string }> }
+    >;
+  };
+
   export class Requester implements IFriggRequester {
+    static rateLimit?: RateLimitPolicy;
+    static requestTimeoutMs?: number;
+
     DLGT_INVALID_AUTH: string;
+    requestTimeoutMs: number;
     backOff: number[];
     fetch: any;
     isRefreshable: boolean;

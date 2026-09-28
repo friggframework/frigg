@@ -20,6 +20,62 @@ declare module "@friggframework/errors" {
     static create(options?: CreateFetchErrorParams): Promise<FetchError>;
   }
 
+  export type RateLimitReason =
+    | "burst"
+    | "daily"
+    | "monthly"
+    | "concurrency"
+    | "unknown";
+
+  export type RateLimitSource = "header" | "body" | "static" | "backoff";
+
+  /** What Frigg knows about when calls are accepted again. */
+  export type RateLimitHint = {
+    /** When calls are accepted again. */
+    retryAt: Date;
+    /** Milliseconds from the time the hint was read until `retryAt`. */
+    waitMs: number;
+    reason: RateLimitReason;
+    /** A provider policy name, when the response names one. */
+    policy?: string;
+    /** Calls left in the window, when the response says. */
+    remaining?: number;
+    source: RateLimitSource;
+  };
+
+  /**
+   * A FetchError for a response that said a limit was hit, and for which the
+   * response or the module's policy says when to call again.
+   */
+  export class RateLimitError extends FetchError {
+    constructor(options?: RateLimitErrorConstructor);
+
+    isRateLimited: true;
+    /** When calls are accepted again. */
+    retryAt: Date;
+    waitMs: number;
+    reason: RateLimitReason;
+    policy?: string;
+    source: RateLimitSource | "unknown";
+    module?: string;
+    scopeKey?: string;
+
+    static create(
+      options?: CreateRateLimitErrorParams
+    ): Promise<RateLimitError>;
+  }
+
+  type RateLimitErrorConstructor = FetchErrorConstructor & {
+    hint?: Partial<RateLimitHint>;
+    /** Wait from `now`. When absent, `hint.retryAt` sets the time. */
+    waitMs?: number;
+    module?: string;
+    scopeKey?: string;
+    now?: number;
+  };
+
+  type CreateRateLimitErrorParams = RateLimitErrorConstructor;
+
   type FetchErrorResponse = {
     headers?: object;
     status?: number;
