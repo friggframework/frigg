@@ -165,7 +165,7 @@ const createQueueWorker = (integrationClass) => {
     const integrationName = integrationClass.Definition.name;
 
     class QueueWorker extends Worker {
-        async _run(params, context) {
+        async _run(params, context, delivery) {
             const logCtx = {
                 integration: integrationName,
                 event: params.event,
@@ -255,6 +255,7 @@ const createQueueWorker = (integrationClass) => {
                     event: params.event,
                     data: params.data,
                     context: context,
+                    delivery,
                 });
                 console.log(
                     `[QueueWorker] ${params.event} dispatched ok`,

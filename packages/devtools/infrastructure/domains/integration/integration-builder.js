@@ -32,6 +32,10 @@ const {
 const {
     nestedNodeModulesExcludes,
 } = require('../shared/utilities/nested-node-modules');
+const {
+    INTEGRATION_QUEUE_MAX_RECEIVE_COUNT,
+    QUEUE_MAX_RECEIVE_COUNT_ENV,
+} = require('@friggframework/core/queues/queue-delivery');
 
 class IntegrationBuilder extends InfrastructureBuilder {
     constructor() {
@@ -569,12 +573,20 @@ class IntegrationBuilder extends InfrastructureBuilder {
                 MessageRetentionPeriod: 345600, // 4 days (SQS default)
                 VisibilityTimeout: 1800,
                 RedrivePolicy: {
-                    maxReceiveCount: 3,
+                    maxReceiveCount: INTEGRATION_QUEUE_MAX_RECEIVE_COUNT,
                     deadLetterTargetArn: {
                         'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                     },
                 },
             },
+        };
+
+        const queueWorker = result.functions[`${integrationName}QueueWorker`];
+        queueWorker.environment = {
+            ...queueWorker.environment,
+            [QUEUE_MAX_RECEIVE_COUNT_ENV]: String(
+                INTEGRATION_QUEUE_MAX_RECEIVE_COUNT
+            ),
         };
 
         // Add queue URL to environment

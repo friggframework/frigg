@@ -211,7 +211,56 @@ packages/core/
 - `integration-repository-factory.js` - Creates database-specific repositories
 - `integration-repository-mongo.js` - MongoDB implementation
 - `integration-repository-postgres.js` - PostgreSQL implementation
-- `integration-mapping-repository-*.js` - Mapping data persistence
+- `integration-mapping-repository-*.js` - Mapping data persistence.
+  `queryMappings(integrationId, { where, orderBy, skip, take, omit })`
+  returns `{ mappings, total }`: one filtered, ordered page of an
+  integration's mappings, for callers that cannot load every row through
+  `findMappingsByIntegration`. `where` is an array of ANDed conditions
+  (at most 20); an entry may be `{ anyOf: [...] }`, ORed, one level deep.
+  Conditions are `{ path: 'mapping.<segment>...', op: 'exists' | 'notExists' }`
+  (JSON null counts as absent), `{ path: 'mapping.…', op: 'in', value: string[] }`
+  (1–500 strings) and `{ path: 'sourceId', op: 'notStartsWith', value }`
+  (a NULL sourceId matches). `orderBy` is `{ path: 'mapping.…', direction:
+  'asc' | 'desc' }`, nulls last, ties broken by id in the same direction;
+  without it rows come in id order. `take` is 1–500. `omit` lists top-level
+  mapping keys to leave out of the rows; never write such rows back. Path
+  segments must match `^[A-Za-z_][A-Za-z0-9_]*$`. The PostgreSQL, MongoDB and
+  DocumentDB adapters give the same pages and totals;
+  `integration-mapping-repository-query-parity.test.js` checks that against
+  real databases when `QUERY_MAPPINGS_PARITY_MONGO_URL` /
+  `QUERY_MAPPINGS_PARITY_POSTGRES_URL` are set. Two orderings still differ:
+  strings compare by the database collation on PostgreSQL and by code point
+  on MongoDB and DocumentDB, and arrays or objects at the sort path order
+  among themselves only on PostgreSQL (the other adapters fall back to id).
+  The legacy `IntegrationMappingRepository` inherits the port's
+  "not supported by this database adapter yet" error. Every adapter refuses
+  to run while field-level encryption still encrypts
+  `IntegrationMapping.mapping` on write (see `database/encryption/README.md`),
+  and returns rows decrypted like `findMappingsByIntegration`. PostgreSQL and
+  MongoDB decrypt through `decryptQueriedMappings`
+  (`database/encryption/integration-mapping-encryption.js`), a no-op while
+  encryption is off or lists no `IntegrationMapping` field besides `mapping`.
+  Validation lives in `integration-mapping-query.js`; a new operator is one
+  entry in its `OPERATORS` table, one in the Postgres adapter's
+  `CONDITION_SQL` and one in `CONDITION_EXPRESSIONS` in
+  `integration-mapping-query-pipeline.js`, the aggregation stages both
+  MongoDB-protocol adapters share. Those stages may only use what Amazon
+  DocumentDB 4.0 and 5.0 support (no `$facet`, `$getField`, `$set` or
+  `$unset`).
+  **Cost**: PostgreSQL answers in one SQL statement, which reads every row
+  of the integration and evaluates the JSON paths per row, because no JSON
+  index exists. With ~4 KB mappings on PostgreSQL 16 that is about 0.3 s per
+  call at 10⁴ rows per integration and 2.5–3 s at 10⁵. MongoDB answers in one
+  aggregate: the `integrationId` index narrows `$match` to the integration,
+  the `$expr` is then evaluated per document, and `$facet` returns the page
+  with its `$count`, so a page (after `omit`) must fit the 16 MB document
+  limit. DocumentDB has no `$facet`: the page and the count are two
+  concurrent aggregates, so the total does not come from the same snapshot
+  as the page. Both sort in memory on a computed key (`allowDiskUse`). With
+  ~4 KB mappings on MongoDB 7 that is about 0.05–0.1 s per call at 10⁴ rows
+  per integration and 0.5–0.7 s at 10⁵ (the DocumentDB pipeline, run on
+  MongoDB, 0.6–0.8 s). On every adapter a deep offset or an empty page past
+  the end costs about the same as the first page.
 - `process-repository-*.js` - Process (long-running job) persistence.
   Implements `applyProcessUpdate(processId, ops)` — a race-safe alternative
   to `update(id, patch)` that routes increments, sets, and bounded-array
@@ -413,6 +462,43 @@ const decrypted = await cryptor.decrypt(encrypted);
 **Event Dispatcher**:
 - `integration-event-dispatcher.js` - Routes events to integration handlers
 - Supports lifecycle events and user actions
+
+**Queue handler delivery**: a handler dispatched from the integration queue
+(any `this.events` entry reached through SQS, including `ON_WEBHOOK` and
+scheduled jobs) receives `{ data, context, delivery }`. HTTP-dispatched
+handlers (`{ req, res, next }`) and `this.on` events do not.
+
+| Field | Type | Value |
+|---|---|---|
+| `delivery.receiveCount` | `number \| undefined` | SQS `ApproximateReceiveCount` of this delivery |
+| `delivery.maxReceiveCount` | `number \| undefined` | Receives allowed before SQS moves the message to the DLQ (`FRIGG_QUEUE_MAX_RECEIVE_COUNT`) |
+| `delivery.isLastAttempt` | `boolean` | `true` only when both counts are known and `receiveCount >= maxReceiveCount` |
+
+`isLastAttempt` is `false` when either count is unknown: a local or non-SQS
+invocation, or a queue whose redrive policy the stack does not own
+(`ownership.queue: 'external'`). The value is information only: core still
+rethrows retryable errors and discards halt errors (4xx except 408/429).
+
+Use it to end a run or count lost work on the final try: when a retryable
+error (429, 5xx, network) is about to be rethrown and `isLastAttempt` is
+`true`, the message goes to the DLQ next, so mark the run failed or count the
+message's records as failed before rethrowing.
+
+```javascript
+async processBatch({ data, delivery }) {
+    try {
+        await this.syncPage(data);
+    } catch (error) {
+        if (delivery?.isLastAttempt) await this.failRun(data.processId, error);
+        throw error;
+    }
+}
+```
+
+The single source of the max receive count is
+`INTEGRATION_QUEUE_MAX_RECEIVE_COUNT` in `queues/queue-delivery.js`. The
+devtools integration builder uses it for the queue's `RedrivePolicy` and sets
+it as `FRIGG_QUEUE_MAX_RECEIVE_COUNT` on the queue worker function.
 
 ### 8. Error Handling (`/errors`)
 
@@ -663,6 +749,7 @@ Use test doubles from `@friggframework/test` package for consistent mocking.
 
 - `SECRET_ARN` - AWS Secrets Manager ARN for auto-injection
 - `FRIGG_LOG_LEVEL` - Minimum log level (`TRACE` … `FATAL`, default `INFO`; `DEBUG` on local runs)
+- `FRIGG_QUEUE_MAX_RECEIVE_COUNT` - Set by devtools on integration queue workers whose queue the stack owns; feeds `delivery.maxReceiveCount`
 
 ## Version Information
 

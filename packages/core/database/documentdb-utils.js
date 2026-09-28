@@ -166,11 +166,12 @@ async function findManyDrained(client, collection, filter = {}, options = {}) {
     return drainCursor(client, collection, first);
 }
 
-async function aggregateDrained(client, collection, pipeline) {
+async function aggregateDrained(client, collection, pipeline, options = {}) {
     const first = await client.$runCommandRaw({
         aggregate: collection,
         pipeline,
         cursor: { batchSize: DRAIN_BATCH_SIZE },
+        ...options,
     });
     return drainCursor(client, collection, first);
 }
