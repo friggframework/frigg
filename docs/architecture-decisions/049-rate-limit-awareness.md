@@ -237,9 +237,13 @@ A **hint** has one shape everywhere:
 The worker writes `Process.context.rateLimit` with `applyProcessUpdate`:
 `{ status, mechanism, retryAt, reason, module, deferrals, updatedAt }`.
 `status` is `WAITING`, or `EXHAUSTED` when a cap ended the deferrals or a
-visibility change came on the last delivery. The worker writes `null` after
-the deferred message ran without error. A UI can then show "waiting for the
-provider limit until 23:00 UTC" instead of a run that looks stuck.
+visibility change came on the last delivery. The value is one per process, so
+it holds the latest known wait: a new wait replaces it only when its `retryAt`
+is later, and a `WAITING` value never hides an `EXHAUSTED` one. After a
+deferred or redelivered message ran without error, the worker sets it to
+`null` only when it is `WAITING` and its `retryAt` is past or within 5 s.
+A UI can then show "waiting for the provider limit until 23:00 UTC" instead of
+a run that looks stuck.
 
 ### 5. User-facing message
 
