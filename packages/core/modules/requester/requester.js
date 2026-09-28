@@ -10,7 +10,6 @@ const { redactUrl } = require('../../logs/redact');
 const { toSanitizedSurrogate } = require('../../logs/serialize');
 const { getLoggerScope } = require('../../logs/context');
 const {
-    classifyRateLimit,
     computeScopeKey,
     computeWaitMs,
     headerValue,
@@ -20,7 +19,18 @@ const {
 } = require('./rate-limit');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
-const JSON_CONTENT_TYPE = /^application\/(json|vnd\.api\+json|hal\+json)/;
+
+function isJsonMediaType(contentType) {
+    const mediaType = String(contentType ?? '')
+        .split(';')[0]
+        .trim()
+        .toLowerCase();
+    return (
+        mediaType === 'application/json' ||
+        mediaType === 'text/json' ||
+        mediaType.endsWith('+json')
+    );
+}
 
 // A node-fetch error message holds the raw URL, and util.inspect prints the
 // cause chain, so the FetchError keeps only a sanitized copy.
@@ -46,6 +56,7 @@ class Requester extends Delegate {
         super(params);
         this.backOff = get(params, 'backOff', [1, 3, 10, 30, 60, 180]);
         this._rateLimitPolicy = readRateLimitPolicy(this.constructor);
+        this._random = params?.random ?? Math.random;
         this.isRefreshable = false;
         this.refreshCount = 0;
         this.authGraceRetryCount = 0;
@@ -294,7 +305,12 @@ class Requester extends Delegate {
                     clearRequestTimer();
                     const delay = this.backOff[attempt] * 1000;
                     await new Promise((resolve) => setTimeout(resolve, delay));
-                    return this._rawRequest(url, options, attempt + 1);
+                    return this._rawRequest(
+                        url,
+                        options,
+                        attempt + 1,
+                        waitedMs
+                    );
                 }
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
@@ -318,70 +334,27 @@ class Requester extends Delegate {
                 status,
                 attempt
             );
-            if (throttle?.throttled) {
-                const { hint } = throttle;
-                if (hint.source === 'backoff') {
-                    if (attempt < this.backOff.length) {
-                        clearRequestTimer();
-                        const delay = this.backOff[attempt] * 1000;
-                        await new Promise((resolve) =>
-                            setTimeout(resolve, delay)
-                        );
-                        return this._rawRequest(
-                            url,
-                            options,
-                            attempt + 1,
-                            waitedMs
-                        );
-                    }
-                } else {
-                    const budgetMs = inProcessBudgetMs({
-                        policy: this._rateLimitPolicy,
-                        requestTimeoutMs: this.requestTimeoutMs,
-                        remainingMs: remainingInvocationMs(),
-                        waitedMs,
-                    });
-                    const { waitMs, fits } = computeWaitMs({
-                        hint,
-                        policy: this._rateLimitPolicy,
-                        budgetMs,
-                    });
-                    this._logRateLimited({
-                        status,
-                        hint,
-                        waitMs,
-                        attempt,
-                        waitedMs,
-                        action: fits ? 'wait' : 'throw',
-                    });
-                    if (fits) {
-                        clearRequestTimer();
-                        await new Promise((resolve) =>
-                            setTimeout(resolve, waitMs)
-                        );
-                        return this._rawRequest(
-                            url,
-                            options,
-                            attempt + 1,
-                            waitedMs + waitMs
-                        );
-                    }
-                    this._logRequestFailed(encodedUrl, options, status);
-                    const rateLimitError = await RateLimitError.create({
-                        resource: encodedUrl,
-                        init: options,
-                        response,
-                        responseBody: throttle.responseBody,
-                        hint,
-                        waitMs,
-                        module: this._telemetryModuleLabel(),
-                        scopeKey: computeScopeKey(this._rateLimitPolicy, this),
-                    });
-                    throw this._maybeFlagTimeoutDuringBodyRead(
-                        rateLimitError,
-                        timeoutMs
-                    );
-                }
+            const throttleRetry = await this._throttleRetry({
+                throttle,
+                status,
+                attempt,
+                waitedMs,
+                encodedUrl,
+                options,
+                response,
+                timeoutMs,
+            });
+            if (throttleRetry) {
+                clearRequestTimer();
+                await new Promise((resolve) =>
+                    setTimeout(resolve, throttleRetry.delayMs)
+                );
+                return this._rawRequest(
+                    url,
+                    options,
+                    attempt + 1,
+                    waitedMs + throttleRetry.hintedMs
+                );
             }
 
             // If the status is retriable and there are back off requests left, retry the request
@@ -389,7 +362,7 @@ class Requester extends Delegate {
                 clearRequestTimer();
                 const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
-                return this._rawRequest(url, options, attempt + 1);
+                return this._rawRequest(url, options, attempt + 1, waitedMs);
             }
 
             if (status === 401) {
@@ -410,7 +383,12 @@ class Requester extends Delegate {
                     // This request did not try the current token. Retry with
                     // it. Do not spend one more provider-side rotation.
                     clearRequestTimer();
-                    return this._rawRequest(url, options, attempt + 1);
+                    return this._rawRequest(
+                        url,
+                        options,
+                        attempt + 1,
+                        waitedMs
+                    );
                 }
 
                 if (!this.isRefreshable) {
@@ -427,7 +405,12 @@ class Requester extends Delegate {
                         await new Promise((resolve) =>
                             setTimeout(resolve, delay)
                         );
-                        return this._rawRequest(url, options, attempt + 1);
+                        return this._rawRequest(
+                            url,
+                            options,
+                            attempt + 1,
+                            waitedMs
+                        );
                     }
 
                     throw await this._invalidateAuth(
@@ -460,7 +443,12 @@ class Requester extends Delegate {
                 const refreshSucceeded = await this._refreshAuthOnce();
                 if (refreshSucceeded) {
                     clearRequestTimer();
-                    return this._rawRequest(url, options, attempt + 1);
+                    return this._rawRequest(
+                        url,
+                        options,
+                        attempt + 1,
+                        waitedMs
+                    );
                 }
 
                 throw await this._invalidateAuth(encodedUrl, options, response);
@@ -477,6 +465,10 @@ class Requester extends Delegate {
                     response,
                     responseBody: throttle?.responseBody,
                 });
+                if (throttle?.throttled && status !== 429) {
+                    fetchError.isRateLimited = true;
+                    fetchError.reason = throttle.hint.reason;
+                }
                 throw this._maybeFlagTimeoutDuringBodyRead(
                     fetchError,
                     timeoutMs
@@ -506,6 +498,69 @@ class Requester extends Delegate {
     }
 
     /**
+     * What to do about a throttled response: the delay before the next
+     * attempt, or null when there is no attempt left. A wait that a hint set
+     * and that does not fit the budget throws RateLimitError.
+     *
+     * @returns {Promise<{delayMs: number, hintedMs: number}|null>}
+     *   `hintedMs` is the part of the delay that a provider or a policy set,
+     *   which counts against the in-process cap.
+     */
+    async _throttleRetry({
+        throttle,
+        status,
+        attempt,
+        waitedMs,
+        encodedUrl,
+        options,
+        response,
+        timeoutMs,
+    }) {
+        if (!throttle?.throttled) return null;
+        const { hint } = throttle;
+        if (hint.source === 'backoff') {
+            return attempt < this.backOff.length
+                ? { delayMs: this.backOff[attempt] * 1000, hintedMs: 0 }
+                : null;
+        }
+
+        const budgetMs = inProcessBudgetMs({
+            policy: this._rateLimitPolicy,
+            requestTimeoutMs: this.requestTimeoutMs,
+            remainingMs: remainingInvocationMs(),
+            waitedMs,
+        });
+        const { waitMs, fits } = computeWaitMs({
+            hint,
+            policy: this._rateLimitPolicy,
+            budgetMs,
+            random: this._random,
+        });
+        this._logRateLimited({
+            status,
+            hint,
+            waitMs,
+            attempt,
+            waitedMs,
+            action: fits ? 'wait' : 'throw',
+        });
+        if (fits) return { delayMs: waitMs, hintedMs: waitMs };
+
+        this._logRequestFailed(encodedUrl, options, status);
+        const rateLimitError = await RateLimitError.create({
+            resource: encodedUrl,
+            init: options,
+            response,
+            responseBody: throttle.responseBody,
+            hint,
+            waitMs,
+            module: this._telemetryModuleLabel(),
+            scopeKey: computeScopeKey(this._rateLimitPolicy, this),
+        });
+        throw this._maybeFlagTimeoutDuringBodyRead(rateLimitError, timeoutMs);
+    }
+
+    /**
      * Decides whether a response says a limit was hit. A 429 always does. A
      * 4xx or 5xx other than 401 does only when the module's classify() names
      * a limit. The body is read here, once, only for classify(); the text is
@@ -528,21 +583,17 @@ class Requester extends Delegate {
                 await this._readBodyForClassify(response));
         }
 
-        const signal = { status, headers: response.headers, body };
-        const options = {
-            attempt,
-            backOff: this.backOff,
-            now: Date.now(),
-            onClassifyError: (error) => this._logClassifyFailed(status, error),
-        };
-        if (status === 429) {
-            return {
-                throttled: true,
-                hint: resolveRateLimitHint(policy, signal, options),
-                responseBody,
-            };
-        }
-        const hint = classifyRateLimit(policy, signal, options);
+        const hint = resolveRateLimitHint(
+            policy,
+            { status, headers: response.headers, body },
+            {
+                attempt,
+                backOff: this.backOff,
+                now: Date.now(),
+                onClassifyError: (error) =>
+                    this._logClassifyFailed(status, error),
+            }
+        );
         return { throttled: Boolean(hint), hint, responseBody };
     }
 
@@ -551,11 +602,7 @@ class Requester extends Delegate {
             return {};
         }
         const text = await response.text();
-        if (
-            !JSON_CONTENT_TYPE.test(
-                headerValue(response.headers, 'content-type') || ''
-            )
-        ) {
+        if (!isJsonMediaType(headerValue(response.headers, 'content-type'))) {
             return { text };
         }
         try {

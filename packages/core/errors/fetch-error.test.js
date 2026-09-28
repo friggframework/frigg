@@ -202,6 +202,16 @@ describe('FetchError', () => {
         expect(error.body).toBe('already read');
     });
 
+    it('create() keeps an empty responseBody it is given and does not read the stream', async () => {
+        const text = jest.fn(async () => 'second read');
+        const error = await FetchError.create({
+            response: { status: 500, bodyUsed: false, text },
+            responseBody: '',
+        });
+        expect(text).not.toHaveBeenCalled();
+        expect(error.body).toBe('');
+    });
+
     it('create() constructs the subclass it is called on', async () => {
         class ProviderError extends FetchError {}
         const error = await ProviderError.create({

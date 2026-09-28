@@ -58,7 +58,7 @@ class FetchError extends BaseError {
         const provided = options.responseBody ?? options.body;
         let responseBody = provided;
         if (
-            !responseBody &&
+            responseBody === undefined &&
             response &&
             !response.bodyUsed &&
             typeof response.text === 'function'

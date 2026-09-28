@@ -381,7 +381,10 @@ in this order:
 | 4 | The fixed `backOff` ladder (1, 3, 10, 30, 60, 180 s) |
 
 - A 429 with no hint from steps 1 to 3 keeps today's ladder: the same calls,
-  the same delays, then a plain `FetchError`. Nothing budgets it.
+  the same delays, then a plain `FetchError`. Nothing budgets it. A response
+  that `classify` names as a limit but that has no time follows the same
+  ladder, and the last error is a `FetchError` flagged `isRateLimited` with
+  the `reason`, so the queue worker does not halt it.
 - With a hint, the wait is `max(hint, minRetryAfterMs, 1 s)` plus at most 10 %
   jitter. The total sleep of one request is capped at `maxInProcessWaitMs`
   (default 5 minutes) and at the time left in the invocation less one request
