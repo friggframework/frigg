@@ -165,6 +165,32 @@ const createQueueWorker = (integrationClass) => {
     const integrationName = integrationClass.Definition.name;
 
     class QueueWorker extends Worker {
+        async recordRateLimitWait(body, error, state) {
+            const processId = body.data?.processId;
+            if (!processId) return;
+            await createProcessRepository().applyProcessUpdate(processId, {
+                set: {
+                    'context.rateLimit': {
+                        status: state.status,
+                        mechanism: state.mechanism,
+                        retryAt: state.retryAt.toISOString(),
+                        reason: error.reason,
+                        module: error.module,
+                        deferrals: state.deferrals,
+                        updatedAt: new Date().toISOString(),
+                    },
+                },
+            });
+        }
+
+        async clearRateLimitWait(body) {
+            const processId = body?.data?.processId;
+            if (!processId) return;
+            await createProcessRepository().applyProcessUpdate(processId, {
+                set: { 'context.rateLimit': null },
+            });
+        }
+
         async _run(params, context, delivery) {
             const logCtx = {
                 integration: integrationName,

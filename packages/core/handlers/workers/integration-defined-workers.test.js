@@ -336,6 +336,99 @@ describe('Webhook Queue Worker', () => {
         });
     });
 
+    describe('Rate-limit run state', () => {
+        const retryAt = new Date('2026-09-28T12:20:00.000Z');
+        const state = {
+            status: 'WAITING',
+            mechanism: 'delay',
+            deferrals: 1,
+            retryAt,
+        };
+        const rateLimitError = Object.assign(new Error('limited'), {
+            isRateLimited: true,
+            reason: 'burst',
+            module: 'hubspot',
+        });
+
+        function buildWorker() {
+            const applyProcessUpdate = jest.fn().mockResolvedValue({ id: 7 });
+            let QueueWorker;
+            jest.isolateModules(() => {
+                jest.doMock(
+                    '../../integrations/repositories/process-repository-factory',
+                    () => ({
+                        createProcessRepository: () => ({ applyProcessUpdate }),
+                    })
+                );
+                QueueWorker = require('../backend-utils').createQueueWorker(
+                    TestWebhookIntegration
+                );
+            });
+            return { worker: new QueueWorker(), applyProcessUpdate };
+        }
+
+        it('writes context.rateLimit on the process of a deferred message', async () => {
+            const { worker, applyProcessUpdate } = buildWorker();
+
+            await worker.recordRateLimitWait(
+                { data: { processId: 7 } },
+                rateLimitError,
+                state
+            );
+
+            expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                set: {
+                    'context.rateLimit': {
+                        status: 'WAITING',
+                        mechanism: 'delay',
+                        retryAt: '2026-09-28T12:20:00.000Z',
+                        reason: 'burst',
+                        module: 'hubspot',
+                        deferrals: 1,
+                        updatedAt: expect.any(String),
+                    },
+                },
+            });
+        });
+
+        it('clears context.rateLimit on the process of a message that ran', async () => {
+            const { worker, applyProcessUpdate } = buildWorker();
+
+            await worker.clearRateLimitWait({ data: { processId: 7 } });
+
+            expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                set: { 'context.rateLimit': null },
+            });
+        });
+
+        it('writes nothing for a message with no processId', async () => {
+            const { worker, applyProcessUpdate } = buildWorker();
+
+            await worker.recordRateLimitWait(
+                { data: { integrationId: 3 } },
+                rateLimitError,
+                state
+            );
+            await worker.clearRateLimitWait({ data: {} });
+            await worker.clearRateLimitWait({});
+
+            expect(applyProcessUpdate).not.toHaveBeenCalled();
+        });
+
+        it('does not fail when the process is gone', async () => {
+            const { worker, applyProcessUpdate } = buildWorker();
+            applyProcessUpdate.mockResolvedValue(null);
+
+            await expect(
+                worker.recordRateLimitWait(
+                    { data: { processId: 7 } },
+                    rateLimitError,
+                    state
+                )
+            ).resolves.toBeUndefined();
+        });
+    });
+
     describe('Integration Hydration for webhooks with integrationId', () => {
         it('should attempt to load integration when integrationId present', async () => {
             // This test verifies the logic path - full integration test
