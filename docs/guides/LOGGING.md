@@ -162,6 +162,13 @@ the app deploys defines the schema.
 layers throw with `cause` and do not log. `createHandler`, the express error
 middleware, `Worker.run` and the DLQ processor are the boundaries.
 
+The `Requester` writes one `INFO` record, `module.<name>.rate_limited`, for
+each wait that a provider or a module policy set, and for each rate-limit error
+it throws. It carries `statusCode`, `waitMs`, `retryAt`, `reason`, `hintSource`,
+`attempt`, `waitedMs` and `action` (`wait` or `throw`), because the serialized
+error keeps no `retryAt`. The plain backoff ladder writes none. A `classify()`
+that throws writes one `WARN`, `module.<name>.rate_limit_classify_failed`.
+
 `FRIGG_LOG_LEVEL` sets the minimum level. The logger drops a record below it
 before it reads any field.
 
