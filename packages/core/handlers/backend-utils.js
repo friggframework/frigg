@@ -22,6 +22,15 @@ const {
 } = require('../integrations/utils/map-integration-dto');
 const { processNotFound } = require('../integrations/use-cases/process-errors');
 
+const CLEAR_RATE_LIMIT_TOLERANCE_MS = 5_000;
+
+const keepsCurrentRateLimit = (current, next) => {
+    if (!current) return false;
+    if (next.status === 'EXHAUSTED') return false;
+    if (current.status === 'EXHAUSTED') return true;
+    return Date.parse(current.retryAt) > next.retryAt.getTime();
+};
+
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
     const router = Router();
     const { path, method, event } = routerObject;
@@ -168,7 +177,11 @@ const createQueueWorker = (integrationClass) => {
         async recordRateLimitWait(body, error, state) {
             const processId = body.data?.processId;
             if (!processId) return;
-            await createProcessRepository().applyProcessUpdate(processId, {
+            const processRepository = createProcessRepository();
+            const process = await processRepository.findById(processId);
+            if (keepsCurrentRateLimit(process?.context?.rateLimit, state))
+                return;
+            await processRepository.applyProcessUpdate(processId, {
                 set: {
                     'context.rateLimit': {
                         status: state.status,
@@ -186,7 +199,13 @@ const createQueueWorker = (integrationClass) => {
         async clearRateLimitWait(body) {
             const processId = body?.data?.processId;
             if (!processId) return;
-            await createProcessRepository().applyProcessUpdate(processId, {
+            const processRepository = createProcessRepository();
+            const process = await processRepository.findById(processId);
+            const current = process?.context?.rateLimit;
+            if (current?.status !== 'WAITING') return;
+            const remainingMs = Date.parse(current.retryAt) - Date.now();
+            if (remainingMs > CLEAR_RATE_LIMIT_TOLERANCE_MS) return;
+            await processRepository.applyProcessUpdate(processId, {
                 set: { 'context.rateLimit': null },
             });
         }

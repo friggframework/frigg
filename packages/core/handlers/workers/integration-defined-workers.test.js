@@ -337,95 +337,240 @@ describe('Webhook Queue Worker', () => {
     });
 
     describe('Rate-limit run state', () => {
-        const retryAt = new Date('2026-09-28T12:20:00.000Z');
-        const state = {
-            status: 'WAITING',
+        const NOW = Date.parse('2026-09-28T12:00:00.000Z');
+        const MINUTE = 60_000;
+        const at = (ms) => new Date(NOW + ms);
+        const stored = (retryAt, status = 'WAITING') => ({
+            status,
+            mechanism: 'delay',
+            deferrals: 1,
+            retryAt: retryAt.toISOString(),
+            reason: 'burst',
+            module: 'hubspot',
+        });
+        const next = (retryAt, status = 'WAITING') => ({
+            status,
             mechanism: 'delay',
             deferrals: 1,
             retryAt,
-        };
+        });
         const rateLimitError = Object.assign(new Error('limited'), {
             isRateLimited: true,
             reason: 'burst',
             module: 'hubspot',
         });
+        const message = { data: { processId: 7 } };
+        let nowSpy;
 
-        function buildWorker() {
+        beforeEach(() => {
+            nowSpy = jest.spyOn(Date, 'now').mockReturnValue(NOW);
+        });
+
+        afterEach(() => nowSpy.mockRestore());
+
+        function buildWorker(rateLimit) {
             const applyProcessUpdate = jest.fn().mockResolvedValue({ id: 7 });
+            const findById = jest.fn().mockResolvedValue({
+                id: 7,
+                context: rateLimit === undefined ? {} : { rateLimit },
+            });
             let QueueWorker;
             jest.isolateModules(() => {
                 jest.doMock(
                     '../../integrations/repositories/process-repository-factory',
                     () => ({
-                        createProcessRepository: () => ({ applyProcessUpdate }),
+                        createProcessRepository: () => ({
+                            applyProcessUpdate,
+                            findById,
+                        }),
                     })
                 );
                 QueueWorker = require('../backend-utils').createQueueWorker(
                     TestWebhookIntegration
                 );
             });
-            return { worker: new QueueWorker(), applyProcessUpdate };
+            return { worker: new QueueWorker(), applyProcessUpdate, findById };
         }
 
-        it('writes context.rateLimit on the process of a deferred message', async () => {
-            const { worker, applyProcessUpdate } = buildWorker();
+        describe('recording a wait', () => {
+            it('writes context.rateLimit on the process of a deferred message', async () => {
+                const { worker, applyProcessUpdate } = buildWorker();
 
-            await worker.recordRateLimitWait(
-                { data: { processId: 7 } },
-                rateLimitError,
-                state
-            );
-
-            expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
-                set: {
-                    'context.rateLimit': {
-                        status: 'WAITING',
-                        mechanism: 'delay',
-                        retryAt: '2026-09-28T12:20:00.000Z',
-                        reason: 'burst',
-                        module: 'hubspot',
-                        deferrals: 1,
-                        updatedAt: expect.any(String),
-                    },
-                },
-            });
-        });
-
-        it('clears context.rateLimit on the process of a message that ran', async () => {
-            const { worker, applyProcessUpdate } = buildWorker();
-
-            await worker.clearRateLimitWait({ data: { processId: 7 } });
-
-            expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
-                set: { 'context.rateLimit': null },
-            });
-        });
-
-        it('writes nothing for a message with no processId', async () => {
-            const { worker, applyProcessUpdate } = buildWorker();
-
-            await worker.recordRateLimitWait(
-                { data: { integrationId: 3 } },
-                rateLimitError,
-                state
-            );
-            await worker.clearRateLimitWait({ data: {} });
-            await worker.clearRateLimitWait({});
-
-            expect(applyProcessUpdate).not.toHaveBeenCalled();
-        });
-
-        it('does not fail when the process is gone', async () => {
-            const { worker, applyProcessUpdate } = buildWorker();
-            applyProcessUpdate.mockResolvedValue(null);
-
-            await expect(
-                worker.recordRateLimitWait(
-                    { data: { processId: 7 } },
+                await worker.recordRateLimitWait(
+                    message,
                     rateLimitError,
-                    state
-                )
-            ).resolves.toBeUndefined();
+                    next(at(20 * MINUTE))
+                );
+
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: {
+                        'context.rateLimit': {
+                            status: 'WAITING',
+                            mechanism: 'delay',
+                            retryAt: '2026-09-28T12:20:00.000Z',
+                            reason: 'burst',
+                            module: 'hubspot',
+                            deferrals: 1,
+                            updatedAt: expect.any(String),
+                        },
+                    },
+                });
+            });
+
+            it('replaces an earlier wait', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(5 * MINUTE))
+                );
+
+                await worker.recordRateLimitWait(
+                    message,
+                    rateLimitError,
+                    next(at(20 * MINUTE))
+                );
+
+                expect(applyProcessUpdate).toHaveBeenCalledTimes(1);
+            });
+
+            it('keeps a later wait that another message recorded', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(40 * MINUTE))
+                );
+
+                await worker.recordRateLimitWait(
+                    message,
+                    rateLimitError,
+                    next(at(20 * MINUTE))
+                );
+
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
+            it('shows a cap even when a later wait is recorded', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(40 * MINUTE))
+                );
+
+                await worker.recordRateLimitWait(
+                    message,
+                    rateLimitError,
+                    next(at(20 * MINUTE), 'EXHAUSTED')
+                );
+
+                expect(applyProcessUpdate).toHaveBeenCalledTimes(1);
+            });
+
+            it('never hides a cap behind a later wait', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(5 * MINUTE), 'EXHAUSTED')
+                );
+
+                await worker.recordRateLimitWait(
+                    message,
+                    rateLimitError,
+                    next(at(20 * MINUTE))
+                );
+
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
+            it('writes nothing for a message with no processId', async () => {
+                const { worker, applyProcessUpdate, findById } = buildWorker();
+
+                await worker.recordRateLimitWait(
+                    { data: { integrationId: 3 } },
+                    rateLimitError,
+                    next(at(MINUTE))
+                );
+
+                expect(findById).not.toHaveBeenCalled();
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
+            it('does not fail when the process is gone', async () => {
+                const { worker, findById, applyProcessUpdate } = buildWorker();
+                findById.mockResolvedValue(null);
+                applyProcessUpdate.mockResolvedValue(null);
+
+                await expect(
+                    worker.recordRateLimitWait(
+                        message,
+                        rateLimitError,
+                        next(at(MINUTE))
+                    )
+                ).resolves.toBeUndefined();
+            });
+        });
+
+        describe('clearing a wait', () => {
+            it('clears a wait that is over', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE))
+                );
+
+                await worker.clearRateLimitWait(message);
+
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: { 'context.rateLimit': null },
+                });
+            });
+
+            it('clears a wait that ends within a few seconds', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(3_000))
+                );
+
+                await worker.clearRateLimitWait(message);
+
+                expect(applyProcessUpdate).toHaveBeenCalledTimes(1);
+            });
+
+            it('keeps a wait that other messages still wait for', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(10 * MINUTE))
+                );
+
+                await worker.clearRateLimitWait(message);
+
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
+            it('leaves a cap in place', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE), 'EXHAUSTED')
+                );
+
+                await worker.clearRateLimitWait(message);
+
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
+            it('writes nothing when no wait is recorded', async () => {
+                const { worker, applyProcessUpdate } = buildWorker();
+
+                await worker.clearRateLimitWait(message);
+
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
+            it('writes nothing for a message with no processId', async () => {
+                const { worker, applyProcessUpdate, findById } = buildWorker();
+
+                await worker.clearRateLimitWait({ data: {} });
+                await worker.clearRateLimitWait({});
+
+                expect(findById).not.toHaveBeenCalled();
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
+            it('does not fail when the process is gone', async () => {
+                const { worker, findById, applyProcessUpdate } = buildWorker();
+                findById.mockResolvedValue(null);
+
+                await expect(
+                    worker.clearRateLimitWait(message)
+                ).resolves.toBeUndefined();
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
         });
     });
 

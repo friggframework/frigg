@@ -405,7 +405,8 @@ the queue worker. Core puts the message back so it runs at `retryAt`, and does
 not spend one of the message's three receives: it sends the body again with a
 delay (up to 15 minutes), or schedules it, or extends its visibility timeout.
 With a `processId` in the message, `Process.context.rateLimit` says the run is
-waiting and until when, and is cleared when the message runs.
+waiting and until when. It holds the latest known wait of the process, and is
+cleared when a message runs after that wait is over.
 
 Check `delivery.isLastAttempt` first, then rethrow:
 

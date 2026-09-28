@@ -570,9 +570,12 @@ back so it runs at `retryAt`:
   would be lost with the acknowledged message.
 - With a `processId` in the message, the worker writes
   `Process.context.rateLimit = { status: 'WAITING' | 'EXHAUSTED', mechanism,
-  retryAt, reason, module, deferrals, updatedAt }`, and `null` after the message
-  ran. `EXHAUSTED` means a cap ended the deferrals, or a visibility change came
-  on the last delivery.
+  retryAt, reason, module, deferrals, updatedAt }`. `EXHAUSTED` means a cap ended
+  the deferrals, or a visibility change came on the last delivery. The value is
+  one per process, so it holds the latest known wait: a new wait replaces it only
+  when its `retryAt` is later, a `WAITING` value never hides an `EXHAUSTED` one,
+  and after a deferred or redelivered message ran the worker sets it to `null`
+  only when it is `WAITING` and its `retryAt` is past or within 5 s.
 - Delivery stays at least once. The new message is sent before the old one is
   acknowledged, so a crash between the two can run the work twice.
 - Handlers check `delivery.isLastAttempt` first, then rethrow. The delay and

@@ -182,60 +182,101 @@ class Worker {
             return { outcome: 'failed' };
         }
 
-        const next = withDeferral(body, deferral);
+        const tier = {
+            record,
+            queueName,
+            body,
+            next: withDeferral(body, deferral),
+            error,
+            delivery,
+            retryAt,
+            waitMs,
+            details,
+            state,
+        };
+        if (waitMs <= MAX_DELAY_SECONDS * 1000)
+            return this._deferWithDelay(tier);
+        const scheduled = await this._deferWithSchedule(tier);
+        if (scheduled?.outcome) return scheduled;
+        return this._deferWithVisibility({
+            ...tier,
+            scheduleError: scheduled?.scheduleError,
+        });
+    }
 
-        if (waitMs <= MAX_DELAY_SECONDS * 1000) {
-            const delaySeconds = Math.ceil(waitMs / 1000);
-            try {
-                const queueUrl = await this._queueUrl(queueName);
-                await this.send({ ...next, QueueUrl: queueUrl }, delaySeconds);
-            } catch (cause) {
-                return { outcome: 'skipped', skipped: 'send_failed', cause };
-            }
-            await this._recordWait(body, error, state('WAITING', 'delay'));
-            log.warn('Record deferred', {
-                eventName: 'frigg.worker.record_deferred',
-                mechanism: 'delay',
-                delaySeconds,
-                ...details,
-                error,
-            });
-            return { outcome: 'acked' };
+    async _deferWithDelay({
+        queueName,
+        body,
+        next,
+        error,
+        waitMs,
+        details,
+        state,
+    }) {
+        const delaySeconds = Math.ceil(waitMs / 1000);
+        try {
+            const queueUrl = await this._queueUrl(queueName);
+            await this.send({ ...next, QueueUrl: queueUrl }, delaySeconds);
+        } catch (cause) {
+            return { outcome: 'skipped', skipped: 'send_failed', cause };
         }
+        await this._recordWait(body, error, state('WAITING', 'delay'));
+        log.warn('Record deferred', {
+            eventName: 'frigg.worker.record_deferred',
+            mechanism: 'delay',
+            delaySeconds,
+            ...details,
+            error,
+        });
+        return { outcome: 'acked' };
+    }
 
-        let scheduleError;
+    /** `acked`, `{ scheduleError }` when the schedule failed, null with no scheduler. */
+    async _deferWithSchedule({
+        record,
+        body,
+        next,
+        error,
+        retryAt,
+        details,
+        state,
+    }) {
         const scheduler = this.getSchedulerService();
-        if (scheduler) {
-            const scheduleName = `frigg-defer-${
-                record.messageId || randomUUID()
-            }`;
-            try {
-                await scheduler.scheduleOneTime({
-                    scheduleName,
-                    scheduleAt: retryAt,
-                    queueResourceId: record.eventSourceARN,
-                    payload: next,
-                });
-            } catch (cause) {
-                if (cause?.name !== 'ConflictException') scheduleError = cause;
-            }
-            if (!scheduleError) {
-                await this._recordWait(
-                    body,
-                    error,
-                    state('WAITING', 'schedule')
-                );
-                log.warn('Record deferred', {
-                    eventName: 'frigg.worker.record_deferred',
-                    mechanism: 'schedule',
-                    scheduleName,
-                    ...details,
-                    error,
-                });
-                return { outcome: 'acked' };
-            }
+        if (!scheduler) return null;
+        const scheduleName = `frigg-defer-${record.messageId || randomUUID()}`;
+        try {
+            await scheduler.scheduleOneTime({
+                scheduleName,
+                scheduleAt: retryAt,
+                queueResourceId: record.eventSourceARN,
+                payload: next,
+            });
+        } catch (cause) {
+            if (cause?.name !== 'ConflictException')
+                return { scheduleError: cause };
         }
+        await this._recordWait(body, error, state('WAITING', 'schedule'));
+        log.warn('Record deferred', {
+            eventName: 'frigg.worker.record_deferred',
+            mechanism: 'schedule',
+            scheduleName,
+            ...details,
+            error,
+        });
+        return { outcome: 'acked' };
+    }
 
+    async _deferWithVisibility({
+        record,
+        queueName,
+        body,
+        error,
+        delivery,
+        waitMs,
+        details,
+        state,
+        scheduleError,
+    }) {
         const visibilityTimeout = Math.min(
             Math.ceil(waitMs / 1000),
             MAX_VISIBILITY_TIMEOUT_SECONDS
@@ -301,13 +342,17 @@ class Worker {
      * @param {Error} error The RateLimitError.
      * @param {{status: 'WAITING'|'EXHAUSTED', mechanism: string, deferrals: number, retryAt: Date}} state
      */
-    async recordRateLimitWait() {}
+    async recordRateLimitWait() {
+        // A subclass keeps the run state; nothing to do by default.
+    }
 
     /**
      * Hook: a message that was put back for a rate limit ran without error.
      * @param {Object} body The parsed message body.
      */
-    async clearRateLimitWait() {}
+    async clearRateLimitWait() {
+        // A subclass keeps the run state; nothing to do by default.
+    }
 
     _queueUrl(queueName) {
         this._queueUrls ??= new Map();
@@ -330,8 +375,8 @@ class Worker {
     }
 
     async _clearDeferredState(body, delivery) {
-        if (readDeferral(body).deferrals === 0 && !(delivery.receiveCount > 1))
-            return;
+        const redelivered = delivery.receiveCount > 1;
+        if (readDeferral(body).deferrals === 0 && !redelivered) return;
         await this._runStateHook('clear', () => this.clearRateLimitWait(body));
     }
 
