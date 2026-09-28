@@ -1,4 +1,10 @@
+const { Headers } = require('node-fetch');
 const { Requester } = require('./requester');
+const { FetchError, RateLimitError } = require('../../errors');
+const { createMemorySink } = require('../../logs');
+const {
+    runWithInvocationDeadline,
+} = require('../../core/invocation-deadline');
 
 /**
  * Requester is abstract: subclasses provide `addAuthHeaders`. For the
@@ -39,30 +45,550 @@ function okFetch(body) {
 }
 
 describe('Requester', () => {
-    describe('429 and 5xx testing', () => {
-        let backOffArray = [1, 1, 1];
-        let requester = new TestRequester({ backOff: backOffArray });
-        let sum = backOffArray.reduce((a, b) => {
-            return a + b;
-        }, 0);
-        it.skip("should retry with 'exponential' back off due to 429", async () => {
-            let startTime = await Date.now();
-            let res = await requester._get({
-                url: 'https://70e18ff0-1967-4fb5-8f96-10477ab6bb9e.mock.pstmn.io//429',
+    describe('rate-limit handling', () => {
+        const url = 'https://example.com/limited';
+        const LADDER_MS = [1_000, 3_000, 10_000, 30_000, 60_000, 180_000];
+
+        function throttledFetch(responses) {
+            const queue = [...responses];
+            const built = [];
+            const fetch = jest.fn(async () => {
+                const next = queue.shift();
+                if (!next) throw new Error('unexpected fetch call');
+                const contentType = next.contentType ?? 'application/json';
+                const text = next.text ?? JSON.stringify(next.body ?? {});
+                const response = {
+                    status: next.status,
+                    bodyUsed: false,
+                    headers:
+                        next.headersObject ??
+                        new Map(
+                            Object.entries({
+                                'Content-Type': contentType,
+                                ...(next.headers ?? {}),
+                            })
+                        ),
+                    json: async () => next.body ?? {},
+                    text: jest.fn(async () => text),
+                };
+                built.push(response);
+                return response;
             });
-            let endTime = await Date.now();
-            let difference = endTime - startTime;
-            expect(difference).toBeGreaterThan(sum * 1000);
+            fetch.responses = built;
+            return fetch;
+        }
+
+        const limited = (headers, extra = {}) => ({
+            status: 429,
+            headers,
+            ...extra,
+        });
+        const ok = { status: 200, body: { ok: true } };
+
+        let delays;
+        let sink;
+
+        beforeEach(() => {
+            delays = [];
+            const realSetTimeout = global.setTimeout;
+            jest.spyOn(global, 'setTimeout').mockImplementation(
+                (fn, delay, ...args) => {
+                    delays.push(delay);
+                    return realSetTimeout(fn, 0, ...args);
+                }
+            );
+            jest.spyOn(Math, 'random').mockReturnValue(0);
+            sink = createMemorySink();
         });
 
-        it.skip("should retry with 'exponential' back off due to 500", async () => {
-            let startTime = await Date.now();
-            let res = await requester._get({
-                url: 'https://70e18ff0-1967-4fb5-8f96-10477ab6bb9e.mock.pstmn.io//5xx',
+        afterEach(() => jest.restoreAllMocks());
+
+        function makeRequester(
+            fetch,
+            params = {},
+            RequesterClass = TestRequester
+        ) {
+            return new RequesterClass({
+                fetch,
+                requestTimeoutMs: 0,
+                ...params,
             });
-            let endTime = await Date.now();
-            let difference = endTime - startTime;
-            expect(difference).toBeGreaterThan(sum * 1000);
+        }
+
+        const withPolicy = (rateLimit) => {
+            class PolicyRequester extends TestRequester {
+                static rateLimit = rateLimit;
+            }
+            return PolicyRequester;
+        };
+
+        describe('a module that declares nothing', () => {
+            it('retries a bare 429 on the fixed ladder, then throws a plain FetchError', async () => {
+                const fetch = throttledFetch(Array(7).fill(limited()));
+                const requester = makeRequester(fetch);
+
+                const error = await requester._get({ url }).catch((e) => e);
+
+                expect(error).toBeInstanceOf(FetchError);
+                expect(error).not.toBeInstanceOf(RateLimitError);
+                expect(error.isRateLimited).toBeUndefined();
+                expect(error.statusCode).toBe(429);
+                expect(delays).toEqual(LADDER_MS);
+                expect(fetch).toHaveBeenCalledTimes(7);
+            });
+
+            it('keeps the ladder inside a short invocation, because only hinted waits are budgeted', async () => {
+                const fetch = throttledFetch(Array(7).fill(limited()));
+                const requester = makeRequester(fetch, {
+                    requestTimeoutMs: 45_000,
+                });
+
+                const error = await runWithInvocationDeadline(
+                    Date.now() + 29_000,
+                    () => requester._get({ url }).catch((e) => e)
+                );
+
+                expect(error).toBeInstanceOf(FetchError);
+                expect(delays.filter((delay) => delay !== 45_000)).toEqual(
+                    LADDER_MS
+                );
+                expect(fetch).toHaveBeenCalledTimes(7);
+            });
+
+            it('leaves the 5xx ladder alone', async () => {
+                const fetch = throttledFetch([
+                    { status: 500 },
+                    { status: 500 },
+                    ok,
+                ]);
+                const result = await makeRequester(fetch)._get({ url });
+
+                expect(result).toEqual({ ok: true });
+                expect(delays).toEqual([1_000, 3_000]);
+            });
+
+            it('keeps the ladder for a 503 that carries Retry-After', async () => {
+                const fetch = throttledFetch([
+                    { status: 503, headers: { 'Retry-After': '30' } },
+                    ok,
+                ]);
+                await makeRequester(fetch)._get({ url });
+
+                expect(delays).toEqual([1_000]);
+            });
+
+            it('writes no rate-limit record for the ladder', async () => {
+                const fetch = throttledFetch([limited(), ok]);
+                await makeRequester(fetch)._get({ url });
+
+                expect(
+                    sink.records.filter((r) =>
+                        r.eventName?.endsWith('.rate_limited')
+                    )
+                ).toEqual([]);
+            });
+        });
+
+        describe('Retry-After', () => {
+            it('waits as long as the header says, not one ladder step', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '5' }),
+                    ok,
+                ]);
+                const result = await makeRequester(fetch)._get({ url });
+
+                expect(result).toEqual({ ok: true });
+                expect(delays).toEqual([5_000]);
+                expect(fetch).toHaveBeenCalledTimes(2);
+            });
+
+            it('does not raise a short Retry-After to the ladder step of a later attempt', async () => {
+                const fetch = throttledFetch([
+                    limited(),
+                    limited(),
+                    limited({ 'Retry-After': '2' }),
+                    ok,
+                ]);
+                await makeRequester(fetch)._get({ url });
+
+                expect(delays).toEqual([1_000, 3_000, 2_000]);
+            });
+
+            it('reads the header from a real Headers object', async () => {
+                const fetch = throttledFetch([
+                    limited(undefined, {
+                        headersObject: new Headers({ 'retry-after': '3' }),
+                    }),
+                    ok,
+                ]);
+                await makeRequester(fetch)._get({ url });
+
+                expect(delays).toEqual([3_000]);
+            });
+
+            it('adds jitter that never passes the wait by more than a tenth', async () => {
+                Math.random.mockReturnValue(0.999999);
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '60' }),
+                    ok,
+                ]);
+                await makeRequester(fetch)._get({ url });
+
+                expect(delays).toEqual([60_999]);
+            });
+
+            it('sleeps on for hinted 429s beyond the length of the ladder', async () => {
+                const fetch = throttledFetch([
+                    ...Array(8).fill(limited({ 'Retry-After': '1' })),
+                    ok,
+                ]);
+                const result = await makeRequester(fetch)._get({ url });
+
+                expect(result).toEqual({ ok: true });
+                expect(delays).toEqual(Array(8).fill(1_000));
+                expect(fetch).toHaveBeenCalledTimes(9);
+            });
+
+            it('throws a RateLimitError with retryAt when the wait is over the cap', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '400' }),
+                    ok,
+                ]);
+                const before = Date.now();
+
+                const error = await makeRequester(fetch)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(error).toBeInstanceOf(FetchError);
+                expect(error).toMatchObject({
+                    isRateLimited: true,
+                    statusCode: 429,
+                    source: 'header',
+                    waitMs: 400_000,
+                    reason: 'unknown',
+                });
+                expect(error.retryAt.getTime()).toBeGreaterThanOrEqual(
+                    before + 400_000
+                );
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+            });
+
+            it('stops sleeping once the waits add up to the cap', async () => {
+                const fetch = throttledFetch([
+                    ...Array(4).fill(limited({ 'Retry-After': '100' })),
+                    ok,
+                ]);
+
+                const error = await makeRequester(fetch)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(delays).toEqual([100_000, 100_000, 100_000]);
+                expect(fetch).toHaveBeenCalledTimes(4);
+            });
+
+            it('throws at once when the wait does not fit the time left in the invocation', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '4' }),
+                    ok,
+                ]);
+                const requester = makeRequester(fetch, {
+                    requestTimeoutMs: 5_000,
+                });
+
+                const error = await runWithInvocationDeadline(
+                    Date.now() + 8_000,
+                    () => requester._get({ url }).catch((e) => e)
+                );
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(fetch).toHaveBeenCalledTimes(1);
+            });
+
+            it('throws at once when the policy allows no in-process wait', async () => {
+                const Api = withPolicy({ maxInProcessWaitMs: 0 });
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '2' }),
+                    ok,
+                ]);
+
+                const error = await makeRequester(fetch, {}, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(fetch).toHaveBeenCalledTimes(1);
+            });
+
+            it('reads the body of the RateLimitError once', async () => {
+                const fetch = throttledFetch([
+                    limited(
+                        { 'Retry-After': '400' },
+                        { body: { message: 'slow down' } }
+                    ),
+                ]);
+                const error = await makeRequester(fetch)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(fetch.responses[0].text).toHaveBeenCalledTimes(1);
+                expect(error.body).toContain('slow down');
+            });
+        });
+
+        describe('static rateLimit', () => {
+            it('makes minRetryAfterMs the wait of a bare 429', async () => {
+                const Api = withPolicy({ minRetryAfterMs: 60_000 });
+                const fetch = throttledFetch([limited(), ok]);
+                await makeRequester(fetch, {}, Api)._get({ url });
+
+                expect(delays).toEqual([60_000]);
+            });
+
+            it('makes minRetryAfterMs the floor of a shorter Retry-After', async () => {
+                const Api = withPolicy({ minRetryAfterMs: 60_000 });
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '5' }),
+                    ok,
+                ]);
+                await makeRequester(fetch, {}, Api)._get({ url });
+
+                expect(delays).toEqual([60_000]);
+            });
+
+            it('reads only the parsers it lists, in that order', async () => {
+                const Api = withPolicy({
+                    parsers: ['resetHeaders', 'retryAfter'],
+                });
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '2', 'X-RateLimit-Reset': '7' }),
+                    ok,
+                ]);
+                await makeRequester(fetch, {}, Api)._get({ url });
+
+                expect(delays).toEqual([7_000]);
+            });
+
+            it('carries the module name and the scope key on the error', async () => {
+                const Api = withPolicy({ scope: 'entity' });
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '400' }),
+                ]);
+                const requester = makeRequester(
+                    fetch,
+                    { delegate: { name: 'hubspot', entity: { id: 7 } } },
+                    Api
+                );
+
+                const error = await requester._get({ url }).catch((e) => e);
+
+                expect(error).toMatchObject({
+                    module: 'hubspot',
+                    scopeKey: 'hubspot:entity:7',
+                });
+            });
+
+            it('fails at construction for a parser that does not exist', () => {
+                const Api = withPolicy({ parsers: ['magic'] });
+                expect(() => new Api({})).toThrow(TypeError);
+            });
+        });
+
+        describe('classify', () => {
+            it('treats a 403 as throttled and retries when the wait fits', async () => {
+                const classify = jest.fn(({ status, body }) =>
+                    status === 403 && body?.code === 'LIMIT'
+                        ? { reason: 'daily', waitMs: 2_000 }
+                        : null
+                );
+                const Api = withPolicy({ classify });
+                const fetch = throttledFetch([
+                    { status: 403, body: { code: 'LIMIT' } },
+                    ok,
+                ]);
+
+                const result = await makeRequester(fetch, {}, Api)._get({
+                    url,
+                });
+
+                expect(result).toEqual({ ok: true });
+                expect(delays).toEqual([2_000]);
+                expect(classify).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        status: 403,
+                        body: { code: 'LIMIT' },
+                    })
+                );
+            });
+
+            it('throws a RateLimitError with the 403 status when the wait does not fit', async () => {
+                const Api = withPolicy({
+                    classify: () => ({ reason: 'daily', waitMs: 400_000 }),
+                });
+                const fetch = throttledFetch([
+                    { status: 403, body: { code: 'LIMIT' } },
+                ]);
+
+                const error = await makeRequester(fetch, {}, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(error).toMatchObject({
+                    statusCode: 403,
+                    reason: 'daily',
+                    source: 'body',
+                });
+                expect(fetch.responses[0].text).toHaveBeenCalledTimes(1);
+                expect(error.body).toContain('LIMIT');
+            });
+
+            it('leaves a 403 that classify does not recognise as a plain FetchError', async () => {
+                const Api = withPolicy({ classify: () => null });
+                const fetch = throttledFetch([
+                    { status: 403, headers: { 'Retry-After': '2' } },
+                ]);
+
+                const error = await makeRequester(fetch, {}, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(FetchError);
+                expect(error.isRateLimited).toBeUndefined();
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+            });
+
+            it('takes the time of a reason-only classify from Retry-After', async () => {
+                const Api = withPolicy({
+                    classify: () => ({ reason: 'burst' }),
+                });
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '400' }),
+                ]);
+
+                const error = await makeRequester(fetch, {}, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toMatchObject({
+                    reason: 'burst',
+                    source: 'header',
+                });
+            });
+
+            it('hands classify an undefined body when the response is not JSON', async () => {
+                const classify = jest.fn(() => ({
+                    reason: 'burst',
+                    waitMs: 1_000,
+                }));
+                const Api = withPolicy({ classify });
+                const fetch = throttledFetch([
+                    limited(undefined, {
+                        contentType: 'text/plain',
+                        text: 'slow down',
+                    }),
+                    ok,
+                ]);
+
+                await makeRequester(fetch, {}, Api)._get({ url });
+
+                expect(classify.mock.calls[0][0].body).toBeUndefined();
+            });
+
+            it('does not call classify for a success or for a 401', async () => {
+                const classify = jest.fn(() => null);
+                const Api = withPolicy({ classify });
+                const fetch = throttledFetch([{ status: 401 }, ok]);
+                const requester = makeRequester(fetch, { backOff: [0] }, Api);
+                requester.notify = jest.fn();
+
+                await requester._get({ url });
+
+                expect(classify).not.toHaveBeenCalled();
+            });
+
+            it('writes one WARN record and goes on with the parsers when classify throws', async () => {
+                const Api = withPolicy({
+                    classify: () => {
+                        throw new Error('bad classifier');
+                    },
+                });
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '2' }),
+                    ok,
+                ]);
+
+                await makeRequester(fetch, {}, Api)._get({ url });
+
+                expect(delays).toEqual([2_000]);
+                expect(
+                    sink.records.filter(
+                        (r) =>
+                            r.eventName ===
+                            'module.PolicyRequester.rate_limit_classify_failed'
+                    )
+                ).toEqual([
+                    expect.objectContaining({
+                        level: 'WARN',
+                        statusCode: 429,
+                        error: expect.objectContaining({
+                            message: 'bad classifier',
+                        }),
+                    }),
+                ]);
+            });
+        });
+
+        describe('logging', () => {
+            it('writes one INFO record for a wait that a header set', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '5' }),
+                    ok,
+                ]);
+                await makeRequester(fetch)._get({ url });
+
+                expect(
+                    sink.records.filter(
+                        (r) =>
+                            r.eventName === 'module.TestRequester.rate_limited'
+                    )
+                ).toEqual([
+                    expect.objectContaining({
+                        level: 'INFO',
+                        logger: 'module.TestRequester',
+                        statusCode: 429,
+                        waitMs: 5_000,
+                        reason: 'unknown',
+                        hintSource: 'header',
+                        attempt: 0,
+                        waitedMs: 0,
+                        action: 'wait',
+                        retryAt: expect.any(String),
+                    }),
+                ]);
+            });
+
+            it('says throw when the wait does not fit', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '400' }),
+                ]);
+                await makeRequester(fetch)
+                    ._get({ url })
+                    .catch(() => {});
+
+                const [record] = sink.records.filter(
+                    (r) => r.eventName === 'module.TestRequester.rate_limited'
+                );
+                expect(record).toMatchObject({
+                    action: 'throw',
+                    waitMs: 400_000,
+                });
+            });
         });
     });
 
