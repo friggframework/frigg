@@ -398,6 +398,12 @@ class OAuth2Requester extends Requester {
         );
         transportError.statusCode = status;
         transportError.isTokenRefreshTransportFailure = true;
+        if (error?.isRateLimited) {
+            transportError.isRateLimited = true;
+            transportError.retryAt = error.retryAt;
+            transportError.waitMs = error.waitMs;
+            transportError.reason = error.reason;
+        }
         return transportError;
     }
 

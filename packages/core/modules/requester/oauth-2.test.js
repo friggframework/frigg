@@ -1,4 +1,5 @@
 const { OAuth2Requester } = require('./oauth-2');
+const { RateLimitError } = require('../../errors');
 
 describe('OAuth2Requester', () => {
     describe('constructor', () => {
@@ -173,6 +174,55 @@ describe('OAuth2Requester', () => {
                 requester.DLGT_INVALID_AUTH,
                 expect.anything()
             );
+        });
+
+        it('keeps the rate-limit fields on the failure of a throttled token endpoint', async () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'authorization_code',
+                refresh_token: 'test-refresh-token',
+                credentialReloadBackoffMs: [],
+            });
+            const retryAt = new Date(Date.now() + 3_600_000);
+            requester.refreshAccessToken = jest.fn().mockRejectedValue(
+                new RateLimitError({
+                    resource: 'https://auth.example.com/token',
+                    response: { status: 429, bodyUsed: true },
+                    hint: { retryAt, reason: 'burst', source: 'header' },
+                })
+            );
+            requester.notify = jest.fn();
+
+            const error = await requester.refreshAuth().catch((e) => e);
+
+            expect(error).toMatchObject({
+                isRateLimited: true,
+                statusCode: 429,
+                reason: 'burst',
+            });
+            expect(error.retryAt).toEqual(retryAt);
+            expect(error.waitMs).toBeGreaterThan(0);
+            expect(error.message).not.toContain('auth.example.com');
+            expect(requester.notify).not.toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH,
+                expect.anything()
+            );
+        });
+
+        it('does not flag an ordinary transport failure as rate limited', async () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'authorization_code',
+                refresh_token: 'test-refresh-token',
+                credentialReloadBackoffMs: [],
+            });
+            requester.refreshAccessToken = jest
+                .fn()
+                .mockRejectedValue(new Error('socket hang up'));
+            requester.notify = jest.fn();
+
+            const error = await requester.refreshAuth().catch((e) => e);
+
+            expect(error.isRateLimited).toBeUndefined();
+            expect(error.retryAt).toBeUndefined();
         });
 
         it('should return false and notify DLGT_INVALID_AUTH on error during client_credentials refresh', async () => {
