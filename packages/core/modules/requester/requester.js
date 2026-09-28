@@ -56,6 +56,8 @@ class Requester extends Delegate {
         this._authGeneration = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
+        this.DLGT_RATE_LIMITED = 'RATE_LIMITED';
+        this.delegateTypes.push(this.DLGT_RATE_LIMITED);
         this.agent = get(params, 'agent', null);
 
         // Per-attempt HTTP timeout. Without this the framework called fetch()
@@ -377,6 +379,7 @@ class Requester extends Delegate {
                         module: this._telemetryModuleLabel(),
                         scopeKey: computeScopeKey(this._rateLimitPolicy, this),
                     });
+                    await this._notifyRateLimited(rateLimitError);
                     throw this._maybeFlagTimeoutDuringBodyRead(
                         rateLimitError,
                         timeoutMs
@@ -587,6 +590,24 @@ class Requester extends Delegate {
             statusCode: status,
             error,
         });
+    }
+
+    /**
+     * Tells the delegate a wait was too long to sleep. Best effort: a failed
+     * notification is logged and never replaces the RateLimitError the caller
+     * is about to receive.
+     */
+    async _notifyRateLimited(rateLimitError) {
+        try {
+            await this.notify(this.DLGT_RATE_LIMITED, rateLimitError);
+        } catch (error) {
+            const logger = this.logger;
+            logger.warn('Rate limit notification failed', {
+                eventName: `${logger.name}.rate_limit_notify_failed`,
+                statusCode: rateLimitError.statusCode,
+                error,
+            });
+        }
     }
 
     _logRequestFailed(encodedUrl, options, status) {
