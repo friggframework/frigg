@@ -280,4 +280,44 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
         ).rejects.toThrow('Integration nope not found');
         expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
     });
+
+    it('stores an item object with its extra keys in both stored copies', async () => {
+        const { repo, doc } = makeMessagesRepo();
+        const item = {
+            title: 'Rate limit reached',
+            message: 'It resets at noon.',
+            timestamp: 1000,
+            code: 'RATE_LIMITED',
+            actions: [{ type: 'RETRY_WHEN_READY' }],
+        };
+
+        await repo.updateIntegrationMessages(OID, 'warnings', item);
+
+        expect(doc.messages.warnings).toEqual([item]);
+        expect(doc.warnings).toEqual([item]);
+    });
+
+    it('appends an item object after a positional message', async () => {
+        const { repo, doc } = makeMessagesRepo();
+        const item = {
+            title: 'Item',
+            message: 'object',
+            timestamp: 2,
+            code: 'X',
+        };
+
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            'First',
+            'one',
+            1
+        );
+        await repo.updateIntegrationMessages(OID, 'warnings', item);
+
+        expect(doc.warnings).toEqual([
+            { title: 'First', message: 'one', timestamp: 1 },
+            item,
+        ]);
+    });
 });

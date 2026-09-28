@@ -51,6 +51,59 @@ describe('UpdateIntegrationMessages Use-Case', () => {
             expect(fetched.messages.info.length).toBe(1);
         });
 
+        it('stores an item object with its extra keys', async () => {
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                { type: 'dummy' }
+            );
+            const item = {
+                title: 'Rate limit reached',
+                message: 'It resets at noon.',
+                timestamp: 1000,
+                code: 'RATE_LIMITED',
+                actions: [{ type: 'RETRY_WHEN_READY' }],
+            };
+
+            await useCase.execute(record.id, 'warnings', item);
+
+            const fetched = await integrationRepository.findIntegrationById(
+                record.id
+            );
+            expect(fetched.messages.warnings).toEqual([item]);
+        });
+
+        it('adds an item object after a positional message', async () => {
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                { type: 'dummy' }
+            );
+            const item = {
+                title: 'Item',
+                message: 'object',
+                timestamp: 2000,
+                code: 'X',
+            };
+
+            await useCase.execute(
+                record.id,
+                'warnings',
+                'First',
+                'positional',
+                1000
+            );
+            await useCase.execute(record.id, 'warnings', item);
+
+            const fetched = await integrationRepository.findIntegrationById(
+                record.id
+            );
+            expect(fetched.messages.warnings).toEqual([
+                { title: 'First', message: 'positional', timestamp: 1000 },
+                item,
+            ]);
+        });
+
         it('tracks message update operation', async () => {
             const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'dummy' });
             integrationRepository.clearHistory();

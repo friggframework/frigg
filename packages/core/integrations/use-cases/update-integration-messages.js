@@ -13,19 +13,21 @@ class UpdateIntegrationMessages {
     }
 
     /**
-     * Executes the integration messages update.
+     * Executes the integration messages update. Pass the positional form
+     * (title, body, timestamp) or one message item object; the keys of an item
+     * object are stored as they are.
      * @async
      * @param {string} integrationId - ID of the integration to update.
      * @param {string} messageType - Type of message: 'errors', 'warnings', 'info', or 'logs'.
-     * @param {string} messageTitle - Title of the message.
-     * @param {string} messageBody - Body content of the message.
-     * @param {string} messageTimestamp - Timestamp when the message was created.
+     * @param {string|Object} messageTitleOrItem - Title of the message, or the whole message item.
+     * @param {string} [messageBody] - Body content of the message (positional form).
+     * @param {string} [messageTimestamp] - Timestamp when the message was created (positional form).
      * @returns {Promise<Object>} The updated integration record.
      */
     async execute(
         integrationId,
         messageType,
-        messageTitle,
+        messageTitleOrItem,
         messageBody,
         messageTimestamp
     ) {
@@ -33,7 +35,7 @@ class UpdateIntegrationMessages {
             await this.integrationRepository.updateIntegrationMessages(
                 integrationId,
                 messageType,
-                messageTitle,
+                messageTitleOrItem,
                 messageBody,
                 messageTimestamp
             );

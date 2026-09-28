@@ -220,4 +220,37 @@ describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
         ).rejects.toThrow(`Integration ${ID} not found`);
         expect(repo.prisma.integration.update).not.toHaveBeenCalled();
     });
+
+    it('stores an item object with its extra keys', async () => {
+        const { repo, row } = makeMessagesRepo();
+        const item = {
+            title: 'Rate limit reached',
+            message: 'It resets at noon.',
+            timestamp: 1000,
+            code: 'RATE_LIMITED',
+            actions: [{ type: 'RETRY_WHEN_READY' }],
+        };
+
+        await repo.updateIntegrationMessages(ID, 'warnings', item);
+
+        expect(row.warnings).toEqual([item]);
+    });
+
+    it('appends an item object after a positional message', async () => {
+        const { repo, row } = makeMessagesRepo();
+        const item = {
+            title: 'Item',
+            message: 'object',
+            timestamp: 2,
+            code: 'X',
+        };
+
+        await repo.updateIntegrationMessages(ID, 'warnings', 'First', 'one', 1);
+        await repo.updateIntegrationMessages(ID, 'warnings', item);
+
+        expect(row.warnings).toEqual([
+            { title: 'First', message: 'one', timestamp: 1 },
+            item,
+        ]);
+    });
 });

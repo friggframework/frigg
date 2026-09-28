@@ -1,5 +1,6 @@
 const { v4: uuid } = require('uuid');
 const { validateConfigPatch } = require('../../repositories/config-patch-shared');
+const { toMessageItem } = require('../../repositories/message-item-shared');
 
 class TestIntegrationRepository {
     constructor() {
@@ -72,14 +73,14 @@ class TestIntegrationRepository {
         return results;
     }
 
-    async updateIntegrationMessages(id, type, title, body, timestamp) {
+    async updateIntegrationMessages(id, type, titleOrItem, body, timestamp) {
         const rec = this.store.get(id);
         if (!rec) {
             this.operationHistory.push({ operation: 'updateMessages', id, success: false });
             return false;
         }
         if (!rec.messages[type]) rec.messages[type] = [];
-        rec.messages[type].push({ title, message: body, timestamp });
+        rec.messages[type].push(toMessageItem(titleOrItem, body, timestamp));
         this.operationHistory.push({ operation: 'updateMessages', id, type, success: true });
         return true;
     }

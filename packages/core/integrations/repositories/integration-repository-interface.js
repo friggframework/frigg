@@ -97,20 +97,22 @@ class IntegrationRepositoryInterface {
     }
 
     /**
-     * Update integration messages
+     * Append a message to the stored messages of one type. Takes the
+     * positional form (title, body, timestamp) or one message item object,
+     * whose keys are stored as they are.
      *
      * @param {string|number} integrationId - Integration ID
      * @param {string} messageType - Type of message (errors, warnings, info, logs)
-     * @param {string} messageTitle - Message title
-     * @param {string} messageBody - Message body
-     * @param {Date} messageTimestamp - Message timestamp
+     * @param {string|Object} messageTitleOrItem - Message title, or the whole message item
+     * @param {string} [messageBody] - Message body (positional form)
+     * @param {Date} [messageTimestamp] - Message timestamp (positional form)
      * @returns {Promise<boolean>} Success indicator
      * @abstract
      */
     async updateIntegrationMessages(
         integrationId,
         messageType,
-        messageTitle,
+        messageTitleOrItem,
         messageBody,
         messageTimestamp
     ) {

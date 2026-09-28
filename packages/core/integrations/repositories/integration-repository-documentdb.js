@@ -14,6 +14,7 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
+const { toMessageItem } = require('./message-item-shared');
 
 class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     constructor() {
@@ -94,7 +95,7 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     async updateIntegrationMessages(
         integrationId,
         messageType,
-        messageTitle,
+        messageTitleOrItem,
         messageBody,
         messageTimestamp
     ) {
@@ -108,11 +109,12 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         }
         const messages = this._extractMessages(existing);
         const list = Array.isArray(messages[messageType]) ? [...messages[messageType]] : [];
-        list.push({
-            title: messageTitle ?? null,
-            message: messageBody,
-            timestamp: messageTimestamp,
-        });
+        const item = toMessageItem(
+            messageTitleOrItem,
+            messageBody,
+            messageTimestamp
+        );
+        list.push({ ...item, title: item.title ?? null });
         const updatedMessages = { ...messages, [messageType]: list };
         await updateOne(
             this.prisma,
