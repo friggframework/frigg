@@ -119,7 +119,9 @@ a delivery. #653 stays the fallback when no hint exists.
 
 The [appendix](#appendix-code-sketches) shows code sketches for each part.
 They are illustrative. The implementation PRs can change names and
-signatures.
+signatures. Phase 1 is friggframework/frigg#656 and phase 2 is
+friggframework/frigg#657; where a sketch and the code differ, the code and the
+text of this section are right.
 
 ### 1. The API-module contract
 
@@ -153,47 +155,78 @@ A **hint** has one shape everywhere:
   HTTP-date, ISO timestamp), reset headers (epoch seconds, epoch milliseconds,
   delta or ISO, told apart by magnitude), and the IETF fields.
 - **`classify`** recognises provider signals that are not 429, or that
-  need the body (a 403 limit code, a 200 `THROTTLED`, a `policyName`). It
-  returns a hint or `null`.
-- **Resolution order:** `classify`, then the parsers in order, then the
-  static policy, then the fixed `backOff`.
+  need the body (a 403 limit code, a `policyName`). It returns a hint or
+  `null`. A hint may name only a `reason`: its time then comes from the
+  parsers, or from the policy.
+- **`classify` runs for a 429 and for any other 4xx or 5xx except 401.** It
+  does not run for a 2xx, because a retry of a "throttled 200" would send a
+  POST again. A module with such a response (a Shopify GraphQL `THROTTLED`)
+  wraps its own call with `classifyRateLimit()`. A status other than 429 is a
+  limit only when `classify` returns a hint for it.
+- **Resolution order:** `classify`, then the parsers in order (default: all
+  three), then the static policy (`minRetryAfterMs`, or the `perMs` of the
+  window that the reason names), then the fixed `backOff`.
+- **`Retry-After` is read for every module, on a 429 only.** A 503 with
+  `Retry-After` keeps the 5xx ladder.
 - **Modules that do not use the Requester** (for example a module on jsforce)
   call the exported `classifyRateLimit()` around their own client.
 
 ### 2. Requester
 
-- On a throttled response, the Requester computes the wait as the larger of
-  the hint, `minRetryAfterMs` and `backOff[attempt]`, plus jitter.
+- **The hint wins.** With a hint, the wait is the largest of the hint,
+  `minRetryAfterMs` and 1 s, plus at most 10 % jitter. Jitter only adds, and
+  it never passes the budget. The fixed ladder is not a floor under a hint: a
+  provider that says "call again in 2 s" gets 2 s.
+- **No hint, no change.** A 429 with no hint keeps today's ladder: the same
+  calls, the same delays, then a plain `FetchError`. The ladder has no
+  budget. The default HTTP Lambda timeout is 29 s, so a budget of "time left
+  minus the request timeout" would be 0 there.
 - **Short wait:** the Requester sleeps in process when the wait fits the
-  budget: the smaller of a policy cap and the time left in the invocation
-  minus the request timeout. `Worker.run` puts the deadline
-  (`context.getRemainingTimeInMillis()`) in `AsyncLocalStorage`, the same
-  mechanism as `requester.js:17`.
+  budget. The budget is the cap (`maxInProcessWaitMs`, default 5 minutes) less
+  what this request slept already, and the time left in the invocation less
+  one request timeout. `runInvocationScope` puts the deadline
+  (`context.getRemainingTimeInMillis()`) in its own `AsyncLocalStorage`, not
+  in the logs store: the telemetry bus forwards every key of that store that
+  is not `log`. Outside a Lambda there is no deadline, and the cap alone
+  applies.
 - **Long wait:** the Requester throws `RateLimitError`, which extends
   `FetchError`. It keeps `statusCode` and adds `isRateLimited`, `retryAt`,
-  `reason`, `policy`, `scopeKey`, `module` and `hints`.
-- **A module that declares nothing keeps today's behaviour**, with the same
-  calls and the same delays.
+  `waitMs`, `reason`, `policy`, `source`, `scopeKey` and `module`. It throws
+  this error only when a hint exists (`source` is `header`, `body` or
+  `static`). A 429 with no hint that used the ladder ends as a plain
+  `FetchError`, as today.
+- **A module that declares nothing keeps today's behaviour** for a 429 with no
+  hint, with the same calls and the same delays.
 
 ### 3. Queue worker: defer instead of redeliver
 
 - `backend-utils.js` does not halt an error with `isRateLimited`, whatever its
   status.
-- `Worker.run` defers a record that failed with `RateLimitError`:
+- `Worker.run` defers a record that failed with an error that has
+  `isRateLimited` and a `retryAt`:
   - **Wait up to 900 s:** send the same body again with `DelaySeconds` and a
     `_frigg.deferrals` counter, then report the record as a success. The new
     message starts at receive count 1.
   - **Wait over 900 s:** schedule the same body with the one-time scheduler
     at `retryAt`. Devtools provisions the scheduler when any module declares
-    `rateLimit`.
+    `rateLimit`. The worker never uses the mock scheduler: a schedule kept in
+    memory would be lost with the acknowledged message.
   - **No scheduler provisioned:** call `ChangeMessageVisibility` to `retryAt`
     (at most 12 h after the receive) and report the record as a failure. This
-    uses one delivery and needs the new IAM action.
-- **Cap:** `maxDeferrals` and `maxDeferredMs`. Past the cap, or for a 429
-  with no hint, the worker rethrows as today, and #653 `isLastAttempt` is the
-  fallback.
+    uses one delivery. The base role gets the new IAM action in every stack,
+    because `Retry-After` is honoured for every module.
+- **Cap:** `maxDeferrals` and `maxDeferredMs`, from
+  `FRIGG_QUEUE_MAX_DEFERRALS` (default 10) and `FRIGG_QUEUE_MAX_DEFERRED_MS`
+  (default 24 h, from the first deferral to the retry time). Past the cap, or
+  with no `retryAt`, no event source ARN or a FIFO queue, the record fails as
+  any retryable error does, and #653 `isLastAttempt` is the fallback.
 - **Order:** send (or schedule) first, then acknowledge. Delivery stays at
   least once, so handlers stay idempotent as today.
+- **Handler contract:** a handler checks `delivery.isLastAttempt` first, then
+  rethrows. The delay and schedule tiers send a new message, so they never
+  reach the last attempt. The visibility tier and a cap use a receive: on the
+  last one the worker writes an ERROR (`record_lost_rate_limited`), and the
+  handler has one chance to end the run.
 - **ADR-047:** when the orchestrator exists, a long wait becomes an
   orchestrator event (`RATE_LIMITED`, `retryAt`) and the orchestrator
   schedules the next tick. This section is the interim mechanism for plain
@@ -202,9 +235,11 @@ A **hint** has one shape everywhere:
 ### 4. Run state
 
 The worker writes `Process.context.rateLimit` with `applyProcessUpdate`:
-`{ status: 'WAITING', retryAt, reason, module, deferrals }`. The next
-successful dispatch of that process clears it. A UI can then show "waiting
-for the provider limit until 23:00 UTC" instead of a run that looks stuck.
+`{ status, mechanism, retryAt, reason, module, deferrals, updatedAt }`.
+`status` is `WAITING`, or `EXHAUSTED` when a cap ended the deferrals or a
+visibility change came on the last delivery. The worker writes `null` after
+the deferred message ran without error. A UI can then show "waiting for the
+provider limit until 23:00 UTC" instead of a run that looks stuck.
 
 ### 5. User-facing message
 
@@ -217,7 +252,6 @@ same path as `CREDENTIAL_INVALIDATED` (`module.js:210`,
     code: 'RATE_LIMITED',
     module, reason,
     retryAt,                 // ISO UTC; the UI shows local time
-    scheduled: true,
     actions: [
         { type: 'RETRY_WHEN_READY' },
         { type: 'LINK', label, url },   // from module userHints
@@ -228,6 +262,12 @@ same path as `CREDENTIAL_INVALIDATED` (`module.js:210`,
 The module owns the provider-specific text and links. `classify` can drop a
 link that does not apply, for example a paid limit increase that a public app
 cannot buy.
+
+The message has no `scheduled` flag. The Requester does not know whether the
+worker will defer, and `Process.context.rateLimit` tells the UI that. Twenty
+workers can meet the same limit at once, so a message for the same module
+with a `retryAt` within 60 s of the last one is skipped. The status of the
+integration does not change: a rate limit is not an error.
 
 ### 6. Pacing (phase 2)
 
@@ -246,8 +286,8 @@ cannot buy.
 
 | PR | Scope | Files |
 |---|---|---|
-| 1 (core, opt-in) | Parsers, `static rateLimit`, honour `Retry-After` and `minRetryAfterMs`, the budget cap, `RateLimitError`, the halt exemption. No queue change: the error still rethrows. | `modules/requester/requester.js`, `modules/requester/rate-limit/*`, `errors/rate-limit-error.js`, `errors/index.js`, `handlers/backend-utils.js`, `packages/core/CLAUDE.md` |
-| 2 (core + devtools) | Defer in `Worker.run`, run state, the scheduler switch, the IAM action. | `core/Worker.js`, `queues/queuer-util.js`, `handlers/backend-utils.js`, `devtools/.../integration-builder.js`, `scheduler-builder.js`, `base-definition-factory.js`, `docs/guides/INTEGRATION-PATTERNS.md` |
+| 1 (core, opt-in; frigg#656) | Parsers, `static rateLimit`, honour `Retry-After` and `minRetryAfterMs`, the budget cap, `RateLimitError`, the halt exemption. No queue change: the error still rethrows. | `modules/requester/requester.js`, `modules/requester/rate-limit/*`, `errors/rate-limit-error.js`, `errors/index.js`, `core/invocation-deadline.js`, `core/invocation-scope.js`, `handlers/backend-utils.js`, `packages/core/CLAUDE.md` |
+| 2 (core + devtools; frigg#657) | Defer in `Worker.run`, run state, the scheduler switch, the IAM action. | `core/Worker.js`, `queues/queue-deferral.js`, `queues/queuer-util.js`, `handlers/backend-utils.js`, `modules/requester/oauth-2.js`, `devtools/.../scheduler-builder.js`, `base-definition-factory.js`, `docs/guides/INTEGRATION-PATTERNS.md` |
 | 3 (api-module-library) | Policies and classifiers: HubSpot (`policyName`, `X-HubSpot-RateLimit-*`), Salesforce (403 `REQUEST_LIMIT_EXCEEDED`, `limitInfo`), Pipedrive (`x-ratelimit-*`). | each module's `api.js` and tests |
 | 4 (core) | The `RATE_LIMITED` delegate, the message shape, the `RETRY_WHEN_READY` action. | `modules/module.js`, `integrations/integration-base.js` |
 | 5 (core + devtools) | Pacing 2a, then 2b. | `modules/requester/rate-limit/*`, `integration-builder.js` |
@@ -256,15 +296,16 @@ cannot buy.
 
 - **Parsers:** table tests for seconds, HTTP-date, ISO, epoch s and ms,
   delta, IETF, bad input, past times and very large values.
-- **Requester:** an injected `fetch` with fake timers. It waits for
+- **Requester:** an injected `fetch` and a `setTimeout` spy. It waits for
   `Retry-After`, not for `backOff`. A long wait throws `RateLimitError` with
-  `retryAt`. A module that declares nothing makes the same calls with the
-  same delays. The 5xx path does not change. The skipped live-mock tests
-  (`requester.test.js:48,58`) are replaced.
+  `retryAt`. A 429 with no hint makes the same calls with the same delays,
+  also inside a 29 s invocation. The 5xx path does not change. The skipped
+  live-mock tests (`requester.test.js:48,58`) are replaced.
 - **Worker:** `aws-sdk-client-mock` checks `DelaySeconds`, the scheduler, the
   visibility fallback, the cap, and that a 403 limit is not halted.
 - **Devtools:** when no module declares `rateLimit`, the rendered template
-  does not change, byte for byte.
+  gains one action string (`sqs:ChangeMessageVisibility`) and nothing else: no
+  new resource, function or environment variable.
 - **API modules:** recorded fixtures of real throttled responses.
 
 ## Consequences
@@ -280,7 +321,8 @@ cannot buy.
 - Limits that are not 429 stop being halted.
 - The user gets one standard message with the reset time and the provider's
   options.
-- Modules that declare nothing behave exactly as today.
+- A module that declares nothing behaves as today for a 429 with no hint. A
+  429 with `Retry-After` gets the wait that the header says.
 
 ### Negative
 
@@ -294,6 +336,8 @@ cannot buy.
   A wrong policy can make Frigg wait too long or too little.
 - Phase 1 alone does not stop 20 workers from saturating one limit. That
   needs pacing (phase 2).
+- A hinted wait holds a worker slot for up to 5 minutes for each request.
+  Twenty sleeping workers starve the queue until pacing exists.
 
 ### Neutral
 
@@ -332,17 +376,24 @@ cannot buy.
 - friggframework/frigg#653: `delivery.isLastAttempt` for queue handlers.
 - friggframework/frigg#633: declarative queue tuning.
 
-## Open Questions
+## Decisions and Open Questions
 
-1. Is honouring `Retry-After` on by default for every module, or opt-in per
-   module? Lean: on by default. It only shortens or lengthens a wait that
-   already happens.
-2. What is the default cap for an in-process wait: 60 s, or 5 min?
-3. Is it acceptable that a deferral sends a new message (receive count
-   restarts) instead of changing visibility? Is the scheduler an acceptable
-   dependency for waits over 15 min?
-4. What maximum total deferral time applies before the run fails and the
-   user is told?
+### Decided (2026-09-28)
+
+1. **`Retry-After` is honoured for every module, by default.** The default
+   parser list is `retryAfter`, `resetHeaders`, `ietf`.
+2. **The in-process wait is capped at 5 minutes in total for one request.** It
+   never passes the time left in the invocation less one request timeout.
+3. **A deferral sends a new message** (the receive count restarts) for a wait
+   up to 15 minutes. A longer wait uses the one-time scheduler. Without a
+   scheduler, the worker extends the visibility timeout (12 hours at most, one
+   receive used).
+4. **The default caps are 10 deferrals and 24 hours** from the first deferral.
+   A monthly quota is capped at once and falls back to #653. Reviewers can
+   change the defaults.
+
+### Open
+
 5. Run state: a reserved `context.rateLimit` key, or a framework state
    `RATE_LIMITED` in the ADR-047 state machine?
 6. Where does `rateLimitedUntil` live: on the entity (a migration) or in a
@@ -461,52 +512,57 @@ class Api extends ApiKeyRequester {
 
 ### A.5 Requester: the throttled branch
 
-This branch replaces the fixed ladder at `requester.js:276-284`.
+This branch replaces the combined 429 and 5xx ladder at `requester.js:301-310`.
+The 5xx ladder stays as it is.
 
 ```js
-const policy = this.constructor.rateLimit;
-
-if (isThrottled(response, policy)) {                  // 429, or classify() returns a hint
-    const hint = await resolveRateLimitHint(policy, response, {
-        attempt,
-        backOff: this.backOff,
-        now: Date.now(),
-    });                                               // classify → parsers → policy → backOff
-    const waitMs = Math.max(hint.waitMs, policy?.minRetryAfterMs ?? 0) + jitter(hint.waitMs);
-
-    if (waitMs <= inProcessBudgetMs(policy, this.requestTimeoutMs) && attempt < this.backOff.length) {
-        clearRequestTimer();
-        await sleep(waitMs);
-        return this._rawRequest(url, options, attempt + 1);
+const throttle = await this._detectThrottle(response, status, attempt);
+if (throttle?.throttled) {
+    const { hint } = throttle;                        // classify → parsers → policy → backoff
+    if (hint.source === 'backoff') {
+        if (attempt < this.backOff.length) {          // no hint: today's ladder, no budget
+            await sleep(this.backOff[attempt] * 1000);
+            return this._rawRequest(url, options, attempt + 1, waitedMs);
+        }
+    } else {
+        const budgetMs = inProcessBudgetMs({
+            policy,
+            requestTimeoutMs: this.requestTimeoutMs,
+            remainingMs: remainingInvocationMs(),
+            waitedMs,
+        });
+        const { waitMs, fits } = computeWaitMs({ hint, policy, budgetMs });
+        if (fits) {
+            await sleep(waitMs);
+            return this._rawRequest(url, options, attempt + 1, waitedMs + waitMs);
+        }
+        throw await RateLimitError.create({
+            resource: encodedUrl,
+            init: options,
+            response,
+            hint,
+            waitMs,
+            module: this._telemetryModuleLabel(),
+            scopeKey: computeScopeKey(policy, this),
+        });
     }
-
-    throw await RateLimitError.create({
-        resource: encodedUrl,
-        init: options,
-        response,
-        hint,
-        module: this.name,
-    });
 }
 ```
 
 ### A.6 Requester: a built-in parser and the budget
 
 ```js
-function parseRetryAfter(value, now = Date.now()) {
-    if (!value) return null;
-    const seconds = Number(value);
-    if (Number.isFinite(seconds)) {
-        return { waitMs: seconds * 1000, source: 'header' };
-    }
-    const at = Date.parse(value);                     // HTTP-date or ISO timestamp
-    if (Number.isNaN(at)) return null;
-    return { retryAt: new Date(at), waitMs: Math.max(0, at - now), source: 'header' };
+function parseRetryAfter(value, { now = Date.now() } = {}) {
+    const text = String(value ?? '').trim();
+    if (/^\d+(\.\d+)?$/.test(text)) return hintFromWait(Number(text) * 1000, now);
+    if (!/[A-Za-z]/.test(text)) return null;          // Date.parse("5") is a valid date
+    const at = Date.parse(text);                      // HTTP-date or ISO timestamp
+    return Number.isNaN(at) ? null : hintFromRetryAt(new Date(at), now);
 }
 
-function inProcessBudgetMs(policy, requestTimeoutMs) {
-    const left = invocationDeadline() - Date.now() - requestTimeoutMs; // set by Worker.run
-    return Math.min(policy?.maxInProcessWaitMs ?? 60_000, left);
+function inProcessBudgetMs({ policy, requestTimeoutMs, remainingMs, waitedMs }) {
+    const cap = policy?.maxInProcessWaitMs ?? 300_000;
+    return Math.max(0, Math.min(cap - waitedMs, remainingMs - (requestTimeoutMs || 0)));
 }
 ```
 
@@ -549,54 +605,60 @@ the two, SQS delivers the original again, so delivery stays at least once.
 ```js
 // inside run(), per record
 } catch (error) {
-    const outcome = error.isRateLimited ? await this.defer(record, error) : null;
-    if (outcome === 'acked') continue;                // re-sent or scheduled
-    if (outcome !== 'failed' && error.isHaltError) continue;
-    batchItemFailures.push({ itemIdentifier: record.messageId });
+    if (error.isRateLimited && body) {
+        const { outcome } = await this.defer(record, body, error, delivery);
+        if (outcome === 'acked') return;              // sent again, or scheduled
+        if (outcome === 'failed') {                   // visibility extended, or a cap
+            batchItemFailures.push({ itemIdentifier: record.messageId });
+            return;
+        }
+    }                                                 // 'skipped': fail as any error does
+    ...
 }
 
-async defer(record, error) {
-    const body = JSON.parse(record.body);
-    const deferrals = (body._frigg?.deferrals ?? 0) + 1;
-    const waitMs = error.retryAt.getTime() - Date.now();
-    if (deferrals > MAX_DEFERRALS || waitMs > MAX_DEFERRED_MS) return null;   // rethrow path, #653
-
-    const next = { ...body, _frigg: { ...body._frigg, deferrals } };
-    await recordRateLimitWait(body.data?.processId, error, deferrals);         // context.rateLimit
+async defer(record, body, error, delivery) {
+    const deferral = nextDeferral(body);              // _frigg.deferrals, firstDeferredAt
+    if (isDeferralCapped({ ...deferral, retryAt: error.retryAt }, readDeferralLimits())) {
+        return { outcome: 'failed' };                 // and record EXHAUSTED
+    }
+    const waitMs = Math.max(0, error.retryAt - Date.now());
+    const next = withDeferral(body, deferral);
 
     if (waitMs <= 900_000) {
-        await this.send({ ...next, QueueUrl: this.queueUrl }, Math.ceil(waitMs / 1000));
-        return 'acked';
+        await this.send({ ...next, QueueUrl: await this._queueUrl(record) }, Math.ceil(waitMs / 1000));
+        return { outcome: 'acked' };
     }
-    if (this.scheduler) {
-        await this.scheduler.scheduleOneTime({
-            scheduleName: `defer-${record.messageId}`,
+    if (this.getSchedulerService()) {                 // never the mock scheduler
+        await scheduler.scheduleOneTime({
+            scheduleName: `frigg-defer-${record.messageId}`,
             scheduleAt: error.retryAt,
-            queueResourceId: this.queueArn,
+            queueResourceId: record.eventSourceARN,
             payload: next,
         });
-        return 'acked';
+        return { outcome: 'acked' };
     }
-    await this.changeVisibility(record, Math.min(waitMs, 12 * 60 * 60_000));
-    return 'failed';                                  // back at retryAt, one delivery used
+    await changeVisibility(record, Math.min(Math.ceil(waitMs / 1000), 43_200));
+    return { outcome: 'failed' };                     // back at retryAt, one delivery used
 }
 ```
 
 ### A.10 Integration queue handler
 
-Nothing is required. The handler keeps rethrowing, and core defers. #653
-still covers failures that are not limits, and limits with no hint.
+The handler checks the last attempt first, then rethrows. Core defers a
+rate-limited error, and #653 still covers failures that are not limits, and
+limits with no hint. The delay and schedule tiers send a new message, so they
+never reach the last attempt. The visibility tier and a cap use a receive, so
+the handler keeps one chance to end the run.
 
 ```js
 async onSyncPage({ data, delivery }) {
     try {
         await this.syncPage(data);
     } catch (error) {
-        if (error.isRateLimited) throw error;         // core defers it to retryAt
         if (delivery?.isLastAttempt) {                // friggframework/frigg#653
             return this.failRun(data.processId, error);
         }
-        throw error;
+        throw error;                                  // a RateLimitError too: core defers it to retryAt
     }
 }
 ```
@@ -612,7 +674,6 @@ The next refresh is at 20:00 your time. We continue then."
   "module": "hubspot",
   "reason": "daily",
   "retryAt": "2026-09-26T23:00:00Z",
-  "scheduled": true,
   "actions": [
     { "type": "RETRY_WHEN_READY" },
     {
