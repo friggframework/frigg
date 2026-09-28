@@ -181,6 +181,8 @@ function buildRecord({
 
     const dropped = new Set();
     const callSiteKeys = [];
+    // Call-site keys merged into the scope invocation; the size cap must reach them too.
+    const invocationDetailKeys = [];
     const place = ({ entries, dropped: droppedHere }, isCallSite) => {
         for (const key of droppedHere) dropped.add(key);
         for (const [key, value] of entries) {
@@ -190,7 +192,13 @@ function buildRecord({
                     isPlainObject(record[key]) &&
                     isPlainObject(value)
                 ) {
-                    record[key] = extendInvocation(record[key], value);
+                    const merged = extendInvocation(record[key], value);
+                    if (isCallSite) {
+                        for (const detailKey of Object.keys(value)) {
+                            if (!(detailKey in record[key])) invocationDetailKeys.push(detailKey);
+                        }
+                    }
+                    record[key] = merged;
                 } else if (!sameValue(record[key], value)) {
                     // A repeat of the winning value is no conflict.
                     dropped.add(key);
@@ -213,13 +221,30 @@ function buildRecord({
     let size = byteLength(record);
 
     if (size > MAX_RECORD_BYTES) {
-        const bySize = callSiteKeys
-            .filter((key) => key !== 'error')
-            .map((key) => [key, Buffer.byteLength(JSON.stringify(record[key]))])
+        const candidates = [
+            ...callSiteKeys
+                .filter((key) => key !== 'error')
+                .map((key) => ({
+                    name: key,
+                    value: record[key],
+                    remove: () => delete record[key],
+                })),
+            ...invocationDetailKeys.map((key) => ({
+                name: `${INVOCATION_KEY}.${key}`,
+                value: record[INVOCATION_KEY][key],
+                remove: () => {
+                    const rest = { ...record[INVOCATION_KEY] };
+                    delete rest[key];
+                    record[INVOCATION_KEY] = rest;
+                },
+            })),
+        ];
+        const bySize = candidates
+            .map((candidate) => [candidate, Buffer.byteLength(JSON.stringify(candidate.value))])
             .sort((a, b) => b[1] - a[1]);
-        for (const [key] of bySize) {
-            delete record[key];
-            dropped.add(key);
+        for (const [candidate] of bySize) {
+            candidate.remove();
+            dropped.add(candidate.name);
             setDroppedKeys();
             size = byteLength(record);
             if (size <= MAX_RECORD_BYTES) break;

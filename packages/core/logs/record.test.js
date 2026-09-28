@@ -356,6 +356,29 @@ describe('logs/record', () => {
             expect(record.droppedKeys.every((k) => k.startsWith('f'))).toBe(true);
         });
 
+        it('also caps call-site invocation detail merged into the scope invocation', () => {
+            const headerNames = Array.from({ length: 2000 }, (_, i) => `x-attacker-header-${i}`);
+            runInContext(
+                { log: { invocation: { source: 'http', method: 'GET', route: '/api/{proxy+}' } } },
+                () => {
+                    getLogger('frigg.handler').info('Handler invoked', {
+                        eventName: 'frigg.handler.invoked',
+                        invocation: { path: '/api/x', queryKeys: ['q'], headerNames },
+                    });
+                }
+            );
+            const record = sink.records[0];
+            expect(Buffer.byteLength(JSON.stringify(record))).toBeLessThanOrEqual(MAX_RECORD_BYTES);
+            expect(record.invocation).toEqual({
+                source: 'http',
+                method: 'GET',
+                route: '/api/{proxy+}',
+                path: '/api/x',
+                queryKeys: ['q'],
+            });
+            expect(record.droppedKeys).toEqual(['invocation.headerNames']);
+        });
+
         const makeHuge = (depth) => {
             const error = new Error(chunk(2000));
             error.stack = `Error: x\n${'    at frame (file.js:1:1)\n'.repeat(600)}`;
