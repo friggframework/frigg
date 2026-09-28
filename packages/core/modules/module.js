@@ -51,6 +51,8 @@ class Module extends Delegate {
         this.delegateTypes.push(this.DLGT_CREDENTIAL_INVALIDATED);
         this.DLGT_CREDENTIAL_VALIDATED = 'CREDENTIAL_VALIDATED';
         this.delegateTypes.push(this.DLGT_CREDENTIAL_VALIDATED);
+        this.DLGT_RATE_LIMITED = 'RATE_LIMITED';
+        this.delegateTypes.push(this.DLGT_RATE_LIMITED);
 
         Object.assign(this, this.definition.requiredAuthMethods);
 
@@ -160,6 +162,8 @@ class Module extends Delegate {
             await this.deauthorize();
         } else if (delegateString === this.api.DLGT_INVALID_AUTH) {
             await this.markCredentialsInvalid(object);
+        } else if (delegateString === this.api.DLGT_RATE_LIMITED) {
+            await this.reportRateLimit(object);
         } else if (delegateString === this.api.DLGT_CREDENTIAL_RELOAD) {
             return this.reloadCredential();
         }
@@ -229,6 +233,32 @@ class Module extends Delegate {
         } catch (err) {
             this.logger.error('Failed to propagate CREDENTIAL_INVALIDATED', {
                 eventName: `${this.logger.name}.credential_invalidated_propagation_failed`,
+                error: err,
+            });
+        }
+    }
+
+    /**
+     * Passes a rate limit the api reported to the parent delegate, best
+     * effort. The payload never holds the error's message, url, body or
+     * headers, because the parent shows it to end users.
+     * @param {import('../errors').RateLimitError} rateLimitError
+     */
+    async reportRateLimit(rateLimitError) {
+        const { reason, retryAt, policy, statusCode } = rateLimitError;
+        const links = this.apiClass.rateLimit?.userHints?.[reason]?.links ?? [];
+        try {
+            await this.notify(this.DLGT_RATE_LIMITED, {
+                moduleName: this.name,
+                reason,
+                retryAt,
+                policy,
+                statusCode,
+                links,
+            });
+        } catch (err) {
+            this.logger.error('Failed to propagate RATE_LIMITED', {
+                eventName: `${this.logger.name}.rate_limited_propagation_failed`,
                 error: err,
             });
         }
