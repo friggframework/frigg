@@ -1,6 +1,10 @@
 const { runInContext, LOGGER_SCOPE_KEY } = require('../logs/context');
 const { summarizeMessageBody } = require('../logs/summarize-event');
 const { flushSinks, hasFlushableSinks } = require('../logs/logger-runtime');
+const {
+    deadlineFromContext,
+    runWithInvocationDeadline,
+} = require('./invocation-deadline');
 
 // Bounds the tail latency telemetry adds to every warm invocation. Kept low so
 // an unreachable OTLP endpoint (e.g. a VPC Lambda with no NAT/egress) costs at
@@ -168,21 +172,26 @@ async function runInvocationScope(fields, fn, opts = {}) {
         flushTimeoutMs = DEFAULT_FLUSH_TIMEOUT_MS,
         context,
     } = opts;
-    return runInContext({ [LOGGER_SCOPE_KEY]: { ...(fields || {}) } }, async () => {
-        try {
-            return await fn();
-        } finally {
-            // Every step is guarded, so a flush never changes the result.
-            await flushInvocation({
-                telemetry,
-                usageRollup,
-                eventSummary,
-                shouldUseDatabase,
-                flushTimeoutMs,
-                context,
-            });
-        }
-    });
+    return runWithInvocationDeadline(deadlineFromContext(context), () =>
+        runInContext(
+            { [LOGGER_SCOPE_KEY]: { ...(fields || {}) } },
+            async () => {
+                try {
+                    return await fn();
+                } finally {
+                    // Every step is guarded, so a flush never changes the result.
+                    await flushInvocation({
+                        telemetry,
+                        usageRollup,
+                        eventSummary,
+                        shouldUseDatabase,
+                        flushTimeoutMs,
+                        context,
+                    });
+                }
+            }
+        )
+    );
 }
 
 function toCount(value) {
