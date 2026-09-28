@@ -1,5 +1,9 @@
 const { Cryptor } = require('../encrypt/Cryptor');
-const { getEncryptedFields, loadCustomEncryptionSchema } = require('./encryption/encryption-schema-registry');
+const {
+    getEncryptedFields,
+    getFieldsToEncryptOnWrite,
+    loadCustomEncryptionSchema,
+} = require('./encryption/encryption-schema-registry');
 
 /**
  * Encryption service specifically for DocumentDB repositories
@@ -107,7 +111,7 @@ class DocumentDBEncryptionService {
         }
 
         // Get encrypted fields from registry
-        const encryptedFieldsConfig = getEncryptedFields(modelName);
+        const encryptedFieldsConfig = getFieldsToEncryptOnWrite(modelName);
         if (!encryptedFieldsConfig || encryptedFieldsConfig.length === 0) {
             return document;
         }

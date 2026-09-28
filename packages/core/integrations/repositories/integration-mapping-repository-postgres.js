@@ -1,8 +1,31 @@
 const { prisma } = require('../../database/prisma');
 const {
+    assertMappingWrittenUnencrypted,
+    decryptQueriedMappings,
+} = require('../../database/encryption/integration-mapping-encryption');
+const {
     IntegrationMappingRepositoryInterface,
 } = require('./integration-mapping-repository-interface');
 const { strictIntId } = require('./report-id');
+const { validateMappingQuery } = require('./integration-mapping-query');
+
+const COLUMNS = { mapping: '"mapping"', sourceId: '"sourceId"' };
+const SQL_DIRECTIONS = { asc: 'ASC', desc: 'DESC' };
+
+const jsonPathOperand = (column, path) => ({
+    json: `${column} #> ${path}::text[]`,
+    text: `${column} #>> ${path}::text[]`,
+});
+const jsonType = (json) => `COALESCE(jsonb_typeof(${json}), 'null')`;
+
+const CONDITION_SQL = {
+    exists: ({ json }) => `${jsonType(json)} <> 'null'`,
+    notExists: ({ json }) => `${jsonType(json)} = 'null'`,
+    in: ({ json, text, value }) =>
+        `(jsonb_typeof(${json}) = 'string' AND ${text} = ANY(${value}::text[]))`,
+    notStartsWith: ({ text, value }) =>
+        `(${text} IS NULL OR NOT starts_with(${text}, ${value}::text))`,
+};
 
 /**
  * PostgreSQL Integration Mapping Repository Adapter
@@ -214,6 +237,101 @@ class IntegrationMappingRepositoryPostgres extends IntegrationMappingRepositoryI
             );
         }
         return counts;
+    }
+
+    /**
+     * @param {string} integrationId
+     * @param {Object} query - See IntegrationMappingRepositoryInterface.queryMappings
+     * @returns {Promise<{mappings: Array<Object>, total: number}>}
+     */
+    async queryMappings(integrationId, query) {
+        const { where, orderBy, skip, take, omit } =
+            validateMappingQuery(query);
+        const intIntegrationId = strictIntId(integrationId);
+        assertMappingWrittenUnencrypted();
+
+        const params = [];
+        const bind = (v) => {
+            params.push(v);
+            return `$${params.length}`;
+        };
+
+        const whereSql = [
+            `"integrationId" = ${bind(intIntegrationId)}::int`,
+            `jsonb_typeof("mapping") = 'object'`,
+            ...where.map((entry) => this._whereEntrySql(entry, bind)),
+        ].join(' AND ');
+        const orderSql = orderBy ? this._orderSql(orderBy, bind) : `"id" ASC`;
+        const mappingSql =
+            omit.length > 0
+                ? `"mapping" - ${bind(omit)}::text[] AS "mapping"`
+                : `"mapping"`;
+
+        const sql = `
+            WITH "matched" AS (
+                SELECT "id", "integrationId", "sourceId", "mapping", "createdAt", "updatedAt"
+                FROM "IntegrationMapping"
+                WHERE ${whereSql}
+            ),
+            "page" AS (
+                SELECT * FROM "matched"
+                ORDER BY ${orderSql}
+                OFFSET ${bind(skip)}::bigint
+                LIMIT ${bind(take)}::int
+            )
+            SELECT "id", "integrationId", "sourceId", ${mappingSql}, "createdAt", "updatedAt",
+                (SELECT COUNT(*)::int FROM "matched") AS "__total"
+            FROM (VALUES (1)) AS "one"
+            LEFT JOIN "page" ON true
+            ORDER BY ${orderSql}
+        `;
+        const rows = await this.prisma.$queryRawUnsafe(sql, ...params);
+        const mappings = await decryptQueriedMappings(
+            rows
+                .filter((row) => row.id !== null)
+                .map(({ __total, ...row }) => this._convertMappingIds(row))
+        );
+
+        return { mappings, total: rows[0].__total };
+    }
+
+    /**
+     * One where entry: a condition, or an anyOf group as a parenthesized OR.
+     * @private
+     */
+    _whereEntrySql(entry, bind) {
+        if (!entry.anyOf) return this._conditionSql(entry, bind);
+        const alternatives = entry.anyOf.map((condition) =>
+            this._conditionSql(condition, bind)
+        );
+        return `(${alternatives.join(' OR ')})`;
+    }
+
+    /**
+     * SQL predicate for one validated queryMappings condition. `exists`
+     * treats JSON null as absent, and `notExists` is its exact negation.
+     * @private
+     */
+    _conditionSql({ field, path, op, value }, bind) {
+        const column = COLUMNS[field];
+        const operand = path
+            ? jsonPathOperand(column, bind(path))
+            : { text: column };
+        return CONDITION_SQL[op]({
+            ...operand,
+            value: value === undefined ? undefined : bind(value),
+        });
+    }
+
+    /**
+     * NULLIF folds JSON null into SQL NULL, so both sort after every value.
+     * @private
+     */
+    _orderSql({ path, direction }, bind) {
+        const { json } = jsonPathOperand(COLUMNS.mapping, bind(path));
+        const value = `NULLIF(${json}, 'null'::jsonb)`;
+        const sqlDirection = SQL_DIRECTIONS[direction];
+        return `${value} ${sqlDirection} NULLS LAST, "id" ${sqlDirection}`;
     }
 
     /**
