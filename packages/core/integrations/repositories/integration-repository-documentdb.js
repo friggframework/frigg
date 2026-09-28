@@ -134,6 +134,23 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         return true;
     }
 
+    async findIntegrationMessages(integrationId, messageType) {
+        const objectId = toObjectId(integrationId);
+        if (!objectId) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+        const existing = await findOne(this.prisma, 'Integration', {
+            _id: objectId,
+        });
+        if (!existing) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+        const messages = this._extractMessages(existing);
+        return Array.isArray(messages[messageType])
+            ? messages[messageType]
+            : [];
+    }
+
     async createIntegration(entities, userId, config) {
         const now = new Date();
         const document = {

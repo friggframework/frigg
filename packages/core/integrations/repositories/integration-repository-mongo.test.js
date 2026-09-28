@@ -128,32 +128,32 @@ describe('IntegrationRepositoryMongo.patchIntegrationConfig', () => {
     });
 });
 
+const ID = '507f1f77bcf86cd799439011';
+const copy = (value) => JSON.parse(JSON.stringify(value));
+
+function makeMessagesRepo(stored = {}) {
+    const row = {
+        id: ID,
+        errors: [],
+        warnings: [],
+        info: [],
+        logs: [],
+        ...stored,
+    };
+    const repo = new IntegrationRepositoryMongo();
+    repo.prisma = {
+        integration: {
+            findUnique: jest.fn(async () => copy(row)),
+            update: jest.fn(async ({ data }) => {
+                Object.assign(row, copy(data));
+                return copy(row);
+            }),
+        },
+    };
+    return { repo, row };
+}
+
 describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
-    const ID = '507f1f77bcf86cd799439011';
-    const copy = (value) => JSON.parse(JSON.stringify(value));
-
-    function makeMessagesRepo(stored = {}) {
-        const row = {
-            id: ID,
-            errors: [],
-            warnings: [],
-            info: [],
-            logs: [],
-            ...stored,
-        };
-        const repo = new IntegrationRepositoryMongo();
-        repo.prisma = {
-            integration: {
-                findUnique: jest.fn(async () => copy(row)),
-                update: jest.fn(async ({ data }) => {
-                    Object.assign(row, copy(data));
-                    return copy(row);
-                }),
-            },
-        };
-        return { repo, row };
-    }
-
     it('appends, so two calls leave two items', async () => {
         const { repo, row } = makeMessagesRepo();
 
@@ -252,5 +252,45 @@ describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
             { title: 'First', message: 'one', timestamp: 1 },
             item,
         ]);
+    });
+});
+
+describe('IntegrationRepositoryMongo.findIntegrationMessages', () => {
+    const stored = { title: 'Stored', message: 'warning', timestamp: 1 };
+
+    it('returns the stored items of the type', async () => {
+        const { repo } = makeMessagesRepo({ warnings: [stored] });
+
+        await expect(
+            repo.findIntegrationMessages(ID, 'warnings')
+        ).resolves.toEqual([stored]);
+    });
+
+    it('reads only the column of the type', async () => {
+        const { repo } = makeMessagesRepo();
+
+        await repo.findIntegrationMessages(ID, 'warnings');
+
+        expect(repo.prisma.integration.findUnique).toHaveBeenCalledWith({
+            where: { id: ID },
+            select: { warnings: true },
+        });
+    });
+
+    it('returns an empty list when the column holds no items', async () => {
+        const { repo } = makeMessagesRepo({ warnings: null });
+
+        await expect(
+            repo.findIntegrationMessages(ID, 'warnings')
+        ).resolves.toEqual([]);
+    });
+
+    it('throws when the integration does not exist', async () => {
+        const { repo } = makeMessagesRepo();
+        repo.prisma.integration.findUnique.mockResolvedValue(null);
+
+        await expect(
+            repo.findIntegrationMessages(ID, 'warnings')
+        ).rejects.toThrow(`Integration ${ID} not found`);
     });
 });

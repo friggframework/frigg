@@ -273,6 +273,28 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
     }
 
     /**
+     * Find the stored messages of one type
+     *
+     * @param {string} integrationId - Integration ID
+     * @param {string} messageType - Type of message (errors, warnings, info, logs)
+     * @returns {Promise<Array>} The stored message items of that type, oldest first
+     */
+    async findIntegrationMessages(integrationId, messageType) {
+        const integration = await this.prisma.integration.findUnique({
+            where: { id: integrationId },
+            select: { [messageType]: true },
+        });
+
+        if (!integration) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+
+        return Array.isArray(integration[messageType])
+            ? integration[messageType]
+            : [];
+    }
+
+    /**
      * Find all integrations whose entity set includes the given entity ID.
      *
      * @param {string} entityId - Entity ID (MongoDB ObjectId as string)

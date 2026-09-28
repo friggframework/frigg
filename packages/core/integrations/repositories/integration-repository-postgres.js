@@ -319,6 +319,29 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
     }
 
     /**
+     * Find the stored messages of one type
+     *
+     * @param {string} integrationId - Integration ID (string from application layer)
+     * @param {string} messageType - Type of message (errors, warnings, info, logs)
+     * @returns {Promise<Array>} The stored message items of that type, oldest first
+     */
+    async findIntegrationMessages(integrationId, messageType) {
+        const intId = this._convertId(integrationId);
+        const integration = await this.prisma.integration.findUnique({
+            where: { id: intId },
+            select: { [messageType]: true },
+        });
+
+        if (!integration) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+
+        return Array.isArray(integration[messageType])
+            ? integration[messageType]
+            : [];
+    }
+
+    /**
      * Create a new integration
      *
      * PostgreSQL-specific: Uses nested relations with connect syntax

@@ -85,6 +85,18 @@ class TestIntegrationRepository {
         return true;
     }
 
+    async findIntegrationMessages(id, type) {
+        const rec = this.store.get(id);
+        this.operationHistory.push({
+            operation: 'findMessages',
+            id,
+            type,
+            found: !!rec,
+        });
+        if (!rec) throw new Error(`Integration ${id} not found`);
+        return [...(rec.messages[type] ?? [])];
+    }
+
     async updateIntegrationConfig(id, config) {
         if (config === null || config === undefined) {
             throw new Error('Config parameter is required');

@@ -176,30 +176,30 @@ describe('IntegrationRepositoryDocumentDB.createIntegration', () => {
     });
 });
 
-describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
-    function makeMessagesRepo(stored = {}) {
-        const doc = {
-            _id: { $oid: OID },
-            messages: { errors: [], warnings: [], info: [], logs: [] },
-            errors: [],
-            warnings: [],
-            info: [],
-            logs: [],
-            ...stored,
-        };
-        const repo = new IntegrationRepositoryDocumentDB();
-        repo.prisma = {
-            $runCommandRaw: jest.fn(async (command) => {
-                if (command.find) {
-                    return { cursor: { firstBatch: [{ ...doc }] } };
-                }
-                Object.assign(doc, command.updates[0].u.$set);
-                return { ok: 1, n: 1, nModified: 1 };
-            }),
-        };
-        return { repo, doc };
-    }
+function makeMessagesRepo(stored = {}) {
+    const doc = {
+        _id: { $oid: OID },
+        messages: { errors: [], warnings: [], info: [], logs: [] },
+        errors: [],
+        warnings: [],
+        info: [],
+        logs: [],
+        ...stored,
+    };
+    const repo = new IntegrationRepositoryDocumentDB();
+    repo.prisma = {
+        $runCommandRaw: jest.fn(async (command) => {
+            if (command.find) {
+                return { cursor: { firstBatch: [{ ...doc }] } };
+            }
+            Object.assign(doc, command.updates[0].u.$set);
+            return { ok: 1, n: 1, nModified: 1 };
+        }),
+    };
+    return { repo, doc };
+}
 
+describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
     it('appends, so two calls leave two items in both stored copies', async () => {
         const { repo, doc } = makeMessagesRepo();
 
@@ -319,5 +319,61 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
             { title: 'First', message: 'one', timestamp: 1 },
             item,
         ]);
+    });
+});
+
+describe('IntegrationRepositoryDocumentDB.findIntegrationMessages', () => {
+    const stored = { title: 'Stored', message: 'warning', timestamp: 1 };
+
+    it('returns the stored items of the type', async () => {
+        const { repo } = makeMessagesRepo({
+            messages: { errors: [], warnings: [stored], info: [], logs: [] },
+        });
+
+        await expect(
+            repo.findIntegrationMessages(OID, 'warnings')
+        ).resolves.toEqual([stored]);
+    });
+
+    it('reads the column of a document that has no messages object', async () => {
+        const { repo } = makeMessagesRepo({
+            messages: undefined,
+            warnings: [stored],
+        });
+
+        await expect(
+            repo.findIntegrationMessages(OID, 'warnings')
+        ).resolves.toEqual([stored]);
+    });
+
+    it('returns an empty list when nothing is stored', async () => {
+        const { repo } = makeMessagesRepo({
+            messages: undefined,
+            warnings: undefined,
+        });
+
+        await expect(
+            repo.findIntegrationMessages(OID, 'warnings')
+        ).resolves.toEqual([]);
+    });
+
+    it('throws when the integration id is not valid', async () => {
+        const { repo } = makeMessagesRepo();
+
+        await expect(
+            repo.findIntegrationMessages('nope', 'warnings')
+        ).rejects.toThrow('Integration nope not found');
+        expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
+    });
+
+    it('throws when the integration does not exist', async () => {
+        const { repo } = makeMessagesRepo();
+        repo.prisma.$runCommandRaw.mockResolvedValue({
+            cursor: { firstBatch: [] },
+        });
+
+        await expect(
+            repo.findIntegrationMessages(OID, 'warnings')
+        ).rejects.toThrow(`Integration ${OID} not found`);
     });
 });

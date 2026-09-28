@@ -120,6 +120,21 @@ class IntegrationRepositoryInterface {
     }
 
     /**
+     * Find the stored messages of one type. Reads the stored items, not the
+     * `messages` of an integration record, which some adapters do not fill.
+     *
+     * @param {string|number} integrationId - Integration ID
+     * @param {string} messageType - Type of message (errors, warnings, info, logs)
+     * @returns {Promise<Array>} The stored message items of that type, oldest first
+     * @abstract
+     */
+    async findIntegrationMessages(integrationId, messageType) {
+        throw new Error(
+            'Method findIntegrationMessages must be implemented by subclass'
+        );
+    }
+
+    /**
      * Create a new integration
      *
      * @param {Array<string|number>} entities - Array of entity IDs
