@@ -79,6 +79,25 @@ await worker.send({
 }, delaySeconds);
 ```
 
+**Rate-limit deferral** (ADR-049): `run()` handles an error with `isRateLimited`
+and a `retryAt` through `defer(record, body, error, delivery)`, which returns
+`{ outcome }`:
+- `acked`: the message was sent again with `DelaySeconds` (wait up to 900 s) or
+  scheduled with the one-time scheduler (longer wait). The record is handled.
+- `failed`: the visibility timeout was extended to `retryAt`, or a cap
+  (`FRIGG_QUEUE_MAX_DEFERRALS`, `FRIGG_QUEUE_MAX_DEFERRED_MS`) ended the
+  deferrals. The record is reported failed.
+- `skipped`: no `retryAt`, no `eventSourceARN`, a FIFO queue, or a failed send.
+  The record fails as any error does, and `record_failed` carries
+  `deferral: { skipped }`.
+
+Subclasses override two no-op hooks to keep run state: `recordRateLimitWait(body,
+error, state)` runs after the message was put back, and `clearRateLimitWait(body)`
+runs after a deferred or redelivered message succeeded. A failing hook logs
+`frigg.worker.rate_limit_state_failed` and never changes the outcome. The queue
+worker of an integration (`createQueueWorker`) writes `Process.context.rateLimit`
+in them. See `packages/core/CLAUDE.md` section 7.
+
 ### Delegate Pattern System (`Delegate.js:3-27`)
 
 **Purpose**: Observer/delegation pattern for decoupled component communication

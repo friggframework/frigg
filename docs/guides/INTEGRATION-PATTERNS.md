@@ -397,6 +397,34 @@ only when SQS will move the message to the DLQ if this attempt fails, and
 `false` whenever that is unknown. Use it to end a run or count lost work on
 the final try instead of leaving the run in progress.
 
+### Rate-Limit Deferral
+
+When a provider throttles a queue handler for longer than the Requester sleeps
+in process, the Requester throws `RateLimitError` with `retryAt`. Let it reach
+the queue worker. Core puts the message back so it runs at `retryAt`, and does
+not spend one of the message's three receives: it sends the body again with a
+delay (up to 15 minutes), or schedules it, or extends its visibility timeout.
+With a `processId` in the message, `Process.context.rateLimit` says the run is
+waiting and until when, and is cleared when the message runs.
+
+Check `delivery.isLastAttempt` first, then rethrow:
+
+```javascript
+async processBatch({ data, delivery }) {
+    try {
+        await this.syncPage(data);
+    } catch (error) {
+        if (delivery?.isLastAttempt) return this.failRun(data.processId, error);
+        throw error; // a RateLimitError too: core puts the message back at retryAt
+    }
+}
+```
+
+A deferral past `FRIGG_QUEUE_MAX_DEFERRALS` (default 10) or
+`FRIGG_QUEUE_MAX_DEFERRED_MS` (default 24 hours) fails the record like any other
+retryable error, and `delivery` applies. Do not catch a `RateLimitError` to
+write a retry of your own.
+
 ---
 
 ## Sync Orchestration
@@ -801,8 +829,9 @@ Put what you know about a provider's limits in its API module: declare
 [API module reference](../reference/api-module-definition-and-functions.md#rate-limits-static-ratelimit)).
 The Requester then waits as the provider says. When the wait is too long to
 sleep, it throws `RateLimitError` with `retryAt`. Let it reach the queue
-handler's caller: the queue worker does not halt it and SQS redelivers the
-message. Do not catch it to write a retry of your own.
+worker: it puts the message back to run at `retryAt` (see
+[Rate-Limit Deferral](#rate-limit-deferral)). Do not catch it to write a retry
+of your own.
 
 For pacing in your own loop, respect API rate limits:
 

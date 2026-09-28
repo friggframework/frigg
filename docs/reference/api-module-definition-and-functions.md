@@ -294,7 +294,9 @@ class Api extends ApiKeyRequester {
    `policy`, `source`, `module` and `scopeKey`.
 
 `Retry-After` is read on a 429 only. The queue worker does not halt a
-`RateLimitError`, even when its status is 403: the message goes back to SQS.
+`RateLimitError`, even when its status is 403. It puts the message back to run
+at `retryAt` (see the Rate-Limit Deferral section of the
+[Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md)).
 
 ### A client that is not the Requester
 

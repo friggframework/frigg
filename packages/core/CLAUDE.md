@@ -543,6 +543,58 @@ The single source of the max receive count is
 devtools integration builder uses it for the queue's `RedrivePolicy` and sets
 it as `FRIGG_QUEUE_MAX_RECEIVE_COUNT` on the queue worker function.
 
+**Rate-limit deferral** (ADR-049): when a queue handler throws an error with
+`isRateLimited` and a `retryAt` (a `RateLimitError` from the Requester, or one a
+module throws), `Worker.run` does not give the message back to SQS for a 30
+minute redelivery that spends one of its three receives. It puts the message
+back so it runs at `retryAt`:
+
+| Wait | What the worker does | Record |
+|---|---|---|
+| Up to 900 s | Sends the same body again with `DelaySeconds`, then acknowledges the old message | handled |
+| Over 900 s, and `SCHEDULER_ROLE_ARN` is set | Creates a one-time EventBridge schedule at `retryAt` that sends the body to the queue, then acknowledges | handled |
+| Over 900 s, no scheduler | Extends the message's visibility timeout to `retryAt` (12 h at most). This uses one receive | reported failed |
+
+- The new message starts at receive count 1. A deferred body carries
+  `_frigg: { deferrals, firstDeferredAt }`; `_frigg` is reserved and the handler
+  never sees it.
+- Two caps bound it: `FRIGG_QUEUE_MAX_DEFERRALS` (default 10) and
+  `FRIGG_QUEUE_MAX_DEFERRED_MS` (default 24 h, from the first deferral to the
+  retry time). Past a cap, with no `retryAt`, with no event source ARN or on a
+  FIFO queue, the record fails like any retryable error and `delivery`
+  applies.
+- The mock scheduler is never used for a deferral: a schedule kept in memory
+  would be lost with the acknowledged message.
+- With a `processId` in the message, the worker writes
+  `Process.context.rateLimit = { status: 'WAITING' | 'EXHAUSTED', mechanism,
+  retryAt, reason, module, deferrals, updatedAt }`, and `null` after the message
+  ran. `EXHAUSTED` means a cap ended the deferrals, or a visibility change came
+  on the last delivery.
+- Delivery stays at least once. The new message is sent before the old one is
+  acknowledged, so a crash between the two can run the work twice.
+- Handlers check `delivery.isLastAttempt` first, then rethrow. The delay and
+  schedule tiers send a new message, so they never reach the last attempt. The
+  visibility tier and a cap use a receive: on the last one the worker writes an
+  ERROR (`frigg.worker.record_lost_rate_limited`), and the handler has this one
+  chance to end the run.
+
+```javascript
+async processBatch({ data, delivery }) {
+    try {
+        await this.syncPage(data);
+    } catch (error) {
+        if (delivery?.isLastAttempt) return this.failRun(data.processId, error);
+        throw error; // a RateLimitError too: core puts the message back at retryAt
+    }
+}
+```
+
+Records: `frigg.worker.record_deferred` (`mechanism` `delay` or `schedule`),
+`record_visibility_extended`, `record_deferral_capped`,
+`record_lost_rate_limited` and `rate_limit_state_failed`. A queue in a stack
+that does not own it (`ownership.queue: 'external'`) needs its own
+`sqs:ChangeMessageVisibility` and scheduler access.
+
 ### 8. Error Handling (`/errors`)
 
 **Purpose**: Standardized error types with proper HTTP semantics.
