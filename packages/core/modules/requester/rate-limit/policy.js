@@ -243,8 +243,10 @@ function classifyRateLimit(policy, signal, options = {}) {
 }
 
 /**
- * Like classifyRateLimit, but always answers: with no hint it returns the
- * step of the fixed backoff ladder, with source "backoff".
+ * Like classifyRateLimit, but a throttled response always gets a hint: with
+ * none found it gets the step of the fixed backoff ladder, with source
+ * "backoff". Null when the response is not throttled: a status other than 429
+ * that classify did not recognise.
  */
 function resolveRateLimitHint(policy, signal, options = {}) {
     const {
@@ -258,6 +260,7 @@ function resolveRateLimitHint(policy, signal, options = {}) {
         onClassifyError,
     });
     if (hint) return hint;
+    if (signal.status !== 429 && !classified) return null;
 
     const waitMs =
         attempt < backOff.length ? Number(backOff[attempt]) * 1000 || 0 : 0;

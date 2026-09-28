@@ -192,6 +192,22 @@ describe('Requester RATE_LIMITED delegate', () => {
             expect(delegate.receiveNotification).not.toHaveBeenCalled();
         });
 
+        it('does not notify for a limit that classify named with no time, which ends as a flagged FetchError', async () => {
+            const delegate = makeDelegate();
+            const Api = withPolicy({ classify: () => ({ reason: 'daily' }) });
+            const fetch = fetchReturning(...Array(7).fill(response(403)));
+
+            const error = await makeRequester(fetch, { delegate }, Api)
+                ._get({ url })
+                .catch((e) => e);
+
+            expect(error).toBeInstanceOf(FetchError);
+            expect(error).not.toBeInstanceOf(RateLimitError);
+            expect(error.isRateLimited).toBe(true);
+            expect(error.retryAt).toBeUndefined();
+            expect(delegate.receiveNotification).not.toHaveBeenCalled();
+        });
+
         it('does not notify for a 5xx that outlasts the ladder', async () => {
             const delegate = makeDelegate();
             const fetch = fetchReturning(...Array(7).fill(response(500)));
