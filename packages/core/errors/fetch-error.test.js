@@ -192,6 +192,34 @@ describe('FetchError', () => {
         expect(error.body).toBe('fallback');
     });
 
+    it('create() uses a given responseBody and does not read the stream again', async () => {
+        const text = jest.fn(async () => 'second read');
+        const error = await FetchError.create({
+            response: { status: 429, bodyUsed: false, text },
+            responseBody: 'already read',
+        });
+        expect(text).not.toHaveBeenCalled();
+        expect(error.body).toBe('already read');
+    });
+
+    it('create() constructs the subclass it is called on', async () => {
+        class ProviderError extends FetchError {}
+        const error = await ProviderError.create({
+            resource: 'https://h.example',
+            response: { status: 400, bodyUsed: true },
+        });
+        expect(error).toBeInstanceOf(ProviderError);
+        expect(error.name).toBe('ProviderError');
+    });
+
+    it('create() still builds a FetchError when called without its class', async () => {
+        const { create } = FetchError;
+        const error = await create({
+            response: { status: 400, bodyUsed: true },
+        });
+        expect(error).toBeInstanceOf(FetchError);
+    });
+
     it('create() propagates a rejected body read', async () => {
         const aborted = new Error('aborted mid-body');
         aborted.name = 'AbortError';
