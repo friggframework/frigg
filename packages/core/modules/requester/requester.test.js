@@ -55,6 +55,7 @@ describe('Requester', () => {
             const fetch = jest.fn(async () => {
                 const next = queue.shift();
                 if (!next) throw new Error('unexpected fetch call');
+                if (next.reject) throw next.reject;
                 const contentType = next.contentType ?? 'application/json';
                 const text = next.text ?? JSON.stringify(next.body ?? {});
                 const response = {
@@ -97,7 +98,6 @@ describe('Requester', () => {
                     return realSetTimeout(fn, 0, ...args);
                 }
             );
-            jest.spyOn(Math, 'random').mockReturnValue(0);
             sink = createMemorySink();
         });
 
@@ -111,6 +111,7 @@ describe('Requester', () => {
             return new RequesterClass({
                 fetch,
                 requestTimeoutMs: 0,
+                random: () => 0,
                 ...params,
             });
         }
@@ -227,12 +228,13 @@ describe('Requester', () => {
             });
 
             it('adds jitter that never passes the wait by more than a tenth', async () => {
-                Math.random.mockReturnValue(0.999999);
                 const fetch = throttledFetch([
                     limited({ 'Retry-After': '60' }),
                     ok,
                 ]);
-                await makeRequester(fetch)._get({ url });
+                await makeRequester(fetch, { random: () => 0.999999 })._get({
+                    url,
+                });
 
                 expect(delays).toEqual([60_999]);
             });
@@ -289,6 +291,42 @@ describe('Requester', () => {
                 expect(error).toBeInstanceOf(RateLimitError);
                 expect(delays).toEqual([100_000, 100_000, 100_000]);
                 expect(fetch).toHaveBeenCalledTimes(4);
+            });
+
+            it('counts a hinted wait against the cap across a 5xx retry', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '200' }),
+                    { status: 500 },
+                    limited({ 'Retry-After': '200' }),
+                    ok,
+                ]);
+
+                const error = await makeRequester(fetch)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(delays).toEqual([200_000, 3_000]);
+                expect(fetch).toHaveBeenCalledTimes(3);
+            });
+
+            it('counts a hinted wait against the cap across a connection reset', async () => {
+                const reset = Object.assign(new Error('socket hang up'), {
+                    code: 'ECONNRESET',
+                });
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '200' }),
+                    { reject: reset },
+                    limited({ 'Retry-After': '200' }),
+                    ok,
+                ]);
+
+                const error = await makeRequester(fetch)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(delays).toEqual([200_000, 3_000]);
             });
 
             it('throws at once when the wait does not fit the time left in the invocation', async () => {
@@ -462,6 +500,80 @@ describe('Requester', () => {
                 expect(fetch).toHaveBeenCalledTimes(1);
                 expect(delays).toEqual([]);
             });
+
+            it('treats a 403 that classify names by reason only like a bare 429: the ladder, then a flagged FetchError', async () => {
+                const Api = withPolicy({
+                    classify: () => ({ reason: 'daily' }),
+                });
+                const fetch = throttledFetch(
+                    Array(3).fill({ status: 403, body: { code: 'LIMIT' } })
+                );
+
+                const error = await makeRequester(
+                    fetch,
+                    { backOff: [0, 0] },
+                    Api
+                )
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(FetchError);
+                expect(error).not.toBeInstanceOf(RateLimitError);
+                expect(error).toMatchObject({
+                    statusCode: 403,
+                    isRateLimited: true,
+                    reason: 'daily',
+                });
+                expect(error.retryAt).toBeUndefined();
+                expect(fetch).toHaveBeenCalledTimes(3);
+                expect(delays).toEqual([0, 0]);
+            });
+
+            it.each([
+                'application/problem+json',
+                'Application/JSON; charset=utf-8',
+                'application/vnd.api+json',
+                'application/hal+json',
+                'text/json',
+            ])(
+                'hands classify the parsed body of a %s response',
+                async (contentType) => {
+                    const classify = jest.fn(() => ({
+                        reason: 'burst',
+                        waitMs: 1_000,
+                    }));
+                    const Api = withPolicy({ classify });
+                    const fetch = throttledFetch([
+                        { status: 403, contentType, body: { code: 'LIMIT' } },
+                        ok,
+                    ]);
+
+                    await makeRequester(fetch, {}, Api)._get({ url });
+
+                    expect(classify.mock.calls[0][0].body).toEqual({
+                        code: 'LIMIT',
+                    });
+                }
+            );
+
+            it.each(['text/plain', 'application/xml', 'application/jsonp'])(
+                'hands classify no body for a %s response',
+                async (contentType) => {
+                    const classify = jest.fn(() => ({
+                        reason: 'burst',
+                        waitMs: 1_000,
+                    }));
+                    const Api = withPolicy({ classify });
+                    const fetch = throttledFetch([
+                        { status: 403, contentType, text: '{"code":"LIMIT"}' },
+                        ok,
+                    ]);
+
+                    await makeRequester(fetch, {}, Api)._get({ url });
+
+                    expect(classify.mock.calls[0][0].body).toBeUndefined();
+                }
+            );
 
             it('takes the time of a reason-only classify from Retry-After', async () => {
                 const Api = withPolicy({

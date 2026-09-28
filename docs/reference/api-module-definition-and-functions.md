@@ -240,14 +240,15 @@ response has one.
 ### What `classify` returns
 
 `classify({ status, headers, body })` runs for a 429, and for any other 4xx or
-5xx except 401. `body` is the parsed JSON body, or `undefined` when the
-response is not JSON. It returns `null` when the response is not a limit, or a
-hint:
+5xx except 401. `body` is the parsed body of an `application/json`, `text/json`
+or `+json` response (`application/problem+json`, for example), whatever the
+case of the media type, or `undefined` for any other response. It returns
+`null` when the response is not a limit, or a hint:
 
 | Field | Meaning |
 |---|---|
 | `reason` | `'burst'`, `'daily'`, `'monthly'`, `'concurrency'` or `'unknown'` |
-| `waitMs` or `retryAt` | When to call again. Leave both out to take the time from the parsers, then from the policy. |
+| `waitMs` or `retryAt` | When to call again. Leave both out to take the time from the parsers, then from the policy. With no time from either, the response follows the same ladder as a 429 with no hint, and the last error is a `FetchError` with `isRateLimited: true` and the `reason`. The queue worker does not halt it. |
 | `policy` | The provider's own name for the limit, for logs and the UI |
 | `remaining` | Calls left in the window, when the response says |
 | `source` | `'header'`, `'body'` (default) or `'static'` |

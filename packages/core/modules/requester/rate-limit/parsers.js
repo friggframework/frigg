@@ -90,7 +90,7 @@ function hintFromWait(waitMs, now, { source = 'header', ...extra } = {}) {
  * Builds a hint from an absolute time. A time in the past waits 0 ms.
  */
 function hintFromRetryAt(retryAt, now, { source = 'header', ...extra } = {}) {
-    const at = retryAt instanceof Date ? retryAt.getTime() : NaN;
+    const at = retryAt instanceof Date ? retryAt.getTime() : Number.NaN;
     if (Number.isNaN(at)) return null;
     const waitMs = Math.max(0, at - now);
     if (waitMs > MAX_HINT_WAIT_MS) return null;
@@ -216,7 +216,7 @@ function pickStructured(items) {
 
 function readKeyValue(text, key) {
     const match = new RegExp(
-        `(?:^|[,;\\s])${key}\\s*=\\s*([^,;\\s]+)`,
+        String.raw`(?:^|[,;\s])${key}\s*=\s*([^,;\s]+)`,
         'i'
     ).exec(text);
     return match ? match[1] : undefined;

@@ -533,6 +533,42 @@ describe('rate-limit/policy', () => {
             });
         });
 
+        it('returns null for a status other than 429 that classify did not recognise', () => {
+            expect(
+                resolveRateLimitHint(
+                    { classify: () => null },
+                    { status: 403, headers: { 'retry-after': '5' } },
+                    { ...options, attempt: 0, backOff }
+                )
+            ).toBeNull();
+            expect(
+                resolveRateLimitHint(
+                    undefined,
+                    { status: 503, headers: {} },
+                    { ...options, attempt: 0, backOff }
+                )
+            ).toBeNull();
+        });
+
+        it('falls back to the ladder for a status other than 429 that classify named by reason only', () => {
+            const policy = {
+                classify: () => ({ reason: 'daily', policy: 'DAILY' }),
+            };
+            expect(
+                resolveRateLimitHint(
+                    policy,
+                    { status: 403, headers: {} },
+                    { ...options, attempt: 1, backOff }
+                )
+            ).toEqual({
+                waitMs: 3_000,
+                retryAt: new Date(NOW + 3_000),
+                reason: 'daily',
+                policy: 'DAILY',
+                source: 'backoff',
+            });
+        });
+
         it('waits 0 ms past the end of the ladder', () => {
             const hint = resolveRateLimitHint(
                 undefined,

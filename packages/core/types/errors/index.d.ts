@@ -16,6 +16,12 @@ declare module "@friggframework/errors" {
     readonly body: any;
     isTimeout?: boolean;
     timeoutMs?: number;
+    /**
+     * True when `classify` named the response as a limit but gave no time. A
+     * `RateLimitError` always has it.
+     */
+    isRateLimited?: boolean;
+    reason?: RateLimitReason;
 
     static create(options?: CreateFetchErrorParams): Promise<FetchError>;
   }
