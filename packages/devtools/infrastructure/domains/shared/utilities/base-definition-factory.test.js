@@ -135,6 +135,18 @@ describe('Base Definition Factory', () => {
             expect(sqsPermission).toBeDefined();
         });
 
+        it('should let a function extend the visibility timeout of a message on an integration queue', () => {
+            const result = createBaseDefinition({}, {}, {});
+
+            const sqsPermission = result.provider.iamRoleStatements.find(
+                (stmt) => stmt.Action.includes('sqs:SendMessage')
+            );
+            expect(sqsPermission.Action).toContain(
+                'sqs:ChangeMessageVisibility'
+            );
+            expect(JSON.stringify(sqsPermission.Resource)).toContain('*Queue');
+        });
+
         it('should include required plugins', () => {
             const result = createBaseDefinition({}, {}, {});
 

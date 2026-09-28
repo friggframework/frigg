@@ -19,6 +19,11 @@ const {
     getAdminFunctionNames,
 } = require('../shared/function-environments');
 
+const declaresRateLimit = (integration) =>
+    Object.values(integration?.Definition?.modules ?? {}).some((module) =>
+        Boolean(module?.definition?.API?.rateLimit)
+    );
+
 class SchedulerBuilder extends InfrastructureBuilder {
     constructor() {
         super();
@@ -32,12 +37,14 @@ class SchedulerBuilder extends InfrastructureBuilder {
             return true;
         }
 
-        // Check if any integration has webhooks enabled
+        // Check if any integration has webhooks enabled, or a module that
+        // declares a rate limit (the queue worker schedules a deferred message)
         if (Array.isArray(appDefinition.integrations)) {
             return appDefinition.integrations.some(
                 (integration) =>
                     integration?.Definition?.webhooks?.enabled === true ||
-                    integration?.Definition?.webhooks === true
+                    integration?.Definition?.webhooks === true ||
+                    declaresRateLimit(integration)
             );
         }
 
