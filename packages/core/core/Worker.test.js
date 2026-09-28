@@ -135,8 +135,16 @@ describe('Worker - AWS SDK v3', () => {
             await worker.run(params);
 
             expect(worker._run).toHaveBeenCalledTimes(2);
-            expect(worker._run).toHaveBeenCalledWith({ task: 'test-1' }, {});
-            expect(worker._run).toHaveBeenCalledWith({ task: 'test-2' }, {});
+            expect(worker._run).toHaveBeenCalledWith(
+                { task: 'test-1' },
+                {},
+                expect.anything()
+            );
+            expect(worker._run).toHaveBeenCalledWith(
+                { task: 'test-2' },
+                {},
+                expect.anything()
+            );
         });
 
         it('should pass context to _run method', async () => {
@@ -152,7 +160,11 @@ describe('Worker - AWS SDK v3', () => {
 
             await worker.run(params, context);
 
-            expect(worker._run).toHaveBeenCalledWith({ task: 'test' }, context);
+            expect(worker._run).toHaveBeenCalledWith(
+                { task: 'test' },
+                context,
+                expect.anything()
+            );
         });
 
         it('should return empty batchItemFailures when all records succeed', async () => {
@@ -274,7 +286,11 @@ describe('Worker - AWS SDK v3', () => {
             // Malformed record reported as failure, valid record still processed
             expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
             expect(worker._run).toHaveBeenCalledTimes(1);
-            expect(worker._run).toHaveBeenCalledWith({ task: 'ok' }, {});
+            expect(worker._run).toHaveBeenCalledWith(
+                { task: 'ok' },
+                {},
+                expect.anything()
+            );
         });
     });
 });
