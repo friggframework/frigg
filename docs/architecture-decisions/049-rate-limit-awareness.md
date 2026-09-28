@@ -575,9 +575,10 @@ class RateLimitError extends FetchError {
         this.name = 'RateLimitError';
         this.isRateLimited = true;
         this.retryAt = hint.retryAt ?? new Date(Date.now() + hint.waitMs);
+        this.waitMs = Math.max(0, this.retryAt - Date.now());
         this.reason = hint.reason;                    // burst | daily | monthly | concurrency
         this.policy = hint.policy;
-        this.source = hint.source;                    // header | body | static | backoff
+        this.source = hint.source;                    // header | body | static, never backoff
         this.module = module;
     }
 }
