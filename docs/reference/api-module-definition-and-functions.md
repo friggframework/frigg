@@ -219,6 +219,106 @@ encryption: { credentialFields: ['signing_key', 'webhook_secret'] },
 apiPropertiesToPersist: { credential: ['signing_key', 'webhook_secret'] }
 ```
 
+## Rate Limits (`static rateLimit`)
+
+An API module can tell the Requester how its provider limits calls, and how to
+read a throttled response. Declare a static `rateLimit` on the API class. Every
+key is optional. A module that declares nothing keeps the fixed backoff ladder
+for a 429 (1, 3, 10, 30, 60 and 180 s), and reads `Retry-After` when the
+response has one.
+
+| Key | Meaning |
+|---|---|
+| `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a function `(requester) => key`. The Requester puts it on `RateLimitError.scopeKey`. |
+| `minRetryAfterMs` | A wait never shorter than this. Use it when the docs say "wait 60 seconds" and the response says nothing. |
+| `maxInProcessWaitMs` | The most one request sleeps in process, in total. Default `300000` (5 minutes). `0` means never sleep: every hinted wait throws `RateLimitError`. |
+| `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. |
+| `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
+| `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does. Pacing uses them later. |
+| `userHints` | Links per `reason` that a UI can show, for example `{ daily: { links: [{ label, url }] } }`. |
+
+### What `classify` returns
+
+`classify({ status, headers, body })` runs for a 429, and for any other 4xx or
+5xx except 401. `body` is the parsed JSON body, or `undefined` when the
+response is not JSON. It returns `null` when the response is not a limit, or a
+hint:
+
+| Field | Meaning |
+|---|---|
+| `reason` | `'burst'`, `'daily'`, `'monthly'`, `'concurrency'` or `'unknown'` |
+| `waitMs` or `retryAt` | When to call again. Leave both out to take the time from the parsers, then from the policy. |
+| `policy` | The provider's own name for the limit, for logs and the UI |
+| `remaining` | Calls left in the window, when the response says |
+| `source` | `'header'`, `'body'` (default) or `'static'` |
+
+A status other than 429 is a limit only when `classify` returns a hint for it.
+A `classify` that throws is logged (`rate_limit_classify_failed`) and skipped.
+
+```javascript
+class Api extends OAuth2Requester {
+    static rateLimit = {
+        scope: 'entity',
+        windows: [{ name: 'burst', limit: 100, perMs: 10_000 }],
+        parsers: ['retryAfter', 'resetHeaders'],
+        classify({ status, body }) {
+            if (status !== 429) return null;
+            if (body?.policyName === 'DAILY') return { reason: 'daily', waitMs: 3_600_000 };
+            return { reason: 'burst', policy: body?.policyName };
+        },
+        userHints: {
+            daily: { links: [{ label: 'API usage limits', url: 'https://example.com/limits' }] },
+        },
+    };
+}
+```
+
+```javascript
+class Api extends ApiKeyRequester {
+    static rateLimit = { minRetryAfterMs: 60_000 };
+}
+```
+
+### How the Requester waits
+
+1. It looks for a hint in this order: `classify()`, the parsers, the policy
+   (`minRetryAfterMs`, or the `perMs` of the window named by the reason).
+2. With no hint, a 429 keeps the fixed ladder: the same calls, the same delays,
+   then a plain `FetchError`. A 5xx keeps its ladder too.
+3. With a hint, the wait is the largest of the hint, `minRetryAfterMs` and 1 s,
+   plus at most 10 % jitter. The Requester sleeps when the wait fits the time
+   this request may still sleep: `maxInProcessWaitMs` in total, and the time left
+   in the Lambda invocation less one request timeout.
+4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
+   `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
+   `policy`, `source`, `module` and `scopeKey`.
+
+`Retry-After` is read on a 429 only. The queue worker does not halt a
+`RateLimitError`, even when its status is 403: the message goes back to SQS.
+
+### A client that is not the Requester
+
+A module that drives another client (for example jsforce) calls
+`classifyRateLimit` around its own calls and throws the error itself:
+
+```javascript
+const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
+
+async withLimits(call) {
+    try {
+        return await call();
+    } catch (err) {
+        const hint = classifyRateLimit(Api.rateLimit, {
+            status: err.statusCode,
+            headers: {},
+            body: { errorCode: err.errorCode },
+        });
+        if (!hint) throw err;
+        throw new RateLimitError({ hint, module: this.name, cause: err });
+    }
+}
+```
+
 ## Complete OAuth2 Example
 
 ```javascript

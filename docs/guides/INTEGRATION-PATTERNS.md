@@ -796,7 +796,15 @@ module.exports = { MyIntegration };
 
 ### Rate Limiting
 
-Always respect API rate limits:
+Put what you know about a provider's limits in its API module: declare
+`static rateLimit` (see the
+[API module reference](../reference/api-module-definition-and-functions.md#rate-limits-static-ratelimit)).
+The Requester then waits as the provider says. When the wait is too long to
+sleep, it throws `RateLimitError` with `retryAt`. Let it reach the queue
+handler's caller: the queue worker does not halt it and SQS redelivers the
+message. Do not catch it to write a retry of your own.
+
+For pacing in your own loop, respect API rate limits:
 
 ```javascript
 async processBatchHandler({ processId, entityIds, entityType }) {
