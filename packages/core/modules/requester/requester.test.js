@@ -122,6 +122,16 @@ describe('Requester', () => {
             return PolicyRequester;
         };
 
+        const warmSourceMapsBeforeRandomIsMocked = () => {
+            try {
+                new (withPolicy({ parsers: ['unknown'] }))({});
+            } catch (error) {
+                return error.stack;
+            }
+        };
+
+        beforeAll(warmSourceMapsBeforeRandomIsMocked);
+
         describe('a module that declares nothing', () => {
             it('retries a bare 429 on the fixed ladder, then throws a plain FetchError', async () => {
                 const fetch = throttledFetch(Array(7).fill(limited()));
