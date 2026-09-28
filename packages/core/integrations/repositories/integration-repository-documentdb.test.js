@@ -175,3 +175,109 @@ describe('IntegrationRepositoryDocumentDB.createIntegration', () => {
         expect(insertCall.documents[0].status).toBe('IN_CREATION');
     });
 });
+
+describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
+    function makeMessagesRepo(stored = {}) {
+        const doc = {
+            _id: { $oid: OID },
+            messages: { errors: [], warnings: [], info: [], logs: [] },
+            errors: [],
+            warnings: [],
+            info: [],
+            logs: [],
+            ...stored,
+        };
+        const repo = new IntegrationRepositoryDocumentDB();
+        repo.prisma = {
+            $runCommandRaw: jest.fn(async (command) => {
+                if (command.find) {
+                    return { cursor: { firstBatch: [{ ...doc }] } };
+                }
+                Object.assign(doc, command.updates[0].u.$set);
+                return { ok: 1, n: 1, nModified: 1 };
+            }),
+        };
+        return { repo, doc };
+    }
+
+    it('appends, so two calls leave two items in both stored copies', async () => {
+        const { repo, doc } = makeMessagesRepo();
+
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            'First',
+            'one',
+            1000
+        );
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            'Second',
+            'two',
+            2000
+        );
+
+        const expected = [
+            { title: 'First', message: 'one', timestamp: 1000 },
+            { title: 'Second', message: 'two', timestamp: 2000 },
+        ];
+        expect(doc.messages.warnings).toEqual(expected);
+        expect(doc.warnings).toEqual(expected);
+    });
+
+    it('appends to the items of a document that has no messages object', async () => {
+        const stored = { title: 'Old', message: 'stored', timestamp: 1 };
+        const { repo, doc } = makeMessagesRepo({
+            messages: undefined,
+            warnings: [stored],
+        });
+
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            'New',
+            'added',
+            2
+        );
+
+        expect(doc.warnings).toEqual([
+            stored,
+            { title: 'New', message: 'added', timestamp: 2 },
+        ]);
+    });
+
+    it('keeps the items of the other types', async () => {
+        const error = { title: 'Kept', message: 'error', timestamp: 1 };
+        const { repo, doc } = makeMessagesRepo({
+            messages: { errors: [error], warnings: [], info: [], logs: [] },
+            errors: [error],
+        });
+
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            'Title',
+            'body',
+            2
+        );
+
+        expect(doc.messages.errors).toEqual([error]);
+        expect(doc.errors).toEqual([error]);
+    });
+
+    it('throws when the integration id is not valid', async () => {
+        const { repo } = makeMessagesRepo();
+
+        await expect(
+            repo.updateIntegrationMessages(
+                'nope',
+                'warnings',
+                'Title',
+                'body',
+                2
+            )
+        ).rejects.toThrow('Integration nope not found');
+        expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
+    });
+});

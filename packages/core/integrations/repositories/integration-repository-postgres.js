@@ -297,9 +297,8 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         }
 
         // Parse existing messages (JSON field)
-        const messages = integration.messages || {};
-        const messageArray = Array.isArray(messages[messageType])
-            ? messages[messageType]
+        const messageArray = Array.isArray(integration[messageType])
+            ? integration[messageType]
             : [];
 
         // Add new message
