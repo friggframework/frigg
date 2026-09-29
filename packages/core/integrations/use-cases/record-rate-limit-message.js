@@ -1,4 +1,4 @@
-const RATE_LIMITED = 'RATE_LIMITED';
+const RATE_LIMITED_MESSAGE_CODE = 'RATE_LIMITED';
 const SAME_LIMIT_WINDOW_MS = 60_000;
 const MINUTE_MS = 60_000;
 
@@ -10,7 +10,7 @@ const linkActions = (links) =>
         .filter(isLink)
         .map(({ label, url }) => ({ type: 'LINK', label, url }));
 
-function utcMinuteAfter(date) {
+function formatResetTime(date) {
     const minute = new Date(Math.ceil(date.getTime() / MINUTE_MS) * MINUTE_MS);
     return `${minute.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
@@ -46,14 +46,14 @@ class RecordRateLimitMessage {
             );
         const alreadyRecorded = warnings.some(
             (warning) =>
-                warning?.code === RATE_LIMITED &&
+                warning?.code === RATE_LIMITED_MESSAGE_CODE &&
                 warning.module === moduleName &&
                 Math.abs(Date.parse(warning.retryAt) - resetAt.getTime()) <=
                     SAME_LIMIT_WINDOW_MS
         );
         if (alreadyRecorded) return false;
 
-        const resetsAt = utcMinuteAfter(resetAt);
+        const resetsAt = formatResetTime(resetAt);
         await this.integrationRepository.updateIntegrationMessages(
             integrationId,
             'warnings',
@@ -61,7 +61,7 @@ class RecordRateLimitMessage {
                 title: 'Rate limit reached',
                 message: `The ${moduleName} API rate limit was reached and resets at ${resetsAt}.`,
                 timestamp: Date.now(),
-                code: RATE_LIMITED,
+                code: RATE_LIMITED_MESSAGE_CODE,
                 module: moduleName,
                 reason,
                 retryAt: resetAt.toISOString(),
