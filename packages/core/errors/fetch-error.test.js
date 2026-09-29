@@ -192,6 +192,24 @@ describe('FetchError', () => {
         expect(error.body).toBe('fallback');
     });
 
+    it('create() reads the stream before options.body', async () => {
+        const text = jest.fn(async () => 'from the stream');
+        const error = await FetchError.create({
+            response: { status: 400, bodyUsed: false, text },
+            body: 'fallback',
+        });
+        expect(text).toHaveBeenCalledTimes(1);
+        expect(error.body).toBe('from the stream');
+    });
+
+    it('create() falls back to options.body when the stream gives nothing', async () => {
+        const error = await FetchError.create({
+            response: { status: 400, bodyUsed: false, text: async () => '' },
+            body: 'fallback',
+        });
+        expect(error.body).toBe('fallback');
+    });
+
     it('create() uses a given responseBody and does not read the stream again', async () => {
         const text = jest.fn(async () => 'second read');
         const error = await FetchError.create({
