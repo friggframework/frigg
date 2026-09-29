@@ -21,15 +21,12 @@ const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../integrations/utils/map-integration-dto');
 const { processNotFound } = require('../integrations/use-cases/process-errors');
-
-const CLEAR_RATE_LIMIT_TOLERANCE_MS = 5_000;
-
-const keepsCurrentRateLimit = (current, next) => {
-    if (!current) return false;
-    if (next.status === 'EXHAUSTED') return false;
-    if (current.status === 'EXHAUSTED') return true;
-    return Date.parse(current.retryAt) > next.retryAt.getTime();
-};
+const {
+    RecordRateLimitWait,
+} = require('../integrations/use-cases/record-rate-limit-wait');
+const {
+    ClearRateLimitWait,
+} = require('../integrations/use-cases/clear-rate-limit-wait');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
     const router = Router();
@@ -177,37 +174,23 @@ const createQueueWorker = (integrationClass) => {
         async recordRateLimitWait(body, error, state) {
             const processId = body.data?.processId;
             if (!processId) return;
-            const processRepository = createProcessRepository();
-            const process = await processRepository.findById(processId);
-            if (keepsCurrentRateLimit(process?.context?.rateLimit, state))
-                return;
-            await processRepository.applyProcessUpdate(processId, {
-                set: {
-                    'context.rateLimit': {
-                        status: state.status,
-                        mechanism: state.mechanism,
-                        retryAt: state.retryAt.toISOString(),
-                        reason: error.reason,
-                        module: error.module,
-                        deferrals: state.deferrals,
-                        updatedAt: new Date().toISOString(),
-                    },
-                },
+            const recordRateLimitWait = new RecordRateLimitWait({
+                processRepository: createProcessRepository(),
+            });
+            await recordRateLimitWait.execute(processId, {
+                ...state,
+                reason: error.reason,
+                module: error.module,
             });
         }
 
         async clearRateLimitWait(body) {
             const processId = body?.data?.processId;
             if (!processId) return;
-            const processRepository = createProcessRepository();
-            const process = await processRepository.findById(processId);
-            const current = process?.context?.rateLimit;
-            if (current?.status !== 'WAITING') return;
-            const remainingMs = Date.parse(current.retryAt) - Date.now();
-            if (remainingMs > CLEAR_RATE_LIMIT_TOLERANCE_MS) return;
-            await processRepository.applyProcessUpdate(processId, {
-                set: { 'context.rateLimit': null },
+            const clearRateLimitWait = new ClearRateLimitWait({
+                processRepository: createProcessRepository(),
             });
+            await clearRateLimitWait.execute(processId);
         }
 
         async _run(params, context, delivery) {
