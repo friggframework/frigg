@@ -3,6 +3,7 @@ const { summarizeMessageBody } = require('../logs/summarize-event');
 const { flushSinks, hasFlushableSinks } = require('../logs/logger-runtime');
 const {
     deadlineFromContext,
+    remainingTimeMs,
     runWithInvocationDeadline,
 } = require('./invocation-deadline');
 
@@ -113,15 +114,6 @@ function withDeadline(ms, fn) {
         }
         work.then(finish, finish);
     });
-}
-
-function remainingTimeMs(context) {
-    try {
-        const remaining = context?.getRemainingTimeInMillis?.();
-        return typeof remaining === 'number' ? remaining : Infinity;
-    } catch (_) {
-        return Infinity;
-    }
 }
 
 async function flushInvocation({
