@@ -12,25 +12,12 @@ const { getLoggerScope } = require('../../logs/context');
 const {
     computeScopeKey,
     computeWaitMs,
-    headerValue,
     inProcessBudgetMs,
     readRateLimitPolicy,
     resolveRateLimitHint,
 } = require('./rate-limit');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
-
-function isJsonMediaType(contentType) {
-    const mediaType = String(contentType ?? '')
-        .split(';')[0]
-        .trim()
-        .toLowerCase();
-    return (
-        mediaType === 'application/json' ||
-        mediaType === 'text/json' ||
-        mediaType.endsWith('+json')
-    );
-}
 
 // A node-fetch error message holds the raw URL, and util.inspect prints the
 // cause chain, so the FetchError keeps only a sanitized copy.
@@ -576,9 +563,6 @@ class Requester extends Delegate {
             return {};
         }
         const text = await response.text();
-        if (!isJsonMediaType(headerValue(response.headers, 'content-type'))) {
-            return { text };
-        }
         try {
             return { text, json: JSON.parse(text) };
         } catch {
