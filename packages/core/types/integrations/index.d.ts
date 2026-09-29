@@ -5,11 +5,6 @@ declare module "@friggframework/integrations" {
     | { type: "RETRY_WHEN_READY" }
     | { type: "LINK"; label: string; url: string };
 
-  /**
-   * A stored message. The framework stores the keys of an item as given, so a
-   * caller can add its own. A rate limit adds `code: "RATE_LIMITED"`,
-   * `module`, `reason`, `retryAt` (ISO 8601) and `actions`.
-   */
   export interface IntegrationMessage {
     title: string;
     message: string;

@@ -871,9 +871,7 @@ class IntegrationBase {
      * something integration-level needs attention. Today this catches the
      * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
      * and flips this integration's status to ERROR so the queue worker
-     * stops processing further webhooks until the user re-authorizes. It also
-     * catches `RATE_LIMITED`, which records one warning for the user and
-     * changes no status: a rate limit is not an error.
+     * stops processing further webhooks until the user re-authorizes.
      *
      * Modules are wired to this delegate in `_appendModules()`, which runs
      * during `setIntegrationRecord()` — this covers every construction path
@@ -953,12 +951,6 @@ class IntegrationBase {
         }
     }
 
-    /**
-     * Best-effort: the module's request is about to throw a RateLimitError,
-     * and a failed warning must not change that. A rate limit is not an ERROR,
-     * so this never touches the integration status.
-     * @param {Object} payload - The RATE_LIMITED payload of the module.
-     */
     async _recordRateLimitMessage(payload) {
         try {
             await this.recordRateLimitMessage.execute(this.id, payload);

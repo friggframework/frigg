@@ -16,10 +16,6 @@ function utcMinuteAfter(date) {
 }
 
 /**
- * Use case that records one user-facing warning when a module reports a rate
- * limit that is too long to wait for. The text is fixed and the payload's
- * message, url, body and headers are never read, because the message reaches
- * end users. It changes no integration status: a rate limit is not an error.
  * @class RecordRateLimitMessage
  */
 class RecordRateLimitMessage {
@@ -32,10 +28,6 @@ class RecordRateLimitMessage {
     }
 
     /**
-     * Writes the warning, unless the stored warnings already hold one for the
-     * same module whose reset time is within a minute of this one. Many workers
-     * hit one limit together and each reports it, so the check reads the
-     * stored warnings and not the messages of this instance.
      * @async
      * @param {string} integrationId - ID of the integration to warn on.
      * @param {Object} payload - The RATE_LIMITED payload of the Module.
@@ -44,8 +36,6 @@ class RecordRateLimitMessage {
      * @param {Date|string|number} payload.retryAt
      * @param {Array<{label: string, url: string}>} [payload.links]
      * @returns {Promise<boolean>} True when it wrote a warning.
-     * @throws When the read or the write fails; the caller decides what a
-     *   failed warning is worth.
      */
     async execute(integrationId, { moduleName, reason, retryAt, links }) {
         const resetAt = new Date(retryAt);

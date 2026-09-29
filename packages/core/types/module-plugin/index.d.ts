@@ -75,7 +75,6 @@ declare module "@friggframework/module-plugin" {
     static requestTimeoutMs?: number;
 
     DLGT_INVALID_AUTH: string;
-    /** Notified with the `RateLimitError` right before a wait that is too long throws. */
     DLGT_RATE_LIMITED: string;
     requestTimeoutMs: number;
     backOff: number[];
@@ -96,11 +95,6 @@ declare module "@friggframework/module-plugin" {
     parseBody(response: any): Promise<any>;
     refreshAuth(): Promise<any>;
     _adoptNewerCredential(): Promise<boolean>;
-    /**
-     * Tells the integration about a `RateLimitError` the module throws itself.
-     * The Requester calls it for its own errors; a module built on a vendor SDK
-     * calls it before its own throw.
-     */
     _notifyRateLimited(rateLimitError: RateLimitError): Promise<void>;
 
     delegate: any;

@@ -238,12 +238,6 @@ class Module extends Delegate {
         }
     }
 
-    /**
-     * Passes a rate limit the api reported to the parent delegate, best
-     * effort. The payload never holds the error's message, url, body or
-     * headers, because the parent shows it to end users.
-     * @param {import('../errors').RateLimitError} rateLimitError
-     */
     async reportRateLimit(rateLimitError) {
         const { reason, retryAt, policy, statusCode } = rateLimitError;
         const links = this.apiClass.rateLimit?.userHints?.[reason]?.links ?? [];

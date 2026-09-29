@@ -639,11 +639,6 @@ class Requester extends Delegate {
         });
     }
 
-    /**
-     * Tells the delegate a wait was too long to sleep. Best effort: a failed
-     * notification is logged and never replaces the RateLimitError the caller
-     * is about to receive.
-     */
     async _notifyRateLimited(rateLimitError) {
         try {
             await this.notify(this.DLGT_RATE_LIMITED, rateLimitError);
