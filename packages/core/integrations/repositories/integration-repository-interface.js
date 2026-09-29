@@ -97,25 +97,15 @@ class IntegrationRepositoryInterface {
     }
 
     /**
-     * Append a message to the stored messages of one type. Takes the
-     * positional form (title, body, timestamp) or one message item object,
-     * whose keys are stored as they are.
+     * Append a message item to the stored messages of one type
      *
      * @param {string|number} integrationId - Integration ID
      * @param {string} messageType - Type of message (errors, warnings, info, logs)
-     * @param {string|Object} messageTitleOrItem - Message title, or the whole message item
-     * @param {string} [messageBody] - Message body (positional form)
-     * @param {Date} [messageTimestamp] - Message timestamp (positional form)
+     * @param {Object} item - Message item, stored as it is
      * @returns {Promise<boolean>} Success indicator
      * @abstract
      */
-    async updateIntegrationMessages(
-        integrationId,
-        messageType,
-        messageTitleOrItem,
-        messageBody,
-        messageTimestamp
-    ) {
+    async updateIntegrationMessages(integrationId, messageType, item) {
         throw new Error('Method updateIntegrationMessages must be implemented by subclass');
     }
 

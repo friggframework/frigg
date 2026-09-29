@@ -3,7 +3,7 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
-const { messagesOfType, toMessageItem } = require('./message-item-shared');
+const { messagesOfType } = require('./message-item-shared');
 const { strictIntId } = require('./report-id');
 
 /**
@@ -274,18 +274,10 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
      *
      * @param {string} integrationId - Integration ID (string from application layer)
      * @param {string} messageType - Type of message (errors, warnings, info, logs)
-     * @param {string|Object} messageTitleOrItem - Message title, or the whole message item
-     * @param {string} [messageBody] - Message body (positional form)
-     * @param {Date} [messageTimestamp] - Message timestamp (positional form)
+     * @param {Object} item - Message item, stored as it is
      * @returns {Promise<boolean>} Success indicator
      */
-    async updateIntegrationMessages(
-        integrationId,
-        messageType,
-        messageTitleOrItem,
-        messageBody,
-        messageTimestamp
-    ) {
+    async updateIntegrationMessages(integrationId, messageType, item) {
         const intId = this._convertId(integrationId);
 
         // Get current integration
@@ -301,9 +293,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         const messageArray = messagesOfType(integration, messageType);
 
         // Add new message
-        messageArray.push(
-            toMessageItem(messageTitleOrItem, messageBody, messageTimestamp)
-        );
+        messageArray.push(item);
 
         // Update messages
         await this.prisma.integration.update({

@@ -226,9 +226,11 @@ describe('RecordRateLimitMessage Use-Case', () => {
             await integrationRepository.updateIntegrationMessages(
                 integrationId,
                 'warnings',
-                'Something else',
-                'Not a rate limit',
-                1
+                {
+                    title: 'Something else',
+                    message: 'Not a rate limit',
+                    timestamp: 1,
+                }
             );
             await integrationRepository.updateIntegrationMessages(
                 integrationId,

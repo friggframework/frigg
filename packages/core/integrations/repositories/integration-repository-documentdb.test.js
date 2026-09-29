@@ -200,30 +200,17 @@ function makeMessagesRepo(stored = {}) {
 }
 
 describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
+    const first = { title: 'First', message: 'one', timestamp: 1000 };
+    const second = { title: 'Second', message: 'two', timestamp: 2000 };
+
     it('appends, so two calls leave two items in both stored copies', async () => {
         const { repo, doc } = makeMessagesRepo();
 
-        await repo.updateIntegrationMessages(
-            OID,
-            'warnings',
-            'First',
-            'one',
-            1000
-        );
-        await repo.updateIntegrationMessages(
-            OID,
-            'warnings',
-            'Second',
-            'two',
-            2000
-        );
+        await repo.updateIntegrationMessages(OID, 'warnings', first);
+        await repo.updateIntegrationMessages(OID, 'warnings', second);
 
-        const expected = [
-            { title: 'First', message: 'one', timestamp: 1000 },
-            { title: 'Second', message: 'two', timestamp: 2000 },
-        ];
-        expect(doc.messages.warnings).toEqual(expected);
-        expect(doc.warnings).toEqual(expected);
+        expect(doc.messages.warnings).toEqual([first, second]);
+        expect(doc.warnings).toEqual([first, second]);
     });
 
     it('appends to the items of a document that has no messages object', async () => {
@@ -233,18 +220,9 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
             warnings: [stored],
         });
 
-        await repo.updateIntegrationMessages(
-            OID,
-            'warnings',
-            'New',
-            'added',
-            2
-        );
+        await repo.updateIntegrationMessages(OID, 'warnings', first);
 
-        expect(doc.warnings).toEqual([
-            stored,
-            { title: 'New', message: 'added', timestamp: 2 },
-        ]);
+        expect(doc.warnings).toEqual([stored, first]);
     });
 
     it('keeps the items of the other types', async () => {
@@ -254,13 +232,7 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
             errors: [error],
         });
 
-        await repo.updateIntegrationMessages(
-            OID,
-            'warnings',
-            'Title',
-            'body',
-            2
-        );
+        await repo.updateIntegrationMessages(OID, 'warnings', first);
 
         expect(doc.messages.errors).toEqual([error]);
         expect(doc.errors).toEqual([error]);
@@ -270,18 +242,12 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
         const { repo } = makeMessagesRepo();
 
         await expect(
-            repo.updateIntegrationMessages(
-                'nope',
-                'warnings',
-                'Title',
-                'body',
-                2
-            )
+            repo.updateIntegrationMessages('nope', 'warnings', first)
         ).rejects.toThrow('Integration nope not found');
         expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
     });
 
-    it('stores an item object with its extra keys in both stored copies', async () => {
+    it('stores the item with its extra keys in both stored copies', async () => {
         const { repo, doc } = makeMessagesRepo();
         const item = {
             title: 'Rate limit reached',
@@ -297,27 +263,16 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
         expect(doc.warnings).toEqual([item]);
     });
 
-    it('appends an item object after a positional message', async () => {
+    it('stores null for an item that has no title', async () => {
         const { repo, doc } = makeMessagesRepo();
-        const item = {
-            title: 'Item',
-            message: 'object',
-            timestamp: 2,
-            code: 'X',
-        };
 
-        await repo.updateIntegrationMessages(
-            OID,
-            'warnings',
-            'First',
-            'one',
-            1
-        );
-        await repo.updateIntegrationMessages(OID, 'warnings', item);
+        await repo.updateIntegrationMessages(OID, 'warnings', {
+            message: 'untitled',
+            timestamp: 1,
+        });
 
         expect(doc.warnings).toEqual([
-            { title: 'First', message: 'one', timestamp: 1 },
-            item,
+            { title: null, message: 'untitled', timestamp: 1 },
         ]);
     });
 });

@@ -121,6 +121,58 @@ describe('UpdateIntegrationMessages Use-Case', () => {
         });
     });
 
+    describe('the item it gives the repository', () => {
+        let updateIntegrationMessages;
+
+        beforeEach(() => {
+            updateIntegrationMessages = jest.spyOn(
+                integrationRepository,
+                'updateIntegrationMessages'
+            );
+        });
+
+        it('builds one item from the positional form', async () => {
+            await useCase.execute('int-1', 'errors', 'Title', 'body', 1000);
+
+            expect(updateIntegrationMessages).toHaveBeenCalledWith(
+                'int-1',
+                'errors',
+                { title: 'Title', message: 'body', timestamp: 1000 }
+            );
+        });
+
+        it('gives a copy of an item object and ignores the positional arguments', async () => {
+            const item = {
+                title: 'Rate limit reached',
+                message: 'It resets at noon.',
+                timestamp: 1000,
+                code: 'RATE_LIMITED',
+            };
+
+            await useCase.execute('int-1', 'warnings', item, 'other', 2000);
+
+            expect(updateIntegrationMessages).toHaveBeenCalledWith(
+                'int-1',
+                'warnings',
+                item
+            );
+            expect(updateIntegrationMessages.mock.calls[0][2]).not.toBe(item);
+        });
+
+        it.each([[null], [undefined], [''], ['Title'], [['a', 'b']]])(
+            'reads %p as a title',
+            async (title) => {
+                await useCase.execute('int-1', 'info', title, 'body', 1000);
+
+                expect(updateIntegrationMessages).toHaveBeenCalledWith(
+                    'int-1',
+                    'info',
+                    { title, message: 'body', timestamp: 1000 }
+                );
+            }
+        );
+    });
+
     describe('error cases', () => {
         it('returns false when integration not found', async () => {
             const nonExistentId = 'non-existent-id';

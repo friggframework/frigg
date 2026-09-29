@@ -134,59 +134,36 @@ const makeMessagesRepo = (stored) =>
     withMessageRow(new IntegrationRepositoryMongo(), ID, stored);
 
 describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
+    const first = { title: 'First', message: 'one', timestamp: 1000 };
+    const second = { title: 'Second', message: 'two', timestamp: 2000 };
+
     it('appends, so two calls leave two items', async () => {
         const { repo, row } = makeMessagesRepo();
 
-        await repo.updateIntegrationMessages(
-            ID,
-            'warnings',
-            'First',
-            'one',
-            1000
-        );
-        await repo.updateIntegrationMessages(
-            ID,
-            'warnings',
-            'Second',
-            'two',
-            2000
-        );
+        await repo.updateIntegrationMessages(ID, 'warnings', first);
+        await repo.updateIntegrationMessages(ID, 'warnings', second);
 
-        expect(row.warnings).toEqual([
-            { title: 'First', message: 'one', timestamp: 1000 },
-            { title: 'Second', message: 'two', timestamp: 2000 },
-        ]);
+        expect(row.warnings).toEqual([first, second]);
     });
 
     it('keeps the items that were stored before', async () => {
         const stored = { title: 'Old', message: 'stored', timestamp: 1 };
         const { repo, row } = makeMessagesRepo({ warnings: [stored] });
 
-        await repo.updateIntegrationMessages(ID, 'warnings', 'New', 'added', 2);
+        await repo.updateIntegrationMessages(ID, 'warnings', first);
 
-        expect(row.warnings).toEqual([
-            stored,
-            { title: 'New', message: 'added', timestamp: 2 },
-        ]);
+        expect(row.warnings).toEqual([stored, first]);
     });
 
     it('writes only the column of its type', async () => {
         const error = { title: 'Kept', message: 'error', timestamp: 1 };
         const { repo, row } = makeMessagesRepo({ errors: [error] });
 
-        await repo.updateIntegrationMessages(
-            ID,
-            'warnings',
-            'Title',
-            'body',
-            2
-        );
+        await repo.updateIntegrationMessages(ID, 'warnings', first);
 
         expect(repo.prisma.integration.update).toHaveBeenCalledWith({
             where: { id: ID },
-            data: {
-                warnings: [{ title: 'Title', message: 'body', timestamp: 2 }],
-            },
+            data: { warnings: [first] },
         });
         expect(row.errors).toEqual([error]);
     });
@@ -196,12 +173,12 @@ describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
         repo.prisma.integration.findUnique.mockResolvedValue(null);
 
         await expect(
-            repo.updateIntegrationMessages(ID, 'warnings', 'Title', 'body', 2)
+            repo.updateIntegrationMessages(ID, 'warnings', first)
         ).rejects.toThrow(`Integration ${ID} not found`);
         expect(repo.prisma.integration.update).not.toHaveBeenCalled();
     });
 
-    it('stores an item object with its extra keys', async () => {
+    it('stores the item with its extra keys as it is', async () => {
         const { repo, row } = makeMessagesRepo();
         const item = {
             title: 'Rate limit reached',
@@ -214,24 +191,6 @@ describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
         await repo.updateIntegrationMessages(ID, 'warnings', item);
 
         expect(row.warnings).toEqual([item]);
-    });
-
-    it('appends an item object after a positional message', async () => {
-        const { repo, row } = makeMessagesRepo();
-        const item = {
-            title: 'Item',
-            message: 'object',
-            timestamp: 2,
-            code: 'X',
-        };
-
-        await repo.updateIntegrationMessages(ID, 'warnings', 'First', 'one', 1);
-        await repo.updateIntegrationMessages(ID, 'warnings', item);
-
-        expect(row.warnings).toEqual([
-            { title: 'First', message: 'one', timestamp: 1 },
-            item,
-        ]);
     });
 });
 

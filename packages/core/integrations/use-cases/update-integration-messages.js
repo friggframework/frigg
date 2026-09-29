@@ -1,3 +1,15 @@
+const isPlainObject = (value) =>
+    value !== null && typeof value === 'object' && !Array.isArray(value);
+
+function toMessageItem(titleOrItem, messageBody, messageTimestamp) {
+    if (isPlainObject(titleOrItem)) return { ...titleOrItem };
+    return {
+        title: titleOrItem,
+        message: messageBody,
+        timestamp: messageTimestamp,
+    };
+}
+
 /**
  * Use case for updating messages associated with an integration.
  * @class UpdateIntegrationMessages
@@ -35,9 +47,7 @@ class UpdateIntegrationMessages {
             await this.integrationRepository.updateIntegrationMessages(
                 integrationId,
                 messageType,
-                messageTitleOrItem,
-                messageBody,
-                messageTimestamp
+                toMessageItem(messageTitleOrItem, messageBody, messageTimestamp)
             );
         return integration;
     }

@@ -14,7 +14,7 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
-const { messagesOfType, toMessageItem } = require('./message-item-shared');
+const { messagesOfType } = require('./message-item-shared');
 
 class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     constructor() {
@@ -92,13 +92,7 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         return true;
     }
 
-    async updateIntegrationMessages(
-        integrationId,
-        messageType,
-        messageTitleOrItem,
-        messageBody,
-        messageTimestamp
-    ) {
+    async updateIntegrationMessages(integrationId, messageType, item) {
         const objectId = toObjectId(integrationId);
         if (!objectId) {
             throw new Error(`Integration ${integrationId} not found`);
@@ -109,11 +103,6 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         }
         const messages = this._extractMessages(existing);
         const list = [...messagesOfType(messages, messageType)];
-        const item = toMessageItem(
-            messageTitleOrItem,
-            messageBody,
-            messageTimestamp
-        );
         list.push({ ...item, title: item.title ?? null });
         const updatedMessages = { ...messages, [messageType]: list };
         await updateOne(
