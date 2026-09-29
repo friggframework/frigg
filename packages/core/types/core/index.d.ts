@@ -48,17 +48,12 @@ declare module "@friggframework/core" {
 
     sendAsyncSQSMessage(params: SendSQSMessageParams): Promise<string>;
 
-    /**
-     * Hook: a message was put back for a rate limit. Runs after the message
-     * was sent. A failure is logged and never changes the outcome.
-     */
     recordRateLimitWait(
       body: object,
       error: Error,
       state: RateLimitWaitState
     ): Promise<void>;
 
-    /** Hook: a message that was put back for a rate limit ran without error. */
     clearRateLimitWait(body: object): Promise<void>;
   }
 

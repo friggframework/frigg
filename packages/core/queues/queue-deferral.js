@@ -10,26 +10,12 @@ const toPositiveInteger = (value) => {
     return Number.isInteger(number) && number > 0 ? number : undefined;
 };
 
-/**
- * @typedef {Object} DeferralLimits
- * @property {number} maxDeferrals Times one message may be put back for a rate limit.
- * @property {number} maxDeferredMs Longest total time from the first deferral to the last retry time.
- */
-
-/**
- * @param {Object} [env=process.env]
- * @returns {DeferralLimits}
- */
 const readDeferralLimits = (env = process.env) => ({
     maxDeferrals: toPositiveInteger(env[MAX_DEFERRALS_ENV]) ?? MAX_DEFERRALS,
     maxDeferredMs:
         toPositiveInteger(env[MAX_DEFERRED_MS_ENV]) ?? MAX_DEFERRED_MS,
 });
 
-/**
- * The deferral counters a message body carries in `_frigg`.
- * @returns {{deferrals: number, firstDeferredAt: string|undefined}}
- */
 const readDeferral = (body) => {
     const frigg = body?._frigg;
     const deferrals =

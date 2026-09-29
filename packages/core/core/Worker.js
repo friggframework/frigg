@@ -127,18 +127,6 @@ class Worker {
         // parameters
     }
 
-    /**
-     * Puts a rate-limited message back so it runs at `error.retryAt`, without
-     * spending a receive. The message is sent again with a delay of up to 900 s,
-     * or scheduled with the one-time scheduler, or has its visibility timeout
-     * extended. The new message goes out before the old one is acknowledged, so
-     * delivery stays at least once.
-     *
-     * @returns {Promise<{outcome: 'acked'|'failed'|'skipped', skipped?: string, cause?: Error}>}
-     *   `acked`: the message is handled. `failed`: report the record failed and
-     *   let SQS redeliver it. `skipped`: nothing was done; fail the record as
-     *   any other error.
-     */
     async defer(record, body, error, delivery) {
         const retryAt = validDate(error.retryAt);
         if (!retryAt) return { outcome: 'skipped', skipped: 'no_retry_at' };
@@ -231,7 +219,6 @@ class Worker {
         return { outcome: 'acked' };
     }
 
-    /** `acked`, `{ scheduleError }` when the schedule failed, null with no scheduler. */
     async _deferWithSchedule({
         record,
         body,
@@ -313,11 +300,6 @@ class Worker {
         return { outcome: 'failed' };
     }
 
-    /**
-     * The one-time scheduler, or null when the stack has none. The mock
-     * scheduler is never used: a schedule kept in memory would be lost with
-     * the message.
-     */
     getSchedulerService() {
         if (this._schedulerService !== undefined) return this._schedulerService;
         this._schedulerService = null;
@@ -336,22 +318,12 @@ class Worker {
         return this._schedulerService;
     }
 
-    /**
-     * Hook: the message was put back for a rate limit. Runs after it was sent.
-     * @param {Object} body The parsed message body.
-     * @param {Error} error The RateLimitError.
-     * @param {{status: 'WAITING'|'EXHAUSTED', mechanism: string, deferrals: number, retryAt: Date}} state
-     */
-    async recordRateLimitWait() {
-        // A subclass keeps the run state; nothing to do by default.
+    recordRateLimitWait() {
+        return Promise.resolve();
     }
 
-    /**
-     * Hook: a message that was put back for a rate limit ran without error.
-     * @param {Object} body The parsed message body.
-     */
-    async clearRateLimitWait() {
-        // A subclass keeps the run state; nothing to do by default.
+    clearRateLimitWait() {
+        return Promise.resolve();
     }
 
     _queueUrl(queueName) {
