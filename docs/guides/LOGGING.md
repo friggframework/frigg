@@ -169,9 +169,9 @@ it throws. It carries `statusCode`, `waitMs`, `retryAt`, `reason`, `hintSource`,
 error keeps no `retryAt`. The plain backoff ladder writes none. A `classify()`
 that throws writes one `WARN`, `module.<name>.rate_limit_classify_failed`.
 
-A wait that is too long to sleep is reported up the delegate chain before the
-error is thrown. Each hop is best effort, and a failure never replaces the
-rate-limit error:
+A wait longer than the in-process cap (`maxInProcessWaitMs`) is reported up the
+delegate chain before the error is thrown. Each hop is best effort, and a
+failure never replaces the rate-limit error:
 
 | Record | Level | Written when |
 |---|---|---|

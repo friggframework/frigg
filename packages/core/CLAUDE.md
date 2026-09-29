@@ -568,9 +568,10 @@ if (!userId) {
 }
 ```
 
-**Rate-limit message** (ADR-049): when a wait is too long to sleep, the
-Requester tells its delegate (`RATE_LIMITED`, with the `RateLimitError`) and
-then throws. The notification takes the path of `CREDENTIAL_INVALIDATED`:
+**Rate-limit message** (ADR-049): when a wait is longer than the in-process cap
+(`maxInProcessWaitMs`, default 5 min), the Requester tells its delegate
+(`RATE_LIMITED`, with the `RateLimitError`) and then throws. A shorter wait
+that throws sends no notification. The notification takes the path of `CREDENTIAL_INVALIDATED`:
 Requester, `Module`, `IntegrationBase`.
 
 - The `Module` sends `{ moduleName, reason, retryAt, policy, statusCode, links }`.

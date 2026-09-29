@@ -235,7 +235,7 @@ response has one.
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
 | `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does. Pacing uses them later. |
-| `userHints` | Links per `reason`, for example `{ daily: { links: [{ label, url }] } }`. They become the `LINK` actions of the warning the integration records for a long wait (see "The message for the user"). A `reason` with no hint gets no links. |
+| `userHints` | Links per `reason`, for example `{ daily: { links: [{ label, url }] } }`. They become the `LINK` actions of the warning the integration records for a wait longer than `maxInProcessWaitMs` (see "The message for the user"). A `reason` with no hint gets no links. |
 
 ### What `classify` returns
 
@@ -292,16 +292,19 @@ class Api extends ApiKeyRequester {
    in the Lambda invocation less one request timeout.
 4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
    `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
-   `policy`, `source`, `module` and `scopeKey`. The Requester tells its
-   delegate (`RATE_LIMITED`) first, so the integration can warn its users.
+   `policy`, `source`, `module` and `scopeKey`. When the wait is also longer
+   than `maxInProcessWaitMs`, the Requester tells its delegate
+   (`RATE_LIMITED`) first, so the integration can warn its users.
 
 `Retry-After` is read on a 429 only. The queue worker does not halt a
 `RateLimitError`, even when its status is 403: the message goes back to SQS.
 
 ### The message for the user
 
-When the Requester throws `RateLimitError`, the integration records one warning
-for its users. It is one item in the stored `warnings`:
+When the Requester throws `RateLimitError` for a wait longer than
+`maxInProcessWaitMs`, the integration records one warning for its users. A
+shorter wait that throws records none. The warning is one item in the stored
+`warnings`:
 
 | Field | Value |
 |---|---|

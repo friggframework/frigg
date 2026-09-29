@@ -10,6 +10,7 @@ const { redactUrl } = require('../../logs/redact');
 const { toSanitizedSurrogate } = require('../../logs/serialize');
 const { getLoggerScope } = require('../../logs/context');
 const {
+    DEFAULT_MAX_IN_PROCESS_WAIT_MS,
     computeScopeKey,
     computeWaitMs,
     headerValue,
@@ -640,6 +641,7 @@ class Requester extends Delegate {
     }
 
     async _notifyRateLimited(rateLimitError) {
+        if (!this._waitsLongerThanInProcessCap(rateLimitError)) return;
         try {
             await this.notify(this.DLGT_RATE_LIMITED, rateLimitError);
         } catch (error) {
@@ -650,6 +652,16 @@ class Requester extends Delegate {
                 error,
             });
         }
+    }
+
+    _waitsLongerThanInProcessCap(rateLimitError) {
+        const waitMs = Number.isFinite(rateLimitError?.waitMs)
+            ? rateLimitError.waitMs
+            : new Date(rateLimitError?.retryAt).getTime() - Date.now();
+        const capMs =
+            this._rateLimitPolicy?.maxInProcessWaitMs ??
+            DEFAULT_MAX_IN_PROCESS_WAIT_MS;
+        return waitMs > capMs;
     }
 
     _logRequestFailed(encodedUrl, options, status) {

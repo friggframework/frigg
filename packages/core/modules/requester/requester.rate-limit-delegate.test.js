@@ -1,6 +1,7 @@
 const { Requester } = require('./requester');
 const { FetchError, RateLimitError } = require('../../errors');
 const { createMemorySink } = require('../../logs');
+const { runWithInvocationDeadline } = require('../../core/invocation-deadline');
 
 class TestRequester extends Requester {
     async addAuthHeaders(headers) {
@@ -190,6 +191,96 @@ describe('Requester RATE_LIMITED delegate', () => {
             ).resolves.toBeUndefined();
 
             expect(notifyFailedRecords()).toHaveLength(1);
+        });
+    });
+
+    describe('only for a wait longer than the in-process cap', () => {
+        const errorWaiting = (waitMs) =>
+            new RateLimitError({
+                hint: { reason: 'concurrency', source: 'static' },
+                waitMs,
+                module: 'hubspot',
+            });
+
+        it('does not notify for a 20 s wait', async () => {
+            const delegate = makeDelegate();
+
+            await makeRequester(jest.fn(), { delegate })._notifyRateLimited(
+                errorWaiting(20_000)
+            );
+
+            expect(delegate.receiveNotification).not.toHaveBeenCalled();
+        });
+
+        it('does not notify for a wait equal to the default cap of 5 min', async () => {
+            const delegate = makeDelegate();
+
+            await makeRequester(jest.fn(), { delegate })._notifyRateLimited(
+                errorWaiting(300_000)
+            );
+
+            expect(delegate.receiveNotification).not.toHaveBeenCalled();
+        });
+
+        it('notifies for a 6 min wait', async () => {
+            const delegate = makeDelegate();
+
+            await makeRequester(jest.fn(), { delegate })._notifyRateLimited(
+                errorWaiting(360_000)
+            );
+
+            expect(delegate.receiveNotification).toHaveBeenCalledTimes(1);
+        });
+
+        it('notifies for a 2 min wait when the policy caps the wait at 1 min', async () => {
+            const delegate = makeDelegate();
+            const Api = withPolicy({ maxInProcessWaitMs: 60_000 });
+
+            await makeRequester(
+                jest.fn(),
+                { delegate },
+                Api
+            )._notifyRateLimited(errorWaiting(120_000));
+
+            expect(delegate.receiveNotification).toHaveBeenCalledTimes(1);
+        });
+
+        it.each([
+            [20_000, 0],
+            [360_000, 1],
+        ])(
+            'reads the wait from retryAt when the error has no waitMs: %d ms notifies %d time(s)',
+            async (untilRetryMs, times) => {
+                const delegate = makeDelegate();
+                const error = errorWaiting(0);
+                error.waitMs = undefined;
+                error.retryAt = new Date(Date.now() + untilRetryMs);
+
+                await makeRequester(jest.fn(), {
+                    delegate,
+                })._notifyRateLimited(error);
+
+                expect(delegate.receiveNotification).toHaveBeenCalledTimes(
+                    times
+                );
+            }
+        );
+
+        it('does not notify for a 20 s wait that the Requester throws because the invocation ends first', async () => {
+            const delegate = makeDelegate();
+            const fetch = fetchReturning(throttled({ 'Retry-After': '20' }));
+
+            const error = await runWithInvocationDeadline(
+                Date.now() + 10_000,
+                () =>
+                    makeRequester(fetch, { delegate })
+                        ._get({ url })
+                        .catch((e) => e)
+            );
+
+            expect(error).toBeInstanceOf(RateLimitError);
+            expect(error.waitMs).toBe(20_000);
+            expect(delegate.receiveNotification).not.toHaveBeenCalled();
         });
     });
 
