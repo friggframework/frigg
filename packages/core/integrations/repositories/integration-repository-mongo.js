@@ -231,9 +231,16 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
      * @param {string} integrationId - Integration ID
      * @param {string} messageType - Type of message (errors, warnings, info, logs)
      * @param {Object} item - Message item, stored as it is
+     * @param {Object} options
+     * @param {number} options.keepLast - How many of the newest items of the type to keep
      * @returns {Promise<boolean>} Success indicator
      */
-    async updateIntegrationMessages(integrationId, messageType, item) {
+    async updateIntegrationMessages(
+        integrationId,
+        messageType,
+        item,
+        { keepLast }
+    ) {
         // Get current integration
         const integration = await this.prisma.integration.findUnique({
             where: { id: integrationId },
@@ -253,7 +260,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
         await this.prisma.integration.update({
             where: { id: integrationId },
             data: {
-                [messageType]: messageArray,
+                [messageType]: messageArray.slice(-keepLast),
             },
         });
 

@@ -275,9 +275,16 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
      * @param {string} integrationId - Integration ID (string from application layer)
      * @param {string} messageType - Type of message (errors, warnings, info, logs)
      * @param {Object} item - Message item, stored as it is
+     * @param {Object} options
+     * @param {number} options.keepLast - How many of the newest items of the type to keep
      * @returns {Promise<boolean>} Success indicator
      */
-    async updateIntegrationMessages(integrationId, messageType, item) {
+    async updateIntegrationMessages(
+        integrationId,
+        messageType,
+        item,
+        { keepLast }
+    ) {
         const intId = this._convertId(integrationId);
 
         // Get current integration
@@ -299,7 +306,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         await this.prisma.integration.update({
             where: { id: intId },
             data: {
-                [messageType]: messageArray,
+                [messageType]: messageArray.slice(-keepLast),
             },
         });
 

@@ -1,3 +1,5 @@
+const { MAX_MESSAGES_PER_TYPE } = require('./update-integration-messages');
+
 const RATE_LIMITED_MESSAGE_CODE = 'RATE_LIMITED';
 const SAME_LIMIT_WINDOW_MS = 60_000;
 const MINUTE_MS = 60_000;
@@ -66,7 +68,8 @@ class RecordRateLimitMessage {
                 reason,
                 retryAt: resetAt.toISOString(),
                 actions: [{ type: 'RETRY_WHEN_READY' }, ...linkActions(links)],
-            }
+            },
+            { keepLast: MAX_MESSAGES_PER_TYPE }
         );
         return true;
     }

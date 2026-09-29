@@ -92,7 +92,12 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         return true;
     }
 
-    async updateIntegrationMessages(integrationId, messageType, item) {
+    async updateIntegrationMessages(
+        integrationId,
+        messageType,
+        item,
+        { keepLast }
+    ) {
         const objectId = toObjectId(integrationId);
         if (!objectId) {
             throw new Error(`Integration ${integrationId} not found`);
@@ -104,7 +109,10 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         const messages = this._extractMessages(existing);
         const list = [...messagesOfType(messages, messageType)];
         list.push({ ...item, title: item.title ?? null });
-        const updatedMessages = { ...messages, [messageType]: list };
+        const updatedMessages = {
+            ...messages,
+            [messageType]: list.slice(-keepLast),
+        };
         await updateOne(
             this.prisma,
             'Integration',

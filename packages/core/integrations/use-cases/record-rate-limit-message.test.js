@@ -30,6 +30,13 @@ describe('RecordRateLimitMessage Use-Case', () => {
             integrationId,
             'warnings'
         );
+    const storeWarning = (item) =>
+        integrationRepository.updateIntegrationMessages(
+            integrationId,
+            'warnings',
+            item,
+            { keepLast: 50 }
+        );
 
     beforeEach(async () => {
         jest.spyOn(Date, 'now').mockReturnValue(NOW);
@@ -223,27 +230,19 @@ describe('RecordRateLimitMessage Use-Case', () => {
         });
 
         it('is not fooled by other warnings', async () => {
-            await integrationRepository.updateIntegrationMessages(
-                integrationId,
-                'warnings',
-                {
-                    title: 'Something else',
-                    message: 'Not a rate limit',
-                    timestamp: 1,
-                }
-            );
-            await integrationRepository.updateIntegrationMessages(
-                integrationId,
-                'warnings',
-                {
-                    title: 'Other code',
-                    message: 'Same module and time',
-                    timestamp: 2,
-                    code: 'SOMETHING_ELSE',
-                    module: 'hubspot',
-                    retryAt: RETRY_AT.toISOString(),
-                }
-            );
+            await storeWarning({
+                title: 'Something else',
+                message: 'Not a rate limit',
+                timestamp: 1,
+            });
+            await storeWarning({
+                title: 'Other code',
+                message: 'Same module and time',
+                timestamp: 2,
+                code: 'SOMETHING_ELSE',
+                module: 'hubspot',
+                retryAt: RETRY_AT.toISOString(),
+            });
 
             await useCase.execute(integrationId, payload());
 
@@ -251,17 +250,13 @@ describe('RecordRateLimitMessage Use-Case', () => {
         });
 
         it('is not fooled by a stored warning that has no valid reset time', async () => {
-            await integrationRepository.updateIntegrationMessages(
-                integrationId,
-                'warnings',
-                {
-                    title: 'Rate limit reached',
-                    message: 'Broken',
-                    timestamp: 1,
-                    code: 'RATE_LIMITED',
-                    module: 'hubspot',
-                }
-            );
+            await storeWarning({
+                title: 'Rate limit reached',
+                message: 'Broken',
+                timestamp: 1,
+                code: 'RATE_LIMITED',
+                module: 'hubspot',
+            });
 
             await useCase.execute(integrationId, payload());
 
@@ -275,6 +270,25 @@ describe('RecordRateLimitMessage Use-Case', () => {
             await other.execute(integrationId, payload());
 
             expect(await storedWarnings()).toHaveLength(1);
+        });
+    });
+
+    describe('the newest 50 warnings', () => {
+        it('drops the oldest warning of the integration when it adds its own', async () => {
+            for (let n = 1; n <= 50; n++) {
+                await storeWarning({
+                    title: `W${n}`,
+                    message: 'b',
+                    timestamp: n,
+                });
+            }
+
+            await useCase.execute(integrationId, payload());
+
+            const warnings = await storedWarnings();
+            expect(warnings).toHaveLength(50);
+            expect(warnings[0].timestamp).toBe(2);
+            expect(warnings[49]).toMatchObject({ code: 'RATE_LIMITED' });
         });
     });
 

@@ -102,10 +102,17 @@ class IntegrationRepositoryInterface {
      * @param {string|number} integrationId - Integration ID
      * @param {string} messageType - Type of message (errors, warnings, info, logs)
      * @param {Object} item - Message item, stored as it is
+     * @param {Object} options
+     * @param {number} options.keepLast - How many of the newest items of the type to keep
      * @returns {Promise<boolean>} Success indicator
      * @abstract
      */
-    async updateIntegrationMessages(integrationId, messageType, item) {
+    async updateIntegrationMessages(
+        integrationId,
+        messageType,
+        item,
+        { keepLast }
+    ) {
         throw new Error('Method updateIntegrationMessages must be implemented by subclass');
     }
 

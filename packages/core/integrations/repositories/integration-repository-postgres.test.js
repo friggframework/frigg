@@ -129,12 +129,23 @@ const makeMessagesRepo = (stored) =>
 describe('IntegrationRepositoryPostgres.updateIntegrationMessages', () => {
     const first = { title: 'First', message: 'one', timestamp: 1000 };
     const second = { title: 'Second', message: 'two', timestamp: 2000 };
+    const keepNewest50 = { keepLast: 50 };
 
     it('appends, so two calls leave two items', async () => {
         const { repo, row } = makeMessagesRepo();
 
-        await repo.updateIntegrationMessages('7', 'warnings', first);
-        await repo.updateIntegrationMessages('7', 'warnings', second);
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            first,
+            keepNewest50
+        );
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            second,
+            keepNewest50
+        );
 
         expect(row.warnings).toEqual([first, second]);
     });
@@ -143,7 +154,12 @@ describe('IntegrationRepositoryPostgres.updateIntegrationMessages', () => {
         const stored = { title: 'Old', message: 'stored', timestamp: 1 };
         const { repo, row } = makeMessagesRepo({ warnings: [stored] });
 
-        await repo.updateIntegrationMessages('7', 'warnings', first);
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            first,
+            keepNewest50
+        );
 
         expect(row.warnings).toEqual([stored, first]);
     });
@@ -152,7 +168,12 @@ describe('IntegrationRepositoryPostgres.updateIntegrationMessages', () => {
         const error = { title: 'Kept', message: 'error', timestamp: 1 };
         const { repo, row } = makeMessagesRepo({ errors: [error] });
 
-        await repo.updateIntegrationMessages('7', 'warnings', first);
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            first,
+            keepNewest50
+        );
 
         expect(repo.prisma.integration.update).toHaveBeenCalledWith({
             where: { id: 7 },
@@ -166,7 +187,7 @@ describe('IntegrationRepositoryPostgres.updateIntegrationMessages', () => {
         repo.prisma.integration.findUnique.mockResolvedValue(null);
 
         await expect(
-            repo.updateIntegrationMessages('7', 'warnings', first)
+            repo.updateIntegrationMessages('7', 'warnings', first, keepNewest50)
         ).rejects.toThrow('Integration 7 not found');
         expect(repo.prisma.integration.update).not.toHaveBeenCalled();
     });
@@ -181,9 +202,31 @@ describe('IntegrationRepositoryPostgres.updateIntegrationMessages', () => {
             actions: [{ type: 'RETRY_WHEN_READY' }],
         };
 
-        await repo.updateIntegrationMessages('7', 'warnings', item);
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            item,
+            keepNewest50
+        );
 
         expect(row.warnings).toEqual([item]);
+    });
+
+    it('keeps the newest 50 items of the type, oldest first', async () => {
+        const { repo, row } = makeMessagesRepo();
+
+        for (let n = 1; n <= 51; n++) {
+            await repo.updateIntegrationMessages(
+                '7',
+                'warnings',
+                { title: `W${n}`, message: 'b', timestamp: n },
+                keepNewest50
+            );
+        }
+
+        expect(row.warnings.map((item) => item.timestamp)).toEqual(
+            Array.from({ length: 50 }, (_, i) => i + 2)
+        );
     });
 });
 

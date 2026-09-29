@@ -136,12 +136,23 @@ const makeMessagesRepo = (stored) =>
 describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
     const first = { title: 'First', message: 'one', timestamp: 1000 };
     const second = { title: 'Second', message: 'two', timestamp: 2000 };
+    const keepNewest50 = { keepLast: 50 };
 
     it('appends, so two calls leave two items', async () => {
         const { repo, row } = makeMessagesRepo();
 
-        await repo.updateIntegrationMessages(ID, 'warnings', first);
-        await repo.updateIntegrationMessages(ID, 'warnings', second);
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            first,
+            keepNewest50
+        );
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            second,
+            keepNewest50
+        );
 
         expect(row.warnings).toEqual([first, second]);
     });
@@ -150,7 +161,12 @@ describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
         const stored = { title: 'Old', message: 'stored', timestamp: 1 };
         const { repo, row } = makeMessagesRepo({ warnings: [stored] });
 
-        await repo.updateIntegrationMessages(ID, 'warnings', first);
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            first,
+            keepNewest50
+        );
 
         expect(row.warnings).toEqual([stored, first]);
     });
@@ -159,7 +175,12 @@ describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
         const error = { title: 'Kept', message: 'error', timestamp: 1 };
         const { repo, row } = makeMessagesRepo({ errors: [error] });
 
-        await repo.updateIntegrationMessages(ID, 'warnings', first);
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            first,
+            keepNewest50
+        );
 
         expect(repo.prisma.integration.update).toHaveBeenCalledWith({
             where: { id: ID },
@@ -173,7 +194,7 @@ describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
         repo.prisma.integration.findUnique.mockResolvedValue(null);
 
         await expect(
-            repo.updateIntegrationMessages(ID, 'warnings', first)
+            repo.updateIntegrationMessages(ID, 'warnings', first, keepNewest50)
         ).rejects.toThrow(`Integration ${ID} not found`);
         expect(repo.prisma.integration.update).not.toHaveBeenCalled();
     });
@@ -188,9 +209,31 @@ describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
             actions: [{ type: 'RETRY_WHEN_READY' }],
         };
 
-        await repo.updateIntegrationMessages(ID, 'warnings', item);
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            item,
+            keepNewest50
+        );
 
         expect(row.warnings).toEqual([item]);
+    });
+
+    it('keeps the newest 50 items of the type, oldest first', async () => {
+        const { repo, row } = makeMessagesRepo();
+
+        for (let n = 1; n <= 51; n++) {
+            await repo.updateIntegrationMessages(
+                ID,
+                'warnings',
+                { title: `W${n}`, message: 'b', timestamp: n },
+                keepNewest50
+            );
+        }
+
+        expect(row.warnings.map((item) => item.timestamp)).toEqual(
+            Array.from({ length: 50 }, (_, i) => i + 2)
+        );
     });
 });
 

@@ -1,3 +1,5 @@
+const MAX_MESSAGES_PER_TYPE = 50;
+
 const isPlainObject = (value) =>
     value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -47,10 +49,15 @@ class UpdateIntegrationMessages {
             await this.integrationRepository.updateIntegrationMessages(
                 integrationId,
                 messageType,
-                toMessageItem(messageTitleOrItem, messageBody, messageTimestamp)
+                toMessageItem(
+                    messageTitleOrItem,
+                    messageBody,
+                    messageTimestamp
+                ),
+                { keepLast: MAX_MESSAGES_PER_TYPE }
             );
         return integration;
     }
 }
 
-module.exports = { UpdateIntegrationMessages };
+module.exports = { MAX_MESSAGES_PER_TYPE, UpdateIntegrationMessages };

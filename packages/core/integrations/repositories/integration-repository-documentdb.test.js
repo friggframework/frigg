@@ -202,12 +202,23 @@ function makeMessagesRepo(stored = {}) {
 describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
     const first = { title: 'First', message: 'one', timestamp: 1000 };
     const second = { title: 'Second', message: 'two', timestamp: 2000 };
+    const keepNewest50 = { keepLast: 50 };
 
     it('appends, so two calls leave two items in both stored copies', async () => {
         const { repo, doc } = makeMessagesRepo();
 
-        await repo.updateIntegrationMessages(OID, 'warnings', first);
-        await repo.updateIntegrationMessages(OID, 'warnings', second);
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            first,
+            keepNewest50
+        );
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            second,
+            keepNewest50
+        );
 
         expect(doc.messages.warnings).toEqual([first, second]);
         expect(doc.warnings).toEqual([first, second]);
@@ -220,7 +231,12 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
             warnings: [stored],
         });
 
-        await repo.updateIntegrationMessages(OID, 'warnings', first);
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            first,
+            keepNewest50
+        );
 
         expect(doc.warnings).toEqual([stored, first]);
     });
@@ -232,7 +248,12 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
             errors: [error],
         });
 
-        await repo.updateIntegrationMessages(OID, 'warnings', first);
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            first,
+            keepNewest50
+        );
 
         expect(doc.messages.errors).toEqual([error]);
         expect(doc.errors).toEqual([error]);
@@ -242,7 +263,12 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
         const { repo } = makeMessagesRepo();
 
         await expect(
-            repo.updateIntegrationMessages('nope', 'warnings', first)
+            repo.updateIntegrationMessages(
+                'nope',
+                'warnings',
+                first,
+                keepNewest50
+            )
         ).rejects.toThrow('Integration nope not found');
         expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
     });
@@ -257,7 +283,12 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
             actions: [{ type: 'RETRY_WHEN_READY' }],
         };
 
-        await repo.updateIntegrationMessages(OID, 'warnings', item);
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            item,
+            keepNewest50
+        );
 
         expect(doc.messages.warnings).toEqual([item]);
         expect(doc.warnings).toEqual([item]);
@@ -266,14 +297,36 @@ describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
     it('stores null for an item that has no title', async () => {
         const { repo, doc } = makeMessagesRepo();
 
-        await repo.updateIntegrationMessages(OID, 'warnings', {
-            message: 'untitled',
-            timestamp: 1,
-        });
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            { message: 'untitled', timestamp: 1 },
+            keepNewest50
+        );
 
         expect(doc.warnings).toEqual([
             { title: null, message: 'untitled', timestamp: 1 },
         ]);
+    });
+
+    it('keeps the newest 50 items of the type, oldest first', async () => {
+        const { repo, doc } = makeMessagesRepo();
+
+        for (let n = 1; n <= 51; n++) {
+            await repo.updateIntegrationMessages(
+                OID,
+                'warnings',
+                { title: `W${n}`, message: 'b', timestamp: n },
+                keepNewest50
+            );
+        }
+
+        expect(doc.messages.warnings.map((item) => item.timestamp)).toEqual(
+            Array.from({ length: 50 }, (_, i) => i + 2)
+        );
+        expect(doc.warnings.map((item) => item.timestamp)).toEqual(
+            Array.from({ length: 50 }, (_, i) => i + 2)
+        );
     });
 });
 

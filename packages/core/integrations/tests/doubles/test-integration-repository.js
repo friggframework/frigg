@@ -72,7 +72,7 @@ class TestIntegrationRepository {
         return results;
     }
 
-    async updateIntegrationMessages(id, type, item) {
+    async updateIntegrationMessages(id, type, item, { keepLast }) {
         const rec = this.store.get(id);
         if (!rec) {
             this.operationHistory.push({ operation: 'updateMessages', id, success: false });
@@ -80,6 +80,7 @@ class TestIntegrationRepository {
         }
         if (!rec.messages[type]) rec.messages[type] = [];
         rec.messages[type].push(item);
+        rec.messages[type] = rec.messages[type].slice(-keepLast);
         this.operationHistory.push({ operation: 'updateMessages', id, type, success: true });
         return true;
     }
