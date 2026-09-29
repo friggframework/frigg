@@ -1,5 +1,6 @@
 const {
     BUILT_IN_PARSERS,
+    definedOnly,
     hintFromRetryAt,
     hintFromWait,
 } = require('./parsers');
@@ -29,14 +30,6 @@ function isPlainObject(value) {
     if (!isObject(value) || Array.isArray(value)) return false;
     const prototype = Object.getPrototypeOf(value);
     return prototype === Object.prototype || prototype === null;
-}
-
-function definedOnly(fields) {
-    const result = {};
-    for (const [key, value] of Object.entries(fields)) {
-        if (value !== undefined) result[key] = value;
-    }
-    return result;
 }
 
 function readParsers(raw, owner) {

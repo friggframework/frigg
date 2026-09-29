@@ -235,6 +235,7 @@ const BUILT_IN_PARSERS = {
 module.exports = {
     BUILT_IN_PARSERS,
     MAX_HINT_WAIT_MS,
+    definedOnly,
     headerValue,
     hintFromRetryAt,
     hintFromWait,
