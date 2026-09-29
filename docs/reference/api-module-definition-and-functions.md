@@ -315,8 +315,9 @@ shorter wait that throws records none. The warning is one item in the stored
 | `actions` | `{ type: 'RETRY_WHEN_READY' }`, then `{ type: 'LINK', label, url }` for each link in `userHints[reason]` |
 
 A second report for the same module within 60 seconds of a stored reset time
-is skipped. The warning changes no integration status. A failure to record it
-is logged, and the request still throws `RateLimitError`.
+is skipped. The stored `warnings` keep their newest 50 items, so an older
+warning drops off. The warning changes no integration status. A failure to
+record it is logged, and the request still throws `RateLimitError`.
 
 ### A client that is not the Requester
 

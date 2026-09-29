@@ -571,8 +571,8 @@ if (!userId) {
 **Rate-limit message** (ADR-049): when a wait is longer than the in-process cap
 (`maxInProcessWaitMs`, default 5 min), the Requester tells its delegate
 (`RATE_LIMITED`, with the `RateLimitError`) and then throws. A shorter wait
-that throws sends no notification. The notification takes the path of `CREDENTIAL_INVALIDATED`:
-Requester, `Module`, `IntegrationBase`.
+that throws sends no notification. The notification takes the path of
+`CREDENTIAL_INVALIDATED`: Requester, `Module`, `IntegrationBase`.
 
 - The `Module` sends `{ moduleName, reason, retryAt, policy, statusCode, links }`.
   `links` is `static rateLimit.userHints[reason].links`, or `[]`. The message,
@@ -608,13 +608,9 @@ Requester, `Module`, `IntegrationBase`.
 
 The text is fixed. It holds the module name and the reset time in UTC, rounded
 up to the minute, and nothing from the request.
-`updateIntegrationMessages(id, type, title, body, timestamp)` still works, and
-it also takes one item object, `updateIntegrationMessages(id, type, item)`,
-whose keys are stored as they are. Every call appends.
-`findIntegrationMessages(id, type)` reads the stored items of one type. The
-`messages` of the record from `findIntegrationById` is not filled on Postgres
-and Mongo, because the schema keeps the messages in the `errors`, `warnings`,
-`info` and `logs` columns.
+
+Integration messages (the item form, `findIntegrationMessages`, the newest 50
+per type): see "Integration Messages" in `docs/guides/INTEGRATION-PATTERNS.md`.
 
 ### 9. Logging System (`/logs`)
 
