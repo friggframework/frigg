@@ -1,14 +1,11 @@
+const { toPositiveInteger } = require('./queue-delivery');
+
 const MAX_DEFERRALS = 30;
 const MAX_DEFERRED_MS = 26 * 60 * 60 * 1000;
 const MAX_DELAY_SECONDS = 900;
 const MAX_VISIBILITY_TIMEOUT_SECONDS = 43_200;
 const MAX_DEFERRALS_ENV = 'FRIGG_QUEUE_MAX_DEFERRALS';
 const MAX_DEFERRED_MS_ENV = 'FRIGG_QUEUE_MAX_DEFERRED_MS';
-
-const toPositiveInteger = (value) => {
-    const number = Number(value);
-    return Number.isInteger(number) && number > 0 ? number : undefined;
-};
 
 const readDeferralLimits = (env = process.env) => ({
     maxDeferrals: toPositiveInteger(env[MAX_DEFERRALS_ENV]) ?? MAX_DEFERRALS,
