@@ -1,4 +1,4 @@
-const { toMessageItem } = require('./message-item-shared');
+const { messagesOfType, toMessageItem } = require('./message-item-shared');
 
 describe('toMessageItem', () => {
     it('builds an item from the positional form', () => {
@@ -41,6 +41,25 @@ describe('toMessageItem', () => {
                 message: 'body',
                 timestamp: 1000,
             });
+        }
+    );
+});
+
+describe('messagesOfType', () => {
+    it('returns the stored list of the type', () => {
+        const warnings = [
+            { title: 'Stored', message: 'warning', timestamp: 1 },
+        ];
+
+        expect(messagesOfType({ warnings }, 'warnings')).toBe(warnings);
+    });
+
+    it.each([[undefined], [null], [{}], ['text']])(
+        'returns an empty list when the type holds %p',
+        (stored) => {
+            expect(messagesOfType({ warnings: stored }, 'warnings')).toEqual(
+                []
+            );
         }
     );
 });

@@ -3,7 +3,7 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
-const { toMessageItem } = require('./message-item-shared');
+const { messagesOfType, toMessageItem } = require('./message-item-shared');
 const { strictIntId } = require('./report-id');
 
 /**
@@ -298,9 +298,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         }
 
         // Parse existing messages (JSON field)
-        const messageArray = Array.isArray(integration[messageType])
-            ? integration[messageType]
-            : [];
+        const messageArray = messagesOfType(integration, messageType);
 
         // Add new message
         messageArray.push(
@@ -336,9 +334,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
             throw new Error(`Integration ${integrationId} not found`);
         }
 
-        return Array.isArray(integration[messageType])
-            ? integration[messageType]
-            : [];
+        return messagesOfType(integration, messageType);
     }
 
     /**
