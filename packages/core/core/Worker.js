@@ -95,19 +95,30 @@ class Worker {
                         });
                         return;
                     }
-                    // The message goes back to SQS, so WARN (ADR-048 §4).
-                    log.warn('Record failed, returned for retry', {
-                        eventName: 'frigg.worker.record_failed',
-                        error,
-                        ...(deferralResult && {
-                            deferral: {
-                                skipped: deferralResult.skipped,
-                                ...(deferralResult.cause && {
-                                    cause: causeOf(deferralResult.cause),
-                                }),
-                            },
-                        }),
-                    });
+                    const skippedDeferral = deferralResult && {
+                        deferral: {
+                            skipped: deferralResult.skipped,
+                            ...(deferralResult.cause && {
+                                cause: causeOf(deferralResult.cause),
+                            }),
+                        },
+                    };
+                    if (skippedDeferral && delivery.isLastAttempt) {
+                        this._logLost({
+                            retryAt: validDate(error.retryAt)?.toISOString(),
+                            reason: error.reason,
+                            module: error.module,
+                            ...skippedDeferral,
+                            error,
+                        });
+                    } else {
+                        // The message goes back to SQS, so WARN (ADR-048 §4).
+                        log.warn('Record failed, returned for retry', {
+                            eventName: 'frigg.worker.record_failed',
+                            error,
+                            ...skippedDeferral,
+                        });
+                    }
                     batchItemFailures.push({ itemIdentifier: record.messageId });
                 }
             });
@@ -342,18 +353,14 @@ class Worker {
             ...this._deferralLogFields(deferral),
             error: deferral.error,
         };
+        if (deferral.delivery.isLastAttempt) {
+            this._logLost(logFields);
+            return;
+        }
         log.warn(message, {
             eventName: `frigg.worker.${eventName}`,
             ...logFields,
         });
-        if (deferral.delivery.isLastAttempt) {
-            this._logLost({
-                retryAt: logFields.retryAt,
-                reason: logFields.reason,
-                module: logFields.module,
-                error: deferral.error,
-            });
-        }
     }
 
     _logLost(fields) {

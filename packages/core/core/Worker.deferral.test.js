@@ -411,8 +411,11 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
                     level: 'ERROR',
                     receiveCount: 3,
                     reason: 'burst',
+                    maxDeferrals: 30,
+                    maxDeferredMs: MAX_DEFERRED_MS,
                 }),
             ]);
+            expect(logged('record_deferral_capped')).toEqual([]);
         });
 
         it('writes no lost-message ERROR before the last delivery', async () => {
@@ -424,6 +427,48 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             );
 
             expect(logged('record_lost_rate_limited')).toEqual([]);
+            expect(logged('record_deferral_capped')).toHaveLength(1);
+        });
+
+        it('writes one ERROR, and no WARN, for a visibility change on the last delivery', async () => {
+            process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT = '3';
+            worker._run.mockRejectedValue(rateLimited(20 * MINUTE));
+
+            await run(
+                sqsRecord({ attributes: { ApproximateReceiveCount: '3' } })
+            );
+
+            expect(logged('record_lost_rate_limited')).toEqual([
+                expect.objectContaining({
+                    level: 'ERROR',
+                    mechanism: 'visibility',
+                    visibilityTimeout: 1200,
+                }),
+            ]);
+            expect(logged('record_visibility_extended')).toEqual([]);
+        });
+
+        it('writes one ERROR, and no record_failed, when a deferral fails on the last delivery', async () => {
+            process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT = '3';
+            sqsMock.on(SendMessageCommand).rejects(new Error('SQS is down'));
+            worker._run.mockRejectedValue(rateLimited(60 * SECOND));
+
+            const result = await run(
+                sqsRecord({ attributes: { ApproximateReceiveCount: '3' } })
+            );
+
+            expect(result).toEqual(failure());
+            expect(logged('record_lost_rate_limited')).toEqual([
+                expect.objectContaining({
+                    level: 'ERROR',
+                    reason: 'burst',
+                    deferral: {
+                        skipped: 'send_failed',
+                        cause: expect.stringContaining('SQS is down'),
+                    },
+                }),
+            ]);
+            expect(logged('record_failed')).toEqual([]);
         });
     });
 
