@@ -88,7 +88,7 @@ One record, shown on several lines (stdout has it on one line):
 | `entityId`, `credentialId` | string | `Module` bindings | in API module records |
 | `eventName` | string | call site: the `logger` name, then `.<action>` | required for `frigg.*` at `WARN` and above, and for framework lifecycle `INFO` |
 | `trace_id`, `span_id`, `trace_flags` | string (hex) | the active OTel span | inside a span only |
-| `error` | object | `{ type, message, code, status, stack, cause }`, sanitized | when a call site passes `error` |
+| `error` | object | `{ type, message, code, status, stack, cause }`, sanitized; plus `retryAt` (ISO) and `reason` for an error with `isRateLimited` and a valid `retryAt` | when a call site passes `error` |
 | `droppedKeys` | string[] | logger | when the logger removed a field (see Precedence) |
 
 Call-site fields go next to these, at the top level.
@@ -162,12 +162,13 @@ the app deploys defines the schema.
 layers throw with `cause` and do not log. `createHandler`, the express error
 middleware, `Worker.run` and the DLQ processor are the boundaries.
 
-The `Requester` writes one `INFO` record, `module.<name>.rate_limited`, for
-each wait that a provider or a module policy set, and for each rate-limit error
-it throws. It carries `statusCode`, `waitMs`, `retryAt`, `reason`, `hintSource`,
-`attempt`, `waitedMs` and `action` (`wait` or `throw`), because the serialized
-error keeps no `retryAt`. The plain backoff ladder writes none. A `classify()`
-that throws writes one `WARN`, `module.<name>.rate_limit_classify_failed`.
+The `Requester` writes one `TRACE` record, `module.<name>.rate_limited`, for
+each wait that a provider or a module policy set. It carries `statusCode`,
+`waitMs`, `retryAt`, `reason`, `hintSource`, `attempt` and `waitedMs`. The
+plain backoff ladder writes none. The `RateLimitError` it throws gets no record
+of its own: the boundary logs it, and its `error` field carries `retryAt` and
+`reason`. A `classify()` that throws or returns a Promise writes one `WARN`,
+`module.<name>.rate_limit_classify_failed`.
 
 `FRIGG_LOG_LEVEL` sets the minimum level. The logger drops a record below it
 before it reads any field.

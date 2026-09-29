@@ -44,21 +44,12 @@ declare module "@friggframework/module-plugin" {
   };
 
   export type RateLimitPolicy = {
-    /** The key a limit counts against. Default `entity`. */
     scope?: RateLimitScope;
     windows?: RateLimitWindow[];
     maxConcurrency?: number;
-    /** A wait never shorter than this, for every throttled response. */
     minRetryAfterMs?: number;
-    /** The most a request sleeps in process, in total. Default 300000. */
     maxInProcessWaitMs?: number;
-    /** Header parsers, in order. Default all three. */
     parsers?: Array<"retryAfter" | "resetHeaders" | "ietf">;
-    /**
-     * Recognises a limit that is not a plain 429, or names its reason. Returns
-     * null when the response is not a limit. A hint with no time takes its
-     * time from the parsers or the policy.
-     */
     classify?(
       signal: RateLimitSignal
     ): Partial<Omit<RateLimitHint, "source">> & {
@@ -139,6 +130,7 @@ declare module "@friggframework/module-plugin" {
   type RequesterConstructor = {
     backOff?: number[];
     fetch?: any;
+    random?: () => number;
   };
 
   export class ApiKeyRequester

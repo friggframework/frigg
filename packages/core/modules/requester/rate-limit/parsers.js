@@ -34,11 +34,6 @@ function readKeys(headers, wanted) {
     return undefined;
 }
 
-/**
- * Reads one header from a Headers-like object, a Map, an entries array or a
- * plain object. The name match is case-insensitive.
- * @returns {string|undefined}
- */
 function headerValue(headers, name) {
     if (!headers || typeof headers !== 'object') return undefined;
     const wanted = name.toLowerCase();
@@ -70,10 +65,6 @@ function definedOnly(fields) {
     return result;
 }
 
-/**
- * Builds a hint from a wait in ms. Returns null for a wait that is not a
- * finite number in [0, MAX_HINT_WAIT_MS].
- */
 function hintFromWait(waitMs, now, { source = 'header', ...extra } = {}) {
     if (!Number.isFinite(waitMs) || waitMs < 0 || waitMs > MAX_HINT_WAIT_MS) {
         return null;
@@ -86,9 +77,6 @@ function hintFromWait(waitMs, now, { source = 'header', ...extra } = {}) {
     };
 }
 
-/**
- * Builds a hint from an absolute time. A time in the past waits 0 ms.
- */
 function hintFromRetryAt(retryAt, now, { source = 'header', ...extra } = {}) {
     const at = retryAt instanceof Date ? retryAt.getTime() : Number.NaN;
     if (Number.isNaN(at)) return null;
@@ -103,9 +91,6 @@ function parseDate(text) {
     return Number.isNaN(at) ? null : new Date(at);
 }
 
-/**
- * Retry-After: delta seconds, an HTTP-date or an ISO timestamp.
- */
 function parseRetryAfter(value, { now = Date.now() } = {}) {
     if (isMissing(value)) return null;
     const text = String(value).trim();
@@ -145,10 +130,6 @@ function parseResetValue(text, now, extra) {
     return date ? hintFromRetryAt(date, now, extra) : null;
 }
 
-/**
- * X-RateLimit-Reset and the other reset headers. The magnitude tells the
- * unit: epoch milliseconds, epoch seconds, or delta seconds.
- */
 function parseResetHeaders(headers, { now = Date.now() } = {}) {
     const remaining = numberOrUndefined(
         firstHeader(headers, REMAINING_HEADERS)
@@ -222,11 +203,6 @@ function readKeyValue(text, key) {
     return match ? match[1] : undefined;
 }
 
-/**
- * The IETF RateLimit field: the key=value form (limit=, remaining=, reset=)
- * and the structured-field form ("name";r=0;t=12). The list form picks the
- * policy with the fewest remaining calls, then the longest wait.
- */
 function parseIetfRateLimit(headers, { now = Date.now() } = {}) {
     const raw = headerValue(headers, 'ratelimit');
     if (raw === undefined) return null;
@@ -259,6 +235,7 @@ const BUILT_IN_PARSERS = {
 module.exports = {
     BUILT_IN_PARSERS,
     MAX_HINT_WAIT_MS,
+    definedOnly,
     headerValue,
     hintFromRetryAt,
     hintFromWait,

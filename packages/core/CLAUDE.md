@@ -370,49 +370,11 @@ class MyIntegration extends IntegrationBase {
 - `BasicAuthRequester` - Basic authentication
 
 **Rate limits** (ADR-049): an API module declares `static rateLimit` on its
-`Requester` subclass. For a throttled response the Requester looks for a hint
-in this order:
-
-| Step | Source |
-|---|---|
-| 1 | `classify({ status, headers, body })` of the module. It recognises a limit that is not a plain 429 (a 403 limit code, a `policyName` in the body) and may name only a `reason` |
-| 2 | The header parsers in `parsers` order. Default: `retryAfter`, `resetHeaders`, `ietf` |
-| 3 | The static policy: `minRetryAfterMs`, or the `perMs` of the window named by the `reason` |
-| 4 | The fixed `backOff` ladder (1, 3, 10, 30, 60, 180 s) |
-
-- A 429 with no hint from steps 1 to 3 keeps today's ladder: the same calls,
-  the same delays, then a plain `FetchError`. Nothing budgets it. A response
-  that `classify` names as a limit but that has no time follows the same
-  ladder, and the last error is a `FetchError` flagged `isRateLimited` with
-  the `reason`, so the queue worker does not halt it.
-- With a hint, the wait is `max(hint, minRetryAfterMs, 1 s)` plus at most 10 %
-  jitter. The total sleep of one request is capped at `maxInProcessWaitMs`
-  (default 5 minutes) and at the time left in the invocation less one request
-  timeout (`remainingInvocationMs()`).
-- A wait that does not fit throws `RateLimitError` (`isRateLimited`, `retryAt`,
-  `waitMs`, `reason`, `policy`, `source`, `module`, `scopeKey`). The queue
-  worker does not halt it, whatever its status.
-- `Retry-After` is read on a 429 only. Another status counts only when
-  `classify` recognises it. A 5xx keeps the 5xx ladder.
-- `maxInProcessWaitMs: 0` turns off sleeping: every hinted wait throws.
-- A module that does not use the Requester (for example one on jsforce) calls
-  `classifyRateLimit(policy, { status, headers, body })` around its own client
-  and throws `RateLimitError` itself.
-
-```javascript
-class Api extends OAuth2Requester {
-    static rateLimit = {
-        scope: 'entity',
-        minRetryAfterMs: 1_000,
-        classify({ status, body }) {
-            if (status === 403 && body?.code === 'DAILY_LIMIT') {
-                return { reason: 'daily', waitMs: 60 * 60_000 };
-            }
-            return null;
-        },
-    };
-}
-```
+`Requester` subclass. A hinted wait (from `classify()`, the header parsers or
+the static policy) sleeps within a budget, or throws `RateLimitError`
+(`isRateLimited`, `retryAt`) when it does not fit. A 429 with no hint keeps the
+fixed `backOff` ladder. See
+[Rate Limits](../../docs/reference/api-module-definition-and-functions.md#rate-limits-static-ratelimit).
 
 **Module Factory**:
 - `ModuleFactory` - Creates and configures API module instances

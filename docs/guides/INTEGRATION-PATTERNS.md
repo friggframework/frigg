@@ -829,10 +829,11 @@ Put what you know about a provider's limits in its API module: declare
 `static rateLimit` (see the
 [API module reference](../reference/api-module-definition-and-functions.md#rate-limits-static-ratelimit)).
 The Requester then waits as the provider says. When the wait is too long to
-sleep, it throws `RateLimitError` with `retryAt`. Let it reach the queue
-worker: it puts the message back to run at `retryAt` (see
-[Rate-Limit Deferral](#rate-limit-deferral)). Do not catch it to write a retry
-of your own.
+sleep, it throws `RateLimitError` with `retryAt`. A queue handler checks
+`delivery.isLastAttempt` first (see [Queue Handler Delivery](#queue-handler-delivery))
+and ends the run on the last attempt, then rethrows: the queue worker puts the
+message back to run at `retryAt` (see [Rate-Limit Deferral](#rate-limit-deferral)).
+Do not catch it to write a retry of your own.
 
 For pacing in your own loop, respect API rate limits:
 
