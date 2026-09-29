@@ -33,7 +33,12 @@ const makeDelegate = (receiveNotification = jest.fn()) => ({
 });
 
 const makeRequester = (fetch, params = {}, RequesterClass = TestRequester) =>
-    new RequesterClass({ fetch, requestTimeoutMs: 0, ...params });
+    new RequesterClass({
+        fetch,
+        requestTimeoutMs: 0,
+        random: () => 0,
+        ...params,
+    });
 
 const withPolicy = (rateLimit) =>
     class PolicyRequester extends TestRequester {
