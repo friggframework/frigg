@@ -37,7 +37,6 @@ class RecordRateLimitMessage {
      * @param {string} payload.reason
      * @param {Date|string|number} payload.retryAt
      * @param {Array<{label: string, url: string}>} [payload.links]
-     * @returns {Promise<boolean>} True when it wrote a warning.
      */
     async execute(integrationId, { moduleName, reason, retryAt, links }) {
         const resetAt = new Date(retryAt);
@@ -53,7 +52,7 @@ class RecordRateLimitMessage {
                 Math.abs(Date.parse(warning.retryAt) - resetAt.getTime()) <=
                     SAME_LIMIT_WINDOW_MS
         );
-        if (alreadyRecorded) return false;
+        if (alreadyRecorded) return;
 
         const resetsAt = formatResetTime(resetAt);
         await this.integrationRepository.updateIntegrationMessages(
@@ -71,7 +70,6 @@ class RecordRateLimitMessage {
             },
             { keepLast: MAX_MESSAGES_PER_TYPE }
         );
-        return true;
     }
 }
 

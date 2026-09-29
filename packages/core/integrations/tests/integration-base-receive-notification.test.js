@@ -389,7 +389,7 @@ describe('IntegrationBase.receiveNotification', () => {
 
         beforeEach(() => {
             mockRecordRateLimitMessage = {
-                execute: jest.fn().mockResolvedValue(true),
+                execute: jest.fn().mockResolvedValue(undefined),
             };
             integration.recordRateLimitMessage = mockRecordRateLimitMessage;
         });

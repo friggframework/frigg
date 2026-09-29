@@ -37,6 +37,10 @@ describe('RecordRateLimitMessage Use-Case', () => {
             item,
             { keepLast: 50 }
         );
+    const writes = () =>
+        integrationRepository
+            .getOperationHistory()
+            .filter((op) => op.operation === 'updateMessages');
 
     beforeEach(async () => {
         jest.spyOn(Date, 'now').mockReturnValue(NOW);
@@ -169,18 +173,20 @@ describe('RecordRateLimitMessage Use-Case', () => {
     });
 
     describe('one message for one limit', () => {
-        it('writes and says so the first time', async () => {
-            await expect(
-                useCase.execute(integrationId, payload())
-            ).resolves.toBe(true);
+        it('writes one warning the first time', async () => {
+            await useCase.execute(integrationId, payload());
+
+            expect(writes()).toEqual([
+                expect.objectContaining({ type: 'warnings', success: true }),
+            ]);
         });
 
         it('skips a second report for the same module and the same reset time', async () => {
             await useCase.execute(integrationId, payload());
 
-            await expect(
-                useCase.execute(integrationId, payload())
-            ).resolves.toBe(false);
+            await useCase.execute(integrationId, payload());
+
+            expect(writes()).toHaveLength(1);
             expect(await storedWarnings()).toHaveLength(1);
         });
 
