@@ -8,6 +8,7 @@ const {
 const {
     createModuleRepository,
 } = require('./repositories/module-repository-factory');
+const { readRateLimitPolicy } = require('./requester/rate-limit');
 
 // todo: this class should be a Domain class, and the Delegate function is preventing us from
 // doing that, we probably have to get rid of the Delegate class as well as the event based
@@ -240,7 +241,9 @@ class Module extends Delegate {
 
     async reportRateLimit(rateLimitError) {
         const { reason, retryAt, policy, statusCode } = rateLimitError;
-        const links = this.apiClass.rateLimit?.userHints?.[reason]?.links ?? [];
+        const links =
+            readRateLimitPolicy(this.apiClass)?.userHints?.[reason]?.links ??
+            [];
         try {
             await this.notify(this.DLGT_RATE_LIMITED, {
                 moduleName: this.name,

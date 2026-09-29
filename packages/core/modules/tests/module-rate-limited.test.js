@@ -136,6 +136,22 @@ describe('Module RATE_LIMITED delegate propagation', () => {
         expect(payload.links).toEqual([]);
     });
 
+    it('forwards no links for hints that are not a plain object, which the policy ignores', async () => {
+        class Hints {
+            daily = { links: DAILY_LINKS };
+        }
+        class InstanceHintedApi extends UnhintedApi {
+            static rateLimit = { userHints: new Hints() };
+        }
+        module = makeModule(InstanceHintedApi);
+        module.delegate = delegate;
+
+        await module.api.notify(module.api.DLGT_RATE_LIMITED, rateLimitError());
+
+        const [, , payload] = delegate.receiveNotification.mock.calls[0];
+        expect(payload.links).toEqual([]);
+    });
+
     it('completes silently when no delegate is wired', async () => {
         module.delegate = null;
 
