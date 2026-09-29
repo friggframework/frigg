@@ -674,6 +674,36 @@ describe('Requester', () => {
                 expect(error.body).toBe('<html><body>Forbidden</body></html>');
             });
 
+            it('sleeps the Retry-After of a reason-only classify and keeps its reason', async () => {
+                const Api = withPolicy({
+                    classify: () => ({ reason: 'burst' }),
+                });
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '7' }),
+                    ok,
+                ]);
+
+                const result = await makeRequester(fetch, {}, Api)._get({
+                    url,
+                });
+
+                expect(result).toEqual({ ok: true });
+                expect(delays).toEqual([7_000]);
+                expect(
+                    sink.records.filter(
+                        (r) =>
+                            r.eventName ===
+                            'module.PolicyRequester.rate_limited'
+                    )
+                ).toEqual([
+                    expect.objectContaining({
+                        waitMs: 7_000,
+                        reason: 'burst',
+                        hintSource: 'header',
+                    }),
+                ]);
+            });
+
             it('takes the time of a reason-only classify from Retry-After', async () => {
                 const Api = withPolicy({
                     classify: () => ({ reason: 'burst' }),
