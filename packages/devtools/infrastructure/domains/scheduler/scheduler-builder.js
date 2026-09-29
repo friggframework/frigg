@@ -37,8 +37,7 @@ class SchedulerBuilder extends InfrastructureBuilder {
             return true;
         }
 
-        // Check if any integration has webhooks enabled, or a module that
-        // declares a rate limit (the queue worker schedules a deferred message)
+        // Check if any integration has webhooks enabled
         if (Array.isArray(appDefinition.integrations)) {
             return appDefinition.integrations.some(
                 (integration) =>
