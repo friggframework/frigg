@@ -11,6 +11,7 @@
 const {
     IntegrationRepositoryPostgres,
 } = require('./integration-repository-postgres');
+const { withMessageRow } = require('../tests/doubles/prisma-message-row');
 
 function makeRepo({ affectedCount = 1 } = {}) {
     const repo = new IntegrationRepositoryPostgres();
@@ -122,29 +123,8 @@ describe('IntegrationRepositoryPostgres.patchIntegrationConfig', () => {
     });
 });
 
-const copy = (value) => JSON.parse(JSON.stringify(value));
-
-function makeMessagesRepo(stored = {}) {
-    const row = {
-        id: 7,
-        errors: [],
-        warnings: [],
-        info: [],
-        logs: [],
-        ...stored,
-    };
-    const repo = new IntegrationRepositoryPostgres();
-    repo.prisma = {
-        integration: {
-            findUnique: jest.fn(async () => copy(row)),
-            update: jest.fn(async ({ data }) => {
-                Object.assign(row, copy(data));
-                return copy(row);
-            }),
-        },
-    };
-    return { repo, row };
-}
+const makeMessagesRepo = (stored) =>
+    withMessageRow(new IntegrationRepositoryPostgres(), 7, stored);
 
 describe('IntegrationRepositoryPostgres.updateIntegrationMessages', () => {
     it('appends, so two calls leave two items', async () => {

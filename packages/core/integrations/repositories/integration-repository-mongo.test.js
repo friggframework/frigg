@@ -11,6 +11,7 @@
 const {
     IntegrationRepositoryMongo,
 } = require('./integration-repository-mongo');
+const { withMessageRow } = require('../tests/doubles/prisma-message-row');
 
 function makeRepo({ value = null } = {}) {
     const repo = new IntegrationRepositoryMongo();
@@ -129,29 +130,8 @@ describe('IntegrationRepositoryMongo.patchIntegrationConfig', () => {
 });
 
 const ID = '507f1f77bcf86cd799439011';
-const copy = (value) => JSON.parse(JSON.stringify(value));
-
-function makeMessagesRepo(stored = {}) {
-    const row = {
-        id: ID,
-        errors: [],
-        warnings: [],
-        info: [],
-        logs: [],
-        ...stored,
-    };
-    const repo = new IntegrationRepositoryMongo();
-    repo.prisma = {
-        integration: {
-            findUnique: jest.fn(async () => copy(row)),
-            update: jest.fn(async ({ data }) => {
-                Object.assign(row, copy(data));
-                return copy(row);
-            }),
-        },
-    };
-    return { repo, row };
-}
+const makeMessagesRepo = (stored) =>
+    withMessageRow(new IntegrationRepositoryMongo(), ID, stored);
 
 describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
     it('appends, so two calls leave two items', async () => {
