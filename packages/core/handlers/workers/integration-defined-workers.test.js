@@ -385,6 +385,24 @@ describe('Webhook Queue Worker', () => {
                         }),
                     })
                 );
+                jest.doMock(
+                    '../../integrations/repositories/integration-repository-factory',
+                    () => ({ createIntegrationRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../modules/repositories/module-repository-factory',
+                    () => ({ createModuleRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../integrations/use-cases/get-integration-instance',
+                    () => ({
+                        GetIntegrationInstance: class {
+                            async execute() {
+                                return new TestWebhookIntegration();
+                            }
+                        },
+                    })
+                );
                 QueueWorker = require('../backend-utils').createQueueWorker(
                     TestWebhookIntegration
                 );
@@ -432,6 +450,47 @@ describe('Webhook Queue Worker', () => {
         });
 
         describe('clearing a wait', () => {
+            const sqsRecord = (frigg) => ({
+                messageId: 'msg-1',
+                body: JSON.stringify({
+                    event: 'ON_WEBHOOK',
+                    data: { processId: 7 },
+                    ...(frigg && { _frigg: frigg }),
+                }),
+                attributes: { ApproximateReceiveCount: '1' },
+            });
+
+            it('clears the wait after a deferred message runs', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE))
+                );
+
+                const result = await worker.run({
+                    Records: [
+                        sqsRecord({
+                            deferrals: 1,
+                            firstDeferredAt: at(-20 * MINUTE).toISOString(),
+                        }),
+                    ],
+                });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: { 'context.rateLimit': null },
+                });
+            });
+
+            it('does not clear the wait after a first delivery runs', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE))
+                );
+
+                const result = await worker.run({ Records: [sqsRecord()] });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
             it('clears a wait that is over', async () => {
                 const { worker, applyProcessUpdate } = buildWorker(
                     stored(at(-MINUTE))
