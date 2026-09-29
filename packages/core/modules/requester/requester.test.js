@@ -329,9 +329,31 @@ describe('Requester', () => {
                 expect(delays).toEqual([200_000, 3_000]);
             });
 
+            it('sleeps a short wait inside an invocation shorter than the default request timeout', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '2' }),
+                    ok,
+                ]);
+                const requester = makeRequester(fetch, {
+                    requestTimeoutMs: undefined,
+                });
+
+                const result = await runWithInvocationDeadline(
+                    Date.now() + 29_000,
+                    () => requester._get({ url })
+                );
+
+                expect(requester.requestTimeoutMs).toBe(60_000);
+                expect(result).toEqual({ ok: true });
+                expect(delays.filter((delay) => delay !== 60_000)).toEqual([
+                    2_000,
+                ]);
+                expect(fetch).toHaveBeenCalledTimes(2);
+            });
+
             it('throws at once when the wait does not fit the time left in the invocation', async () => {
                 const fetch = throttledFetch([
-                    limited({ 'Retry-After': '4' }),
+                    limited({ 'Retry-After': '5' }),
                     ok,
                 ]);
                 const requester = makeRequester(fetch, {
