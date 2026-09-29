@@ -14,10 +14,6 @@ function resolveTiming({ hint, waitMs, now }) {
     return { waitMs: fallbackWaitMs, retryAt: new Date(now + fallbackWaitMs) };
 }
 
-/**
- * A FetchError for a response that said a limit was hit and told us, or the
- * module's policy told us, when to call again. `retryAt` is that time.
- */
 class RateLimitError extends FetchError {
     constructor({
         hint,

@@ -9,11 +9,6 @@ function storage() {
     return globalThis[STORE_KEY];
 }
 
-/**
- * Runs fn with the time the invocation ends, as epoch milliseconds. A nested
- * scope can shorten the deadline and never extend it. A deadline that is not
- * a finite number runs fn with no limit.
- */
 function runWithInvocationDeadline(deadlineAt, fn) {
     if (typeof deadlineAt !== 'number' || !Number.isFinite(deadlineAt)) {
         return fn();
@@ -25,10 +20,6 @@ function runWithInvocationDeadline(deadlineAt, fn) {
     return storage().run(Object.freeze({ deadlineAt: effective }), fn);
 }
 
-/**
- * The end of a Lambda invocation, from its context. Undefined when the
- * context cannot tell.
- */
 function deadlineFromContext(context) {
     try {
         const remaining = context?.getRemainingTimeInMillis?.();
@@ -40,10 +31,6 @@ function deadlineFromContext(context) {
     }
 }
 
-/**
- * Milliseconds left in the invocation. Infinity outside a deadline scope
- * (tests, `frigg start`, scripts).
- */
 function remainingInvocationMs(now = Date.now()) {
     const store = storage().getStore();
     return store ? Math.max(0, store.deadlineAt - now) : Infinity;
