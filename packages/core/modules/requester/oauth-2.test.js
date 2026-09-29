@@ -208,6 +208,26 @@ describe('OAuth2Requester', () => {
             );
         });
 
+        it('keeps the module name on the failure of a throttled token endpoint', async () => {
+            const requester = new OAuth2Requester({
+                grant_type: 'authorization_code',
+                refresh_token: 'test-refresh-token',
+                credentialReloadBackoffMs: [],
+            });
+            requester.refreshAccessToken = jest.fn().mockRejectedValue(
+                new RateLimitError({
+                    resource: 'https://auth.example.com/token',
+                    response: { status: 429, bodyUsed: true },
+                    waitMs: 3_600_000,
+                    module: 'crm',
+                })
+            );
+
+            const error = await requester.refreshAuth().catch((e) => e);
+
+            expect(error).toMatchObject({ isRateLimited: true, module: 'crm' });
+        });
+
         it('does not flag an ordinary transport failure as rate limited', async () => {
             const requester = new OAuth2Requester({
                 grant_type: 'authorization_code',

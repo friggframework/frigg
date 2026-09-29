@@ -403,6 +403,7 @@ class OAuth2Requester extends Requester {
             transportError.retryAt = error.retryAt;
             transportError.waitMs = error.waitMs;
             transportError.reason = error.reason;
+            transportError.module = error.module;
         }
         return transportError;
     }
