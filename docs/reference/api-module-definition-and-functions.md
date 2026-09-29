@@ -225,7 +225,8 @@ An API module can tell the Requester how its provider limits calls, and how to
 read a throttled response. Declare a static `rateLimit` on the API class. Every
 key is optional. A module that declares nothing keeps the fixed backoff ladder
 for a 429 (1, 3, 10, 30, 60 and 180 s), and reads `Retry-After` when a 429 has
-one.
+one. The JSON schema still has an older `config.rateLimit: { requests, period }`
+that the runtime does not read: only `static rateLimit` on the API class counts.
 
 | Key | Meaning |
 |---|---|
