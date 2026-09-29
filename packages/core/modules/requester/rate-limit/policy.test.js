@@ -741,20 +741,38 @@ describe('rate-limit/policy', () => {
             ).toBe(200_000);
         });
 
-        it('uses the time left in the invocation, less one request', () => {
+        it('keeps one request timeout of the time left for the next request', () => {
+            expect(
+                inProcessBudgetMs({
+                    requestTimeoutMs: 30_000,
+                    remainingMs: 100_000,
+                })
+            ).toBe(70_000);
+        });
+
+        it('keeps at most half of the time left for the next request', () => {
             expect(
                 inProcessBudgetMs({
                     requestTimeoutMs: 60_000,
-                    remainingMs: 100_000,
+                    remainingMs: 29_000,
                 })
-            ).toBe(40_000);
+            ).toBe(14_500);
+        });
+
+        it('is the cap when the invocation has time to spare', () => {
+            expect(
+                inProcessBudgetMs({
+                    requestTimeoutMs: 60_000,
+                    remainingMs: 900_000,
+                })
+            ).toBe(300_000);
         });
 
         it('is never negative', () => {
             expect(
                 inProcessBudgetMs({
                     requestTimeoutMs: 60_000,
-                    remainingMs: 1_000,
+                    remainingMs: 0,
                 })
             ).toBe(0);
             expect(

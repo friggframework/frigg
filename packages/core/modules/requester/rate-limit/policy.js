@@ -265,10 +265,8 @@ function inProcessBudgetMs({
     waitedMs = 0,
 } = {}) {
     const cap = policy?.maxInProcessWaitMs ?? DEFAULT_MAX_IN_PROCESS_WAIT_MS;
-    return Math.max(
-        0,
-        Math.min(cap - waitedMs, remainingMs - (requestTimeoutMs || 0))
-    );
+    const reserveMs = Math.min(requestTimeoutMs || 0, remainingMs / 2);
+    return Math.max(0, Math.min(cap - waitedMs, remainingMs - reserveMs));
 }
 
 module.exports = {

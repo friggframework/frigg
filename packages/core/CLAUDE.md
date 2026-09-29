@@ -388,7 +388,7 @@ in this order:
 - With a hint, the wait is `max(hint, minRetryAfterMs, 1 s)` plus at most 10 %
   jitter. The total sleep of one request is capped at `maxInProcessWaitMs`
   (default 5 minutes) and at the time left in the invocation less one request
-  timeout (`remainingInvocationMs()`).
+  timeout, a reserve of at most half the time left (`remainingInvocationMs()`).
 - A wait that does not fit throws `RateLimitError` (`isRateLimited`, `retryAt`,
   `waitMs`, `reason`, `policy`, `source`, `module`, `scopeKey`). The queue
   worker does not halt it, whatever its status.

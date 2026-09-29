@@ -304,7 +304,9 @@ class Api extends ApiKeyRequester {
 3. With a hint, the wait is the largest of the hint, `minRetryAfterMs` and 1 s,
    plus at most 10 % jitter. The Requester sleeps when the wait fits the time
    this request may still sleep: `maxInProcessWaitMs` in total, and the time left
-   in the Lambda invocation less one request timeout.
+   in the Lambda invocation less one request timeout. That reserve is never more
+   than half the time left, so a 29 s HTTP invocation with the default 60 s
+   request timeout can still sleep 14.5 s.
 4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
    `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
    `policy`, `source`, `module` and `scopeKey`.
