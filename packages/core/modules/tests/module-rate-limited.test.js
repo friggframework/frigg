@@ -161,7 +161,7 @@ describe('Module RATE_LIMITED delegate propagation', () => {
         expect(sink.records).toEqual([]);
     });
 
-    it('does not throw and writes one ERROR when the delegate fails', async () => {
+    it('does not throw and writes one WARN when the delegate fails', async () => {
         delegate.receiveNotification.mockRejectedValue(new Error('db down'));
 
         await expect(
@@ -169,14 +169,13 @@ describe('Module RATE_LIMITED delegate propagation', () => {
         ).resolves.toBeUndefined();
 
         expect(
-            sink.records.filter(
-                (record) =>
-                    record.eventName ===
-                    'module.hubspot.rate_limited_propagation_failed'
+            sink.records.filter((record) =>
+                record.eventName?.includes('propagation_failed')
             )
         ).toEqual([
             expect.objectContaining({
-                level: 'ERROR',
+                level: 'WARN',
+                eventName: 'module.hubspot.rate_limit_propagation_failed',
                 error: expect.objectContaining({ message: 'db down' }),
             }),
         ]);

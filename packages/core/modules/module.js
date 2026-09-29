@@ -254,8 +254,8 @@ class Module extends Delegate {
                 links,
             });
         } catch (err) {
-            this.logger.error('Failed to propagate RATE_LIMITED', {
-                eventName: `${this.logger.name}.rate_limited_propagation_failed`,
+            this.logger.warn('Failed to propagate RATE_LIMITED', {
+                eventName: `${this.logger.name}.rate_limit_propagation_failed`,
                 error: err,
             });
         }
