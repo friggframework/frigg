@@ -578,8 +578,8 @@ describe('Requester', () => {
                 }
             );
 
-            it.each(['text/plain', 'application/xml', 'application/jsonp'])(
-                'hands classify no body for a %s response',
+            it.each(['text/plain', 'application/x-amz-json-1.1'])(
+                'hands classify the parsed body of JSON sent as %s',
                 async (contentType) => {
                     const classify = jest.fn(() => ({
                         reason: 'burst',
@@ -593,9 +593,30 @@ describe('Requester', () => {
 
                     await makeRequester(fetch, {}, Api)._get({ url });
 
-                    expect(classify.mock.calls[0][0].body).toBeUndefined();
+                    expect(classify.mock.calls[0][0].body).toEqual({
+                        code: 'LIMIT',
+                    });
                 }
             );
+
+            it('hands classify an undefined body for an HTML error page', async () => {
+                const classify = jest.fn(() => null);
+                const Api = withPolicy({ classify });
+                const fetch = throttledFetch([
+                    {
+                        status: 403,
+                        contentType: 'text/html',
+                        text: '<html><body>Forbidden</body></html>',
+                    },
+                ]);
+
+                const error = await makeRequester(fetch, {}, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(classify.mock.calls[0][0].body).toBeUndefined();
+                expect(error.body).toBe('<html><body>Forbidden</body></html>');
+            });
 
             it('takes the time of a reason-only classify from Retry-After', async () => {
                 const Api = withPolicy({

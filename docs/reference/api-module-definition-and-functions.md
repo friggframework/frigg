@@ -255,10 +255,9 @@ Each returns a hint or `null`.
 ### What `classify` returns
 
 `classify({ status, headers, body })` runs for a 429, and for any other 4xx or
-5xx except 401. `body` is the parsed body of an `application/json`, `text/json`
-or `+json` response (`application/problem+json`, for example), whatever the
-case of the media type, or `undefined` for any other response. It returns
-`null` when the response is not a limit, or a hint:
+5xx except 401. `body` is the response text parsed as JSON, whatever the media
+type, or `undefined` when the text is not JSON (an HTML error page, for
+example). It returns `null` when the response is not a limit, or a hint:
 
 | Field | Meaning |
 |---|---|
