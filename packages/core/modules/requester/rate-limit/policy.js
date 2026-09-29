@@ -25,6 +25,7 @@ const normalizedPolicies = new WeakSet();
 const policiesByClass = new WeakMap();
 
 const isObject = (value) => value !== null && typeof value === 'object';
+const isThenable = (value) => typeof value?.then === 'function';
 
 function isPlainObject(value) {
     if (!isObject(value) || Array.isArray(value)) return false;
@@ -120,8 +121,18 @@ function computeScopeKey(policy, requester) {
     return undefined;
 }
 
+function toDate(value) {
+    if (value === undefined || value === null) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function normalizeClassified(raw, now) {
     if (!isObject(raw)) return null;
+    const retryAt = toDate(raw.retryAt);
+    if (!REASONS.has(raw.reason) && !Number.isFinite(raw.waitMs) && !retryAt) {
+        return null;
+    }
 
     const extra = {
         reason: REASONS.has(raw.reason) ? raw.reason : 'unknown',
@@ -130,12 +141,7 @@ function normalizeClassified(raw, now) {
         source: CLASSIFY_SOURCES.has(raw.source) ? raw.source : 'body',
     };
 
-    let hint = null;
-    if (raw.retryAt !== undefined && raw.retryAt !== null) {
-        const date =
-            raw.retryAt instanceof Date ? raw.retryAt : new Date(raw.retryAt);
-        hint = hintFromRetryAt(date, now, extra);
-    }
+    let hint = retryAt ? hintFromRetryAt(retryAt, now, extra) : null;
     if (!hint && Number.isFinite(raw.waitMs)) {
         hint = hintFromWait(raw.waitMs, now, extra);
     }
@@ -156,6 +162,12 @@ function runClassify(policy, signal, now, onClassifyError) {
             headers: signal.headers,
             body: signal.body,
         });
+        if (isThenable(raw)) {
+            Promise.resolve(raw).catch(() => {});
+            throw new TypeError(
+                'classify() must return a hint or null, not a Promise'
+            );
+        }
     } catch (error) {
         if (!onClassifyError) throw error;
         onClassifyError(error);

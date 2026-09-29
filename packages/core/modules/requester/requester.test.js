@@ -634,6 +634,39 @@ describe('Requester', () => {
                 expect(classify.mock.calls[0][0].body).toBeUndefined();
             });
 
+            it('does not retry or flag a 404 when classify returns a Promise', async () => {
+                const Api = withPolicy({
+                    classify: async () => ({ reason: 'daily' }),
+                });
+                const fetch = throttledFetch([{ status: 404 }, ok]);
+
+                const error = await makeRequester(fetch, {}, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(FetchError);
+                expect(error.statusCode).toBe(404);
+                expect(error.isRateLimited).toBeUndefined();
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+                expect(
+                    sink.records.filter(
+                        (r) =>
+                            r.eventName ===
+                            'module.PolicyRequester.rate_limit_classify_failed'
+                    )
+                ).toEqual([
+                    expect.objectContaining({
+                        level: 'WARN',
+                        statusCode: 404,
+                        error: expect.objectContaining({
+                            message:
+                                'classify() must return a hint or null, not a Promise',
+                        }),
+                    }),
+                ]);
+            });
+
             it('does not call classify for a success or for a 401', async () => {
                 const classify = jest.fn(() => null);
                 const Api = withPolicy({ classify });

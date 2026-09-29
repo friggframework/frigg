@@ -492,6 +492,108 @@ describe('rate-limit/policy', () => {
             expect(hint.waitMs).toBe(4_000);
         });
 
+        it.each([
+            ['an empty object', {}],
+            ['an undefined reason', { reason: undefined }],
+            ['a reason it does not know', { reason: 'hourly' }],
+            ['only a policy name', { policy: 'DAILY' }],
+            ['a retryAt that is not a date', { retryAt: 'soon' }],
+            ['a waitMs that is not a number', { waitMs: '5000' }],
+        ])('treats %s from classify as no limit', (_label, result) => {
+            const policy = { classify: () => result };
+            expect(
+                classifyRateLimit(
+                    policy,
+                    { status: 404, headers: { 'retry-after': '5' } },
+                    options
+                )
+            ).toBeNull();
+            expect(
+                resolveRateLimitHint(
+                    policy,
+                    { status: 404, headers: {} },
+                    { ...options, attempt: 0, backOff: [1] }
+                )
+            ).toBeNull();
+        });
+
+        it.each([
+            ['a finite waitMs', { waitMs: 2_000 }, 2_000],
+            ['a valid retryAt', { retryAt: new Date(NOW + 3_000) }, 3_000],
+        ])(
+            'counts a classify result with %s and no reason as a limit',
+            (_label, result, waitMs) => {
+                expect(
+                    classifyRateLimit(
+                        { classify: () => result },
+                        { status: 404, headers: {} },
+                        options
+                    )
+                ).toMatchObject({ waitMs, reason: 'unknown', source: 'body' });
+            }
+        );
+
+        it('reports a classify that returns a Promise and goes on with the parsers', () => {
+            const onClassifyError = jest.fn();
+            const policy = {
+                classify: async () => ({ reason: 'daily', waitMs: 60_000 }),
+            };
+            const hint = classifyRateLimit(
+                policy,
+                { status: 429, headers: { 'retry-after': '4' } },
+                { ...options, onClassifyError }
+            );
+            expect(onClassifyError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    name: 'TypeError',
+                    message:
+                        'classify() must return a hint or null, not a Promise',
+                })
+            );
+            expect(hint).toMatchObject({
+                waitMs: 4_000,
+                reason: 'unknown',
+                source: 'header',
+            });
+        });
+
+        it('treats a classify that returns a Promise as no limit for a status other than 429', () => {
+            const policy = { classify: async () => ({ reason: 'daily' }) };
+            const onClassifyError = jest.fn();
+            expect(
+                classifyRateLimit(
+                    policy,
+                    { status: 404, headers: {} },
+                    { ...options, onClassifyError }
+                )
+            ).toBeNull();
+            expect(onClassifyError).toHaveBeenCalledTimes(1);
+        });
+
+        it('lets the Promise error propagate when nobody listens', () => {
+            expect(() =>
+                classifyRateLimit(
+                    { classify: async () => null },
+                    { status: 429, headers: {} },
+                    options
+                )
+            ).toThrow(TypeError);
+        });
+
+        it('handles the rejection of a Promise that classify returns', async () => {
+            const then = jest.fn();
+            classifyRateLimit(
+                { classify: () => ({ then }) },
+                { status: 429, headers: {} },
+                { ...options, onClassifyError: () => {} }
+            );
+            await Promise.resolve();
+            expect(then).toHaveBeenCalledWith(
+                expect.any(Function),
+                expect.any(Function)
+            );
+        });
+
         it('accepts the policy object a module declares, without reading it first', () => {
             const declared = {
                 parsers: ['retryAfter'],

@@ -269,7 +269,10 @@ case of the media type, or `undefined` for any other response. It returns
 | `source` | `'header'`, `'body'` (default) or `'static'` |
 
 A status other than 429 is a limit only when `classify` returns a hint for it.
-A `classify` that throws is logged (`rate_limit_classify_failed`) and skipped.
+A result counts only when it has a known `reason`, a finite `waitMs` or a valid
+`retryAt`; anything else, `{}` for example, counts as `null`. `classify` must
+be synchronous. A `classify` that throws or returns a Promise is logged
+(`rate_limit_classify_failed`) and counts as `null`.
 
 ```javascript
 class Api extends OAuth2Requester {
