@@ -19,8 +19,8 @@ describe('queue-deferral', () => {
     it('exposes the SQS limits and the default caps', () => {
         expect(MAX_DELAY_SECONDS).toBe(900);
         expect(MAX_VISIBILITY_TIMEOUT_SECONDS).toBe(43_200);
-        expect(MAX_DEFERRALS).toBe(10);
-        expect(MAX_DEFERRED_MS).toBe(24 * HOUR);
+        expect(MAX_DEFERRALS).toBe(30);
+        expect(MAX_DEFERRED_MS).toBe(26 * HOUR);
         expect(MAX_DEFERRALS_ENV).toBe('FRIGG_QUEUE_MAX_DEFERRALS');
         expect(MAX_DEFERRED_MS_ENV).toBe('FRIGG_QUEUE_MAX_DEFERRED_MS');
     });
@@ -28,8 +28,8 @@ describe('queue-deferral', () => {
     describe('readDeferralLimits', () => {
         it('returns the defaults when the environment sets nothing', () => {
             expect(readDeferralLimits({})).toEqual({
-                maxDeferrals: 10,
-                maxDeferredMs: 24 * HOUR,
+                maxDeferrals: 30,
+                maxDeferredMs: 26 * HOUR,
             });
         });
 
@@ -50,7 +50,7 @@ describe('queue-deferral', () => {
                         [MAX_DEFERRALS_ENV]: value,
                         [MAX_DEFERRED_MS_ENV]: value,
                     })
-                ).toEqual({ maxDeferrals: 10, maxDeferredMs: 24 * HOUR });
+                ).toEqual({ maxDeferrals: 30, maxDeferredMs: 26 * HOUR });
             }
         );
 

@@ -14,6 +14,7 @@ const { RateLimitError } = require('../errors');
 const { createMemorySink } = require('../logs');
 const {
     MAX_DEFERRALS_ENV,
+    MAX_DEFERRED_MS,
     MAX_DEFERRED_MS_ENV,
 } = require('../queues/queue-deferral');
 
@@ -375,7 +376,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
         });
 
         it('reports the record failed when the retry time is past the total time', async () => {
-            worker._run.mockRejectedValue(rateLimited(25 * HOUR));
+            worker._run.mockRejectedValue(rateLimited(MAX_DEFERRED_MS + HOUR));
 
             const result = await run();
 
@@ -386,7 +387,9 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
         });
 
         it('counts the total time from the first deferral', async () => {
-            const firstDeferredAt = new Date(NOW - 23 * HOUR).toISOString();
+            const firstDeferredAt = new Date(
+                NOW - (MAX_DEFERRED_MS - HOUR)
+            ).toISOString();
             worker._run.mockRejectedValue(rateLimited(2 * HOUR));
 
             const result = await run(deferredRecord(1, firstDeferredAt));
@@ -397,7 +400,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
 
         it('writes an ERROR when a capped message is on its last delivery', async () => {
             process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT = '3';
-            worker._run.mockRejectedValue(rateLimited(25 * HOUR));
+            worker._run.mockRejectedValue(rateLimited(MAX_DEFERRED_MS + HOUR));
 
             await run(
                 sqsRecord({ attributes: { ApproximateReceiveCount: '3' } })
@@ -414,7 +417,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
 
         it('writes no lost-message ERROR before the last delivery', async () => {
             process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT = '3';
-            worker._run.mockRejectedValue(rateLimited(25 * HOUR));
+            worker._run.mockRejectedValue(rateLimited(MAX_DEFERRED_MS + HOUR));
 
             await run(
                 sqsRecord({ attributes: { ApproximateReceiveCount: '2' } })
@@ -591,7 +594,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
         });
 
         it('records EXHAUSTED when a cap ended the deferrals', async () => {
-            worker._run.mockRejectedValue(rateLimited(25 * HOUR));
+            worker._run.mockRejectedValue(rateLimited(MAX_DEFERRED_MS + HOUR));
 
             await run();
 
