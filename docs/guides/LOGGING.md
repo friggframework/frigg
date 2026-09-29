@@ -169,6 +169,17 @@ it throws. It carries `statusCode`, `waitMs`, `retryAt`, `reason`, `hintSource`,
 error keeps no `retryAt`. The plain backoff ladder writes none. A `classify()`
 that throws writes one `WARN`, `module.<name>.rate_limit_classify_failed`.
 
+A wait that is too long to sleep is reported up the delegate chain before the
+error is thrown. Each hop is best effort, and a failure never replaces the
+rate-limit error:
+
+| Record | Level | Written when |
+|---|---|---|
+| `integration.<name>.rate_limited` | `WARN` | The integration receives the report. Carries `moduleName`, `reason` and `retryAt`. |
+| `module.<name>.rate_limit_notify_failed` | `WARN` | The Requester cannot notify its delegate. Carries `statusCode` and `error`. |
+| `module.<name>.rate_limited_propagation_failed` | `ERROR` | The `Module` cannot pass the report to the integration. |
+| `integration.<name>.rate_limit_message_record_failed` | `ERROR` | The integration cannot store the warning for its users. |
+
 `FRIGG_LOG_LEVEL` sets the minimum level. The logger drops a record below it
 before it reads any field.
 

@@ -568,6 +568,53 @@ if (!userId) {
 }
 ```
 
+**Rate-limit message** (ADR-049): when a wait is too long to sleep, the
+Requester tells its delegate (`RATE_LIMITED`, with the `RateLimitError`) and
+then throws. The notification takes the path of `CREDENTIAL_INVALIDATED`:
+Requester, `Module`, `IntegrationBase`.
+
+- The `Module` sends `{ moduleName, reason, retryAt, policy, statusCode, links }`.
+  `links` is `static rateLimit.userHints[reason].links`, or `[]`. The message,
+  url, body and headers of the error are never sent: the message reaches end
+  users.
+- `IntegrationBase` writes one `WARN` (`integration.<name>.rate_limited`), and
+  `RecordRateLimitMessage` appends one item to the stored `warnings`. It
+  changes no status. A rate limit is not an `ERROR`, and an `ERROR` status
+  makes the queue worker drop every webhook.
+- A report for the same module whose reset time is within 60 s of a stored one
+  is skipped. The check reads the stored `warnings` with
+  `findIntegrationMessages`, not `this.messages`, which is per instance and
+  empty on Postgres. It is a read then a write, so workers that report at the
+  same instant can still store a few copies.
+- Every hop is best effort. A failure is logged, and the caller still gets the
+  `RateLimitError`.
+
+```javascript
+{
+    title: 'Rate limit reached',
+    message: 'The hubspot API rate limit was reached and resets at 2026-09-28 14:31 UTC.',
+    timestamp: 1790000000000,
+    code: 'RATE_LIMITED',
+    module: 'hubspot',
+    reason: 'daily',
+    retryAt: '2026-09-28T14:30:15.000Z',
+    actions: [
+        { type: 'RETRY_WHEN_READY' },
+        { type: 'LINK', label: 'API usage limits', url: 'https://example.com/limits' },
+    ],
+}
+```
+
+The text is fixed. It holds the module name and the reset time in UTC, rounded
+up to the minute, and nothing from the request.
+`updateIntegrationMessages(id, type, title, body, timestamp)` still works, and
+it also takes one item object, `updateIntegrationMessages(id, type, item)`,
+whose keys are stored as they are. Every call appends.
+`findIntegrationMessages(id, type)` reads the stored items of one type. The
+`messages` of the record from `findIntegrationById` is not filled on Postgres
+and Mongo, because the schema keeps the messages in the `errors`, `warnings`,
+`info` and `logs` columns.
+
 ### 9. Logging System (`/logs`)
 
 **Purpose**: One redacted JSON record per line to stdout (ADR-048). See `docs/guides/LOGGING.md`.
