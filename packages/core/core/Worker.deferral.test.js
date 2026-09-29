@@ -292,7 +292,9 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             ]);
             expect(logged('record_visibility_extended')).toEqual([
                 expect.objectContaining({
-                    scheduleError: expect.stringContaining('scheduler is down'),
+                    scheduleError: expect.objectContaining({
+                        message: 'scheduler is down',
+                    }),
                 }),
             ]);
         });
@@ -348,7 +350,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
                 expect.objectContaining({
                     deferral: {
                         skipped: 'visibility_failed',
-                        cause: expect.stringContaining('gone'),
+                        cause: expect.objectContaining({ message: 'gone' }),
                     },
                 }),
             ]);
@@ -464,7 +466,9 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
                     reason: 'burst',
                     deferral: {
                         skipped: 'send_failed',
-                        cause: expect.stringContaining('SQS is down'),
+                        cause: expect.objectContaining({
+                            message: 'SQS is down',
+                        }),
                     },
                 }),
             ]);
@@ -517,7 +521,9 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
                 expect.objectContaining({
                     deferral: {
                         skipped: 'send_failed',
-                        cause: expect.stringContaining('SQS is down'),
+                        cause: expect.objectContaining({
+                            message: 'SQS is down',
+                        }),
                     },
                 }),
             ]);

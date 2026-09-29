@@ -20,7 +20,7 @@ const {
     withDeferral,
 } = require('../queues/queue-deferral');
 const { runMessageScope } = require('./invocation-scope');
-const { getLogger, serializeError } = require('../logs');
+const { getLogger } = require('../logs');
 
 const sqs = new SQSClient({
     region: process.env.AWS_REGION,
@@ -32,7 +32,6 @@ const validDate = (value) =>
     value instanceof Date && !Number.isNaN(value.getTime()) ? value : null;
 const queueNameOf = (arn) =>
     typeof arn === 'string' && arn ? arn.split(':').pop() : undefined;
-const causeOf = (error) => serializeError(error).message;
 
 class Worker {
     async getQueueURL(params) {
@@ -99,7 +98,7 @@ class Worker {
                         deferral: {
                             skipped: deferralResult.skipped,
                             ...(deferralResult.cause && {
-                                cause: causeOf(deferralResult.cause),
+                                cause: deferralResult.cause,
                             }),
                         },
                     };
@@ -248,7 +247,7 @@ class Worker {
             {
                 mechanism: 'visibility',
                 visibilityTimeout,
-                ...(scheduleError && { scheduleError: causeOf(scheduleError) }),
+                ...(scheduleError && { scheduleError }),
             }
         );
         return { outcome: 'failed' };
