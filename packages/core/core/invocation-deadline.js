@@ -20,15 +20,18 @@ function runWithInvocationDeadline(deadlineAt, fn) {
     return storage().run(Object.freeze({ deadlineAt: effective }), fn);
 }
 
-function deadlineFromContext(context) {
+function remainingTimeMs(context) {
     try {
         const remaining = context?.getRemainingTimeInMillis?.();
-        return typeof remaining === 'number' && Number.isFinite(remaining)
-            ? Date.now() + remaining
-            : undefined;
-    } catch {
-        return undefined;
+        return typeof remaining === 'number' ? remaining : Infinity;
+    } catch (_) {
+        return Infinity;
     }
+}
+
+function deadlineFromContext(context) {
+    const remaining = remainingTimeMs(context);
+    return Number.isFinite(remaining) ? Date.now() + remaining : undefined;
 }
 
 function remainingInvocationMs(now = Date.now()) {
@@ -39,5 +42,6 @@ function remainingInvocationMs(now = Date.now()) {
 module.exports = {
     deadlineFromContext,
     remainingInvocationMs,
+    remainingTimeMs,
     runWithInvocationDeadline,
 };
