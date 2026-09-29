@@ -324,8 +324,16 @@ record it is logged, and the request still throws `RateLimitError`.
 A module that drives another client (for example jsforce) calls
 `classifyRateLimit` around its own calls and throws the error itself. The
 Requester notifies its delegate only for the errors it throws, so the module
-calls `_notifyRateLimited` before its own throw to give its users the same
-warning. That call is best effort and never throws:
+calls `this._notifyRateLimited(error)` before its own throw to give its users
+the same warning.
+
+- It never rejects. A failed notification is logged
+  (`rate_limit_notify_failed`), and the module throws its error as planned.
+- It writes the warning only when the wait of the error is longer than
+  `maxInProcessWaitMs` (5 minutes by default), as for the Requester's own
+  errors. A 30-second concurrency limit writes none; a daily limit does.
+- A module that must also run on an older core, which has no
+  `_notifyRateLimited`, calls `this._notifyRateLimited?.(error)`.
 
 ```javascript
 const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
