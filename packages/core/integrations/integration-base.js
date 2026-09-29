@@ -17,6 +17,9 @@ const {
 const {
     UpdateIntegrationConfig,
 } = require('./use-cases/update-integration-config');
+const {
+    RecordRateLimitMessage,
+} = require('./use-cases/record-rate-limit-message');
 const { validateExtensionBinding } = require('./extension');
 const { getTelemetry } = require('../telemetry/telemetry-runtime');
 const { instrumentHandler } = require('../telemetry/instrument-handler');
@@ -57,6 +60,9 @@ class IntegrationBase {
         integrationRepository: this.integrationRepository,
     });
     updateIntegrationConfig = new UpdateIntegrationConfig({
+        integrationRepository: this.integrationRepository,
+    });
+    recordRateLimitMessage = new RecordRateLimitMessage({
         integrationRepository: this.integrationRepository,
     });
 
@@ -865,7 +871,9 @@ class IntegrationBase {
      * something integration-level needs attention. Today this catches the
      * `CREDENTIAL_INVALIDATED` event Module fires from `markCredentialsInvalid`
      * and flips this integration's status to ERROR so the queue worker
-     * stops processing further webhooks until the user re-authorizes.
+     * stops processing further webhooks until the user re-authorizes. It also
+     * catches `RATE_LIMITED`, which records one warning for the user and
+     * changes no status: a rate limit is not an error.
      *
      * Modules are wired to this delegate in `_appendModules()`, which runs
      * during `setIntegrationRecord()` — this covers every construction path
@@ -907,6 +915,18 @@ class IntegrationBase {
                 moduleName: notifier?.name,
             });
             await this.persistStatus('ENABLED');
+            return;
+        }
+
+        if (delegateString === 'RATE_LIMITED') {
+            const moduleName = object?.moduleName ?? notifier?.name;
+            this.logger.warn('Module reported a rate limit', {
+                eventName: `${this.logger.name}.rate_limited`,
+                moduleName,
+                reason: object?.reason,
+                retryAt: object?.retryAt,
+            });
+            await this._recordRateLimitMessage({ ...object, moduleName });
         }
     }
 
@@ -929,6 +949,23 @@ class IntegrationBase {
         } catch (error) {
             this.logger.error('Failed to record credential rejection', {
                 eventName: `${this.logger.name}.credential_rejection_record_failed`,
+                error,
+            });
+        }
+    }
+
+    /**
+     * Best-effort: the module's request is about to throw a RateLimitError,
+     * and a failed warning must not change that. A rate limit is not an ERROR,
+     * so this never touches the integration status.
+     * @param {Object} payload - The RATE_LIMITED payload of the module.
+     */
+    async _recordRateLimitMessage(payload) {
+        try {
+            await this.recordRateLimitMessage.execute(this.id, payload);
+        } catch (error) {
+            this.logger.error('Failed to record rate limit message', {
+                eventName: `${this.logger.name}.rate_limit_message_record_failed`,
                 error,
             });
         }
