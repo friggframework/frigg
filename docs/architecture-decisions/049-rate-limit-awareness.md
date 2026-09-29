@@ -158,17 +158,21 @@ A **hint** has one shape everywhere:
 - **`classify`** recognises provider signals that are not 429, or that
   need the body (a 403 limit code, a `policyName`). It returns a hint or
   `null`. A hint may name only a `reason`: its time then comes from the
-  parsers, or from the policy.
+  parsers, or from the policy. A hint must have a known `reason`, a `waitMs`
+  or a `retryAt`; any other object is not a hint. `classify` must be
+  synchronous: the Requester logs a returned Promise as a `classify` error and
+  ignores it.
 - **`classify` runs for a 429 and for any other 4xx or 5xx except 401.** It
   does not run for a 2xx, because a retry of a "throttled 200" would send a
   POST again. A module with such a response (a Shopify GraphQL `THROTTLED`)
   wraps its own call with `classifyRateLimit()`. A status other than 429 is a
   limit only when `classify` returns a hint for it.
 - **Resolution order:** `classify`, then the parsers in order (default: all
-  three), then the static policy (`minRetryAfterMs`, or the `perMs` of the
-  window that the reason names), then the fixed `backOff`.
-- **`Retry-After` is read for every module, on a 429 only.** A 503 with
-  `Retry-After` keeps the 5xx ladder.
+  three), then the static policy (the larger of `minRetryAfterMs` and the
+  `perMs` of the window that the reason names), then the fixed `backOff`.
+- **`Retry-After` is read for every module, on a 429 and on a response that
+  `classify` recognises.** A 503 that `classify` does not recognise keeps the
+  5xx ladder, also with `Retry-After`.
 - **Modules that do not use the Requester** (for example a module on jsforce)
   call the exported `classifyRateLimit()` around their own client.
 
@@ -180,12 +184,15 @@ A **hint** has one shape everywhere:
   provider that says "call again in 2 s" gets 2 s.
 - **No hint, no change.** A 429 with no hint keeps today's ladder: the same
   calls, the same delays, then a plain `FetchError`. The ladder has no
-  budget. The default HTTP Lambda timeout is 29 s, so a budget of "time left
-  minus the request timeout" would be 0 there.
+  budget, so it makes the same calls in every Lambda.
 - **Short wait:** the Requester sleeps in process when the wait fits the
-  budget. The budget is the cap (`maxInProcessWaitMs`, default 5 minutes) less
-  what this request slept already, and the time left in the invocation less
-  one request timeout. `runInvocationScope` puts the deadline
+  budget. The budget is the smaller of two values: the cap
+  (`maxInProcessWaitMs`, default 5 minutes) less what this request slept
+  already, and the time left in the invocation less a reserve for the next
+  request. The reserve is the request timeout, or half the time left when that
+  is smaller. With the full request timeout (60 s by default) the budget was 0
+  in every 29 s HTTP Lambda, and every hinted 429 threw at once; now a 2 s or
+  10 s wait sleeps there. `runInvocationScope` puts the deadline
   (`context.getRemainingTimeInMillis()`) in its own `AsyncLocalStorage`, not
   in the logs store: the telemetry bus forwards every key of that store that
   is not `log`. Outside a Lambda there is no deadline, and the cap alone
@@ -198,6 +205,13 @@ A **hint** has one shape everywhere:
   `FetchError`, as today.
 - **A module that declares nothing keeps today's behaviour** for a 429 with no
   hint, with the same calls and the same delays.
+- **`backOff: []` means no retries.** With an empty ladder the Requester does
+  not sleep for a hint either. A hint throws `RateLimitError` at once, so the
+  queue worker can still defer the message.
+- **Logs.** A hinted wait writes one TRACE record (`<logger>.rate_limited`),
+  because a backoff is step detail. The Requester does not log a throw: the
+  boundary logs the error once, and the error serializer adds `retryAt` and
+  `reason` to it.
 
 ### 3. Queue worker: defer instead of redeliver
 
@@ -213,12 +227,17 @@ A **hint** has one shape everywhere:
     `rateLimit`. The worker never uses the mock scheduler: a schedule kept in
     memory would be lost with the acknowledged message.
   - **No scheduler provisioned:** call `ChangeMessageVisibility` to `retryAt`
-    (at most 12 h after the receive) and report the record as a failure. This
-    uses one delivery. The base role gets the new IAM action in every stack,
-    because `Retry-After` is honoured for every module.
+    and report the record as a failure. This uses one delivery. SQS counts
+    the 12 h maximum from the receive, and an extension does not reset it, so
+    the worker sets at most 12 h less 20 minutes (the longest Lambda run plus
+    the longest batching window). The base role gets the new IAM action in
+    every stack, because `Retry-After` is honoured for every module.
 - **Cap:** `maxDeferrals` and `maxDeferredMs`, from
-  `FRIGG_QUEUE_MAX_DEFERRALS` (default 10) and `FRIGG_QUEUE_MAX_DEFERRED_MS`
-  (default 24 h, from the first deferral to the retry time). Past the cap, or
+  `FRIGG_QUEUE_MAX_DEFERRALS` (default 30) and `FRIGG_QUEUE_MAX_DEFERRED_MS`
+  (default 26 h, from the first deferral to the retry time). The HubSpot and
+  Salesforce modules probe a daily limit every hour, so the defaults cover one
+  full day of hourly probes, and each probe can start a little late. Past the
+  cap, or
   with no `retryAt`, no event source ARN or a FIFO queue, the record fails as
   any retryable error does, and #653 `isLastAttempt` is the fallback.
 - **Order:** send (or schedule) first, then acknowledge. Delivery stays at
@@ -235,7 +254,8 @@ A **hint** has one shape everywhere:
 
 ### 4. Run state
 
-The worker writes `Process.context.rateLimit` with `applyProcessUpdate`:
+The queue worker writes `Process.context.rateLimit` through two use cases,
+with `applyProcessUpdate`:
 `{ status, mechanism, retryAt, reason, module, deferrals, updatedAt }`.
 `status` is `WAITING`, or `EXHAUSTED` when a cap ended the deferrals or a
 visibility change came on the last delivery. The value is one per process, so
@@ -243,6 +263,9 @@ it holds the latest known wait: a new wait replaces it only when its `retryAt`
 is later, and a `WAITING` value never hides an `EXHAUSTED` one. After a
 deferred or redelivered message ran without error, the worker sets it to
 `null` only when it is `WAITING` and its `retryAt` is past or within 5 s.
+The compare is a read, then a write, so it is not atomic: two workers that
+write in the same instant can keep the earlier `retryAt`. The value is a UI
+signal only, so the next write corrects it.
 A UI can then show "waiting for the provider limit until 23:00 UTC" instead of
 a run that looks stuck.
 
@@ -274,6 +297,12 @@ workers can meet the same limit at once, so a message for the same module
 with a `retryAt` within 60 s of the last one is skipped. The status of the
 integration does not change: a rate limit is not an error.
 
+The message is written only for a wait that is longer than the in-process cap.
+A shorter wait throws only because the invocation ends soon, and the next
+invocation sleeps through it. Each message type (`errors`, `warnings`, `info`,
+`logs`) keeps its newest 50 items: the stored messages now append, and
+`testAuth` and `validateConfig` write one on every call.
+
 ### 6. Pacing (phase 2)
 
 - **2a, no shared state:** an in-process token bucket from `windows`, and a
@@ -304,8 +333,9 @@ integration does not change: a rate limit is not an error.
 - **Requester:** an injected `fetch` and a `setTimeout` spy. It waits for
   `Retry-After`, not for `backOff`. A long wait throws `RateLimitError` with
   `retryAt`. A 429 with no hint makes the same calls with the same delays,
-  also inside a 29 s invocation. The 5xx path does not change. The skipped
-  live-mock tests (`requester.test.js:48,58`) are replaced.
+  also inside a 29 s invocation. A 429 with `Retry-After: 2` inside a 29 s
+  invocation sleeps 2 s and calls again. The 5xx path does not change. The
+  skipped live-mock tests (`requester.test.js:48,58`) are replaced.
 - **Worker:** `aws-sdk-client-mock` checks `DelaySeconds`, the scheduler, the
   visibility fallback, the cap, and that a 403 limit is not halted.
 - **Devtools:** when no module declares `rateLimit`, the rendered template
@@ -388,25 +418,35 @@ integration does not change: a rate limit is not an error.
 1. **`Retry-After` is honoured for every module, by default.** The default
    parser list is `retryAfter`, `resetHeaders`, `ietf`.
 2. **The in-process wait is capped at 5 minutes in total for one request.** It
-   never passes the time left in the invocation less one request timeout.
+   never passes the time left in the invocation less a reserve for the next
+   request (the request timeout, or half the time left when that is smaller;
+   changed on 2026-09-29).
 3. **A deferral sends a new message** (the receive count restarts) for a wait
    up to 15 minutes. A longer wait uses the one-time scheduler. Without a
    scheduler, the worker extends the visibility timeout (12 hours at most, one
    receive used).
-4. **The default caps are 10 deferrals and 24 hours** from the first deferral.
-   A monthly quota is capped at once and falls back to #653. Reviewers can
-   change the defaults.
+4. **The default caps are 30 deferrals and 26 hours** from the first deferral
+   (changed on 2026-09-29 from 10 and 24 hours: an hourly probe of a daily
+   limit used the 10 deferrals in 10 hours). A monthly quota is capped at once
+   and falls back to #653. Reviewers can change the defaults.
+
+### Decided (2026-09-29, after the code review of the four PRs)
+
+5. **The `RATE_LIMITED` message is written only for a wait longer than the
+   in-process cap.**
+6. **Each stored message type keeps its newest 50 items.** The use case sets
+   the limit, and the repository removes the oldest items.
 
 ### Open
 
-5. Run state: a reserved `context.rateLimit` key, or a framework state
+7. Run state: a reserved `context.rateLimit` key, or a framework state
    `RATE_LIMITED` in the ADR-047 state machine?
-6. Where does `rateLimitedUntil` live: on the entity (a migration) or in a
+8. Where does `rateLimitedUntil` live: on the entity (a migration) or in a
    separate table?
-7. Who owns app-wide limits (`scope: 'app'`)? Does a monthly quota pause the
+9. Who owns app-wide limits (`scope: 'app'`)? Does a monthly quota pause the
    integration instead of scheduling it?
-8. Is the message shape a schema change, or a JSON body in the existing
-   message field? Who owns the hint text and its translation?
+10. Is the message shape a schema change, or a JSON body in the existing
+    message field? Who owns the hint text and its translation?
 
 ## Appendix: Code Sketches
 
@@ -580,7 +620,8 @@ function parseRetryAfter(value, { now = Date.now() } = {}) {
 
 function inProcessBudgetMs({ policy, requestTimeoutMs, remainingMs, waitedMs }) {
     const cap = policy?.maxInProcessWaitMs ?? 300_000;
-    return Math.max(0, Math.min(cap - waitedMs, remainingMs - (requestTimeoutMs || 0)));
+    const reserveMs = Math.min(requestTimeoutMs || 0, remainingMs / 2);
+    return Math.max(0, Math.min(cap - waitedMs, remainingMs - reserveMs));
 }
 ```
 
