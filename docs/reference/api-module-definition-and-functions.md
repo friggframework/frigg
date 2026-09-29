@@ -346,7 +346,7 @@ async withLimits(call) {
             body: { errorCode: err.errorCode },
         });
         if (!hint) throw err;
-        throw new RateLimitError({ hint, module: this.name, cause: err });
+        throw new RateLimitError({ hint, module: this.delegate?.name, cause: err });
     }
 }
 ```
@@ -362,6 +362,48 @@ known. An error that `classify` throws propagates unless you pass
 takes the `FetchError` arguments (`resource`, `init`, `response`, `cause`,
 `responseBody`). It sets `retryAt` to now plus `waitMs`, or to `hint.retryAt`
 when `waitMs` is left out.
+
+### A limit in a 2xx body
+
+The Requester calls `classify` only for a 4xx or 5xx: a generic retry of a
+"throttled 200" could send a POST twice. A provider that answers 200 with a
+limit error (a GraphQL `THROTTLED` error, for example) needs the module to
+wrap its own call, classify the body and throw:
+
+```javascript
+const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
+
+class Api extends OAuth2Requester {
+    static rateLimit = {
+        classify({ body }) {
+            const throttled = body?.errors?.some(
+                (error) => error.extensions?.code === 'THROTTLED'
+            );
+            return throttled ? { reason: 'burst', waitMs: 2_000 } : null;
+        },
+    };
+
+    async query(document, variables) {
+        const url = `${this.baseUrl}/graphql`;
+        const response = await this._post({
+            url,
+            body: { query: document, variables },
+            returnFullRes: true,
+        });
+        const body = await response.json();
+        if (!body.errors?.length) return body.data;
+
+        const cause = new Error(body.errors[0].message);
+        const hint = classifyRateLimit(Api.rateLimit, {
+            status: response.status,
+            headers: response.headers,
+            body,
+        });
+        if (!hint) throw cause;
+        throw new RateLimitError({ hint, module: this.delegate?.name, cause, resource: url });
+    }
+}
+```
 
 ### The invocation deadline
 
