@@ -87,9 +87,15 @@ and a `retryAt` through `defer(record, body, error, delivery)`, which returns
 - `failed`: the visibility timeout was extended to `retryAt`, or a cap
   (`FRIGG_QUEUE_MAX_DEFERRALS`, `FRIGG_QUEUE_MAX_DEFERRED_MS`) ended the
   deferrals. The record is reported failed.
-- `skipped`: no `retryAt`, no `eventSourceARN`, a FIFO queue, or a failed send.
-  The record fails as any error does, and `record_failed` carries
-  `deferral: { skipped }`.
+- `skipped`: no `retryAt` (`no_retry_at`), no `eventSourceARN` or a FIFO queue
+  (`no_event_source`), a failed send (`send_failed`), or a failed visibility
+  change (`visibility_failed`). The record fails as any error does.
+
+Each outcome writes one log record. `acked` writes WARN `record_deferred`.
+`failed` and `skipped` write one WARN (`record_visibility_extended`,
+`record_deferral_capped`, or `record_failed` with `deferral: { skipped }`). On
+the last attempt they write one ERROR, `record_lost_rate_limited`, with the
+details, and no WARN.
 
 Subclasses override two no-op hooks to keep run state: `recordRateLimitWait(body,
 error, state)` runs after the message was put back, and `clearRateLimitWait(body)`

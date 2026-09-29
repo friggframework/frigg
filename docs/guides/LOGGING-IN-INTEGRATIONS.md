@@ -202,6 +202,16 @@ try {
   the last retry, the DLQ processor logs `frigg.queue.dlq.message_failed` at
   `ERROR`. A `HaltError` stops the retries and logs
   `frigg.worker.record_halted` at `ERROR`.
+- A `RateLimitError` (an error with `isRateLimited` and `retryAt`) is
+  different. The `Worker` puts the message back to run at `retryAt`, and logs
+  one record:
+  - `frigg.worker.record_deferred` at `WARN` when it sent the message again
+    with a delay, or scheduled it. The new message starts with all its retries.
+  - One `WARN` when the message returns to SQS:
+    `frigg.worker.record_deferral_capped`, `record_visibility_extended`, or
+    `record_failed` with `deferral.skipped`.
+  - On the last attempt, one `ERROR`, `frigg.worker.record_lost_rate_limited`,
+    with the details, and no `WARN`. The message goes to the DLQ next.
 
 ## Ids that you learn later
 
@@ -577,7 +587,8 @@ What each record carries without extra code:
 - The `listContacts` DEBUG records carry `entityId` and `credentialId` of the
   HubSpot module.
 - If `processBatch` throws, the `Worker` logs `frigg.worker.record_failed` with
-  the same ids, and the message returns to SQS.
+  the same ids, and the message returns to SQS. For a `RateLimitError` it logs
+  one of the deferral records instead (see [Errors](#errors)).
 
 ## Common mistakes
 

@@ -483,21 +483,22 @@ handlers (`{ req, res, next }`) and `this.on` events do not.
 
 `isLastAttempt` is `false` when either count is unknown: a local or non-SQS
 invocation, or a queue whose redrive policy the stack does not own
-(`ownership.queue: 'external'`). The value is information only: core still
-rethrows retryable errors and discards halt errors (4xx except 408, 429 and
-errors with `isRateLimited`).
+(`ownership.queue: 'external'`). The value does not change what core does: a
+retryable error returns the message to SQS, a rate-limited error puts it back
+to run at `retryAt` (see **Rate-limit deferral** below), and a halt error (4xx
+except 408, 429 and errors with `isRateLimited`) discards it.
 
-Use it to end a run or count lost work on the final try: when a retryable
-error (429, 5xx, network) is about to be rethrown and `isLastAttempt` is
-`true`, the message goes to the DLQ next, so mark the run failed or count the
-message's records as failed before rethrowing.
+Use it to end a run or count lost work on the final try. Check it first: when
+it is `true`, mark the run failed or count the message's records as failed, and
+return. Otherwise rethrow. Do not end the run and then rethrow: core can still
+send a `RateLimitError` again, so the message would run again on an ended run.
 
 ```javascript
 async processBatch({ data, delivery }) {
     try {
         await this.syncPage(data);
     } catch (error) {
-        if (delivery?.isLastAttempt) await this.failRun(data.processId, error);
+        if (delivery?.isLastAttempt) return this.failRun(data.processId, error);
         throw error;
     }
 }
@@ -511,23 +512,27 @@ it as `FRIGG_QUEUE_MAX_RECEIVE_COUNT` on the queue worker function.
 **Rate-limit deferral** (ADR-049): when a queue handler throws an error with
 `isRateLimited` and a `retryAt` (a `RateLimitError` from the Requester, or one a
 module throws), `Worker.run` does not give the message back to SQS for a 30
-minute redelivery that spends one of its three receives. It puts the message
-back so it runs at `retryAt`:
+minute redelivery. It puts the message back so it runs at `retryAt`:
 
 | Wait | What the worker does | Record |
 |---|---|---|
 | Up to 900 s | Sends the same body again with `DelaySeconds`, then acknowledges the old message | handled |
 | Over 900 s, and `SCHEDULER_ROLE_ARN` is set | Creates a one-time EventBridge schedule at `retryAt` that sends the body to the queue, then acknowledges | handled |
-| Over 900 s, no scheduler | Extends the message's visibility timeout to `retryAt` (12 h at most). This uses one receive | reported failed |
+| Over 900 s, no scheduler | Extends the message's visibility timeout to `retryAt` (12 h less 20 minutes at most). This uses one receive | reported failed |
 
 - The new message starts at receive count 1. A deferred body carries
   `_frigg: { deferrals, firstDeferredAt }`; `_frigg` is reserved and the handler
   never sees it.
-- Two caps bound it: `FRIGG_QUEUE_MAX_DEFERRALS` (default 10) and
-  `FRIGG_QUEUE_MAX_DEFERRED_MS` (default 24 h, from the first deferral to the
-  retry time). Past a cap, with no `retryAt`, with no event source ARN or on a
-  FIFO queue, the record fails like any retryable error and `delivery`
-  applies.
+- The visibility tier sets a timeout of at most 12 h less 20 minutes
+  (42,000 s). SQS counts its 12 h maximum from the receive, and an extension
+  does not reset it. The margin covers the longest Lambda run (900 s) plus the
+  longest batching window (300 s).
+- Two caps bound it: `FRIGG_QUEUE_MAX_DEFERRALS` (default 30) and
+  `FRIGG_QUEUE_MAX_DEFERRED_MS` (default 26 h, from the first deferral to the
+  retry time). The defaults cover one full day of hourly waits, for a module
+  that probes a daily limit every hour. Past a cap, with no `retryAt`, with no
+  event source ARN or on a FIFO queue, the record fails like any retryable
+  error and `delivery` applies.
 - The mock scheduler is never used for a deferral: a schedule kept in memory
   would be lost with the acknowledged message.
 - With a `processId` in the message, the worker writes
@@ -557,9 +562,15 @@ async processBatch({ data, delivery }) {
 }
 ```
 
-Records: `frigg.worker.record_deferred` (`mechanism` `delay` or `schedule`),
-`record_visibility_extended`, `record_deferral_capped`,
-`record_lost_rate_limited` and `rate_limit_state_failed`. A queue in a stack
+Records: a rate-limited SQS record gets one log record, by its outcome.
+
+| Outcome | Log record |
+|---|---|
+| Acknowledged | WARN `frigg.worker.record_deferred` (`mechanism` `delay` or `schedule`) |
+| Not acknowledged, not the last attempt | One WARN: `record_deferral_capped`, `record_visibility_extended`, or `record_failed` with `deferral.skipped` |
+| Not acknowledged, last attempt | One ERROR, `record_lost_rate_limited`, with the details, and no WARN |
+
+A failing run state hook adds `rate_limit_state_failed`. A queue in a stack
 that does not own it (`ownership.queue: 'external'`) needs its own
 `sqs:ChangeMessageVisibility` and scheduler access.
 
@@ -814,6 +825,8 @@ Use test doubles from `@friggframework/test` package for consistent mocking.
 - `SECRET_ARN` - AWS Secrets Manager ARN for auto-injection
 - `FRIGG_LOG_LEVEL` - Minimum log level (`TRACE` … `FATAL`, default `INFO`; `DEBUG` on local runs)
 - `FRIGG_QUEUE_MAX_RECEIVE_COUNT` - Set by devtools on integration queue workers whose queue the stack owns; feeds `delivery.maxReceiveCount`
+- `FRIGG_QUEUE_MAX_DEFERRALS` - Most rate-limit deferrals of one message (default 30)
+- `FRIGG_QUEUE_MAX_DEFERRED_MS` - Most time in ms from a message's first rate-limit deferral to its retry time (default 26 h)
 
 ## Version Information
 
