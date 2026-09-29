@@ -2,6 +2,7 @@ const { RecordRateLimitMessage } = require('./record-rate-limit-message');
 const {
     TestIntegrationRepository,
 } = require('../tests/doubles/test-integration-repository');
+const { createMemorySink } = require('../../logs');
 
 const NOW = Date.parse('2026-09-28T12:00:00.000Z');
 const RETRY_AT = new Date('2026-09-28T14:30:15.000Z');
@@ -341,7 +342,20 @@ describe('RecordRateLimitMessage Use-Case', () => {
     });
 
     describe('failures', () => {
-        it('rejects and writes nothing when the read fails', async () => {
+        let sink;
+
+        beforeEach(() => {
+            sink = createMemorySink();
+        });
+
+        const recordFailedWarnings = () =>
+            sink.records.filter(
+                (record) =>
+                    record.eventName ===
+                    'frigg.integrations.rate_limit_message_record_failed'
+            );
+
+        it('writes nothing and one WARN when the read fails', async () => {
             jest.spyOn(
                 integrationRepository,
                 'findIntegrationMessages'
@@ -350,16 +364,20 @@ describe('RecordRateLimitMessage Use-Case', () => {
 
             await expect(
                 useCase.execute(integrationId, payload())
-            ).rejects.toThrow('db down');
+            ).resolves.toBeUndefined();
 
-            expect(
-                integrationRepository
-                    .getOperationHistory()
-                    .filter((op) => op.operation === 'updateMessages')
-            ).toEqual([]);
+            expect(writes()).toEqual([]);
+            expect(recordFailedWarnings()).toEqual([
+                expect.objectContaining({
+                    level: 'WARN',
+                    integrationId,
+                    moduleName: 'hubspot',
+                    error: expect.objectContaining({ message: 'db down' }),
+                }),
+            ]);
         });
 
-        it('rejects when the write fails', async () => {
+        it('writes one WARN when the write fails', async () => {
             jest.spyOn(
                 integrationRepository,
                 'updateIntegrationMessages'
@@ -367,13 +385,30 @@ describe('RecordRateLimitMessage Use-Case', () => {
 
             await expect(
                 useCase.execute(integrationId, payload())
-            ).rejects.toThrow('db down');
+            ).resolves.toBeUndefined();
+
+            expect(recordFailedWarnings()).toEqual([
+                expect.objectContaining({
+                    level: 'WARN',
+                    error: expect.objectContaining({ message: 'db down' }),
+                }),
+            ]);
         });
 
-        it('rejects when the integration does not exist', async () => {
+        it('writes one WARN when the integration does not exist', async () => {
             await expect(
                 useCase.execute('missing-id', payload())
-            ).rejects.toThrow('Integration missing-id not found');
+            ).resolves.toBeUndefined();
+
+            expect(recordFailedWarnings()).toEqual([
+                expect.objectContaining({
+                    level: 'WARN',
+                    integrationId: 'missing-id',
+                    error: expect.objectContaining({
+                        message: 'Integration missing-id not found',
+                    }),
+                }),
+            ]);
         });
     });
 });

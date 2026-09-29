@@ -479,35 +479,6 @@ describe('IntegrationBase.receiveNotification', () => {
             ]);
         });
 
-        it('writes one ERROR and resolves when the message cannot be recorded', async () => {
-            const sink = createMemorySink();
-            mockRecordRateLimitMessage.execute.mockRejectedValue(
-                new Error('db write failed')
-            );
-
-            await expect(
-                integration.receiveNotification(
-                    { name: 'testmodule' },
-                    'RATE_LIMITED',
-                    payload
-                )
-            ).resolves.toBeUndefined();
-
-            expect(
-                sink.records.filter((r) =>
-                    r.eventName?.endsWith('.rate_limit_message_record_failed')
-                )
-            ).toEqual([
-                expect.objectContaining({
-                    level: 'ERROR',
-                    error: expect.objectContaining({
-                        message: 'db write failed',
-                    }),
-                }),
-            ]);
-            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
-        });
-
         it('is wired to the repository of the integration', () => {
             const fresh = new IntegrationBase();
 

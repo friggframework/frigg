@@ -11,6 +11,7 @@ const {
 const { Module } = require('../../modules/module');
 const { Requester } = require('../../modules/requester/requester');
 const { RateLimitError } = require('../../errors');
+const { createMemorySink } = require('../../logs');
 const {
     TestIntegrationRepository,
 } = require('./doubles/test-integration-repository');
@@ -150,7 +151,8 @@ describe('a rate limit from the Requester reaches the integration', () => {
         expect(integration.status).toBe('ENABLED');
     });
 
-    it('still throws the RateLimitError when the message cannot be stored', async () => {
+    it('still throws the RateLimitError and writes one WARN when the message cannot be stored', async () => {
+        const sink = createMemorySink();
         jest.spyOn(
             integrationRepository,
             'findIntegrationMessages'
@@ -165,5 +167,18 @@ describe('a rate limit from the Requester reaches the integration', () => {
             record.id
         );
         expect(stored.messages.warnings).toBeUndefined();
+        expect(
+            sink.records.filter(
+                (r) =>
+                    ['WARN', 'ERROR'].includes(r.level) &&
+                    r.eventName?.endsWith('_failed')
+            )
+        ).toEqual([
+            expect.objectContaining({
+                level: 'WARN',
+                eventName:
+                    'frigg.integrations.rate_limit_message_record_failed',
+            }),
+        ]);
     });
 });

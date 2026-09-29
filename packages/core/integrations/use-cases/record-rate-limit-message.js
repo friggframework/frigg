@@ -1,4 +1,7 @@
+const { getLogger } = require('../../logs');
 const { MAX_MESSAGES_PER_TYPE } = require('./update-integration-messages');
+
+const log = getLogger('frigg.integrations');
 
 const RATE_LIMITED_MESSAGE_CODE = 'RATE_LIMITED';
 const SAME_LIMIT_WINDOW_MS = 60_000;
@@ -49,7 +52,28 @@ class RecordRateLimitMessage {
         const { moduleName, reason, retryAt, links } = payload ?? {};
         if (!isNonEmptyString(moduleName) || !isValidTime(retryAt)) return;
 
-        const resetAt = new Date(retryAt);
+        try {
+            await this._recordUnlessStored(integrationId, {
+                moduleName,
+                reason,
+                resetAt: new Date(retryAt),
+                links,
+            });
+        } catch (error) {
+            log.warn('Failed to record rate limit message', {
+                eventName:
+                    'frigg.integrations.rate_limit_message_record_failed',
+                integrationId,
+                moduleName,
+                error,
+            });
+        }
+    }
+
+    async _recordUnlessStored(
+        integrationId,
+        { moduleName, reason, resetAt, links }
+    ) {
         const warnings =
             await this.integrationRepository.findIntegrationMessages(
                 integrationId,

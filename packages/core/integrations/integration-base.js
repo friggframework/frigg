@@ -922,7 +922,7 @@ class IntegrationBase {
                 reason: object?.reason,
                 retryAt: object?.retryAt,
             });
-            await this._recordRateLimitMessage(object);
+            await this.recordRateLimitMessage.execute(this.id, object);
         }
     }
 
@@ -945,17 +945,6 @@ class IntegrationBase {
         } catch (error) {
             this.logger.error('Failed to record credential rejection', {
                 eventName: `${this.logger.name}.credential_rejection_record_failed`,
-                error,
-            });
-        }
-    }
-
-    async _recordRateLimitMessage(payload) {
-        try {
-            await this.recordRateLimitMessage.execute(this.id, payload);
-        } catch (error) {
-            this.logger.error('Failed to record rate limit message', {
-                eventName: `${this.logger.name}.rate_limit_message_record_failed`,
                 error,
             });
         }
