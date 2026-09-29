@@ -915,7 +915,6 @@ class IntegrationBase {
                 moduleName: notifier?.name,
             });
             await this.persistStatus('ENABLED');
-            return;
         }
 
         if (delegateString === 'RATE_LIMITED') {
