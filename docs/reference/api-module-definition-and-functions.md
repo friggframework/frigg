@@ -236,7 +236,7 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
 | `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
-| `userHints` | Links per `reason` that a UI can show, for example `{ daily: { links: [{ label, url }] } }`. |
+| `userHints` | Links per `reason`, for example `{ daily: { links: [{ label, url }] } }`. They become the `LINK` actions of the warning the integration records for a wait longer than `maxInProcessWaitMs` (see "The message for the user"). A `reason` with no hint gets no links. |
 
 ### Built-in parsers
 
@@ -318,7 +318,9 @@ class Api extends ApiKeyRequester {
    request timeout can still sleep 14.5 s.
 4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
    `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
-   `policy`, `source`, `module` and `scopeKey`.
+   `policy`, `source`, `module` and `scopeKey`. When the wait is also longer
+   than `maxInProcessWaitMs`, the Requester tells its delegate
+   (`RATE_LIMITED`) first, so the integration can warn its users.
 
 A Requester built with `backOff: []` never sleeps: a hinted wait throws
 `RateLimitError` at once, and a 429 with no hint throws a plain `FetchError`.
@@ -329,10 +331,41 @@ response that `classify` recognises, and of no other response: a 503 with
 worker does not halt a `RateLimitError`, even when its status is 403: the
 message goes back to SQS.
 
+### The message for the user
+
+When the Requester throws `RateLimitError` for a wait longer than
+`maxInProcessWaitMs`, the integration records one warning for its users. A
+shorter wait that throws records none. The warning is one item in the stored
+`warnings`:
+
+| Field | Value |
+|---|---|
+| `title`, `message` | Fixed text: "Rate limit reached", and one sentence with the module name and the reset time in UTC. Nothing from the request. |
+| `code` | `'RATE_LIMITED'` |
+| `module`, `reason` | The module name and the `reason` of the hint |
+| `retryAt` | The reset time, ISO 8601 |
+| `actions` | `{ type: 'RETRY_WHEN_READY' }`, then `{ type: 'LINK', label, url }` for each link in `userHints[reason]` |
+
+A second report for the same module within 60 seconds of a stored reset time
+is skipped. The stored `warnings` keep their newest 50 items, so an older
+warning drops off. The warning changes no integration status. A failure to
+record it is logged, and the request still throws `RateLimitError`.
+
 ### A client that is not the Requester
 
 A module that drives another client (for example jsforce) calls
-`classifyRateLimit` around its own calls and throws the error itself:
+`classifyRateLimit` around its own calls and throws the error itself. The
+Requester notifies its delegate only for the errors it throws, so the module
+calls `this._notifyRateLimited(error)` before its own throw to give its users
+the same warning.
+
+- It never rejects. A failed notification is logged
+  (`rate_limit_notify_failed`), and the module throws its error as planned.
+- It writes the warning only when the wait of the error is longer than
+  `maxInProcessWaitMs` (5 minutes by default), as for the Requester's own
+  errors. A 30-second concurrency limit writes none; a daily limit does.
+- A module that must also run on an older core, which has no
+  `_notifyRateLimited`, calls `this._notifyRateLimited?.(error)`.
 
 ```javascript
 const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
@@ -347,7 +380,9 @@ async withLimits(call) {
             body: { errorCode: err.errorCode },
         });
         if (!hint) throw err;
-        throw new RateLimitError({ hint, module: this.delegate?.name, cause: err });
+        const error = new RateLimitError({ hint, module: this.delegate?.name, cause: err });
+        await this._notifyRateLimited(error);
+        throw error;
     }
 }
 ```

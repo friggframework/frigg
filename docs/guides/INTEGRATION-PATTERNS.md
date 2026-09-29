@@ -806,6 +806,16 @@ and ends the run on the last attempt, then rethrows: the queue worker does not
 halt a `RateLimitError`, and SQS redelivers the message. Do not catch it to
 write a retry of your own.
 
+When it throws for a wait longer than the in-process cap (`maxInProcessWaitMs`,
+5 minutes by default), the integration also records one warning for the user.
+You write nothing for it. The warning is an item in the stored `warnings` with
+`code: 'RATE_LIMITED'`, the `module`, the `reason`, `retryAt` (ISO 8601) and
+`actions`: `RETRY_WHEN_READY`, and one `LINK` for each link in the module's
+`userHints[reason]`. It is written once for each module and reset time, and
+the integration status does not change: a rate limit is not an `ERROR`. Like
+every stored message, it drops off when 50 newer warnings follow it (see
+[Integration Messages](#integration-messages)).
+
 For pacing in your own loop, respect API rate limits:
 
 ```javascript
@@ -827,6 +837,39 @@ sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 ```
+
+### Integration Messages
+
+An integration stores messages for its users in four types: `errors`,
+`warnings`, `info` and `logs`. Write one through the `updateIntegrationMessages`
+use case of the integration, in the positional form or as one item object:
+
+```javascript
+await this.updateIntegrationMessages.execute(
+    this.id,
+    'warnings',
+    'Config Validation Error',
+    'Missing required field of API key',
+    Date.now()
+);
+
+await this.updateIntegrationMessages.execute(this.id, 'warnings', {
+    title: 'Sync paused',
+    message: 'The sync continues after the maintenance window.',
+    timestamp: Date.now(),
+    code: 'SYNC_PAUSED',
+});
+```
+
+- The keys of an item object are stored as they are, so a client can read a
+  `code` or `actions`. The rate-limit warning above is such an item.
+- Every call appends. Each type keeps its newest 50 messages: the oldest one is
+  dropped when a 51st arrives.
+- `integrationRepository.findIntegrationMessages(id, type)` reads the stored
+  items of one type, oldest first. Read them there, not from the `messages` of
+  a record from `findIntegrationById`: Postgres and MongoDB keep the messages
+  in the `errors`, `warnings`, `info` and `logs` columns and do not fill
+  `messages`.
 
 ### Error Handling
 

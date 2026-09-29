@@ -8,6 +8,7 @@ const {
 const {
     createModuleRepository,
 } = require('./repositories/module-repository-factory');
+const { readRateLimitPolicy } = require('./requester/rate-limit');
 
 // todo: this class should be a Domain class, and the Delegate function is preventing us from
 // doing that, we probably have to get rid of the Delegate class as well as the event based
@@ -51,6 +52,8 @@ class Module extends Delegate {
         this.delegateTypes.push(this.DLGT_CREDENTIAL_INVALIDATED);
         this.DLGT_CREDENTIAL_VALIDATED = 'CREDENTIAL_VALIDATED';
         this.delegateTypes.push(this.DLGT_CREDENTIAL_VALIDATED);
+        this.DLGT_RATE_LIMITED = 'RATE_LIMITED';
+        this.delegateTypes.push(this.DLGT_RATE_LIMITED);
 
         Object.assign(this, this.definition.requiredAuthMethods);
 
@@ -160,6 +163,8 @@ class Module extends Delegate {
             await this.deauthorize();
         } else if (delegateString === this.api.DLGT_INVALID_AUTH) {
             await this.markCredentialsInvalid(object);
+        } else if (delegateString === this.api.DLGT_RATE_LIMITED) {
+            await this.reportRateLimit(object);
         } else if (delegateString === this.api.DLGT_CREDENTIAL_RELOAD) {
             return this.reloadCredential();
         }
@@ -229,6 +234,28 @@ class Module extends Delegate {
         } catch (err) {
             this.logger.error('Failed to propagate CREDENTIAL_INVALIDATED', {
                 eventName: `${this.logger.name}.credential_invalidated_propagation_failed`,
+                error: err,
+            });
+        }
+    }
+
+    async reportRateLimit(rateLimitError) {
+        const { reason, retryAt, policy, statusCode } = rateLimitError;
+        const links =
+            readRateLimitPolicy(this.apiClass)?.userHints?.[reason]?.links ??
+            [];
+        try {
+            await this.notify(this.DLGT_RATE_LIMITED, {
+                moduleName: this.name,
+                reason,
+                retryAt,
+                policy,
+                statusCode,
+                links,
+            });
+        } catch (err) {
+            this.logger.warn('Failed to propagate RATE_LIMITED', {
+                eventName: `${this.logger.name}.rate_limit_propagation_failed`,
                 error: err,
             });
         }

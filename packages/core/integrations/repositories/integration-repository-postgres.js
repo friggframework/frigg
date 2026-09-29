@@ -3,6 +3,7 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
+const { messagesOfType } = require('./message-item-shared');
 const { strictIntId } = require('./report-id');
 
 /**
@@ -273,17 +274,16 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
      *
      * @param {string} integrationId - Integration ID (string from application layer)
      * @param {string} messageType - Type of message (errors, warnings, info, logs)
-     * @param {string} messageTitle - Message title
-     * @param {string} messageBody - Message body
-     * @param {Date} messageTimestamp - Message timestamp
+     * @param {Object} item - Message item, stored as it is
+     * @param {Object} options
+     * @param {number} options.keepLast - How many of the newest items of the type to keep
      * @returns {Promise<boolean>} Success indicator
      */
     async updateIntegrationMessages(
         integrationId,
         messageType,
-        messageTitle,
-        messageBody,
-        messageTimestamp
+        item,
+        { keepLast }
     ) {
         const intId = this._convertId(integrationId);
 
@@ -297,27 +297,41 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         }
 
         // Parse existing messages (JSON field)
-        const messages = integration.messages || {};
-        const messageArray = Array.isArray(messages[messageType])
-            ? messages[messageType]
-            : [];
+        const messageArray = messagesOfType(integration, messageType);
 
         // Add new message
-        messageArray.push({
-            title: messageTitle,
-            message: messageBody,
-            timestamp: messageTimestamp,
-        });
+        messageArray.push(item);
 
         // Update messages
         await this.prisma.integration.update({
             where: { id: intId },
             data: {
-                [messageType]: messageArray,
+                [messageType]: messageArray.slice(-keepLast),
             },
         });
 
         return true; // Mongoose compatibility
+    }
+
+    /**
+     * Find the stored messages of one type
+     *
+     * @param {string} integrationId - Integration ID (string from application layer)
+     * @param {string} messageType - Type of message (errors, warnings, info, logs)
+     * @returns {Promise<Array>} The stored message items of that type, oldest first
+     */
+    async findIntegrationMessages(integrationId, messageType) {
+        const intId = this._convertId(integrationId);
+        const integration = await this.prisma.integration.findUnique({
+            where: { id: intId },
+            select: { [messageType]: true },
+        });
+
+        if (!integration) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+
+        return messagesOfType(integration, messageType);
     }
 
     /**

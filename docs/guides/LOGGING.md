@@ -170,6 +170,17 @@ of its own: the boundary logs it, and its `error` field carries `retryAt` and
 `reason`. A `classify()` that throws or returns a Promise writes one `WARN`,
 `module.<name>.rate_limit_classify_failed`.
 
+A wait longer than the in-process cap (`maxInProcessWaitMs`) is reported up the
+delegate chain before the error is thrown. Each hop is best effort, and a
+failure never replaces the rate-limit error:
+
+| Record | Level | Written when |
+|---|---|---|
+| `integration.<name>.rate_limited` | `WARN` | The integration receives the report. Carries `moduleName`, `reason` and `retryAt`. |
+| `module.<name>.rate_limit_notify_failed` | `WARN` | The Requester cannot notify its delegate. Carries `statusCode` and `error`. |
+| `module.<name>.rate_limit_propagation_failed` | `WARN` | The `Module` cannot pass the report to the integration. |
+| `frigg.integrations.rate_limit_message_record_failed` | `WARN` | `RecordRateLimitMessage` cannot read or store the warning for the users. Carries `integrationId`, `moduleName` and `error`. |
+
 `FRIGG_LOG_LEVEL` sets the minimum level. The logger drops a record below it
 before it reads any field.
 

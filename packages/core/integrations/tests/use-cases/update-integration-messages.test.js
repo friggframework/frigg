@@ -51,6 +51,59 @@ describe('UpdateIntegrationMessages Use-Case', () => {
             expect(fetched.messages.info.length).toBe(1);
         });
 
+        it('stores an item object with its extra keys', async () => {
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                { type: 'dummy' }
+            );
+            const item = {
+                title: 'Rate limit reached',
+                message: 'It resets at noon.',
+                timestamp: 1000,
+                code: 'RATE_LIMITED',
+                actions: [{ type: 'RETRY_WHEN_READY' }],
+            };
+
+            await useCase.execute(record.id, 'warnings', item);
+
+            const fetched = await integrationRepository.findIntegrationById(
+                record.id
+            );
+            expect(fetched.messages.warnings).toEqual([item]);
+        });
+
+        it('adds an item object after a positional message', async () => {
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                { type: 'dummy' }
+            );
+            const item = {
+                title: 'Item',
+                message: 'object',
+                timestamp: 2000,
+                code: 'X',
+            };
+
+            await useCase.execute(
+                record.id,
+                'warnings',
+                'First',
+                'positional',
+                1000
+            );
+            await useCase.execute(record.id, 'warnings', item);
+
+            const fetched = await integrationRepository.findIntegrationById(
+                record.id
+            );
+            expect(fetched.messages.warnings).toEqual([
+                { title: 'First', message: 'positional', timestamp: 1000 },
+                item,
+            ]);
+        });
+
         it('tracks message update operation', async () => {
             const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'dummy' });
             integrationRepository.clearHistory();
@@ -65,6 +118,104 @@ describe('UpdateIntegrationMessages Use-Case', () => {
                 type: 'logs',
                 success: true
             });
+        });
+    });
+
+    describe('the item it gives the repository', () => {
+        const keepNewest50 = { keepLast: 50 };
+        let updateIntegrationMessages;
+
+        beforeEach(() => {
+            updateIntegrationMessages = jest.spyOn(
+                integrationRepository,
+                'updateIntegrationMessages'
+            );
+        });
+
+        it('builds one item from the positional form', async () => {
+            await useCase.execute('int-1', 'errors', 'Title', 'body', 1000);
+
+            expect(updateIntegrationMessages).toHaveBeenCalledWith(
+                'int-1',
+                'errors',
+                { title: 'Title', message: 'body', timestamp: 1000 },
+                keepNewest50
+            );
+        });
+
+        it('gives a copy of an item object and ignores the positional arguments', async () => {
+            const item = {
+                title: 'Rate limit reached',
+                message: 'It resets at noon.',
+                timestamp: 1000,
+                code: 'RATE_LIMITED',
+            };
+
+            await useCase.execute('int-1', 'warnings', item, 'other', 2000);
+
+            expect(updateIntegrationMessages).toHaveBeenCalledWith(
+                'int-1',
+                'warnings',
+                item,
+                keepNewest50
+            );
+            expect(updateIntegrationMessages.mock.calls[0][2]).not.toBe(item);
+        });
+
+        it.each([[null], [undefined], [''], ['Title'], [['a', 'b']]])(
+            'reads %p as a title',
+            async (title) => {
+                await useCase.execute('int-1', 'info', title, 'body', 1000);
+
+                expect(updateIntegrationMessages).toHaveBeenCalledWith(
+                    'int-1',
+                    'info',
+                    { title, message: 'body', timestamp: 1000 },
+                    keepNewest50
+                );
+            }
+        );
+    });
+
+    describe('the newest 50 of a type', () => {
+        it('drops the oldest message when a 51st arrives, and keeps the order', async () => {
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                { type: 'dummy' }
+            );
+
+            for (let n = 1; n <= 51; n++) {
+                await useCase.execute(record.id, 'warnings', `W${n}`, 'b', n);
+            }
+
+            const fetched = await integrationRepository.findIntegrationById(
+                record.id
+            );
+            expect(
+                fetched.messages.warnings.map((warning) => warning.timestamp)
+            ).toEqual(Array.from({ length: 50 }, (_, i) => i + 2));
+        });
+
+        it('counts each type on its own', async () => {
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                { type: 'dummy' }
+            );
+
+            await useCase.execute(record.id, 'errors', 'Kept', 'error', 0);
+            for (let n = 1; n <= 51; n++) {
+                await useCase.execute(record.id, 'warnings', `W${n}`, 'b', n);
+            }
+
+            const fetched = await integrationRepository.findIntegrationById(
+                record.id
+            );
+            expect(fetched.messages.errors).toEqual([
+                { title: 'Kept', message: 'error', timestamp: 0 },
+            ]);
+            expect(fetched.messages.warnings).toHaveLength(50);
         });
     });
 

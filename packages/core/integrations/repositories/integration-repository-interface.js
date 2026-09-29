@@ -97,24 +97,38 @@ class IntegrationRepositoryInterface {
     }
 
     /**
-     * Update integration messages
+     * Append a message item to the stored messages of one type
      *
      * @param {string|number} integrationId - Integration ID
      * @param {string} messageType - Type of message (errors, warnings, info, logs)
-     * @param {string} messageTitle - Message title
-     * @param {string} messageBody - Message body
-     * @param {Date} messageTimestamp - Message timestamp
+     * @param {Object} item - Message item, stored as it is
+     * @param {Object} options
+     * @param {number} options.keepLast - How many of the newest items of the type to keep
      * @returns {Promise<boolean>} Success indicator
      * @abstract
      */
     async updateIntegrationMessages(
         integrationId,
         messageType,
-        messageTitle,
-        messageBody,
-        messageTimestamp
+        item,
+        { keepLast }
     ) {
         throw new Error('Method updateIntegrationMessages must be implemented by subclass');
+    }
+
+    /**
+     * Find the stored messages of one type. Reads the stored items, not the
+     * `messages` of an integration record, which some adapters do not fill.
+     *
+     * @param {string|number} integrationId - Integration ID
+     * @param {string} messageType - Type of message (errors, warnings, info, logs)
+     * @returns {Promise<Array>} The stored message items of that type, oldest first
+     * @abstract
+     */
+    async findIntegrationMessages(integrationId, messageType) {
+        throw new Error(
+            'Method findIntegrationMessages must be implemented by subclass'
+        );
     }
 
     /**

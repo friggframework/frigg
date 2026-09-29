@@ -10,6 +10,7 @@ const { redactUrl } = require('../../logs/redact');
 const { toSanitizedSurrogate } = require('../../logs/serialize');
 const { getLoggerScope } = require('../../logs/context');
 const {
+    DEFAULT_MAX_IN_PROCESS_WAIT_MS,
     computeScopeKey,
     computeWaitMs,
     inProcessBudgetMs,
@@ -54,6 +55,8 @@ class Requester extends Delegate {
         this._authGeneration = 0;
         this.DLGT_INVALID_AUTH = 'INVALID_AUTH';
         this.delegateTypes.push(this.DLGT_INVALID_AUTH);
+        this.DLGT_RATE_LIMITED = 'RATE_LIMITED';
+        this.delegateTypes.push(this.DLGT_RATE_LIMITED);
         this.agent = get(params, 'agent', null);
 
         // Per-attempt HTTP timeout. Without this the framework called fetch()
@@ -528,6 +531,7 @@ class Requester extends Delegate {
             module: this._telemetryModuleLabel(),
             scopeKey: computeScopeKey(this._rateLimitPolicy, this),
         });
+        await this._notifyRateLimited(rateLimitError);
         throw this._maybeFlagTimeoutDuringBodyRead(rateLimitError, timeoutMs);
     }
 
@@ -593,6 +597,30 @@ class Requester extends Delegate {
             statusCode: status,
             error,
         });
+    }
+
+    async _notifyRateLimited(rateLimitError) {
+        if (!this._waitsLongerThanInProcessCap(rateLimitError)) return;
+        try {
+            await this.notify(this.DLGT_RATE_LIMITED, rateLimitError);
+        } catch (error) {
+            const logger = this.logger;
+            logger.warn('Rate limit notification failed', {
+                eventName: `${logger.name}.rate_limit_notify_failed`,
+                statusCode: rateLimitError.statusCode,
+                error,
+            });
+        }
+    }
+
+    _waitsLongerThanInProcessCap(rateLimitError) {
+        const waitMs = Number.isFinite(rateLimitError?.waitMs)
+            ? rateLimitError.waitMs
+            : new Date(rateLimitError?.retryAt).getTime() - Date.now();
+        const capMs =
+            this._rateLimitPolicy?.maxInProcessWaitMs ??
+            DEFAULT_MAX_IN_PROCESS_WAIT_MS;
+        return waitMs > capMs;
     }
 
     _logRequestFailed(encodedUrl, options, status) {

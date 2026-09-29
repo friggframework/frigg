@@ -1,6 +1,6 @@
 declare module "@friggframework/module-plugin" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
-  import type { RateLimitHint } from "@friggframework/errors";
+  import type { RateLimitError, RateLimitHint } from "@friggframework/errors";
 
   export interface Credential {
     id?: string;
@@ -66,6 +66,7 @@ declare module "@friggframework/module-plugin" {
     static requestTimeoutMs?: number;
 
     DLGT_INVALID_AUTH: string;
+    DLGT_RATE_LIMITED: string;
     requestTimeoutMs: number;
     backOff: number[];
     fetch: any;
@@ -85,6 +86,7 @@ declare module "@friggframework/module-plugin" {
     parseBody(response: any): Promise<any>;
     refreshAuth(): Promise<any>;
     _adoptNewerCredential(): Promise<boolean>;
+    _notifyRateLimited(rateLimitError: RateLimitError): Promise<void>;
 
     delegate: any;
     delegateTypes: any[];
@@ -102,6 +104,7 @@ declare module "@friggframework/module-plugin" {
     isRefreshable: boolean;
     refreshCount: number;
     DLGT_INVALID_AUTH: string;
+    DLGT_RATE_LIMITED: string;
     fetch: any;
 
     parseBody(response: any): Promise<any>;
@@ -117,6 +120,7 @@ declare module "@friggframework/module-plugin" {
     _delete(options: RequestOptions): Promise<any>;
     refreshAuth(): Promise<any>;
     _adoptNewerCredential(): Promise<boolean>;
+    _notifyRateLimited(rateLimitError: RateLimitError): Promise<void>;
   }
 
   type RequestOptions = {

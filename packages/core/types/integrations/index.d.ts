@@ -1,6 +1,22 @@
 declare module "@friggframework/integrations" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
 
+  export type IntegrationMessageAction =
+    | { type: "RETRY_WHEN_READY" }
+    | { type: "LINK"; label: string; url: string };
+
+  export interface IntegrationMessage {
+    title: string;
+    message: string;
+    timestamp: number;
+    code?: string;
+    module?: string;
+    reason?: string;
+    retryAt?: string;
+    actions?: IntegrationMessageAction[];
+    [key: string]: unknown;
+  }
+
   export interface Integration {
     entities: any[];
     userId: string;
@@ -8,10 +24,10 @@ declare module "@friggframework/integrations" {
     config: any;
     version: string;
     messages: {
-      errors: [];
-      warnings: [];
-      info: [];
-      logs: [];
+      errors: IntegrationMessage[];
+      warnings: IntegrationMessage[];
+      info: IntegrationMessage[];
+      logs: IntegrationMessage[];
     };
   }
 
