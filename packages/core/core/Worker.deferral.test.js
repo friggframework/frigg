@@ -299,6 +299,35 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             ]);
         });
 
+        it('extends the visibility timeout when the scheduler cannot be built, and tries to build it again', async () => {
+            const factory = require('../infrastructure/scheduler/scheduler-service-factory');
+            jest.spyOn(factory, 'createSchedulerService').mockImplementation(
+                () => {
+                    throw new Error('bad scheduler config');
+                }
+            );
+            worker._run.mockRejectedValue(rateLimited(20 * MINUTE));
+
+            const first = await run();
+            const second = await run(sqsRecord({ messageId: 'msg-2' }));
+
+            expect(first).toEqual(failure());
+            expect(second).toEqual(failure('msg-2'));
+            expect(visibility()).toHaveLength(2);
+            expect(logged('record_visibility_extended')).toEqual([
+                expect.objectContaining({
+                    scheduleError: expect.objectContaining({
+                        message: 'bad scheduler config',
+                    }),
+                }),
+                expect.objectContaining({
+                    scheduleError: expect.objectContaining({
+                        message: 'bad scheduler config',
+                    }),
+                }),
+            ]);
+        });
+
         it('never uses the mock scheduler, even when the environment names it', async () => {
             process.env.SCHEDULER_PROVIDER = 'mock';
             worker._run.mockRejectedValue(rateLimited(20 * MINUTE));

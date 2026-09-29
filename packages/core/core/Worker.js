@@ -198,10 +198,10 @@ class Worker {
 
     async _deferWithSchedule(deferral) {
         const { record, retryAt, deferredBody } = deferral;
-        const scheduler = this.getSchedulerService();
-        if (!scheduler) return null;
         const scheduleName = `frigg-defer-${record.messageId}`;
         try {
+            const scheduler = this.getSchedulerService();
+            if (!scheduler) return null;
             await scheduler.scheduleOneTime({
                 scheduleName,
                 scheduleAt: retryAt,
@@ -267,19 +267,20 @@ class Worker {
 
     getSchedulerService() {
         if (this._schedulerService !== undefined) return this._schedulerService;
-        this._schedulerService = null;
         if (
-            process.env.SCHEDULER_ROLE_ARN &&
-            process.env.SCHEDULER_PROVIDER !== 'mock'
+            !process.env.SCHEDULER_ROLE_ARN ||
+            process.env.SCHEDULER_PROVIDER === 'mock'
         ) {
-            const {
-                createSchedulerService,
-                SCHEDULER_PROVIDERS,
-            } = require('../infrastructure/scheduler/scheduler-service-factory');
-            this._schedulerService = createSchedulerService({
-                provider: SCHEDULER_PROVIDERS.EVENTBRIDGE,
-            });
+            this._schedulerService = null;
+            return null;
         }
+        const {
+            createSchedulerService,
+            SCHEDULER_PROVIDERS,
+        } = require('../infrastructure/scheduler/scheduler-service-factory');
+        this._schedulerService = createSchedulerService({
+            provider: SCHEDULER_PROVIDERS.EVENTBRIDGE,
+        });
         return this._schedulerService;
     }
 
