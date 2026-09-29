@@ -119,9 +119,10 @@ a delivery. #653 stays the fallback when no hint exists.
 
 The [appendix](#appendix-code-sketches) shows code sketches for each part.
 They are illustrative. The implementation PRs can change names and
-signatures. Phase 1 is friggframework/frigg#656 and phase 2 is
-friggframework/frigg#657; where a sketch and the code differ, the code and the
-text of this section are right.
+signatures. Phase 1 is friggframework/frigg#656, phase 2 is
+friggframework/frigg#657, phase 3 is friggframework/api-module-library#102 and
+phase 4 is friggframework/frigg#658; where a sketch and the code differ, the
+code and the text of this section are right.
 
 ### 1. The API-module contract
 
@@ -292,8 +293,8 @@ integration does not change: a rate limit is not an error.
 |---|---|---|
 | 1 (core, opt-in; frigg#656) | Parsers, `static rateLimit`, honour `Retry-After` and `minRetryAfterMs`, the budget cap, `RateLimitError`, the halt exemption. No queue change: the error still rethrows. | `modules/requester/requester.js`, `modules/requester/rate-limit/*`, `errors/rate-limit-error.js`, `errors/index.js`, `core/invocation-deadline.js`, `core/invocation-scope.js`, `handlers/backend-utils.js`, `packages/core/CLAUDE.md` |
 | 2 (core + devtools; frigg#657) | Defer in `Worker.run`, run state, the scheduler switch, the IAM action. | `core/Worker.js`, `queues/queue-deferral.js`, `queues/queuer-util.js`, `handlers/backend-utils.js`, `modules/requester/oauth-2.js`, `devtools/.../scheduler-builder.js`, `base-definition-factory.js`, `docs/guides/INTEGRATION-PATTERNS.md` |
-| 3 (api-module-library) | Policies and classifiers: HubSpot (`policyName`, `X-HubSpot-RateLimit-*`), Salesforce (403 `REQUEST_LIMIT_EXCEEDED`, `limitInfo`), Pipedrive (`x-ratelimit-*`). | each module's `api.js` and tests |
-| 4 (core) | The `RATE_LIMITED` delegate, the message shape, the `RETRY_WHEN_READY` action. | `modules/module.js`, `integrations/integration-base.js` |
+| 3 (api-module-library#102) | Policies and classifiers: HubSpot (`policyName`), Salesforce (403 `REQUEST_LIMIT_EXCEEDED`, `withLimits`), Pipedrive (`x-ratelimit-*`). | each module's `api.js`, README and tests |
+| 4 (core; frigg#658) | The `RATE_LIMITED` delegate, the message shape, the `RETRY_WHEN_READY` action, a repository read for the stored messages, and the fix that made `updateIntegrationMessages` append. | `modules/requester/requester.js`, `modules/module.js`, `integrations/integration-base.js`, `integrations/use-cases/record-rate-limit-message.js`, `integrations/repositories/*` |
 | 5 (core + devtools) | Pacing 2a, then 2b. | `modules/requester/rate-limit/*`, `integration-builder.js` |
 
 ### 8. Testing
