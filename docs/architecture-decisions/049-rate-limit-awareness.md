@@ -414,8 +414,11 @@ These sketches show the proposed API. They are illustrative, not final.
 ### A.1 API module: headers and a body reason (HubSpot-style)
 
 The 10-second window comes from the provider docs. The body tells which
-limit was hit, so `classify()` turns a daily limit into a wait until the
-reset.
+limit was hit, so `classify()` names a daily limit. HubSpot resets a daily
+limit at midnight in the time zone of the account, and the module does not know
+that zone, so it probes every hour. A burst limit names only its reason: its
+time comes from `Retry-After` when there is one, and from the burst window when
+there is none.
 
 ```js
 class Api extends OAuth2Requester {
@@ -428,9 +431,9 @@ class Api extends OAuth2Requester {
         classify({ status, body }) {
             if (status !== 429) return null;
             if (body?.policyName === 'DAILY') {
-                return { reason: 'daily', retryAt: nextMidnight('UTC'), source: 'body' };
+                return { reason: 'daily', policy: 'DAILY', waitMs: 3_600_000, source: 'static' };
             }
-            return { reason: 'burst', waitMs: 10_000, policy: body?.policyName, source: 'body' };
+            return { reason: 'burst', policy: body?.policyName };
         },
 
         userHints: {
@@ -469,6 +472,11 @@ class Api extends OAuth2Requester {
 Salesforce signals its 24-hour limit with a 403. Today the queue worker halts
 that error at once. The module calls the exported classifier around its own
 client. The response has no reset time, so the policy sets a probe interval.
+The same error code also means too many concurrent long-running requests,
+which clears in seconds. Salesforce documents no field that tells the two
+apart, so the module reads the message: one that contains "concurrent" is a
+short concurrency wait, and any other message is the daily limit. The module
+also tells its delegate, so the integration records the warning of section 5.
 
 ```js
 const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
@@ -479,6 +487,9 @@ class Api extends OAuth2Requester {
         windows: [{ name: 'daily', rollingMs: 24 * 60 * 60_000 }],
         classify({ body }) {
             if (body?.errorCode !== 'REQUEST_LIMIT_EXCEEDED') return null;
+            if (/concurrent/i.test(body.message ?? '')) {
+                return { reason: 'concurrency', waitMs: 30_000, source: 'static' };
+            }
             return { reason: 'daily', waitMs: 60 * 60_000, source: 'static' };
         },
     };
@@ -489,11 +500,13 @@ class Api extends OAuth2Requester {
         } catch (err) {
             const hint = classifyRateLimit(Api.rateLimit, {
                 status: err.statusCode,
-                body: { errorCode: err.errorCode },
+                body: { errorCode: err.errorCode, message: err.message },
                 headers: {},
             });
             if (!hint) throw err;
-            throw new RateLimitError({ hint, module: this.name, cause: err });
+            const error = new RateLimitError({ hint, module: this.name, cause: err });
+            await this._notifyRateLimited?.(error);       // the integration records the warning
+            throw error;
         }
     }
 
