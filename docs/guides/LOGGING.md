@@ -167,7 +167,7 @@ each wait that a provider or a module policy set. It carries `statusCode`,
 `waitMs`, `retryAt`, `reason`, `hintSource`, `attempt` and `waitedMs`. The
 plain backoff ladder writes none. The `RateLimitError` it throws gets no record
 of its own: the boundary logs it, and its `error` field carries `retryAt` and
-`reason`. A `classify()` that throws writes one `WARN`,
+`reason`. A `classify()` that throws or returns a Promise writes one `WARN`,
 `module.<name>.rate_limit_classify_failed`.
 
 `FRIGG_LOG_LEVEL` sets the minimum level. The logger drops a record below it
