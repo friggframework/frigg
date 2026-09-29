@@ -62,6 +62,19 @@ function sqsRecord(overrides = {}) {
     };
 }
 
+function deferredBody(
+    deferrals,
+    firstDeferredAt = new Date(NOW).toISOString()
+) {
+    return { ...BODY, _frigg: { deferrals, firstDeferredAt } };
+}
+
+function deferredRecord(deferrals, firstDeferredAt) {
+    return sqsRecord({
+        body: JSON.stringify(deferredBody(deferrals, firstDeferredAt)),
+    });
+}
+
 describe('Worker rate-limit deferral (ADR-049)', () => {
     let sqsMock;
     let schedulerMock;
@@ -134,13 +147,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
                 QueueUrl: QUEUE_URL,
                 DelaySeconds: 60,
             });
-            expect(sentBody()).toEqual({
-                ...BODY,
-                _frigg: {
-                    deferrals: 1,
-                    firstDeferredAt: new Date(NOW).toISOString(),
-                },
-            });
+            expect(sentBody()).toEqual(deferredBody(1));
             expect(worker._run).toHaveBeenCalledTimes(1);
         });
 
@@ -175,14 +182,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             const firstDeferredAt = new Date(NOW - 10 * MINUTE).toISOString();
             worker._run.mockRejectedValue(rateLimited(60 * SECOND));
 
-            await run(
-                sqsRecord({
-                    body: JSON.stringify({
-                        ...BODY,
-                        _frigg: { deferrals: 2, firstDeferredAt },
-                    }),
-                })
-            );
+            await run(deferredRecord(2, firstDeferredAt));
 
             expect(sentBody()._frigg).toEqual({
                 deferrals: 3,
@@ -220,13 +220,12 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
 
         it('hands the deferred message to _run with the counters and a fresh delivery', async () => {
             const firstDeferredAt = new Date(NOW - MINUTE).toISOString();
-            const body = { ...BODY, _frigg: { deferrals: 1, firstDeferredAt } };
             worker._run.mockResolvedValue(undefined);
 
-            await run(sqsRecord({ body: JSON.stringify(body) }));
+            await run(deferredRecord(1, firstDeferredAt));
 
             expect(worker._run).toHaveBeenCalledWith(
-                body,
+                deferredBody(1, firstDeferredAt),
                 {},
                 expect.objectContaining({ receiveCount: 1 })
             );
@@ -255,13 +254,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
                 ActionAfterCompletion: 'DELETE',
                 Target: { Arn: QUEUE_ARN, RoleArn: SCHEDULER_ROLE_ARN },
             });
-            expect(JSON.parse(schedule.Target.Input)).toEqual({
-                ...BODY,
-                _frigg: {
-                    deferrals: 1,
-                    firstDeferredAt: new Date(NOW).toISOString(),
-                },
-            });
+            expect(JSON.parse(schedule.Target.Input)).toEqual(deferredBody(1));
         });
 
         it('takes a schedule that exists already as scheduled', async () => {
@@ -367,14 +360,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             const firstDeferredAt = new Date(NOW - MINUTE).toISOString();
             worker._run.mockRejectedValue(rateLimited(60 * SECOND));
 
-            const result = await run(
-                sqsRecord({
-                    body: JSON.stringify({
-                        ...BODY,
-                        _frigg: { deferrals: 2, firstDeferredAt },
-                    }),
-                })
-            );
+            const result = await run(deferredRecord(2, firstDeferredAt));
 
             expect(result).toEqual(failure());
             expect(sent()).toEqual([]);
@@ -403,14 +389,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             const firstDeferredAt = new Date(NOW - 23 * HOUR).toISOString();
             worker._run.mockRejectedValue(rateLimited(2 * HOUR));
 
-            const result = await run(
-                sqsRecord({
-                    body: JSON.stringify({
-                        ...BODY,
-                        _frigg: { deferrals: 1, firstDeferredAt },
-                    }),
-                })
-            );
+            const result = await run(deferredRecord(1, firstDeferredAt));
 
             expect(result).toEqual(failure());
             expect(logged('record_deferral_capped')).toHaveLength(1);
@@ -637,17 +616,12 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
 
         it('clears the wait after a deferred message succeeds', async () => {
             worker._run.mockResolvedValue(undefined);
-            const body = {
-                ...BODY,
-                _frigg: {
-                    deferrals: 1,
-                    firstDeferredAt: new Date(NOW).toISOString(),
-                },
-            };
 
-            await run(sqsRecord({ body: JSON.stringify(body) }));
+            await run(deferredRecord(1));
 
-            expect(worker.clearRateLimitWait).toHaveBeenCalledWith(body);
+            expect(worker.clearRateLimitWait).toHaveBeenCalledWith(
+                deferredBody(1)
+            );
         });
 
         it('clears the wait after a redelivered message succeeds', async () => {
