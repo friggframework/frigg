@@ -916,14 +916,13 @@ class IntegrationBase {
         }
 
         if (delegateString === 'RATE_LIMITED') {
-            const moduleName = object?.moduleName ?? notifier?.name;
             this.logger.warn('Module reported a rate limit', {
                 eventName: `${this.logger.name}.rate_limited`,
-                moduleName,
+                moduleName: object?.moduleName,
                 reason: object?.reason,
                 retryAt: object?.retryAt,
             });
-            await this._recordRateLimitMessage({ ...object, moduleName });
+            await this._recordRateLimitMessage(object);
         }
     }
 

@@ -408,7 +408,7 @@ describe('IntegrationBase.receiveNotification', () => {
             );
         });
 
-        it('takes the module name from the notifier when the payload has none', async () => {
+        it('passes a payload without a module name as it is, with no name from the notifier', async () => {
             const withoutName = { ...payload };
             delete withoutName.moduleName;
 
@@ -420,7 +420,7 @@ describe('IntegrationBase.receiveNotification', () => {
 
             expect(mockRecordRateLimitMessage.execute).toHaveBeenCalledWith(
                 'int-1',
-                { ...withoutName, moduleName: 'testmodule' }
+                withoutName
             );
         });
 
