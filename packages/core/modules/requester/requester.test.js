@@ -679,21 +679,19 @@ describe('Requester', () => {
         });
 
         describe('logging', () => {
-            it('writes one INFO record for a wait that a header set', async () => {
+            it('writes one TRACE record for a wait that a header set', async () => {
                 const fetch = throttledFetch([
                     limited({ 'Retry-After': '5' }),
                     ok,
                 ]);
                 await makeRequester(fetch)._get({ url });
 
-                expect(
-                    sink.records.filter(
-                        (r) =>
-                            r.eventName === 'module.TestRequester.rate_limited'
-                    )
-                ).toEqual([
+                const records = sink.records.filter(
+                    (r) => r.eventName === 'module.TestRequester.rate_limited'
+                );
+                expect(records).toEqual([
                     expect.objectContaining({
-                        level: 'INFO',
+                        level: 'TRACE',
                         logger: 'module.TestRequester',
                         statusCode: 429,
                         waitMs: 5_000,
@@ -701,27 +699,26 @@ describe('Requester', () => {
                         hintSource: 'header',
                         attempt: 0,
                         waitedMs: 0,
-                        action: 'wait',
                         retryAt: expect.any(String),
                     }),
                 ]);
+                expect(records[0]).not.toHaveProperty('action');
             });
 
-            it('says throw when the wait does not fit', async () => {
+            it('writes no rate-limit record for the error it throws', async () => {
                 const fetch = throttledFetch([
                     limited({ 'Retry-After': '400' }),
                 ]);
-                await makeRequester(fetch)
+                const error = await makeRequester(fetch)
                     ._get({ url })
-                    .catch(() => {});
+                    .catch((e) => e);
 
-                const [record] = sink.records.filter(
-                    (r) => r.eventName === 'module.TestRequester.rate_limited'
-                );
-                expect(record).toMatchObject({
-                    action: 'throw',
-                    waitMs: 400_000,
-                });
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(
+                    sink.records.filter((r) =>
+                        r.eventName?.endsWith('.rate_limited')
+                    )
+                ).toEqual([]);
             });
         });
     });

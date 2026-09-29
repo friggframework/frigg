@@ -523,15 +523,10 @@ class Requester extends Delegate {
             budgetMs,
             random: this._random,
         });
-        this._logRateLimited({
-            status,
-            hint,
-            waitMs,
-            attempt,
-            waitedMs,
-            action: fits ? 'wait' : 'throw',
-        });
-        if (fits) return waitMs;
+        if (fits) {
+            this._logRateLimited({ status, hint, waitMs, attempt, waitedMs });
+            return waitMs;
+        }
 
         this._logRequestFailed(encodedUrl, options, status);
         const rateLimitError = await RateLimitError.create({
@@ -591,9 +586,9 @@ class Requester extends Delegate {
         }
     }
 
-    _logRateLimited({ status, hint, waitMs, attempt, waitedMs, action }) {
+    _logRateLimited({ status, hint, waitMs, attempt, waitedMs }) {
         const logger = this.logger;
-        logger.info('Rate limited', {
+        logger.trace('Rate limited', {
             eventName: `${logger.name}.rate_limited`,
             statusCode: status,
             waitMs,
@@ -602,7 +597,6 @@ class Requester extends Delegate {
             hintSource: hint.source,
             attempt,
             waitedMs,
-            action,
         });
     }
 
