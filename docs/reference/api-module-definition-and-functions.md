@@ -229,13 +229,28 @@ response has one.
 
 | Key | Meaning |
 |---|---|
-| `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a function `(requester) => key`. The Requester puts it on `RateLimitError.scopeKey`. |
+| `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a function `(requester) => key`. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope. |
 | `minRetryAfterMs` | A wait never shorter than this. Use it when the docs say "wait 60 seconds" and the response says nothing. |
 | `maxInProcessWaitMs` | The most one request sleeps in process, in total. Default `300000` (5 minutes). `0` means never sleep: every hinted wait throws `RateLimitError`. |
-| `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. |
+| `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
 | `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does. Pacing uses them later. |
 | `userHints` | Links per `reason` that a UI can show, for example `{ daily: { links: [{ label, url }] } }`. |
+
+### Built-in parsers
+
+| Parser | Reads |
+|---|---|
+| `retryAfter` | `Retry-After`: delta seconds, an HTTP-date or an ISO timestamp |
+| `resetHeaders` | `X-RateLimit-Reset-After` (delta seconds), else `X-RateLimit-Reset`, `RateLimit-Reset` or `X-Rate-Limit-Reset`: epoch milliseconds, epoch seconds or delta seconds (told apart by size), or a date. `remaining` comes from `X-RateLimit-Remaining`, `RateLimit-Remaining` or `X-Rate-Limit-Remaining` |
+| `ietf` | The IETF `RateLimit` field, as `limit=, remaining=, reset=` or as structured items (`"name";r=0;t=12`). In a list, the item with the fewest remaining calls wins, then the longest wait. `RateLimit-Policy` names the policy |
+
+A parser reads the headers from a `Headers` object, a `Map`, an entries array or
+a plain object, and matches the names in any case. A time in the past waits
+0 ms. A wait that is negative, not a number or longer than 366 days is ignored.
+The package exports the parsers as `parseRetryAfter(value, { now })`,
+`parseResetHeaders(headers, { now })` and `parseIetfRateLimit(headers, { now })`.
+Each returns a hint or `null`.
 
 ### What `classify` returns
 
@@ -319,6 +334,27 @@ async withLimits(call) {
     }
 }
 ```
+
+`classifyRateLimit(policy, { status, headers, body }, { now, onClassifyError })`
+resolves in the order the Requester uses and returns a hint or `null`. A hint is
+`{ retryAt, waitMs, reason, source, policy, remaining }`: `retryAt` is a `Date`,
+`waitMs` counts from the call, and `policy` and `remaining` are there only when
+known. An error that `classify` throws propagates unless you pass
+`onClassifyError`.
+
+`new RateLimitError({ hint, waitMs, module, scopeKey, ...fetchErrorArgs })`
+takes the `FetchError` arguments (`resource`, `init`, `response`, `cause`,
+`responseBody`). It sets `retryAt` to now plus `waitMs`, or to `hint.retryAt`
+when `waitMs` is left out.
+
+### The invocation deadline
+
+`runInvocationScope` stores the end of every Lambda invocation, from
+`context.getRemainingTimeInMillis()`. `remainingInvocationMs()` returns the
+milliseconds left, or `Infinity` outside an invocation (tests, `frigg start`,
+scripts). `runWithInvocationDeadline(deadlineAt, fn)` runs `fn` with a deadline
+in epoch milliseconds. A nested call can only make the deadline earlier, and a
+deadline that is not a finite number sets none.
 
 ## Complete OAuth2 Example
 

@@ -235,9 +235,6 @@ class Requester extends Delegate {
      * @param {number} attempt - 0-based count of retries already made for
      *   this call. Indexes `this.backOff` for the next delay and is passed
      *   back in on each recursive retry.
-     * @param {number} waitedMs - Milliseconds this call has slept already
-     *   for a wait that a provider or a policy set. It counts against the
-     *   in-process cap.
      */
     async _rawRequest(url, options, attempt = 0, waitedMs = 0) {
         let encodedUrl = encodeURI(url);
@@ -497,15 +494,6 @@ class Requester extends Delegate {
         }
     }
 
-    /**
-     * What to do about a throttled response: the delay before the next
-     * attempt, or null when there is no attempt left. A wait that a hint set
-     * and that does not fit the budget throws RateLimitError.
-     *
-     * @returns {Promise<{delayMs: number, hintedMs: number}|null>}
-     *   `hintedMs` is the part of the delay that a provider or a policy set,
-     *   which counts against the in-process cap.
-     */
     async _throttleRetry({
         throttle,
         status,
@@ -560,14 +548,6 @@ class Requester extends Delegate {
         throw this._maybeFlagTimeoutDuringBodyRead(rateLimitError, timeoutMs);
     }
 
-    /**
-     * Decides whether a response says a limit was hit. A 429 always does. A
-     * 4xx or 5xx other than 401 does only when the module's classify() names
-     * a limit. The body is read here, once, only for classify(); the text is
-     * handed on so the error need not read the stream again.
-     *
-     * @returns {Promise<{throttled: boolean, hint?: object, responseBody?: string}|null>}
-     */
     async _detectThrottle(response, status, attempt) {
         const policy = this._rateLimitPolicy;
         const canClassify =

@@ -79,11 +79,6 @@ function normalizePolicy(raw, owner) {
     return policy;
 }
 
-/**
- * Reads the static `rateLimit` policy of an API module class. Returns
- * undefined when the class declares none. The result is memoized per class.
- * Throws a TypeError for a parser name that is not built in.
- */
 function readRateLimitPolicy(ctor) {
     if (typeof ctor !== 'function') return undefined;
     if (policiesByClass.has(ctor)) return policiesByClass.get(ctor);
@@ -98,10 +93,6 @@ function asPolicy(value) {
     return normalizePolicy(value, 'policy');
 }
 
-/**
- * The key a limit counts against, for one requester. Undefined when the
- * scope needs an id that the requester does not have.
- */
 function computeScopeKey(policy, requester) {
     const label = requester?._telemetryModuleLabel?.() ?? 'unknown';
     const scope = policy?.scope ?? 'entity';
@@ -226,28 +217,12 @@ function resolveCandidates(policy, signal, { now, onClassifyError }) {
     return { hint: null, classified };
 }
 
-/**
- * Finds the hint of a throttled response: the module's classify(), then the
- * header parsers, then the static policy. Returns null when there is none.
- * A status other than 429 counts only when classify recognised it.
- *
- * @param {object} [policy] The static `rateLimit` object of an API module.
- * @param {{status?: number, headers?: object, body?: unknown}} signal
- * @param {{now?: number, onClassifyError?: (error: Error) => void}} [options]
- *   Without `onClassifyError` an error thrown by classify propagates.
- */
 function classifyRateLimit(policy, signal, options = {}) {
     const { now = Date.now(), onClassifyError } = options;
     return resolveCandidates(asPolicy(policy), signal, { now, onClassifyError })
         .hint;
 }
 
-/**
- * Like classifyRateLimit, but a throttled response always gets a hint: with
- * none found it gets the step of the fixed backoff ladder, with source
- * "backoff". Null when the response is not throttled: a status other than 429
- * that classify did not recognise.
- */
 function resolveRateLimitHint(policy, signal, options = {}) {
     const {
         attempt = 0,
@@ -276,11 +251,6 @@ function resolveRateLimitHint(policy, signal, options = {}) {
     };
 }
 
-/**
- * The wait before the next attempt, for a hint that came from the provider
- * or the policy. Jitter only adds to the wait and never passes the budget.
- * `fits` is false when the wait alone is over the budget.
- */
 function computeWaitMs({ hint, policy, budgetMs, random = Math.random }) {
     const base = Math.max(
         hint.waitMs,
@@ -295,10 +265,6 @@ function computeWaitMs({ hint, policy, budgetMs, random = Math.random }) {
     return { waitMs: Math.min(base + jitter, budgetMs), fits: true };
 }
 
-/**
- * How long this request may still sleep in process: the cap, less what it
- * slept already, and the time left in the invocation, less one request.
- */
 function inProcessBudgetMs({
     policy,
     requestTimeoutMs = 0,
