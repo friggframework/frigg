@@ -313,6 +313,9 @@ class Api extends ApiKeyRequester {
    `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
    `policy`, `source`, `module` and `scopeKey`.
 
+A Requester built with `backOff: []` never sleeps: a hinted wait throws
+`RateLimitError` at once, and a 429 with no hint throws a plain `FetchError`.
+
 `Retry-After` is read on a 429 only. The queue worker does not halt a
 `RateLimitError`, even when its status is 403: the message goes back to SQS.
 

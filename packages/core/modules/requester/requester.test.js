@@ -400,6 +400,62 @@ describe('Requester', () => {
             });
         });
 
+        describe('with an empty backOff', () => {
+            it('throws a RateLimitError at once for a Retry-After', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '2' }),
+                    ok,
+                ]);
+
+                const error = await makeRequester(fetch, { backOff: [] })
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(error).toMatchObject({
+                    statusCode: 429,
+                    source: 'header',
+                });
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+            });
+
+            it('throws a RateLimitError at once for a hint that classify gives', async () => {
+                const Api = withPolicy({
+                    classify: () => ({ reason: 'daily', waitMs: 2_000 }),
+                });
+                const fetch = throttledFetch([
+                    { status: 403, body: { code: 'LIMIT' } },
+                    ok,
+                ]);
+
+                const error = await makeRequester(fetch, { backOff: [] }, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(error).toMatchObject({
+                    statusCode: 403,
+                    reason: 'daily',
+                });
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+            });
+
+            it('still throws a plain FetchError for a 429 without a hint', async () => {
+                const fetch = throttledFetch([limited(), ok]);
+
+                const error = await makeRequester(fetch, { backOff: [] })
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(FetchError);
+                expect(error).not.toBeInstanceOf(RateLimitError);
+                expect(error.statusCode).toBe(429);
+                expect(fetch).toHaveBeenCalledTimes(1);
+            });
+        });
+
         describe('static rateLimit', () => {
             it('makes minRetryAfterMs the wait of a bare 429', async () => {
                 const Api = withPolicy({ minRetryAfterMs: 60_000 });

@@ -498,12 +498,14 @@ class Requester extends Delegate {
             return null;
         }
         const { hint } = throttle;
-        const budgetMs = inProcessBudgetMs({
-            policy: this._rateLimitPolicy,
-            requestTimeoutMs: this.requestTimeoutMs,
-            remainingMs: remainingInvocationMs(),
-            waitedMs,
-        });
+        const budgetMs = this.backOff.length
+            ? inProcessBudgetMs({
+                  policy: this._rateLimitPolicy,
+                  requestTimeoutMs: this.requestTimeoutMs,
+                  remainingMs: remainingInvocationMs(),
+                  waitedMs,
+              })
+            : 0;
         const { waitMs, fits } = computeWaitMs({
             hint,
             policy: this._rateLimitPolicy,
