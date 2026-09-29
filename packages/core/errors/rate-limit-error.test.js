@@ -201,5 +201,19 @@ describe('RateLimitError', () => {
                 status: 429,
             });
         });
+
+        it('serializes when the limit clears and why', () => {
+            const error = new RateLimitError({
+                resource: 'https://h.example',
+                response: { status: 429 },
+                hint,
+                waitMs: 5_000,
+                now: NOW,
+            });
+            expect(serializeError(error)).toMatchObject({
+                retryAt: '2026-09-28T12:00:05.000Z',
+                reason: 'daily',
+            });
+        });
     });
 });
