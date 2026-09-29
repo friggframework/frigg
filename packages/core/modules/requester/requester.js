@@ -331,7 +331,7 @@ class Requester extends Delegate {
                 status,
                 attempt
             );
-            const throttleRetry = await this._throttleRetry({
+            const hintedDelayMs = await this._hintedRetryDelayMs({
                 throttle,
                 status,
                 attempt,
@@ -341,21 +341,24 @@ class Requester extends Delegate {
                 response,
                 timeoutMs,
             });
-            if (throttleRetry) {
+            if (hintedDelayMs !== null) {
                 clearRequestTimer();
                 await new Promise((resolve) =>
-                    setTimeout(resolve, throttleRetry.delayMs)
+                    setTimeout(resolve, hintedDelayMs)
                 );
                 return this._rawRequest(
                     url,
                     options,
                     attempt + 1,
-                    waitedMs + throttleRetry.hintedMs
+                    waitedMs + hintedDelayMs
                 );
             }
 
             // If the status is retriable and there are back off requests left, retry the request
-            if (status >= 500 && attempt < this.backOff.length) {
+            if (
+                (throttle?.throttled || status >= 500) &&
+                attempt < this.backOff.length
+            ) {
                 clearRequestTimer();
                 const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
@@ -494,7 +497,7 @@ class Requester extends Delegate {
         }
     }
 
-    async _throttleRetry({
+    async _hintedRetryDelayMs({
         throttle,
         status,
         attempt,
@@ -504,14 +507,10 @@ class Requester extends Delegate {
         response,
         timeoutMs,
     }) {
-        if (!throttle?.throttled) return null;
-        const { hint } = throttle;
-        if (hint.source === 'backoff') {
-            return attempt < this.backOff.length
-                ? { delayMs: this.backOff[attempt] * 1000, hintedMs: 0 }
-                : null;
+        if (!throttle?.throttled || throttle.hint.source === 'backoff') {
+            return null;
         }
-
+        const { hint } = throttle;
         const budgetMs = inProcessBudgetMs({
             policy: this._rateLimitPolicy,
             requestTimeoutMs: this.requestTimeoutMs,
@@ -532,7 +531,7 @@ class Requester extends Delegate {
             waitedMs,
             action: fits ? 'wait' : 'throw',
         });
-        if (fits) return { delayMs: waitMs, hintedMs: waitMs };
+        if (fits) return waitMs;
 
         this._logRequestFailed(encodedUrl, options, status);
         const rateLimitError = await RateLimitError.create({
