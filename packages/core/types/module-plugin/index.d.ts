@@ -130,6 +130,7 @@ declare module "@friggframework/module-plugin" {
   type RequesterConstructor = {
     backOff?: number[];
     fetch?: any;
+    random?: () => number;
   };
 
   export class ApiKeyRequester
