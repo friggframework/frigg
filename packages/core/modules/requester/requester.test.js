@@ -329,9 +329,31 @@ describe('Requester', () => {
                 expect(delays).toEqual([200_000, 3_000]);
             });
 
+            it('sleeps a short wait inside an invocation shorter than the default request timeout', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '2' }),
+                    ok,
+                ]);
+                const requester = makeRequester(fetch, {
+                    requestTimeoutMs: undefined,
+                });
+
+                const result = await runWithInvocationDeadline(
+                    Date.now() + 29_000,
+                    () => requester._get({ url })
+                );
+
+                expect(requester.requestTimeoutMs).toBe(60_000);
+                expect(result).toEqual({ ok: true });
+                expect(delays.filter((delay) => delay !== 60_000)).toEqual([
+                    2_000,
+                ]);
+                expect(fetch).toHaveBeenCalledTimes(2);
+            });
+
             it('throws at once when the wait does not fit the time left in the invocation', async () => {
                 const fetch = throttledFetch([
-                    limited({ 'Retry-After': '4' }),
+                    limited({ 'Retry-After': '5' }),
                     ok,
                 ]);
                 const requester = makeRequester(fetch, {
@@ -375,6 +397,62 @@ describe('Requester', () => {
 
                 expect(fetch.responses[0].text).toHaveBeenCalledTimes(1);
                 expect(error.body).toContain('slow down');
+            });
+        });
+
+        describe('with an empty backOff', () => {
+            it('throws a RateLimitError at once for a Retry-After', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '2' }),
+                    ok,
+                ]);
+
+                const error = await makeRequester(fetch, { backOff: [] })
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(error).toMatchObject({
+                    statusCode: 429,
+                    source: 'header',
+                });
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+            });
+
+            it('throws a RateLimitError at once for a hint that classify gives', async () => {
+                const Api = withPolicy({
+                    classify: () => ({ reason: 'daily', waitMs: 2_000 }),
+                });
+                const fetch = throttledFetch([
+                    { status: 403, body: { code: 'LIMIT' } },
+                    ok,
+                ]);
+
+                const error = await makeRequester(fetch, { backOff: [] }, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(error).toMatchObject({
+                    statusCode: 403,
+                    reason: 'daily',
+                });
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+            });
+
+            it('still throws a plain FetchError for a 429 without a hint', async () => {
+                const fetch = throttledFetch([limited(), ok]);
+
+                const error = await makeRequester(fetch, { backOff: [] })
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(FetchError);
+                expect(error).not.toBeInstanceOf(RateLimitError);
+                expect(error.statusCode).toBe(429);
+                expect(fetch).toHaveBeenCalledTimes(1);
             });
         });
 
@@ -556,8 +634,8 @@ describe('Requester', () => {
                 }
             );
 
-            it.each(['text/plain', 'application/xml', 'application/jsonp'])(
-                'hands classify no body for a %s response',
+            it.each(['text/plain', 'application/x-amz-json-1.1'])(
+                'hands classify the parsed body of JSON sent as %s',
                 async (contentType) => {
                     const classify = jest.fn(() => ({
                         reason: 'burst',
@@ -571,9 +649,60 @@ describe('Requester', () => {
 
                     await makeRequester(fetch, {}, Api)._get({ url });
 
-                    expect(classify.mock.calls[0][0].body).toBeUndefined();
+                    expect(classify.mock.calls[0][0].body).toEqual({
+                        code: 'LIMIT',
+                    });
                 }
             );
+
+            it('hands classify an undefined body for an HTML error page', async () => {
+                const classify = jest.fn(() => null);
+                const Api = withPolicy({ classify });
+                const fetch = throttledFetch([
+                    {
+                        status: 403,
+                        contentType: 'text/html',
+                        text: '<html><body>Forbidden</body></html>',
+                    },
+                ]);
+
+                const error = await makeRequester(fetch, {}, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(classify.mock.calls[0][0].body).toBeUndefined();
+                expect(error.body).toBe('<html><body>Forbidden</body></html>');
+            });
+
+            it('sleeps the Retry-After of a reason-only classify and keeps its reason', async () => {
+                const Api = withPolicy({
+                    classify: () => ({ reason: 'burst' }),
+                });
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '7' }),
+                    ok,
+                ]);
+
+                const result = await makeRequester(fetch, {}, Api)._get({
+                    url,
+                });
+
+                expect(result).toEqual({ ok: true });
+                expect(delays).toEqual([7_000]);
+                expect(
+                    sink.records.filter(
+                        (r) =>
+                            r.eventName ===
+                            'module.PolicyRequester.rate_limited'
+                    )
+                ).toEqual([
+                    expect.objectContaining({
+                        waitMs: 7_000,
+                        reason: 'burst',
+                        hintSource: 'header',
+                    }),
+                ]);
+            });
 
             it('takes the time of a reason-only classify from Retry-After', async () => {
                 const Api = withPolicy({
@@ -610,6 +739,39 @@ describe('Requester', () => {
                 await makeRequester(fetch, {}, Api)._get({ url });
 
                 expect(classify.mock.calls[0][0].body).toBeUndefined();
+            });
+
+            it('does not retry or flag a 404 when classify returns a Promise', async () => {
+                const Api = withPolicy({
+                    classify: async () => ({ reason: 'daily' }),
+                });
+                const fetch = throttledFetch([{ status: 404 }, ok]);
+
+                const error = await makeRequester(fetch, {}, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(FetchError);
+                expect(error.statusCode).toBe(404);
+                expect(error.isRateLimited).toBeUndefined();
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+                expect(
+                    sink.records.filter(
+                        (r) =>
+                            r.eventName ===
+                            'module.PolicyRequester.rate_limit_classify_failed'
+                    )
+                ).toEqual([
+                    expect.objectContaining({
+                        level: 'WARN',
+                        statusCode: 404,
+                        error: expect.objectContaining({
+                            message:
+                                'classify() must return a hint or null, not a Promise',
+                        }),
+                    }),
+                ]);
             });
 
             it('does not call classify for a success or for a 401', async () => {
@@ -657,21 +819,19 @@ describe('Requester', () => {
         });
 
         describe('logging', () => {
-            it('writes one INFO record for a wait that a header set', async () => {
+            it('writes one TRACE record for a wait that a header set', async () => {
                 const fetch = throttledFetch([
                     limited({ 'Retry-After': '5' }),
                     ok,
                 ]);
                 await makeRequester(fetch)._get({ url });
 
-                expect(
-                    sink.records.filter(
-                        (r) =>
-                            r.eventName === 'module.TestRequester.rate_limited'
-                    )
-                ).toEqual([
+                const records = sink.records.filter(
+                    (r) => r.eventName === 'module.TestRequester.rate_limited'
+                );
+                expect(records).toEqual([
                     expect.objectContaining({
-                        level: 'INFO',
+                        level: 'TRACE',
                         logger: 'module.TestRequester',
                         statusCode: 429,
                         waitMs: 5_000,
@@ -679,27 +839,26 @@ describe('Requester', () => {
                         hintSource: 'header',
                         attempt: 0,
                         waitedMs: 0,
-                        action: 'wait',
                         retryAt: expect.any(String),
                     }),
                 ]);
+                expect(records[0]).not.toHaveProperty('action');
             });
 
-            it('says throw when the wait does not fit', async () => {
+            it('writes no rate-limit record for the error it throws', async () => {
                 const fetch = throttledFetch([
                     limited({ 'Retry-After': '400' }),
                 ]);
-                await makeRequester(fetch)
+                const error = await makeRequester(fetch)
                     ._get({ url })
-                    .catch(() => {});
+                    .catch((e) => e);
 
-                const [record] = sink.records.filter(
-                    (r) => r.eventName === 'module.TestRequester.rate_limited'
-                );
-                expect(record).toMatchObject({
-                    action: 'throw',
-                    waitMs: 400_000,
-                });
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(
+                    sink.records.filter((r) =>
+                        r.eventName?.endsWith('.rate_limited')
+                    )
+                ).toEqual([]);
             });
         });
     });

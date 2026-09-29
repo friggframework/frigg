@@ -1,5 +1,6 @@
 const {
     BUILT_IN_PARSERS,
+    definedOnly,
     hintFromRetryAt,
     hintFromWait,
 } = require('./parsers');
@@ -24,19 +25,12 @@ const normalizedPolicies = new WeakSet();
 const policiesByClass = new WeakMap();
 
 const isObject = (value) => value !== null && typeof value === 'object';
+const isThenable = (value) => typeof value?.then === 'function';
 
 function isPlainObject(value) {
     if (!isObject(value) || Array.isArray(value)) return false;
     const prototype = Object.getPrototypeOf(value);
     return prototype === Object.prototype || prototype === null;
-}
-
-function definedOnly(fields) {
-    const result = {};
-    for (const [key, value] of Object.entries(fields)) {
-        if (value !== undefined) result[key] = value;
-    }
-    return result;
 }
 
 function readParsers(raw, owner) {
@@ -79,11 +73,6 @@ function normalizePolicy(raw, owner) {
     return policy;
 }
 
-/**
- * Reads the static `rateLimit` policy of an API module class. Returns
- * undefined when the class declares none. The result is memoized per class.
- * Throws a TypeError for a parser name that is not built in.
- */
 function readRateLimitPolicy(ctor) {
     if (typeof ctor !== 'function') return undefined;
     if (policiesByClass.has(ctor)) return policiesByClass.get(ctor);
@@ -98,10 +87,6 @@ function asPolicy(value) {
     return normalizePolicy(value, 'policy');
 }
 
-/**
- * The key a limit counts against, for one requester. Undefined when the
- * scope needs an id that the requester does not have.
- */
 function computeScopeKey(policy, requester) {
     const label = requester?._telemetryModuleLabel?.() ?? 'unknown';
     const scope = policy?.scope ?? 'entity';
@@ -136,8 +121,18 @@ function computeScopeKey(policy, requester) {
     return undefined;
 }
 
+function toDate(value) {
+    if (value === undefined || value === null) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function normalizeClassified(raw, now) {
     if (!isObject(raw)) return null;
+    const retryAt = toDate(raw.retryAt);
+    if (!REASONS.has(raw.reason) && !Number.isFinite(raw.waitMs) && !retryAt) {
+        return null;
+    }
 
     const extra = {
         reason: REASONS.has(raw.reason) ? raw.reason : 'unknown',
@@ -146,12 +141,7 @@ function normalizeClassified(raw, now) {
         source: CLASSIFY_SOURCES.has(raw.source) ? raw.source : 'body',
     };
 
-    let hint = null;
-    if (raw.retryAt !== undefined && raw.retryAt !== null) {
-        const date =
-            raw.retryAt instanceof Date ? raw.retryAt : new Date(raw.retryAt);
-        hint = hintFromRetryAt(date, now, extra);
-    }
+    let hint = retryAt ? hintFromRetryAt(retryAt, now, extra) : null;
     if (!hint && Number.isFinite(raw.waitMs)) {
         hint = hintFromWait(raw.waitMs, now, extra);
     }
@@ -172,6 +162,12 @@ function runClassify(policy, signal, now, onClassifyError) {
             headers: signal.headers,
             body: signal.body,
         });
+        if (isThenable(raw)) {
+            Promise.resolve(raw).catch(() => {});
+            throw new TypeError(
+                'classify() must return a hint or null, not a Promise'
+            );
+        }
     } catch (error) {
         if (!onClassifyError) throw error;
         onClassifyError(error);
@@ -226,28 +222,12 @@ function resolveCandidates(policy, signal, { now, onClassifyError }) {
     return { hint: null, classified };
 }
 
-/**
- * Finds the hint of a throttled response: the module's classify(), then the
- * header parsers, then the static policy. Returns null when there is none.
- * A status other than 429 counts only when classify recognised it.
- *
- * @param {object} [policy] The static `rateLimit` object of an API module.
- * @param {{status?: number, headers?: object, body?: unknown}} signal
- * @param {{now?: number, onClassifyError?: (error: Error) => void}} [options]
- *   Without `onClassifyError` an error thrown by classify propagates.
- */
 function classifyRateLimit(policy, signal, options = {}) {
     const { now = Date.now(), onClassifyError } = options;
     return resolveCandidates(asPolicy(policy), signal, { now, onClassifyError })
         .hint;
 }
 
-/**
- * Like classifyRateLimit, but a throttled response always gets a hint: with
- * none found it gets the step of the fixed backoff ladder, with source
- * "backoff". Null when the response is not throttled: a status other than 429
- * that classify did not recognise.
- */
 function resolveRateLimitHint(policy, signal, options = {}) {
     const {
         attempt = 0,
@@ -276,11 +256,6 @@ function resolveRateLimitHint(policy, signal, options = {}) {
     };
 }
 
-/**
- * The wait before the next attempt, for a hint that came from the provider
- * or the policy. Jitter only adds to the wait and never passes the budget.
- * `fits` is false when the wait alone is over the budget.
- */
 function computeWaitMs({ hint, policy, budgetMs, random = Math.random }) {
     const base = Math.max(
         hint.waitMs,
@@ -295,10 +270,6 @@ function computeWaitMs({ hint, policy, budgetMs, random = Math.random }) {
     return { waitMs: Math.min(base + jitter, budgetMs), fits: true };
 }
 
-/**
- * How long this request may still sleep in process: the cap, less what it
- * slept already, and the time left in the invocation, less one request.
- */
 function inProcessBudgetMs({
     policy,
     requestTimeoutMs = 0,
@@ -306,10 +277,8 @@ function inProcessBudgetMs({
     waitedMs = 0,
 } = {}) {
     const cap = policy?.maxInProcessWaitMs ?? DEFAULT_MAX_IN_PROCESS_WAIT_MS;
-    return Math.max(
-        0,
-        Math.min(cap - waitedMs, remainingMs - (requestTimeoutMs || 0))
-    );
+    const reserveMs = Math.min(requestTimeoutMs || 0, remainingMs / 2);
+    return Math.max(0, Math.min(cap - waitedMs, remainingMs - reserveMs));
 }
 
 module.exports = {
