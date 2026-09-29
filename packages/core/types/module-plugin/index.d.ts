@@ -75,6 +75,8 @@ declare module "@friggframework/module-plugin" {
     static requestTimeoutMs?: number;
 
     DLGT_INVALID_AUTH: string;
+    /** Notified with the `RateLimitError` right before a wait that is too long throws. */
+    DLGT_RATE_LIMITED: string;
     requestTimeoutMs: number;
     backOff: number[];
     fetch: any;
@@ -111,6 +113,7 @@ declare module "@friggframework/module-plugin" {
     isRefreshable: boolean;
     refreshCount: number;
     DLGT_INVALID_AUTH: string;
+    DLGT_RATE_LIMITED: string;
     fetch: any;
 
     parseBody(response: any): Promise<any>;
