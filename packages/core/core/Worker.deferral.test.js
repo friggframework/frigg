@@ -326,13 +326,13 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             ]);
         });
 
-        it('caps the visibility timeout at 12 hours', async () => {
+        it('keeps the visibility timeout 20 minutes under the 12 hours that SQS counts from the receive', async () => {
             process.env[MAX_DEFERRED_MS_ENV] = String(48 * HOUR);
-            worker._run.mockRejectedValue(rateLimited(20 * HOUR));
+            worker._run.mockRejectedValue(rateLimited(13 * HOUR));
 
             await run();
 
-            expect(visibility()[0].VisibilityTimeout).toBe(43_200);
+            expect(visibility()[0].VisibilityTimeout).toBe(42_000);
         });
 
         it('leaves the message to SQS when the visibility change fails', async () => {

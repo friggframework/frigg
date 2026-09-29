@@ -11,8 +11,8 @@ const { get } = require('../assertions');
 const { readQueueDelivery } = require('../queues/queue-delivery');
 const { awsConfigOptions } = require('../queues/queuer-util');
 const {
+    MAX_DEFERRED_VISIBILITY_SECONDS,
     MAX_DELAY_SECONDS,
-    MAX_VISIBILITY_TIMEOUT_SECONDS,
     isDeferralCapped,
     nextDeferral,
     readDeferral,
@@ -266,7 +266,7 @@ class Worker {
     }) {
         const visibilityTimeout = Math.min(
             Math.ceil(waitMs / 1000),
-            MAX_VISIBILITY_TIMEOUT_SECONDS
+            MAX_DEFERRED_VISIBILITY_SECONDS
         );
         try {
             const queueUrl = await this._queueUrl(queueName);
