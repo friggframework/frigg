@@ -1,6 +1,6 @@
 declare module "@friggframework/module-plugin" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
-  import type { RateLimitHint } from "@friggframework/errors";
+  import type { RateLimitError, RateLimitHint } from "@friggframework/errors";
 
   export interface Credential {
     id?: string;
@@ -96,6 +96,12 @@ declare module "@friggframework/module-plugin" {
     parseBody(response: any): Promise<any>;
     refreshAuth(): Promise<any>;
     _adoptNewerCredential(): Promise<boolean>;
+    /**
+     * Tells the integration about a `RateLimitError` the module throws itself.
+     * The Requester calls it for its own errors; a module built on a vendor SDK
+     * calls it before its own throw.
+     */
+    _notifyRateLimited(rateLimitError: RateLimitError): Promise<void>;
 
     delegate: any;
     delegateTypes: any[];
@@ -129,6 +135,7 @@ declare module "@friggframework/module-plugin" {
     _delete(options: RequestOptions): Promise<any>;
     refreshAuth(): Promise<any>;
     _adoptNewerCredential(): Promise<boolean>;
+    _notifyRateLimited(rateLimitError: RateLimitError): Promise<void>;
   }
 
   type RequestOptions = {
