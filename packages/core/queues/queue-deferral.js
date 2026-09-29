@@ -46,12 +46,11 @@ const withDeferral = (body, deferral) => ({
     _frigg: { ...body._frigg, ...deferral },
 });
 
-const isDeferralCapped = (
-    { deferrals, firstDeferredAt, retryAt },
-    { maxDeferrals, maxDeferredMs }
-) =>
-    deferrals > maxDeferrals ||
-    retryAt.getTime() - Date.parse(firstDeferredAt) > maxDeferredMs;
+const deferredMs = ({ firstDeferredAt, retryAt }) =>
+    retryAt.getTime() - Date.parse(firstDeferredAt);
+
+const isDeferralCapped = (deferral, { maxDeferrals, maxDeferredMs }) =>
+    deferral.deferrals > maxDeferrals || deferredMs(deferral) > maxDeferredMs;
 
 module.exports = {
     MAX_DEFERRALS,
@@ -61,6 +60,7 @@ module.exports = {
     MAX_DEFERRED_VISIBILITY_SECONDS,
     MAX_DELAY_SECONDS,
     MAX_VISIBILITY_TIMEOUT_SECONDS,
+    deferredMs,
     isDeferralCapped,
     nextDeferral,
     readDeferral,
