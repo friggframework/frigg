@@ -4,6 +4,13 @@ const RATE_LIMITED_MESSAGE_CODE = 'RATE_LIMITED';
 const SAME_LIMIT_WINDOW_MS = 60_000;
 const MINUTE_MS = 60_000;
 
+const isNonEmptyString = (value) => typeof value === 'string' && value !== '';
+
+const isValidTime = (value) =>
+    value !== null &&
+    value !== undefined &&
+    !Number.isNaN(new Date(value).getTime());
+
 const isLink = (link) =>
     typeof link?.label === 'string' && typeof link?.url === 'string';
 
@@ -38,7 +45,10 @@ class RecordRateLimitMessage {
      * @param {Date|string|number} payload.retryAt
      * @param {Array<{label: string, url: string}>} [payload.links]
      */
-    async execute(integrationId, { moduleName, reason, retryAt, links }) {
+    async execute(integrationId, payload) {
+        const { moduleName, reason, retryAt, links } = payload ?? {};
+        if (!isNonEmptyString(moduleName) || !isValidTime(retryAt)) return;
+
         const resetAt = new Date(retryAt);
         const warnings =
             await this.integrationRepository.findIntegrationMessages(

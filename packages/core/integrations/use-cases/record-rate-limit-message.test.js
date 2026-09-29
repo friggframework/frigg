@@ -298,6 +298,48 @@ describe('RecordRateLimitMessage Use-Case', () => {
         });
     });
 
+    describe('the payload', () => {
+        it.each([
+            ['no module name', { moduleName: undefined }],
+            ['an empty module name', { moduleName: '' }],
+            ['a module name that is not a string', { moduleName: 42 }],
+            ['no reset time', { retryAt: undefined }],
+            ['a null reset time', { retryAt: null }],
+            ['a reset time that is not a date', { retryAt: 'soon' }],
+        ])(
+            'reads and writes nothing for a payload with %s',
+            async (_, overrides) => {
+                integrationRepository.clearHistory();
+
+                await expect(
+                    useCase.execute(integrationId, payload(overrides))
+                ).resolves.toBeUndefined();
+
+                expect(integrationRepository.getOperationHistory()).toEqual([]);
+            }
+        );
+
+        it('reads and writes nothing for no payload', async () => {
+            integrationRepository.clearHistory();
+
+            await expect(
+                useCase.execute(integrationId, null)
+            ).resolves.toBeUndefined();
+
+            expect(integrationRepository.getOperationHistory()).toEqual([]);
+        });
+
+        it.each([
+            ['an ISO string', RETRY_AT.toISOString()],
+            ['epoch milliseconds', RETRY_AT.getTime()],
+        ])('takes a reset time given as %s', async (_, retryAt) => {
+            await useCase.execute(integrationId, payload({ retryAt }));
+
+            const [warning] = await storedWarnings();
+            expect(warning.retryAt).toBe('2026-09-28T14:30:15.000Z');
+        });
+    });
+
     describe('failures', () => {
         it('rejects and writes nothing when the read fails', async () => {
             jest.spyOn(
