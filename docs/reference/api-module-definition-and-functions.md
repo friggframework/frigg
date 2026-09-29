@@ -224,8 +224,8 @@ apiPropertiesToPersist: { credential: ['signing_key', 'webhook_secret'] }
 An API module can tell the Requester how its provider limits calls, and how to
 read a throttled response. Declare a static `rateLimit` on the API class. Every
 key is optional. A module that declares nothing keeps the fixed backoff ladder
-for a 429 (1, 3, 10, 30, 60 and 180 s), and reads `Retry-After` when the
-response has one.
+for a 429 (1, 3, 10, 30, 60 and 180 s), and reads `Retry-After` when a 429 has
+one.
 
 | Key | Meaning |
 |---|---|
@@ -234,7 +234,7 @@ response has one.
 | `maxInProcessWaitMs` | The most one request sleeps in process, in total. Default `300000` (5 minutes). `0` means never sleep: every hinted wait throws `RateLimitError`. |
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
-| `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does. Pacing uses them later. |
+| `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
 | `userHints` | Links per `reason` that a UI can show, for example `{ daily: { links: [{ label, url }] } }`. |
 
 ### Built-in parsers
@@ -262,7 +262,7 @@ example). It returns `null` when the response is not a limit, or a hint:
 | Field | Meaning |
 |---|---|
 | `reason` | `'burst'`, `'daily'`, `'monthly'`, `'concurrency'` or `'unknown'` |
-| `waitMs` or `retryAt` | When to call again. Leave both out to take the time from the parsers, then from the policy. With no time from either, the response follows the same ladder as a 429 with no hint, and the last error is a `FetchError` with `isRateLimited: true` and the `reason`. The queue worker does not halt it. |
+| `waitMs` or `retryAt` | When to call again. Leave both out to take the time from the parsers, then from the policy. Step 2 of [How the Requester waits](#how-the-requester-waits) says what happens when neither gives one. |
 | `policy` | The provider's own name for the limit, for logs and the UI |
 | `remaining` | Calls left in the window, when the response says |
 | `source` | `'header'`, `'body'` (default) or `'static'` |
@@ -300,9 +300,15 @@ class Api extends ApiKeyRequester {
 ### How the Requester waits
 
 1. It looks for a hint in this order: `classify()`, the parsers, the policy
-   (`minRetryAfterMs`, or the `perMs` of the window named by the reason).
+   (the larger of `minRetryAfterMs` and the `perMs` of the window named by the
+   reason).
 2. With no hint, a 429 keeps the fixed ladder: the same calls, the same delays,
-   then a plain `FetchError`. A 5xx keeps its ladder too.
+   then a plain `FetchError`, as before. A response that `classify` recognises
+   but that gets no time follows the same ladder. When its status is not 429,
+   the last error is a `FetchError` flagged `isRateLimited`, with the `reason`,
+   so the queue worker does not halt it. A 429 needs no flag: the queue worker
+   never halts a 429. A 5xx that `classify` does not recognise keeps the 5xx
+   ladder.
 3. With a hint, the wait is the largest of the hint, `minRetryAfterMs` and 1 s,
    plus at most 10 % jitter. The Requester sleeps when the wait fits the time
    this request may still sleep: `maxInProcessWaitMs` in total, and the time left
@@ -316,8 +322,11 @@ class Api extends ApiKeyRequester {
 A Requester built with `backOff: []` never sleeps: a hinted wait throws
 `RateLimitError` at once, and a 429 with no hint throws a plain `FetchError`.
 
-`Retry-After` is read on a 429 only. The queue worker does not halt a
-`RateLimitError`, even when its status is 403: the message goes back to SQS.
+The parsers, `Retry-After` among them, read the headers of a 429 and of a
+response that `classify` recognises, and of no other response: a 503 with
+`Retry-After` keeps the 5xx ladder unless `classify` recognises it. The queue
+worker does not halt a `RateLimitError`, even when its status is 403: the
+message goes back to SQS.
 
 ### A client that is not the Requester
 
