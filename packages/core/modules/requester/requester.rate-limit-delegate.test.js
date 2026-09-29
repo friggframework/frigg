@@ -153,6 +153,41 @@ describe('Requester RATE_LIMITED delegate', () => {
         });
     });
 
+    describe('for a module that throws its own RateLimitError', () => {
+        const ownError = () =>
+            new RateLimitError({
+                hint: { reason: 'daily', waitMs: 3_600_000, source: 'static' },
+                module: 'hubspot',
+            });
+
+        it('notifies the delegate when the module calls _notifyRateLimited', async () => {
+            const delegate = makeDelegate();
+            const requester = makeRequester(jest.fn(), { delegate });
+            const error = ownError();
+
+            await requester._notifyRateLimited(error);
+
+            expect(delegate.receiveNotification).toHaveBeenCalledWith(
+                requester,
+                'RATE_LIMITED',
+                error
+            );
+        });
+
+        it('resolves and writes one WARN when the notification fails', async () => {
+            const delegate = makeDelegate(
+                jest.fn().mockRejectedValue(new Error('db down'))
+            );
+            const requester = makeRequester(jest.fn(), { delegate });
+
+            await expect(
+                requester._notifyRateLimited(ownError())
+            ).resolves.toBeUndefined();
+
+            expect(notifyFailedRecords()).toHaveLength(1);
+        });
+    });
+
     describe('when the request goes on or fails for another reason', () => {
         it('does not notify for a wait that fits, which is slept and retried', async () => {
             const delegate = makeDelegate();
