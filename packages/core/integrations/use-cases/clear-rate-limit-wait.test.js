@@ -85,6 +85,32 @@ describe('ClearRateLimitWait', () => {
             ).not.toHaveBeenCalled();
         });
 
+        it('clears at once the wait that the finished message set', async () => {
+            storeOnProcess({ ...stored(at(60 * MINUTE)), deferralId: 'msg-1' });
+
+            await clearRateLimitWait.execute(processId, {
+                deferralId: 'msg-1',
+            });
+
+            expect(
+                mockProcessRepository.applyProcessUpdate
+            ).toHaveBeenCalledWith(processId, {
+                set: { 'context.rateLimit': null },
+            });
+        });
+
+        it('keeps a wait that another message set until its retry time', async () => {
+            storeOnProcess({ ...stored(at(60 * MINUTE)), deferralId: 'msg-1' });
+
+            await clearRateLimitWait.execute(processId, {
+                deferralId: 'msg-2',
+            });
+
+            expect(
+                mockProcessRepository.applyProcessUpdate
+            ).not.toHaveBeenCalled();
+        });
+
         it('leaves a cap in place', async () => {
             storeOnProcess(stored(at(-MINUTE), 'EXHAUSTED'));
 

@@ -98,8 +98,10 @@ the last attempt they write one ERROR, `record_lost_rate_limited`, with the
 details, and no WARN.
 
 Subclasses override two no-op hooks to keep run state: `recordRateLimitWait(body,
-error, state)` runs after the message was put back, and `clearRateLimitWait(body)`
-runs after a deferred or redelivered message succeeded. A failing hook logs
+error, state)` runs after the message was put back, and `clearRateLimitWait(body,
+{ deferralId })` runs after a deferred or redelivered message succeeded.
+`state.deferralId` and `deferralId` name the message that was first put back
+(`_frigg.deferralId`, or the message's own id). A failing hook logs
 `frigg.worker.rate_limit_state_failed` and never changes the outcome. The queue
 worker of an integration (`createQueueWorker`) writes `Process.context.rateLimit`
 in them. See `packages/core/CLAUDE.md` section 7.

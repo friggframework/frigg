@@ -25,6 +25,7 @@ class RecordRateLimitWait {
                     reason: wait.reason,
                     module: wait.module,
                     deferrals: wait.deferrals,
+                    deferralId: wait.deferralId,
                     updatedAt: new Date().toISOString(),
                 },
             },

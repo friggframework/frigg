@@ -1,5 +1,11 @@
 const CLEAR_RATE_LIMIT_TOLERANCE_MS = 5_000;
 
+const isOwnWait = (current, deferralId) =>
+    Boolean(deferralId) && current.deferralId === deferralId;
+
+const isOver = (current) =>
+    Date.parse(current.retryAt) - Date.now() <= CLEAR_RATE_LIMIT_TOLERANCE_MS;
+
 class ClearRateLimitWait {
     constructor({ processRepository }) {
         if (!processRepository) {
@@ -8,12 +14,11 @@ class ClearRateLimitWait {
         this.processRepository = processRepository;
     }
 
-    async execute(processId) {
+    async execute(processId, { deferralId } = {}) {
         const process = await this.processRepository.findById(processId);
         const current = process?.context?.rateLimit;
         if (current?.status !== 'WAITING') return;
-        const remainingMs = Date.parse(current.retryAt) - Date.now();
-        if (remainingMs > CLEAR_RATE_LIMIT_TOLERANCE_MS) return;
+        if (!isOwnWait(current, deferralId) && !isOver(current)) return;
         await this.processRepository.applyProcessUpdate(processId, {
             set: { 'context.rateLimit': null },
         });

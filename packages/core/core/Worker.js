@@ -63,7 +63,7 @@ class Worker {
                     runParams = JSON.parse(record.body);
                     this._validateParams(runParams);
                     await this._run(runParams, context, delivery);
-                    await this._clearDeferredState(runParams, delivery);
+                    await this._clearDeferredState(record, runParams, delivery);
                     log.debug('Record succeeded', { eventName: 'frigg.worker.record_succeeded' });
                 } catch (error) {
                     let deferralResult;
@@ -146,7 +146,7 @@ class Worker {
         }
 
         const now = Date.now();
-        const counters = nextDeferral(body, now);
+        const counters = nextDeferral(body, now, record.messageId);
         const deferral = {
             record,
             queueName,
@@ -312,15 +312,21 @@ class Worker {
                 status,
                 mechanism,
                 deferrals: counters.deferrals,
+                deferralId: counters.deferralId,
                 retryAt,
             })
         );
     }
 
-    async _clearDeferredState(body, delivery) {
+    async _clearDeferredState(record, body, delivery) {
         const redelivered = delivery.receiveCount > 1;
-        if (readDeferral(body).deferrals === 0 && !redelivered) return;
-        await this._runStateHook('clear', () => this.clearRateLimitWait(body));
+        const { deferrals, deferralId } = readDeferral(body);
+        if (deferrals === 0 && !redelivered) return;
+        await this._runStateHook('clear', () =>
+            this.clearRateLimitWait(body, {
+                deferralId: deferralId ?? record.messageId,
+            })
+        );
     }
 
     async _runStateHook(operation, hook) {

@@ -414,11 +414,10 @@ describe('Webhook Queue Worker', () => {
             it('writes context.rateLimit on the process of a deferred message', async () => {
                 const { worker, applyProcessUpdate } = buildWorker();
 
-                await worker.recordRateLimitWait(
-                    message,
-                    rateLimitError,
-                    next(at(20 * MINUTE))
-                );
+                await worker.recordRateLimitWait(message, rateLimitError, {
+                    ...next(at(20 * MINUTE)),
+                    deferralId: 'msg-1',
+                });
 
                 expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
                     set: {
@@ -429,6 +428,7 @@ describe('Webhook Queue Worker', () => {
                             reason: 'burst',
                             module: 'hubspot',
                             deferrals: 1,
+                            deferralId: 'msg-1',
                             updatedAt: expect.any(String),
                         },
                     },
@@ -471,6 +471,31 @@ describe('Webhook Queue Worker', () => {
                             deferrals: 1,
                             firstDeferredAt: at(-20 * MINUTE).toISOString(),
                         }),
+                    ],
+                });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: { 'context.rateLimit': null },
+                });
+            });
+
+            it('clears at once the wait that the finished message set, before its retry time', async () => {
+                const { worker, applyProcessUpdate } = buildWorker({
+                    ...stored(at(60 * MINUTE)),
+                    deferralId: 'msg-1',
+                });
+
+                const result = await worker.run({
+                    Records: [
+                        {
+                            ...sqsRecord({
+                                deferrals: 1,
+                                firstDeferredAt: at(-MINUTE).toISOString(),
+                                deferralId: 'msg-1',
+                            }),
+                            messageId: 'msg-2',
+                        },
                     ],
                 });
 

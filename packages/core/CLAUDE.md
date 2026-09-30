@@ -521,8 +521,9 @@ minute redelivery. It puts the message back so it runs at `retryAt`:
 | Over 900 s, no scheduler | Extends the message's visibility timeout to `retryAt` (12 h less 20 minutes at most). This uses one receive | reported failed |
 
 - The new message starts at receive count 1. A deferred body carries
-  `_frigg: { deferrals, firstDeferredAt }`; `_frigg` is reserved and the handler
-  never sees it.
+  `_frigg: { deferrals, firstDeferredAt, deferralId }`; `_frigg` is reserved and
+  the handler never sees it. `deferralId` is the SQS message id of the first
+  message that was put back, and every later deferral of that work keeps it.
 - The visibility tier sets a timeout of at most 12 h less 20 minutes
   (42,000 s). SQS counts its 12 h maximum from the receive, and an extension
   does not reset it. The margin covers the longest Lambda run (900 s) plus the
@@ -537,12 +538,16 @@ minute redelivery. It puts the message back so it runs at `retryAt`:
   would be lost with the acknowledged message.
 - With a `processId` in the message, the worker writes
   `Process.context.rateLimit = { status: 'WAITING' | 'EXHAUSTED', mechanism,
-  retryAt, reason, module, deferrals, updatedAt }`. `EXHAUSTED` means a cap ended
-  the deferrals, or a visibility change came on the last delivery. The value is
-  one per process, so it holds the latest known wait: a new wait replaces it only
-  when its `retryAt` is later, a `WAITING` value never hides an `EXHAUSTED` one,
-  and after a deferred or redelivered message ran the worker sets it to `null`
-  only when it is `WAITING` and its `retryAt` is past or within 5 s.
+  retryAt, reason, module, deferrals, deferralId, updatedAt }`. `EXHAUSTED` means
+  a cap ended the deferrals, or a visibility change came on the last delivery.
+  The value is one per process, so it holds the latest known wait: a new wait
+  replaces it only when its `retryAt` is later, and a `WAITING` value never hides
+  an `EXHAUSTED` one. After a deferred or redelivered message ran, the worker
+  sets a `WAITING` value to `null` at once when that message set it (same
+  `deferralId`, or the message's own id for a visibility change), and for any
+  other message only when its `retryAt` is past or within 5 s. So a job that
+  resumes before its `retryAt` clears its own wait, and cannot clear the wait of
+  another message.
 - Delivery stays at least once. The new message is sent before the old one is
   acknowledged, so a crash between the two can run the work twice.
 - Handlers check `delivery.isLastAttempt` first, then rethrow. The delay and

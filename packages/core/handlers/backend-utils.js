@@ -184,13 +184,13 @@ const createQueueWorker = (integrationClass) => {
             });
         }
 
-        async clearRateLimitWait(body) {
+        async clearRateLimitWait(body, { deferralId } = {}) {
             const processId = body?.data?.processId;
             if (!processId) return;
             const clearRateLimitWait = new ClearRateLimitWait({
                 processRepository: createProcessRepository(),
             });
-            await clearRateLimitWait.execute(processId);
+            await clearRateLimitWait.execute(processId, { deferralId });
         }
 
         async _run(params, context, delivery) {

@@ -30,14 +30,19 @@ const readDeferral = (body) => {
         !Number.isNaN(Date.parse(frigg.firstDeferredAt))
             ? frigg.firstDeferredAt
             : undefined;
-    return { deferrals, firstDeferredAt };
+    const deferralId =
+        typeof frigg?.deferralId === 'string' && frigg.deferralId !== ''
+            ? frigg.deferralId
+            : undefined;
+    return { deferrals, firstDeferredAt, deferralId };
 };
 
-const nextDeferral = (body, now = Date.now()) => {
+const nextDeferral = (body, now = Date.now(), messageId) => {
     const current = readDeferral(body);
     return {
         deferrals: current.deferrals + 1,
         firstDeferredAt: current.firstDeferredAt ?? new Date(now).toISOString(),
+        deferralId: current.deferralId ?? messageId,
     };
 };
 

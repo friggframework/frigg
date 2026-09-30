@@ -65,9 +65,10 @@ function sqsRecord(overrides = {}) {
 
 function deferredBody(
     deferrals,
-    firstDeferredAt = new Date(NOW).toISOString()
+    firstDeferredAt = new Date(NOW).toISOString(),
+    deferralId = 'msg-1'
 ) {
-    return { ...BODY, _frigg: { deferrals, firstDeferredAt } };
+    return { ...BODY, _frigg: { deferrals, firstDeferredAt, deferralId } };
 }
 
 function deferredRecord(deferrals, firstDeferredAt) {
@@ -179,6 +180,27 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             expect(sent()[0].DelaySeconds).toBe(0);
         });
 
+        it('marks the new message with the id of the message it replaces', async () => {
+            worker._run.mockRejectedValue(rateLimited(60 * SECOND));
+
+            await run();
+
+            expect(sentBody()._frigg.deferralId).toBe('msg-1');
+        });
+
+        it('keeps the id of the first message when the message is put back again', async () => {
+            worker._run.mockRejectedValue(rateLimited(60 * SECOND));
+
+            await run(
+                sqsRecord({
+                    messageId: 'msg-2',
+                    body: JSON.stringify(deferredBody(1, undefined, 'msg-1')),
+                })
+            );
+
+            expect(sentBody()._frigg.deferralId).toBe('msg-1');
+        });
+
         it('counts up and keeps the first deferral time on a message that was deferred before', async () => {
             const firstDeferredAt = new Date(NOW - 10 * MINUTE).toISOString();
             worker._run.mockRejectedValue(rateLimited(60 * SECOND));
@@ -188,6 +210,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             expect(sentBody()._frigg).toEqual({
                 deferrals: 3,
                 firstDeferredAt,
+                deferralId: 'msg-1',
             });
         });
 
@@ -660,6 +683,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
                 status: 'WAITING',
                 mechanism: 'delay',
                 deferrals: 1,
+                deferralId: 'msg-1',
                 retryAt: new Date(NOW + 60_000),
             });
         });
@@ -694,27 +718,36 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             expect(worker.recordRateLimitWait.mock.calls[0][2]).toMatchObject({
                 status: 'EXHAUSTED',
                 mechanism: 'visibility',
+                deferralId: 'msg-1',
             });
         });
 
-        it('clears the wait after a deferred message succeeds', async () => {
+        it('clears the wait after a deferred message succeeds, naming the message that set it', async () => {
             worker._run.mockResolvedValue(undefined);
 
-            await run(deferredRecord(1));
+            await run(
+                sqsRecord({
+                    messageId: 'msg-2',
+                    body: JSON.stringify(deferredBody(1)),
+                })
+            );
 
             expect(worker.clearRateLimitWait).toHaveBeenCalledWith(
-                deferredBody(1)
+                deferredBody(1),
+                { deferralId: 'msg-1' }
             );
         });
 
-        it('clears the wait after a redelivered message succeeds', async () => {
+        it('clears the wait after a redelivered message succeeds, naming that message', async () => {
             worker._run.mockResolvedValue(undefined);
 
             await run(
                 sqsRecord({ attributes: { ApproximateReceiveCount: '2' } })
             );
 
-            expect(worker.clearRateLimitWait).toHaveBeenCalledWith(BODY);
+            expect(worker.clearRateLimitWait).toHaveBeenCalledWith(BODY, {
+                deferralId: 'msg-1',
+            });
         });
 
         it('does not clear anything after a first delivery', async () => {

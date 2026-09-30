@@ -77,6 +77,19 @@ describe('RecordRateLimitWait', () => {
             });
         });
 
+        it('keeps the id of the message that set the wait', async () => {
+            await recordRateLimitWait.execute(processId, {
+                ...wait(at(20 * MINUTE)),
+                deferralId: 'msg-1',
+            });
+
+            const [, update] =
+                mockProcessRepository.applyProcessUpdate.mock.calls[0];
+            expect(update.set['context.rateLimit']).toMatchObject({
+                deferralId: 'msg-1',
+            });
+        });
+
         it('replaces an earlier wait', async () => {
             storeOnProcess(stored(at(5 * MINUTE)));
 
