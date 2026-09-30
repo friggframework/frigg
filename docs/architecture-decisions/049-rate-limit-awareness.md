@@ -219,8 +219,9 @@ A **hint** has one shape everywhere:
   status.
 - `Worker.run` defers a record that failed with an error that has
   `isRateLimited` and a `retryAt`:
-  - **Wait up to 900 s:** send the same body again with `DelaySeconds` and a
-    `_frigg.deferrals` counter, then report the record as a success. The new
+  - **Wait up to 900 s:** send the same body again with `DelaySeconds`, a
+    `_frigg.deferrals` counter and `_frigg.deferralId` (the SQS id of the first
+    message that was put back), then report the record as a success. The new
     message starts at receive count 1.
   - **Wait over 900 s:** schedule the same body with the one-time scheduler
     at `retryAt`. Devtools provisions the scheduler when any module declares
@@ -256,13 +257,17 @@ A **hint** has one shape everywhere:
 
 The queue worker writes `Process.context.rateLimit` through two use cases,
 with `applyProcessUpdate`:
-`{ status, mechanism, retryAt, reason, module, deferrals, updatedAt }`.
+`{ status, mechanism, retryAt, reason, module, deferrals, deferralId, updatedAt }`.
 `status` is `WAITING`, or `EXHAUSTED` when a cap ended the deferrals or a
 visibility change came on the last delivery. The value is one per process, so
 it holds the latest known wait: a new wait replaces it only when its `retryAt`
 is later, and a `WAITING` value never hides an `EXHAUSTED` one. After a
-deferred or redelivered message ran without error, the worker sets it to
-`null` only when it is `WAITING` and its `retryAt` is past or within 5 s.
+deferred or redelivered message ran without error, the worker sets a `WAITING`
+value to `null` at once when that message set it (same `deferralId`; the
+message's own id on the visibility tier, which does not rewrite the body), and
+for any other message only when its `retryAt` is past or within 5 s. So a job
+that resumes before its `retryAt` clears its own wait and cannot clear the wait
+of another message.
 The compare is a read, then a write, so it is not atomic: two workers that
 write in the same instant can keep the earlier `retryAt`. The value is a UI
 signal only, so the next write corrects it.
@@ -677,7 +682,7 @@ the two, SQS delivers the original again, so delivery stays at least once.
 }
 
 async defer(record, body, error, delivery) {
-    const deferral = nextDeferral(body);              // _frigg.deferrals, firstDeferredAt
+    const deferral = nextDeferral(body, Date.now(), record.messageId); // deferrals, firstDeferredAt, deferralId
     if (isDeferralCapped({ ...deferral, retryAt: error.retryAt }, readDeferralLimits())) {
         return { outcome: 'failed' };                 // and record EXHAUSTED
     }
