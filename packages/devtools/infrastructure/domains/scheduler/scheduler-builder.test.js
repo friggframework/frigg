@@ -38,6 +38,61 @@ describe('SchedulerBuilder', () => {
             ).toBe(true);
         });
 
+        it('runs when any module declares a rate limit', () => {
+            class Api {
+                static rateLimit = { minRetryAfterMs: 1_000 };
+            }
+            expect(
+                schedulerBuilder.shouldExecute({
+                    integrations: [
+                        { Definition: { name: 'a' } },
+                        {
+                            Definition: {
+                                name: 'b',
+                                modules: { crm: { definition: { API: Api } } },
+                            },
+                        },
+                    ],
+                })
+            ).toBe(true);
+        });
+
+        it('skips a module whose API declares no rate limit', () => {
+            class Api {}
+            expect(
+                schedulerBuilder.shouldExecute({
+                    integrations: [
+                        {
+                            Definition: {
+                                name: 'a',
+                                modules: { crm: { definition: { API: Api } } },
+                            },
+                        },
+                    ],
+                })
+            ).toBe(false);
+        });
+
+        it.each([
+            ['no modules', { name: 'a' }],
+            ['an empty modules object', { name: 'a', modules: {} }],
+            [
+                'a module with no definition',
+                { name: 'a', modules: { crm: {} } },
+            ],
+            ['a null module', { name: 'a', modules: { crm: null } }],
+            [
+                'a definition with no API',
+                { name: 'a', modules: { crm: { definition: {} } } },
+            ],
+        ])('skips an integration with %s', (_label, Definition) => {
+            expect(
+                schedulerBuilder.shouldExecute({
+                    integrations: [{ Definition }],
+                })
+            ).toBe(false);
+        });
+
         it('skips otherwise', () => {
             expect(
                 schedulerBuilder.shouldExecute({

@@ -336,6 +336,210 @@ describe('Webhook Queue Worker', () => {
         });
     });
 
+    describe('Rate-limit run state', () => {
+        const NOW = Date.parse('2026-09-28T12:00:00.000Z');
+        const MINUTE = 60_000;
+        const at = (ms) => new Date(NOW + ms);
+        const stored = (retryAt) => ({
+            status: 'WAITING',
+            mechanism: 'delay',
+            deferrals: 1,
+            retryAt: retryAt.toISOString(),
+            reason: 'burst',
+            module: 'hubspot',
+        });
+        const next = (retryAt) => ({
+            status: 'WAITING',
+            mechanism: 'delay',
+            deferrals: 1,
+            retryAt,
+        });
+        const rateLimitError = Object.assign(new Error('limited'), {
+            isRateLimited: true,
+            reason: 'burst',
+            module: 'hubspot',
+        });
+        const message = { data: { processId: 7 } };
+        let nowSpy;
+
+        beforeEach(() => {
+            nowSpy = jest.spyOn(Date, 'now').mockReturnValue(NOW);
+        });
+
+        afterEach(() => nowSpy.mockRestore());
+
+        function buildWorker(rateLimit) {
+            const applyProcessUpdate = jest.fn().mockResolvedValue({ id: 7 });
+            const findById = jest.fn().mockResolvedValue({
+                id: 7,
+                context: rateLimit === undefined ? {} : { rateLimit },
+            });
+            let QueueWorker;
+            jest.isolateModules(() => {
+                jest.doMock(
+                    '../../integrations/repositories/process-repository-factory',
+                    () => ({
+                        createProcessRepository: () => ({
+                            applyProcessUpdate,
+                            findById,
+                        }),
+                    })
+                );
+                jest.doMock(
+                    '../../integrations/repositories/integration-repository-factory',
+                    () => ({ createIntegrationRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../modules/repositories/module-repository-factory',
+                    () => ({ createModuleRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../integrations/use-cases/get-integration-instance',
+                    () => ({
+                        GetIntegrationInstance: class {
+                            async execute() {
+                                return new TestWebhookIntegration();
+                            }
+                        },
+                    })
+                );
+                QueueWorker = require('../backend-utils').createQueueWorker(
+                    TestWebhookIntegration
+                );
+            });
+            return { worker: new QueueWorker(), applyProcessUpdate, findById };
+        }
+
+        describe('recording a wait', () => {
+            it('writes context.rateLimit on the process of a deferred message', async () => {
+                const { worker, applyProcessUpdate } = buildWorker();
+
+                await worker.recordRateLimitWait(message, rateLimitError, {
+                    ...next(at(20 * MINUTE)),
+                    deferralId: 'msg-1',
+                });
+
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: {
+                        'context.rateLimit': {
+                            status: 'WAITING',
+                            mechanism: 'delay',
+                            retryAt: '2026-09-28T12:20:00.000Z',
+                            reason: 'burst',
+                            module: 'hubspot',
+                            deferrals: 1,
+                            deferralId: 'msg-1',
+                            updatedAt: expect.any(String),
+                        },
+                    },
+                });
+            });
+
+            it('writes nothing for a message with no processId', async () => {
+                const { worker, applyProcessUpdate, findById } = buildWorker();
+
+                await worker.recordRateLimitWait(
+                    { data: { integrationId: 3 } },
+                    rateLimitError,
+                    next(at(MINUTE))
+                );
+
+                expect(findById).not.toHaveBeenCalled();
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+        });
+
+        describe('clearing a wait', () => {
+            const sqsRecord = (frigg) => ({
+                messageId: 'msg-1',
+                body: JSON.stringify({
+                    event: 'ON_WEBHOOK',
+                    data: { processId: 7 },
+                    ...(frigg && { _frigg: frigg }),
+                }),
+                attributes: { ApproximateReceiveCount: '1' },
+            });
+
+            it('clears the wait after a deferred message runs', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE))
+                );
+
+                const result = await worker.run({
+                    Records: [
+                        sqsRecord({
+                            deferrals: 1,
+                            firstDeferredAt: at(-20 * MINUTE).toISOString(),
+                        }),
+                    ],
+                });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: { 'context.rateLimit': null },
+                });
+            });
+
+            it('clears at once the wait that the finished message set, before its retry time', async () => {
+                const { worker, applyProcessUpdate } = buildWorker({
+                    ...stored(at(60 * MINUTE)),
+                    deferralId: 'msg-1',
+                });
+
+                const result = await worker.run({
+                    Records: [
+                        {
+                            ...sqsRecord({
+                                deferrals: 1,
+                                firstDeferredAt: at(-MINUTE).toISOString(),
+                                deferralId: 'msg-1',
+                            }),
+                            messageId: 'msg-2',
+                        },
+                    ],
+                });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: { 'context.rateLimit': null },
+                });
+            });
+
+            it('does not clear the wait after a first delivery runs', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE))
+                );
+
+                const result = await worker.run({ Records: [sqsRecord()] });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
+            it('clears a wait that is over', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE))
+                );
+
+                await worker.clearRateLimitWait(message);
+
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: { 'context.rateLimit': null },
+                });
+            });
+
+            it('writes nothing for a message with no processId', async () => {
+                const { worker, applyProcessUpdate, findById } = buildWorker();
+
+                await worker.clearRateLimitWait({ data: {} });
+                await worker.clearRateLimitWait({});
+
+                expect(findById).not.toHaveBeenCalled();
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+        });
+    });
+
     describe('Integration Hydration for webhooks with integrationId', () => {
         it('should attempt to load integration when integrationId present', async () => {
             // This test verifies the logic path - full integration test

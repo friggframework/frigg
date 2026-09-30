@@ -19,6 +19,11 @@ const {
     getAdminFunctionNames,
 } = require('../shared/function-environments');
 
+const declaresRateLimit = (integration) =>
+    Object.values(integration?.Definition?.modules ?? {}).some((module) =>
+        Boolean(module?.definition?.API?.rateLimit)
+    );
+
 class SchedulerBuilder extends InfrastructureBuilder {
     constructor() {
         super();
@@ -37,7 +42,8 @@ class SchedulerBuilder extends InfrastructureBuilder {
             return appDefinition.integrations.some(
                 (integration) =>
                     integration?.Definition?.webhooks?.enabled === true ||
-                    integration?.Definition?.webhooks === true
+                    integration?.Definition?.webhooks === true ||
+                    declaresRateLimit(integration)
             );
         }
 

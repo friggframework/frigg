@@ -21,6 +21,12 @@ const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../integrations/utils/map-integration-dto');
 const { processNotFound } = require('../integrations/use-cases/process-errors');
+const {
+    RecordRateLimitWait,
+} = require('../integrations/use-cases/record-rate-limit-wait');
+const {
+    ClearRateLimitWait,
+} = require('../integrations/use-cases/clear-rate-limit-wait');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
     const router = Router();
@@ -165,6 +171,28 @@ const createQueueWorker = (integrationClass) => {
     const integrationName = integrationClass.Definition.name;
 
     class QueueWorker extends Worker {
+        async recordRateLimitWait(body, error, state) {
+            const processId = body.data?.processId;
+            if (!processId) return;
+            const recordRateLimitWait = new RecordRateLimitWait({
+                processRepository: createProcessRepository(),
+            });
+            await recordRateLimitWait.execute(processId, {
+                ...state,
+                reason: error.reason,
+                module: error.module,
+            });
+        }
+
+        async clearRateLimitWait(body, { deferralId } = {}) {
+            const processId = body?.data?.processId;
+            if (!processId) return;
+            const clearRateLimitWait = new ClearRateLimitWait({
+                processRepository: createProcessRepository(),
+            });
+            await clearRateLimitWait.execute(processId, { deferralId });
+        }
+
         async _run(params, context, delivery) {
             const logCtx = {
                 integration: integrationName,
