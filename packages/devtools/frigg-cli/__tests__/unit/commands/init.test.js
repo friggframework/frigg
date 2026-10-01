@@ -449,6 +449,23 @@ describe('frigg init', () => {
             }
         });
 
+        it('never admits an osls whose CLI rejects plugin commands', () => {
+            // osls 3.65.0 (what `^3.58.0` resolved to on Node 23) fails
+            // `osls offline` with `Serverless command "offline" not found`.
+            // 3.78.0 is the release `frigg start` was verified against.
+            const semver = require('semver');
+            const { devDependencies } = getScaffoldDependencies();
+            for (const range of [
+                devDependencies.osls,
+                DEVTOOLS_PACKAGE_JSON.devDependencies.osls,
+                require('../../../package.json').dependencies.osls,
+            ]) {
+                expect(
+                    semver.gte(semver.minVersion(range), '3.78.0')
+                ).toBe(true);
+            }
+        });
+
         it('covers every serverless plugin the composed definition loads', () => {
             const { devDependencies } = getScaffoldDependencies();
             const {
