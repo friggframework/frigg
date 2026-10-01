@@ -12,6 +12,10 @@ PostgreSQL, MongoDB, or DocumentDB. You deploy, check, and repair it with one
 CLI. You run admin scripts and reports inside your own VPC. Your integrations
 refresh tokens, retry, and record their state without losing writes.
 
+Frigg 2.0.1 is the first stable 2.x release. Install `^2.0.1`. Do not use
+`^2.0.0`, which can resolve to a deprecated 2024 build of
+`@friggframework/core`.
+
 {% hint style="warning" %}
 2.0 has breaking changes. If you run a 1.x app, read
 [Migrating from 1.x to 2.0](../guides/migrating-to-2.0.md) before you upgrade.
@@ -212,11 +216,12 @@ See the [Roadmap](../roadmap/page-1.md) and the
 
 ## Start or upgrade
 
-* **New app:** run `frigg init my-app`, then `frigg install <module>` and
-  `frigg start`.
+* **New app:** install the CLI with
+  `npm install -g @friggframework/devtools@^2.0.1`. Then run
+  `frigg init my-app`, `frigg install <module>`, and `frigg start`.
 * **Existing 1.x app:** follow [Migrating from 1.x to 2.0](../guides/migrating-to-2.0.md).
 
 {% hint style="info" %}
 If `frigg init` fails with "Backend template not found", upgrade
-`@friggframework/devtools` to the latest `next` release and run it again.
+`@friggframework/devtools` to the latest 2.x release and run it again.
 {% endhint %}
