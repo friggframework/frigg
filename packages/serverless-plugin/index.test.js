@@ -3,10 +3,12 @@ const FriggServerlessPlugin = require('./index');
 jest.mock('./lib/queue-environment-mapper');
 jest.mock('./lib/localstack-queue-service');
 jest.mock('./lib/esbuild-directory-manager');
+jest.mock('@aws-sdk/client-sqs', () => ({ SQS: jest.fn() }));
 
 const { QueueEnvironmentMapper } = require('./lib/queue-environment-mapper');
 const { LocalStackQueueService } = require('./lib/localstack-queue-service');
 const { EsbuildDirectoryManager } = require('./lib/esbuild-directory-manager');
+const { SQS } = require('@aws-sdk/client-sqs');
 
 describe('FriggServerlessPlugin', () => {
   let plugin;
@@ -155,6 +157,57 @@ describe('FriggServerlessPlugin', () => {
       expect(mockMapper.createMapping).toHaveBeenCalled();
       expect(mockQueueService.createQueues).toHaveBeenCalled();
       expect(mockServerless.extendConfiguration).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('createLocalStackSQSClient', () => {
+    const ENV_KEYS = [
+      'AWS_REGION',
+      'AWS_ENDPOINT',
+      'AWS_ACCESS_KEY_ID',
+      'AWS_SECRET_ACCESS_KEY',
+    ];
+    let savedEnv;
+
+    beforeEach(() => {
+      savedEnv = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
+      ENV_KEYS.forEach((k) => delete process.env[k]);
+    });
+
+    afterEach(() => {
+      ENV_KEYS.forEach((k) => {
+        if (savedEnv[k] === undefined) delete process.env[k];
+        else process.env[k] = savedEnv[k];
+      });
+    });
+
+    it('creates an AWS SDK v3 SQS client pointed at LocalStack by default', () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+
+      const client = plugin.createLocalStackSQSClient();
+
+      expect(SQS).toHaveBeenCalledWith({
+        region: 'us-east-1',
+        endpoint: 'http://localhost:4566',
+        credentials: { accessKeyId: 'root', secretAccessKey: 'root' },
+      });
+      expect(client).toBeInstanceOf(SQS);
+    });
+
+    it('honours AWS_* overrides from the environment', () => {
+      process.env.AWS_REGION = 'eu-west-1';
+      process.env.AWS_ENDPOINT = 'http://localstack:4566';
+      process.env.AWS_ACCESS_KEY_ID = 'key';
+      process.env.AWS_SECRET_ACCESS_KEY = 'secret';
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+
+      plugin.createLocalStackSQSClient();
+
+      expect(SQS).toHaveBeenCalledWith({
+        region: 'eu-west-1',
+        endpoint: 'http://localstack:4566',
+        credentials: { accessKeyId: 'key', secretAccessKey: 'secret' },
+      });
     });
   });
 

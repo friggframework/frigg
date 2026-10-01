@@ -7,6 +7,9 @@
     "test": "jest"
   },
   "author": "Left Hook, Inc.",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.588.0"
+  },
   "license": "MIT",
   "publishConfig": {
     "access": "public"
