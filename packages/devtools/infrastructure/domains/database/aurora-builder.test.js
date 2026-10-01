@@ -42,6 +42,28 @@ describe('AuroraBuilder', () => {
             expect(auroraBuilder.shouldExecute(appDefinition)).toBe(false);
         });
 
+        it('should return false when Postgres is external (bring your own DATABASE_URL)', () => {
+            const appDefinition = {
+                database: {
+                    postgres: { enable: true, management: 'external' },
+                },
+            };
+
+            expect(auroraBuilder.shouldExecute(appDefinition)).toBe(false);
+        });
+
+        it('should return false for external Postgres even with managementMode=managed', () => {
+            const appDefinition = {
+                managementMode: 'managed',
+                vpcIsolation: 'isolated',
+                database: {
+                    postgres: { enable: true, management: 'external' },
+                },
+            };
+
+            expect(auroraBuilder.shouldExecute(appDefinition)).toBe(false);
+        });
+
         it('should return false when database is not defined', () => {
             const appDefinition = {};
 
