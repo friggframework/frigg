@@ -43,19 +43,28 @@ const appDefinition = {
         fieldLevelEncryptionMethod: 'kms',
     },
 
-    // Database. Enable exactly one backend. PostgreSQL/Aurora is shown here;
-    // set `mongoDB: { enable: true }` instead to use MongoDB. The connection
-    // string comes from the DATABASE_URL environment variable.
+    // Infrastructure ownership for `frigg deploy`. With 'managed' +
+    // 'isolated', each stage's stack creates (or, on later deploys, reuses)
+    // its own VPC, KMS key and Aurora PostgreSQL cluster, so a first deploy
+    // works in an empty AWS account. See README.md to reuse existing resources
+    // instead. Local development (`frigg start`, `frigg build`) skips AWS
+    // discovery and these resources entirely.
+    managementMode: 'managed',
+    vpcIsolation: 'isolated',
+
+    // Database. Enable exactly one backend. Locally, the connection string
+    // comes from DATABASE_URL in `.env` (any PostgreSQL works, e.g. Docker).
+    // When deployed, Frigg provisions Aurora PostgreSQL and sets DATABASE_URL.
+    // Set `mongoDB: { enable: true }` instead to use MongoDB.
     database: {
         postgres: {
             enable: true,
-            management: 'discover',
         },
     },
 
-    // VPC deployment. Enable for production so Lambdas run in private subnets.
+    // VPC deployment: Lambdas run in private subnets so they can reach Aurora.
     vpc: {
-        enable: false,
+        enable: true,
     },
 };
 
