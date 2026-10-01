@@ -178,6 +178,25 @@ describe('Requester FetchError boundary', () => {
         expect(error.isTimeout).toBeUndefined();
     });
 
+    it('names the JSON parse failure in the message for an empty 204 JSON body', async () => {
+        const { Response } = require('node-fetch');
+        const requester = makeRequester(
+            jest.fn().mockResolvedValue(
+                new Response(null, {
+                    status: 204,
+                    headers: { 'content-type': 'application/json' },
+                })
+            )
+        );
+
+        const error = await requester._get({ url }).catch((e) => e);
+
+        expect(error).toBeInstanceOf(FetchError);
+        expect(error.message).toContain('invalid json response body');
+        expect(error.message).toContain('Unexpected end of JSON input');
+        expect(error.message).toContainNoSecretWindow(SECRETS);
+    });
+
     it('keeps isTimeout when the abort fires during the body read', async () => {
         jest.useFakeTimers();
         try {
