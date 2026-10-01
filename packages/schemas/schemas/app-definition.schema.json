@@ -246,8 +246,8 @@
             },
             "management": {
               "type": "string",
-              "description": "How to manage the PostgreSQL database",
-              "enum": ["discover", "create-new", "existing"],
+              "description": "How to manage the PostgreSQL database. 'external' means Frigg provisions and discovers no database (no RDS/Aurora, no VPC requirement): the app connects to any PostgreSQL through the DATABASE_URL environment variable",
+              "enum": ["discover", "create-new", "existing", "external"],
               "default": "discover"
             },
             "endpoint": {
