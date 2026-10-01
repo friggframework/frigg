@@ -51,53 +51,124 @@ Then register the generated integration class in the `integrations` array in `in
 
 The app definition in `index.js` is validated against the Frigg app-definition schema.
 
--   **Encryption** — `encryption.fieldLevelEncryptionMethod` is `kms` (recommended
-    for production) or `aes`. Encryption is automatically bypassed in the
-    `dev`/`test`/`local` stages.
--   **Database** — PostgreSQL is enabled by default. Locally the connection string
-    comes from `DATABASE_URL` in `.env`. To use MongoDB instead, replace the
-    `database` block with `mongoDB: { enable: true }` and point `DATABASE_URL` at a
-    MongoDB replica set.
+-   **Encryption** — `encryption.fieldLevelEncryptionMethod` is `kms` (default) or
+    `aes`. Encryption is automatically bypassed in the `dev`/`test`/`local` stages.
+-   **Database** — PostgreSQL that you bring (`management: 'external'`). Locally the
+    connection string comes from `DATABASE_URL` in `.env`. To use MongoDB instead,
+    set `database: { mongoDB: { enable: true }, postgres: { enable: false } }` and
+    point `DATABASE_URL` at a MongoDB replica set (for example a MongoDB Atlas cluster).
 
-### Database and network for deployment
+## Deployment defaults: $0 while idle, secure by default
 
-Local development never touches these settings: `frigg start` and `frigg build`
-skip AWS discovery, so the VPC, KMS and Aurora resources are not composed.
+Local development never touches AWS: `frigg start` and `frigg build` skip AWS
+discovery and every resource below.
 
-The defaults are chosen so that a first `frigg deploy` works in an empty AWS account:
+The defaults in `index.js` deploy nothing that costs money while idle:
 
 ```js
 const appDefinition = {
     // ...
-    managementMode: 'managed', // Frigg owns the infrastructure for each stage
-    vpcIsolation: 'isolated', // each stage gets its own VPC, KMS key and Aurora cluster
-    database: { postgres: { enable: true } },
-    vpc: { enable: true },
+    encryption: { fieldLevelEncryptionMethod: 'kms' },
+    managementMode: 'managed', // Frigg owns what it creates
+    vpcIsolation: 'isolated', // each stage gets its own KMS key
+    vpc: { enable: false }, // no VPC, NAT gateway, VPC endpoints or Elastic IP
+    database: { postgres: { enable: true, management: 'external' } }, // no RDS/Aurora
+    environment: { DATABASE_URL: true },
+    ssm: { enable: false },
 };
 ```
 
-On the first deploy of a stage this creates a VPC (with a NAT gateway), a KMS key
-and an Aurora Serverless v2 PostgreSQL cluster in that stage's stack; later
-deploys reuse them. These resources incur AWS charges even when idle.
+### What a deploy creates, and what it costs
 
-To reuse infrastructure that already exists instead:
+| Resource                                                                                        | Cost                                                                        |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Lambda functions, API Gateway (HTTP API), SQS queues, SNS topic, S3 bucket for migration status | Pay per request; $0 while idle (and largely inside the AWS free tier)       |
+| CloudWatch logs and one 5xx alarm                                                               | Pay per GB ingested; alarms are free up to 10 per account                   |
+| One customer-managed KMS key per stage                                                          | About $1/month, plus $0.03 per 10,000 requests beyond the free tier         |
+| Your database                                                                                   | Whatever your provider charges; free tiers exist for PostgreSQL and MongoDB |
 
--   **Share resources across stages** — set `vpcIsolation: 'shared'`. Frigg
-    discovers an existing VPC, KMS key and Aurora cluster in the account and only
-    creates what it cannot find.
--   **Point at a specific VPC / database** — remove `managementMode` and configure
-    each resource explicitly, for example
-    `vpc: { enable: true, management: 'use-existing', vpcId: 'vpc-...' }` and
-    `database: { postgres: { enable: true, management: 'use-existing', endpoint: '...' } }`.
+There is no NAT gateway (about $33/month), no interface VPC endpoints (about
+$15/month each), no public IPv4 address and no Aurora cluster. The KMS key is
+retained when you remove the stack (so encrypted data stays readable); schedule its
+deletion in the KMS console if you no longer need it.
+
+### Why no VPC is still secure
+
+-   **Nothing to protect inside a VPC.** A VPC isolates resources that live in it,
+    such as a database cluster. This setup has none: the database is hosted
+    elsewhere, and the Lambdas only call AWS APIs and HTTPS endpoints.
+-   **Every AWS call is authenticated and encrypted.** SQS, KMS, EventBridge
+    Scheduler and the other AWS APIs are reached over AWS's public endpoints with
+    TLS and IAM (SigV4) authentication. The Lambda role only gets the permissions
+    the composed template grants. For least-privilege deploy credentials, generate
+    a policy with `npx frigg generate-iam`.
+-   **Data is encrypted at the field level.** Credentials, tokens and mappings are
+    encrypted with the stage's KMS key before they reach the database, so the
+    database provider only stores ciphertext for those fields. The key never leaves
+    KMS, and every use is IAM-checked and logged in CloudTrail.
+-   **The API requires authentication.** Integration and entity routes need an
+    authenticated user. `/health/detailed` needs `HEALTH_API_KEY` and the admin
+    routes need `ADMIN_API_KEY`; both refuse every request until you add the key to
+    `environment` and set it at deploy. `POST /user/create` is open self-signup, and
+    each user only sees their own data.
+
+### Your database
+
+Deployed Lambdas connect to the database named by `DATABASE_URL`. Use any hosted
+PostgreSQL (several providers have a free tier):
+
+-   **Require TLS.** Add `sslmode=require` to PostgreSQL URLs, for example
+    `postgresql://user:password@host:5432/frigg?sslmode=require`. MongoDB Atlas
+    always enforces TLS.
+-   **Allow the Lambdas in.** Without a VPC and NAT gateway, Lambda egress IP
+    addresses are not fixed, so an IP access list cannot pin them. Allow access from
+    anywhere (`0.0.0.0/0`) and rely on TLS plus strong, unique database credentials,
+    or use a provider that authenticates connections without IP allow-listing. If you
+    need a fixed egress IP, see the VPC upgrade below.
+-   **Apply the schema** before the first deploy, from your machine or CI:
+
+    ```bash
+    DATABASE_URL='postgresql://...?sslmode=require' npx frigg db:setup --stage prod
+    ```
+
+`DATABASE_URL` is read from your shell (or CI) when you run `frigg deploy`, falling
+back to `.env`. A value in the shell wins, so pass the hosted URL explicitly rather
+than deploying the local one:
+
+```bash
+DATABASE_URL='postgresql://...?sslmode=require' npm run deploy -- --stage prod
+```
+
+The value is stored in the Lambda environment (encrypted at rest by AWS). Anyone
+with `lambda:GetFunctionConfiguration` on the functions can read it, so keep those
+permissions tight.
+
+Field-level encryption only runs outside the `dev`/`test`/`local` stages, so deploy
+real data to a stage such as `prod` or `staging`.
+
+### Upgrades (opt in)
+
+-   **Frigg-managed Aurora Serverless v2 (coming).** Frigg will be able to create and
+    manage an Aurora PostgreSQL cluster per stage that scales to zero when idle (see
+    ADR-033). Until then, `database: { postgres: { enable: true } }` without
+    `management: 'external'` creates an Aurora cluster that requires
+    `vpc: { enable: true }` and bills while idle.
+-   **Private VPC.** Set `vpc: { enable: true }` when your Lambdas must reach private
+    resources (a database inside your VPC, internal services) or need a fixed egress
+    IP for a partner's allow list. With `managementMode: 'managed'` and
+    `vpcIsolation: 'isolated'`, each stage gets its own VPC, and a NAT gateway with
+    an Elastic IP for outbound traffic: about $33/month per stage for the NAT
+    gateway plus data processing, and about $15/month for each interface VPC
+    endpoint you enable. Set `vpcIsolation: 'shared'` to reuse one VPC across stages.
 
 See the app-definition reference at https://docs.friggframework.org for every option.
 
 ## Deploy
 
 ```bash
-npm run build -- --production        # build with AWS resource discovery (needs AWS credentials)
-npm run deploy -- --stage prod       # deploy via osls
-npx frigg doctor <stack-name>        # verify the deployed stack
+npm run build -- --production                                    # build with AWS resource discovery (needs AWS credentials)
+DATABASE_URL='postgresql://...?sslmode=require' npm run deploy -- --stage prod   # deploy via osls
+npx frigg doctor <stack-name>                                    # verify the deployed stack
 ```
 
 ## Learn more

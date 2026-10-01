@@ -559,8 +559,8 @@ class BackendFirstHandler {
 
         if (config.serverlessProvider === 'aws') {
             printStep(
-                'Deploy to AWS Lambda (see README.md for the resources this creates):',
-                'npm run deploy -- --stage dev'
+                'Deploy to AWS Lambda with a hosted PostgreSQL ($0 while idle; see README.md):',
+                "DATABASE_URL='postgresql://...?sslmode=require' npm run deploy -- --stage prod"
             );
         }
 

@@ -30,41 +30,65 @@ const appDefinition = {
         // ExampleIntegration,
     ],
 
-    // User model. Password auth is enabled by default so the Management UI and
-    // API can authenticate users out of the box.
+    // User model. Password auth is enabled so the Management UI and API can
+    // authenticate users out of the box; integration and entity routes
+    // require an authenticated user.
     user: {
         usePassword: true,
     },
 
-    // Field-level encryption for sensitive data (credentials, tokens, mappings).
-    // KMS is recommended for production; encryption is automatically bypassed in
-    // the dev/test/local stages. Set to 'aes' to use AES with AES_KEY/AES_KEY_ID.
+    // ------------------------------------------------------------------
+    // Deployment defaults: $0 while idle, secure by default.
+    // `frigg deploy` creates no always-on resources (no VPC, NAT gateway,
+    // VPC endpoints, Elastic IP or database cluster); everything it creates
+    // is pay-per-use, plus one KMS key (~$1/month). See README.md for the
+    // reasoning and the opt-in upgrades (Frigg-managed Aurora, private VPC).
+    // Local development (`frigg start`, `frigg build`) skips AWS entirely.
+    // ------------------------------------------------------------------
+
+    // Field-level encryption for sensitive data (credentials, tokens,
+    // mappings), using a customer-managed KMS key that `frigg deploy` creates
+    // for each stage. Encryption is bypassed in the dev/test/local stages, so
+    // deploy real data to a stage such as `prod` or `staging`.
     encryption: {
         fieldLevelEncryptionMethod: 'kms',
     },
 
-    // Infrastructure ownership for `frigg deploy`. With 'managed' +
-    // 'isolated', each stage's stack creates (or, on later deploys, reuses)
-    // its own VPC, KMS key and Aurora PostgreSQL cluster, so a first deploy
-    // works in an empty AWS account. See README.md to reuse existing resources
-    // instead. Local development (`frigg start`, `frigg build`) skips AWS
-    // discovery and these resources entirely.
+    // Frigg owns the AWS resources it needs, and each stage gets its own
+    // (here: the KMS key), so a first deploy works in an empty AWS account.
     managementMode: 'managed',
     vpcIsolation: 'isolated',
 
-    // Database. Enable exactly one backend. Locally, the connection string
-    // comes from DATABASE_URL in `.env` (any PostgreSQL works, e.g. Docker).
-    // When deployed, Frigg provisions Aurora PostgreSQL and sets DATABASE_URL.
-    // Set `mongoDB: { enable: true }` instead to use MongoDB.
+    // Lambdas run outside a VPC and reach SQS, KMS, EventBridge Scheduler and
+    // other AWS APIs over AWS's public endpoints with IAM auth and TLS. There
+    // is nothing inside a VPC to protect, so a VPC would only add cost.
+    vpc: {
+        enable: false,
+    },
+
+    // Database: PostgreSQL that you bring. `management: 'external'` tells
+    // Frigg to create no database (no RDS/Aurora); the app connects through
+    // DATABASE_URL. Locally that is any PostgreSQL in `.env` (e.g. Docker).
+    // When deploying, set DATABASE_URL to a hosted PostgreSQL (free tiers
+    // exist) with `sslmode=require`. To use MongoDB instead, replace this with
+    // `mongoDB: { enable: true }, postgres: { enable: false }`.
     database: {
         postgres: {
             enable: true,
+            management: 'external',
         },
     },
 
-    // VPC deployment: Lambdas run in private subnets so they can reach Aurora.
-    vpc: {
-        enable: true,
+    // Environment variables passed from the deploy shell (or `.env`) to the
+    // deployed Lambdas.
+    environment: {
+        DATABASE_URL: true,
+    },
+
+    // SSM Parameter Store offload is off. Enable it when your app variables
+    // outgrow the 4 KB Lambda environment limit.
+    ssm: {
+        enable: false,
     },
 };
 
