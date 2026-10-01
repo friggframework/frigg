@@ -12,8 +12,8 @@ function resourceUrl(resource) {
     return redactUrl(resource);
 }
 
-// A node-fetch message can quote the response body, so the FetchError
-// message names a node-fetch failure type with a fixed phrase instead.
+// node-fetch messages can contain part of the response body.
+// Use a fixed phrase instead of the original message.
 const NODE_FETCH_TYPE_PHRASES = {
     'invalid-json': 'invalid json response body',
 };
