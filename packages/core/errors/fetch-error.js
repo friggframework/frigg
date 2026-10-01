@@ -12,10 +12,21 @@ function resourceUrl(resource) {
     return redactUrl(resource);
 }
 
+// node-fetch messages can contain part of the response body.
+// Use a fixed phrase instead of the original message.
+const NODE_FETCH_TYPE_PHRASES = {
+    'invalid-json': 'invalid json response body',
+};
+
 function causeLabel(cause) {
     if (!cause || typeof cause !== 'object') return '';
     const label = cause.code ?? cause.name;
-    return label === undefined || label === null ? '' : scrubString(String(label));
+    const scrubbedLabel =
+        label === undefined || label === null ? '' : scrubString(String(label));
+    const phrase = Object.hasOwn(NODE_FETCH_TYPE_PHRASES, cause.type)
+        ? NODE_FETCH_TYPE_PHRASES[cause.type]
+        : '';
+    return [scrubbedLabel, phrase].filter(Boolean).join(': ');
 }
 
 function buildMessage({ method, url, response, cause }) {

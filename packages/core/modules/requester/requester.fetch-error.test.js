@@ -167,9 +167,50 @@ describe('Requester FetchError boundary', () => {
         expect(error).toBeInstanceOf(FetchError);
         expect(error.cause).toMatchObject({ name: 'FetchError', type: 'invalid-json' });
         expect(util.inspect(error, { depth: 10 })).toContainNoSecretWindow(SECRETS);
-        expect(error.message).toBe(`GET ${sanitizedUrl} FetchError`);
+        expect(error.message).toBe(
+            `GET ${sanitizedUrl} FetchError: invalid json response body`
+        );
         expect(error.message).toContainNoSecretWindow(SECRETS);
         expect(error.isTimeout).toBeUndefined();
+    });
+
+    it('names the JSON parse failure for an empty 204 JSON body', async () => {
+        const { Response } = require('node-fetch');
+        const requester = makeRequester(
+            jest.fn().mockResolvedValue(
+                new Response(null, {
+                    status: 204,
+                    headers: { 'content-type': 'application/json' },
+                })
+            )
+        );
+
+        const error = await requester._get({ url }).catch((e) => e);
+
+        expect(error).toBeInstanceOf(FetchError);
+        expect(error.message).toBe(
+            `GET ${sanitizedUrl} FetchError: invalid json response body`
+        );
+    });
+
+    it('keeps a non-JSON response body out of the message', async () => {
+        const { Response } = require('node-fetch');
+        const requester = makeRequester(
+            jest.fn().mockResolvedValue(
+                new Response('hello jane@doe.com +15551234567 Jane Doe', {
+                    status: 200,
+                    headers: { 'content-type': 'application/json' },
+                })
+            )
+        );
+
+        const error = await requester._get({ url }).catch((e) => e);
+
+        expect(error.message).toBe(
+            `GET ${sanitizedUrl} FetchError: invalid json response body`
+        );
+        expect(error.message).not.toContain('jane');
+        expect(String(error.stack)).not.toContain('jane');
     });
 
     it('keeps isTimeout when the abort fires during the body read', async () => {
