@@ -90,7 +90,6 @@ describe('frigg init', () => {
             const Handler = jest.fn().mockImplementation(() => ({
                 initialize,
             }));
-            Handler.DEPLOYMENT_MODES = ['standalone', 'embedded'];
             jest.doMock(
                 '../../../init-command/backend-first-handler',
                 () => Handler

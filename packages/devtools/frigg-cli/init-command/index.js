@@ -12,7 +12,7 @@ const chalk = require('chalk');
 const validateProjectName = require('validate-npm-package-name');
 const semver = require('semver');
 const BackendFirstHandler = require('./backend-first-handler');
-const { DEPLOYMENT_MODES } = BackendFirstHandler;
+const { DEPLOYMENT_MODES } = require('./deployment-modes');
 
 function checkAppName(appName) {
     const validationResult = validateProjectName(appName);
