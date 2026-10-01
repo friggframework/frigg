@@ -1,87 +1,127 @@
 /**
  * Regression tests for lazy loading of @aws-sdk/client-scheduler.
  *
- * @aws-sdk/client-scheduler is an OPTIONAL dependency of @friggframework/core.
  * Merely requiring the scheduler infrastructure (and therefore core itself)
- * must NOT pull in the AWS SDK, so consumers on the mock provider or with no
- * scheduler at all are not forced to install it. Only instantiating the
- * EventBridge adapter should reach for the SDK.
+ * must NOT load the AWS SDK. Only instantiating the EventBridge adapter should
+ * reach for it. These tests simulate the SDK being absent with a virtual mock
+ * that throws MODULE_NOT_FOUND, so they prove laziness regardless of whether
+ * the package happens to be installed in the test environment.
  */
 
+const SDK = '@aws-sdk/client-scheduler';
+
+function moduleNotFound(message) {
+    const error = new Error(message);
+    error.code = 'MODULE_NOT_FOUND';
+    return error;
+}
+
+/**
+ * Run `fn` in an isolated module registry where requiring the scheduler SDK
+ * throws `error`.
+ */
+function withSdkThrowing(error, fn) {
+    jest.isolateModules(() => {
+        jest.doMock(
+            SDK,
+            () => {
+                throw error;
+            },
+            { virtual: true }
+        );
+        fn();
+    });
+}
+
 describe('EventBridge scheduler lazy AWS SDK loading', () => {
-    const AWS_SDK = '@aws-sdk/client-scheduler';
-
-    const isSdkInstalled = () => {
-        try {
-            require.resolve(AWS_SDK);
-            return true;
-        } catch (error) {
-            return false;
-        }
-    };
-
-    beforeEach(() => {
+    afterEach(() => {
+        jest.dontMock(SDK);
         jest.resetModules();
     });
 
-    it('loads the scheduler module without requiring the AWS SDK', () => {
-        // Requiring the module must not throw even if the SDK is absent,
-        // and must not populate the SDK into the module cache.
-        // eslint-disable-next-line global-require
-        const scheduler = require('./index');
-        expect(scheduler.EventBridgeSchedulerAdapter).toBeDefined();
-        expect(scheduler.MockSchedulerAdapter).toBeDefined();
-        expect(scheduler.createSchedulerService).toBeInstanceOf(Function);
-
-        if (!isSdkInstalled()) {
-            expect(
-                Object.keys(require.cache).some((k) => k.includes('client-scheduler'))
-            ).toBe(false);
-        }
+    it('requires the scheduler index without loading the SDK', () => {
+        withSdkThrowing(moduleNotFound(`Cannot find module '${SDK}'`), () => {
+            let scheduler;
+            expect(() => {
+                scheduler = require('./index');
+            }).not.toThrow();
+            expect(scheduler.EventBridgeSchedulerAdapter).toBeDefined();
+            expect(scheduler.MockSchedulerAdapter).toBeDefined();
+            expect(scheduler.createSchedulerService).toBeInstanceOf(Function);
+        });
     });
 
-    it('creates a mock scheduler without touching the AWS SDK', () => {
-        // eslint-disable-next-line global-require
-        const { createSchedulerService } = require('./index');
-        const service = createSchedulerService({ provider: 'mock' });
-        expect(service.constructor.name).toBe('MockSchedulerAdapter');
-    });
-
-    it('defaults to the mock provider in local/dev/test stages', () => {
-        const prevStage = process.env.STAGE;
-        const prevProvider = process.env.SCHEDULER_PROVIDER;
-        delete process.env.SCHEDULER_PROVIDER;
-        process.env.STAGE = 'test';
-        try {
-            // eslint-disable-next-line global-require
+    it('creates a mock scheduler without loading the SDK', () => {
+        withSdkThrowing(moduleNotFound(`Cannot find module '${SDK}'`), () => {
             const { createSchedulerService } = require('./index');
-            const service = createSchedulerService();
+            const service = createSchedulerService({ provider: 'mock' });
             expect(service.constructor.name).toBe('MockSchedulerAdapter');
-        } finally {
-            if (prevStage === undefined) delete process.env.STAGE;
-            else process.env.STAGE = prevStage;
-            if (prevProvider !== undefined)
-                process.env.SCHEDULER_PROVIDER = prevProvider;
-        }
+        });
     });
 
-    it('instantiating the EventBridge adapter reaches for the SDK', () => {
-        // eslint-disable-next-line global-require
-        const {
-            EventBridgeSchedulerAdapter,
-        } = require('./eventbridge-scheduler-adapter');
+    it('throws an actionable error when the SDK is missing on instantiation', () => {
+        const original = moduleNotFound(`Cannot find module '${SDK}'`);
+        withSdkThrowing(original, () => {
+            const {
+                EventBridgeSchedulerAdapter,
+            } = require('./eventbridge-scheduler-adapter');
 
-        if (isSdkInstalled()) {
-            const adapter = new EventBridgeSchedulerAdapter({
-                region: 'us-east-1',
-            });
-            expect(adapter.client).toBeDefined();
-        } else {
-            // Without the SDK installed, instantiation must throw a clear,
-            // actionable error naming the optional dependency.
-            expect(() => new EventBridgeSchedulerAdapter({})).toThrow(
-                /@aws-sdk\/client-scheduler/
+            let thrown;
+            try {
+                new EventBridgeSchedulerAdapter({ region: 'us-east-1' });
+            } catch (error) {
+                thrown = error;
+            }
+
+            expect(thrown).toBeDefined();
+            expect(thrown.message).toMatch(
+                /requires the "@aws-sdk\/client-scheduler" package/
             );
-        }
+            expect(thrown.message).toMatch(/SCHEDULER_PROVIDER=mock/);
+            expect(thrown.cause).toBe(original);
+        });
+    });
+
+    it('rethrows a MODULE_NOT_FOUND for a different module unchanged', () => {
+        const nested = moduleNotFound(
+            "Cannot find module '@smithy/some-transitive-dependency'"
+        );
+        withSdkThrowing(nested, () => {
+            const {
+                EventBridgeSchedulerAdapter,
+            } = require('./eventbridge-scheduler-adapter');
+
+            expect(() => new EventBridgeSchedulerAdapter({})).toThrow(nested);
+        });
+    });
+
+    it('rethrows non-MODULE_NOT_FOUND errors unchanged', () => {
+        const other = new Error('SDK initialisation failed');
+        withSdkThrowing(other, () => {
+            const {
+                EventBridgeSchedulerAdapter,
+            } = require('./eventbridge-scheduler-adapter');
+
+            expect(() => new EventBridgeSchedulerAdapter({})).toThrow(other);
+        });
+    });
+
+    it('instantiates the adapter when the SDK is available', () => {
+        jest.isolateModules(() => {
+            const SchedulerClient = jest.fn();
+            jest.doMock(SDK, () => ({ SchedulerClient }), { virtual: true });
+            const {
+                EventBridgeSchedulerAdapter,
+            } = require('./eventbridge-scheduler-adapter');
+
+            const adapter = new EventBridgeSchedulerAdapter({
+                region: 'eu-west-1',
+            });
+
+            expect(SchedulerClient).toHaveBeenCalledWith({
+                region: 'eu-west-1',
+            });
+            expect(adapter.client).toBeInstanceOf(SchedulerClient);
+        });
     });
 });
