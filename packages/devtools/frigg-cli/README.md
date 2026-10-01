@@ -10,29 +10,59 @@ The Frigg CLI provides tools for building, deploying, and managing serverless in
 
 ### Core Commands
 
-#### `frigg init [options]`
+#### `frigg init [projectName] [options]`
 
-**Status:** To be documented (command may not be merged yet)
-
-Initialize a new Frigg application with scaffolding and configuration.
+Scaffold a new Frigg backend application that installs and runs out of the box.
 
 **Usage:**
+
 ```bash
-frigg init
-frigg init my-app
-frigg init --template typescript
+frigg init my-app                         # interactive (when stdin is a TTY)
+frigg init my-app --yes                   # accept every default, no prompts
+frigg init my-app --yes --mode standalone --no-install --no-git
+frigg init my-app --mode embedded         # add to an existing project (./frigg-integration)
+npx @friggframework/devtools init my-app --yes   # without a global install
 ```
 
 **What it does:**
-- TBD - Full documentation pending implementation merge
+
+1. Validates the project name and `--mode`, and checks that the target directory is
+   empty (only `.git`, `.gitignore`, `README.md` and `.DS_Store` may exist) before asking anything else
+2. Copies the backend template: `index.js` (app definition, named after the project),
+   `infrastructure.js`, `README.md`, `.gitignore`, `.env.example` (also seeded into `.env`)
+3. Writes `package.json` with:
+    - scripts: `start` (`frigg start`), `build` (`frigg build`), `deploy` (`frigg deploy`),
+      `db:setup` (`frigg db:setup`), `test` (`jest`)
+    - dependencies: `@friggframework/core`, `@prisma/client`, `prisma`
+    - devDependencies: `@friggframework/devtools`, `@friggframework/serverless-plugin`,
+      `osls`, and the serverless plugins the composed definition loads
+    - Frigg package versions match the devtools that ran `init` (a prerelease is pinned exactly)
+4. Validates the generated app definition against the app-definition schema
+5. Optionally initializes git and runs `npm install`
+6. Prints next steps. API modules picked in the interactive prompt are not wired in
+   automatically; the next steps list a `frigg install <module>` command for each
+
+In `embedded` mode the backend is written to `./frigg-integration` inside the target
+directory, which may already contain your application. Git is not initialized.
 
 **Options:**
-- TBD
 
-**Example Output:**
-- TBD
+-   `-n, --name <name>` - Project name (alternative to the positional argument)
+-   `-m, --mode <mode>` - `standalone` (default) or `embedded`
+-   `-y, --yes` - Accept the default for every prompt. Implied when stdin is not a TTY
+-   `--no-install` - Skip `npm install`
+-   `--no-git` - Skip `git init` and the initial commit
+-   `-f, --force` - Scaffold into a non-empty directory and overwrite an existing `README.md`/`.gitignore`
+-   `-v, --verbose` - Verbose output
 
-> **Note**: This command may be part of an upcoming release. Documentation will be updated once the implementation is merged to the main branch.
+**Next steps after `init`:**
+
+```bash
+cd my-app
+docker run --name frigg-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
+npm run db:setup
+npm start
+```
 
 ---
 
