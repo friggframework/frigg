@@ -63,8 +63,9 @@ To upgrade in place instead, install the 2.0 packages and the Prisma peers
 (core lists them as optional peer dependencies, so install them yourself):
 
 ```bash
-npm install @friggframework/core@^2.0.1 @friggframework/devtools@^2.0.1
-npm install @prisma/client prisma
+npm install @friggframework/core@^2.0.1
+npm install -D @friggframework/devtools@^2.0.1
+npm install @prisma/client@^6.19.3 prisma@^6.19.3
 ```
 
 Then add the `infrastructure.js` above and delete your 1.x `serverless.yml`.
