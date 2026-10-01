@@ -70,7 +70,9 @@ describe('Requester FetchError boundary', () => {
         expect(error.cause.message).toBe(
             `request to ${sanitizedUrl} failed, reason: socket hang up`
         );
-        expect(error.message).toBe(`GET ${sanitizedUrl} ECONNRESET`);
+        expect(error.message).toBe(
+            `GET ${sanitizedUrl} ECONNRESET: request to ${sanitizedUrl} failed, reason: socket hang up`
+        );
         expect(error.statusCode).toBeUndefined();
         expect(error.message).toContainNoSecretWindow(SECRETS);
     });
@@ -112,7 +114,9 @@ describe('Requester FetchError boundary', () => {
 
             expect(error).toBeInstanceOf(FetchError);
             expect(error).toMatchObject({ isTimeout: true, timeoutMs: 100 });
-            expect(error.message).toBe(`GET ${sanitizedUrl} AbortError`);
+            expect(error.message).toBe(
+                `GET ${sanitizedUrl} AbortError: The user aborted a request.`
+            );
         } finally {
             jest.useRealTimers();
         }
@@ -167,7 +171,9 @@ describe('Requester FetchError boundary', () => {
         expect(error).toBeInstanceOf(FetchError);
         expect(error.cause).toMatchObject({ name: 'FetchError', type: 'invalid-json' });
         expect(util.inspect(error, { depth: 10 })).toContainNoSecretWindow(SECRETS);
-        expect(error.message).toBe(`GET ${sanitizedUrl} FetchError`);
+        expect(error.message).toBe(
+            `GET ${sanitizedUrl} FetchError: invalid json response body at ${sanitizedUrl} reason: Unexpected token`
+        );
         expect(error.message).toContainNoSecretWindow(SECRETS);
         expect(error.isTimeout).toBeUndefined();
     });
@@ -197,7 +203,9 @@ describe('Requester FetchError boundary', () => {
             expect(error).toBeInstanceOf(FetchError);
             expect(error).toMatchObject({ isTimeout: true, timeoutMs: 100 });
             expect(error.cause.name).toBe('AbortError');
-            expect(error.message).toBe(`GET ${sanitizedUrl} AbortError`);
+            expect(error.message).toBe(
+                `GET ${sanitizedUrl} AbortError: aborted mid-body`
+            );
         } finally {
             jest.useRealTimers();
         }

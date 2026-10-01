@@ -15,7 +15,11 @@ function resourceUrl(resource) {
 function causeLabel(cause) {
     if (!cause || typeof cause !== 'object') return '';
     const label = cause.code ?? cause.name;
-    return label === undefined || label === null ? '' : scrubString(String(label));
+    const scrubbedLabel =
+        label === undefined || label === null ? '' : scrubString(String(label));
+    const reason =
+        typeof cause.message === 'string' ? scrubString(cause.message) : '';
+    return [scrubbedLabel, reason].filter(Boolean).join(': ');
 }
 
 function buildMessage({ method, url, response, cause }) {

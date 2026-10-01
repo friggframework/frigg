@@ -84,7 +84,7 @@ describe('FetchError', () => {
         expect(error.message).toBe('GET https://h.example/p');
     });
 
-    it('uses the cause code, or the cause name, when there is no response', () => {
+    it('uses the cause code, or the cause name, and the cause reason when there is no response', () => {
         const reset = Object.assign(new Error('socket hang up'), {
             code: 'ECONNRESET',
         });
@@ -94,11 +94,27 @@ describe('FetchError', () => {
         expect(
             new FetchError({ resource: 'https://h.example/p', cause: reset })
                 .message
-        ).toBe('GET https://h.example/p ECONNRESET');
+        ).toBe('GET https://h.example/p ECONNRESET: socket hang up');
         expect(
             new FetchError({ resource: 'https://h.example/p', cause: aborted })
                 .message
-        ).toBe('GET https://h.example/p AbortError');
+        ).toBe('GET https://h.example/p AbortError: aborted');
+    });
+
+    it('keeps the cause reason in the message without the secrets in the cause', () => {
+        const cause = new Error(
+            `invalid json response body at ${secretUrl} reason: Unexpected end of JSON input`
+        );
+        cause.name = 'FetchError';
+
+        const error = new FetchError({ resource: secretUrl, cause });
+
+        expect(error.message).toContain(
+            'FetchError: invalid json response body'
+        );
+        expect(error.message).toContain('Unexpected end of JSON input');
+        expect(error.message).toContainNoSecretWindow(SECRETS);
+        expect(error.stack).toContainNoSecretWindow(SECRETS);
     });
 
     it('keeps the cause on error.cause', () => {
