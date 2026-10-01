@@ -147,8 +147,8 @@
   var WELL_PAD = 26; // px the reading well extends past each avoided rect
 
   var SIZE = {
-    near: { tile: 60, icon: 30, opacity: 0.9 },
-    mid: { tile: 50, icon: 25, opacity: 0.72 },
+    near: { tile: 60, icon: 36, opacity: 0.9 },
+    mid: { tile: 50, icon: 30, opacity: 0.72 },
   };
 
   /**
@@ -172,11 +172,11 @@
       still: 2,
       chips: [
         { slug: 'hubspot', layer: 'near', at: [4.6, 62], drift: [10, 22, 13, 9], accent: true },
-        { slug: 'shopify', layer: 'mid', at: [4.6, 33], drift: [10, 16, 10, 17] },
+        { slug: 'salesforce', layer: 'mid', at: [4.6, 33], drift: [10, 16, 10, 17] },
         { slug: 'stripe', layer: 'near', at: [20, 7], m: [12, 34], drift: [18, 8, 15, 11] },
-        { slug: 'quickbooks', layer: 'mid', at: [39, 5], m: [37, 30], drift: [26, 6, 19, 12] },
-        { slug: 'zapier', layer: 'near', at: [60, 9], m: [63, 34], drift: [14, 8, 9, 14], accent: true },
-        { slug: 'notion', layer: 'mid', at: [80, 7], m: [88, 30], drift: [14, 8, 16, 10] },
+        { slug: 'pipedrive', layer: 'mid', at: [39, 5], m: [37, 30], drift: [26, 6, 19, 12] },
+        { slug: 'slack', layer: 'near', at: [60, 9], m: [63, 34], drift: [14, 8, 9, 14], accent: true },
+        { slug: 'linear', layer: 'mid', at: [80, 7], m: [88, 30], drift: [14, 8, 16, 10] },
       ],
     },
     {
@@ -189,12 +189,12 @@
       narrow: [-32, -32],
       still: 2,
       chips: [
-        { slug: 'airtable', layer: 'mid', at: [4.6, 88], m: [10, -30], drift: [10, 12, 11, 16] },
-        { slug: 'mailchimp', layer: 'near', at: [57, 79], m: [35, -34], drift: [20, 12, 17, 9] },
-        { slug: 'xero', layer: 'mid', at: [67, 93], drift: [12, 8, 8, 13] },
+        { slug: 'microsoft-teams', layer: 'mid', at: [4.6, 88], m: [10, -30], drift: [10, 12, 11, 16] },
+        { slug: 'contentful', layer: 'near', at: [57, 79], m: [35, -34], drift: [20, 12, 17, 9] },
+        { slug: 'zoho', layer: 'mid', at: [67, 93], drift: [12, 8, 8, 13] },
         { slug: 'asana', layer: 'near', at: [77, 78], m: [62, -30], drift: [22, 12, 21, 12] },
-        { slug: 'jira', layer: 'mid', at: [87, 92], m: [88, -34], drift: [14, 8, 12, 19] },
-        { slug: 'zendesk', layer: 'near', at: [95.5, 74], drift: [8, 18, 14, 10] },
+        { slug: 'frontify', layer: 'mid', at: [87, 92], m: [88, -34], drift: [14, 8, 12, 19] },
+        { slug: 'connectwise', layer: 'near', at: [95.5, 74], drift: [8, 18, 14, 10] },
       ],
     },
     {
@@ -207,15 +207,15 @@
       narrow: null,
       still: 0,
       chips: [
-        { slug: 'intercom', layer: 'mid', at: [95.5, 32], drift: [8, 16, 12, 15], accent: true },
-        { slug: 'google', layer: 'near', at: [95.5, 50], drift: [8, 12, 9, 11] },
+        { slug: 'ironclad', layer: 'mid', at: [95.5, 32], drift: [8, 16, 12, 15], accent: true },
+        { slug: 'google-drive', layer: 'near', at: [95.5, 50], drift: [8, 12, 9, 11] },
       ],
     },
   ];
 
   /** Chips that fill space without being visited by a route. */
   var LOOSE = [
-    { slug: 'dropbox', layer: 'mid', at: [4.6, 9], drift: [16, 6, 13, 17] },
+    { slug: 'google-calendar', layer: 'mid', at: [4.6, 9], drift: [16, 6, 13, 17] },
     { slug: 'zoom', layer: 'near', at: [44, 96], drift: [14, 6, 15, 10] },
   ];
 
@@ -344,13 +344,23 @@
       btn.tabIndex = -1;
       btn.className = 'ftrail-tile';
       btn.setAttribute('aria-label', icon.title);
-      var s = document.createElementNS(SVGNS, 'svg');
-      s.setAttribute('viewBox', '0 0 24 24');
-      s.setAttribute('fill', 'currentColor');
-      s.setAttribute('aria-hidden', 'true');
-      var p = document.createElementNS(SVGNS, 'path');
-      p.setAttribute('d', icon.path);
-      s.appendChild(p);
+      var s;
+      if (icon.src) {
+        // Raster module icon shipped with the site (assets/img/<module>-icon.*).
+        s = document.createElement('img');
+        s.src = icon.src;
+        s.alt = '';
+        s.decoding = 'async';
+        s.draggable = false;
+      } else {
+        s = document.createElementNS(SVGNS, 'svg');
+        s.setAttribute('viewBox', '0 0 24 24');
+        s.setAttribute('fill', 'currentColor');
+        s.setAttribute('aria-hidden', 'true');
+        var p = document.createElementNS(SVGNS, 'path');
+        p.setAttribute('d', icon.path);
+        s.appendChild(p);
+      }
       btn.appendChild(s);
       el.appendChild(btn);
       chipsLayer.appendChild(el);

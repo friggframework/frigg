@@ -68,6 +68,28 @@
   display: block;
 }
 
+/* Module icons are full-colour app tiles: muted at rest, full colour on hover or tap. */
+.ftrail-tile img {
+  display: block;
+  border-radius: 22%;
+  object-fit: contain;
+  filter: grayscale(1) contrast(0.95);
+  opacity: 0.72;
+  transition: filter 0.35s ease, opacity 0.35s ease;
+}
+.ftrail-chip--accent .ftrail-tile img,
+.ftrail-tile--active img,
+.ftrail-tile:focus-visible img {
+  filter: none;
+  opacity: 1;
+}
+@media (hover: hover) {
+  .ftrail-tile:hover img {
+    filter: none;
+    opacity: 1;
+  }
+}
+
 .ftrail-chip--accent .ftrail-tile {
   color: var(--falcon-ink, #2c704f);
 }
