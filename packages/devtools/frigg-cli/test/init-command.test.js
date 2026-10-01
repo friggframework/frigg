@@ -128,7 +128,7 @@ describe('Init Command', () => {
                 force: true,
                 verbose: true,
                 mode: 'standalone',
-                frontend: false
+                yes: true
             };
             
             await initCommand(mockProjectName, options);

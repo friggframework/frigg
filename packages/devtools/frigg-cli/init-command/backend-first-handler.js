@@ -13,8 +13,10 @@ const {
     getScaffoldScripts,
 } = require('./scaffold-dependencies');
 
-const DEPLOYMENT_MODES = ['standalone', 'embedded'];
-const DEFAULT_DEPLOYMENT_MODE = 'standalone';
+const {
+    DEPLOYMENT_MODES,
+    DEFAULT_DEPLOYMENT_MODE,
+} = require('./deployment-modes');
 
 /** Sub-directory that holds the Frigg backend in embedded mode. */
 const EMBEDDED_DIR = 'frigg-integration';
@@ -583,5 +585,4 @@ class BackendFirstHandler {
 }
 
 module.exports = BackendFirstHandler;
-module.exports.DEPLOYMENT_MODES = DEPLOYMENT_MODES;
 module.exports.EMBEDDED_DIR = EMBEDDED_DIR;
