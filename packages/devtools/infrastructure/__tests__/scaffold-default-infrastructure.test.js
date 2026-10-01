@@ -20,7 +20,9 @@ jest.mock('../domains/shared/utilities/prisma-layer-manager', () => ({
     ensurePrismaLayerExists: jest.fn().mockResolvedValue(undefined),
 }));
 
-const { gatherDiscoveredResources } = require('../domains/shared/resource-discovery');
+const {
+    gatherDiscoveredResources,
+} = require('../domains/shared/resource-discovery');
 const { composeServerlessDefinition } = require('../infrastructure-composer');
 const BackendFirstHandler = require('../../frigg-cli/init-command/backend-first-handler');
 
@@ -81,7 +83,9 @@ describe('frigg init default infrastructure', () => {
     const compose = async (discovery) => {
         gatherDiscoveredResources.mockResolvedValue(discovery);
         // The composer mutates nested parts of the definition.
-        return composeServerlessDefinition(JSON.parse(JSON.stringify(Definition)));
+        return composeServerlessDefinition(
+            JSON.parse(JSON.stringify(Definition))
+        );
     };
 
     const resourceTypes = (definition) =>
