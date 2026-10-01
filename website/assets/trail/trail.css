@@ -1,0 +1,226 @@
+/* Frigg hero "trail" backdrop — see the header comment in trail.js.
+   Ported from lefthook.com's TrailBackdrop.module.css; themed with the page's
+   custom properties (--paper, --surface, --line-strong, --shadow, --ink, --mist,
+   --falcon, --falcon-ink, --dawn), with fallbacks so it also renders standalone. */
+
+.ftrail {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ftrail-chips,
+.ftrail-wells {
+  position: absolute;
+  inset: 0;
+}
+
+.ftrail-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The loop positions the outer box with a px transform; the inner .ftrail-tile
+   is the tappable face, so its hover/pop transforms never fight the translate. */
+.ftrail-chip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+
+/* The tapped chip rises above its neighbours so its label is never drawn under one. */
+.ftrail-chip--active {
+  z-index: 2;
+}
+
+.ftrail-tile {
+  pointer-events: auto; /* the backdrop root is pointer-events: none */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  border: 1px solid var(--line-strong, #c6cfc0);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+  box-shadow: var(--shadow, 0 1px 2px rgba(20, 32, 27, 0.06), 0 12px 34px -18px rgba(20, 32, 27, 0.28));
+  color: var(--mist, #69796f);
+  transition:
+    color 0.35s ease,
+    border-color 0.35s ease,
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ftrail-tile svg {
+  display: block;
+}
+
+.ftrail-chip--accent .ftrail-tile {
+  color: var(--falcon-ink, #2c704f);
+}
+
+@media (hover: hover) {
+  .ftrail-tile:hover {
+    color: var(--brand); /* the app's own colour, set per chip and nudged for contrast */
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--line-strong, #c6cfc0));
+    transform: translateY(-2px) scale(1.06);
+  }
+}
+
+.ftrail-tile--active,
+.ftrail-tile:focus-visible {
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--line-strong, #c6cfc0));
+}
+
+/* The tapped app's name, under the tile. */
+.ftrail-label {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--line-strong, #c6cfc0);
+  background: color-mix(in srgb, var(--surface, #fff) 94%, transparent);
+  box-shadow: 0 2px 10px -4px rgba(20, 32, 27, 0.25);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--ink, #14201b);
+  text-decoration: none;
+  pointer-events: none;
+  animation: ftrail-label-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.ftrail-label--link {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.ftrail-label--link:hover {
+  color: var(--falcon-ink, #2c704f);
+}
+
+@keyframes ftrail-label-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* The faint route each pulse follows. Stroke props are set on the <use>
+   instances and inherit into the referenced <path>, which sets none itself. */
+.ftrail-route {
+  stroke: var(--ink, #14201b);
+  stroke-width: 1;
+  opacity: 0.13;
+  vector-effect: non-scaling-stroke;
+}
+
+.ftrail--dark .ftrail-route {
+  opacity: 0.2;
+}
+
+/* Every coloured stroke shows ONE dash of a 1400-unit period on a 1000-unit
+   path: animating the offset 0 -> -1400 runs the dash across the path and then
+   past its end, so the pulse leaves the screen and rests before re-entering.
+   Tails are phased with negative animation-delays set inline — never with
+   var() inside these keyframes: Chromium treats a var()/calc() keyframe value
+   as non-interpolable for stroke-dashoffset and the offset silently stays at 0.
+   Opacities are HALF what a single stroke would use, because the over/under
+   forks overlap between chips and composite to the intended brightness there;
+   around a tile each fork runs alone at half, which reads as the light dividing. */
+.ftrail-beam {
+  stroke: var(--beam, var(--falcon, #71a087));
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  animation-name: ftrail-lap;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: stroke-dashoffset;
+}
+
+@keyframes ftrail-lap {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -1400;
+  }
+}
+
+.ftrail-head {
+  stroke-dasharray: 18 1382;
+  stroke-width: 3;
+  opacity: 0.74;
+}
+
+.ftrail-halo {
+  stroke-dasharray: 18 1382;
+  stroke-width: 11;
+  opacity: 0.11;
+}
+
+.ftrail-tail-near {
+  stroke-dasharray: 70 1330;
+  stroke-width: 2;
+  opacity: 0.34;
+}
+
+.ftrail-tail-far {
+  stroke-dasharray: 150 1250;
+  stroke-width: 1.5;
+  opacity: 0.13;
+}
+
+/* Off-screen or hidden tab: freeze the light along with the rAF loop.
+   Reduced motion: the light is frozen mid-split (a composed still). */
+.ftrail--paused .ftrail-beam,
+.ftrail--still .ftrail-beam {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ftrail-beam {
+    animation-play-state: paused;
+  }
+  .ftrail-tile,
+  .ftrail-label {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* Reading well: a soft patch of page colour behind each avoided box (headline,
+   terminal), so routes fade out before they reach the text. */
+.ftrail-well {
+  position: absolute;
+  border-radius: 48px;
+  background: var(--paper, #f4f6f1);
+  opacity: 0.86;
+  filter: blur(22px);
+}
