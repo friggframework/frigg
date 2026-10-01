@@ -84,7 +84,7 @@ describe('FetchError', () => {
         expect(error.message).toBe('GET https://h.example/p');
     });
 
-    it('uses the cause code, or the cause name, and the cause reason when there is no response', () => {
+    it('uses the cause code, or the cause name, when there is no response', () => {
         const reset = Object.assign(new Error('socket hang up'), {
             code: 'ECONNRESET',
         });
@@ -94,27 +94,42 @@ describe('FetchError', () => {
         expect(
             new FetchError({ resource: 'https://h.example/p', cause: reset })
                 .message
-        ).toBe('GET https://h.example/p ECONNRESET: socket hang up');
+        ).toBe('GET https://h.example/p ECONNRESET');
         expect(
             new FetchError({ resource: 'https://h.example/p', cause: aborted })
                 .message
-        ).toBe('GET https://h.example/p AbortError: aborted');
+        ).toBe('GET https://h.example/p AbortError');
     });
 
-    it('keeps the cause reason in the message without the secrets in the cause', () => {
+    it('names a node-fetch invalid-json cause with a fixed phrase', () => {
         const cause = new Error(
             `invalid json response body at ${secretUrl} reason: Unexpected end of JSON input`
         );
         cause.name = 'FetchError';
+        cause.type = 'invalid-json';
 
         const error = new FetchError({ resource: secretUrl, cause });
 
-        expect(error.message).toContain(
-            'FetchError: invalid json response body'
+        expect(error.message).toBe(
+            'GET https://api.example.com/v1/items?api_key=REDACTED&page=REDACTED FetchError: invalid json response body'
         );
-        expect(error.message).toContain('Unexpected end of JSON input');
         expect(error.message).toContainNoSecretWindow(SECRETS);
         expect(error.stack).toContainNoSecretWindow(SECRETS);
+    });
+
+    it('keeps the response body out of the message for an invalid-json cause', () => {
+        const cause = new Error(
+            'invalid json response body at https://h.example/p reason: Unexpected token \'h\', "hello jane"... is not valid JSON'
+        );
+        cause.name = 'FetchError';
+        cause.type = 'invalid-json';
+
+        const error = new FetchError({ resource: 'https://h.example/p', cause });
+
+        expect(error.message).toBe(
+            'GET https://h.example/p FetchError: invalid json response body'
+        );
+        expect(error.stack).not.toContain('jane');
     });
 
     it('keeps the cause on error.cause', () => {

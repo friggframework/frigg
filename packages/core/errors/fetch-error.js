@@ -12,14 +12,21 @@ function resourceUrl(resource) {
     return redactUrl(resource);
 }
 
+// A node-fetch message can quote the response body, so the FetchError
+// message names a node-fetch failure type with a fixed phrase instead.
+const NODE_FETCH_TYPE_PHRASES = {
+    'invalid-json': 'invalid json response body',
+};
+
 function causeLabel(cause) {
     if (!cause || typeof cause !== 'object') return '';
     const label = cause.code ?? cause.name;
     const scrubbedLabel =
         label === undefined || label === null ? '' : scrubString(String(label));
-    const reason =
-        typeof cause.message === 'string' ? scrubString(cause.message) : '';
-    return [scrubbedLabel, reason].filter(Boolean).join(': ');
+    const phrase = Object.hasOwn(NODE_FETCH_TYPE_PHRASES, cause.type)
+        ? NODE_FETCH_TYPE_PHRASES[cause.type]
+        : '';
+    return [scrubbedLabel, phrase].filter(Boolean).join(': ');
 }
 
 function buildMessage({ method, url, response, cause }) {

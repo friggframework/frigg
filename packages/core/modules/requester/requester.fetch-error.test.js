@@ -70,9 +70,7 @@ describe('Requester FetchError boundary', () => {
         expect(error.cause.message).toBe(
             `request to ${sanitizedUrl} failed, reason: socket hang up`
         );
-        expect(error.message).toBe(
-            `GET ${sanitizedUrl} ECONNRESET: request to ${sanitizedUrl} failed, reason: socket hang up`
-        );
+        expect(error.message).toBe(`GET ${sanitizedUrl} ECONNRESET`);
         expect(error.statusCode).toBeUndefined();
         expect(error.message).toContainNoSecretWindow(SECRETS);
     });
@@ -114,9 +112,7 @@ describe('Requester FetchError boundary', () => {
 
             expect(error).toBeInstanceOf(FetchError);
             expect(error).toMatchObject({ isTimeout: true, timeoutMs: 100 });
-            expect(error.message).toBe(
-                `GET ${sanitizedUrl} AbortError: The user aborted a request.`
-            );
+            expect(error.message).toBe(`GET ${sanitizedUrl} AbortError`);
         } finally {
             jest.useRealTimers();
         }
@@ -172,13 +168,13 @@ describe('Requester FetchError boundary', () => {
         expect(error.cause).toMatchObject({ name: 'FetchError', type: 'invalid-json' });
         expect(util.inspect(error, { depth: 10 })).toContainNoSecretWindow(SECRETS);
         expect(error.message).toBe(
-            `GET ${sanitizedUrl} FetchError: invalid json response body at ${sanitizedUrl} reason: Unexpected token`
+            `GET ${sanitizedUrl} FetchError: invalid json response body`
         );
         expect(error.message).toContainNoSecretWindow(SECRETS);
         expect(error.isTimeout).toBeUndefined();
     });
 
-    it('names the JSON parse failure in the message for an empty 204 JSON body', async () => {
+    it('names the JSON parse failure for an empty 204 JSON body', async () => {
         const { Response } = require('node-fetch');
         const requester = makeRequester(
             jest.fn().mockResolvedValue(
@@ -192,9 +188,29 @@ describe('Requester FetchError boundary', () => {
         const error = await requester._get({ url }).catch((e) => e);
 
         expect(error).toBeInstanceOf(FetchError);
-        expect(error.message).toContain('invalid json response body');
-        expect(error.message).toContain('Unexpected end of JSON input');
-        expect(error.message).toContainNoSecretWindow(SECRETS);
+        expect(error.message).toBe(
+            `GET ${sanitizedUrl} FetchError: invalid json response body`
+        );
+    });
+
+    it('keeps a non-JSON response body out of the message', async () => {
+        const { Response } = require('node-fetch');
+        const requester = makeRequester(
+            jest.fn().mockResolvedValue(
+                new Response('hello jane@doe.com +15551234567 Jane Doe', {
+                    status: 200,
+                    headers: { 'content-type': 'application/json' },
+                })
+            )
+        );
+
+        const error = await requester._get({ url }).catch((e) => e);
+
+        expect(error.message).toBe(
+            `GET ${sanitizedUrl} FetchError: invalid json response body`
+        );
+        expect(error.message).not.toContain('jane');
+        expect(String(error.stack)).not.toContain('jane');
     });
 
     it('keeps isTimeout when the abort fires during the body read', async () => {
@@ -222,9 +238,7 @@ describe('Requester FetchError boundary', () => {
             expect(error).toBeInstanceOf(FetchError);
             expect(error).toMatchObject({ isTimeout: true, timeoutMs: 100 });
             expect(error.cause.name).toBe('AbortError');
-            expect(error.message).toBe(
-                `GET ${sanitizedUrl} AbortError: aborted mid-body`
-            );
+            expect(error.message).toBe(`GET ${sanitizedUrl} AbortError`);
         } finally {
             jest.useRealTimers();
         }

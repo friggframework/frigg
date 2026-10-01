@@ -304,7 +304,10 @@ it leaked the `x-frigg-*` keys, cookies, the OAuth `code` and `id_token`.
 
 8. Build the `FetchError` message from the method, the sanitized URL and the
    status, in every stage (`fetch-error.js:42-47,55`). `response` becomes
-   non-enumerable, and `statusCode` stays (`oauth-2.js:428-443`).
+   non-enumerable, and `statusCode` stays (`oauth-2.js:428-443`). When there
+   is no response, use the cause code or name. For a node-fetch
+   `invalid-json` cause, add the fixed phrase `invalid json response body`.
+   Do not copy the node-fetch message, because it can quote the response body.
 9. Wrap a node-fetch error in a sanitized `FetchError` at the `Requester`
    boundary (`requester.js:386-390`).
 10. Give `span.recordException` and `setStatus` the serialized error
@@ -763,6 +766,7 @@ the whole list before PR A merges, as for ADR-031 (`031:237-240`):
 | An existing `appDefinition.logging` block takes effect (`LoggingConfig`, retention) | Remove the block |
 | `createHandler` rethrows a sanitized surrogate (name, message, `statusCode`, `code`), so `instanceof`, custom properties and `cause` are gone | None (security) |
 | `FetchError` messages drop `statusText` (`METHOD url status`) | Read `error.response.statusText` |
+| A node-fetch `invalid-json` error reads `METHOD url FetchError: invalid json response body`; the parse reason is only on `error.cause.message` | Read `error.cause.type` |
 | A nested `withContext` merges: an inner `undefined` id keeps the outer value in the bus payload (§7) | Pass `null` to clear an id |
 | `IntegrationBase.addError()` stores a fixed message with the integration id, not the caller's error text | Read the `integration.<name>.error_recorded` record |
 | `DeleteIntegrationForUser` stores a fixed message and throws a new `Error` with the old one as `cause` | Read `error.cause` |
