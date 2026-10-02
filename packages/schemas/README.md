@@ -41,6 +41,32 @@ if (result.valid) {
 }
 ```
 
+### Integration classes and defaults (ADR-051)
+
+Apps list integration classes, which JSON Schema cannot describe.
+`validateAppDefinition` validates a view of the definition in which each
+class in `integrations`, `adminScripts` and `reports` is replaced by
+`{ Definition }`; `frigg validate` checks the classes themselves.
+
+```javascript
+const { applyAppDefinitionDefaults } = require('@friggframework/schemas');
+// or, without loading Ajv:
+// require('@friggframework/schemas/app-definition').applyAppDefinitionDefaults
+
+const definition = applyAppDefinitionDefaults(require('./index').Definition);
+definition.user.individualUserRequired; // true (schema default)
+```
+
+`applyAppDefinitionDefaults` returns a copy with every `default` declared in
+the app-definition schema applied (only inside blocks the app sets, plus
+blocks that have a default themselves, such as `user`). core's
+`loadAppDefinition` and devtools' `createFriggInfrastructure` call it, so a
+schema default is the runtime default. A schema default must equal what the
+code does when the key is absent; the contract test in
+`packages/devtools/infrastructure/app-definition-schema-contract.test.js`
+checks this for the infrastructure builders. Keys nothing reads are marked
+`"deprecated": true`.
+
 ### Advanced Validation
 
 ```javascript
