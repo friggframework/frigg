@@ -4,6 +4,7 @@ const {
     toObjectIdArray,
     fromObjectId,
     findMany,
+    findManyDrained,
     findOne,
     insertOne,
     updateOne,
@@ -12,6 +13,7 @@ const {
 const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
+const { validateConfigPatch } = require('./config-patch-shared');
 
 class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     constructor() {
@@ -23,6 +25,27 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         const objectId = toObjectId(userId);
         const filter = objectId ? { userId: objectId } : {};
         const records = await findMany(this.prisma, 'Integration', filter);
+        return records.map((doc) => this._mapIntegration(doc));
+    }
+
+    async findIntegrations({ type, status } = {}) {
+        const filter = {};
+        if (type) {
+            filter['config.type'] = type;
+        }
+        if (status) {
+            filter.status = status;
+        }
+        const records = await findMany(this.prisma, 'Integration', filter);
+        return records.map((doc) => this._mapIntegration(doc));
+    }
+
+    async findIntegrationsByEntityId(entityId) {
+        const objectId = toObjectId(entityId);
+        if (!objectId) return [];
+        const records = await findMany(this.prisma, 'Integration', {
+            entityIds: objectId,
+        });
         return records.map((doc) => this._mapIntegration(doc));
     }
 
@@ -115,7 +138,7 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             userId: toObjectId(userId) || null,
             config,
             version: '0.0.0',
-            status: 'ENABLED',
+            status: 'IN_CREATION',
             entityIds: toObjectIdArray(entities),
             messages: { errors: [], warnings: [], info: [], logs: [] },
             errors: [],
@@ -181,6 +204,94 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         return this._mapIntegration(updated);
     }
 
+    /**
+     * Atomically merge a patch into the existing config with a per-key
+     * $set (config.<k> for each patch key), then re-read to shape the
+     * return value — DocumentDB's raw update command doesn't return the
+     * post-update document directly.
+     *
+     * @param {string} integrationId - Integration ID
+     * @param {Object} patch - Keys to merge into the existing config
+     * @returns {Promise<Object>} Updated integration object
+     */
+    async patchIntegrationConfig(integrationId, patch) {
+        validateConfigPatch(patch);
+        const objectId = toObjectId(integrationId);
+        if (!objectId) {
+            throw new Error(`Integration with id ${integrationId} not found`);
+        }
+
+        const $set = { updatedAt: new Date() };
+        for (const [key, value] of Object.entries(patch)) {
+            $set[`config.${key}`] = value;
+        }
+
+        const result = await updateOne(
+            this.prisma,
+            'Integration',
+            { _id: objectId },
+            { $set }
+        );
+        if (result.writeErrors?.length) {
+            throw new Error(
+                `Failed to patch integration config: ${result.writeErrors[0].errmsg}`
+            );
+        }
+        if (!result.n) {
+            throw new Error(`Integration with id ${integrationId} not found`);
+        }
+
+        const updated = await findOne(this.prisma, 'Integration', { _id: objectId });
+        if (!updated) {
+            console.error('[IntegrationRepositoryDocumentDB] Integration not found after update', {
+                integrationId: fromObjectId(objectId),
+                patch,
+            });
+            throw new Error(
+                'Failed to update integration: Document not found after update. ' +
+                'This indicates a database consistency issue.'
+            );
+        }
+        return this._mapIntegration(updated);
+    }
+
+    // Drain the full cursor so a deployment-wide report is never truncated.
+    async findAllForReport({ status, userId } = {}) {
+        const filter = {};
+        if (status) filter.status = status;
+        if (userId !== undefined && userId !== null) {
+            const objectId = toObjectId(userId);
+            // Invalid userId means no matches — don't fall through to an unfiltered whole-deployment query.
+            if (!objectId) return [];
+            filter.userId = objectId;
+        }
+
+        const docs = await findManyDrained(this.prisma, 'Integration', filter);
+
+        return docs.map((doc) => {
+            const errors = this._extractReportErrors(doc);
+            return {
+                id: fromObjectId(doc?._id),
+                type: doc?.config?.type ?? null,
+                status: doc?.status ?? null,
+                userId: fromObjectId(doc?.userId) ?? null,
+                version: doc?.version ?? null,
+                errorCount: Array.isArray(errors) ? errors.length : 0,
+                moduleCount: Array.isArray(doc?.entityIds)
+                    ? doc.entityIds.length
+                    : 0,
+                createdAt: doc?.createdAt ?? null,
+                updatedAt: doc?.updatedAt ?? null,
+            };
+        });
+    }
+
+    _extractReportErrors(doc) {
+        if (Array.isArray(doc?.errors)) return doc.errors;
+        if (Array.isArray(doc?.messages?.errors)) return doc.messages.errors;
+        return [];
+    }
+
     _mapIntegration(doc) {
         const messages = this._extractMessages(doc);
         return {
@@ -191,6 +302,7 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             version: doc?.version ?? null,
             status: doc?.status ?? null,
             messages,
+            createdAt: doc?.createdAt ?? null,
         };
     }
 

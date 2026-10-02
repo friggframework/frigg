@@ -64,7 +64,8 @@ async function generateIamCommand(options = {}) {
             appName: summary.appName,
             features: summary.features,
             userPrefix: deploymentUserName,
-            stackName
+            stackName,
+            ssmKmsKeyArn: summary.ssmKmsKeyArn
         });
 
         // Determine output file path

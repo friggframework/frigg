@@ -1,21 +1,10 @@
 import React, { useState } from 'react'
 import { Download, CheckCircle, ExternalLink, Settings, AlertCircle } from 'lucide-react'
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import LoadingSpinner from './LoadingSpinner'
 import { cn } from '../lib/utils'
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 const IntegrationCard = ({
   integration,
   onInstall,
@@ -27,37 +16,6 @@ const IntegrationCard = ({
 }) => {
   const [showDetails, setShowDetails] = useState(false)
 
-=======
-import { Card, CardContent } from './Card'
-import { Button } from './Button'
-=======
-import { Card, CardContent } from './ui/card'
-import { Button } from './ui/button'
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
-import LoadingSpinner from './LoadingSpinner'
-import { cn } from '../lib/utils'
-
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-const IntegrationCard = ({ 
-  integration, 
-  onInstall, 
-  onConfigure, 
-  onUninstall,
-  installing = false,
-  className,
-  ...props 
-}) => {
-  const [showDetails, setShowDetails] = useState(false)
-  
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
   const isInstalled = integration.installed || integration.status === 'installed'
   const isInstalling = installing || integration.status === 'installing'
   const hasError = integration.status === 'error'
@@ -80,119 +38,34 @@ const IntegrationCard = ({
     }
   }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
   // Filter out invalid DOM props
   const { onUpdate, onTest, uninstalling, updating, error, ...cardProps } = props
 
   return (
     <Card className={cn('hover:shadow-lg industrial-transition', className)} {...cardProps}>
-=======
-  return (
-    <Card className={cn('hover:shadow-md transition-shadow', className)} {...props}>
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-  // Filter out invalid DOM props
-  const { onUpdate, onTest, uninstalling, updating, error, ...cardProps } = props
-  
-  return (
-    <Card className={cn('hover:shadow-lg industrial-transition', className)} {...cardProps}>
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center mb-2">
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
               <h4 className="font-semibold text-foreground text-lg">
                 {integration.displayName || integration.name}
               </h4>
               {integration.version && (
                 <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-1 sharp-badge">
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
-              <h4 className="font-semibold text-gray-900 text-lg">
-                {integration.displayName || integration.name}
-              </h4>
-              {integration.version && (
-                <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-              <h4 className="font-semibold text-foreground text-lg">
-                {integration.displayName || integration.name}
-              </h4>
-              {integration.version && (
-                <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-1 sharp-badge">
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                   v{integration.version}
                 </span>
               )}
             </div>
-<<<<<<< HEAD
-<<<<<<< HEAD
             <p className="text-sm text-muted-foreground mb-3">
               {integration.description || 'No description available'}
             </p>
-            
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
-            <p className="text-sm text-muted-foreground mb-3">
-              {integration.description || 'No description available'}
-            </p>
-            
-<<<<<<< HEAD
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
+
             {integration.tags && integration.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
                 {integration.tags.map((tag, index) => (
                   <span
                     key={index}
-<<<<<<< HEAD
-<<<<<<< HEAD
                     className="text-xs bg-primary/10 text-primary px-2 py-1 sharp-badge"
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-                    className="text-xs bg-primary/10 text-primary px-2 py-1 sharp-badge"
-=======
-                    className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-                    className="text-xs bg-primary/10 text-primary px-2 py-1 sharp-badge"
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-                    className="text-xs bg-primary/10 text-primary px-2 py-1 sharp-badge"
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                   >
                     {tag}
                   </span>
@@ -200,19 +73,7 @@ const IntegrationCard = ({
               </div>
             )}
           </div>
-<<<<<<< HEAD
-<<<<<<< HEAD
-          
-=======
-<<<<<<< HEAD
 
-=======
-          
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-          
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           <div className="flex items-center ml-4">
             {hasError && (
               <AlertCircle size={20} className="text-red-500 mr-2" />
@@ -239,19 +100,7 @@ const IntegrationCard = ({
                 Install
               </Button>
             )}
-<<<<<<< HEAD
-<<<<<<< HEAD
-            
-=======
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-            
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {isInstalled && !hasError && (
               <Button
                 size="sm"
@@ -263,38 +112,14 @@ const IntegrationCard = ({
                 Configure
               </Button>
             )}
-<<<<<<< HEAD
-<<<<<<< HEAD
-            
-=======
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-            
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {isInstalling && (
               <Button size="sm" disabled className="inline-flex items-center">
                 <LoadingSpinner size="sm" className="mr-1" />
                 Installing...
               </Button>
             )}
-<<<<<<< HEAD
-<<<<<<< HEAD
-            
-=======
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-            
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {hasError && (
               <Button
                 size="sm"
@@ -307,19 +132,7 @@ const IntegrationCard = ({
               </Button>
             )}
           </div>
-<<<<<<< HEAD
-<<<<<<< HEAD
-          
-=======
-<<<<<<< HEAD
 
-=======
-          
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-          
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           <div className="flex items-center space-x-2">
             {integration.docsUrl && (
               <Button
@@ -332,19 +145,7 @@ const IntegrationCard = ({
                 Docs
               </Button>
             )}
-<<<<<<< HEAD
-<<<<<<< HEAD
-            
-=======
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-            
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             {isInstalled && (
               <Button
                 size="sm"
@@ -359,108 +160,30 @@ const IntegrationCard = ({
         </div>
 
         {showDetails && isInstalled && (
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
           <div className="mt-4 pt-4 border-t border-border">
             <div className="space-y-2 text-sm">
               {integration.endpoints && (
                 <div>
                   <span className="font-medium text-foreground">Endpoints:</span>
                   <span className="ml-2 text-muted-foreground">{integration.endpoints.length}</span>
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="space-y-2 text-sm">
-              {integration.endpoints && (
-                <div>
-                  <span className="font-medium text-gray-700">Endpoints:</span>
-                  <span className="ml-2 text-gray-600">{integration.endpoints.length}</span>
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="space-y-2 text-sm">
-              {integration.endpoints && (
-                <div>
-                  <span className="font-medium text-foreground">Endpoints:</span>
-                  <span className="ml-2 text-muted-foreground">{integration.endpoints.length}</span>
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                 </div>
               )}
               {integration.lastUpdated && (
                 <div>
-<<<<<<< HEAD
-<<<<<<< HEAD
                   <span className="font-medium text-foreground">Last Updated:</span>
                   <span className="ml-2 text-muted-foreground">
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-                  <span className="font-medium text-foreground">Last Updated:</span>
-                  <span className="ml-2 text-muted-foreground">
-=======
-                  <span className="font-medium text-gray-700">Last Updated:</span>
-                  <span className="ml-2 text-gray-600">
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-                  <span className="font-medium text-foreground">Last Updated:</span>
-                  <span className="ml-2 text-muted-foreground">
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-                  <span className="font-medium text-foreground">Last Updated:</span>
-                  <span className="ml-2 text-muted-foreground">
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                     {new Date(integration.lastUpdated).toLocaleDateString()}
                   </span>
                 </div>
               )}
               {integration.connections && (
                 <div>
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
                   <span className="font-medium text-foreground">Active Connections:</span>
                   <span className="ml-2 text-muted-foreground">{integration.connections}</span>
                 </div>
               )}
             </div>
-<<<<<<< HEAD
-<<<<<<< HEAD
-            
-=======
 
-=======
-                  <span className="font-medium text-gray-700">Active Connections:</span>
-                  <span className="ml-2 text-gray-600">{integration.connections}</span>
-=======
-                  <span className="font-medium text-foreground">Active Connections:</span>
-                  <span className="ml-2 text-muted-foreground">{integration.connections}</span>
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
-                </div>
-              )}
-            </div>
-            
->>>>>>> 652520a5 (Claude Flow RFC related development)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
-            
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
             <div className="mt-3 flex justify-end">
               <Button
                 size="sm"

@@ -1,4 +1,7 @@
 const Boom = require('@hapi/boom');
+const { getLogger } = require('../../logs');
+
+const log = getLogger('frigg.integrations');
 // Removed Integration wrapper - using IntegrationBase directly
 
 /**
@@ -65,17 +68,25 @@ class DeleteIntegrationForUser {
                 );
                 modules.push(moduleInstance);
             } catch (error) {
-                console.error(
-                    `[Integration Deletion] Failed to load module for entity ${entityId}:`,
-                    error.message
-                );
+                log.warn('Failed to load module for deletion', {
+                    eventName: 'frigg.integrations.delete_module_load_failed',
+                    integrationId,
+                    entityId,
+                    error,
+                });
                 failedModuleLoads.push({ entityId, error: error.message });
             }
         }
 
         if (failedModuleLoads.length > 0) {
-            console.warn(
-                `[Integration Deletion] ${failedModuleLoads.length}/${integrationRecord.entitiesIds.length} module(s) failed to load. Webhooks for these modules may require manual cleanup.`
+            log.warn(
+                'Some modules failed to load. Webhooks for these modules may require manual cleanup.',
+                {
+                    eventName: 'frigg.integrations.delete_modules_incomplete',
+                    integrationId,
+                    failedCount: failedModuleLoads.length,
+                    totalCount: integrationRecord.entitiesIds.length,
+                }
             );
         }
 
@@ -92,7 +103,25 @@ class DeleteIntegrationForUser {
 
         // Complete async initialization (load dynamic actions, register handlers)
         await integrationInstance.initialize();
-        await integrationInstance.send('ON_DELETE');
+
+        await integrationInstance.persistStatus('IN_DELETION');
+        try {
+            await integrationInstance.send('ON_DELETE');
+        } catch (error) {
+            // The error text can echo a request with its credentials and
+            // messages reach end users; the boundary logs the cause once.
+            await integrationInstance.updateIntegrationMessages.execute(
+                integrationId,
+                'errors',
+                'Integration Deletion Error',
+                'Deletion did not complete. Contact support.',
+                Date.now()
+            );
+            throw new Error(
+                `Integration ${integrationId} deletion did not complete`,
+                { cause: error }
+            );
+        }
 
         await this.integrationRepository.deleteIntegrationById(integrationId);
     }

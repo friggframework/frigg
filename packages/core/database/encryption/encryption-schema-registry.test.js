@@ -1,17 +1,23 @@
 const {
     CORE_ENCRYPTION_SCHEMA,
     getEncryptedFields,
+    getFieldsToEncryptOnWrite,
+    getFieldsToDecryptOnRead,
     hasEncryptedFields,
     getEncryptedModels,
     registerCustomSchema,
+    registerEncryptionOptOut,
     validateCustomSchema,
+    validateOptOut,
     resetCustomSchema,
+    resetEncryptionOptOut,
 } = require('./encryption-schema-registry');
 
 describe('Encryption Schema Registry', () => {
     afterEach(() => {
         // Reset custom schema after each test
         resetCustomSchema();
+        resetEncryptionOptOut();
     });
 
     describe('CORE_ENCRYPTION_SCHEMA', () => {
@@ -386,6 +392,167 @@ describe('Encryption Schema Registry', () => {
                 // Core models still encrypted
                 expect(hasEncryptedFields('Credential')).toBe(true);
                 expect(hasEncryptedFields('User')).toBe(true);
+            });
+        });
+    });
+
+    describe('Encryption Opt-Out (write-side)', () => {
+        describe('validateOptOut', () => {
+            it('should validate a valid opt-out config', () => {
+                const result = validateOptOut({
+                    IntegrationMapping: ['mapping'],
+                });
+
+                expect(result.valid).toBe(true);
+                expect(result.errors).toEqual([]);
+            });
+
+            it('should reject non-object opt-out', () => {
+                const result = validateOptOut('invalid');
+
+                expect(result.valid).toBe(false);
+                expect(result.errors[0]).toContain('must be an object');
+            });
+
+            it('should reject opt-out where fields is not an array', () => {
+                const result = validateOptOut({
+                    IntegrationMapping: 'mapping',
+                });
+
+                expect(result.valid).toBe(false);
+                expect(result.errors[0]).toContain('must be an array');
+            });
+
+            it('should reject opt-out with non-string field paths', () => {
+                const result = validateOptOut({
+                    IntegrationMapping: ['mapping', null, ''],
+                });
+
+                expect(result.valid).toBe(false);
+                expect(result.errors.length).toBeGreaterThan(0);
+            });
+
+            it('should allow opt-out paths that overlap with core encrypted fields', () => {
+                // Unlike registerCustomSchema, opt-out IS allowed to target core paths —
+                // that's the whole point.
+                const result = validateOptOut({
+                    IntegrationMapping: ['mapping'],
+                    Credential: ['data.access_token'],
+                });
+
+                expect(result.valid).toBe(true);
+                expect(result.errors).toEqual([]);
+            });
+        });
+
+        describe('registerEncryptionOptOut', () => {
+            it('should register a valid opt-out config without throwing', () => {
+                expect(() =>
+                    registerEncryptionOptOut({
+                        IntegrationMapping: ['mapping'],
+                    })
+                ).not.toThrow();
+            });
+
+            it('should throw on invalid opt-out config', () => {
+                expect(() =>
+                    registerEncryptionOptOut({
+                        IntegrationMapping: 'not-an-array',
+                    })
+                ).toThrow('Invalid encryption opt-out');
+            });
+
+            it('should handle empty config gracefully', () => {
+                expect(() => registerEncryptionOptOut({})).not.toThrow();
+                expect(() => registerEncryptionOptOut(null)).not.toThrow();
+            });
+        });
+
+        describe('getFieldsToEncryptOnWrite', () => {
+            it('should equal getEncryptedFields when no opt-out registered', () => {
+                expect(getFieldsToEncryptOnWrite('IntegrationMapping')).toEqual(
+                    getEncryptedFields('IntegrationMapping')
+                );
+                expect(getFieldsToEncryptOnWrite('Credential')).toEqual(
+                    getEncryptedFields('Credential')
+                );
+            });
+
+            it('should exclude opted-out fields', () => {
+                registerEncryptionOptOut({
+                    IntegrationMapping: ['mapping'],
+                });
+
+                const writeFields =
+                    getFieldsToEncryptOnWrite('IntegrationMapping');
+
+                expect(writeFields).not.toContain('mapping');
+            });
+
+            it('should only exclude opted-out fields, not the whole model', () => {
+                registerCustomSchema({
+                    IntegrationMapping: {
+                        fields: ['someExtraField'],
+                    },
+                });
+                registerEncryptionOptOut({
+                    IntegrationMapping: ['mapping'],
+                });
+
+                const writeFields =
+                    getFieldsToEncryptOnWrite('IntegrationMapping');
+
+                expect(writeFields).not.toContain('mapping');
+                expect(writeFields).toContain('someExtraField');
+            });
+
+            it('should not affect unrelated models', () => {
+                registerEncryptionOptOut({
+                    IntegrationMapping: ['mapping'],
+                });
+
+                const credentialWriteFields =
+                    getFieldsToEncryptOnWrite('Credential');
+
+                expect(credentialWriteFields).toContain('data.access_token');
+                expect(credentialWriteFields).toContain('data.refresh_token');
+            });
+        });
+
+        describe('getFieldsToDecryptOnRead', () => {
+            it('should equal getEncryptedFields when no opt-out registered', () => {
+                expect(getFieldsToDecryptOnRead('IntegrationMapping')).toEqual(
+                    getEncryptedFields('IntegrationMapping')
+                );
+            });
+
+            it('should INCLUDE opted-out fields (legacy data still decrypts)', () => {
+                registerEncryptionOptOut({
+                    IntegrationMapping: ['mapping'],
+                });
+
+                const readFields =
+                    getFieldsToDecryptOnRead('IntegrationMapping');
+
+                expect(readFields).toContain('mapping');
+            });
+        });
+
+        describe('resetEncryptionOptOut', () => {
+            it('should clear all opt-outs', () => {
+                registerEncryptionOptOut({
+                    IntegrationMapping: ['mapping'],
+                });
+
+                expect(
+                    getFieldsToEncryptOnWrite('IntegrationMapping')
+                ).not.toContain('mapping');
+
+                resetEncryptionOptOut();
+
+                expect(
+                    getFieldsToEncryptOnWrite('IntegrationMapping')
+                ).toContain('mapping');
             });
         });
     });

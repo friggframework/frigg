@@ -4,12 +4,10 @@ const {
 } = require('./commands/integration-commands');
 const { createUserCommands } = require('./commands/user-commands');
 const { createEntityCommands } = require('./commands/entity-commands');
-const {
-    createCredentialCommands,
-} = require('./commands/credential-commands');
-const {
-    createSchedulerCommands,
-} = require('./commands/scheduler-commands');
+const { createCredentialCommands } = require('./commands/credential-commands');
+const { createProcessCommands } = require('./commands/process-commands');
+const { createSchedulerCommands } = require('./commands/scheduler-commands');
+const { createUsageCommands } = require('./commands/usage-commands');
 
 /**
  * Create a unified command factory with all CRUD operations
@@ -36,6 +34,8 @@ function createFriggCommands({ integrationClass }) {
 
     const credentialCommands = createCredentialCommands();
 
+    const processCommands = createProcessCommands();
+
     return {
         // Integration commands
         ...integrationCommands,
@@ -48,6 +48,14 @@ function createFriggCommands({ integrationClass }) {
 
         // Credential commands
         ...credentialCommands,
+
+        // Process commands
+        ...processCommands,
+
+        // Usage read/write — nested to match `frigg.usage.*`. The North Star
+        // read takes its config as a call argument, so nothing telemetry-specific
+        // is threaded through this general factory.
+        usage: createUsageCommands(),
     };
 }
 
@@ -60,7 +68,9 @@ module.exports = {
     createUserCommands,
     createEntityCommands,
     createCredentialCommands,
+    createProcessCommands,
     createSchedulerCommands,
+    createUsageCommands,
 
     // Legacy standalone function
     findIntegrationContextByExternalEntityId,

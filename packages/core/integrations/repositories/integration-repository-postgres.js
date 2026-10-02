@@ -2,6 +2,8 @@ const { prisma } = require('../../database/prisma');
 const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
+const { validateConfigPatch } = require('./config-patch-shared');
+const { strictIntId } = require('./report-id');
 
 /**
  * PostgreSQL Integration Repository Adapter
@@ -84,8 +86,87 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
                 version: converted.version,
                 status: converted.status,
                 messages: converted.messages,
+                createdAt: converted.createdAt,
             };
         });
+    }
+
+    /**
+     * Find integrations, optionally filtered by config type and/or status.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.type] - Integration type (config.type)
+     * @param {string} [filter.status] - Integration status
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     */
+    async findIntegrations({ type, status } = {}) {
+        const where = {};
+        if (type) {
+            where.config = { path: ['type'], equals: type };
+        }
+        if (status) {
+            where.status = status;
+        }
+
+        const integrations = await this.prisma.integration.findMany({
+            where,
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => {
+            const converted = this._convertIntegrationIds(integration);
+            return {
+                id: converted.id,
+                entitiesIds: converted.entities.map((e) => e.id),
+                userId: converted.userId,
+                config: converted.config,
+                version: converted.version,
+                status: converted.status,
+                messages: converted.messages,
+                createdAt: converted.createdAt,
+            };
+        });
+    }
+
+    /**
+     * Find every integration in a report-shaped projection.
+     *
+     * type lives in config.type (a JSON path not portably groupable across
+     * DBs); it is left in the row for the caller to bucket.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.status] - Integration status
+     * @param {string|number} [filter.userId] - Owning user ID
+     * @returns {Promise<Array>} Report-shaped integration rows
+     */
+    async findAllForReport({ status, userId } = {}) {
+        const where = {};
+        if (status) where.status = status;
+        if (userId !== undefined && userId !== null) {
+            // Strict: parseInt would coerce '12abc'/'12.9' to 12 and read the wrong user.
+            where.userId = strictIntId(userId);
+        }
+
+        const integrations = await this.prisma.integration.findMany({
+            where,
+            include: { entities: { select: { id: true } } },
+        });
+
+        return integrations.map((integration) => ({
+            id: integration.id?.toString(),
+            type: integration.config?.type ?? null,
+            status: integration.status ?? null,
+            userId: integration.userId?.toString() ?? null,
+            version: integration.version ?? null,
+            errorCount: Array.isArray(integration.errors)
+                ? integration.errors.length
+                : 0,
+            moduleCount: integration.entities?.length ?? 0,
+            createdAt: integration.createdAt ?? null,
+            updatedAt: integration.updatedAt ?? null,
+        }));
     }
 
     /**
@@ -346,6 +427,65 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
             status: converted.status,
             messages: converted.messages,
         };
+    }
+
+    /**
+     * Atomically merge a patch into the existing config with a single
+     * jsonb concatenation — the database does the merge, so there is no
+     * JS-side read-modify-write for concurrent callers to race on.
+     *
+     * @param {string} integrationId - Integration ID (string from application layer)
+     * @param {Object} patch - Keys to merge into the existing config
+     * @returns {Promise<Object>} Updated integration object with string IDs
+     */
+    async patchIntegrationConfig(integrationId, patch) {
+        validateConfigPatch(patch);
+
+        const intId = this._convertId(integrationId);
+        const affectedCount = await this.prisma.$executeRawUnsafe(
+            'UPDATE "Integration" SET "config" = COALESCE("config", \'{}\'::jsonb) || $1::jsonb, "updatedAt" = NOW() WHERE "id" = $2',
+            JSON.stringify(patch),
+            intId
+        );
+
+        if (!affectedCount) {
+            throw new Error(`Integration with id ${integrationId} not found`);
+        }
+
+        return this.findIntegrationById(integrationId);
+    }
+
+    /**
+     * Find all integrations whose entity set includes the given entity ID.
+     *
+     * @param {string|number} entityId - Entity ID (string from application layer)
+     * @returns {Promise<Array>} Array of integration objects with string IDs (possibly empty)
+     */
+    async findIntegrationsByEntityId(entityId) {
+        const intEntityId = this._convertId(entityId);
+        const integrations = await this.prisma.integration.findMany({
+            where: {
+                entities: {
+                    some: { id: intEntityId },
+                },
+            },
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => {
+            const converted = this._convertIntegrationIds(integration);
+            return {
+                id: converted.id,
+                entitiesIds: converted.entities.map((e) => e.id),
+                userId: converted.userId,
+                config: converted.config,
+                version: converted.version,
+                status: converted.status,
+                messages: converted.messages,
+            };
+        });
     }
 }
 

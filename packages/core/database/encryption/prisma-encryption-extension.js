@@ -3,8 +3,30 @@
  * Intercepts Prisma queries to encrypt on write and decrypt on read.
  */
 
-const { getEncryptedFields } = require('./encryption-schema-registry');
+const {
+    getEncryptedFields,
+    getFieldsToEncryptOnWrite,
+    getFieldsToDecryptOnRead,
+} = require('./encryption-schema-registry');
 const { FieldEncryptionService } = require('./field-encryption-service');
+
+/**
+ * The FieldEncryptionService the extension runs, with field paths from the
+ * encryption schema registry.
+ *
+ * @param {import('../../encrypt/Cryptor').Cryptor} cryptor
+ * @returns {FieldEncryptionService}
+ */
+function createFieldEncryptionService(cryptor) {
+    return new FieldEncryptionService({
+        cryptor,
+        schema: {
+            getEncryptedFields,
+            getFieldsToEncryptOnWrite,
+            getFieldsToDecryptOnRead,
+        },
+    });
+}
 
 function createEncryptionExtension({ cryptor, enabled = true }) {
     if (!enabled) {
@@ -17,10 +39,7 @@ function createEncryptionExtension({ cryptor, enabled = true }) {
         );
     }
 
-    const encryptionService = new FieldEncryptionService({
-        cryptor,
-        schema: { getEncryptedFields },
-    });
+    const encryptionService = createFieldEncryptionService(cryptor);
 
     return {
         name: 'frigg-field-encryption',
@@ -219,4 +238,4 @@ function createEncryptionExtension({ cryptor, enabled = true }) {
     };
 }
 
-module.exports = { createEncryptionExtension };
+module.exports = { createEncryptionExtension, createFieldEncryptionService };

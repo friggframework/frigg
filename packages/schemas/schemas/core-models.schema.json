@@ -18,12 +18,12 @@
       "type": "object",
       "description": "Frigg User model schema",
       "required": [
-        "_id"
+        "id"
       ],
       "properties": {
-        "_id": {
+        "id": {
           "$ref": "#/definitions/objectId",
-          "description": "Unique user identifier"
+          "description": "Unique user identifier (maps to _id in MongoDB)"
         },
         "email": {
           "type": "string",
@@ -148,13 +148,13 @@
       "type": "object",
       "description": "Frigg Credential model schema",
       "required": [
-        "_id",
+        "id",
         "userId"
       ],
       "properties": {
-        "_id": {
+        "id": {
           "$ref": "#/definitions/objectId",
-          "description": "Unique credential identifier"
+          "description": "Unique credential identifier (maps to _id in MongoDB)"
         },
         "userId": {
           "$ref": "#/definitions/objectId",
@@ -165,12 +165,12 @@
           "description": "External system identifier",
           "maxLength": 255
         },
-        "auth_is_valid": {
+        "authIsValid": {
           "type": "boolean",
           "description": "Whether authentication is currently valid",
           "default": false
         },
-        "authData": {
+        "data": {
           "type": "object",
           "description": "Encrypted authentication data",
           "properties": {
@@ -263,14 +263,14 @@
       "type": "object",
       "description": "Frigg Entity model schema",
       "required": [
-        "_id",
+        "id",
         "credentialId",
         "userId"
       ],
       "properties": {
-        "_id": {
+        "id": {
           "$ref": "#/definitions/objectId",
-          "description": "Unique entity identifier"
+          "description": "Unique entity identifier (maps to _id in MongoDB)"
         },
         "credentialId": {
           "$ref": "#/definitions/objectId",
@@ -423,7 +423,7 @@
   "examples": [
     {
       "user": {
-        "_id": "507f1f77bcf86cd799439011",
+        "id": "507f1f77bcf86cd799439011",
         "email": "user@example.com",
         "firstName": "John",
         "lastName": "Doe",
@@ -446,11 +446,11 @@
         "updatedAt": "2023-01-01T00:00:00Z"
       },
       "credential": {
-        "_id": "507f1f77bcf86cd799439012",
+        "id": "507f1f77bcf86cd799439012",
         "userId": "507f1f77bcf86cd799439011",
         "externalId": "12345",
-        "auth_is_valid": true,
-        "authData": {
+        "authIsValid": true,
+        "data": {
           "access_token": "encrypted_access_token",
           "refresh_token": "encrypted_refresh_token",
           "token_type": "Bearer",
@@ -466,7 +466,7 @@
         "updatedAt": "2023-01-01T00:00:00Z"
       },
       "entity": {
-        "_id": "507f1f77bcf86cd799439013",
+        "id": "507f1f77bcf86cd799439013",
         "credentialId": "507f1f77bcf86cd799439012",
         "userId": "507f1f77bcf86cd799439011",
         "name": "HubSpot Contacts",

@@ -678,7 +678,7 @@ To integrate Frigg into your production application:
                         credentials: true
                     }
                 },
-                logging: { level: 'info' },
+                logging: { level: 'info', retentionInDays: 30 },
                 custom: {
                     appName: 'My Frigg Application',
                     version: '1.0.0',

@@ -13,6 +13,11 @@
  */
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
+const {
+    isScopedEnvironmentActive,
+    getIntegrationFunctionNames,
+    getAdminFunctionNames,
+} = require('../shared/function-environments');
 
 class SchedulerBuilder extends InfrastructureBuilder {
     constructor() {
@@ -70,7 +75,7 @@ class SchedulerBuilder extends InfrastructureBuilder {
         this.addSchedulerIamStatements(result);
 
         // Add environment variables
-        this.addEnvironmentVariables(result);
+        this.addEnvironmentVariables(result, appDefinition);
 
         console.log(`[${this.name}] ✅ Scheduler configuration completed`);
         return result;
@@ -196,15 +201,46 @@ class SchedulerBuilder extends InfrastructureBuilder {
     /**
      * Add environment variables for scheduler configuration
      */
-    addEnvironmentVariables(result) {
-        result.environment.SCHEDULER_ROLE_ARN = {
-            'Fn::GetAtt': ['SchedulerExecutionRole', 'Arn'],
-        };
-        result.environment.SCHEDULE_GROUP_NAME = {
-            Ref: 'FriggScheduleGroup',
+    addEnvironmentVariables(result, appDefinition = {}) {
+        const environment = {
+            SCHEDULER_ROLE_ARN: {
+                'Fn::GetAtt': ['SchedulerExecutionRole', 'Arn'],
+            },
+            SCHEDULE_GROUP_NAME: {
+                Ref: 'FriggScheduleGroup',
+            },
         };
 
-        console.log('  ✓ Added scheduler environment variables');
+        if (!isScopedEnvironmentActive(appDefinition)) {
+            Object.assign(result.environment, environment);
+            console.log('  ✓ Added scheduler environment variables');
+            return;
+        }
+
+        // Consumers: auth (runs integration actions), the executor (runs
+        // admin scripts that instantiate integrations), and every
+        // integration function. NOT adminScriptRouter — it carries its own
+        // admin-scheduler role, set directly by the admin-script builder.
+        const targets = [
+            'auth',
+            ...getAdminFunctionNames(appDefinition).filter(
+                (fnName) => fnName !== 'adminScriptRouter'
+            ),
+            ...(appDefinition.integrations || []).flatMap(
+                getIntegrationFunctionNames
+            ),
+        ];
+
+        result.functionEnvironments = result.functionEnvironments || {};
+        for (const fnName of targets) {
+            result.functionEnvironments[fnName] = {
+                ...result.functionEnvironments[fnName],
+                ...environment,
+            };
+        }
+        console.log(
+            `  ✓ Scoped scheduler environment variables to: ${targets.join(', ')}`
+        );
     }
 }
 

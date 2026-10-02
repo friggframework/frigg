@@ -93,6 +93,21 @@ class CredentialRepositoryInterface {
             'Method updateCredential must be implemented by subclass'
         );
     }
+
+    /**
+     * Count credentials active (updatedAt >= since) grouped by integration type.
+     * Reads ONLY non-encrypted fields — never the encrypted `data` JSON.
+     *
+     * @param {Object} params
+     * @param {Date} [params.since] - Lower bound on updatedAt
+     * @returns {Promise<Array<{ integrationType: string, count: number }>>}
+     * @abstract
+     */
+    async countActiveByType(/* { since } */) {
+        throw new Error(
+            'Method countActiveByType must be implemented by subclass'
+        );
+    }
 }
 
 module.exports = { CredentialRepositoryInterface };

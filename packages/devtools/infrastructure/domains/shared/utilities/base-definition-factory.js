@@ -8,6 +8,8 @@
  */
 
 const { buildEnvironment } = require('../environment-builder');
+const { nestedNodeModulesExcludes } = require('./nested-node-modules');
+const { buildLoggingProviderConfig } = require('./logging-config');
 
 /**
  * Create base serverless definition with core functions and resources
@@ -32,6 +34,7 @@ function createBaseDefinition(
     usePrismaLayer = true
 ) {
     const region = process.env.AWS_REGION || 'us-east-1';
+    const loggingConfig = buildLoggingProviderConfig(AppDefinition.logging);
 
     // Package config for handlers that skip esbuild (need node_modules dependencies)
     // Include backend src/ and index.js since handlers load the app definition
@@ -64,8 +67,7 @@ function createBaseDefinition(
             'node_modules/prettier/**',
             'node_modules/eslint/**',
 
-            // Exclude ALL nested node_modules (catch any package with nested dependencies)
-            'node_modules/**/node_modules/**',
+            ...nestedNodeModulesExcludes(AppDefinition, usePrismaLayer),
 
             // Exclude build tools (not needed at runtime)
             'node_modules/esbuild/**',
@@ -164,7 +166,7 @@ function createBaseDefinition(
     };
 
     return {
-        frameworkVersion: '>=3.17.0',
+        frameworkVersion: loggingConfig.frameworkVersion || '>=3.17.0',
         service: AppDefinition.name || 'create-frigg-app',
         package: {
             individually: true,
@@ -218,6 +220,7 @@ function createBaseDefinition(
                 name: '${opt:stage, "dev"}-${self:service}',
                 disableDefaultEndpoint: false,
             },
+            ...loggingConfig.provider,
         },
         plugins: [
             'serverless-esbuild',
@@ -311,6 +314,7 @@ function createBaseDefinition(
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
                 ],
             },
+            // Reporting is an admin operation (ADR-010): the report router runs on the admin-scripts Lambda, not as a standalone function here.
             // Note: dbMigrate removed - MigrationBuilder now handles migration infrastructure
             // See: packages/devtools/infrastructure/domains/database/migration-builder.js
         },

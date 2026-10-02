@@ -118,6 +118,29 @@ async function gatherDiscoveredResources(appDefinition) {
                                appDefinition.vpcIsolation === 'isolated';
 
         if (stackResources && hasSomeUsefulData) {
+            // Self-heal: if route table exists but has 0 subnet associations, fix via EC2 API
+            if (appDefinition.vpc?.selfHeal &&
+                stackResources.routeTableId &&
+                stackResources.routeTableAssociationCount === 0 &&
+                stackResources.privateSubnetId1 && stackResources.privateSubnetId2) {
+
+                console.log('  ⚠️  Route table has 0 subnet associations - self-healing...');
+                const { AssociateRouteTableCommand } = require('@aws-sdk/client-ec2');
+                const ec2 = provider.getEC2Client();
+
+                for (const subnetId of [stackResources.privateSubnetId1, stackResources.privateSubnetId2]) {
+                    try {
+                        const response = await ec2.send(new AssociateRouteTableCommand({
+                            RouteTableId: stackResources.routeTableId,
+                            SubnetId: subnetId,
+                        }));
+                        console.log(`  ✓ Self-healed: associated ${subnetId} → ${stackResources.routeTableId} (${response.AssociationId})`);
+                    } catch (error) {
+                        console.warn(`  ⚠️  Self-heal failed for ${subnetId}: ${error.message}`);
+                    }
+                }
+            }
+
             console.log('  ✓ Discovered resources from existing CloudFormation stack');
             console.log('✅ Cloud resource discovery completed successfully!');
             return stackResources;

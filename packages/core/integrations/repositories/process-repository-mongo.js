@@ -1,5 +1,6 @@
 const { prisma } = require('../../database/prisma');
 const { ProcessRepositoryInterface } = require('./process-repository-interface');
+const { validateOps } = require('./process-update-ops-shared');
 
 /**
  * MongoDB Process Repository Adapter
@@ -90,6 +91,77 @@ class ProcessRepositoryMongo extends ProcessRepositoryInterface {
         });
 
         return this._toPlainObject(process);
+    }
+
+    /**
+     * Atomic process update — race-safe counterpart to `update()`.
+     *
+     * Uses `findAndModify` via `$runCommandRaw` so increments, sets, and
+     * pushes land in one server-side write. Contention on the same
+     * document serializes at the MongoDB level; no Node-side read-
+     * modify-write. Returns the post-update document.
+     *
+     * @param {string} processId
+     * @param {import('./process-repository-interface').ProcessUpdateOps} ops
+     * @returns {Promise<Object|null>}
+     */
+    async applyProcessUpdate(processId, ops) {
+        const normalized = validateOps(ops);
+
+        const update = {};
+        const $set = {};
+
+        if (Object.keys(normalized.increment).length > 0) {
+            update.$inc = { ...normalized.increment };
+        }
+        for (const [path, value] of Object.entries(normalized.set)) {
+            $set[path] = value;
+        }
+        if (normalized.newState !== null) {
+            $set.state = normalized.newState;
+        }
+        $set.updatedAt = new Date();
+        update.$set = $set;
+
+        if (Object.keys(normalized.pushSlice).length > 0) {
+            update.$push = {};
+            for (const [path, spec] of Object.entries(normalized.pushSlice)) {
+                update.$push[path] = {
+                    $each: spec.values,
+                    $slice: -spec.keepLast,
+                };
+            }
+        }
+
+        const result = await this.prisma.$runCommandRaw({
+            findAndModify: 'Process',
+            query: { _id: { $oid: processId } },
+            update,
+            new: true,
+        });
+
+        const doc = result && result.value;
+        if (!doc) return null;
+        return this._toPlainObject(this._hydrateRawMongoDoc(doc));
+    }
+
+    /**
+     * Shape a raw Mongo document (as returned by $runCommandRaw) to match
+     * Prisma's `findUnique` output so the existing `_toPlainObject` works
+     * without modification. EJSON round-trips give us `{$oid, $date}` wrappers
+     * that need unwrapping.
+     * @private
+     */
+    _hydrateRawMongoDoc(doc) {
+        const hydrated = { ...doc };
+        if (doc._id) hydrated.id = doc._id.$oid ?? doc._id;
+        for (const field of ['createdAt', 'updatedAt']) {
+            const raw = doc[field];
+            if (raw && typeof raw === 'object' && raw.$date) {
+                hydrated[field] = new Date(raw.$date);
+            }
+        }
+        return hydrated;
     }
 
     /**

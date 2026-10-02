@@ -1,5 +1,4 @@
 const {
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
@@ -12,19 +11,12 @@ const {
     Worker,
     loadInstalledModules,
     createHandler,
+    runInvocationScope,
 } = require('./core/index');
 const {
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
 } = require('./database/index');
@@ -39,9 +31,7 @@ const {
 const {
     GetUserFromAdopterJwt,
 } = require('./user/use-cases/get-user-from-adopter-jwt');
-const {
-    AuthenticateUser,
-} = require('./user/use-cases/authenticate-user');
+const { AuthenticateUser } = require('./user/use-cases/authenticate-user');
 
 const {
     CredentialRepository,
@@ -52,18 +42,14 @@ const {
 const {
     IntegrationMappingRepository,
 } = require('./integrations/repositories/integration-mapping-repository');
-const {
-    CreateProcess,
-} = require('./integrations/use-cases/create-process');
+const { CreateProcess } = require('./integrations/use-cases/create-process');
 const {
     UpdateProcessState,
 } = require('./integrations/use-cases/update-process-state');
 const {
     UpdateProcessMetrics,
 } = require('./integrations/use-cases/update-process-metrics');
-const {
-    GetProcess,
-} = require('./integrations/use-cases/get-process');
+const { GetProcess } = require('./integrations/use-cases/get-process');
 const { Cryptor } = require('./encrypt');
 const {
     BaseError,
@@ -80,8 +66,30 @@ const {
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
 } = require('./integrations/index');
+const {
+    ReportBase,
+    IntegrationsReport,
+    BUILTIN_REPORTS,
+    createReportCommands,
+} = require('./reporting/index');
+const {
+    createTelemetry,
+    getTelemetry,
+    CANONICAL_COUNTERS,
+} = require('./telemetry/index');
+const { createUsageRepository } = require('./usage/index');
 const { TimeoutCatcher } = require('./lambda/index');
-const { debug, initDebugLog, flushDebugLog } = require('./logs/index');
+const {
+    getLogger,
+    createMemorySink,
+    resetLoggerForTests,
+    serializeError,
+    redactValue,
+    toSanitizedSurrogate,
+    debug,
+    initDebugLog,
+    flushDebugLog,
+} = require('./logs/index');
 const {
     Credential,
     Entity,
@@ -95,13 +103,10 @@ const {
 const application = require('./application');
 const utils = require('./utils');
 
-// const {Sync } = require('./syncs/model');
-
 const { QueuerUtil } = require('./queues');
 
 module.exports = {
     // assertions
-    expectShallowEqualDbObject,
     get,
     getAll,
     verifyType,
@@ -114,19 +119,12 @@ module.exports = {
     Worker,
     loadInstalledModules,
     createHandler,
+    runInvocationScope,
 
     // database
-    mongoose,
-    connectToDatabase,
-    disconnectFromDatabase,
-    createObjectId,
-    IndividualUser,
-    OrganizationUser,
-    State,
-    Token,
-    UserModel,
-    WebsocketConnection,
     prisma,
+    connectPrisma,
+    disconnectPrisma,
     TokenRepository,
     WebsocketConnectionRepository,
     createUserRepository,
@@ -159,6 +157,18 @@ module.exports = {
     UpdateProcessMetrics,
     GetProcess,
 
+    // reporting
+    ReportBase,
+    IntegrationsReport,
+    BUILTIN_REPORTS,
+    createReportCommands,
+
+    // telemetry
+    createTelemetry,
+    getTelemetry,
+    CANONICAL_COUNTERS,
+    createUsageRepository,
+
     // application - Command factories for integration developers
     application,
     createFriggCommands: application.createFriggCommands,
@@ -166,7 +176,9 @@ module.exports = {
     createUserCommands: application.createUserCommands,
     createEntityCommands: application.createEntityCommands,
     createCredentialCommands: application.createCredentialCommands,
+    createProcessCommands: application.createProcessCommands,
     createSchedulerCommands: application.createSchedulerCommands,
+    createUsageCommands: application.createUsageCommands,
     findIntegrationContextByExternalEntityId:
         application.findIntegrationContextByExternalEntityId,
     integrationCommands: application.integrationCommands,
@@ -175,6 +187,12 @@ module.exports = {
     TimeoutCatcher,
 
     // logs
+    getLogger,
+    createMemorySink,
+    resetLoggerForTests,
+    serializeError,
+    redactValue,
+    toSanitizedSurrogate,
     debug,
     initDebugLog,
     flushDebugLog,

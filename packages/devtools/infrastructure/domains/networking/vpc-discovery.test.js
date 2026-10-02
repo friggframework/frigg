@@ -253,7 +253,7 @@ describe('VpcDiscovery', () => {
             expect(mockProvider.discoverVpc).toHaveBeenCalledWith(config);
         });
 
-        it('should discover all VPC endpoints (S3, DynamoDB, KMS, Secrets Manager)', async () => {
+        it('should discover all VPC endpoints (S3, DynamoDB, KMS, Secrets Manager, SQS, SSM)', async () => {
             mockProvider.discoverVpc.mockResolvedValue({
                 vpcId: 'vpc-123',
                 vpcCidr: '10.0.0.0/16',
@@ -283,6 +283,22 @@ describe('VpcDiscovery', () => {
                         ServiceName: 'com.amazonaws.us-east-1.secretsmanager',
                         State: 'available',
                     },
+                    {
+                        VpcEndpointId: 'vpce-sqs-def',
+                        ServiceName: 'com.amazonaws.us-east-1.sqs',
+                        State: 'available',
+                    },
+                    // ssmmessages must NOT be mistaken for the ssm endpoint
+                    {
+                        VpcEndpointId: 'vpce-ssmmessages-000',
+                        ServiceName: 'com.amazonaws.us-east-1.ssmmessages',
+                        State: 'available',
+                    },
+                    {
+                        VpcEndpointId: 'vpce-ssm-ghi',
+                        ServiceName: 'com.amazonaws.us-east-1.ssm',
+                        State: 'available',
+                    },
                 ],
             });
 
@@ -292,6 +308,8 @@ describe('VpcDiscovery', () => {
             expect(result.dynamodbVpcEndpointId).toBe('vpce-ddb-456');
             expect(result.kmsVpcEndpointId).toBe('vpce-kms-789');
             expect(result.secretsManagerVpcEndpointId).toBe('vpce-sm-abc');
+            expect(result.sqsVpcEndpointId).toBe('vpce-sqs-def');
+            expect(result.ssmVpcEndpointId).toBe('vpce-ssm-ghi');
         });
 
         it('should handle partial VPC endpoint discovery', async () => {

@@ -1,65 +1,157 @@
-const util = require('util');
+const { LEVELS, parseLevel } = require('./levels');
+const { getLoggerScope } = require('./context');
+const runtime = require('./logger-runtime');
+const { buildRecord, DEFAULT_LOGGER_NAME } = require('./record');
 
-// Except in some outlier circumstances, for example steam or event error handlers, this should be the only place that calls `console.*`.  That way, this file can be modified to log everything properly on a variety of platforms because all the logging code is here in one place.
-/* eslint-disable no-console */
+const LOGGER_OWN_NAME = 'frigg.logger';
 
-const logs = [];
-let flushCalled = false;
-
-function debug(...messages) {
-    if (messages.length) {
-        const date = new Date();
-        const text = util.format.apply(null, messages);
-
-        if (process.env.DEBUG_VERBOSE === '1') {
-            console.debug(date, text);
-        } else {
-            logs.push({ date, text });
+function copyBindings(bindings, into = {}) {
+    if (!bindings || typeof bindings !== 'object') return into;
+    for (const key of Object.keys(bindings)) {
+        try {
+            into[key] = bindings[key];
+        } catch {
+            // A throwing getter drops only that binding.
         }
     }
+    return into;
 }
 
-function initDebugLog(...initMessages) {
-    flushCalled = false;
-
-    // Hacky but fast way to empty an array.
-    logs.length = 0;
-
-    // Log initial event
-    debug(...initMessages);
+// One plain object per record. Static sources were copied at child() time.
+function evaluateBindings(sources) {
+    const merged = {};
+    for (const source of sources) {
+        if (typeof source !== 'function') {
+            Object.assign(merged, source);
+            continue;
+        }
+        let value;
+        try {
+            value = source();
+        } catch {
+            continue;
+        }
+        copyBindings(value, merged);
+    }
+    return merged;
 }
 
-function flushDebugLog(error) {
-    if (flushCalled) {
-        console.debug(
-            'Another error was encountered while handling the same request or event!  All debug messages are included again in this output as well.'
-        );
+function isFriggViolation(record) {
+    return (
+        record.logger.startsWith('frigg.') &&
+        LEVELS[record.level] >= LEVELS.WARN &&
+        !record.eventName
+    );
+}
+
+class Logger {
+    constructor(name, bindingSources = []) {
+        this.name = name;
+        this._bindingSources = bindingSources;
     }
 
-    flushCalled = true;
+    trace(message, fields) {
+        this._log('TRACE', message, fields);
+    }
 
-    // Output unless in verbose mode.  In verbose mode, these will already have been output so we don't want to output the messages twice.
-    if (process.env.DEBUG_VERBOSE !== '1') {
-        if (logs?.length > 0) {
-            for (const { date, text } of logs) {
-                console.debug(date, text);
+    debug(message, fields) {
+        this._log('DEBUG', message, fields);
+    }
+
+    info(message, fields) {
+        this._log('INFO', message, fields);
+    }
+
+    warn(message, fields) {
+        this._log('WARN', message, fields);
+    }
+
+    error(message, fields) {
+        this._log('ERROR', message, fields);
+    }
+
+    fatal(message, fields) {
+        this._log('FATAL', message, fields);
+    }
+
+    child(bindings) {
+        const source = typeof bindings === 'function' ? bindings : copyBindings(bindings);
+        return new Logger(this.name, [...this._bindingSources, source]);
+    }
+
+    isLevelEnabled(level) {
+        try {
+            const name = parseLevel(level);
+            return name !== null && LEVELS[name] >= runtime.getConfig().threshold;
+        } catch {
+            return false;
+        }
+    }
+
+    _log(level, message, fields) {
+        const state = runtime.state();
+        if (state.inLog) return;
+        try {
+            const config = runtime.getConfig();
+            emitConfigWarnings();
+            if (LEVELS[level] < config.threshold) return;
+            // Set before fields, bindings and sinks run: any of them may log.
+            state.inLog = true;
+
+            const record = buildRecord({
+                level,
+                logger: this.name,
+                message,
+                fields,
+                bindings: evaluateBindings(this._bindingSources),
+                scope: getLoggerScope(),
+                spanContext: runtime.getSpanContext(),
+                resource: { appName: config.appName, stage: config.stage },
+            });
+            if (isFriggViolation(record)) {
+                runtime.recordViolation({
+                    logger: record.logger,
+                    level: record.level,
+                    message: record.message,
+                });
             }
+            writeToSinks(record);
+        } catch {
+            // The logger never throws.
+        } finally {
+            state.inLog = false;
         }
-    }
-
-    if (!error) {
-        error = new Error('flushDebugLog called with empty error');
-    }
-
-    console.error(error);
-
-    let { cause: parentError } = error;
-
-    while (parentError) {
-        console.error('(Caused By)-------------------------');
-        console.error(parentError);
-        parentError = parentError.cause;
     }
 }
 
-module.exports = { debug, initDebugLog, flushDebugLog };
+function writeToSinks(record) {
+    for (const sink of runtime.getSinks()) {
+        try {
+            sink.write(record);
+        } catch {
+            // One failing sink must not stop the others.
+        }
+    }
+}
+
+function emitConfigWarnings() {
+    const warnings = runtime.takeConfigWarnings();
+    if (!warnings.length) return;
+    const logger = getLogger(LOGGER_OWN_NAME);
+    for (const warning of warnings) {
+        logger.warn(warning.message, {
+            ...warning.fields,
+            eventName: warning.eventName,
+        });
+    }
+}
+
+const loggers = new Map();
+
+function getLogger(name) {
+    const key = typeof name === 'string' && name ? name : DEFAULT_LOGGER_NAME;
+    if (!loggers.has(key)) loggers.set(key, new Logger(key));
+    return loggers.get(key);
+}
+
+module.exports = { Logger, getLogger };

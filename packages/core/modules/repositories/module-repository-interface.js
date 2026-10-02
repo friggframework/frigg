@@ -92,6 +92,22 @@ class ModuleRepositoryInterface {
     }
 
     /**
+     * Find all entities matching a filter.
+     *
+     * Symmetric with findEntity but returns the full match set. Use this when
+     * a single externalId may correspond to more than one Entity row
+     * (e.g. shared upstream account across tenants) and the caller needs to
+     * detect/handle the multi-match case explicitly.
+     *
+     * @param {Object} filter - Filter criteria
+     * @returns {Promise<Array>} Array of entity objects (empty if no match)
+     * @abstract
+     */
+    async findEntities(filter) {
+        throw new Error('Method findEntities must be implemented by subclass');
+    }
+
+    /**
      * Create a new entity
      *
      * @param {Object} entityData - Entity data

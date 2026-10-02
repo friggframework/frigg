@@ -13,6 +13,7 @@
 
 const BaseResourceResolver = require('../shared/base-resolver');
 const { ResourceOwnership } = require('../shared/types');
+const { isSsmOffloadActive } = require('../parameters/offload-utils');
 
 class VpcResourceResolver extends BaseResourceResolver {
     /**
@@ -381,13 +382,17 @@ class VpcResourceResolver extends BaseResourceResolver {
                 dynamodb: { ownership: null, reason: 'VPC Endpoints disabled' },
                 kms: { ownership: null, reason: 'VPC Endpoints disabled' },
                 secretsManager: { ownership: null, reason: 'VPC Endpoints disabled' },
-                sqs: { ownership: null, reason: 'VPC Endpoints disabled' }
+                sqs: { ownership: null, reason: 'VPC Endpoints disabled' },
+                ssm: { ownership: null, reason: 'VPC Endpoints disabled' }
             };
         }
 
         // KMS endpoint only needed if encryption method is KMS
         const encryptionMethod = appDefinition.encryption?.fieldLevelEncryptionMethod;
         const needsKms = encryptionMethod === 'kms';
+
+        // SSM endpoint only needed when parameter offload is active
+        const needsSsm = isSsmOffloadActive(appDefinition);
 
         // DynamoDB endpoint only needed if using DynamoDB (not MongoDB or PostgreSQL)
         // Currently framework only supports MongoDB (via Prisma) and PostgreSQL (via Aurora)
@@ -403,7 +408,10 @@ class VpcResourceResolver extends BaseResourceResolver {
                 ? this._resolveEndpoint('FriggKMSVPCEndpoint', 'kms', userIntent, appDefinition, discovery)
                 : { ownership: null, reason: 'KMS endpoint not needed (encryption method is not KMS)' },
             secretsManager: this._resolveEndpoint('FriggSecretsManagerVPCEndpoint', 'secretsManager', userIntent, appDefinition, discovery),
-            sqs: this._resolveEndpoint('FriggSQSVPCEndpoint', 'sqs', userIntent, appDefinition, discovery)
+            sqs: this._resolveEndpoint('FriggSQSVPCEndpoint', 'sqs', userIntent, appDefinition, discovery),
+            ssm: needsSsm
+                ? this._resolveEndpoint('FriggSSMVPCEndpoint', 'ssm', userIntent, appDefinition, discovery)
+                : { ownership: null, reason: 'SSM endpoint not needed (SSM offload not active)' }
         };
 
         return endpoints;
@@ -421,7 +429,8 @@ class VpcResourceResolver extends BaseResourceResolver {
             'FriggDynamoDBVPCEndpoint': 'VPCEndpointDynamoDB',
             'FriggKMSVPCEndpoint': 'VPCEndpointKMS',
             'FriggSecretsManagerVPCEndpoint': 'VPCEndpointSecretsManager',
-            'FriggSQSVPCEndpoint': 'VPCEndpointSQS'
+            'FriggSQSVPCEndpoint': 'VPCEndpointSQS',
+            'FriggSSMVPCEndpoint': 'VPCEndpointSSM'
         };
         const oldLogicalId = oldLogicalIdMap[logicalId];
 

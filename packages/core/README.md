@@ -107,10 +107,6 @@ FRIGG_ENCRYPTION_KEY=your-256-bit-encryption-key
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
-
-# Logging
-DEBUG=frigg:*
-LOG_LEVEL=info
 ```
 
 ## Core Components
@@ -200,6 +196,46 @@ const secureData = cryptor.encrypt(JSON.stringify({
 }));
 ```
 
+### 4b. Telemetry & Usage Tracking (`/telemetry`, `/usage`)
+
+Vendor-neutral OpenTelemetry observability plus durable, per-integration usage
+counters (ADR-011). No-op by default (zero cold-start cost); framework seams are
+auto-instrumented so integrations get handler/API-module/webhook metrics for free.
+
+**Usage:**
+```javascript
+// App definition — turn on export + declare a North Star:
+const Definition = {
+    name: 'my-app',
+    telemetry: {
+        exporter: { type: 'otlp', endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT },
+        northStar: { default: { name: 'records.synced' } },
+    },
+};
+
+// Integration code — custom metrics/spans (this.telemetry is auto-tagged):
+await this.telemetry.span('delta_sync', async () => {
+    this.telemetry.count('records.synced', batch.length, { entity: 'contact' });
+});
+
+// Declare which usage counters an integration reports (opts into reporting):
+class HubSpotIntegration extends IntegrationBase {
+    static Definition = {
+        name: 'hubspot',
+        usage: { canonical: ['records.synced', 'api.requests'] },
+    };
+}
+
+// Read the durable usage store (never an APM):
+const frigg = createFriggCommands({ integrationClass: HubSpotIntegration });
+await frigg.usage.getTotalsByDimension({ metric: 'records.synced', groupBy: 'integrationType' });
+```
+
+**See:** [`telemetry/README.md`](telemetry/README.md) for the full guide
+(exporters, custom metrics, the Usage-Counter contract, North Star, the plugin
+tap, cardinality rules, and caveats) and [`usage/README.md`](usage/README.md) for
+the store internals.
+
 ### 5. Error Handling (`/errors`)
 
 Standardized error types with proper HTTP status codes.
@@ -215,10 +251,12 @@ const {
 // Custom business logic error
 throw new RequiredPropertyError('userId is required');
 
-// API communication error
-throw new FetchError('Failed to fetch data from external API', {
-    statusCode: 404,
-    response: errorResponse
+// API communication error. The message is built from the method, the
+// sanitized URL and the status; the response body stays off the message.
+throw await FetchError.create({
+    resource: 'https://api.example.com/contacts',
+    init: { method: 'GET' },
+    response,
 });
 
 // Base error with custom properties
@@ -230,24 +268,24 @@ throw new BaseError('Integration failed', {
 
 ### 6. Logging (`/logs`)
 
-Structured logging with debug capabilities.
+One redacted JSON record per line to stdout, with the correlation ids of
+ADR-011. See the [Logging guide](../../docs/guides/LOGGING.md).
 
 **Usage:**
 ```javascript
-const { debug, initDebugLog, flushDebugLog } = require('@friggframework/core');
-
-// Initialize debug logging
-initDebugLog('integration:slack');
-
-// Log debug information
-debug('Processing webhook payload', { 
-    eventType: 'contact.created',
-    payload: webhookData 
+// In an integration or an API module
+this.logger.info('Contact batch started', {
+    eventName: 'integration.hubspot.batch_started',
+    batchSize: contacts.length,
 });
 
-// Flush logs (useful in serverless environments)
-await flushDebugLog();
+// In core code
+const { getLogger } = require('@friggframework/core');
+const log = getLogger('frigg.core.sync');
+log.warn('Sync skipped', { eventName: 'frigg.core.sync.skipped', processId });
 ```
+
+`debug`, `initDebugLog` and `flushDebugLog` are deprecated shims.
 
 ### 7. User Management (`/user`)
 
@@ -973,8 +1011,7 @@ const {
 | `MONGO_URI` | Yes | MongoDB connection string |
 | `FRIGG_ENCRYPTION_KEY` | Yes | 256-bit encryption key |
 | `AWS_REGION` | No | AWS region for services |
-| `DEBUG` | No | Debug logging pattern |
-| `LOG_LEVEL` | No | Logging level (debug, info, warn, error) |
+| `FRIGG_LOG_LEVEL` | No | Minimum log level: `TRACE`, `DEBUG`, `INFO` (default), `WARN`, `ERROR`, `FATAL`. Local runs default to `DEBUG` |
 
 ## License
 

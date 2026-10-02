@@ -990,6 +990,47 @@ describe('VpcBuilder', () => {
         });
     });
 
+    describe('SSM VPC Endpoint', () => {
+        const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+        afterEach(() => {
+            if (originalSkipDiscovery === undefined) {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            } else {
+                process.env.FRIGG_SKIP_AWS_DISCOVERY = originalSkipDiscovery;
+            }
+        });
+
+        it('should create SSM endpoint when offload is active and VPC is enabled', async () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                vpc: { enable: true, management: 'create-new' },
+                ssm: { enable: true },
+                environment: { FOO: 'ssm' },
+            };
+
+            const result = await vpcBuilder.build(appDefinition, {});
+
+            expect(result.resources.FriggSSMVPCEndpoint).toBeDefined();
+            expect(result.resources.FriggSSMVPCEndpoint.Type).toBe('AWS::EC2::VPCEndpoint');
+            expect(result.resources.FriggSSMVPCEndpoint.Properties.VpcEndpointType).toBe('Interface');
+            expect(result.resources.FriggSSMVPCEndpoint.Properties.ServiceName).toBe('com.amazonaws.${self:provider.region}.ssm');
+            expect(result.resources.FriggSSMVPCEndpoint.Properties.PrivateDnsEnabled).toBe(true);
+        });
+
+        it('should not create SSM endpoint when offload is not active', async () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                vpc: { enable: true, management: 'create-new' },
+                ssm: { enable: true },
+            };
+
+            const result = await vpcBuilder.build(appDefinition, {});
+
+            expect(result.resources.FriggSSMVPCEndpoint).toBeUndefined();
+        });
+    });
+
     describe('Self-healing', () => {
         it('should create missing subnets when selfHeal is enabled', async () => {
             const appDefinition = {

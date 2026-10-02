@@ -15,7 +15,7 @@ This file provides guidance to Claude Code when working with the Frigg Framework
 
 ### Core Philosophy
 
-Build enterprise-grade integrations as simply as `create-frigg-app`. Framework handles the infrastructure, developers focus on integration logic.
+Build enterprise-grade integrations as simply as `frigg init`. Framework handles the infrastructure, developers focus on integration logic.
 
 ### Monorepo Structure
 
@@ -49,7 +49,7 @@ frigg/
 
 ```bash
 # Create new Frigg app
-npx create-frigg-app my-integration
+frigg init my-integration
 
 # Install API modules
 frigg install hubspot
@@ -168,6 +168,37 @@ class MyIntegration extends IntegrationBase {
   async processJob(job) {
     /* Async job processing */
   }
+}
+```
+
+### Integration Patterns (Sync, Queues, Webhooks)
+
+For complex integrations requiring sync orchestration, queue management, and webhook handling, see the **[Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md)**.
+
+Key patterns covered:
+
+- **Process Model**: Track long-running operations with state management (`INITIALIZING` → `PROCESSING` → `COMPLETED`)
+- **friggCommands**: Standardized interface for persisting integration config (`createFriggCommands()`)
+- **QueueManager**: AWS SQS wrapper for async job processing with rate limiting and fan-out
+- **Integration Events**: Define `USER_ACTION`, `CRON`, `QUEUE`, and `WEBHOOK` event handlers
+- **SyncOrchestrator**: Coordinate sync operations across entity types
+
+Quick example:
+
+```javascript
+const { createFriggCommands } = require('@friggframework/core');
+
+class MyIntegration extends IntegrationBase {
+    constructor(params) {
+        super(params);
+        this.commands = createFriggCommands({ integrationClass: MyIntegration });
+
+        this.events = {
+            INITIAL_SYNC: { type: 'USER_ACTION', handler: this.startSync.bind(this) },
+            ONGOING_SYNC: { type: 'CRON', handler: this.deltaSync.bind(this) },
+            PROCESS_BATCH: { handler: this.processBatch.bind(this) }
+        };
+    }
 }
 ```
 
@@ -870,7 +901,7 @@ When working on the Frigg Framework, always prioritize finding the **best soluti
 
 ### Integration Development
 
-1. Start with `create-frigg-app` for consistent structure
+1. Start with `frigg init` for consistent structure
 2. Use existing API modules when possible
 3. Follow the IntegrationBase method contracts
 4. Implement proper error handling and logging

@@ -2,7 +2,6 @@ jest.mock('../../database/config', () => ({
     DB_TYPE: 'mongodb',
     getDatabaseType: jest.fn(() => 'mongodb'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 const { createQueueWorker } = require('../backend-utils');
@@ -103,7 +102,7 @@ describe('Webhook Queue Worker', () => {
     });
 
     describe('Error Handling', () => {
-        it('should throw error if ON_WEBHOOK handler fails', async () => {
+        it('should report failed record in batchItemFailures instead of throwing', async () => {
             const FailingIntegration = class extends TestWebhookIntegration {
                 async onWebhook({ data }) {
                     throw new Error('Processing failed');
@@ -119,13 +118,15 @@ describe('Webhook Queue Worker', () => {
             };
 
             const sqsEvent = {
-                Records: [{ body: JSON.stringify(params) }],
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
             };
 
-            await expect(failingWorker.run(sqsEvent, {})).rejects.toThrow('Processing failed');
+            const result = await failingWorker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
         });
 
         it('should log errors with integration context', async () => {
+            const sink = require('../../logs').createMemorySink();
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
             const FailingIntegration = class extends TestWebhookIntegration {
@@ -143,16 +144,158 @@ describe('Webhook Queue Worker', () => {
             };
 
             const sqsEvent = {
-                Records: [{ body: JSON.stringify(params) }],
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
             };
 
-            await expect(failingWorker.run(sqsEvent, {})).rejects.toThrow();
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Error in ON_WEBHOOK for test-webhook'),
-                expect.any(Error)
-            );
+            const result = await failingWorker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
+            // The Worker boundary logs the error one time, with the message scope.
+            expect(consoleSpy).not.toHaveBeenCalled();
+            expect(
+                sink.records.filter((r) => r.eventName === 'frigg.worker.record_failed')
+            ).toEqual([
+                expect.objectContaining({
+                    messageId: 'msg-1',
+                    integrationEvent: 'ON_WEBHOOK',
+                    error: expect.objectContaining({ message: 'Test error' }),
+                }),
+            ]);
 
             consoleSpy.mockRestore();
+        });
+    });
+
+    describe('Non-retryable error classification (isHaltError for 4xx)', () => {
+        it('should mark 4xx FetchErrors as isHaltError so they are not retried', async () => {
+            const error = new Error('Bad Request');
+            error.statusCode = 400;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([]);
+        });
+
+        it('should mark 401 as isHaltError (token refresh already failed at requester level)', async () => {
+            const error = new Error('Unauthorized');
+            error.statusCode = 401;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([]);
+        });
+
+        it('should mark 402 as isHaltError (account suspended/trial expired)', async () => {
+            const error = new Error('Payment Required');
+            error.statusCode = 402;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([]);
+        });
+
+        it('should NOT mark 408 as isHaltError (request timeout is transient)', async () => {
+            const error = new Error('Request Timeout');
+            error.statusCode = 408;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+
+        it('should NOT mark 429 as isHaltError (rate limit may clear, worth retrying)', async () => {
+            const error = new Error('Too Many Requests');
+            error.statusCode = 429;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+
+        it('should NOT mark 500 as isHaltError (server may recover)', async () => {
+            const error = new Error('Internal Server Error');
+            error.statusCode = 500;
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+
+        it('should NOT mark errors without statusCode as isHaltError (may be transient)', async () => {
+            const error = new Error('ECONNRESET');
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() { throw error; }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify({ event: 'ON_WEBHOOK', data: { body: {} } }) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
         });
     });
 
@@ -175,9 +318,203 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            // This will fail trying to load the integration from DB
-            // but it proves the code path is attempted
-            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+            // Will fail trying to load integration from DB — reported in batchItemFailures
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
+        });
+
+        it('should discard message gracefully when integration no longer exists', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+            let mockedCreateQueueWorker;
+            jest.isolateModules(() => {
+                jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
+                    createIntegrationRepository: () => ({
+                        findIntegrationById: jest.fn().mockRejectedValue(
+                            new Error('Integration with id 999 not found')
+                        ),
+                    }),
+                }));
+                jest.doMock('../../modules/repositories/module-repository-factory', () => ({
+                    createModuleRepository: () => ({}),
+                }));
+                jest.doMock('../app-definition-loader', () => ({
+                    loadAppDefinition: () => ({ integrations: [] }),
+                }));
+                mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
+            });
+
+            const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'ON_WEBHOOK',
+                data: {
+                    integrationId: '999',
+                    body: { webhookEvent: 'updated' },
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ body: JSON.stringify(params) }],
+            };
+
+            await expect(worker.run(sqsEvent, {})).resolves.not.toThrow();
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('Integration 999 no longer exists')
+            );
+
+            consoleSpy.mockRestore();
+        });
+    });
+
+    describe('Integration status checks', () => {
+        it('should discard message when integration is DISABLED', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+            let mockedCreateQueueWorker;
+            jest.isolateModules(() => {
+                const mockIntegrationRecord = {
+                    id: '123',
+                    userId: 'user-1',
+                    entities: [],
+                    config: {},
+                    status: 'DISABLED',
+                    version: '1.0.0',
+                    messages: { errors: [], warnings: [] },
+                };
+
+                jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
+                    createIntegrationRepository: () => ({
+                        findIntegrationById: jest.fn().mockResolvedValue(mockIntegrationRecord),
+                    }),
+                }));
+                jest.doMock('../../modules/repositories/module-repository-factory', () => ({
+                    createModuleRepository: () => ({}),
+                }));
+                jest.doMock('../app-definition-loader', () => ({
+                    loadAppDefinition: () => ({ integrations: [TestWebhookIntegration] }),
+                }));
+                jest.doMock('../../integrations/use-cases/get-integration-instance', () => ({
+                    GetIntegrationInstance: class {
+                        async execute() {
+                            const instance = new TestWebhookIntegration();
+                            instance.id = '123';
+                            instance.status = 'DISABLED';
+                            return instance;
+                        }
+                    },
+                }));
+                mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
+            });
+
+            const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'ON_WEBHOOK',
+                data: {
+                    integrationId: '123',
+                    body: { webhookEvent: 'updated' },
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+
+            // Message should be discarded (not processed, not retried)
+            expect(result.batchItemFailures).toEqual([]);
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('DISABLED')
+            );
+
+            consoleSpy.mockRestore();
+        });
+
+        it('should discard message when integration is ERROR', async () => {
+            const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+            let mockedCreateQueueWorker;
+            jest.isolateModules(() => {
+                const mockIntegrationRecord = {
+                    id: '123',
+                    userId: 'user-1',
+                    entities: [],
+                    config: {},
+                    status: 'ERROR',
+                    version: '1.0.0',
+                    messages: { errors: [], warnings: [] },
+                };
+
+                jest.doMock('../../integrations/repositories/integration-repository-factory', () => ({
+                    createIntegrationRepository: () => ({
+                        findIntegrationById: jest.fn().mockResolvedValue(mockIntegrationRecord),
+                    }),
+                }));
+                jest.doMock('../../modules/repositories/module-repository-factory', () => ({
+                    createModuleRepository: () => ({}),
+                }));
+                jest.doMock('../app-definition-loader', () => ({
+                    loadAppDefinition: () => ({ integrations: [TestWebhookIntegration] }),
+                }));
+                jest.doMock('../../integrations/use-cases/get-integration-instance', () => ({
+                    GetIntegrationInstance: class {
+                        async execute() {
+                            const instance = new TestWebhookIntegration();
+                            instance.id = '123';
+                            instance.status = 'ERROR';
+                            return instance;
+                        }
+                    },
+                }));
+                mockedCreateQueueWorker = require('../backend-utils').createQueueWorker;
+            });
+
+            const QueueWorker = mockedCreateQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'ON_WEBHOOK',
+                data: {
+                    integrationId: '123',
+                    body: { webhookEvent: 'updated' },
+                },
+            };
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('ERROR')
+            );
+
+            consoleSpy.mockRestore();
+        });
+
+        it('should process message normally when integration is ENABLED', async () => {
+            const QueueWorker = createQueueWorker(TestWebhookIntegration);
+            const worker = new QueueWorker();
+
+            const params = {
+                event: 'ON_WEBHOOK',
+                data: { body: { someData: 'value' } },
+            };
+
+            const sqsEvent = {
+                Records: [{ messageId: 'msg-1', body: JSON.stringify(params) }],
+            };
+
+            // Unhydrated instance (no integrationId) — should process normally
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([]);
         });
     });
 
@@ -198,9 +535,9 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            // Should attempt to load integration (will fail DB call in test env)
-            // This proves the hydration path is taken for non-webhook events
-            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+            // Will fail DB call — reported in batchItemFailures
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
         });
 
         it('should prioritize processId over integrationId for hydration', async () => {
@@ -219,8 +556,9 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            // Should use processId path (will fail trying to load process from DB)
-            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+            // Will fail processId path — reported in batchItemFailures
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
         });
 
         it('should hydrate for custom events with integrationId', async () => {
@@ -239,8 +577,9 @@ describe('Webhook Queue Worker', () => {
                 Records: [{ body: JSON.stringify(params) }],
             };
 
-            // Should hydrate for ANY event type with integrationId
-            await expect(worker.run(sqsEvent, {})).rejects.toThrow();
+            // Will fail DB call — reported in batchItemFailures
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toHaveLength(1);
         });
 
         it('should create unhydrated instance when no processId or integrationId', async () => {
@@ -261,6 +600,101 @@ describe('Webhook Queue Worker', () => {
 
             // Should work with unhydrated instance (no DB call)
             await expect(worker.run(sqsEvent, {})).resolves.not.toThrow();
+        });
+    });
+
+    describe('Queue delivery passed to the event handler', () => {
+        const originalMaxReceiveCount =
+            process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT;
+        let received;
+
+        class DeliveryAwareIntegration extends TestWebhookIntegration {
+            async onWebhook(params) {
+                received = params;
+            }
+        }
+
+        const sqsRecord = (attributes) => ({
+            messageId: 'msg-1',
+            body: JSON.stringify({
+                event: 'ON_WEBHOOK',
+                data: { body: { entityId: '123' } },
+            }),
+            ...(attributes && { attributes }),
+        });
+
+        const deliver = async (record, context = {}) => {
+            const QueueWorker = createQueueWorker(DeliveryAwareIntegration);
+            await new QueueWorker().run({ Records: [record] }, context);
+            return received;
+        };
+
+        beforeEach(() => {
+            received = undefined;
+            process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT = '3';
+        });
+
+        afterEach(() => {
+            if (originalMaxReceiveCount === undefined) {
+                delete process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT;
+            } else {
+                process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT =
+                    originalMaxReceiveCount;
+            }
+        });
+
+        it.each([
+            ['1', 1, false],
+            ['2', 2, false],
+            ['3', 3, true],
+        ])(
+            'receive %s of 3 reaches the handler as receiveCount %i, isLastAttempt %s',
+            async (approximateReceiveCount, receiveCount, isLastAttempt) => {
+                const { delivery } = await deliver(
+                    sqsRecord({
+                        ApproximateReceiveCount: approximateReceiveCount,
+                    })
+                );
+
+                expect(delivery).toEqual({
+                    receiveCount,
+                    maxReceiveCount: 3,
+                    isLastAttempt,
+                });
+            }
+        );
+
+        it('makes no last-attempt claim when SQS gives no receive count', async () => {
+            const { delivery } = await deliver(sqsRecord());
+
+            expect(delivery.receiveCount).toBeUndefined();
+            expect(delivery.isLastAttempt).toBe(false);
+        });
+
+        it('makes no last-attempt claim when the queue max receive count is unknown', async () => {
+            delete process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT;
+
+            const { delivery } = await deliver(
+                sqsRecord({ ApproximateReceiveCount: '3' })
+            );
+
+            expect(delivery).toEqual({
+                receiveCount: 3,
+                maxReceiveCount: undefined,
+                isLastAttempt: false,
+            });
+        });
+
+        it('still hands data and context to handlers that ignore delivery', async () => {
+            const context = { awsRequestId: 'req-1' };
+
+            const { data, context: handlerContext } = await deliver(
+                sqsRecord({ ApproximateReceiveCount: '1' }),
+                context
+            );
+
+            expect(data).toEqual({ body: { entityId: '123' } });
+            expect(handlerContext).toBe(context);
         });
     });
 });

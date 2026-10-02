@@ -173,6 +173,30 @@ class ModuleRepository extends ModuleRepositoryInterface {
     }
 
     /**
+     * Find all entities matching a filter.
+     *
+     * @param {Object} filter - Filter criteria
+     * @returns {Promise<Array>} Array of entity objects (empty if no match)
+     */
+    async findEntities(filter) {
+        const where = this._convertFilterToWhere(filter);
+        const entities = await this.prisma.entity.findMany({
+            where,
+            include: { credential: true },
+        });
+
+        return entities.map((e) => ({
+            id: e.id,
+            credential: e.credential,
+            userId: e.userId,
+            name: e.name,
+            externalId: e.externalId,
+            moduleName: e.moduleName,
+            ...(e.data || {}),
+        }));
+    }
+
+    /**
      * Create a new entity
      * Replaces: Entity.create(entityData)
      *

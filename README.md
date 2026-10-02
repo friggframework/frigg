@@ -7,7 +7,7 @@
 
 **Frigg** is a **Framework** that powers **direct/native integrations** between your product and external software partners. It's full of opinionated structured code that gets you to integration development faster. Yup, another "don't rebuild the wheel. Build the car." thing. Better yet, build the rocket ship.
 
-Build enterprise-grade integrations as simply as _`create-frigg-app`_.
+Build enterprise-grade integrations as simply as _`frigg init`_.
 
 ## The Vision for the Framework and the Community
 Imagine a world where you can spin up an integration requested by your customers, product team, or partnership folk within a matter of minutes, and push to production within a day.

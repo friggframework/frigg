@@ -58,16 +58,6 @@ const errorHandler = (err, req, res, next) => {
     res.status(status).json(errorResponse);
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)
 /**
  * Async handler wrapper to catch errors in async route handlers
  * @param {Function} fn - Async route handler function
@@ -78,16 +68,3 @@ const asyncHandler = (fn) => (req, res, next) => {
 };
 
 export { errorHandler, asyncHandler };
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-export { errorHandler, asyncHandler };
-=======
-export { errorHandler };
->>>>>>> 652520a5 (Claude Flow RFC related development)
-=======
-export { errorHandler, asyncHandler };
->>>>>>> f153939e (refactor: clean up CLI help display and remove unused dependencies)
->>>>>>> 860052b4 (feat: integrate complete management-ui and additional features)
-=======
->>>>>>> 7e97f01c (fix: resolve ui-command merge conflicts and update package.json)

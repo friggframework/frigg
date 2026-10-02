@@ -1,8 +1,7 @@
 declare module "@friggframework/integrations" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
-  import { Model } from "mongoose";
 
-  export class Integration extends Model {
+  export interface Integration {
     entities: any[];
     userId: string;
     status: string; // IntegrationStatus

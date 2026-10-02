@@ -289,3 +289,82 @@ describe('Base Definition Factory', () => {
     });
 });
 
+
+describe('nested node_modules (lambda.keepNestedNodeModules)', () => {
+    const build = (appDefinition) => createBaseDefinition(appDefinition, {}, {}, true);
+
+    it('excludes every nested node_modules from the core function packages by default', () => {
+        const result = build({ name: 'test-app' });
+
+        for (const fn of ['auth', 'user', 'health']) {
+            expect(result.functions[fn].package.exclude).toContain('node_modules/**/node_modules/**');
+        }
+    });
+
+    it('keeps nested node_modules when the app opts in, still excluding nested Frigg, AWS SDK and Prisma copies', () => {
+        const result = build({ name: 'test-app', lambda: { keepNestedNodeModules: true } });
+
+        for (const fn of ['auth', 'user', 'health']) {
+            const { exclude } = result.functions[fn].package;
+            expect(exclude).not.toContain('node_modules/**/node_modules/**');
+            expect(exclude).toEqual(
+                expect.arrayContaining([
+                    'node_modules/**/node_modules/@friggframework/**',
+                    'node_modules/**/node_modules/@aws-sdk/**',
+                    'node_modules/**/node_modules/@prisma/**',
+                ])
+            );
+        }
+    });
+});
+
+describe('logging (ADR-048)', () => {
+    const build = (logging) =>
+        createBaseDefinition({ name: 'test-app', ...(logging && { logging }) }, {}, {});
+
+    it('emits no logs, logRetentionInDays or frameworkVersion change when logging is absent', () => {
+        const result = build();
+
+        expect(result.provider.logs).toBeUndefined();
+        expect(result.provider.logRetentionInDays).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.17.0');
+    });
+
+    it('validates logging.level but leaves the Lambda log format and frameworkVersion alone by default', () => {
+        const result = build({ level: 'warn' });
+
+        expect(result.provider.logs).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.17.0');
+    });
+
+    it.each(['verbose', 'warning', '', 3])('throws on unknown level %p', (level) => {
+        expect(() => build({ level })).toThrow(/logging\.level/);
+    });
+
+    it('maps retentionInDays to provider.logRetentionInDays without a logs block', () => {
+        const result = build({ retentionInDays: 30 });
+
+        expect(result.provider.logRetentionInDays).toBe(30);
+        expect(result.provider.logs).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.17.0');
+    });
+
+    it('accepts 1096, which CloudWatch allows but the osls schema omits', () => {
+        expect(build({ retentionInDays: 1096 }).provider.logRetentionInDays).toBe(1096);
+    });
+
+    it.each([10, 0, -1, 30.5, '30'])(
+        'throws on retentionInDays %p, which CloudWatch rejects',
+        (retentionInDays) => {
+            expect(() => build({ retentionInDays })).toThrow(
+                /logging\.retentionInDays/
+            );
+        }
+    );
+
+    it('sets retention when level is also set', () => {
+        const result = build({ level: 'debug', retentionInDays: 14 });
+
+        expect(result.provider.logRetentionInDays).toBe(14);
+    });
+});

@@ -49,17 +49,21 @@ class HealthCheckRepositoryDocumentDB extends HealthCheckRepositoryInterface {
      */
     async pingDatabase(maxTimeMS = 2000) {
         const pingStart = Date.now();
+        let timeoutId;
 
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Database ping timeout')), maxTimeMS)
-        );
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('Database ping timeout')), maxTimeMS);
+        });
 
-        await Promise.race([
-            this.prisma.$runCommandRaw({ ping: 1 }),
-            timeoutPromise,
-        ]);
-
-        return Date.now() - pingStart;
+        try {
+            await Promise.race([
+                this.prisma.$runCommandRaw({ ping: 1 }),
+                timeoutPromise,
+            ]);
+            return Date.now() - pingStart;
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 
     async createCredential(credentialData) {

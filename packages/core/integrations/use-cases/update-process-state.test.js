@@ -253,4 +253,50 @@ describe('UpdateProcessState', () => {
                 .rejects.toThrow('Process not found: process-123');
         });
     });
+
+    describe('error codes', () => {
+        const processId = 'process-123';
+
+        it('tags validation errors with INVALID_PROCESS_DATA', async () => {
+            await expect(
+                updateProcessStateUseCase.execute('', 'NEW_STATE')
+            ).rejects.toHaveProperty('code', 'INVALID_PROCESS_DATA');
+            await expect(
+                updateProcessStateUseCase.execute(processId, '')
+            ).rejects.toHaveProperty('code', 'INVALID_PROCESS_DATA');
+            await expect(
+                updateProcessStateUseCase.execute(processId, 'NEW_STATE', 'bad')
+            ).rejects.toHaveProperty('code', 'INVALID_PROCESS_DATA');
+        });
+
+        it('tags legacy-path not-found with PROCESS_NOT_FOUND', async () => {
+            mockProcessRepository.findById.mockResolvedValue(null);
+
+            await expect(
+                updateProcessStateUseCase.execute(processId, 'NEW_STATE')
+            ).rejects.toHaveProperty('code', 'PROCESS_NOT_FOUND');
+        });
+
+        it('tags atomic-path not-found with PROCESS_NOT_FOUND', async () => {
+            // Context keys + an applyProcessUpdate-capable repo routes
+            // through the atomic path; a null result means the row is gone.
+            mockProcessRepository.applyProcessUpdate = jest
+                .fn()
+                .mockResolvedValue(null);
+
+            await expect(
+                updateProcessStateUseCase.execute(processId, 'NEW_STATE', {
+                    currentPage: 1,
+                })
+            ).rejects.toHaveProperty('code', 'PROCESS_NOT_FOUND');
+        });
+
+        it('tags updateContextOnly not-found with PROCESS_NOT_FOUND', async () => {
+            mockProcessRepository.findById.mockResolvedValue(null);
+
+            await expect(
+                updateProcessStateUseCase.updateContextOnly(processId, {})
+            ).rejects.toHaveProperty('code', 'PROCESS_NOT_FOUND');
+        });
+    });
 });

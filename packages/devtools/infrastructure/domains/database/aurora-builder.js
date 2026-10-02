@@ -21,6 +21,36 @@ const AuroraResourceResolver = require('./aurora-resolver');
 const { createEmptyDiscoveryResult } = require('../shared/types/discovery-result');
 const { ResourceOwnership } = require('../shared/types/resource-ownership');
 
+// Pool + timeout query params appended to DATABASE_URL for Lambda-to-Aurora
+// connections. Chosen to make worker Lambdas fail loud and fast on any DB
+// contention rather than silently hanging for Lambda's 900s timeout.
+//
+//   connection_limit=2  — two pg connections per Lambda container. One is too
+//                         tight: several core use cases (get-process.executeMany,
+//                         field-encryption-service batches) issue in-handler
+//                         Promise.all against Prisma, and would serialize
+//                         behind a single slot. Two removes that cliff while
+//                         still being safe against max_connections (at 4 ACU
+//                         Aurora pg 15 allows ~400 connections; 200 concurrent
+//                         Lambdas × 2 = 400, leaves cluster room for maint).
+//   pool_timeout=20     — wait up to 20s for a pool slot, then throw P2024.
+//                         Still fail-fast relative to 900s Lambda cap; gives
+//                         in-handler fan-outs headroom.
+//   connect_timeout=10  — bound TCP/TLS handshake.
+//   socket_timeout=60   — kill dead client sockets (server never responds).
+//   options=-c statement_timeout=30000 -c lock_timeout=10000
+//                       — Postgres-side hard caps. A query stuck >30s aborts
+//                         with SQLSTATE 57014; a lock wait >10s aborts with
+//                         SQLSTATE 55P03. URL encoding per libpq URI rules
+//                         (space→%20, `=`→%3D inside the options value).
+const LAMBDA_DATABASE_URL_QUERY_PARAMS = [
+    'connection_limit=2',
+    'pool_timeout=20',
+    'connect_timeout=10',
+    'socket_timeout=60',
+    'options=-c%20statement_timeout%3D30000%20-c%20lock_timeout%3D10000',
+].join('&');
+
 class AuroraBuilder extends InfrastructureBuilder {
     constructor() {
         super();
@@ -415,9 +445,16 @@ class AuroraBuilder extends InfrastructureBuilder {
                 ],
                 // Note: PubliclyAccessible is NOT supported on Aurora clusters
                 // It should only be set on DB instances (see FriggAuroraInstance below)
+                // MaxCapacity default bumped 1 → 4 ACU: at 0.5–1 ACU Aurora is
+                // CPU-starved under 20-way concurrent writes from a Lambda
+                // fan-out sync, which starves worker queries and compounds
+                // the tail-latency problem. 4 ACU is still cheap (scales to
+                // min when idle) and gives the DB enough headroom to
+                // absorb bursty sync traffic. Apps can still override both
+                // via app definition dbConfig.
                 ServerlessV2ScalingConfiguration: {
                     MinCapacity: dbConfig.minCapacity || 0.5,
-                    MaxCapacity: dbConfig.maxCapacity || 1,
+                    MaxCapacity: dbConfig.maxCapacity || 4,
                 },
                 EnableHttpEndpoint: false,
                 BackupRetentionPeriod: 7,
@@ -494,6 +531,10 @@ class AuroraBuilder extends InfrastructureBuilder {
         result.environment.DATABASE_PORT = String(dbConfig.port || 5432);
         result.environment.DATABASE_NAME = dbConfig.database || 'frigg';
         result.environment.DATABASE_USER = dbConfig.username || 'postgres';
+        // Consumers that build DATABASE_URL from components at runtime MUST
+        // append `?${DATABASE_URL_PARAMS}` to get the same hang-prevention
+        // timeouts as the managed path.
+        result.environment.DATABASE_URL_PARAMS = LAMBDA_DATABASE_URL_QUERY_PARAMS;
 
         console.log(`  ✅ Using existing cluster: ${dbConfig.endpoint}`);
     }
@@ -724,13 +765,18 @@ exports.handler = async (event, context) => {
             result.environment.DATABASE_HOST = discoveredResources.auroraClusterEndpoint;
             result.environment.DATABASE_PORT = String(discoveredResources.auroraPort || 5432);
             result.environment.DATABASE_NAME = dbName;
+            // Consumers that build DATABASE_URL from components at runtime MUST
+            // append `?${DATABASE_URL_PARAMS}` to get the same hang-prevention
+            // timeouts as the managed path.
+            result.environment.DATABASE_URL_PARAMS = LAMBDA_DATABASE_URL_QUERY_PARAMS;
 
             // Note: DATABASE_URL is NOT set here to avoid Serverless variable resolution errors
             // The application (Frigg Core) should construct it at runtime from:
-            // DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD
+            // DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD, DATABASE_URL_PARAMS
 
             console.log('  ℹ️  No Secrets Manager secret found - set DATABASE_USER and DATABASE_PASSWORD in Lambda environment');
             console.log('  ℹ️  Application will construct DATABASE_URL at runtime from DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD');
+            console.log('  ℹ️  Append `?${DATABASE_URL_PARAMS}` to the constructed URL for pool/timeout safety.');
             console.log('  ℹ️  Or enable autoCreateCredentials=true to automatically create and rotate credentials');
         }
 
@@ -790,9 +836,11 @@ exports.handler = async (event, context) => {
             return `{{resolve:secretsmanager:${secretRefValue}:SecretString:password}}`;
         };
 
+        // Query params are defined at module scope (LAMBDA_DATABASE_URL_QUERY_PARAMS)
+        // so runtime-URL-construction paths can emit the same timeouts as an env var.
         return {
             'Fn::Sub': [
-                `postgresql://\${Username}:\${Password}@\${Host}:\${Port}/\${Database}`,
+                `postgresql://\${Username}:\${Password}@\${Host}:\${Port}/\${Database}?${LAMBDA_DATABASE_URL_QUERY_PARAMS}`,
                 {
                     Username: resolveSecretRef(secretRef),
                     Password: resolveSecretPassword(secretRef),

@@ -170,4 +170,193 @@ describe('Database Migration Worker - Adapter Layer', () => {
             expect(mockPrismaRunner.checkDatabaseState).toHaveBeenCalledWith('documentdb');
         });
     });
+
+    describe('resolve action', () => {
+        let handler;
+        let mockPrismaRunner;
+        const context = {
+            requestId: 'test-request-id',
+            functionName: 'test-function',
+            getRemainingTimeInMillis: () => 30000,
+        };
+
+        beforeEach(() => {
+            jest.clearAllMocks();
+            jest.resetModules();
+
+            mockPrismaRunner = {
+                runMigration: jest.fn(),
+                deployMigration: jest.fn(),
+                checkDatabaseState: jest.fn(),
+                runPrismaMigrateResolve: jest.fn(),
+            };
+            jest.mock('../../database/utils/prisma-runner', () => mockPrismaRunner);
+
+            handler = require('./db-migration').handler;
+        });
+
+        it('resolves a migration and returns 200', async () => {
+            mockPrismaRunner.runPrismaMigrateResolve.mockResolvedValue({
+                success: true,
+            });
+
+            const result = await handler(
+                {
+                    action: 'resolve',
+                    migrationName: '20260422120001_create_process_table',
+                    resolveAction: 'applied',
+                    stage: 'prod',
+                },
+                context
+            );
+
+            expect(result.statusCode).toBe(200);
+            expect(result.body.success).toBe(true);
+            expect(result.body.migrationName).toBe(
+                '20260422120001_create_process_table'
+            );
+            expect(result.body.action).toBe('applied');
+            expect(mockPrismaRunner.runPrismaMigrateResolve).toHaveBeenCalledWith(
+                '20260422120001_create_process_table',
+                'applied',
+                true
+            );
+        });
+
+        it('returns 400 when migrationName is missing', async () => {
+            const result = await handler(
+                { action: 'resolve', resolveAction: 'applied', stage: 'prod' },
+                context
+            );
+
+            expect(result.statusCode).toBe(400);
+            expect(mockPrismaRunner.runPrismaMigrateResolve).not.toHaveBeenCalled();
+        });
+
+        it('returns 400 for an invalid resolveAction', async () => {
+            const result = await handler(
+                {
+                    action: 'resolve',
+                    migrationName: '20260422120001_create_process_table',
+                    resolveAction: 'bogus',
+                    stage: 'prod',
+                },
+                context
+            );
+
+            expect(result.statusCode).toBe(400);
+            expect(mockPrismaRunner.runPrismaMigrateResolve).not.toHaveBeenCalled();
+        });
+
+        it('returns 400 for a malformed migrationName (flag injection guard)', async () => {
+            const result = await handler(
+                {
+                    action: 'resolve',
+                    migrationName: '--schema=/etc/passwd',
+                    resolveAction: 'applied',
+                    stage: 'prod',
+                },
+                context
+            );
+
+            expect(result.statusCode).toBe(400);
+            expect(mockPrismaRunner.runPrismaMigrateResolve).not.toHaveBeenCalled();
+        });
+
+        it('returns 400 for a non-postgresql dbType', async () => {
+            const result = await handler(
+                {
+                    action: 'resolve',
+                    migrationName: '20260422120001_create_process_table',
+                    resolveAction: 'applied',
+                    dbType: 'mongodb',
+                    stage: 'prod',
+                },
+                context
+            );
+
+            expect(result.statusCode).toBe(400);
+            expect(mockPrismaRunner.runPrismaMigrateResolve).not.toHaveBeenCalled();
+        });
+
+        it('returns 500 (with the Prisma error) when the resolve fails', async () => {
+            mockPrismaRunner.runPrismaMigrateResolve.mockResolvedValue({
+                success: false,
+                error: 'Prisma migrate resolve failed (exit 1): P3011 ...',
+            });
+
+            const result = await handler(
+                {
+                    action: 'resolve',
+                    migrationName: '20260422120001_create_process_table',
+                    resolveAction: 'rolled-back',
+                    stage: 'prod',
+                },
+                context
+            );
+
+            expect(result.statusCode).toBe(500);
+            expect(result.body.success).toBe(false);
+            expect(result.body.error).toContain('P3011');
+        });
+    });
+});
+
+describe('Database Migration Worker - invocation log (ADR-048 Phase 2)', () => {
+    it('logs the invocation from an SQS body without dumping the event', async () => {
+        jest.resetModules();
+        jest.doMock('../../database/utils/prisma-runner', () => ({
+            checkDatabaseState: jest.fn().mockResolvedValue({
+                upToDate: true,
+                pendingMigrations: 0,
+            }),
+        }));
+        const { handler } = require('./db-migration');
+        const { createMemorySink } = require('../../logs');
+        const { SECRETS } = require('../../logs/__fixtures__/secrets');
+        const { findSecretWindow } = require('../../logs/__fixtures__/matchers');
+        const sink = createMemorySink();
+        const consoleSpies = ['log', 'warn', 'error'].map((method) =>
+            jest.spyOn(console, method).mockImplementation()
+        );
+        const event = {
+            action: 'checkStatus',
+            Records: [
+                {
+                    body: JSON.stringify({
+                        migrationId: 'mig-2',
+                        dbType: 'postgresql',
+                        stage: 'dev',
+                        DATABASE_URL: `postgresql://admin:${SECRETS.dbPassword}@db.internal/app`,
+                    }),
+                },
+            ],
+        };
+        const context = {
+            requestId: 'req-1',
+            functionName: 'fn',
+            getRemainingTimeInMillis: () => 30000,
+        };
+
+        try {
+            await handler(event, context);
+
+            const [record] = sink.records.filter(
+                (r) => r.eventName === 'frigg.database.migration.invoked'
+            );
+            expect(record).toMatchObject({
+                level: 'INFO',
+                migrationId: 'mig-2',
+                dbType: 'postgresql',
+                targetStage: 'dev',
+                action: 'checkStatus',
+            });
+            expect(sink.records).toContainNoSecretWindow(SECRETS);
+            for (const spy of consoleSpies) {
+                expect(findSecretWindow(spy.mock.calls, [SECRETS.dbPassword])).toBeNull();
+            }
+        } finally {
+            consoleSpies.forEach((spy) => spy.mockRestore());
+        }
+    });
 });

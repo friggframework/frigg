@@ -100,6 +100,21 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
         return this._mapEntity(doc, credential);
     }
 
+    async findEntities(filter) {
+        const query = this._buildFilter(filter);
+        const docs = await findMany(this.prisma, 'Entity', query);
+        if (!docs || docs.length === 0) return [];
+        const credentialMap = await this._fetchCredentialsBulk(
+            docs.map((doc) => doc.credentialId)
+        );
+        return docs.map((doc) =>
+            this._mapEntity(
+                doc,
+                credentialMap.get(fromObjectId(doc.credentialId)) || null
+            )
+        );
+    }
+
     async createEntity(entityData) {
         const {
             user,

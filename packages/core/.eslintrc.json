@@ -1,3 +1,20 @@
 {
-    "extends": "@friggframework/eslint-config"
+    "extends": "@friggframework/eslint-config",
+    "rules": {
+        "no-restricted-syntax": [
+            "warn",
+            {
+                "selector": "CallExpression[callee.object.object.name='process'][callee.object.property.name=/^(stdout|stderr)$/][callee.property.name='write']",
+                "message": "Write through the logger; only logs/sinks.js writes to fd 1 (ADR-048 §14)"
+            }
+        ]
+    },
+    "overrides": [
+        {
+            "files": ["*.test.js", "database/utils/prisma-runner.js"],
+            "rules": {
+                "no-restricted-syntax": "off"
+            }
+        }
+    ]
 }

@@ -511,6 +511,8 @@ router.get('/health/ready', async (_req, res) => {
     });
 });
 
-const handler = createAppHandler('HTTP Event: Health', router);
+// DB-free: /health/ready probes the DB itself and degrades to 503. Eager-connect
+// here would turn a DB outage into a 500, killing otherwise-healthy containers.
+const handler = createAppHandler('HTTP Event: Health', router, false);
 
 module.exports = { handler, router };

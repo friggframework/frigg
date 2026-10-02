@@ -22,6 +22,36 @@ class IntegrationRepositoryInterface {
     }
 
     /**
+     * Find integrations, optionally filtered by config type and/or status.
+     * With no filter, returns every integration.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.type] - Integration type (config.type)
+     * @param {string} [filter.status] - Integration status
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     * @abstract
+     */
+    async findIntegrations(filter = {}) {
+        throw new Error('Method findIntegrations must be implemented by subclass');
+    }
+
+    /**
+     * Find every integration in a report-shaped projection, optionally
+     * filtered by status and/or owning user. Adapters must drain the full
+     * result set (no first-batch truncation) since this powers a
+     * deployment-wide scan.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.status] - Integration status
+     * @param {string|number} [filter.userId] - Owning user ID
+     * @returns {Promise<Array<{id, type, status, userId, version, errorCount, moduleCount, createdAt, updatedAt}>>}
+     * @abstract
+     */
+    async findAllForReport(filter = {}) {
+        throw new Error('Method findAllForReport must be implemented by subclass');
+    }
+
+    /**
      * Delete integration by ID
      *
      * @param {string|number} integrationId - Integration ID
@@ -121,6 +151,38 @@ class IntegrationRepositoryInterface {
      */
     async updateIntegrationConfig(integrationId, config) {
         throw new Error('Method updateIntegrationConfig must be implemented by subclass');
+    }
+
+    /**
+     * Atomically merge a partial update into an integration's config. Keys
+     * not present in the patch are left untouched; concurrent patches with
+     * disjoint keys must both persist. Patch values may not be null or
+     * undefined — key deletion is only supported via updateIntegrationConfig.
+     *
+     * @param {string|number} integrationId - Integration ID
+     * @param {Object} patch - Keys to merge into the existing config
+     * @returns {Promise<Object>} Updated integration object
+     * @abstract
+     */
+    async patchIntegrationConfig(integrationId, patch) {
+        throw new Error('Method patchIntegrationConfig must be implemented by subclass');
+    }
+
+    /**
+     * Find all integrations whose entity set includes the given entity ID.
+     *
+     * Used by the authorization callback flow to walk up from a re-authorized
+     * entity to its parent integrations so that any in a broken state (ERROR,
+     * DISABLED) can be restored to ENABLED.
+     *
+     * @param {string|number} entityId - Entity ID
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     * @abstract
+     */
+    async findIntegrationsByEntityId(entityId) {
+        throw new Error(
+            'Method findIntegrationsByEntityId must be implemented by subclass'
+        );
     }
 }
 

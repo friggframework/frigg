@@ -2,6 +2,7 @@ const { prisma } = require('../../database/prisma');
 const {
     CredentialRepositoryInterface,
 } = require('./credential-repository-interface');
+const { tallyActiveCredentialsByType } = require('./credential-active-type');
 
 /**
  * PostgreSQL Credential Repository Adapter
@@ -246,6 +247,30 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
             refresh_token: data.refresh_token,
             ...data,
         };
+    }
+
+    /**
+     * Count credentials active since a timestamp, grouped by integration type.
+     *
+     * @param {Object} params
+     * @param {Date} [params.since] - Lower bound on updatedAt
+     * @returns {Promise<Array<{ integrationType: string, count: number }>>}
+     */
+    async countActiveByType({ since } = {}) {
+        const where = {};
+        if (since) where.updatedAt = { gte: since };
+
+        // Select only the entity moduleName (+ id) so the encrypted `data` JSON
+        // is never read and the encryption extension has nothing to decrypt.
+        const credentials = await this.prisma.credential.findMany({
+            where,
+            select: {
+                id: true,
+                entities: { select: { moduleName: true } },
+            },
+        });
+
+        return tallyActiveCredentialsByType(credentials);
     }
 
     /**

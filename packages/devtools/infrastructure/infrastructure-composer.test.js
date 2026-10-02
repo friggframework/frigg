@@ -1,4 +1,10 @@
-const { composeServerlessDefinition } = require('./infrastructure-composer');
+const {
+    composeServerlessDefinition,
+    applySsmPreloadNodeOptions,
+} = require('./infrastructure-composer');
+const {
+    SSM_PRELOAD_NODE_OPTIONS,
+} = require('./domains/parameters/offload-utils');
 
 // Helper to build discovery responses with overridable fields
 const createDiscoveryResponse = (overrides = {}) => ({
@@ -144,7 +150,7 @@ describe('composeServerlessDefinition', () => {
 
             expect(result.service).toBe('test-app');
             expect(result.provider.name).toBe('aws');
-            expect(result.provider.runtime).toBe('nodejs20.x');
+            expect(result.provider.runtime).toBe('nodejs22.x');
             expect(result.provider.region).toBe('us-east-1');
             expect(result.provider.stage).toBe('${opt:stage}');
             expect(result.frameworkVersion).toBe('>=3.17.0');
@@ -229,6 +235,50 @@ describe('composeServerlessDefinition', () => {
             const result = await composeServerlessDefinition(appDefinition);
 
             expect(result.provider.environment).not.toHaveProperty('CUSTOM_FLAG');
+        });
+    });
+
+    describe('Logging (ADR-048)', () => {
+        it('carries logging into FRIGG_LOG_LEVEL and logRetentionInDays, with no Lambda LoggingConfig by default', async () => {
+            const result = await composeServerlessDefinition({
+                integrations: [mockIntegration],
+                logging: { level: 'debug', retentionInDays: 30 },
+            });
+
+            expect(result.frameworkVersion).toBe('>=3.17.0');
+            expect(result.provider.logs).toBeUndefined();
+            expect(result.provider.logRetentionInDays).toBe(30);
+            expect(result.provider.environment.FRIGG_LOG_LEVEL).toBe('DEBUG');
+        });
+
+        it('sets no function-level logs, which would replace the provider block', async () => {
+            const result = await composeServerlessDefinition({
+                integrations: [mockIntegration],
+                logging: { level: 'warn' },
+            });
+
+            const functions = Object.values(result.functions);
+            expect(functions.length).toBeGreaterThan(0);
+            expect(functions.every((fn) => fn.logs === undefined)).toBe(true);
+        });
+
+        it('lets logging.level win over environment: { FRIGG_LOG_LEVEL: true }', async () => {
+            const result = await composeServerlessDefinition({
+                integrations: [],
+                environment: { FRIGG_LOG_LEVEL: true },
+                logging: { level: 'error' },
+            });
+
+            expect(result.provider.environment.FRIGG_LOG_LEVEL).toBe('ERROR');
+        });
+
+        it('changes nothing when logging is absent', async () => {
+            const result = await composeServerlessDefinition({ integrations: [] });
+
+            expect(result.frameworkVersion).toBe('>=3.17.0');
+            expect(result.provider.logs).toBeUndefined();
+            expect(result.provider.logRetentionInDays).toBeUndefined();
+            expect(result.provider.environment).not.toHaveProperty('FRIGG_LOG_LEVEL');
         });
     });
 
@@ -1062,7 +1112,18 @@ describe('composeServerlessDefinition', () => {
     });
 
     describe('SSM Configuration', () => {
-        it('should add SSM configuration when ssm.enable is true', async () => {
+        const originalSkipDiscovery = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+        afterEach(() => {
+            if (originalSkipDiscovery === undefined) {
+                delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            } else {
+                process.env.FRIGG_SKIP_AWS_DISCOVERY = originalSkipDiscovery;
+            }
+        });
+
+        it('should add the broad SSM read grant when ssm.enable is true without offload', async () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
             const appDefinition = {
                 ssm: { enable: true },
                 integrations: []
@@ -1070,12 +1131,10 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            // Check lambda layers
-            expect(result.provider.layers).toEqual([
-                'arn:aws:lambda:${self:provider.region}:177933569100:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11'
-            ]);
+            // We deliberately do NOT use the AWS Parameters-and-Secrets extension layer
+            expect(result.provider.layers).toBeUndefined();
 
-            // Check IAM permissions
+            // Broad read grant present
             const ssmPermission = result.provider.iamRoleStatements.find(
                 statement => statement.Action.includes('ssm:GetParameter')
             );
@@ -1086,13 +1145,56 @@ describe('composeServerlessDefinition', () => {
                     'ssm:GetParameters',
                     'ssm:GetParametersByPath'
                 ],
-                Resource: [
-                    'arn:aws:ssm:${self:provider.region}:*:parameter/${self:service}/${self:provider.stage}/*'
-                ]
+                Resource: {
+                    'Fn::Sub': 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*'
+                }
             });
 
-            // Check environment variable
-            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBe('/${self:service}/${self:provider.stage}');
+            // No offload markers -> no offload env vars
+            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBeUndefined();
+            expect(result.provider.environment.FRIGG_SSM_OFFLOADED_KEYS).toBeUndefined();
+        });
+
+        it('should offload marked keys and expose prefix + offloaded keys env vars', async () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { FOO: 'ssm', BAR: true },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // BAR stays in the Lambda env, FOO is offloaded out of it
+            expect(result.provider.environment.BAR).toBe("${env:BAR, ''}");
+            expect(result.provider.environment.FOO).toBeUndefined();
+
+            // Offload env contract
+            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBe(
+                '/frigg/${self:service}/${self:provider.stage}'
+            );
+            expect(result.provider.environment.FRIGG_SSM_OFFLOADED_KEYS).toBe('FOO');
+
+            // Prefix-scoped read grant present alongside the broad grant
+            const scoped = result.provider.iamRoleStatements.find(
+                statement => statement.Resource === 'arn:aws:ssm:${self:provider.region}:${aws:accountId}:parameter/frigg/${self:service}/${self:provider.stage}/*'
+            );
+            expect(scoped).toBeDefined();
+        });
+
+        it('should not add offload env vars when ssm.enable is true but nothing is marked', async () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: { BAR: true },
+                integrations: []
+            };
+
+            const result = await composeServerlessDefinition(appDefinition);
+
+            expect(result.provider.environment.BAR).toBe("${env:BAR, ''}");
+            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBeUndefined();
+            expect(result.provider.environment.FRIGG_SSM_OFFLOADED_KEYS).toBeUndefined();
         });
 
         it('should not add SSM configuration when ssm.enable is false', async () => {
@@ -1148,10 +1250,10 @@ describe('composeServerlessDefinition', () => {
                 Type: 'AWS::SQS::Queue',
                 Properties: {
                     QueueName: '${self:custom.TestIntegrationQueue}',
-                    MessageRetentionPeriod: 60,
+                    MessageRetentionPeriod: 345600,
                     VisibilityTimeout: 1800,
                     RedrivePolicy: {
-                        maxReceiveCount: 1,
+                        maxReceiveCount: 3,
                         deadLetterTargetArn: {
                             'Fn::GetAtt': ['InternalErrorQueue', 'Arn']
                         }
@@ -1162,13 +1264,14 @@ describe('composeServerlessDefinition', () => {
             // Check Queue Worker
             expect(result.functions.testIntegrationQueueWorker).toEqual({
                 handler: 'node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.testIntegration.queueWorker',
-                reservedConcurrency: 5,
+                reservedConcurrency: 20,
                 events: [{
                     sqs: {
                         arn: {
                             'Fn::GetAtt': ['TestIntegrationQueue', 'Arn']
                         },
-                        batchSize: 1
+                        batchSize: 1,
+                        functionResponseType: 'ReportBatchItemFailures'
                     }
                 }],
                 timeout: 600
@@ -1396,9 +1499,12 @@ describe('composeServerlessDefinition', () => {
             expect(result.provider.environment.KMS_KEY_ARN).toBeDefined();
             expect(result.custom.kmsGrants).toBeDefined();
 
-            // SSM
-            expect(result.provider.layers).toBeDefined();
-            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBeDefined();
+            // SSM (enabled without offload markers -> broad grant only, no offload env vars)
+            const ssmPermission = result.provider.iamRoleStatements.find(
+                statement => statement.Action && statement.Action.includes('ssm:GetParameter')
+            );
+            expect(ssmPermission).toBeDefined();
+            expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBeUndefined();
 
             // Integration
             expect(result.functions.testIntegration).toBeDefined();
@@ -1891,5 +1997,90 @@ describe('composeServerlessDefinition', () => {
 
             await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow('Invalid integration: missing Definition or name');
         });
+    });
+});
+
+describe('applySsmPreloadNodeOptions', () => {
+    const appDefinition = {
+        ssm: { enable: true },
+        environment: { FOO: 'ssm' },
+    };
+    const savedSkip = process.env.FRIGG_SKIP_AWS_DISCOVERY;
+
+    beforeEach(() => {
+        delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+    });
+
+    afterEach(() => {
+        if (savedSkip === undefined) {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+        } else {
+            process.env.FRIGG_SKIP_AWS_DISCOVERY = savedSkip;
+        }
+    });
+
+    it('sets the preload NODE_OPTIONS on a skipEsbuild function with no existing value', () => {
+        const functions = { auth: { skipEsbuild: true } };
+        applySsmPreloadNodeOptions(appDefinition, functions);
+        expect(functions.auth.environment.NODE_OPTIONS).toBe(
+            SSM_PRELOAD_NODE_OPTIONS
+        );
+    });
+
+    it('appends to an existing function-level NODE_OPTIONS instead of clobbering it', () => {
+        const functions = {
+            auth: {
+                skipEsbuild: true,
+                environment: { NODE_OPTIONS: '--enable-source-maps' },
+            },
+        };
+        applySsmPreloadNodeOptions(appDefinition, functions);
+        expect(functions.auth.environment.NODE_OPTIONS).toBe(
+            `--enable-source-maps ${SSM_PRELOAD_NODE_OPTIONS}`
+        );
+    });
+
+    it('folds in a provider-level NODE_OPTIONS (which the function env would otherwise shadow)', () => {
+        const functions = { auth: { skipEsbuild: true } };
+        applySsmPreloadNodeOptions(appDefinition, functions, {
+            NODE_OPTIONS: '--require ./otel.js',
+        });
+        expect(functions.auth.environment.NODE_OPTIONS).toBe(
+            `--require ./otel.js ${SSM_PRELOAD_NODE_OPTIONS}`
+        );
+    });
+
+    it('prefers a function-level value over the provider-level one', () => {
+        const functions = {
+            auth: {
+                skipEsbuild: true,
+                environment: { NODE_OPTIONS: '--fn-flag' },
+            },
+        };
+        applySsmPreloadNodeOptions(appDefinition, functions, {
+            NODE_OPTIONS: '--provider-flag',
+        });
+        expect(functions.auth.environment.NODE_OPTIONS).toBe(
+            `--fn-flag ${SSM_PRELOAD_NODE_OPTIONS}`
+        );
+    });
+
+    it('never touches esbuild-bundled functions', () => {
+        const functions = {
+            websocket: { environment: { NODE_OPTIONS: '--keep-me' } },
+        };
+        applySsmPreloadNodeOptions(appDefinition, functions, {
+            NODE_OPTIONS: '--provider',
+        });
+        expect(functions.websocket.environment.NODE_OPTIONS).toBe('--keep-me');
+    });
+
+    it('is a no-op when offload is inactive', () => {
+        const functions = { auth: { skipEsbuild: true } };
+        applySsmPreloadNodeOptions(
+            { ssm: { enable: true } }, // no offloaded keys → inactive
+            functions
+        );
+        expect(functions.auth.environment).toBeUndefined();
     });
 });

@@ -170,6 +170,35 @@ function createUserCommands() {
         },
 
         /**
+         * Find all individual users linked to an organization user
+         * @param {string} organizationUserId - Organization user ID to search for
+         * @returns {Promise<Object[]>} Array of individual user objects (empty if none)
+         */
+        async findIndividualUsersByOrganizationId(organizationUserId) {
+            try {
+                if (!organizationUserId) {
+                    const error = new Error('organizationUserId is required');
+                    error.code = 'INVALID_USER_DATA';
+                    throw error;
+                }
+
+                const users =
+                    await userRepository.findIndividualUsersByOrganizationId(
+                        organizationUserId
+                    );
+
+                return (users || []).map((user) => ({
+                    id: user._id?.toString() || user.id,
+                    username: user.username,
+                    email: user.email,
+                    appUserId: user.appUserId,
+                }));
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
          * Find an organization user by their ID
          * @param {string} userId - Organization user ID to search for
          * @returns {Promise<Object|null>} Organization user object or null if not found

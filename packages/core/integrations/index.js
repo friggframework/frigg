@@ -10,6 +10,11 @@ const {
 const {
     LoadIntegrationContextUseCase,
 } = require('./use-cases/load-integration-context');
+const {
+    validateExtensionBinding,
+    getExtensionRoutes,
+    getExtensionWorkers,
+} = require('./extension');
 
 module.exports = {
     IntegrationBase,
@@ -18,4 +23,7 @@ module.exports = {
     checkRequiredParams,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
+    validateExtensionBinding,
+    getExtensionRoutes,
+    getExtensionWorkers,
 };

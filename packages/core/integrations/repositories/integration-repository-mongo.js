@@ -2,6 +2,7 @@ const { prisma } = require('../../database/prisma');
 const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
+const { validateConfigPatch } = require('./config-patch-shared');
 
 /**
  * MongoDB Integration Repository Adapter
@@ -48,6 +49,79 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             version: integration.version,
             status: integration.status,
             messages: integration.messages,
+            createdAt: integration.createdAt,
+        }));
+    }
+
+    /**
+     * Find integrations, optionally filtered by config type and/or status.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.type] - Integration type (config.type)
+     * @param {string} [filter.status] - Integration status
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     */
+    async findIntegrations({ type, status } = {}) {
+        const where = {};
+        if (type) {
+            where.config = { path: ['type'], equals: type };
+        }
+        if (status) {
+            where.status = status;
+        }
+
+        const integrations = await this.prisma.integration.findMany({
+            where,
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => ({
+            id: integration.id,
+            entitiesIds: integration.entities.map((e) => e.id),
+            userId: integration.userId,
+            config: integration.config,
+            version: integration.version,
+            status: integration.status,
+            messages: integration.messages,
+            createdAt: integration.createdAt,
+        }));
+    }
+
+    /**
+     * Find every integration in a report-shaped projection.
+     *
+     * type lives in config.type (a JSON path not portably groupable across
+     * DBs); it is left in the row for the caller to bucket.
+     *
+     * @param {Object} [filter={}]
+     * @param {string} [filter.status] - Integration status
+     * @param {string} [filter.userId] - Owning user ID (ObjectId as string)
+     * @returns {Promise<Array>} Report-shaped integration rows
+     */
+    async findAllForReport({ status, userId } = {}) {
+        const where = {};
+        if (status) where.status = status;
+        if (userId !== undefined && userId !== null) where.userId = userId;
+
+        const integrations = await this.prisma.integration.findMany({
+            where,
+            include: { entities: { select: { id: true } } },
+        });
+
+        return integrations.map((integration) => ({
+            id: integration.id,
+            type: integration.config?.type ?? null,
+            status: integration.status ?? null,
+            userId: integration.userId ?? null,
+            version: integration.version ?? null,
+            errorCount: Array.isArray(integration.errors)
+                ? integration.errors.length
+                : 0,
+            moduleCount: integration.entities?.length ?? 0,
+            createdAt: integration.createdAt ?? null,
+            updatedAt: integration.updatedAt ?? null,
         }));
     }
 
@@ -201,6 +275,33 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
     }
 
     /**
+     * Find all integrations whose entity set includes the given entity ID.
+     *
+     * @param {string} entityId - Entity ID (MongoDB ObjectId as string)
+     * @returns {Promise<Array>} Array of integration objects (possibly empty)
+     */
+    async findIntegrationsByEntityId(entityId) {
+        const integrations = await this.prisma.integration.findMany({
+            where: {
+                entityIds: { has: entityId },
+            },
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => ({
+            id: integration.id,
+            entitiesIds: integration.entities.map((e) => e.id),
+            userId: integration.userId,
+            config: integration.config,
+            version: integration.version,
+            status: integration.status,
+            messages: integration.messages,
+        }));
+    }
+
+    /**
      * Create a new integration
      * Replaces: IntegrationModel.create({ entities, user, config })
      *
@@ -296,6 +397,52 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             version: integration.version,
             status: integration.status,
             messages: integration.messages,
+        };
+    }
+
+    /**
+     * Atomically merge a patch into the existing config via findAndModify,
+     * so the write and the post-write read happen in one server-side round
+     * trip with no JS-side read-modify-write to race on. entityIds is a
+     * scalar array directly on the Integration document in Mongo, so the
+     * raw document already carries everything needed to shape the return
+     * value — no follow-up findUnique.
+     *
+     * @param {string} integrationId - Integration ID
+     * @param {Object} patch - Keys to merge into the existing config
+     * @returns {Promise<Object>} Updated integration object
+     */
+    async patchIntegrationConfig(integrationId, patch) {
+        validateConfigPatch(patch);
+
+        const $set = {};
+        for (const [key, value] of Object.entries(patch)) {
+            $set[`config.${key}`] = value;
+        }
+        $set.updatedAt = new Date();
+
+        const result = await this.prisma.$runCommandRaw({
+            findAndModify: 'Integration',
+            query: { _id: { $oid: integrationId } },
+            update: { $set },
+            new: true,
+        });
+
+        const doc = result && result.value;
+        if (!doc) {
+            throw new Error(`Integration with id ${integrationId} not found`);
+        }
+
+        return {
+            id: doc._id.$oid ?? doc._id,
+            entitiesIds: (doc.entityIds || []).map(
+                (entityId) => entityId.$oid ?? entityId
+            ),
+            userId: doc.userId?.$oid ?? doc.userId ?? null,
+            config: doc.config,
+            version: doc.version,
+            status: doc.status,
+            messages: doc.messages,
         };
     }
 }

@@ -2,10 +2,11 @@ jest.mock('../../database/config', () => ({
     DB_TYPE: 'mongodb',
     getDatabaseType: jest.fn(() => 'mongodb'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 const mockFindExecute = jest.fn();
+const mockUpdateConfigExecute = jest.fn();
+const mockPatchConfigExecute = jest.fn();
 
 jest.mock('../../integrations/use-cases/find-integration-context-by-external-entity-id', () => {
     return {
@@ -17,6 +18,22 @@ jest.mock('../../integrations/use-cases/find-integration-context-by-external-ent
     };
 });
 
+jest.mock('../../integrations/use-cases/update-integration-config', () => {
+    return {
+        UpdateIntegrationConfig: jest.fn().mockImplementation(() => ({
+            execute: mockUpdateConfigExecute,
+        })),
+    };
+});
+
+jest.mock('../../integrations/use-cases/patch-integration-config', () => {
+    return {
+        PatchIntegrationConfig: jest.fn().mockImplementation(() => ({
+            execute: mockPatchConfigExecute,
+        })),
+    };
+});
+
 const {
     createIntegrationCommands,
     findIntegrationContextByExternalEntityId,
@@ -24,18 +41,30 @@ const {
 const {
     FindIntegrationContextByExternalEntityIdUseCase,
 } = require('../../integrations/use-cases/find-integration-context-by-external-entity-id');
+const {
+    UpdateIntegrationConfig,
+} = require('../../integrations/use-cases/update-integration-config');
+const {
+    PatchIntegrationConfig,
+} = require('../../integrations/use-cases/patch-integration-config');
 const { DummyIntegration } = require('../../integrations/tests/doubles/dummy-integration-class');
 
 describe('integration commands', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockFindExecute.mockReset();
+        mockUpdateConfigExecute.mockReset();
+        mockPatchConfigExecute.mockReset();
     });
 
-    it('requires an integrationClass when creating commands', () => {
-        expect(() => createIntegrationCommands()).toThrow(
-            'integrationClass is required',
-        );
+    it('returns class-agnostic read commands when no integrationClass is given', () => {
+        const commands = createIntegrationCommands();
+
+        expect(typeof commands.findIntegrationById).toBe('function');
+        expect(typeof commands.listIntegrations).toBe('function');
+        // Class-scoped commands require an integrationClass and are not built here
+        expect(commands.createIntegration).toBeUndefined();
+        expect(commands.updateIntegrationConfig).toBeUndefined();
     });
 
     it('creates use cases with default repositories', () => {
@@ -143,6 +172,104 @@ describe('integration commands', () => {
 
             // Expect error since no real DB connection
             expect(result).toHaveProperty('error');
+        });
+    });
+
+    describe('updateIntegrationConfig', () => {
+        it('delegates to the UpdateIntegrationConfig use case', async () => {
+            mockUpdateConfigExecute.mockResolvedValue({
+                id: 'integration-1',
+                config: { type: 'attio' },
+            });
+            const commands = createIntegrationCommands({
+                integrationClass: DummyIntegration,
+            });
+
+            const result = await commands.updateIntegrationConfig({
+                integrationId: 'integration-1',
+                config: { type: 'attio' },
+            });
+
+            expect(UpdateIntegrationConfig).toHaveBeenCalledWith({
+                integrationRepository: expect.any(Object),
+            });
+            expect(mockUpdateConfigExecute).toHaveBeenCalledWith(
+                'integration-1',
+                { type: 'attio' },
+            );
+            expect(result).toEqual({
+                id: 'integration-1',
+                config: { type: 'attio' },
+            });
+        });
+
+        it('maps a use case throw to the {error} result convention', async () => {
+            mockUpdateConfigExecute.mockRejectedValue(
+                new Error('Config parameter is required'),
+            );
+            const commands = createIntegrationCommands({
+                integrationClass: DummyIntegration,
+            });
+
+            const result = await commands.updateIntegrationConfig({
+                integrationId: 'integration-1',
+                config: null,
+            });
+
+            expect(result).toEqual({
+                error: 500,
+                reason: 'Config parameter is required',
+                code: undefined,
+            });
+        });
+    });
+
+    describe('patchIntegrationConfig', () => {
+        it('delegates to the PatchIntegrationConfig use case', async () => {
+            mockPatchConfigExecute.mockResolvedValue({
+                id: 'integration-1',
+                config: { type: 'attio', attioWebhookId: 'wh_1' },
+            });
+            const commands = createIntegrationCommands({
+                integrationClass: DummyIntegration,
+            });
+
+            const result = await commands.patchIntegrationConfig({
+                integrationId: 'integration-1',
+                patch: { attioWebhookId: 'wh_1' },
+            });
+
+            expect(PatchIntegrationConfig).toHaveBeenCalledWith({
+                integrationRepository: expect.any(Object),
+            });
+            expect(mockPatchConfigExecute).toHaveBeenCalledWith(
+                'integration-1',
+                { attioWebhookId: 'wh_1' },
+            );
+            expect(result).toEqual({
+                id: 'integration-1',
+                config: { type: 'attio', attioWebhookId: 'wh_1' },
+            });
+        });
+
+        it('maps a use case throw to the {error} result convention', async () => {
+            mockPatchConfigExecute.mockRejectedValue(
+                new Error("patch['attioWebhookId'] cannot be null or undefined"),
+            );
+            const commands = createIntegrationCommands({
+                integrationClass: DummyIntegration,
+            });
+
+            const result = await commands.patchIntegrationConfig({
+                integrationId: 'integration-1',
+                patch: { attioWebhookId: null },
+            });
+
+            expect(result).toEqual({
+                error: 500,
+                reason: "patch['attioWebhookId'] cannot be null or undefined",
+                code: undefined,
+            });
         });
     });
 });

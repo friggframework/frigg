@@ -71,6 +71,21 @@ class UserRepositoryMongo extends UserRepositoryInterface {
     }
 
     /**
+     * Find all individual users linked to an organization user
+     *
+     * @param {string} organizationUserId - Organization user ID
+     * @returns {Promise<Object[]>} Array of individual user records (empty if none)
+     */
+    async findIndividualUsersByOrganizationId(organizationUserId) {
+        return await this.prisma.user.findMany({
+            where: {
+                organizationId: organizationUserId,
+                type: 'INDIVIDUAL',
+            },
+        });
+    }
+
+    /**
      * Create token with expiration
      * Delegates to TokenRepository
      *

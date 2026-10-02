@@ -22,6 +22,8 @@
  *   results: { aggregateData: { totalSynced: 0, totalFailed: 0 } }
  * });
  */
+const { invalidProcessData } = require('./process-errors');
+
 class CreateProcess {
     /**
      * @param {Object} params
@@ -86,40 +88,40 @@ class CreateProcess {
         const missingFields = requiredFields.filter(field => !processData[field]);
 
         if (missingFields.length > 0) {
-            throw new Error(
+            throw invalidProcessData(
                 `Missing required fields for process creation: ${missingFields.join(', ')}`
             );
         }
 
         // Validate field types
         if (typeof processData.userId !== 'string') {
-            throw new Error('userId must be a string');
+            throw invalidProcessData('userId must be a string');
         }
         if (typeof processData.integrationId !== 'string') {
-            throw new Error('integrationId must be a string');
+            throw invalidProcessData('integrationId must be a string');
         }
         if (typeof processData.name !== 'string') {
-            throw new Error('name must be a string');
+            throw invalidProcessData('name must be a string');
         }
         if (typeof processData.type !== 'string') {
-            throw new Error('type must be a string');
+            throw invalidProcessData('type must be a string');
         }
 
         // Validate optional fields if provided
         if (processData.state && typeof processData.state !== 'string') {
-            throw new Error('state must be a string');
+            throw invalidProcessData('state must be a string');
         }
         if (processData.context && typeof processData.context !== 'object') {
-            throw new Error('context must be an object');
+            throw invalidProcessData('context must be an object');
         }
         if (processData.results && typeof processData.results !== 'object') {
-            throw new Error('results must be an object');
+            throw invalidProcessData('results must be an object');
         }
         if (processData.childProcesses && !Array.isArray(processData.childProcesses)) {
-            throw new Error('childProcesses must be an array');
+            throw invalidProcessData('childProcesses must be an array');
         }
         if (processData.parentProcessId && typeof processData.parentProcessId !== 'string') {
-            throw new Error('parentProcessId must be a string');
+            throw invalidProcessData('parentProcessId must be a string');
         }
     }
 }

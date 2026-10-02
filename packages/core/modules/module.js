@@ -1,6 +1,6 @@
 const { Delegate } = require('../core');
 const _ = require('lodash');
-const { flushDebugLog } = require('../logs');
+const { getLogger } = require('../logs');
 const { ModuleConstants } = require('./ModuleConstants');
 const {
     createCredentialRepository,
@@ -20,8 +20,9 @@ class Module extends Delegate {
      * @param {Object} params.definition The definition of the Api Module
      * @param {string} params.userId The user id
      * @param {Object} params.entity The entity record from the database
+     * @param {string} [params.state] Optional OAuth state value forwarded to the API client (round-trips through the OAuth provider).
      */
-    constructor({ definition, userId = null, entity: entityObj = null }) {
+    constructor({ definition, userId = null, entity: entityObj = null, state = null }) {
         super({ definition, userId, entity: entityObj });
 
         this.validateDefinition(definition);
@@ -31,17 +32,33 @@ class Module extends Delegate {
         this.credential = entityObj?.credential;
         this.definition = definition;
         this.name = this.definition.moduleName;
+        this.logger = getLogger(`module.${this.name ?? 'unknown'}`).child(() => ({
+            entityId: this.entity?.id,
+            credentialId:
+                this.credential?.id ??
+                (typeof this.credential === 'string'
+                    ? this.credential
+                    : undefined),
+        }));
         this.modelName = this.definition.modelName;
         this.apiClass = this.definition.API;
 
         this.credentialRepository = createCredentialRepository();
         this.moduleRepository = createModuleRepository();
 
+        // Module → parent delegate (typically IntegrationBase) events
+        this.DLGT_CREDENTIAL_INVALIDATED = 'CREDENTIAL_INVALIDATED';
+        this.delegateTypes.push(this.DLGT_CREDENTIAL_INVALIDATED);
+        this.DLGT_CREDENTIAL_VALIDATED = 'CREDENTIAL_VALIDATED';
+        this.delegateTypes.push(this.DLGT_CREDENTIAL_VALIDATED);
+
         Object.assign(this, this.definition.requiredAuthMethods);
 
         const apiParams = {
             ...this.definition.env,
             delegate: this,
+            logger: this.logger,
+            ...(state ? { state } : {}),
             ...(this.credential?.data
                 ? this.apiParamsFromCredential(this.credential.data)
                 : {}), // Handle case when credential is undefined
@@ -92,8 +109,10 @@ class Module extends Delegate {
         try {
             if (await this.testAuthRequest(this.api)) validAuth = true;
         } catch (e) {
-            console.error(`[Frigg][testAuth] Failed for module ${this.name}: ${e.message}`);
-            flushDebugLog(e);
+            this.logger.warn('testAuth failed', {
+                eventName: `${this.logger.name}.test_auth_failed`,
+                error: e,
+            });
         }
         return validAuth;
     }
@@ -106,9 +125,9 @@ class Module extends Delegate {
         const apiParams = this.apiParamsFromCredential(this.api);
 
         if (!apiParams.refresh_token && this.api.isRefreshable) {
-            console.warn(
-                `[Frigg] No refresh_token in apiParams for module ${this.name}.`
-            );
+            this.logger.warn('No refresh_token in apiParams', {
+                eventName: `${this.logger.name}.refresh_token_missing`,
+            });
         }
 
         Object.assign(credentialDetails.details, apiParams);
@@ -118,6 +137,20 @@ class Module extends Delegate {
             credentialDetails
         );
         this.credential = persisted;
+
+        if (this.credential?.id) {
+            try {
+                await this.notify(this.DLGT_CREDENTIAL_VALIDATED, {
+                    credentialId: this.credential.id,
+                    moduleName: this.name,
+                });
+            } catch (err) {
+                this.logger.error('Failed to propagate CREDENTIAL_VALIDATED', {
+                    eventName: `${this.logger.name}.credential_validated_propagation_failed`,
+                    error: err,
+                });
+            }
+        }
     }
 
     async receiveNotification(notifier, delegateString, object = null) {
@@ -126,14 +159,42 @@ class Module extends Delegate {
         } else if (delegateString === this.api.DLGT_TOKEN_DEAUTHORIZED) {
             await this.deauthorize();
         } else if (delegateString === this.api.DLGT_INVALID_AUTH) {
-            await this.markCredentialsInvalid();
+            await this.markCredentialsInvalid(object);
+        } else if (delegateString === this.api.DLGT_CREDENTIAL_RELOAD) {
+            return this.reloadCredential();
         }
     }
 
-    async markCredentialsInvalid() {
+    /**
+     * Re-reads the credential row from the database. The requester can then
+     * adopt a concurrent invocation's refresh and does not race it.
+     * @returns {Promise<Object|null>} The persisted token fields, or null
+     *   when no credential row is available. The requester treats null as
+     *   "nothing to adopt" and continues with its own refresh.
+     */
+    async reloadCredential() {
+        if (!this.credential?.id) return null;
+        const freshFromDatabase =
+            await this.credentialRepository.findCredentialById(
+                this.credential.id
+            );
+        if (!freshFromDatabase) return null;
+        this.credential = freshFromDatabase;
+        return this.apiParamsFromCredential(freshFromDatabase);
+    }
+
+    async markCredentialsInvalid(diagnosticInfo = null) {
         if (!this.credential) return;
 
         if (!this.credential.id) return;
+
+        if (diagnosticInfo) {
+            this.logger.warn('Credentials rejected', {
+                eventName: `${this.logger.name}.credentials_rejected`,
+                statusCode: diagnosticInfo.statusCode,
+                error: diagnosticInfo,
+            });
+        }
 
         await this.credentialRepository.updateAuthenticationStatus(
             this.credential.id,
@@ -143,11 +204,40 @@ class Module extends Delegate {
         // Keep the in-memory snapshot consistent so that callers can read the
         // updated state without another fetch.
         this.credential.authIsValid = false;
+
+        // Propagate upward so a parent delegate (e.g. IntegrationBase) can
+        // react — for instance by flipping Integration.status to DISABLED.
+        // Delegate.notify is a silent no-op when this.delegate is null, so
+        // Module instances constructed outside of an Integration context
+        // (e.g. during ProcessAuthorizationCallback) remain unaffected.
+        //
+        // Best-effort: this method is invoked from the OAuth2Requester 401
+        // refresh catch block, which depends on us NOT throwing. A DB hiccup
+        // in the downstream status flip must not alter refreshAuth's
+        // documented `return false` contract. The credential has already
+        // been persisted as invalid; integrations left un-flipped can be
+        // recovered by the next retry or by operator intervention.
+        try {
+            await this.notify(this.DLGT_CREDENTIAL_INVALIDATED, {
+                credentialId: this.credential.id,
+                moduleName: this.name,
+                ...(diagnosticInfo && {
+                    reason: diagnosticInfo.message,
+                    statusCode: diagnosticInfo.statusCode,
+                }),
+            });
+        } catch (err) {
+            this.logger.error('Failed to propagate CREDENTIAL_INVALIDATED', {
+                eventName: `${this.logger.name}.credential_invalidated_propagation_failed`,
+                error: err,
+            });
+        }
     }
 
     async deauthorize() {
         //todo: Check if this is correct, we're instantiating a new api without params (credentials, tokens, etc...)
         this.api = new this.apiClass();
+        this.api.logger = this.logger;
 
         // Remove persisted credential (if any)
         if (this.entity?.credential) {
@@ -156,6 +246,7 @@ class Module extends Delegate {
 
             // Delete credential via repository
             await this.credentialRepository.deleteCredentialById(credentialId);
+            this.credential = undefined;
 
             // Unset credential reference on the Entity document
             const entityId = this.entity.id;

@@ -2,6 +2,7 @@ const express = require('express');
 const { get } = require('../assertions');
 const Boom = require('@hapi/boom');
 const catchAsyncError = require('express-async-handler');
+const { getLogger } = require('../logs');
 const {
     createIntegrationRepository,
 } = require('./repositories/integration-repository-factory');
@@ -69,6 +70,8 @@ const { AuthenticateUser } = require('../user/use-cases/authenticate-user');
 const {
     ProcessAuthorizationCallback,
 } = require('../modules/use-cases/process-authorization-callback');
+
+const log = getLogger('frigg.integrations');
 
 function createIntegrationRouter() {
     const { integrations: integrationClasses, userConfig } =
@@ -190,6 +193,7 @@ function createIntegrationRouter() {
     const processAuthorizationCallback = new ProcessAuthorizationCallback({
         moduleRepository,
         credentialRepository,
+        integrationRepository,
         moduleDefinitions:
             getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
@@ -467,7 +471,8 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             }
 
             const start = Date.now();
-            await instance.testAuth();
+            const authPassed = await instance.testAuth();
+            await instance.reconcileAuthStatus(authPassed);
             const errors = instance.record.messages?.errors?.filter(
                 ({ timestamp }) => timestamp >= start
             );
@@ -506,7 +511,8 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             const params = checkRequiredParams(req.query, ['entityType']);
             const module = await getModuleInstanceFromType.execute(
                 userId,
-                params.entityType
+                params.entityType,
+                { state: req.query.state }
             );
             const areRequirementsValid =
                 module.validateAuthorizationRequirements();
@@ -529,11 +535,29 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 'data',
             ]);
 
+            const dataKeys =
+                params.data && typeof params.data === 'object'
+                    ? Object.keys(params.data)
+                    : [];
+            log.debug('Authorize requested', {
+                userId,
+                entityType: params.entityType,
+                dataKeys,
+            });
+
             const entityDetails = await processAuthorizationCallback.execute(
                 userId,
                 params.entityType,
                 params.data
             );
+
+            log.info('Entity authorized', {
+                eventName: 'frigg.integrations.authorized',
+                userId,
+                entityType: params.entityType,
+                credentialId: entityDetails?.credential_id,
+                entityId: entityDetails?.entity_id,
+            });
 
             res.json(entityDetails);
         })

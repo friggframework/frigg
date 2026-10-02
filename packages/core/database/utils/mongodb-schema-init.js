@@ -16,7 +16,7 @@
  * @see https://www.mongodb.com/docs/manual/core/transactions/#transactions-and-operations
  */
 
-const { mongoose } = require('../mongoose');
+const { prisma } = require('../prisma');
 const { ensureCollectionsExist } = require('./mongodb-collection-utils');
 const { getCollectionsFromSchemaSync } = require('./prisma-schema-parser');
 const config = require('../config');
@@ -53,8 +53,10 @@ async function initializeMongoDBSchema() {
         return;
     }
 
-    // Check if database is connected
-    if (mongoose.connection.readyState !== 1) {
+    // Verify database connectivity via Prisma ping
+    try {
+        await prisma.$runCommandRaw({ ping: 1 });
+    } catch (error) {
         throw new Error(
             'Cannot initialize MongoDB schema - database not connected. ' +
             'Call connectPrisma() before initializeMongoDBSchema()'

@@ -10,7 +10,7 @@
 const serverlessHttp = require('serverless-http');
 const express = require('express');
 const cors = require('cors');
-const dbMigrationRouter = require('./db-migration');
+const { router: dbMigrationRouter } = require('./db-migration');
 
 // Create minimal Express app
 const app = express();

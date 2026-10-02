@@ -166,12 +166,10 @@ function verifyKmsConfiguration(config) {
  * @param {Object} config - Serverless configuration
  */
 function verifySsmConfiguration(config) {
-    expect(config.provider.layers).toEqual([
-        'arn:aws:lambda:${self:provider.region}:177933569100:layer:AWS-Parameters-and-Secrets-Lambda-Extension:11'
-    ]);
-    expect(config.provider.environment.SSM_PARAMETER_PREFIX).toBe('/${self:service}/${self:provider.stage}');
+    // The framework does NOT use the AWS Parameters-and-Secrets extension layer
+    expect(config.provider.layers).toBeUndefined();
 
-    // Verify SSM IAM permissions
+    // Verify SSM IAM permissions (broad read grant added whenever SSM is enabled)
     const ssmPermission = config.provider.iamRoleStatements.find(
         statement => statement.Action.includes('ssm:GetParameter')
     );

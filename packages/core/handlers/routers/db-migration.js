@@ -4,12 +4,14 @@
  * HTTP API for triggering and monitoring database migrations.
  *
  * Endpoints:
- * - GET /db-migrate/status - Check if migrations are pending
- * - POST /db-migrate - Trigger async migration (queues job)
- * - GET /db-migrate/:processId - Check migration status
+ * - GET /admin/db-migrate/status - Check if migrations are pending
+ * - POST /admin/db-migrate - Trigger async migration (queues job)
+ * - GET /admin/db-migrate/:processId - Check migration status
+ * - POST /admin/db-migrate/resolve - Resolve failed migration
  *
  * Security:
- * - Requires ADMIN_API_KEY header for all requests
+ * - Requires x-frigg-admin-api-key header for all requests
+ * - Uses shared validateAdminApiKey middleware
  *
  * Architecture:
  * - Router (Adapter Layer) → Use Cases (Domain) → Repositories (Infrastructure)
@@ -18,6 +20,7 @@
 
 const { Router } = require('express');
 const catchAsyncError = require('express-async-handler');
+const { validateAdminApiKey } = require('../middleware/admin-auth');
 const { MigrationStatusRepositoryS3 } = require('../../database/repositories/migration-status-repository-s3');
 const {
     TriggerDatabaseMigrationUseCase,
@@ -28,10 +31,16 @@ const {
     ValidationError: GetValidationError,
     NotFoundError,
 } = require('../../database/use-cases/get-migration-status-use-case');
-const { LambdaInvoker } = require('../../database/adapters/lambda-invoker');
+const {
+    LambdaInvoker,
+    LambdaInvocationError,
+} = require('../../database/adapters/lambda-invoker');
 const {
     GetDatabaseStateViaWorkerUseCase,
 } = require('../../database/use-cases/get-database-state-via-worker-use-case');
+const {
+    ResolveMigrationViaWorkerUseCase,
+} = require('../../database/use-cases/resolve-migration-via-worker-use-case');
 
 const router = Router();
 
@@ -55,30 +64,16 @@ const getDatabaseStateUseCase = new GetDatabaseStateViaWorkerUseCase({
     lambdaInvoker,
     workerFunctionName,
 });
+const resolveMigrationUseCase = new ResolveMigrationViaWorkerUseCase({
+    lambdaInvoker,
+    workerFunctionName,
+});
+
+// Apply admin API key validation to all routes (shared middleware)
+router.use(validateAdminApiKey);
 
 /**
- * Admin API key validation middleware
- * Matches pattern from health.js:72-88
- */
-const validateApiKey = (req, res, next) => {
-    const apiKey = req.headers['x-frigg-admin-api-key'];
-
-    if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
-        console.error('Unauthorized access attempt to db-migrate endpoint');
-        return res.status(401).json({
-            status: 'error',
-            message: 'Unauthorized - x-frigg-admin-api-key header required',
-        });
-    }
-
-    next();
-};
-
-// Apply API key validation to all routes
-router.use(validateApiKey);
-
-/**
- * POST /db-migrate
+ * POST /admin/db-migrate
  *
  * Trigger database migration (async via SQS queue)
  *
@@ -99,7 +94,7 @@ router.use(validateApiKey);
  * }
  */
 router.post(
-    '/db-migrate',
+    '/admin/db-migrate',
     catchAsyncError(async (req, res) => {
         const dbType = req.body.dbType || process.env.DB_TYPE || 'postgresql';
         const { stage } = req.body;
@@ -133,10 +128,10 @@ router.post(
 );
 
 /**
- * GET /db-migrate/status
+ * GET /admin/db-migrate/status
  *
  * Check if database has pending migrations
- * 
+ *
  * Query params:
  * - stage: string (optional, defaults to STAGE env var or 'production')
  *
@@ -151,7 +146,7 @@ router.post(
  * }
  */
 router.get(
-    '/db-migrate/status',
+    '/admin/db-migrate/status',
     catchAsyncError(async (req, res) => {
         const stage = req.query.stage || process.env.STAGE || 'production';
 
@@ -177,7 +172,7 @@ router.get(
 );
 
 /**
- * GET /db-migrate/:migrationId
+ * GET /admin/db-migrate/:migrationId
  *
  * Get migration status by migration ID
  *
@@ -201,7 +196,7 @@ router.get(
  * }
  */
 router.get(
-    '/db-migrate/:migrationId',
+    '/admin/db-migrate/:migrationId',
     catchAsyncError(async (req, res) => {
         const { migrationId } = req.params;
         const stage = req.query.stage || process.env.STAGE || 'production';
@@ -236,7 +231,7 @@ router.get(
 );
 
 /**
- * POST /db-migrate/resolve
+ * POST /admin/db-migrate/resolve
  *
  * Resolve a failed migration by marking it as applied or rolled back
  *
@@ -256,7 +251,7 @@ router.get(
  * }
  */
 router.post(
-    '/db-migrate/resolve',
+    '/admin/db-migrate/resolve',
     catchAsyncError(async (req, res) => {
         const { migrationName, action = 'applied' } = req.body;
 
@@ -270,6 +265,13 @@ router.post(
             });
         }
 
+        if (!/^\d{14}_[a-z0-9_]+$/i.test(migrationName)) {
+            return res.status(400).json({
+                success: false,
+                error: 'migrationName is not a valid migration identifier'
+            });
+        }
+
         if (!['applied', 'rolled-back'].includes(action)) {
             return res.status(400).json({
                 success: false,
@@ -277,30 +279,31 @@ router.post(
             });
         }
 
+        const stage = req.body.stage || process.env.STAGE || 'production';
+
         try {
-            // Import prismaRunner here to avoid circular dependencies
-            const prismaRunner = require('../../database/utils/prisma-runner');
-
-            const result = await prismaRunner.runPrismaMigrateResolve(migrationName, action, true);
-
-            if (!result.success) {
-                return res.status(500).json({
-                    success: false,
-                    error: `Failed to resolve migration: ${result.error}`
-                });
-            }
-
-            res.status(200).json({
-                success: true,
-                message: `Migration ${migrationName} marked as ${action}`,
+            const result = await resolveMigrationUseCase.execute({
                 migrationName,
-                action
+                action,
+                stage,
             });
+
+            res.status(200).json(result);
         } catch (error) {
             console.error('Migration resolve failed:', error);
+            if (
+                error instanceof LambdaInvocationError &&
+                error.statusCode === 400
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error: error.message,
+                });
+            }
             return res.status(500).json({
                 success: false,
-                error: error.message
+                error: 'Failed to resolve migration',
+                details: error.message,
             });
         }
     })

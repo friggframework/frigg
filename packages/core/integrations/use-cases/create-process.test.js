@@ -174,5 +174,32 @@ describe('CreateProcess', () => {
             await expect(createProcessUseCase.execute(validProcessData))
                 .rejects.toThrow('Failed to create process: Database connection failed');
         });
+
+        describe('error codes', () => {
+            it('tags validation errors with INVALID_PROCESS_DATA', async () => {
+                await expect(
+                    createProcessUseCase.execute({
+                        integrationId: 'int-123',
+                        name: 'test',
+                        type: 'CRM_SYNC',
+                    })
+                ).rejects.toHaveProperty('code', 'INVALID_PROCESS_DATA');
+
+                await expect(
+                    createProcessUseCase.execute({ ...validProcessData, userId: 123 })
+                ).rejects.toHaveProperty('code', 'INVALID_PROCESS_DATA');
+            });
+
+            it('leaves repository failures without a client error code', async () => {
+                mockProcessRepository.create.mockRejectedValue(
+                    new Error('Database connection failed')
+                );
+
+                const error = await createProcessUseCase
+                    .execute(validProcessData)
+                    .catch((e) => e);
+                expect(error.code).toBeUndefined();
+            });
+        });
     });
 });

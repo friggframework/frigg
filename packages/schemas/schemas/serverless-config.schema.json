@@ -222,6 +222,11 @@
                         "description": "Batch size for SQS processing",
                         "minimum": 1,
                         "maximum": 10
+                      },
+                      "functionResponseType": {
+                        "type": "string",
+                        "description": "Function response type for partial batch failure reporting",
+                        "enum": ["ReportBatchItemFailures"]
                       }
                     },
                     "additionalProperties": false

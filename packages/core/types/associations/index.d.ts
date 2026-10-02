@@ -1,20 +1,3 @@
-declare module "@friggframework/associations/model" {
-  import { Model } from "mongoose";
-
-  export class Association extends Model {
-    integrationId: string;
-    name: string;
-    type: string;
-    primaryObject: string;
-    objects: {
-      entityId: string;
-      objectType: string;
-      objId: string;
-      metadata?: object;
-    }[];
-  }
-}
-
 declare module "@friggframework/associations/association" {
   export default class Association implements IFriggAssociation {
     data: any;

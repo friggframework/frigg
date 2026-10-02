@@ -55,6 +55,9 @@ const {
 
 // Inject prisma-runner as dependency
 const prismaRunner = require('../../database/utils/prisma-runner');
+const { getLogger } = require('../../logs');
+
+const log = getLogger('frigg.database.migration');
 
 // Use S3 repository for migration status tracking (no User table dependency)
 const bucketName = process.env.S3_BUCKET_NAME || process.env.MIGRATION_STATUS_BUCKET;
@@ -144,7 +147,6 @@ exports.handler = async (event, context) => {
     console.log('========================================');
     console.log('Database Migration Lambda Started');
     console.log('========================================');
-    console.log('Event:', JSON.stringify(event, null, 2));
     console.log('Context:', JSON.stringify({
         requestId: context.requestId,
         functionName: context.functionName,
@@ -156,6 +158,15 @@ exports.handler = async (event, context) => {
 
     // Check for action parameter (direct invocation for status checks)
     const action = event.action || 'migrate'; // Default to migration
+
+    // targetStage, not stage: the record's own stage field would win.
+    log.info('Database migration invoked', {
+        eventName: 'frigg.database.migration.invoked',
+        migrationId,
+        dbType,
+        targetStage: stage,
+        action,
+    });
 
     // Handle checkStatus action
     if (action === 'checkStatus') {
@@ -184,6 +195,81 @@ exports.handler = async (event, context) => {
                     error: sanitizeError(error.message),
                     upToDate: false,
                 },
+            };
+        }
+    }
+
+    if (action === 'resolve') {
+        const { migrationName, resolveAction = 'applied' } = event;
+        console.log(`\n========================================`);
+        console.log(
+            `Action: resolve (migration=${migrationName}, mode=${resolveAction})`
+        );
+        console.log(`========================================`);
+
+        if (!migrationName) {
+            return {
+                statusCode: 400,
+                body: { success: false, error: 'migrationName is required' },
+            };
+        }
+        if (!/^\d{14}_[a-z0-9_]+$/i.test(migrationName)) {
+            return {
+                statusCode: 400,
+                body: {
+                    success: false,
+                    error: 'migrationName is not a valid migration identifier',
+                },
+            };
+        }
+        if (!['applied', 'rolled-back'].includes(resolveAction)) {
+            return {
+                statusCode: 400,
+                body: {
+                    success: false,
+                    error: 'resolveAction must be "applied" or "rolled-back"',
+                },
+            };
+        }
+        if (dbType !== 'postgresql') {
+            return {
+                statusCode: 400,
+                body: {
+                    success: false,
+                    error: `Migration resolve is only supported for postgresql, not "${dbType}"`,
+                },
+            };
+        }
+
+        try {
+            const result = await prismaRunner.runPrismaMigrateResolve(
+                migrationName,
+                resolveAction,
+                true
+            );
+            if (!result.success) {
+                return {
+                    statusCode: 500,
+                    body: {
+                        success: false,
+                        error: sanitizeError(result.error),
+                    },
+                };
+            }
+            return {
+                statusCode: 200,
+                body: {
+                    success: true,
+                    message: `Migration ${migrationName} marked as ${resolveAction}`,
+                    migrationName,
+                    action: resolveAction,
+                },
+            };
+        } catch (error) {
+            console.error('❌ Migration resolve failed:', error.message);
+            return {
+                statusCode: 500,
+                body: { success: false, error: sanitizeError(error.message) },
             };
         }
     }

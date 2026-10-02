@@ -1,6 +1,6 @@
 const _ = require('lodash');
 const moment = require('moment');
-const mongoose = require('mongoose');
+const { ObjectId } = require('bson');
 const SyncObject = require('./sync');
 const { debug } = require('packages/logs');
 const { get } = require('../assertions');
@@ -314,7 +314,7 @@ class SyncManager {
 
     async createSyncDBObject(objArr, entities) {
         const entityIds = entities.map(
-            (ent) => ({ $elemMatch: { $eq: mongoose.Types.ObjectId(ent) } })
+            (ent) => ({ $elemMatch: { $eq: new ObjectId(ent) } })
             // return {"$elemMatch": {"$eq": ent}};
         );
         const dataIdentifiers = [];

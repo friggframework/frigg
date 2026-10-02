@@ -522,4 +522,107 @@ describe('FieldEncryptionService', () => {
             expect(service._deepClone(true)).toBe(true);
         });
     });
+
+    describe('write vs read field split (opt-out support)', () => {
+        // Simulates a schema where IntegrationMapping has been opted out
+        // of write-side encryption but is still on the decrypt-on-read list.
+        const splitSchema = {
+            getEncryptedFields: jest.fn().mockImplementation((modelName) => {
+                if (modelName === 'IntegrationMapping') return ['mapping'];
+                return [];
+            }),
+            getFieldsToEncryptOnWrite: jest
+                .fn()
+                .mockImplementation((modelName) => {
+                    // Opted out — nothing to encrypt on write
+                    if (modelName === 'IntegrationMapping') return [];
+                    return [];
+                }),
+            getFieldsToDecryptOnRead: jest
+                .fn()
+                .mockImplementation((modelName) => {
+                    // Still tries to decrypt — for legacy data
+                    if (modelName === 'IntegrationMapping') return ['mapping'];
+                    return [];
+                }),
+        };
+
+        let splitService;
+
+        beforeEach(() => {
+            splitService = new FieldEncryptionService({
+                cryptor: mockCryptor,
+                schema: splitSchema,
+            });
+        });
+
+        it('should NOT encrypt opted-out fields on write', async () => {
+            const document = {
+                id: '123',
+                mapping: { crmId: 'abc', lastStatus: 'failed' },
+            };
+
+            const result = await splitService.encryptFields(
+                'IntegrationMapping',
+                document
+            );
+
+            expect(mockCryptor.encrypt).not.toHaveBeenCalled();
+            expect(result.mapping).toEqual({
+                crmId: 'abc',
+                lastStatus: 'failed',
+            });
+        });
+
+        it('should still decrypt opted-out fields on read (legacy data)', async () => {
+            const encryptedBlob = 'encrypted:{"crmId":"abc"}:keydata:enckey';
+            const document = {
+                id: '123',
+                mapping: encryptedBlob,
+            };
+
+            const result = await splitService.decryptFields(
+                'IntegrationMapping',
+                document
+            );
+
+            expect(mockCryptor.decrypt).toHaveBeenCalledWith(encryptedBlob);
+            expect(result.mapping).toEqual({ crmId: 'abc' });
+        });
+
+        it('should pass through plain JSON on read without invoking cryptor', async () => {
+            const document = {
+                id: '123',
+                mapping: { crmId: 'abc', lastStatus: 'created' },
+            };
+
+            const result = await splitService.decryptFields(
+                'IntegrationMapping',
+                document
+            );
+
+            // Plain object → _isEncrypted returns false → cryptor not called
+            expect(mockCryptor.decrypt).not.toHaveBeenCalled();
+            expect(result.mapping).toEqual({
+                crmId: 'abc',
+                lastStatus: 'created',
+            });
+        });
+
+        it('should fall back to getEncryptedFields when split methods missing', async () => {
+            const legacySchema = {
+                getEncryptedFields: jest.fn().mockReturnValue(['mapping']),
+            };
+            const legacyService = new FieldEncryptionService({
+                cryptor: mockCryptor,
+                schema: legacySchema,
+            });
+
+            const document = { mapping: { foo: 'bar' } };
+            await legacyService.encryptFields('IntegrationMapping', document);
+
+            // Backwards-compat: encrypted via getEncryptedFields
+            expect(mockCryptor.encrypt).toHaveBeenCalled();
+        });
+    });
 });

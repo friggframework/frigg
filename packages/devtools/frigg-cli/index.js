@@ -86,6 +86,7 @@ const { dbSetupCommand } = require('./db-setup-command');
 const { doctorCommand } = require('./doctor-command');
 const { repairCommand } = require('./repair-command');
 const { authCommand } = require('./auth-command');
+const { ssmPushCommand } = require('./ssm-command');
 
 const program = new Command();
 
@@ -169,6 +170,20 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .action(repairCommand);
 
+// SSM command group for the parameter offload feature (ADR-027)
+const ssmProgram = program
+    .command('ssm')
+    .description('Manage SSM Parameter Store offloaded configuration');
+
+ssmProgram
+    .command('push')
+    .description('Push SSM-offloaded environment values to Parameter Store')
+    .option('-s, --stage <stage>', 'deployment stage', 'dev')
+    .option('-r, --region <region>', 'AWS region (defaults to AWS_REGION env var or us-east-1)')
+    .option('--allow-empty', 'skip (instead of fail on) keys with missing or empty values')
+    .option('--tier <tier>', 'override tier for all keys: standard (4KB values) or advanced (8KB, billed)')
+    .action(ssmPushCommand);
+
 // Auth command group for testing API module authentication
 const authProgram = program
     .command('auth')
@@ -205,4 +220,4 @@ authProgram
 
 program.parse(process.argv);
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand, ssmPushCommand };
