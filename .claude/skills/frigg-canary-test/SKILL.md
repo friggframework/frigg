@@ -78,7 +78,8 @@ replica set (`rs0`) because Prisma requires one; `mongo-init.sh` initialises it.
   `node_modules/@friggframework/core/generated/prisma-<db>`. Run the matching
   `prisma:generate:*` before syncing schema or testing, or core fails to load.
 - **`DB_TYPE` must be set** — core's `prisma.js` picks the client from it.
-- **`STAGE=dev`** bypasses field-level encryption, so persisted data is readable.
+- **`STAGE=dev`** skips field-level encryption on this local run, so persisted data is readable.
+  (Only local runs skip it; a deployed stage with no key refuses to start.)
 - **Pin a matching canary.** Canaries publish per commit as
   `2.0.0--canary.<PR>.<short-sha>.0`; check
   `npm view @friggframework/core dist-tags.canary` and use the hash matching the PR
