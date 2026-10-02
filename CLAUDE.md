@@ -207,7 +207,7 @@ class MyIntegration extends IntegrationBase {
 - **Field-Level Encryption**: Transparent database-agnostic encryption via Prisma Client Extensions
 - **AWS KMS Integration**: Enterprise-grade encryption with envelope encryption pattern (recommended for production)
 - **AES Encryption**: Alternative encryption method for any environment including production
-- **Environment-Based**: Auto-bypass in dev/test/local stages
+- **Fails Closed**: A deployed stage with no key refuses to start; only local runs (`frigg start`, tests) on dev/test/local stages skip encryption
 - **OAuth2 Standardization**: Framework handles OAuth flows across API modules
 - **Signature Validation**: HMAC signature validation for webhook security
 - **VPC Support**: Lambda functions deployed in private subnets
@@ -254,12 +254,13 @@ Database (encrypted storage)
 - **Infrastructure Layer**: Prisma extension handles encryption transparently
 - **External Services**: Cryptor adapts AWS KMS and crypto library
 
-**Configuration** (`packages/core/database/prisma.js`):
+**Configuration** (`packages/core/database/prisma.js`, rule in `packages/core/database/encryption/encryption-config.js`):
 
 ```javascript
-// Automatic based on environment variables
+// Automatic based on environment variables.
+// Throws EncryptionConfigurationError in a deployed runtime with no key.
 const encryptionConfig = getEncryptionConfig();
-// Returns: { enabled: boolean, method: 'kms' | 'aes' }
+// Returns: { enabled: boolean, method: 'kms' | 'aes' | undefined, runtime: 'deployed' | 'local', ... }
 
 if (encryptionConfig.enabled) {
   const cryptor = new Cryptor({
@@ -274,17 +275,23 @@ if (encryptionConfig.enabled) {
 **Environment Variables**:
 
 ```bash
-# Production (AWS KMS - recommended)
-KMS_KEY_ARN=arn:aws:kms:...      # AWS KMS key (auto-discovered)
-STAGE=production
+# AWS KMS (recommended) - set by infrastructure when the app definition has
+# encryption: { fieldLevelEncryptionMethod: 'kms' }, on every stage incl. dev
+KMS_KEY_ARN=arn:aws:kms:...
 
-# AES Encryption (valid for any environment)
-AES_KEY_ID=local-dev-key
+# AES encryption (valid for any environment) - both are required when deployed
+AES_KEY_ID=my-key-id
 AES_KEY=your-32-char-key
-STAGE=production                  # Can be used in production
 
-# Stages that bypass: dev, test, local
+# Explicit plaintext opt-out for a deployed stage with no key (warns on every
+# cold start). Also set by fieldLevelEncryptionMethod: 'none'. Never a default.
+FRIGG_ENCRYPTION_DISABLED=true
 ```
+
+**When encryption runs** — decided by where the code runs, not by the stage name:
+
+- **Deployed** (in AWS Lambda: `AWS_LAMBDA_FUNCTION_NAME` / `LAMBDA_TASK_ROOT` / `AWS_EXECUTION_ENV=AWS_Lambda_*`, and not `IS_OFFLINE` / `IS_LOCAL` / Jest): a key encrypts; no key throws `EncryptionConfigurationError` at Prisma client creation unless `FRIGG_ENCRYPTION_DISABLED=true`.
+- **Local** (`frigg start` via serverless-offline, Jest, scripts): `STAGE` dev/test/local skips encryption; any other stage encrypts when a key is set and stays plaintext (with a warning) when not.
 
 **Encrypted Fields** (defined in `encryption-schema-registry.js`):
 
