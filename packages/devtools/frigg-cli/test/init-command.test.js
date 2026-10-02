@@ -123,12 +123,19 @@ describe('Init Command', () => {
             );
         });
 
-        it('should pass options to BackendFirstHandler', async () => {
+        it('forwards every supported init flag to BackendFirstHandler', async () => {
+            // The flags `frigg init` registers and initCommand forwards
+            // (see init-command/index.js). `yes` is the non-interactive flag
+            // (`--yes`: accept defaults, no prompts); `install: false` and
+            // `git: false` are what `--no-install` / `--no-git` produce. The
+            // old `frontend` option is gone: init scaffolds a backend only.
             const options = {
                 force: true,
                 verbose: true,
                 mode: 'standalone',
-                yes: true
+                yes: true,
+                install: false,
+                git: false
             };
             
             await initCommand(mockProjectName, options);
