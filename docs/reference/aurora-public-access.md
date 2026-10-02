@@ -1,5 +1,13 @@
 # Aurora Serverless v2 Public Access Configuration
 
+> **Status:** `publiclyAccessible` is implemented: it places the Aurora cluster
+> in public subnets. `allowedIpAddresses` and `scaling` in the examples below
+> are **not** read by the Aurora builder, and `frigg validate` rejects them
+> (use `minCapacity` / `maxCapacity` directly under `database.postgres`).
+> IP allow-listing must be configured on the security group yourself. See
+> ADR-051 and `database.postgres` in `app-definition.schema.json` for the keys
+> the builder reads.
+
 ## Overview
 
 Aurora Serverless v2 supports public accessibility, allowing you to deploy your database on public subnets with whitelisted IP addresses. This is useful for:
@@ -27,7 +35,7 @@ Add the following to your app definition:
   database: {
     postgres: {
       enable: true,
-      management: 'create-new',
+      management: 'managed',
       publiclyAccessible: true,
       allowedIpAddresses: [
         '203.0.113.10/32',      // Single IP address
@@ -126,7 +134,7 @@ When you configure public access:
   database: {
     postgres: {
       enable: true,
-      management: 'create-new',
+      management: 'managed',
       publiclyAccessible: true,
       allowedIpAddresses: '73.XXX.XXX.XXX',  // Your home/office IP
       scaling: {

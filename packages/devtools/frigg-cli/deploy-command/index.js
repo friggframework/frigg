@@ -4,6 +4,7 @@ const fs = require('fs');
 
 // Import doctor command for post-deployment health check
 const { doctorCommand } = require('../doctor-command');
+const { preflightValidation } = require('../validate-command');
 
 // Configuration constants
 const PATHS = {
@@ -311,6 +312,11 @@ async function pushOffloadedParametersOrAbort(appDefinition, options) {
 
 async function deployCommand(options) {
     console.log('Deploying the serverless application...');
+
+    // Validate the app definition first (ADR-051); errors stop the deploy.
+    if (!preflightValidation({ command: 'deploy', options, failOnErrors: true })) {
+        return;
+    }
 
     const appDefinition = loadAppDefinition();
     const environment = validateAndBuildEnvironment(appDefinition, options);

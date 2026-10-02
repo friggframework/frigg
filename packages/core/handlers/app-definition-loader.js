@@ -1,6 +1,9 @@
 const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const path = require('node:path');
 const fs = require('fs-extra');
+const {
+    applyAppDefinitionDefaults,
+} = require('@friggframework/schemas/app-definition');
 const { resolveTelemetryConfig } = require('../telemetry/telemetry-config');
 const { registerDeniedKeys } = require('../logs/denied-keys');
 const {
@@ -33,7 +36,9 @@ function registerCredentialLogKeys(appDefinition, integrations) {
  * @function loadAppDefinition
  * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
  * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null}} An object containing the application definition.
+ * The defaults declared in the app-definition schema are applied first (ADR-051), so
+ * `userConfig` always holds a complete user config, also when the app omits `user`.
+ * @returns {{integrations: Array<object>, userConfig: object, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null}} An object containing the application definition.
  * @throws {Error} Throws error if backend package.json cannot be found.
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
  * @example
@@ -53,7 +58,9 @@ function loadAppDefinition() {
     }
 
     const backendJsFile = require(backendFilePath);
-    const appDefinition = backendJsFile.Definition;
+    // The one place schema defaults are applied at runtime (ADR-051): a
+    // default in app-definition.schema.json is the value core sees.
+    const appDefinition = applyAppDefinitionDefaults(backendJsFile.Definition);
 
     const {
         integrations = [],
