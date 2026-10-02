@@ -545,14 +545,14 @@ class BackendFirstHandler {
         const integrations = config.starterIntegrations || [];
         if (integrations.length > 0) {
             printStep(
-                'Install the API modules you selected (each scaffolds an integration):',
+                'Install the API modules you selected (each adds src/integrations/<Name>Integration.js and lists it in index.js):',
                 integrations
                     .map((name) => `npx frigg install ${name}`)
                     .join('\n   ')
             );
         } else {
             printStep(
-                'Add an integration from the API module library:',
+                'Add an integration from the API module library (adds src/integrations/<Name>Integration.js and lists it in index.js):',
                 'npx frigg install <module>   # e.g. npx frigg install hubspot'
             );
         }

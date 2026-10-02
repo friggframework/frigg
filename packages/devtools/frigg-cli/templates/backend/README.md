@@ -39,13 +39,21 @@ npm start
 
 ## Adding integrations
 
-Install an API module and scaffold an integration file:
+Install an API module and scaffold an integration for it:
 
 ```bash
 npx frigg install hubspot
 ```
 
-Then register the generated integration class in the `integrations` array in `index.js`.
+This runs `npm install` for `@friggframework/api-module-hubspot` (its `@next`
+release while this app is on a Frigg 2.x prerelease), writes
+`src/integrations/HubSpotIntegration.js`, and adds it to the `integrations` array in
+`index.js`. If `index.js` no longer has a single `integrations: [...]` array, the
+command leaves it alone and prints the two lines to add yourself. Without the CLI:
+`npm install @friggframework/api-module-hubspot@next`, write an `IntegrationBase`
+subclass under `src/integrations/` whose `Definition.modules` is
+`{ hubspot: { definition: require('@friggframework/api-module-hubspot').Definition } }`,
+and list it in `integrations`.
 
 ## Configuration
 

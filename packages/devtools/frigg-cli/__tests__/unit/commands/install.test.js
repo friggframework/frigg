@@ -1,400 +1,616 @@
 /**
- * Test suite for install command
+ * Tests for `frigg install <module>`
  *
- * Tests the ACTUAL Frigg implementation including:
- * - Package search and selection (mocked - external npm)
- * - Package installation via npm (mocked - external)
- * - Integration file creation (REAL - tests actual file generation)
- * - Backend.js updates (REAL - tests actual file parsing/updating)
- * - Git commits (mocked - external)
- * - Environment variable handling (mocked - interactive)
- * - Label sanitization (REAL - tests actual regex logic)
+ * Runs the real install flow against apps on disk (temp directories):
+ * - a `frigg init` app (index.js exports the Definition, no backend.js)
+ * - an older app with a backend.js
+ *
+ * Only the external boundaries are mocked: npm search/registry and the
+ * interactive picker (validate-package), `npm install` (simulated by writing
+ * the module into the app's node_modules), env-var prompts, and git (except
+ * in the dedicated commit tests).
  */
 
-// Mock ONLY external boundaries - let Frigg logic run!
-jest.mock('fs-extra'); // Mock at I/O level
+const path = require('path');
+const os = require('os');
+const fs = require('fs-extra');
+const { spawnSync } = require('child_process');
+
 jest.mock('../../../install-command/install-package', () => ({
-  installPackage: jest.fn() // External: npm install
+    ...jest.requireActual('../../../install-command/install-package'),
+    installPackage: jest.fn(),
 }));
 jest.mock('../../../install-command/commit-changes', () => ({
-  commitChanges: jest.fn() // External: git commands
+    commitChanges: jest.fn(),
 }));
 jest.mock('../../../install-command/environment-variables', () => ({
-  handleEnvVariables: jest.fn() // External: interactive prompts
+    handleEnvVariables: jest.fn(),
 }));
 jest.mock('../../../install-command/validate-package', () => ({
-  validatePackageExists: jest.fn(), // External: npm registry
-  searchAndSelectPackage: jest.fn() // External: interactive selection
+    validatePackageExists: jest.fn(),
+    searchAndSelectPackage: jest.fn(),
 }));
-jest.mock('@friggframework/core', () => ({
-  findNearestBackendPackageJson: jest.fn(),
-  validateBackendPath: jest.fn()
+jest.mock('@friggframework/core/utils', () => ({
+    findNearestBackendPackageJson: jest.fn(),
+    validateBackendPath: jest.fn((p) => {
+        if (!p) throw new Error('Could not find a backend package.json file.');
+    }),
 }));
 
-// DON'T mock these - let them run to test actual Frigg logic:
-// - createIntegrationFile (tests file generation)
-// - updateBackendJsFile (tests file parsing)
-// - logger (just console.log, we'll spy on console)
-// - getIntegrationTemplate (tests template generation)
-
-// Require after mocks
-const fs = require('fs-extra');
 const { installPackage } = require('../../../install-command/install-package');
 const { commitChanges } = require('../../../install-command/commit-changes');
-const { handleEnvVariables } = require('../../../install-command/environment-variables');
-const { validatePackageExists, searchAndSelectPackage } = require('../../../install-command/validate-package');
-const { findNearestBackendPackageJson, validateBackendPath } = require('@friggframework/core');
+const {
+    handleEnvVariables,
+} = require('../../../install-command/environment-variables');
+const {
+    validatePackageExists,
+    searchAndSelectPackage,
+} = require('../../../install-command/validate-package');
+const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const { installCommand } = require('../../../install-command');
 
+const TEMPLATE_DIR = path.join(__dirname, '../../../templates/backend');
+const CORE_DIR = path.dirname(
+    require.resolve('@friggframework/core/package.json')
+);
+const HUBSPOT = '@friggframework/api-module-hubspot';
+
+const makeTmpDir = () =>
+    fs.realpathSync(
+        fs.mkdtempSync(path.join(os.tmpdir(), 'frigg-install-test-'))
+    );
+
+/** Write a minimal Frigg API module into <dir>/node_modules/<name>. */
+function writeFakeModule(
+    dir,
+    name,
+    { label, moduleName, withDefinition = true } = {}
+) {
+    const moduleDir = path.join(dir, 'node_modules', ...name.split('/'));
+    fs.ensureDirSync(moduleDir);
+    fs.writeJSONSync(path.join(moduleDir, 'package.json'), {
+        name,
+        version: '2.0.0-next.7',
+        main: 'index.js',
+    });
+    fs.writeFileSync(
+        path.join(moduleDir, 'index.js'),
+        withDefinition
+            ? `class Api {}
+const Definition = {
+    API: Api,
+    getName: () => ${JSON.stringify(moduleName)},
+    moduleName: ${JSON.stringify(moduleName)},
+    requiredAuthMethods: {},
+    env: {},
+};
+module.exports = {
+    Api,
+    Definition,
+    Config: {
+        name: ${JSON.stringify(moduleName)},
+        label: ${JSON.stringify(label)},
+        productUrl: 'https://example.com',
+        logoUrl: 'https://example.com/logo.png',
+        categories: ['CRM'],
+        description: 'An example module',
+    },
+};
+`
+            : 'module.exports = { Api: class {} };\n'
+    );
+    return moduleDir;
+}
+
+/** A `frigg init` app: the real template's index.js plus a package.json. */
+function makeScaffoldedApp({ coreRange = '2.0.0-next.115' } = {}) {
+    const dir = makeTmpDir();
+    fs.copySync(
+        path.join(TEMPLATE_DIR, 'index.js'),
+        path.join(dir, 'index.js')
+    );
+    fs.writeJSONSync(path.join(dir, 'package.json'), {
+        name: 'my-app',
+        dependencies: { '@friggframework/core': coreRange },
+    });
+    // Let the generated files load the real core.
+    fs.ensureDirSync(path.join(dir, 'node_modules', '@friggframework'));
+    fs.symlinkSync(
+        CORE_DIR,
+        path.join(dir, 'node_modules', '@friggframework', 'core')
+    );
+    return dir;
+}
+
 describe('CLI Command: install', () => {
-  let processExitSpy;
-  let consoleLogSpy;
-  let consoleErrorSpy;
-  const mockBackendPath = '/mock/backend/package.json';
-  const mockBackendDir = '/mock/backend';
+    let processExitSpy;
+    let consoleLogSpy;
+    let consoleErrorSpy;
+    let modules;
 
-  beforeEach(() => {
-    jest.clearAllMocks();
+    const output = () =>
+        [...consoleLogSpy.mock.calls, ...consoleErrorSpy.mock.calls]
+            .map((args) => args.join(' '))
+            .join('\n');
 
-    // Mock process.exit to prevent actual exit
-    processExitSpy = jest.spyOn(process, 'exit').mockImplementation();
+    const useApp = (dir) => {
+        findNearestBackendPackageJson.mockReturnValue(
+            path.join(dir, 'package.json')
+        );
+        installPackage.mockImplementation((backendPath, spec) => {
+            const name = spec.replace(/@(next|latest)$/, '');
+            writeFakeModule(path.dirname(backendPath), name, modules[name]);
+        });
+    };
 
-    // Spy on console for logger (don't mock logger - test it!)
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
-    // Setup fs-extra mocks - Let Frigg code run, just mock I/O
-    fs.ensureDirSync = jest.fn();
-    fs.writeFileSync = jest.fn();
-    fs.readFileSync = jest.fn().mockReturnValue(`
-      // Sample backend.js file
-      const integrations = [
-        // Existing integrations
-      ];
-
-      module.exports = {
-        integrations: []
-      };
-    `);
-    fs.existsSync = jest.fn().mockReturnValue(true);
-
-    // Setup default successful mocks for external boundaries
-    searchAndSelectPackage.mockResolvedValue(['@friggframework/api-module-slack']);
-    findNearestBackendPackageJson.mockReturnValue(mockBackendPath);
-    validateBackendPath.mockReturnValue(true);
-    validatePackageExists.mockResolvedValue(true);
-    installPackage.mockReturnValue(undefined);
-    handleEnvVariables.mockResolvedValue(undefined);
-
-    // Mock the dynamic require() of installed package using jest.doMock
-    const path = require('path');
-    const slackModulePath = path.resolve(mockBackendPath, '../../node_modules/@friggframework/api-module-slack');
-
-    jest.doMock(slackModulePath, () => ({
-      Config: { label: 'Slack' },
-      Api: class SlackApi {}
-    }), { virtual: true });
-  });
-
-  afterEach(() => {
-    processExitSpy.mockRestore();
-    consoleLogSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
-    jest.resetModules(); // Clear module cache after each test
-  });
-
-  describe('Success Cases', () => {
-    it('should orchestrate complete installation workflow', async () => {
-      await installCommand('slack');
-
-      // Verify external boundaries called
-      expect(searchAndSelectPackage).toHaveBeenCalledWith('slack');
-      expect(findNearestBackendPackageJson).toHaveBeenCalled();
-      expect(validateBackendPath).toHaveBeenCalledWith(mockBackendPath);
-      expect(validatePackageExists).toHaveBeenCalledWith('@friggframework/api-module-slack');
-      expect(installPackage).toHaveBeenCalledWith(mockBackendPath, '@friggframework/api-module-slack');
+    beforeEach(() => {
+        jest.clearAllMocks();
+        processExitSpy = jest.spyOn(process, 'exit').mockImplementation();
+        consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+        consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+        modules = {
+            [HUBSPOT]: { label: 'HubSpot', moduleName: 'hubspot' },
+            '@friggframework/api-module-google-drive': {
+                label: 'Google Drive',
+                moduleName: 'google-drive',
+            },
+        };
+        searchAndSelectPackage.mockResolvedValue([HUBSPOT]);
+        validatePackageExists.mockResolvedValue(true);
+        handleEnvVariables.mockResolvedValue(undefined);
     });
 
-    it('should create integration file with correct path and content', async () => {
-      await installCommand('slack');
-
-      // Verify directory creation
-      expect(fs.ensureDirSync).toHaveBeenCalledWith(
-        expect.stringMatching(/src\/integrations$/)
-      );
-
-      // Verify integration file written with correct path
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        expect.stringMatching(/SlackIntegration\.js$/),
-        expect.any(String)
-      );
-
-      // Get the actual content that was written
-      const writeCall = fs.writeFileSync.mock.calls.find(call =>
-        call[0].includes('SlackIntegration.js')
-      );
-
-      expect(writeCall).toBeDefined();
-      const [filePath, content] = writeCall;
-
-      // Verify file content contains valid integration class
-      expect(content).toContain('class SlackIntegration extends IntegrationBase');
-      expect(content).toContain('@friggframework/core');
-      expect(content).toContain('@friggframework/api-module-slack');
+    afterEach(() => {
+        jest.restoreAllMocks();
     });
 
-    it('should generate valid JavaScript template', async () => {
-      await installCommand('slack');
+    describe('in a `frigg init` app (index.js, no backend.js)', () => {
+        it('installs the module from the app directory with the next tag for a 2.x prerelease app', async () => {
+            const dir = makeScaffoldedApp();
+            useApp(dir);
 
-      const writeCall = fs.writeFileSync.mock.calls.find(call =>
-        call[0].includes('SlackIntegration.js')
-      );
+            await installCommand('hubspot');
 
-      const [, content] = writeCall;
+            expect(processExitSpy).not.toHaveBeenCalled();
+            expect(installPackage).toHaveBeenCalledWith(
+                path.join(dir, 'package.json'),
+                `${HUBSPOT}@next`
+            );
+            expect(handleEnvVariables).toHaveBeenCalledWith(
+                path.join(dir, 'package.json'),
+                path.join(
+                    dir,
+                    'node_modules',
+                    '@friggframework',
+                    'api-module-hubspot'
+                )
+            );
+        });
 
-      // Verify template has required structure
-      expect(content).toMatch(/class \w+Integration extends IntegrationBase/);
-      expect(content).toContain('static Config =');
-      expect(content).toContain('static Options =');
-      expect(content).toContain('static modules =');
+        it('installs the default version for an app on a stable release', async () => {
+            const dir = makeScaffoldedApp({ coreRange: '^2.0.1' });
+            useApp(dir);
 
-      // Verify template is syntactically valid (no unclosed braces, etc)
-      expect(content.split('{').length).toBe(content.split('}').length);
+            await installCommand('hubspot');
+
+            expect(installPackage).toHaveBeenCalledWith(
+                path.join(dir, 'package.json'),
+                HUBSPOT
+            );
+        });
+
+        it('creates src/integrations/<Label>Integration.js and registers it in index.js', async () => {
+            const dir = makeScaffoldedApp();
+            useApp(dir);
+
+            await installCommand('hubspot');
+
+            const integrationFile = path.join(
+                dir,
+                'src/integrations/HubSpotIntegration.js'
+            );
+            expect(fs.existsSync(integrationFile)).toBe(true);
+            const index = fs.readFileSync(path.join(dir, 'index.js'), 'utf8');
+            expect(index).toContain(
+                "const HubSpotIntegration = require('./src/integrations/HubSpotIntegration');"
+            );
+            expect(index).toMatch(
+                /integrations: \[\n {8}HubSpotIntegration,\n/
+            );
+            expect(output()).toMatch(/Added HubSpotIntegration to index\.js/);
+        });
+
+        it('produces an app definition that loads, validates, and exposes the integration', async () => {
+            const dir = makeScaffoldedApp();
+            useApp(dir);
+
+            await installCommand('hubspot');
+
+            const { Definition } = require(path.join(dir, 'index.js'));
+            expect(Definition.integrations).toHaveLength(1);
+            const [Integration] = Definition.integrations;
+            const { IntegrationBase } = require('@friggframework/core');
+            expect(Object.getPrototypeOf(Integration)).toBe(IntegrationBase);
+            expect(Integration.Definition.name).toBe('hubspot');
+            expect(
+                Integration.Definition.modules.hubspot.definition.getName()
+            ).toBe('hubspot');
+            // The shape the Management API lists integrations with.
+            expect(Integration.getOptionDetails()).toMatchObject({
+                type: 'hubspot',
+                display: {
+                    name: 'HubSpot',
+                    icon: 'https://example.com/logo.png',
+                },
+            });
+        });
+
+        it('turns a label into a valid identifier', async () => {
+            const dir = makeScaffoldedApp();
+            useApp(dir);
+            searchAndSelectPackage.mockResolvedValue([
+                '@friggframework/api-module-google-drive',
+            ]);
+
+            await installCommand('google-drive');
+
+            const file = path.join(
+                dir,
+                'src/integrations/GoogleDriveIntegration.js'
+            );
+            const content = fs.readFileSync(file, 'utf8');
+            expect(content).toContain(
+                'class GoogleDriveIntegration extends IntegrationBase'
+            );
+            expect(content).toContain(
+                'googleDrive: { definition: googleDriveModule.Definition }'
+            );
+            const { Definition } = require(path.join(dir, 'index.js'));
+            expect(Definition.integrations[0].Definition.name).toBe(
+                'google-drive'
+            );
+        });
+
+        it('is idempotent: a second install keeps the file and does not register twice', async () => {
+            const dir = makeScaffoldedApp();
+            useApp(dir);
+            await installCommand('hubspot');
+            const file = path.join(
+                dir,
+                'src/integrations/HubSpotIntegration.js'
+            );
+            fs.appendFileSync(file, '// my edits\n');
+            const indexAfterFirst = fs.readFileSync(
+                path.join(dir, 'index.js'),
+                'utf8'
+            );
+
+            await installCommand('hubspot');
+
+            expect(fs.readFileSync(file, 'utf8')).toContain('// my edits');
+            expect(fs.readFileSync(path.join(dir, 'index.js'), 'utf8')).toBe(
+                indexAfterFirst
+            );
+            expect(output()).toMatch(
+                /HubSpotIntegration is already in index\.js/
+            );
+        });
+
+        it('prints the manual steps and leaves index.js alone when it cannot edit it safely', async () => {
+            const dir = makeScaffoldedApp();
+            const custom =
+                "const integrations = require('./list');\nmodule.exports = { Definition: { integrations } };\n";
+            fs.writeFileSync(path.join(dir, 'index.js'), custom);
+            useApp(dir);
+
+            await installCommand('hubspot');
+
+            expect(processExitSpy).not.toHaveBeenCalled();
+            expect(fs.readFileSync(path.join(dir, 'index.js'), 'utf8')).toBe(
+                custom
+            );
+            expect(
+                fs.existsSync(
+                    path.join(dir, 'src/integrations/HubSpotIntegration.js')
+                )
+            ).toBe(true);
+            expect(output()).toContain(
+                "const HubSpotIntegration = require('./src/integrations/HubSpotIntegration');"
+            );
+            expect(output()).toContain('integrations: [HubSpotIntegration]');
+        });
+
+        it('passes every changed file to the commit step', async () => {
+            const dir = makeScaffoldedApp();
+            useApp(dir);
+
+            await installCommand('hubspot');
+
+            expect(commitChanges).toHaveBeenCalledWith(
+                path.join(dir, 'package.json'),
+                'HubSpot',
+                [
+                    path.join(dir, 'src/integrations/HubSpotIntegration.js'),
+                    path.join(dir, 'index.js'),
+                    path.join(dir, 'package.json'),
+                ]
+            );
+        });
     });
 
-    it('should update backend.js with integration import', async () => {
-      await installCommand('slack');
+    describe('in an older app with backend.js', () => {
+        it('registers the integration in backend.js and leaves index.js alone', async () => {
+            const root = makeTmpDir();
+            const dir = path.join(root, 'backend');
+            fs.ensureDirSync(dir);
+            fs.writeJSONSync(path.join(dir, 'package.json'), {
+                name: 'backend',
+            });
+            fs.writeFileSync(
+                path.join(dir, 'index.js'),
+                "module.exports = require('./backend');\n"
+            );
+            fs.writeFileSync(
+                path.join(dir, 'backend.js'),
+                'const appDefinition = {\n    integrations: [],\n};\nmodule.exports = appDefinition;\n'
+            );
+            // Hoisted node_modules at the workspace root still resolves.
+            findNearestBackendPackageJson.mockReturnValue(
+                path.join(dir, 'package.json')
+            );
+            installPackage.mockImplementation((backendPath, spec) => {
+                writeFakeModule(root, spec, modules[spec]);
+            });
 
-      // Verify backend.js was read
-      expect(fs.readFileSync).toHaveBeenCalledWith(
-        expect.stringMatching(/backend\.js$/),
-        'utf-8'
-      );
+            await installCommand('hubspot');
 
-      // Verify backend.js was written back with import
-      const backendWriteCall = fs.writeFileSync.mock.calls.find(call =>
-        call[0].includes('backend.js')
-      );
-
-      expect(backendWriteCall).toBeDefined();
-      const [, updatedBackend] = backendWriteCall;
-
-      // Verify import statement added
-      expect(updatedBackend).toContain('const SlackIntegration = require');
-      expect(updatedBackend).toContain('./src/integrations/SlackIntegration');
-
-      // Verify integration added to array
-      expect(updatedBackend).toContain('SlackIntegration,');
+            expect(processExitSpy).not.toHaveBeenCalled();
+            const backendJs = fs.readFileSync(
+                path.join(dir, 'backend.js'),
+                'utf8'
+            );
+            expect(backendJs).toContain(
+                "const HubSpotIntegration = require('./src/integrations/HubSpotIntegration');"
+            );
+            expect(backendJs).toContain('HubSpotIntegration,');
+            expect(fs.readFileSync(path.join(dir, 'index.js'), 'utf8')).toBe(
+                "module.exports = require('./backend');\n"
+            );
+            expect(
+                fs.existsSync(
+                    path.join(dir, 'src/integrations/HubSpotIntegration.js')
+                )
+            ).toBe(true);
+        });
     });
 
-    it('should commit changes after file operations', async () => {
-      await installCommand('slack');
+    describe('early exits and errors', () => {
+        it.each([[[]], [null], [undefined]])(
+            'returns early when the selection is %p',
+            async (selection) => {
+                searchAndSelectPackage.mockResolvedValue(selection);
 
-      expect(commitChanges).toHaveBeenCalledWith(mockBackendPath, 'Slack');
+                await installCommand('hubspot');
+
+                expect(findNearestBackendPackageJson).not.toHaveBeenCalled();
+                expect(installPackage).not.toHaveBeenCalled();
+            }
+        );
+
+        it('exits when no app package.json is found', async () => {
+            findNearestBackendPackageJson.mockReturnValue(null);
+
+            await installCommand('hubspot');
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'An error occurred:',
+                expect.any(Error)
+            );
+            expect(processExitSpy).toHaveBeenCalledWith(1);
+        });
+
+        it('exits when the package does not exist', async () => {
+            useApp(makeScaffoldedApp());
+            const error = new Error('Package not found');
+            validatePackageExists.mockRejectedValue(error);
+
+            await installCommand('hubspot');
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'An error occurred:',
+                error
+            );
+            expect(processExitSpy).toHaveBeenCalledWith(1);
+        });
+
+        it('exits when npm install fails', async () => {
+            useApp(makeScaffoldedApp());
+            const error = new Error('npm install exited with code 1');
+            installPackage.mockImplementation(() => {
+                throw error;
+            });
+
+            await installCommand('hubspot');
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'An error occurred:',
+                error
+            );
+            expect(processExitSpy).toHaveBeenCalledWith(1);
+        });
+
+        it('exits when the installed package is not a Frigg API module', async () => {
+            const dir = makeScaffoldedApp();
+            useApp(dir);
+            modules[HUBSPOT] = { withDefinition: false };
+
+            await installCommand('hubspot');
+
+            expect(output()).toMatch(/does not export a Definition/);
+            expect(processExitSpy).toHaveBeenCalledWith(1);
+            expect(fs.existsSync(path.join(dir, 'src/integrations'))).toBe(
+                false
+            );
+        });
+    });
+});
+
+describe('registerIntegration', () => {
+    const {
+        registerIntegration,
+    } = require('../../../install-command/app-definition');
+    const write = (source) => {
+        const file = path.join(makeTmpDir(), 'index.js');
+        fs.writeFileSync(file, source);
+        return file;
+    };
+
+    it('adds the require after the last top-level require and the class to a non-empty array', () => {
+        const file = write(
+            "'use strict';\nconst A = require('./a');\n\nmodule.exports = { Definition: { integrations: [A] } };\n"
+        );
+
+        expect(
+            registerIntegration(
+                file,
+                'BIntegration',
+                './src/integrations/BIntegration'
+            )
+        ).toEqual({
+            status: 'registered',
+        });
+        expect(fs.readFileSync(file, 'utf8')).toBe(
+            "'use strict';\nconst A = require('./a');\nconst BIntegration = require('./src/integrations/BIntegration');\n\n" +
+                'module.exports = { Definition: { integrations: [\n    BIntegration,\n    A] } };\n'
+        );
     });
 
-    it('should handle environment variables after installation', async () => {
-      await installCommand('slack');
+    it('handles a require that follows the definition', () => {
+        const file = write(
+            "const def = { integrations: [] };\nconst x = require('x');\nmodule.exports = def;\n"
+        );
 
-      expect(handleEnvVariables).toHaveBeenCalledWith(
-        mockBackendPath,
-        expect.stringContaining('@friggframework/api-module-slack')
-      );
+        expect(registerIntegration(file, 'BIntegration', './b').status).toBe(
+            'registered'
+        );
+        expect(fs.readFileSync(file, 'utf8')).toBe(
+            "const def = { integrations: [\n    BIntegration,\n] };\nconst x = require('x');\nconst BIntegration = require('./b');\nmodule.exports = def;\n"
+        );
     });
 
-    it('should log info messages during installation', async () => {
-      await installCommand('slack');
+    it('refuses to guess when there are two integrations arrays', () => {
+        const source =
+            'module.exports = { a: { integrations: [] }, b: { integrations: [] } };\n';
+        const file = write(source);
 
-      // Verify logger actually logged (we spy on console)
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Successfully installed @friggframework/api-module-slack')
-      );
+        expect(registerIntegration(file, 'BIntegration', './b')).toMatchObject({
+            status: 'manual',
+        });
+        expect(fs.readFileSync(file, 'utf8')).toBe(source);
     });
 
-    it('should install multiple packages sequentially', async () => {
-      searchAndSelectPackage.mockResolvedValue([
-        '@friggframework/api-module-slack',
-        '@friggframework/api-module-hubspot'
-      ]);
+    it('refuses a file that does not parse', () => {
+        const file = write('module.exports = { integrations: [ };\n');
 
-      // Mock HubSpot module (Slack already mocked in beforeEach)
-      const path = require('path');
-      const hubspotPath = path.resolve(mockBackendPath, '../../node_modules/@friggframework/api-module-hubspot');
-
-      jest.doMock(hubspotPath, () => ({
-        Config: { label: 'HubSpot' },
-        Api: class HubSpotApi {}
-      }), { virtual: true });
-
-      await installCommand('crm');
-
-      expect(validatePackageExists).toHaveBeenCalledTimes(2);
-      expect(installPackage).toHaveBeenCalledTimes(2);
-
-      // Verify TWO integration files created
-      const integrationFiles = fs.writeFileSync.mock.calls.filter(call =>
-        call[0].includes('Integration.js') && !call[0].includes('backend.js')
-      );
-      expect(integrationFiles.length).toBe(2);
-
-      // Verify both files have correct names
-      expect(integrationFiles[0][0]).toContain('SlackIntegration.js');
-      expect(integrationFiles[1][0]).toContain('HubSpotIntegration.js');
+        expect(registerIntegration(file, 'BIntegration', './b')).toMatchObject({
+            status: 'manual',
+            reason: expect.stringMatching(/cannot parse/),
+        });
     });
 
-    it('should sanitize label by removing invalid characters', async () => {
-      // Mock different package with special characters in label
-      searchAndSelectPackage.mockResolvedValue(['@friggframework/api-module-google-drive']);
+    it('refuses a partly registered class', () => {
+        const file = write(
+            'module.exports = { integrations: [BIntegration] };\n'
+        );
 
-      const path = require('path');
-      const googleDrivePath = path.resolve(mockBackendPath, '../../node_modules/@friggframework/api-module-google-drive');
+        expect(registerIntegration(file, 'BIntegration', './b')).toMatchObject({
+            status: 'manual',
+        });
+    });
+});
 
-      jest.doMock(googleDrivePath, () => ({
-        Config: { label: 'Google<Drive>' },  // Has invalid characters
-        Api: class GoogleDriveApi {}
-      }), { virtual: true });
+describe('getInstallSpec', () => {
+    const { getInstallSpec } = jest.requireActual(
+        '../../../install-command/install-package'
+    );
+    const appWith = (pkg) => {
+        const dir = makeTmpDir();
+        fs.writeJSONSync(path.join(dir, 'package.json'), pkg);
+        return dir;
+    };
 
-      await installCommand('google-drive');
-
-      // Verify sanitized label used in file name
-      const writeCall = fs.writeFileSync.mock.calls.find(call =>
-        call[0].includes('Integration.js')
-      );
-
-      // Should be GoogleDrive, not Google<Drive>
-      expect(writeCall[0]).toContain('GoogleDriveIntegration.js');
-      expect(writeCall[0]).not.toContain('<');
-      expect(writeCall[0]).not.toContain('>');
-
-      // Verify content uses sanitized name
-      expect(writeCall[1]).toContain('class GoogleDriveIntegration');
-      expect(writeCall[1]).not.toContain('Google<Drive>');
+    it.each([
+        ['2.0.0-next.115', `${HUBSPOT}@next`],
+        ['2.0.0--canary.639.abc1234.0', `${HUBSPOT}@next`],
+        ['^2.0.1', HUBSPOT],
+        ['^1.2.2', HUBSPOT],
+    ])('core %s installs %s', (range, spec) => {
+        expect(
+            getInstallSpec(
+                HUBSPOT,
+                appWith({ dependencies: { '@friggframework/core': range } })
+            )
+        ).toBe(spec);
     });
 
-    it('should sanitize label by removing spaces', async () => {
-      // Mock different package with spaces in label
-      searchAndSelectPackage.mockResolvedValue(['@friggframework/api-module-google-calendar']);
-
-      const path = require('path');
-      const googleCalendarPath = path.resolve(mockBackendPath, '../../node_modules/@friggframework/api-module-google-calendar');
-
-      jest.doMock(googleCalendarPath, () => ({
-        Config: { label: 'Google Calendar' },  // Has spaces
-        Api: class GoogleCalendarApi {}
-      }), { virtual: true });
-
-      await installCommand('google-calendar');
-
-      // Verify sanitized label used in file name (no spaces)
-      const writeCall = fs.writeFileSync.mock.calls.find(call =>
-        call[0].includes('Integration.js')
-      );
-
-      expect(writeCall[0]).toContain('GoogleCalendarIntegration.js');
-      expect(writeCall[0]).not.toContain(' ');
-
-      // Verify content uses sanitized name
-      expect(writeCall[1]).toContain('class GoogleCalendarIntegration');
-      expect(writeCall[1]).not.toMatch(/class Google Calendar/);
+    it('installs the default version without a readable package.json', () => {
+        expect(getInstallSpec(HUBSPOT, makeTmpDir())).toBe(HUBSPOT);
     });
-  });
+});
 
-  describe('Early Exit Cases', () => {
-    it('should return early when no packages selected', async () => {
-      searchAndSelectPackage.mockResolvedValue([]);
+describe('commitChanges', () => {
+    const { commitChanges: realCommit } = jest.requireActual(
+        '../../../install-command/commit-changes'
+    );
+    const env = { ...process.env };
 
-      await installCommand('slack');
-
-      expect(findNearestBackendPackageJson).not.toHaveBeenCalled();
-      expect(validatePackageExists).not.toHaveBeenCalled();
-      expect(installPackage).not.toHaveBeenCalled();
+    beforeEach(() => {
+        jest.spyOn(console, 'log').mockImplementation();
+        // The CLI test setup replaces PATH; git lives on the real one.
+        process.env.PATH = '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin';
+        process.env.GIT_AUTHOR_NAME = process.env.GIT_COMMITTER_NAME = 'Test';
+        process.env.GIT_AUTHOR_EMAIL = process.env.GIT_COMMITTER_EMAIL =
+            'test@example.com';
     });
 
-    it('should return early when packages is null', async () => {
-      searchAndSelectPackage.mockResolvedValue(null);
-
-      await installCommand('slack');
-
-      expect(findNearestBackendPackageJson).not.toHaveBeenCalled();
+    afterEach(() => {
+        process.env = { ...env };
+        jest.restoreAllMocks();
     });
 
-    it('should return early when packages is undefined', async () => {
-      searchAndSelectPackage.mockResolvedValue(undefined);
+    const git = (args, cwd) =>
+        spawnSync('git', args, { cwd, encoding: 'utf8', env: process.env });
 
-      await installCommand('slack');
+    it('commits only the given files and leaves other staged changes alone', () => {
+        const dir = makeTmpDir();
+        git(['init', '-q'], dir);
+        fs.writeFileSync(path.join(dir, 'package.json'), '{}');
+        fs.writeFileSync(path.join(dir, 'unrelated.txt'), 'wip');
+        git(['add', 'unrelated.txt'], dir);
 
-      expect(findNearestBackendPackageJson).not.toHaveBeenCalled();
-    });
-  });
+        const committed = realCommit(
+            path.join(dir, 'package.json'),
+            'HubSpot',
+            [path.join(dir, 'package.json')]
+        );
 
-  describe('Error Handling', () => {
-    it('should log error and exit on searchAndSelectPackage failure', async () => {
-      const error = new Error('Search failed');
-      searchAndSelectPackage.mockRejectedValue(error);
-
-      await installCommand('slack');
-
-      // Verify error logged via console.error (we spy on it)
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', error);
-      expect(processExitSpy).toHaveBeenCalledWith(1);
-    });
-
-    it('should log error and exit on validatePackageExists failure', async () => {
-      const error = new Error('Package not found');
-      validatePackageExists.mockRejectedValue(error);
-
-      await installCommand('slack');
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', error);
-      expect(processExitSpy).toHaveBeenCalledWith(1);
+        expect(committed).toBe(true);
+        expect(
+            git(['show', '--name-only', '--format=%s', 'HEAD'], dir).stdout
+        ).toBe('Add HubSpot integration\n\npackage.json\n');
+        expect(git(['diff', '--cached', '--name-only'], dir).stdout).toBe(
+            'unrelated.txt\n'
+        );
     });
 
-    it('should log error and exit on installPackage failure', async () => {
-      const error = new Error('Installation failed');
-      installPackage.mockImplementation(() => {
-        throw error;
-      });
+    it('does nothing outside a git repository', () => {
+        const dir = makeTmpDir();
+        fs.writeFileSync(path.join(dir, 'package.json'), '{}');
 
-      await installCommand('slack');
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', error);
-      expect(processExitSpy).toHaveBeenCalledWith(1);
+        expect(
+            realCommit(path.join(dir, 'package.json'), 'HubSpot', [
+                path.join(dir, 'package.json'),
+            ])
+        ).toBe(false);
     });
-
-    it('should log error and exit on file write failure (createIntegrationFile)', async () => {
-      // Make fs.writeFileSync throw - tests REAL error path
-      const error = new Error('EACCES: permission denied');
-      fs.writeFileSync.mockImplementation(() => {
-        throw error;
-      });
-
-      await installCommand('slack');
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', expect.any(Error));
-      expect(processExitSpy).toHaveBeenCalledWith(1);
-    });
-
-    it('should log error and exit on backend.js read failure', async () => {
-      // Make fs.readFileSync throw - tests REAL error path
-      const error = new Error('ENOENT: file not found');
-      fs.readFileSync.mockImplementation(() => {
-        throw error;
-      });
-
-      await installCommand('slack');
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', expect.any(Error));
-      expect(processExitSpy).toHaveBeenCalledWith(1);
-    });
-
-    it('should log error and exit on handleEnvVariables failure', async () => {
-      const error = new Error('Env variables failed');
-      handleEnvVariables.mockRejectedValue(error);
-
-      await installCommand('slack');
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith('An error occurred:', error);
-      expect(processExitSpy).toHaveBeenCalledWith(1);
-    });
-  });
 });
