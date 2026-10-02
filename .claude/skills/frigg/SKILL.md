@@ -198,14 +198,17 @@ await frigg.usage.getTimeSeries({ metric: "records.synced", integrationType: "hu
 frigg install                # no arg -> interactive picker (searches npm @friggframework/api-module-*)
 frigg install hubspot        # install a named module + generate integration file (run inside an existing backend)
 
+# App definition
+frigg validate               # schema + runtime checks of index.js; exits 1 on errors. Opts: --stage, --json
+
 # Local development
-frigg start                  # local server (serverless-offline). Opts: --stage, --verbose
+frigg start                  # local server (serverless-offline); validates, warns only. Opts: --stage, --verbose, --skip-validate
 frigg db:setup               # Prisma generate + migrations
 
 # Build / deploy (uses osls internally)
-frigg build                  # local build (skips AWS discovery)
+frigg build                  # local build (skips AWS discovery); validates first
 frigg build --production     # build with AWS discovery
-frigg deploy --stage prod    # Opts: --force, --skip-doctor
+frigg deploy --stage prod    # validates first. Opts: --force, --skip-doctor, --skip-validate
 
 # Infrastructure health (needs AWS — see references/infrastructure.md)
 frigg doctor [stackName]     # health check on a deployed CF stack
