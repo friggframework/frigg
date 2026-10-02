@@ -69,6 +69,25 @@ describe('@friggframework/schemas', () => {
             expect(result.valid).toBe(true);
         });
 
+        test.each(['kms', 'aes', 'none'])(
+            "accepts encryption.fieldLevelEncryptionMethod '%s'",
+            (method) => {
+                const result = validateAppDefinition({
+                    integrations: [],
+                    encryption: { fieldLevelEncryptionMethod: method },
+                });
+                expect(result.valid).toBe(true);
+            }
+        );
+
+        test('rejects an unknown encryption.fieldLevelEncryptionMethod', () => {
+            const result = validateAppDefinition({
+                integrations: [],
+                encryption: { fieldLevelEncryptionMethod: 'plaintext' },
+            });
+            expect(result.valid).toBe(false);
+        });
+
         test('should reject invalid app definition', () => {
             const appDef = {
                 // Missing required integrations field
