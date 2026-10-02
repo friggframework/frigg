@@ -608,4 +608,81 @@ describe('frigg init', () => {
             expect(dependencies.prisma).toBe('^9.9.9');
         });
     });
+
+    describe('safe paths', () => {
+        const {
+            resolveInside,
+            resolveProjectTarget,
+        } = require('../../../init-command/safe-path');
+
+        it('resolves a bare name, a relative path and an absolute path', () => {
+            const cwd = path.resolve('/work/space');
+            expect(resolveProjectTarget('my-app', cwd)).toEqual({
+                parentDir: cwd,
+                projectDir: path.join(cwd, 'my-app'),
+                name: 'my-app',
+            });
+            expect(resolveProjectTarget('../apps/my-app', cwd).projectDir).toBe(
+                path.resolve('/work/apps/my-app')
+            );
+            expect(resolveProjectTarget('/tmp/x/my-app', cwd).projectDir).toBe(
+                path.resolve('/tmp/x/my-app')
+            );
+        });
+
+        it.each(['', '.', '..', 'apps/..', '/'])(
+            'rejects %p as a project name',
+            (input) => {
+                expect(() => resolveProjectTarget(input, '/work')).toThrow();
+            }
+        );
+
+        it('keeps paths inside their base', () => {
+            expect(resolveInside('/p', 'a', 'b.js')).toBe(path.resolve('/p/a/b.js'));
+            expect(resolveInside('/p')).toBe(path.resolve('/p'));
+            expect(() => resolveInside('/p', '../q')).toThrow(/outside/);
+            expect(() => resolveInside('/p', '/etc/passwd')).toThrow(/outside/);
+            expect(() => resolveInside('/p', 'a/../../q')).toThrow(/outside/);
+        });
+
+        it('rejects a project name that is not a valid npm package name', async () => {
+            processExitSpy.mockImplementation(() => {
+                throw new Error('process.exit');
+            });
+            const Handler = jest.fn();
+            jest.doMock('../../../init-command/backend-first-handler', () => Handler);
+            const { initCommand } = require('../../../init-command');
+
+            await expect(
+                initCommand(path.join(makeTmpDir(), 'Bad Name'), { yes: true })
+            ).rejects.toThrow('process.exit');
+            expect(processExitSpy).toHaveBeenCalledWith(1);
+            expect(Handler).not.toHaveBeenCalled();
+        });
+
+        it('initializes git without a shell', async () => {
+            const childProcess = require('child_process');
+            const spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync');
+            jest.resetModules();
+            const Handler = require('../../../init-command/backend-first-handler');
+            const target = path.join(makeTmpDir(), 'git-app');
+            await new Handler(target, {
+                yes: true,
+                install: false,
+                prompts: failingPrompts(),
+            }).initialize();
+
+            const gitCalls = spawnSyncSpy.mock.calls.filter(
+                ([command]) => command === 'git'
+            );
+            expect(gitCalls.map(([, args]) => args)).toEqual([
+                ['init'],
+                ['add', '-A'],
+                ['commit', '-m', 'Initial commit from Frigg CLI'],
+            ]);
+            for (const [, , options] of gitCalls) {
+                expect(options).toMatchObject({ cwd: target, shell: false });
+            }
+        });
+    });
 });
