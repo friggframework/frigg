@@ -110,6 +110,41 @@ Found 5 modules matching "crm"
 
 ---
 
+#### `frigg validate [options]`
+
+Validate the app definition (`index.js`) before you build or deploy it (ADR-051).
+
+**Usage:**
+```bash
+frigg validate                 # schema + runtime checks
+frigg validate --stage prod    # also the stage checks (encryption, deploy-time environment)
+frigg validate --json          # machine-readable report for CI
+```
+
+**What it does:**
+1. Loads `index.js` the way `frigg build` does (current directory, or the nearest `backend/`)
+2. Validates it against the app-definition schema: unknown keys (with "did you mean"), types, and the values the infrastructure builders accept
+3. Checks what the schema cannot: integration classes (static `Definition` with a valid, unique `name`, `version`, `modules`, and API module definitions that pass core's checks), an enabled database, management settings that conflict or lack ids, encryption (`aes` keys in `environment`, KMS key source, stages that never encrypt), a user config with which login works, `'ssm'` entries without `ssm.enable`, and keys that have no effect
+4. Prints each problem with its JSON pointer and a fix; exits `1` when there are errors
+
+**Example output:**
+```
+Validating /path/to/backend/index.js (stage: prod)
+  error /encrpytion  Unknown key "encrpytion": nothing in Frigg reads it.
+        fix: Did you mean "encryption"?
+  error /database/postgres/management  /database/postgres/management is "create-new", which is not an allowed value.
+        fix: Use one of: "discover", "managed", "use-existing".
+  warning /custom  custom is not read by Frigg: it has no effect.
+        fix: Remove it.
+  ✗ 2 error(s), 1 warning(s)
+```
+
+`--json` prints `{ valid, source, stage, errors, warnings }`; each issue is `{ severity, code, pointer, message, hint }`.
+
+`frigg build` and `frigg deploy` run the same validation first and stop on errors (`--skip-validate` bypasses it, with a loud warning). `frigg start` runs it and only warns. `frigg init` validates the generated app the same way.
+
+---
+
 #### `frigg start [options]`
 
 Start local development server with hot reload.
@@ -123,7 +158,7 @@ frigg start --frontend
 ```
 
 **What it does:**
-1. Validates DATABASE_URL environment variable
+1. Validates DATABASE_URL environment variable, and the app definition (`frigg validate`; problems are printed as warnings, `--skip-validate` skips it)
 2. Detects database type (MongoDB or PostgreSQL)
 3. Checks Prisma client generation status
 4. Tests database connection
@@ -182,10 +217,12 @@ frigg deploy --region us-west-2
 frigg deploy --force
 frigg deploy --skip-env-validation
 frigg deploy --skip-doctor              # Skip health check (not recommended)
+frigg deploy --skip-validate            # Skip app definition validation (not recommended)
 frigg deploy --no-interactive           # CI/CD mode (no prompts, auto-repair safe issues)
 ```
 
 **What it does:**
+0. **Validates the app definition** (`frigg validate`) and stops on errors, unless `--skip-validate`
 1. **Runs health check** (`frigg doctor`) to detect infrastructure issues
 2. **Auto-repairs safe issues** (or prompts for confirmation in interactive mode)
 3. **Fails if critical issues found** (unless `--skip-doctor` flag used)
