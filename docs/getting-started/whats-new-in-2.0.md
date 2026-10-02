@@ -39,6 +39,13 @@ Frigg 2.0.1 is the first stable 2.x release. Install `^2.0.1`. Do not use
 * **New integration statuses.** Integrations start in `IN_CREATION` and pass
   through `IN_DELETION` on teardown. Code that filters on status must handle
   both.
+* **Deployed stages always encrypt.** A function running in AWS Lambda
+  encrypts sensitive fields on every stage, `dev` included, and refuses to
+  start without a key (`EncryptionConfigurationError`). Set
+  `encryption: { fieldLevelEncryptionMethod: 'kms' }`, or provide `AES_KEY_ID`
+  and `AES_KEY`. Only local runs (`frigg start`, tests) skip encryption. To
+  store a deployed stage in plaintext on purpose, set
+  `fieldLevelEncryptionMethod: 'none'`.
 * **Node.js 22, AWS SDK v3, and osls.** Lambda functions run on `nodejs22.x`.
   Deploys use oss-serverless (`osls`) instead of the Serverless Framework.
 

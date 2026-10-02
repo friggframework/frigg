@@ -103,8 +103,20 @@ DATABASE_URL="mongodb://localhost:27017/frigg?replicaSet=rs0"
 ```
 
 Keep your encryption keys. 2.0 reads the same variables as 1.x: `KMS_KEY_ARN`
-for KMS, or `AES_KEY_ID` and `AES_KEY` for AES. The `dev`, `test`, and `local`
-stages skip encryption.
+for KMS, or `AES_KEY_ID` and `AES_KEY` for AES.
+
+{% hint style="warning" %}
+**2.0 fails closed.** In 1.x the `dev`, `test`, and `local` stages skipped
+encryption, and a stage without a key wrote plaintext. In 2.0 every deployed
+stage, `dev` included, encrypts, and a deployed function with no key refuses to
+start with `EncryptionConfigurationError`. Set
+`encryption: { fieldLevelEncryptionMethod: 'kms' }` and Frigg creates or
+discovers the key on every stage. Rows already stored in plaintext stay
+readable and are encrypted the next time they are written. Only local runs
+(`frigg start`, tests) still skip encryption on `dev`, `test`, and `local`. To
+keep a deployed stage in plaintext on purpose, set
+`fieldLevelEncryptionMethod: 'none'`; Frigg logs a warning on every cold start.
+{% endhint %}
 
 ## Step 4: Create the schema
 
@@ -245,6 +257,10 @@ skip them.
   deprecated and is only deployed when you register `reports` or set
   `admin: { includeBuiltinReports: true }`. Call
   `POST /api/v2/reports/integrations/run` with `{ "mode": "live" }` instead.
+* **Deployed `dev` stages now encrypt.** Prereleases skipped encryption on
+  `dev`, `test`, and `local` even when deployed. A deployed stage without a key
+  now fails at startup; add `encryption: { fieldLevelEncryptionMethod: 'kms' }`
+  and redeploy. `BYPASS_ENCRYPTION_STAGE` is no longer read.
 * **Process updates are atomic.** `updateProcessMetrics` and the context
   updates in `updateProcessState` no longer read, modify, and write the whole
   record. No code change is needed.
@@ -256,7 +272,7 @@ skip them.
 * [ ] API modules on versions that depend on core 2.x
 * [ ] `infrastructure.js` in place; `serverless.yml` removed
 * [ ] `database.<engine>.enable` (or `DB_TYPE`) set, and `DATABASE_URL` replaces `MONGO_URI`
-* [ ] Encryption keys carried over
+* [ ] Encryption configured for every deployed stage (`kms`, AES keys, or an explicit `none`)
 * [ ] `frigg db:setup` run
 * [ ] Integrations use `static Definition`, `this.events`, and `this.<module>.api`
 * [ ] No imports of removed core exports; `user.type` checks in place
