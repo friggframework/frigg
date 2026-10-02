@@ -8,10 +8,10 @@ Frigg Framework supports automatic provisioning of Amazon Aurora Serverless v2 P
 
 ### Key Features
 
-- **Aurora Serverless v2**: Cost-efficient auto-scaling database (0.5-1.0 ACU default)
+- **Aurora Serverless v2**: Cost-efficient auto-scaling database (0.5-4 ACU default)
 - **VPC Integration**: Deployed in same private subnets as Lambda functions
 - **Secrets Manager**: Automatic credential management and rotation
-- **Three Management Modes**: discover, create-new, use-existing
+- **Three Management Modes**: discover, managed, use-existing
 - **Security**: Private subnet deployment with security group isolation
 - **High Availability**: Multi-AZ deployment with automatic failover
 
@@ -21,12 +21,16 @@ Frigg Framework supports automatic provisioning of Amazon Aurora Serverless v2 P
 
 ### App Definition Structure
 
+These are the keys the Aurora builder reads (see `database.postgres` in
+`packages/schemas/schemas/app-definition.schema.json`). `frigg validate`
+rejects any other key under `database.postgres`.
+
 ```javascript
 // backend/index.js
 const appDefinition = {
     name: 'my-frigg-app',
 
-    // Enable VPC deployment (required for Aurora)
+    // VPC Configuration (required for Aurora)
     vpc: {
         enable: true,
     },
@@ -36,34 +40,24 @@ const appDefinition = {
         postgres: {
             enable: true,
 
-            // Management mode: 'discover' | 'create-new' | 'use-existing'
+            // 'discover' (also when omitted) | 'managed' | 'use-existing'
+            // Ignored when managementMode is 'managed' or 'existing'.
             management: 'discover',
 
-            // Basic Configuration
-            databaseName: 'frigg_db',
-            masterUsername: 'frigg_admin',
+            database: 'frigg',        // database name (default 'frigg')
+            username: 'postgres',     // master user (default 'postgres')
+            engineVersion: '15.13',   // Aurora PostgreSQL version (default '15.13')
 
-            // Engine Configuration
-            engine: 'aurora-postgresql',
-            engineVersion: '15.3',
+            // Aurora Serverless v2 capacity, in ACUs (0.5-128)
+            minCapacity: 0.5,         // default 0.5
+            maxCapacity: 4,           // default 4
 
-            // Scaling Configuration (Aurora Serverless v2)
-            scaling: {
-                minCapacity: 0.5,  // ACUs (0.5 = ~1GB RAM, ~$43/month)
-                maxCapacity: 1.0,  // ACUs (1.0 = ~2GB RAM, ~$87/month)
-            },
+            publiclyAccessible: false,     // default false (private subnets)
+            autoCreateCredentials: false,  // discover only: create a secret for a discovered cluster
 
-            // Backup Configuration
-            backupRetentionDays: 7,
-            preferredBackupWindow: '03:00-04:00',
-
-            // Security & Advanced
-            deletionProtection: true,
-            enablePerformanceInsights: false,
-
-            // For use-existing mode
-            clusterIdentifier: 'my-existing-cluster',
-            secretArn: 'arn:aws:secretsmanager:...',
+            // use-existing only
+            // endpoint: 'mydb.cluster-abc123.us-east-1.rds.amazonaws.com',
+            // port: 5432,
         }
     }
 };
@@ -73,13 +67,17 @@ module.exports = {
 };
 ```
 
+Backup retention (7 days), the backup and maintenance windows and deletion
+settings are fixed by the builder and are not configurable through the app
+definition.
+
 ---
 
 ## Management Modes
 
 ### 1. Discover Mode (Default)
 
-Automatically discovers existing Aurora clusters or creates new one if none found.
+Discovers an existing Aurora cluster, or creates a new one in the stack if none is found.
 
 ```javascript
 database: {
@@ -100,29 +98,23 @@ database: {
 
 ---
 
-### 2. Create-New Mode
+### 2. Managed Mode
 
-Always creates a new Aurora cluster, even if existing clusters are found.
+Creates the cluster, instance, subnet group and secret in the stack.
 
 ```javascript
 database: {
     postgres: {
         enable: true,
-        management: 'create-new',
-
-        // Customization options
-        databaseName: 'my_app_db',
-        masterUsername: 'admin',
-        engineVersion: '15.3',
-        scaling: {
-            minCapacity: 1.0,
-            maxCapacity: 2.0,
-        },
-        backupRetentionDays: 14,
-        deletionProtection: true,
+        management: 'managed',
+        minCapacity: 1,
+        maxCapacity: 2,
     }
 }
 ```
+
+With the top-level `managementMode: 'managed'` (and `vpcIsolation: 'isolated'`),
+Frigg manages the database per stage and `database.postgres.management` is ignored.
 
 **Best For**: Production environments where you want dedicated database resources.
 
@@ -130,25 +122,24 @@ database: {
 
 ### 3. Use-Existing Mode
 
-Uses a specific existing Aurora cluster by identifier.
+Connects to an existing PostgreSQL endpoint without creating database resources.
 
 ```javascript
 database: {
     postgres: {
         enable: true,
         management: 'use-existing',
-
-        // Required: existing cluster identifier
-        clusterIdentifier: 'my-existing-aurora-cluster',
-
-        // Optional: secret ARN (discovered if not provided)
-        secretArn: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:my-db-secret',
-
-        // Database name to connect to
-        databaseName: 'frigg_db',
+        endpoint: 'my-cluster.cluster-abc123.us-east-1.rds.amazonaws.com', // required
+        port: 5432,
+        database: 'frigg_db',
+        username: 'frigg_admin',
     }
 }
 ```
+
+To use an existing cluster by identifier instead, use the ownership form:
+`ownership: { cluster: 'external', instance: 'external' }` with
+`external: { clusterIdentifier, instanceIdentifier, secretArn }`.
 
 **Best For**: Shared database scenarios or when you manage Aurora outside of Frigg.
 
@@ -156,7 +147,7 @@ database: {
 
 ## Created AWS Resources
 
-When provisioning Aurora (`create-new` or `discover` mode without existing cluster), Frigg creates:
+When provisioning Aurora (`managed`, or `discover` mode without an existing cluster), Frigg creates:
 
 ### 1. RDS DB Subnet Group
 - **Name**: `{service}-{stage}-db-subnet-group`
@@ -221,16 +212,14 @@ database: {
 database: {
     postgres: {
         enable: true,
-        scaling: {
-            minCapacity: 1.0,  // Higher baseline for production
-            maxCapacity: 4.0,  // Handle traffic spikes
-        },
-        backupRetentionDays: 30,  // Longer retention
-        enablePerformanceInsights: true,  // Monitoring
-        deletionProtection: true,  // Prevent accidental deletion
+        minCapacity: 1,  // Higher baseline for production
+        maxCapacity: 4,  // Handle traffic spikes
     }
 }
 ```
+
+Backup retention, Performance Insights and deletion protection are not
+configurable through the app definition; change them on the cluster.
 
 **Estimated Monthly Costs**:
 - **Baseline**: $87/month (1.0 ACU minimum)
@@ -276,15 +265,9 @@ const users = await prismaClient.user.findMany();
 
 ### 4. Deletion Protection
 
-```javascript
-database: {
-    postgres: {
-        deletionProtection: true,  // Prevents accidental deletion
-    }
-}
-```
-
-**Important**: When enabled, you must manually disable deletion protection in AWS console before stack deletion.
+Deletion protection is not configurable through the app definition. Enable it
+on the cluster in the AWS console (or with the AWS CLI); you must then disable
+it before deleting the stack.
 
 ---
 
@@ -384,7 +367,7 @@ DB_TYPE=postgresql
    database: {
        postgres: {
            enable: true,
-           management: 'create-new',
+           management: 'managed',
        }
    }
    ```
@@ -411,7 +394,7 @@ DB_TYPE=postgresql
    database: {
        postgres: {
            enable: true,
-           management: 'create-new',
+           management: 'managed',
        }
    }
    ```
@@ -456,13 +439,13 @@ DB_TYPE=postgresql
 
 **Error**:
 ```
-No Aurora cluster found in discovery mode. Set management to "create-new"...
+No Aurora cluster found in discovery mode. Set management to "managed" or provide endpoint with "use-existing".
 ```
 
 **Solution**:
 1. Check VPC is enabled: `vpc.enable: true`
-2. Set management mode: `management: 'create-new'`
-3. Or provide cluster identifier: `clusterIdentifier: 'my-cluster'`
+2. Set management mode: `management: 'managed'`
+3. Or connect to a known endpoint: `management: 'use-existing'`, `endpoint: '...'`
 
 ---
 
@@ -544,40 +527,19 @@ Cannot create Aurora cluster: InsufficientDBInstanceCapacity
 
 ## Advanced Configuration
 
-### Custom Backup Window
-
-```javascript
-database: {
-    postgres: {
-        enable: true,
-        backupRetentionDays: 30,
-        preferredBackupWindow: '02:00-03:00',  // UTC
-    }
-}
-```
-
-### Enhanced Monitoring
-
-```javascript
-database: {
-    postgres: {
-        enable: true,
-        enablePerformanceInsights: true,
-        // Performance Insights retention: 7 days (default) or 731 days
-    }
-}
-```
-
 ### Custom Engine Version
 
 ```javascript
 database: {
     postgres: {
         enable: true,
-        engineVersion: '14.6',  // Default: 15.3
+        engineVersion: '16.4',  // Default: 15.13
     }
 }
 ```
+
+The backup window, backup retention and Performance Insights are set by the
+builder and are not configurable through the app definition.
 
 ### Read Replicas (Not Supported Yet)
 
