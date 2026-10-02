@@ -16,12 +16,38 @@ The Frigg framework has been migrated from Serverless Framework v3 to OSS-Server
 npm install serverless@3.39.0
 
 # New
-npm install osls@^3.40.1
+npm install osls@^3.78.0
 
 # Commands remain the same
 osls deploy --stage dev     # was: serverless deploy
 osls package --stage dev    # was: serverless package
 ```
+
+**Why osls 3 and not osls 4 (latest on npm):** osls 4 rejects two things the
+composed Frigg definition still emits, so Frigg stays on `^3.78.0` until they are
+changed and the packaged artifacts are re-verified:
+
+- **Function-level `package.include` / `package.exclude`.** osls 4 only accepts
+  `package.patterns`, and its default `configValidationMode: error` fails every
+  command (`frigg start` included) with `unrecognized property 'include'` /
+  `'exclude'` for the core functions (`base-definition-factory.js`) and the
+  integration functions (`integration-builder.js`); the migration and admin-script
+  builders use the same keys. Converting them changes packaging semantics
+  (pattern order decides what is kept), so the resulting zips need checking
+  against a real deploy.
+- **`useDotenv: false`.** The composed definition sets
+  `useDotenv: process.argv.includes('offline')`; osls 4's schema only accepts
+  `true`, so `frigg build` / `frigg deploy` fail with
+  `Configuration error at 'useDotenv': must be equal to constant`.
+
+Checked with osls 4.4.0 in a scaffolded app: with both converted in a scratch
+`infrastructure.js` wrapper, `frigg start` served `GET /health` 200 and
+`frigg build --stage prod` packaged. None of the plugins Frigg loads
+(serverless-esbuild, serverless-offline, serverless-offline-sqs,
+serverless-dotenv-plugin, @friggframework/serverless-plugin) uses the AWS SDK v2
+surfaces osls 4 removed (`provider.request`, `provider.sdk`,
+`provider.getCredentials`). Both osls 3.78 and 4.x require Node.js
+`^20.19.0 || ^22.13.0 || >=24`.
 
 ### 2. AWS SDK v2 → v3
 

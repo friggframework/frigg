@@ -99,19 +99,23 @@ class FriggServerlessPlugin {
       });
   }
 
+  /**
+   * SQS client for LocalStack, used by `serverless offline` (`frigg start`)
+   * to create the app's queues locally. The aggregated AWS SDK v3 `SQS`
+   * client also accepts Node-style callbacks, which LocalStackQueueService
+   * uses.
+   */
   createLocalStackSQSClient() {
-    const AWS = require('aws-sdk');
+    const { SQS } = require('@aws-sdk/client-sqs');
 
-    AWS.config.update({
+    return new SQS({
       region: process.env.AWS_REGION || 'us-east-1',
       endpoint: process.env.AWS_ENDPOINT || 'http://localhost:4566',
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'root',
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'root',
-      s3ForcePathStyle: true,
-      sslEnabled: false,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'root',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'root',
+      },
     });
-
-    return new AWS.SQS({ sslEnabled: false });
   }
 
   async beforePackageInitialize() {

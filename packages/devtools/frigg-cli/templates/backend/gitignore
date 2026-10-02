@@ -1,0 +1,10 @@
+node_modules/
+.env
+.serverless/
+.esbuild/
+# Prisma Lambda layer, rebuilt by `frigg build` / `frigg deploy`
+layers/prisma/
+.frigg-infrastructure-cache.json
+.frigg-infrastructure-lock
+.frigg-credentials.json
+coverage/

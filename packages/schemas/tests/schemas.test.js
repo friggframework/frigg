@@ -69,6 +69,25 @@ describe('@friggframework/schemas', () => {
             expect(result.valid).toBe(true);
         });
 
+        test('should accept an external PostgreSQL (bring your own DATABASE_URL)', () => {
+            const appDef = {
+                integrations: [],
+                database: { postgres: { enable: true, management: 'external' } },
+                vpc: { enable: false },
+            };
+
+            expect(validateAppDefinition(appDef).valid).toBe(true);
+        });
+
+        test('should reject an unknown PostgreSQL management mode', () => {
+            const appDef = {
+                integrations: [],
+                database: { postgres: { enable: true, management: 'bogus' } },
+            };
+
+            expect(validateAppDefinition(appDef).valid).toBe(false);
+        });
+
         test('should reject invalid app definition', () => {
             const appDef = {
                 // Missing required integrations field

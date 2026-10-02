@@ -4,6 +4,11 @@ const path = require('path');
  * Generate IAM CloudFormation template
  * @param {Object} options - Generation options
  * @param {string} [options.appName='Frigg'] - Application name
+ * @param {string} [options.serviceName] - The osls service name the app deploys
+ *   under (Definition.name). Resource grants that match `*frigg*` are also
+ *   granted for `*<serviceName>*`, because `frigg deploy` names the stack,
+ *   functions, role, queues, topics, alarms, log groups, layer and buckets
+ *   after the service, not after "frigg".
  * @param {Object} [options.features={}] - Enabled features { vpc, kms, ssm, websockets }
  * @param {string} [options.userPrefix='frigg-deployment-user'] - IAM user name prefix
  * @param {string} [options.stackName='frigg-deployment-iam'] - CloudFormation stack name
@@ -16,7 +21,8 @@ function generateIAMCloudFormation(options = {}) {
         features = {},
         userPrefix = 'frigg-deployment-user',
         stackName = 'frigg-deployment-iam',
-        ssmKmsKeyArn
+        ssmKmsKeyArn,
+        serviceName,
     } = options;
 
     const deploymentUserName = userPrefix;
@@ -525,6 +531,51 @@ function generateIAMCloudFormation(options = {}) {
         },
     ];
 
+    coreStatements.push(
+        {
+            Sid: 'FriggLambdaLayers',
+            Effect: 'Allow',
+            Action: [
+                'lambda:PublishLayerVersion',
+                'lambda:DeleteLayerVersion',
+                'lambda:GetLayerVersion',
+            ],
+            Resource: [
+                {
+                    'Fn::Sub':
+                        'arn:aws:lambda:*:${AWS::AccountId}:layer:*frigg*',
+                },
+                {
+                    'Fn::Sub':
+                        'arn:aws:lambda:*:${AWS::AccountId}:layer:*frigg*:*',
+                },
+            ],
+        },
+        {
+            // Buckets the app's stack creates (e.g. the migration-status
+            // bucket); CloudFormation names them after the stack, in lower case.
+            Sid: 'FriggAppBuckets',
+            Effect: 'Allow',
+            Action: [
+                's3:CreateBucket',
+                's3:DeleteBucket',
+                's3:PutBucketPolicy',
+                's3:DeleteBucketPolicy',
+                's3:PutBucketVersioning',
+                's3:PutBucketPublicAccessBlock',
+                's3:PutEncryptionConfiguration',
+                's3:PutLifecycleConfiguration',
+                's3:PutBucketTagging',
+                's3:GetBucketLocation',
+                's3:ListBucket',
+                's3:GetObject',
+                's3:PutObject',
+                's3:DeleteObject',
+            ],
+            Resource: ['arn:aws:s3:::*frigg*', 'arn:aws:s3:::*frigg*/*'],
+        }
+    );
+
     template.Resources.FriggCoreDeploymentPolicy = {
         Type: 'AWS::IAM::ManagedPolicy',
         Properties: {
@@ -768,8 +819,57 @@ function generateIAMCloudFormation(options = {}) {
         },
     };
 
+    expandResourceNamePatterns(template, serviceName);
+
     // Convert to YAML
     return convertToYAML(template);
+}
+
+const FRIGG_NAME_PATTERN = '*frigg*';
+
+/**
+ * Next to every policy resource that matches `*frigg*`, add the same
+ * resource for `*<serviceName>*` (lower case for S3 bucket ARNs), so an app
+ * that is not named "frigg" can manage its own stack resources.
+ *
+ * @param {Object} template - CloudFormation template (mutated)
+ * @param {string} [serviceName]
+ */
+function expandResourceNamePatterns(template, serviceName) {
+    if (!serviceName || /frigg/i.test(serviceName)) {
+        return;
+    }
+    const servicePattern = `*${serviceName}*`;
+    const expand = (resource) => {
+        const value =
+            typeof resource === 'string'
+                ? resource
+                : resource && resource['Fn::Sub'];
+        if (typeof value !== 'string' || !value.includes(FRIGG_NAME_PATTERN)) {
+            return [resource];
+        }
+        const pattern = value.startsWith('arn:aws:s3:::')
+            ? servicePattern.toLowerCase()
+            : servicePattern;
+        const scoped = value.split(FRIGG_NAME_PATTERN).join(pattern);
+        return [
+            resource,
+            typeof resource === 'string' ? scoped : { 'Fn::Sub': scoped },
+        ];
+    };
+
+    for (const resource of Object.values(template.Resources)) {
+        const statements = resource?.Properties?.PolicyDocument?.Statement;
+        if (!Array.isArray(statements)) continue;
+        for (const statement of statements) {
+            if (statement.Resource === undefined) continue;
+            const expanded = [].concat(statement.Resource).flatMap(expand);
+            statement.Resource =
+                Array.isArray(statement.Resource) || expanded.length > 1
+                    ? expanded
+                    : expanded[0];
+        }
+    }
 }
 
 /**
@@ -796,8 +896,7 @@ function getFeatureSummary(appDefinition) {
     const features = {
         core: true, // Always enabled
         vpc: appDefinition.vpc?.enable === true,
-        kms:
-            appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms',
+        kms: appDefinition.encryption?.fieldLevelEncryptionMethod === 'kms',
         ssm: appDefinition.ssm?.enable === true,
         websockets: appDefinition.websockets?.enable === true,
     };
@@ -808,6 +907,8 @@ function getFeatureSummary(appDefinition) {
         features,
         integrationCount,
         appName: appDefinition.name || 'Unnamed Frigg App',
+        // What createBaseDefinition uses as the osls service name.
+        serviceName: appDefinition.name || 'create-frigg-app',
         ssmKmsKeyArn: appDefinition.ssm?.kmsKeyArn,
     };
 }
@@ -817,7 +918,10 @@ function getFeatureSummary(appDefinition) {
  * @returns {Object} Basic IAM policy document
  */
 function generateBasicIAMPolicy() {
-    const basicPolicyPath = path.join(__dirname, 'templates/iam-policy-basic.json');
+    const basicPolicyPath = path.join(
+        __dirname,
+        'templates/iam-policy-basic.json'
+    );
     return require(basicPolicyPath);
 }
 
@@ -826,7 +930,10 @@ function generateBasicIAMPolicy() {
  * @returns {Object} Full IAM policy document
  */
 function generateFullIAMPolicy() {
-    const fullPolicyPath = path.join(__dirname, 'templates/iam-policy-full.json');
+    const fullPolicyPath = path.join(
+        __dirname,
+        'templates/iam-policy-full.json'
+    );
     return require(fullPolicyPath);
 }
 
