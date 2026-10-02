@@ -137,4 +137,12 @@ describe('frigg init default infrastructure', () => {
         expect(definition.provider.environment.DB_TYPE).toBe('postgresql');
         expect(definition.resources.Resources.FriggDBSecret).toBeUndefined();
     });
+
+    it('expires Lambda logs after 14 days', async () => {
+        // Without provider.logRetentionInDays, osls creates log groups that
+        // never expire, so CloudWatch storage grows forever.
+        const definition = await compose({});
+
+        expect(definition.provider.logRetentionInDays).toBe(14);
+    });
 });

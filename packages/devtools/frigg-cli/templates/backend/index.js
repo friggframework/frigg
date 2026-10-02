@@ -91,6 +91,13 @@ const appDefinition = {
         DATABASE_URL: true,
     },
 
+    // CloudWatch Logs: expire each Lambda log group after 14 days. Without a
+    // retention period the log groups keep everything forever. Raise it (any
+    // CloudWatch value: 30, 90, 365, ...) if you need longer history.
+    logging: {
+        retentionInDays: 14,
+    },
+
     // SSM Parameter Store offload is off. Enable it when your app variables
     // outgrow the 4 KB Lambda environment limit.
     ssm: {
