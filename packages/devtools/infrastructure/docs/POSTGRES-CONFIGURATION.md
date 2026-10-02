@@ -28,7 +28,7 @@ infrastructure is still composed, so migrations run against `DATABASE_URL`.
 const appDefinition = {
     vpc: { enable: false },
     database: { postgres: { enable: true, management: 'external' } },
-    environment: { DATABASE_URL: true }, // passed from the deploy shell to the Lambdas
+    environment: { DATABASE_URL: true }, // read from the shell that runs `frigg deploy` (not .env)
 };
 ```
 

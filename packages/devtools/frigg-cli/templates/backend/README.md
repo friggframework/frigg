@@ -29,13 +29,15 @@ npm run db:setup
 npm start
 ```
 
-| Script             | Runs             | Purpose                                                      |
-| ------------------ | ---------------- | ------------------------------------------------------------ |
-| `npm start`        | `frigg start`    | Run the backend locally with serverless-offline              |
-| `npm run build`    | `frigg build`    | Package the app without deploying (local mode, no AWS calls) |
-| `npm run deploy`   | `frigg deploy`   | Deploy to AWS (`npm run deploy -- --stage prod`)             |
-| `npm run db:setup` | `frigg db:setup` | Generate the Prisma client and apply the schema              |
-| `npm test`         | `jest`           | Run your tests                                               |
+| Script             | Runs                     | Purpose                                                                                                                                                                          |
+| ------------------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm start`        | `frigg start`            | Run the backend locally with serverless-offline (reads `.env`)                                                                                                                   |
+| `npm run build`    | `frigg build`            | Package the app without deploying (local mode, no AWS calls)                                                                                                                     |
+| `npm run deploy`   | `frigg deploy`           | Deploy to AWS (`npm run deploy -- --stage prod`)                                                                                                                                 |
+| `npm run db:setup` | `frigg db:setup`         | Generate the Prisma client and apply the schema. The default stage is `development`, which runs `prisma migrate dev` (interactive); any other stage runs `prisma migrate deploy` |
+| `npm test`         | `jest --passWithNoTests` | Run your tests                                                                                                                                                                   |
+
+`frigg start`, `frigg build` and `frigg deploy` default to `--stage dev`.
 
 ## Adding integrations
 
@@ -57,21 +59,34 @@ and list it in `integrations`.
 
 ## Configuration
 
-The app definition in `index.js` is validated against the Frigg app-definition schema.
+`frigg init` checks the generated `index.js` against the Frigg app-definition schema
+and prints any problems as warnings. `frigg start`, `build` and `deploy` do not
+validate it.
 
--   **Encryption** — `encryption.fieldLevelEncryptionMethod` is `kms` (default) or
-    `aes`. Encryption is automatically bypassed in the `dev`/`test`/`local` stages.
+-   **Encryption** — the template sets `encryption.fieldLevelEncryptionMethod: 'kms'`
+    explicitly. Keep it: the schema lists `aes` as the default, but nothing applies
+    that default, and without the field `frigg deploy` creates no KMS key. Use `aes`
+    instead of `kms` only if you manage the key yourself; then add
+    `AES_KEY_ID: true` and `AES_KEY: true` to `environment` and set both (a
+    32-character key) in the shell that runs `frigg deploy`. See
+    [Field-level encryption](#field-level-encryption) for when encryption runs.
 -   **Database** — PostgreSQL that you bring (`management: 'external'`). Locally the
     connection string comes from `DATABASE_URL` in `.env`. To use MongoDB instead,
     set `database: { mongoDB: { enable: true }, postgres: { enable: false } }` and
     point `DATABASE_URL` at a MongoDB replica set (for example a MongoDB Atlas cluster).
+-   **Users** — `user` enables username/password users. `POST /user/create` (open
+    self-signup) and `POST /user/login` both return `{ "token": "..." }`; send it as
+    `Authorization: Bearer <token>` to the integration and entity routes. Keep every
+    field of the `user` block: core reads it as written, without schema defaults.
+-   **Logs** — `logging.retentionInDays: 14` expires each Lambda log group after 14
+    days. Without it, log groups keep everything forever.
 
-## Deployment defaults: $0 while idle, secure by default
+## Deployment defaults: near $0 while idle
 
 Local development never touches AWS: `frigg start` and `frigg build` skip AWS
 discovery and every resource below.
 
-The defaults in `index.js` deploy nothing that costs money while idle:
+The defaults in `index.js` deploy nothing that bills by the hour:
 
 ```js
 const appDefinition = {
@@ -82,43 +97,95 @@ const appDefinition = {
     vpc: { enable: false }, // no VPC, NAT gateway, VPC endpoints or Elastic IP
     database: { postgres: { enable: true, management: 'external' } }, // no RDS/Aurora
     environment: { DATABASE_URL: true },
+    logging: { retentionInDays: 14 },
     ssm: { enable: false },
 };
 ```
 
 ### What a deploy creates, and what it costs
 
-| Resource                                                                                        | Cost                                                                        |
-| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Lambda functions, API Gateway (HTTP API), SQS queues, SNS topic, S3 bucket for migration status | Pay per request; $0 while idle (and largely inside the AWS free tier)       |
-| CloudWatch logs and one 5xx alarm                                                               | Pay per GB ingested; alarms are free up to 10 per account                   |
-| One customer-managed KMS key per stage                                                          | About $1/month, plus $0.03 per 10,000 requests beyond the free tier         |
-| Your database                                                                                   | Whatever your provider charges; free tiers exist for PostgreSQL and MongoDB |
+A deploy of the scaffolded app (stack `<name>-<stage>`, e.g. `my-app-prod`) creates:
 
-There is no NAT gateway (about $33/month), no interface VPC endpoints (about
-$15/month each), no public IPv4 address and no Aurora cluster. The KMS key is
-retained when you remove the stack (so encrypted data stays readable); schedule its
-deletion in the KMS console if you no longer need it.
+| Resource                                                                                                                                    | Cost                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5 Lambda functions (`auth`, `user`, `health`, `dbMigrationWorker`, `dbMigrationRouter`), a Prisma Lambda layer, and an API Gateway HTTP API | Pay per request                                                                                                                                                           |
+| 2 SQS queues (`InternalErrorQueue`, `DbMigrationQueue`) and 1 SNS topic                                                                     | Pay per request. The migration worker's SQS trigger polls `DbMigrationQueue` even while idle, and those polls are billed as SQS requests, so idle cost is near $0, not $0 |
+| 2 S3 buckets: the migration-status bucket and the osls deployment bucket                                                                    | Storage and requests                                                                                                                                                      |
+| CloudWatch log groups (14-day retention) and one 5xx alarm on the HTTP API                                                                  | Per GB ingested and stored; alarm pricing per CloudWatch                                                                                                                  |
+| One customer-managed KMS key per stage, with automatic (yearly) rotation                                                                    | $1/month, plus $1/month for each of the first two rotations, so about $3/month from the second rotation on; plus per-request charges beyond the KMS free tier             |
+| Your database                                                                                                                               | Whatever your provider charges; free tiers exist for PostgreSQL and MongoDB                                                                                               |
 
-### Why no VPC is still secure
+There is no NAT gateway, no VPC endpoint, no public IPv4 address and no Aurora
+cluster. EventBridge Scheduler resources are only added when you enable
+`scheduler.enable` or add an integration with webhooks.
+
+### What stays after the stack is deleted
+
+Two resources have `DeletionPolicy: Retain` and survive stack removal:
+
+-   **The KMS key.** It keeps billing until you schedule its deletion in the KMS
+    console. Retaining it does not make old data readable by a new stack: no KMS
+    alias is created, and a new stack for the same stage creates a new key, whose
+    ARN is the only one its Lambdas may use. Fields encrypted with the old key stay
+    unreadable to the new stack unless you point it at the old key yourself.
+-   **The migration-status bucket.** Empty and delete it when you no longer need it.
+
+### Security model
 
 -   **Nothing to protect inside a VPC.** A VPC isolates resources that live in it,
     such as a database cluster. This setup has none: the database is hosted
-    elsewhere, and the Lambdas only call AWS APIs and HTTPS endpoints.
--   **Every AWS call is authenticated and encrypted.** SQS, KMS, EventBridge
-    Scheduler and the other AWS APIs are reached over AWS's public endpoints with
-    TLS and IAM (SigV4) authentication. The Lambda role only gets the permissions
-    the composed template grants. For least-privilege deploy credentials, generate
-    a policy with `npx frigg generate-iam`.
--   **Data is encrypted at the field level.** Credentials, tokens and mappings are
-    encrypted with the stage's KMS key before they reach the database, so the
-    database provider only stores ciphertext for those fields. The key never leaves
-    KMS, and every use is IAM-checked and logged in CloudTrail.
--   **The API requires authentication.** Integration and entity routes need an
-    authenticated user. `/health/detailed` needs `HEALTH_API_KEY` and the admin
-    routes need `ADMIN_API_KEY`; both refuse every request until you add the key to
-    `environment` and set it at deploy. `POST /user/create` is open self-signup, and
-    each user only sees their own data.
+    elsewhere, and the Lambdas call AWS APIs and your database.
+-   **AWS calls are authenticated and encrypted.** SQS, KMS and the other AWS APIs
+    are reached over AWS's public endpoints with TLS and IAM (SigV4) authentication.
+-   **The database connection is not HTTPS.** Prisma opens a direct TCP connection to
+    `DATABASE_URL` using the PostgreSQL wire protocol. It is encrypted only when the
+    URL has `sslmode=require`, so always add it (see below).
+-   **Field-level encryption.** See the next section.
+-   **API authentication.**
+    -   Integration and entity routes need `Authorization: Bearer <token>` (from
+        `POST /user/create` or `POST /user/login`).
+    -   `GET /health` is open. `/health/live`, `/health/ready` and `/health/detailed`
+        need the `x-frigg-health-api-key` header to match `HEALTH_API_KEY`.
+    -   The template deploys the `/admin/db-migrate` routes, which need the
+        `x-frigg-admin-api-key` header to match `ADMIN_API_KEY`.
+    -   Both keys refuse every request until you add them to `environment` and set
+        them at deploy. Script and report admin routes are only deployed when you
+        configure `adminScripts` or `reports`.
+-   **Deploy credentials.** `npx frigg generate-iam` writes a CloudFormation template
+    (by default `backend/infrastructure/frigg-deployment-iam.yaml`; change it with
+    `--output`) that creates an IAM user, its access key and managed policies for
+    deploying. Its grants are scoped to resources whose names contain `frigg` or this
+    app's `name`. It has not been validated against every resource the composed
+    template creates, so review it before relying on it.
+
+### Field-level encryption
+
+These fields are encrypted before they reach the database
+(`@friggframework/core/database/encryption/encryption-schema-registry.js`):
+
+-   `Credential.data`: `access_token`, `refresh_token`, `id_token`, `api_key`,
+    `apiKey`, `API_KEY_VALUE`, `password`, `client_secret`
+-   `IntegrationMapping.mapping`
+-   `User.hashword`
+-   `Token.token`
+
+Entity data and integration config are **not** encrypted.
+
+With `kms`, encryption is envelope encryption: each value gets a data key from
+KMS (`GenerateDataKey`) and is encrypted with it in the Lambda; the encrypted data
+key is stored next to the value and decrypted through KMS (`Decrypt`) on read. The
+KMS key never leaves KMS, but plaintext data keys exist in Lambda memory while a
+value is encrypted or decrypted.
+
+When encryption runs:
+
+-   **Deployed stages always encrypt**, whatever the stage name, including
+    `frigg deploy --stage dev`.
+-   **A deployed stage without a key fails at startup** with an error, rather than
+    writing plaintext. A key is `KMS_KEY_ARN` (set by `frigg deploy` for the KMS key
+    it creates) or `AES_KEY_ID` and `AES_KEY`.
+-   **Encryption is skipped only when running locally** (`frigg start`,
+    serverless-offline) and in tests.
 
 ### Your database
 
@@ -132,52 +199,67 @@ PostgreSQL (several providers have a free tier):
     addresses are not fixed, so an IP access list cannot pin them. Allow access from
     anywhere (`0.0.0.0/0`) and rely on TLS plus strong, unique database credentials,
     or use a provider that authenticates connections without IP allow-listing. If you
-    need a fixed egress IP, see the VPC upgrade below.
--   **Apply the schema** before the first deploy, from your machine or CI:
+    need a fixed egress IP, see the VPC option below.
+-   **Apply the schema** before the first deploy, from your machine or CI. A
+    non-development stage runs `prisma migrate deploy`:
 
     ```bash
     DATABASE_URL='postgresql://...?sslmode=require' npx frigg db:setup --stage prod
     ```
 
-`DATABASE_URL` is read from your shell (or CI) when you run `frigg deploy`, falling
-back to `.env`. A value in the shell wins, so pass the hosted URL explicitly rather
-than deploying the local one:
+#### How `DATABASE_URL` reaches the deployed Lambdas
+
+`frigg deploy` does **not** read `.env`. Each variable listed as `true` in
+`environment` (here `DATABASE_URL`) is written into the template as
+`${env:DATABASE_URL, ''}`, and osls resolves it from the environment of the shell
+(or CI job) that runs `frigg deploy`. So export it, or pass it on the command line:
 
 ```bash
 DATABASE_URL='postgresql://...?sslmode=require' npm run deploy -- --stage prod
 ```
 
-The value is stored in the Lambda environment (encrypted at rest by AWS). Anyone
-with `lambda:GetFunctionConfiguration` on the functions can read it, so keep those
-permissions tight.
+If it is not set, the deploy only prints a warning and continues, and the Lambdas
+get an empty `DATABASE_URL`. The value is stored in the Lambda environment
+(encrypted at rest by AWS); anyone with `lambda:GetFunctionConfiguration` on the
+functions can read it, so keep those permissions tight.
 
-Field-level encryption only runs outside the `dev`/`test`/`local` stages, so deploy
-real data to a stage such as `prod` or `staging`.
+### Other options
 
-### Upgrades (opt in)
-
--   **Frigg-managed Aurora Serverless v2 (coming).** Frigg will be able to create and
-    manage an Aurora PostgreSQL cluster per stage that scales to zero when idle (see
-    ADR-033). Until then, `database: { postgres: { enable: true } }` without
-    `management: 'external'` creates an Aurora cluster that requires
-    `vpc: { enable: true }` and bills while idle.
+-   **Frigg-managed Aurora.** `database: { postgres: { enable: true } }` without
+    `management: 'external'` creates an Aurora Serverless v2 PostgreSQL cluster. It
+    needs `vpc: { enable: true }` (with `vpc.enable: false` the composition fails
+    with "Aurora requires 2 private subnets in different AZs"), and it bills while
+    idle: the minimum capacity is 0.5 ACU.
 -   **Private VPC.** Set `vpc: { enable: true }` when your Lambdas must reach private
     resources (a database inside your VPC, internal services) or need a fixed egress
     IP for a partner's allow list. With `managementMode: 'managed'` and
-    `vpcIsolation: 'isolated'`, each stage gets its own VPC, and a NAT gateway with
-    an Elastic IP for outbound traffic: about $33/month per stage for the NAT
-    gateway plus data processing, and about $15/month for each interface VPC
-    endpoint you enable. Set `vpcIsolation: 'shared'` to reuse one VPC across stages.
+    `vpcIsolation: 'isolated'`, each stage gets its own VPC and a NAT gateway with an
+    Elastic IP for outbound traffic. VPC endpoints are on by default: KMS, Secrets
+    Manager and SQS interface endpoints plus an S3 gateway endpoint; turn them off
+    with `vpc: { enable: true, enableVPCEndpoints: false }`. The NAT gateway and its
+    Elastic IP have `DeletionPolicy: Retain`, so they keep billing after the stack is
+    removed until you delete them. `vpcIsolation: 'shared'` reuses an existing VPC
+    instead of creating one per stage.
 
 See the app-definition reference at https://docs.friggframework.org for every option.
 
 ## Deploy
 
 ```bash
-npm run build -- --production                                    # build with AWS resource discovery (needs AWS credentials)
-DATABASE_URL='postgresql://...?sslmode=require' npm run deploy -- --stage prod   # deploy via osls
-npx frigg doctor <stack-name>                                    # verify the deployed stack
+npm run build -- --production    # build with AWS resource discovery (needs AWS credentials)
+DATABASE_URL='postgresql://...?sslmode=require' npm run deploy -- --stage prod
 ```
+
+Always pass `--stage`; the default is `dev`. The stack is named
+`<Definition.name>-<stage>` (e.g. `my-app-prod`). `frigg deploy` runs `frigg doctor`
+on the stack after a successful deploy (skip it with `--skip-doctor`). To run it
+again later:
+
+```bash
+npx frigg doctor my-app-prod --region us-east-1
+```
+
+`frigg deploy` and `frigg doctor` use `AWS_REGION`, or `us-east-1` when it is unset.
 
 ## Learn more
 
