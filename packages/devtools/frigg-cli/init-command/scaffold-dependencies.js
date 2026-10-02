@@ -35,21 +35,54 @@ const SERVERLESS_TOOLING = [
  */
 const PRISMA_PACKAGES = ['@prisma/client', 'prisma'];
 
-function readDevtoolsPackageJson() {
-    // frigg-cli ships inside @friggframework/devtools, two levels below its
-    // package.json. Fall back to module resolution if the CLI is ever run from
-    // a standalone copy.
+/**
+ * Where devtools' package.json sits when frigg-cli runs from inside
+ * `@friggframework/devtools` (the normal case: `<devtools>/frigg-cli/init-command`).
+ */
+const LOCAL_DEVTOOLS_PACKAGE_JSON = path.join(
+    __dirname,
+    '..',
+    '..',
+    'package.json'
+);
+const DEVTOOLS_PACKAGE_JSON_SPECIFIER = '@friggframework/devtools/package.json';
+
+function isModuleNotFoundFor(error, specifier) {
+    return (
+        Boolean(error) &&
+        error.code === 'MODULE_NOT_FOUND' &&
+        typeof error.message === 'string' &&
+        error.message.includes(specifier)
+    );
+}
+
+/**
+ * Read `@friggframework/devtools`' package.json.
+ *
+ * frigg-cli normally ships inside devtools, two levels below its package.json.
+ * It is also published on its own as `@friggframework/frigg-cli` (with
+ * devtools as a peer dependency); installed that way, two levels up is
+ * `node_modules/@friggframework`, which has no package.json, so resolve
+ * devtools as a module instead. Only that exact "file not found" takes the
+ * fallback: a malformed package.json or any other failure is rethrown so the
+ * real cause is not hidden.
+ *
+ * @param {object} [options]
+ * @param {Function} [options.requireFn] - Test seam for `require`.
+ * @returns {object} devtools' package.json.
+ */
+function readDevtoolsPackageJson({ requireFn = require } = {}) {
     try {
-        // eslint-disable-next-line global-require
-        const pkg = require(path.join(__dirname, '..', '..', 'package.json'));
+        const pkg = requireFn(LOCAL_DEVTOOLS_PACKAGE_JSON);
         if (pkg && pkg.name === '@friggframework/devtools') {
             return pkg;
         }
     } catch (error) {
-        // fall through
+        if (!isModuleNotFoundFor(error, LOCAL_DEVTOOLS_PACKAGE_JSON)) {
+            throw error;
+        }
     }
-    // eslint-disable-next-line global-require
-    return require('@friggframework/devtools/package.json');
+    return requireFn(DEVTOOLS_PACKAGE_JSON_SPECIFIER);
 }
 
 function readCorePackageJson() {
@@ -161,6 +194,8 @@ module.exports = {
     MIN_STABLE_FRIGG_VERSION,
     SERVERLESS_TOOLING,
     PRISMA_PACKAGES,
+    LOCAL_DEVTOOLS_PACKAGE_JSON,
+    readDevtoolsPackageJson,
     getFriggVersionRange,
     getScaffoldDependencies,
     getScaffoldScripts,
