@@ -103,7 +103,10 @@ module.exports = {
 }
 
 /** A `frigg init` app: the real template's index.js plus a package.json. */
-function makeScaffoldedApp({ coreRange = '2.0.0-next.115' } = {}) {
+function makeScaffoldedApp({
+    coreRange = '2.0.0-next.115',
+    installedCoreVersion,
+} = {}) {
     const dir = makeTmpDir();
     fs.copySync(
         path.join(TEMPLATE_DIR, 'index.js'),
@@ -113,8 +116,16 @@ function makeScaffoldedApp({ coreRange = '2.0.0-next.115' } = {}) {
         name: 'my-app',
         dependencies: { '@friggframework/core': coreRange },
     });
-    // Let the generated files load the real core.
     fs.ensureDirSync(path.join(dir, 'node_modules', '@friggframework'));
+    if (installedCoreVersion) {
+        // A stand-in core with a chosen version.
+        fs.outputJSONSync(
+            path.join(dir, 'node_modules/@friggframework/core/package.json'),
+            { name: '@friggframework/core', version: installedCoreVersion }
+        );
+        return dir;
+    }
+    // Let the generated files load the real core.
     fs.symlinkSync(
         CORE_DIR,
         path.join(dir, 'node_modules', '@friggframework', 'core')
@@ -188,7 +199,10 @@ describe('CLI Command: install', () => {
         });
 
         it('installs the default version for an app on a stable release', async () => {
-            const dir = makeScaffoldedApp({ coreRange: '^2.0.1' });
+            const dir = makeScaffoldedApp({
+                coreRange: '^2.0.1',
+                installedCoreVersion: '2.0.1',
+            });
             useApp(dir);
 
             await installCommand('hubspot');
@@ -355,15 +369,19 @@ describe('CLI Command: install', () => {
                 'const appDefinition = {\n    integrations: [],\n};\nmodule.exports = appDefinition;\n'
             );
             // Hoisted node_modules at the workspace root still resolves.
+            // (Created up front: Jest's resolver caches missing directories.)
+            fs.ensureDirSync(path.join(root, 'node_modules'));
             findNearestBackendPackageJson.mockReturnValue(
                 path.join(dir, 'package.json')
             );
             installPackage.mockImplementation((backendPath, spec) => {
-                writeFakeModule(root, spec, modules[spec]);
+                const name = spec.replace(/@(next|latest)$/, '');
+                writeFakeModule(root, name, modules[name]);
             });
 
             await installCommand('hubspot');
 
+            expect(consoleErrorSpy.mock.calls).toEqual([]);
             expect(processExitSpy).not.toHaveBeenCalled();
             const backendJs = fs.readFileSync(
                 path.join(dir, 'backend.js'),
@@ -551,6 +569,25 @@ describe('getInstallSpec', () => {
                 appWith({ dependencies: { '@friggframework/core': range } })
             )
         ).toBe(spec);
+    });
+
+    it('uses the installed core version when the range is not semver (file:, link:)', () => {
+        const dir = appWith({
+            dependencies: { '@friggframework/core': 'file:../core.tgz' },
+        });
+        const coreDir = path.join(
+            dir,
+            'node_modules',
+            '@friggframework',
+            'core'
+        );
+        fs.ensureDirSync(coreDir);
+        fs.writeJSONSync(path.join(coreDir, 'package.json'), {
+            name: '@friggframework/core',
+            version: '2.0.0-next.0',
+        });
+
+        expect(getInstallSpec(HUBSPOT, dir)).toBe(`${HUBSPOT}@next`);
     });
 
     it('installs the default version without a readable package.json', () => {
