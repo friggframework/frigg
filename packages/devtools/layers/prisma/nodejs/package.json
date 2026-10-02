@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@prisma/client": "^6.16.3"
+    "@prisma/client": "^6.19.3"
   }
 }
