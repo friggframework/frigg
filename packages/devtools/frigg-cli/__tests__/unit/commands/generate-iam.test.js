@@ -94,4 +94,22 @@ describe('CLI Command: generate-iam', () => {
             'arn:aws:kms:*:${AWS::AccountId}:key/*'
         );
     });
+
+    it("grants the app's own resources, named after Definition.name", async () => {
+        jest.doMock(
+            mockAppDefinitionPath,
+            () => ({ Definition: { name: 'my-app' } }),
+            { virtual: true }
+        );
+
+        await generateIamCommand({});
+
+        const [, generatedYaml] = fs.writeFile.mock.calls[0];
+        expect(generatedYaml).toContain(
+            'arn:aws:cloudformation:*:${AWS::AccountId}:stack/*my-app*/*'
+        );
+        expect(generatedYaml).toContain(
+            'arn:aws:lambda:*:${AWS::AccountId}:function:*my-app*'
+        );
+    });
 });
