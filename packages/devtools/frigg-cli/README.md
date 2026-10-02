@@ -65,11 +65,13 @@ npm run db:setup
 npm start
 ```
 
-The scaffolded app deploys with no always-on AWS cost: no VPC, NAT gateway or
-database cluster (`vpc: { enable: false }`, `database.postgres.management: 'external'`),
-field-level encryption with a per-stage KMS key (about $1/month), and the app connecting
-to a PostgreSQL you host through `DATABASE_URL`. The generated `README.md` explains the
-security model and the opt-in upgrades.
+The scaffolded app deploys nothing that bills by the hour, so it costs near $0 while
+idle: no VPC, NAT gateway or database cluster (`vpc: { enable: false }`,
+`database.postgres.management: 'external'`), field-level encryption with a per-stage
+KMS key ($1/month, about $3/month after its first two yearly rotations), 14-day log
+retention, and the app connecting to a PostgreSQL you host through `DATABASE_URL`.
+`frigg deploy` reads `DATABASE_URL` from the shell that runs it, not from `.env`. The
+generated `README.md` lists every resource, the security model and the other options.
 
 ---
 

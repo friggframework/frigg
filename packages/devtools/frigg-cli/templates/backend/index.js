@@ -44,18 +44,21 @@ const appDefinition = {
     },
 
     // ------------------------------------------------------------------
-    // Deployment defaults: $0 while idle, secure by default.
+    // Deployment defaults: near $0 while idle.
     // `frigg deploy` creates no always-on resources (no VPC, NAT gateway,
     // VPC endpoints, Elastic IP or database cluster); everything it creates
-    // is pay-per-use, plus one KMS key (~$1/month). See README.md for the
-    // reasoning and the opt-in upgrades (Frigg-managed Aurora, private VPC).
+    // is pay-per-use, plus one KMS key ($1/month, about $3/month once it has
+    // been rotated twice). README.md lists every resource and the other
+    // options (Frigg-managed Aurora, private VPC).
     // Local development (`frigg start`, `frigg build`) skips AWS entirely.
     // ------------------------------------------------------------------
 
-    // Field-level encryption for sensitive data (credentials, tokens,
-    // mappings), using a customer-managed KMS key that `frigg deploy` creates
-    // for each stage. Encryption is bypassed in the dev/test/local stages, so
-    // deploy real data to a stage such as `prod` or `staging`.
+    // Field-level encryption for sensitive data (credential tokens and
+    // secrets, integration mappings, password hashes, auth tokens), using a
+    // customer-managed KMS key that `frigg deploy` creates for each stage.
+    // Keep this set explicitly: without it no KMS key is created. Deployed
+    // stages always encrypt; only local runs (`frigg start`) and tests skip
+    // it. See README.md for the exact fields.
     encryption: {
         fieldLevelEncryptionMethod: 'kms',
     },
@@ -65,9 +68,10 @@ const appDefinition = {
     managementMode: 'managed',
     vpcIsolation: 'isolated',
 
-    // Lambdas run outside a VPC and reach SQS, KMS, EventBridge Scheduler and
-    // other AWS APIs over AWS's public endpoints with IAM auth and TLS. There
-    // is nothing inside a VPC to protect, so a VPC would only add cost.
+    // Lambdas run outside a VPC and reach SQS, KMS and other AWS APIs over
+    // AWS's public endpoints with IAM auth and TLS, and your database over
+    // its own endpoint (TLS via `sslmode=require`). There is nothing inside a
+    // VPC to protect, so a VPC would only add cost.
     vpc: {
         enable: false,
     },
@@ -85,8 +89,10 @@ const appDefinition = {
         },
     },
 
-    // Environment variables passed from the deploy shell (or `.env`) to the
-    // deployed Lambdas.
+    // Environment variables copied into the deployed Lambdas. `frigg deploy`
+    // reads them from the shell or CI job that runs it, NOT from `.env`
+    // (which only `frigg start` and `frigg db:setup` read). An unset variable
+    // deploys as an empty string.
     environment: {
         DATABASE_URL: true,
     },
