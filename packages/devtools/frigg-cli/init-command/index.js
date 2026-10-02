@@ -7,11 +7,11 @@
 
 'use strict';
 
-const path = require('path');
 const chalk = require('chalk');
 const validateProjectName = require('validate-npm-package-name');
 const semver = require('semver');
 const BackendFirstHandler = require('./backend-first-handler');
+const { resolveProjectTarget } = require('./safe-path');
 const { DEPLOYMENT_MODES } = require('./deployment-modes');
 
 function checkAppName(appName) {
@@ -102,8 +102,18 @@ async function initCommand(projectName, options = {}) {
         return;
     }
 
-    const root = path.resolve(targetName);
-    const appName = path.basename(root);
+    // The last path segment is the project (and npm package) name; the
+    // project directory is resolved inside its parent directory.
+    let root;
+    let appName;
+    try {
+        ({ projectDir: root, name: appName } =
+            resolveProjectTarget(targetName));
+    } catch (error) {
+        console.error(chalk.red(error.message));
+        process.exit(1);
+        return;
+    }
 
     checkAppName(appName);
 

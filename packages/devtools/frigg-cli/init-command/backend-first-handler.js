@@ -1,8 +1,9 @@
 const fs = require('fs-extra');
 const path = require('path');
 const chalk = require('chalk');
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const spawn = require('cross-spawn');
+const { resolveInside } = require('./safe-path');
 const npmRegistry = require('../utils/npm-registry');
 const {
     validateAppDefinition,
@@ -50,8 +51,8 @@ const TEMPLATE_README_TITLE = '# Frigg Backend';
  */
 class BackendFirstHandler {
     constructor(targetPath, options = {}) {
-        this.targetPath = targetPath;
-        this.appName = path.basename(targetPath);
+        this.targetPath = path.resolve(targetPath);
+        this.appName = path.basename(this.targetPath);
         this.options = options;
         this.templatesDir = path.join(__dirname, '..', 'templates');
         this.interactive =
@@ -90,7 +91,7 @@ class BackendFirstHandler {
         const deploymentMode = await this.selectDeploymentMode();
         this.projectDir =
             deploymentMode === 'embedded'
-                ? path.join(this.targetPath, EMBEDDED_DIR)
+                ? resolveInside(this.targetPath, EMBEDDED_DIR)
                 : this.targetPath;
 
         // Fail fast, before asking anything else, if the target is not empty.
@@ -293,7 +294,7 @@ class BackendFirstHandler {
         await this.copyTemplate(this.projectDir, packageName);
         await this.writePackageJson(this.projectDir, packageName);
         await this.validateGeneratedAppDefinition(
-            path.join(this.projectDir, 'index.js')
+            resolveInside(this.projectDir, 'index.js')
         );
 
         if (config.initializeGit) {
@@ -310,12 +311,12 @@ class BackendFirstHandler {
      * never overwriting a pre-existing README.md/.gitignore without --force.
      */
     async copyTemplate(dir, packageName) {
-        const templateDir = path.join(this.templatesDir, 'backend');
+        const templateDir = resolveInside(this.templatesDir, 'backend');
         const entries = await fs.readdir(templateDir);
 
         for (const entry of entries) {
             const destName = RENAMED_TEMPLATE_FILES[entry] || entry;
-            const dest = path.join(dir, destName);
+            const dest = resolveInside(dir, destName);
 
             if (
                 PRESERVED_FILES.includes(destName) &&
@@ -330,30 +331,31 @@ class BackendFirstHandler {
                 continue;
             }
 
-            await fs.copy(path.join(templateDir, entry), dest);
+            await fs.copy(resolveInside(templateDir, entry), dest);
         }
 
         await this.substituteInFile(
-            path.join(dir, 'index.js'),
+            resolveInside(dir, 'index.js'),
             TEMPLATE_APP_NAME,
             `name: '${packageName}',`
         );
         await this.substituteInFile(
-            path.join(dir, 'README.md'),
+            resolveInside(dir, 'README.md'),
             TEMPLATE_README_TITLE,
             `# ${packageName}`
         );
 
         // Seed a local .env from the example so `frigg start` has a
         // DATABASE_URL to work with. .env is git-ignored.
-        const envExample = path.join(dir, '.env.example');
-        const env = path.join(dir, '.env');
+        const envExample = resolveInside(dir, '.env.example');
+        const env = resolveInside(dir, '.env');
         if ((await fs.pathExists(envExample)) && !(await fs.pathExists(env))) {
             await fs.copy(envExample, env);
         }
     }
 
-    async substituteInFile(filePath, search, replacement) {
+    async substituteInFile(file, search, replacement) {
+        const filePath = resolveInside(this.targetPath, file);
         if (!(await fs.pathExists(filePath))) return;
         const content = await fs.readFile(filePath, 'utf8');
         if (!content.includes(search)) return;
@@ -376,7 +378,7 @@ class BackendFirstHandler {
             devDependencies,
         };
 
-        await fs.writeJSON(path.join(dir, 'package.json'), packageJson, {
+        await fs.writeJSON(resolveInside(dir, 'package.json'), packageJson, {
             spaces: 2,
         });
     }
@@ -385,7 +387,8 @@ class BackendFirstHandler {
      * Ensure the directory the backend is written to is missing or empty
      * (apart from a few harmless files), unless --force is given.
      */
-    async ensureSafeDirectory(dir = this.targetPath) {
+    async ensureSafeDirectory(directory = this.targetPath) {
+        const dir = resolveInside(this.targetPath, directory);
         if (!(await fs.pathExists(dir))) {
             return;
         }
@@ -410,17 +413,25 @@ class BackendFirstHandler {
      * Initialize git repository
      */
     async initializeGit() {
-        try {
-            execSync('git init', { cwd: this.projectDir, stdio: 'ignore' });
-            execSync('git add -A', { cwd: this.projectDir, stdio: 'ignore' });
-            execSync('git commit -m "Initial commit from Frigg CLI"', {
+        // Argument arrays, no shell: nothing here is parsed by a shell.
+        const git = (args) =>
+            spawnSync('git', args, {
                 cwd: this.projectDir,
                 stdio: 'ignore',
+                shell: false,
             });
-            console.log(chalk.gray('Git repository initialized'));
-        } catch (e) {
-            // Git init failed, not critical
+        // Git is a convenience: a missing git or git identity is not fatal.
+        for (const args of [
+            ['init'],
+            ['add', '-A'],
+            ['commit', '-m', 'Initial commit from Frigg CLI'],
+        ]) {
+            const result = git(args);
+            if (result.error || result.status !== 0) {
+                return;
+            }
         }
+        console.log(chalk.gray('Git repository initialized'));
     }
 
     /**
