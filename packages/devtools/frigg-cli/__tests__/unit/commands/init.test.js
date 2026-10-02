@@ -263,6 +263,38 @@ describe('frigg init', () => {
             expect(validateAppDefinition(Definition).valid).toBe(true);
         });
 
+        it('scaffolds a user config that POST /user/login can authenticate with', async () => {
+            // LoginUser reads the app definition's `user` block as-is (the
+            // schema defaults are not applied), and throws unless
+            // individualUserRequired or organizationUserRequired is set.
+            const target = path.join(tmpDir, 'login-app');
+            await createHandler(target).initialize();
+            const { Definition } = require(path.join(target, 'index.js'));
+            const bcrypt = require('bcryptjs');
+            const {
+                LoginUser,
+            } = require('@friggframework/core/user/use-cases/login-user');
+            const hashword = await bcrypt.hash('s3cret', 4);
+            const userRepository = {
+                findIndividualUserByUsername: jest.fn(async (username) =>
+                    username === 'ada' ? { id: '1', username, hashword } : null
+                ),
+            };
+            const login = new LoginUser({
+                userRepository,
+                userConfig: Definition.user,
+            });
+
+            const user = await login.execute({
+                username: 'ada',
+                password: 's3cret',
+            });
+            expect(user.getId()).toBe('1');
+            await expect(
+                login.execute({ username: 'ada', password: 'wrong' })
+            ).rejects.toThrow(/Incorrect username or password/);
+        });
+
         it('uses defaults when stdin is not a TTY even without --yes', () => {
             const BackendFirstHandler = require('../../../init-command/backend-first-handler');
             const original = process.stdin.isTTY;

@@ -30,11 +30,17 @@ const appDefinition = {
         // ExampleIntegration,
     ],
 
-    // User model. Password auth is enabled so the Management UI and API can
-    // authenticate users out of the box; integration and entity routes
-    // require an authenticated user.
+    // Users: one individual user per login, with a username and password.
+    // `POST /user/create` registers a user and `POST /user/login` returns a
+    // bearer token for the integration and entity routes. Spell out every
+    // field: core reads this block as written (schema defaults such as
+    // `individualUserRequired: true` are not applied), and login fails
+    // unless individual or organization users are required.
     user: {
         usePassword: true,
+        primary: 'individual',
+        individualUserRequired: true,
+        organizationUserRequired: false,
     },
 
     // ------------------------------------------------------------------
