@@ -62,6 +62,7 @@ async function generateIamCommand(options = {}) {
         // Use the summary already extracted above (line 44)
         const cloudFormationYaml = generateIAMCloudFormation({
             appName: summary.appName,
+            serviceName: summary.serviceName,
             features: summary.features,
             userPrefix: deploymentUserName,
             stackName,
