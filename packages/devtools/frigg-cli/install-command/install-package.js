@@ -17,26 +17,45 @@ const semver = require('semver');
  * @returns {string} npm install spec
  */
 function getInstallSpec(packageName, projectDir) {
-    let coreRange;
+    const version = getCoreVersion(projectDir);
+    if (version && version.major >= 2 && version.prerelease.length > 0) {
+        return `${packageName}@next`;
+    }
+    return packageName;
+}
+
+/**
+ * The app's `@friggframework/core` version: the installed copy if there is
+ * one (this also covers `file:` and `link:` dependencies), otherwise the
+ * lowest version its package.json range admits.
+ *
+ * @returns {semver.SemVer|null}
+ */
+function getCoreVersion(projectDir) {
+    try {
+        const installed = require.resolve('@friggframework/core/package.json', {
+            paths: [projectDir],
+        });
+        const { version } = JSON.parse(fs.readFileSync(installed, 'utf8'));
+        const parsed = semver.parse(version);
+        if (parsed) return parsed;
+    } catch (error) {
+        // Not installed yet; fall back to the declared range.
+    }
     try {
         const pkg = JSON.parse(
             fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8')
         );
-        coreRange =
+        const range =
             (pkg.dependencies && pkg.dependencies['@friggframework/core']) ||
             (pkg.devDependencies &&
                 pkg.devDependencies['@friggframework/core']);
-    } catch (error) {
-        return packageName;
-    }
-    const min =
-        coreRange && semver.validRange(coreRange)
-            ? semver.minVersion(coreRange)
+        return range && semver.validRange(range)
+            ? semver.minVersion(range)
             : null;
-    if (min && min.major >= 2 && min.prerelease.length > 0) {
-        return `${packageName}@next`;
+    } catch (error) {
+        return null;
     }
-    return packageName;
 }
 
 /**
