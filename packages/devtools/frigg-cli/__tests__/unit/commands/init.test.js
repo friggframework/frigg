@@ -460,9 +460,9 @@ describe('frigg init', () => {
                 DEVTOOLS_PACKAGE_JSON.devDependencies.osls,
                 require('../../../package.json').dependencies.osls,
             ]) {
-                expect(
-                    semver.gte(semver.minVersion(range), '3.78.0')
-                ).toBe(true);
+                expect(semver.gte(semver.minVersion(range), '3.78.0')).toBe(
+                    true
+                );
             }
         });
 
@@ -487,6 +487,79 @@ describe('frigg init', () => {
             } finally {
                 process.argv = originalArgv;
             }
+        });
+
+        describe('readDevtoolsPackageJson', () => {
+            const {
+                readDevtoolsPackageJson,
+                LOCAL_DEVTOOLS_PACKAGE_JSON,
+            } = require('../../../init-command/scaffold-dependencies');
+            const FALLBACK = '@friggframework/devtools/package.json';
+            const devtools = {
+                name: '@friggframework/devtools',
+                version: '9.9.9',
+            };
+            const notFound = (specifier) =>
+                Object.assign(new Error(`Cannot find module '${specifier}'`), {
+                    code: 'MODULE_NOT_FOUND',
+                });
+
+            it('reads the enclosing devtools package.json when frigg-cli ships inside devtools', () => {
+                const requireFn = jest.fn(() => devtools);
+                expect(readDevtoolsPackageJson({ requireFn })).toBe(devtools);
+                expect(requireFn).toHaveBeenCalledTimes(1);
+                expect(requireFn).toHaveBeenCalledWith(
+                    LOCAL_DEVTOOLS_PACKAGE_JSON
+                );
+            });
+
+            it('falls back to resolving devtools when frigg-cli is installed standalone', () => {
+                // @friggframework/frigg-cli is also published on its own; then
+                // two levels up is node_modules/@friggframework, with no
+                // package.json, and devtools is a peer dependency.
+                const requireFn = jest.fn((specifier) => {
+                    if (specifier === LOCAL_DEVTOOLS_PACKAGE_JSON) {
+                        throw notFound(specifier);
+                    }
+                    return devtools;
+                });
+                expect(readDevtoolsPackageJson({ requireFn })).toBe(devtools);
+                expect(requireFn).toHaveBeenLastCalledWith(FALLBACK);
+            });
+
+            it('falls back when the enclosing package.json is not devtools', () => {
+                const requireFn = jest.fn((specifier) =>
+                    specifier === LOCAL_DEVTOOLS_PACKAGE_JSON
+                        ? { name: 'something-else' }
+                        : devtools
+                );
+                expect(readDevtoolsPackageJson({ requireFn })).toBe(devtools);
+                expect(requireFn).toHaveBeenLastCalledWith(FALLBACK);
+            });
+
+            it('rethrows a parse error instead of silently falling back', () => {
+                const parseError = new SyntaxError(
+                    'Unexpected token } in JSON'
+                );
+                const requireFn = jest.fn(() => {
+                    throw parseError;
+                });
+                expect(() => readDevtoolsPackageJson({ requireFn })).toThrow(
+                    parseError
+                );
+                expect(requireFn).toHaveBeenCalledTimes(1);
+            });
+
+            it('rethrows a MODULE_NOT_FOUND for any other module', () => {
+                const other = notFound('/somewhere/else/package.json');
+                const requireFn = jest.fn(() => {
+                    throw other;
+                });
+                expect(() => readDevtoolsPackageJson({ requireFn })).toThrow(
+                    other
+                );
+                expect(requireFn).toHaveBeenCalledTimes(1);
+            });
         });
 
         it('takes the Prisma versions from core', () => {
