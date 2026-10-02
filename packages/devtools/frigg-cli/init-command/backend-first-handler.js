@@ -5,10 +5,8 @@ const { spawnSync } = require('child_process');
 const spawn = require('cross-spawn');
 const { resolveInside } = require('./safe-path');
 const npmRegistry = require('../utils/npm-registry');
-const {
-    validateAppDefinition,
-    formatErrors,
-} = require('@friggframework/schemas');
+const { runValidation } = require('../validate-command');
+const { formatReport } = require('../validate-command/format-report');
 const {
     getScaffoldDependencies,
     getScaffoldScripts,
@@ -468,8 +466,10 @@ class BackendFirstHandler {
     }
 
     /**
-     * Validate the generated app definition against the app-definition
-     * schema by loading the `Definition` the generated index.js exports.
+     * Validate the generated app definition with the same code path as
+     * `frigg validate`, `frigg build` and `frigg deploy` (ADR-051): load the
+     * `Definition` the generated index.js exports, check it against the
+     * app-definition schema and run the semantic checks.
      *
      * Validation problems are reported as warnings; they never abort init.
      *
@@ -477,52 +477,53 @@ class BackendFirstHandler {
      */
     async validateGeneratedAppDefinition(appDefPath) {
         if (this.options.verbose) {
-            console.log(
-                chalk.gray('🔍 Validating app definition against schema...')
-            );
+            console.log(chalk.gray('🔍 Validating app definition...'));
         }
-
-        let definition;
         try {
-            const resolved = require.resolve(appDefPath);
-            delete require.cache[resolved];
-            // eslint-disable-next-line global-require
-            ({ Definition: definition } = require(resolved));
+            const report = runValidation({ cwd: path.dirname(appDefPath) });
+            const issues = [...report.errors, ...report.warnings];
+            if (issues.length === 0) {
+                if (this.options.verbose) {
+                    console.log(
+                        chalk.green('✅ App definition passes validation')
+                    );
+                }
+                return true;
+            }
+            if (
+                report.errors.length === 1 &&
+                report.errors[0].code === 'load-failed'
+            ) {
+                // Before `npm install`, index.js cannot load its dependencies yet.
+                if (this.options.verbose) {
+                    console.log(
+                        chalk.gray(
+                            'App definition not validated yet: run `frigg validate` after `npm install`.'
+                        )
+                    );
+                }
+                return true;
+            }
+            console.log(chalk.yellow('⚠️  App definition validation:'));
+            console.log(
+                formatReport({
+                    ...report,
+                    errors: [],
+                    warnings: issues.map((issue) => ({
+                        ...issue,
+                        severity: 'warning',
+                    })),
+                })
+            );
+            return report.errors.length === 0;
         } catch (error) {
-            console.log(
-                chalk.yellow(
-                    `⚠️  Could not load the generated app definition for validation: ${error.message}`
-                )
-            );
-            return false;
+            if (this.options.verbose) {
+                console.log(
+                    chalk.yellow(`⚠️  Validation skipped: ${error.message}`)
+                );
+            }
+            return true; // Don't fail the process for validation issues
         }
-
-        if (!definition) {
-            console.log(
-                chalk.yellow(
-                    `⚠️  ${path.basename(
-                        appDefPath
-                    )} does not export a Definition`
-                )
-            );
-            return false;
-        }
-
-        const result = validateAppDefinition(definition);
-        if (!result.valid) {
-            console.log(
-                chalk.yellow('⚠️  App definition has validation warnings:')
-            );
-            console.log(chalk.gray(formatErrors(result.errors)));
-            return false;
-        }
-
-        if (this.options.verbose) {
-            console.log(
-                chalk.green('✅ App definition passes schema validation')
-            );
-        }
-        return true;
     }
 
     /**

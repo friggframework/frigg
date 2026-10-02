@@ -10,6 +10,9 @@
  */
 
 // Mock dependencies BEFORE requiring modules
+// The app definition validation step is tested in validate-command/.
+jest.mock('../../../validate-command', () => ({ preflightValidation: jest.fn(() => true) }));
+
 jest.mock('child_process', () => ({
   spawn: jest.fn()
 }));
