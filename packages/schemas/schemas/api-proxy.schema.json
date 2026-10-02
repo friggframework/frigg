@@ -1,0 +1,251 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://friggframework.org/schemas/api-proxy.json",
+  "title": "Frigg Proxy API Schemas",
+  "description": "JSON schemas for proxy API requests and responses that forward calls to external APIs",
+  "definitions": {
+    "proxyRequest": {
+      "type": "object",
+      "description": "Proxy request to POST /api/entities/:id/proxy or POST /api/credentials/:id/proxy",
+      "required": ["method", "path"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+          "description": "HTTP method to use for the upstream API request"
+        },
+        "path": {
+          "type": "string",
+          "description": "API path to call on the upstream service (e.g., '/v3/contacts' or '/api/users')",
+          "pattern": "^/",
+          "minLength": 1
+        },
+        "query": {
+          "type": "object",
+          "description": "Query parameters to include in the request as key-value pairs",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "number" },
+              { "type": "boolean" },
+              {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            ]
+          }
+        },
+        "headers": {
+          "type": "object",
+          "description": "Additional headers to include in the upstream request (authorization headers are added automatically)",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": {
+          "description": "Request body for POST, PUT, or PATCH requests (can be object, array, string, or null)",
+          "oneOf": [
+            { "type": "object" },
+            { "type": "array" },
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "examples": [
+        {
+          "method": "GET",
+          "path": "/v3/contacts",
+          "query": {
+            "limit": "10",
+            "archived": "false"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/v3/contacts",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "properties": {
+              "email": "contact@example.com",
+              "firstname": "John",
+              "lastname": "Doe"
+            }
+          }
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/users/12345",
+          "body": {
+            "status": "active"
+          }
+        }
+      ]
+    },
+    "proxyResponse": {
+      "type": "object",
+      "description": "Successful proxy response with data from upstream API",
+      "required": ["success", "status", "data"],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": true,
+          "description": "Indicates successful proxy operation"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 299,
+          "description": "HTTP status code from the upstream API response"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Response headers from the upstream API",
+          "additionalProperties": { "type": "string" }
+        },
+        "data": {
+          "description": "Response body from the upstream API (can be any valid JSON type)",
+          "oneOf": [
+            { "type": "object" },
+            { "type": "array" },
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "examples": [
+        {
+          "success": true,
+          "status": 200,
+          "headers": {
+            "content-type": "application/json",
+            "x-rate-limit-remaining": "998"
+          },
+          "data": {
+            "results": [
+              {
+                "id": "123",
+                "properties": {
+                  "email": "contact@example.com",
+                  "firstname": "John",
+                  "lastname": "Doe"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "success": true,
+          "status": 201,
+          "data": {
+            "id": "456",
+            "created_at": "2025-01-15T10:30:00Z",
+            "status": "active"
+          }
+        }
+      ]
+    },
+    "proxyErrorResponse": {
+      "type": "object",
+      "description": "Error response from proxy operation",
+      "required": ["success", "status", "error"],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": false,
+          "description": "Indicates failed proxy operation"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599,
+          "description": "HTTP status code (either from upstream API or Frigg proxy error)"
+        },
+        "error": {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "Error code identifying the type of failure",
+              "enum": [
+                "INVALID_AUTH",
+                "EXPIRED_TOKEN",
+                "UPSTREAM_ERROR",
+                "TIMEOUT",
+                "NETWORK_ERROR",
+                "RATE_LIMITED",
+                "INVALID_REQUEST",
+                "NOT_FOUND",
+                "PERMISSION_DENIED",
+                "INVALID_CREDENTIALS",
+                "SERVICE_UNAVAILABLE"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "description": "Human-readable error message"
+            },
+            "details": {
+              "description": "Additional error details from upstream API or internal error information",
+              "oneOf": [
+                { "type": "object" },
+                { "type": "array" },
+                { "type": "string" },
+                { "type": "null" }
+              ]
+            },
+            "upstreamStatus": {
+              "type": "integer",
+              "description": "Original HTTP status code from upstream API (if available)"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "success": false,
+          "status": 401,
+          "error": {
+            "code": "INVALID_AUTH",
+            "message": "Authentication credentials are invalid or expired",
+            "details": {
+              "category": "INVALID_AUTHENTICATION",
+              "message": "The access token provided is invalid or has expired"
+            },
+            "upstreamStatus": 401
+          }
+        },
+        {
+          "success": false,
+          "status": 429,
+          "error": {
+            "code": "RATE_LIMITED",
+            "message": "Rate limit exceeded for this API",
+            "details": {
+              "retry_after": 60,
+              "limit": "100 requests per minute"
+            }
+          }
+        },
+        {
+          "success": false,
+          "status": 504,
+          "error": {
+            "code": "TIMEOUT",
+            "message": "Request to upstream API timed out after 30 seconds"
+          }
+        }
+      ]
+    },
+    "proxyResponseUnion": {
+      "description": "Union type representing either success or error proxy response",
+      "oneOf": [
+        { "$ref": "#/definitions/proxyResponse" },
+        { "$ref": "#/definitions/proxyErrorResponse" }
+      ]
+    }
+  }
+}

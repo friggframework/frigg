@@ -1,5 +1,9 @@
+const { getLogger } = require('../logs');
+
+const log = getLogger('frigg.core.secrets');
+
 const getSecretValue = async () => {
-    console.log('Fetching secrets...');
+    log.debug('Fetching secrets', { eventName: 'frigg.core.secrets.fetching' });
 
     const httpPort = process.env.PARAMETERS_SECRETS_EXTENSION_HTTP_PORT || 2773;
     const url = `http://localhost:${httpPort}/secretsmanager/get?secretId=${encodeURIComponent(
@@ -15,10 +19,7 @@ const getSecretValue = async () => {
     const response = await fetch(url, options);
 
     if (!response.ok) {
-        const json = await response.json().catch((err) => err.message);
-        console.error('Invalid response - response:', JSON.stringify(response));
-        console.error('Invalid response - json:', json);
-        throw new Error(`Invalid ${response.status} response`);
+        throw new Error(`Secrets fetch failed with ${response.status}`);
     }
 
     const result = await response.json();
@@ -44,7 +45,7 @@ const secretsToEnv = async () => {
     if (!process.env.SECRET_ARN) {
         return;
     }
-    console.log('Secrets to env');
+    log.debug('Secrets to env', { eventName: 'frigg.core.secrets.to_env' });
 
     try {
         const secrets = await getSecretValue();

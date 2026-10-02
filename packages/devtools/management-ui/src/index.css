@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Frigg Industrial Design System - Light Mode */
+    --background: 0 0% 97%;
+    --foreground: 0 0% 20%;
+
+    /* Card with subtle gray undertone */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 20%;
+
+    /* Popover */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 20%;
+
+    /* Frigg Brand Green #71a087 converted to HSL */
+    --primary: 143 20% 57%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Industrial Gray */
+    --secondary: 0 0% 35%;
+    --secondary-foreground: 0 0% 98%;
+
+    /* Muted industrial tones */
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 40%;
+
+    /* Accent - slightly darker green */
+    --accent: 143 25% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Borders - industrial feel */
+    --border: 0 0% 85%;
+    --input: 0 0% 85%;
+    --ring: 143 20% 57%;
+
+    /* Charts - industrial palette */
+    --chart-1: 143 20% 57%;
+    --chart-2: 0 0% 35%;
+    --chart-3: 200 18% 46%;
+    --chart-4: 24 10% 40%;
+    --chart-5: 0 0% 60%;
+
+    /* Sharp industrial edges */
+    --radius: 0.125rem;
+  }
+
+  .dark {
+    /* Frigg Industrial Design System - Dark Mode */
+    --background: 0 0% 8%;
+    --foreground: 0 0% 90%;
+
+    /* Dark cards with depth */
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 90%;
+
+    /* Popover */
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 90%;
+
+    /* Frigg Brand Green - brighter in dark mode */
+    --primary: 143 25% 65%;
+    --primary-foreground: 0 0% 10%;
+
+    /* Industrial Gray */
+    --secondary: 0 0% 25%;
+    --secondary-foreground: 0 0% 90%;
+
+    /* Muted industrial tones */
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 60%;
+
+    /* Accent - brighter green */
+    --accent: 143 30% 55%;
+    --accent-foreground: 0 0% 10%;
+
+    /* Destructive */
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Borders - subtle in dark */
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 143 25% 65%;
+
+    /* Charts - industrial palette dark */
+    --chart-1: 143 25% 65%;
+    --chart-2: 0 0% 45%;
+    --chart-3: 200 20% 55%;
+    --chart-4: 24 15% 50%;
+    --chart-5: 0 0% 70%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  /* Industrial design utilities */
+  .industrial-shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  .industrial-shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .industrial-border {
+    border: 1px solid hsl(var(--border));
+  }
+
+  .industrial-gradient {
+    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
+  }
+
+  /* Animation classes */
+  .industrial-transition {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+
+  /* Scrollbar styling - sharp industrial edges */
+  .industrial-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground)) hsl(var(--muted));
+  }
+
+  .industrial-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .industrial-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 0;
+  }
+
+  .industrial-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground));
+    border-radius: 0;
+  }
+
+  .industrial-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground));
+  }
+
+  /* Sharp corner variants for components */
+  .sharp-card {
+    border-radius: 0;
+    border: 1px solid hsl(var(--border));
+  }
+
+  .sharp-button {
+    border-radius: 0;
+  }
+
+  .sharp-badge {
+    border-radius: 0;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  /* Industrial input styles */
+  .industrial-input {
+    border-radius: 0;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--background));
+    transition: all 150ms;
+  }
+
+  .industrial-input:focus {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+  }
+}

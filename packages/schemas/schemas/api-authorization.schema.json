@@ -1,0 +1,302 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://friggframework.org/schemas/api-authorization.json",
+  "title": "Frigg Authorization API Schemas",
+  "description": "JSON schemas for authorization and authentication API requests and responses",
+  "definitions": {
+    "authorizationRequirements": {
+      "type": "object",
+      "description": "Authorization requirements response from GET /api/authorize",
+      "required": ["type", "step", "totalSteps", "isMultiStep"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["oauth2", "form", "api-key", "basic"],
+          "description": "Type of authentication required"
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Current step number (1-indexed)"
+        },
+        "totalSteps": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of steps in the auth flow"
+        },
+        "isMultiStep": {
+          "type": "boolean",
+          "description": "Whether this is a multi-step authentication flow"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Session ID for multi-step flows (required after step 1)"
+        },
+        "data": {
+          "type": "object",
+          "description": "Step-specific data (schema varies by type)",
+          "oneOf": [
+            { "$ref": "#/definitions/oauth2Requirements" },
+            { "$ref": "#/definitions/formRequirements" },
+            { "$ref": "#/definitions/apiKeyRequirements" }
+          ]
+        }
+      }
+    },
+    "oauth2Requirements": {
+      "type": "object",
+      "description": "OAuth2 authentication requirements",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "OAuth2 authorization URL to redirect user to"
+        },
+        "scopes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Requested OAuth scopes"
+        }
+      }
+    },
+    "formRequirements": {
+      "type": "object",
+      "description": "Form-based authentication requirements",
+      "required": ["jsonSchema"],
+      "properties": {
+        "jsonSchema": {
+          "type": "object",
+          "description": "JSON Schema for the form fields",
+          "required": ["type", "properties"],
+          "properties": {
+            "title": { "type": "string" },
+            "description": { "type": "string" },
+            "type": { "const": "object" },
+            "required": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "uiSchema": {
+          "type": "object",
+          "description": "UI schema for form rendering (react-jsonschema-form format)",
+          "additionalProperties": true
+        }
+      }
+    },
+    "apiKeyRequirements": {
+      "type": "object",
+      "description": "API key authentication requirements",
+      "required": ["fields"],
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string", "enum": ["api_key", "secret", "token"] },
+              "label": { "type": "string" },
+              "required": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "getEntityTypeRequirementsResponse": {
+      "type": "object",
+      "description": "Authorization requirements response from GET /api/entities/types/:typeName/requirements",
+      "required": ["type", "step", "totalSteps", "isMultiStep"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["oauth2", "form", "api-key", "basic"],
+          "description": "Type of authentication required"
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Current step number (1-indexed)"
+        },
+        "totalSteps": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of steps in the auth flow"
+        },
+        "isMultiStep": {
+          "type": "boolean",
+          "description": "Whether this is a multi-step authentication flow"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Session ID for multi-step flows (required after step 1)"
+        },
+        "data": {
+          "type": "object",
+          "description": "Step-specific data (schema varies by type)",
+          "oneOf": [
+            { "$ref": "#/definitions/oauth2Requirements" },
+            { "$ref": "#/definitions/formRequirements" },
+            { "$ref": "#/definitions/apiKeyRequirements" }
+          ]
+        }
+      }
+    },
+    "authorizationRequest": {
+      "type": "object",
+      "description": "Authorization request to POST /api/authorize",
+      "required": ["entityType"],
+      "properties": {
+        "entityType": {
+          "type": "string",
+          "description": "Type of entity being authorized (module name)"
+        },
+        "moduleType": {
+          "type": "string",
+          "description": "Module type (v2 API) - same as entityType"
+        },
+        "data": {
+          "type": "object",
+          "description": "Authentication credentials or OAuth callback data",
+          "additionalProperties": true
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Current step number for multi-step flows"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Session ID from previous step (required for step > 1)"
+        },
+        "connectingEntityType": {
+          "type": "string",
+          "description": "Type of entity being connected to (for paired integrations)"
+        }
+      }
+    },
+    "authorizationResponse": {
+      "type": "object",
+      "description": "Authorization response (success or next step)",
+      "oneOf": [
+        { "$ref": "#/definitions/authorizationSuccess" },
+        { "$ref": "#/definitions/authorizationNextStep" }
+      ]
+    },
+    "authorizationSuccess": {
+      "type": "object",
+      "description": "Successful authorization completion",
+      "required": ["entity_id", "credential_id", "type"],
+      "properties": {
+        "entity_id": {
+          "type": "string",
+          "description": "ID of created/updated entity"
+        },
+        "credential_id": {
+          "type": "string",
+          "description": "ID of created/updated credential"
+        },
+        "type": {
+          "type": "string",
+          "description": "Entity type (module name)"
+        },
+        "display": {
+          "type": "string",
+          "description": "Display name for the entity"
+        }
+      }
+    },
+    "authorizationNextStep": {
+      "type": "object",
+      "description": "Next step in multi-step authorization",
+      "required": ["nextStep", "sessionId", "requirements"],
+      "properties": {
+        "nextStep": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "Next step number"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Session ID to use for next step"
+        },
+        "requirements": {
+          "$ref": "#/definitions/authorizationRequirements",
+          "description": "Requirements for the next step"
+        },
+        "message": {
+          "type": "string",
+          "description": "Message to display to user (e.g., 'OTP sent to your email')"
+        }
+      }
+    },
+    "authorizationSession": {
+      "type": "object",
+      "description": "Authorization session stored in database",
+      "required": ["sessionId", "userId", "entityType", "currentStep", "maxSteps", "expiresAt"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Database ID (ObjectId for MongoDB, integer for PostgreSQL)"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique session identifier"
+        },
+        "userId": {
+          "type": "string",
+          "description": "User ID initiating the auth flow"
+        },
+        "entityType": {
+          "type": "string",
+          "description": "Type of entity being authorized"
+        },
+        "currentStep": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Current step in the flow"
+        },
+        "maxSteps": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of steps"
+        },
+        "stepData": {
+          "type": "object",
+          "description": "Data collected from previous steps",
+          "additionalProperties": true
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Session expiration timestamp"
+        },
+        "completed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the session has completed successfully"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Session creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        }
+      }
+    }
+  }
+}
