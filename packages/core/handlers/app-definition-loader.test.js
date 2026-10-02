@@ -72,6 +72,45 @@ describe('loadAppDefinition', () => {
         expect(isDeniedKey('ledgerPin')).toBe(true);
     });
 
+    it('applies the schema user defaults so POST /user/login works (ADR-051)', () => {
+        dirs.push(writeBackend({ integrations: [], user: { usePassword: true } }));
+
+        expect(loadAppDefinition().userConfig).toEqual({
+            usePassword: true,
+            primary: 'individual',
+            individualUserRequired: true,
+            organizationUserRequired: false,
+            strictUserValidation: false,
+        });
+    });
+
+    it('gives an app without a user block the default user config instead of null', () => {
+        dirs.push(writeBackend({ integrations: [] }));
+
+        expect(loadAppDefinition().userConfig).toEqual(
+            expect.objectContaining({
+                individualUserRequired: true,
+                usePassword: false,
+            })
+        );
+    });
+
+    it('keeps user values the app sets', () => {
+        dirs.push(
+            writeBackend({
+                integrations: [],
+                user: { individualUserRequired: false, organizationUserRequired: true },
+            })
+        );
+
+        expect(loadAppDefinition().userConfig).toEqual(
+            expect.objectContaining({
+                individualUserRequired: false,
+                organizationUserRequired: true,
+            })
+        );
+    });
+
     it('still loads when an integration has an unexpected shape', () => {
         dirs.push(writeBackend({ integrations: [{}], encryption: { schema: 'x' } }));
 
