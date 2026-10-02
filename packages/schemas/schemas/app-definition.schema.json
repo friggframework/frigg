@@ -22,22 +22,35 @@
     },
     "label": {
       "type": "string",
-      "description": "Human-readable display name for the application",
+      "description": "Human-readable display name for the application. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
       "minLength": 1,
       "maxLength": 200,
-      "examples": ["My Frigg Application", "Customer Portal Integrations"]
+      "examples": ["My Frigg Application", "Customer Portal Integrations"],
+      "deprecated": true
+    },
+    "region": {
+      "type": "string",
+      "description": "AWS region. The deploy region comes from AWS_REGION (default us-east-1), not from this key. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
+      "deprecated": true
+    },
+    "stage": {
+      "type": "string",
+      "description": "Stage name used only to infer the KMS key alias. The deployed stage comes from `--stage`."
     },
     "managementMode": {
       "type": "string",
-      "description": "Infrastructure management mode: 'managed' lets Frigg manage resources, 'discover' uses existing resources, 'custom' for manual configuration",
-      "enum": ["managed", "discover", "custom"],
-      "default": "managed"
+      "description": "Infrastructure management mode. 'managed': Frigg creates and owns the VPC, database and KMS key it needs (with vpcIsolation 'isolated', per stage). 'existing': use existing resources given by id. 'discover' (also the behaviour when omitted): find existing resources and create what is missing. 'custom' is accepted for compatibility and behaves like 'discover'.",
+      "enum": ["managed", "discover", "existing", "custom"]
     },
     "vpcIsolation": {
       "type": "string",
-      "description": "VPC isolation strategy: 'isolated' creates separate VPC per stage, 'shared' reuses VPC across stages",
-      "enum": ["isolated", "shared"],
-      "default": "isolated"
+      "description": "With managementMode 'managed': 'isolated' gives each stage its own VPC, database and key; 'shared' reuses them across stages. Set it explicitly: when it is omitted the builders do not agree on a default (see ADR-051).",
+      "enum": ["isolated", "shared"]
+    },
+    "usePrismaLambdaLayer": {
+      "type": "boolean",
+      "description": "Ship Prisma in a shared Lambda layer. false bundles Prisma into each function instead.",
+      "default": true
     },
     "environment": {
       "type": "object",
@@ -68,60 +81,72 @@
     },
     "integrations": {
       "type": "array",
-      "description": "Array of integration classes to enable in the application",
+      "description": "The IntegrationBase subclasses this application exposes. JSON Schema cannot describe a JavaScript class, so validateAppDefinition checks a serialisable view in which each class is replaced by { Definition: <its static Definition> }; `frigg validate` checks each Definition structurally (name, version, modules and their API module definitions).",
       "items": {
         "type": "object",
-        "description": "Integration class or configuration object"
+        "description": "An integration class, seen as { Definition } (see the integrations description)",
+        "required": ["Definition"],
+        "properties": {
+          "Definition": {
+            "type": "object",
+            "description": "The integration's static Definition (see integration-definition.schema.json)"
+          }
+        }
       },
       "default": []
     },
     "user": {
       "type": "object",
-      "description": "User management and authentication configuration",
+      "description": "User management and authentication. Read by core when it loads the app definition; an omitted block gets the defaults below (ADR-051).",
       "properties": {
         "usePassword": {
           "type": "boolean",
-          "description": "Enable password-based authentication for user login",
-          "default": true
+          "description": "Users log in with username and password (POST /user/login). false: users are identified by appUserId (x-frigg-appuserid) instead.",
+          "default": false
         },
         "password": {
           "type": "boolean",
-          "description": "DEPRECATED: Use 'usePassword' instead. Enable password-based authentication",
-          "default": true
+          "description": "DEPRECATED alias of usePassword: when usePassword is not set, the loader copies this value into it.",
+          "deprecated": true
         },
         "primary": {
           "type": "string",
-          "description": "Primary user type for authentication",
+          "description": "Primary user type. Any value other than 'organization' is treated as 'individual'.",
           "enum": ["individual", "organization"],
           "default": "individual"
         },
         "individualUserRequired": {
           "type": "boolean",
-          "description": "Require individual user for authentication",
+          "description": "Require an individual user. POST /user/login logs in individual users only when this is true.",
           "default": true
         },
         "organizationUserRequired": {
           "type": "boolean",
-          "description": "Require organization user for authentication",
+          "description": "Require an organization user (looked up by appOrgId).",
+          "default": false
+        },
+        "strictUserValidation": {
+          "type": "boolean",
+          "description": "With x-frigg headers, reject a user id that does not exist instead of creating and linking it.",
           "default": false
         },
         "authModes": {
           "type": "object",
-          "description": "Authentication mode configuration - enables multiple authentication strategies. x-frigg-appUserId and x-frigg-appOrgId headers are automatically supported for user identification with any auth mode.",
+          "description": "Authentication modes. When the block is omitted, Frigg tokens and the shared secret are accepted. x-frigg-appUserId and x-frigg-appOrgId headers identify the user with any mode.",
           "properties": {
             "friggToken": {
               "type": "boolean",
-              "description": "Enable Frigg native bearer token authentication (from /user/login)",
+              "description": "Accept Frigg bearer tokens from /user/login. Enabled unless false.",
               "default": true
             },
             "sharedSecret": {
               "type": "boolean",
-              "description": "Enable shared secret authentication for backend-to-backend communication (requires FRIGG_API_KEY env var and x-frigg-api-key header)",
-              "default": false
+              "description": "Accept the x-frigg-api-key header (checked against FRIGG_API_KEY) for backend-to-backend calls. Enabled unless false.",
+              "default": true
             },
             "adopterJwt": {
               "type": "boolean",
-              "description": "Enable custom JWT authentication from adopter's auth system (requires jwtConfig)",
+              "description": "Accept JWTs from the adopter's own auth system (requires jwtConfig). Enabled only when true.",
               "default": false
             }
           },
@@ -157,22 +182,25 @@
         },
         "fields": {
           "type": "array",
-          "description": "Additional user fields",
-          "items": {
-            "type": "string"
-          },
-          "examples": [["email", "firstName", "lastName"]]
+          "description": "Additional user fields. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
+          "items": {"type": "string"},
+          "examples": [
+            ["email", "firstName", "lastName"]
+          ],
+          "deprecated": true
         },
         "model": {
           "type": "object",
-          "description": "Custom user model class"
+          "description": "Custom user model class. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
+          "deprecated": true
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "default": {}
     },
     "auth": {
       "type": "object",
-      "description": "Authentication configuration for integrations",
+      "description": "Authentication configuration. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
       "properties": {
         "jwtSecret": {
           "type": "string",
@@ -181,17 +209,16 @@
         "tokenExpiry": {
           "type": "string",
           "description": "Token expiration time",
-          "pattern": "^\\d+[smhd]$",
-          "default": "24h"
+          "pattern": "^\\d+[smhd]$"
         },
         "refreshTokenExpiry": {
           "type": "string",
-          "description": "Refresh token expiration time", 
-          "pattern": "^\\d+[smhd]$",
-          "default": "7d"
+          "description": "Refresh token expiration time",
+          "pattern": "^\\d+[smhd]$"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "deprecated": true
     },
     "database": {
       "type": "object",
@@ -199,8 +226,8 @@
       "properties": {
         "uri": {
           "type": "string",
-          "description": "Database connection URI (should be set via environment variable)",
-          "format": "uri"
+          "description": "Database connection URI (should be set via environment variable). Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
+          "deprecated": true
         },
         "mongoDB": {
           "type": "object",
@@ -213,7 +240,8 @@
             },
             "uri": {
               "type": "string",
-              "description": "MongoDB connection URI"
+              "description": "MongoDB connection URI. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set. The connection string comes from DATABASE_URL.",
+              "deprecated": true
             }
           },
           "additionalProperties": true
@@ -241,18 +269,16 @@
           "properties": {
             "enable": {
               "type": "boolean",
-              "description": "Enable PostgreSQL database",
-              "default": false
+              "description": "Use PostgreSQL. true provisions or discovers Aurora (unless management says otherwise). When omitted, Aurora is not provisioned, but migrations and the Prisma layer still include PostgreSQL; set false for a MongoDB/DocumentDB app."
             },
             "management": {
               "type": "string",
-              "description": "How to manage the PostgreSQL database",
-              "enum": ["discover", "create-new", "existing"],
-              "default": "discover"
+              "description": "How Frigg gets the Aurora cluster (ignored when managementMode is 'managed' or 'existing'). 'discover' (also when omitted): find one, else create one in the stack. 'managed': create it in the stack. 'use-existing': connect to `endpoint` without creating anything.",
+              "enum": ["discover", "managed", "use-existing"]
             },
             "endpoint": {
               "type": "string",
-              "description": "Existing database endpoint (when management='existing')",
+              "description": "Existing database endpoint (required when management='use-existing')",
               "examples": ["mydb.cluster-abc123.us-east-1.rds.amazonaws.com"]
             },
             "port": {
@@ -270,10 +296,15 @@
               "description": "Database username",
               "default": "postgres"
             },
+            "engineVersion": {
+              "type": "string",
+              "description": "Aurora PostgreSQL engine version for a cluster Frigg creates",
+              "default": "15.13"
+            },
             "selfHeal": {
               "type": "boolean",
-              "description": "Automatically fix database configuration issues",
-              "default": true
+              "description": "Automatically fix database configuration issues. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
+              "deprecated": true
             },
             "publiclyAccessible": {
               "type": "boolean",
@@ -282,7 +313,7 @@
             },
             "autoCreateCredentials": {
               "type": "boolean",
-              "description": "Automatically create Secrets Manager secret and rotate Aurora password when discovering existing cluster (only applies when management='discover')",
+              "description": "Create a Secrets Manager secret and rotate the Aurora password when a discovered cluster has none (management='discover' only)",
               "default": false
             },
             "minCapacity": {
@@ -297,7 +328,65 @@
               "description": "Maximum Aurora Serverless capacity units (0.5-128)",
               "minimum": 0.5,
               "maximum": 128,
-              "default": 1
+              "default": 4
+            },
+            "clusterId": {
+              "type": "string",
+              "description": "Only discover the Aurora cluster with this identifier"
+            },
+            "instanceId": {
+              "type": "string",
+              "description": "Only discover the Aurora instance with this identifier"
+            },
+            "ownership": {
+              "type": "object",
+              "description": "Per-resource ownership. When set, `management` is not translated.",
+              "properties": {
+                "cluster": {
+                  "type": "string",
+                  "enum": ["stack", "external", "auto"],
+                  "description": "Aurora cluster. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+                },
+                "instance": {
+                  "type": "string",
+                  "enum": ["stack", "external", "auto"],
+                  "description": "Aurora instance. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+                },
+                "subnetGroup": {
+                  "type": "string",
+                  "enum": ["stack", "external", "auto"],
+                  "description": "DB subnet group. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+                },
+                "secret": {
+                  "type": "string",
+                  "enum": ["stack", "external", "auto"],
+                  "description": "Secrets Manager credentials secret. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+                }
+              },
+              "additionalProperties": false
+            },
+            "external": {
+              "type": "object",
+              "description": "Ids of externally owned resources (ownership 'external')",
+              "properties": {
+                "clusterIdentifier": {"type": "string"},
+                "instanceIdentifier": {"type": "string"},
+                "subnetGroupName": {"type": "string"},
+                "secretArn": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "dynamodb": {
+          "type": "object",
+          "description": "DynamoDB access from inside the VPC",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "description": "Add a DynamoDB VPC endpoint",
+              "default": false
             }
           },
           "additionalProperties": false
@@ -311,14 +400,12 @@
       "properties": {
         "fieldLevelEncryptionMethod": {
           "type": "string",
-          "description": "Method for field-level encryption",
-          "enum": ["kms", "aes"],
-          "default": "aes"
+          "description": "Field-level encryption key. 'kms': Frigg creates or discovers a KMS key and sets KMS_KEY_ARN. 'aes': the app supplies AES_KEY_ID and AES_KEY (list both in `environment`). Omitted: no key is provisioned and deployed stages store sensitive fields unencrypted (core logs a warning). Stages dev, test and local never encrypt.",
+          "enum": ["kms", "aes"]
         },
         "createResourceIfNoneFound": {
           "type": "boolean",
-          "description": "Create KMS key if none found during discovery",
-          "default": false
+          "description": "With 'kms' outside managementMode 'managed': create a KMS key when discovery finds none. When omitted, KMS_KEY_ARN falls back to the AWS_DISCOVERY_KMS_KEY_ID environment variable."
         },
         "schema": {
           "type": "object",
@@ -355,6 +442,48 @@
               }
             }
           ]
+        },
+        "ownership": {
+          "type": "object",
+          "description": "Per-resource ownership. When set, createResourceIfNoneFound is not translated.",
+          "properties": {
+            "key": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "KMS key. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "kmsKeyAlias": {
+          "type": "boolean",
+          "description": "Create an alias for a KMS key Frigg creates",
+          "default": false
+        },
+        "keyAlias": {
+          "type": "string",
+          "description": "Only discover the KMS key with this alias",
+          "pattern": "^alias/",
+          "examples": ["alias/my-app-key"]
+        },
+        "disable": {
+          "type": "object",
+          "description": "Opt specific core-encrypted fields out of encryption: { Model: ['field.path'] }. Existing encrypted values still decrypt.",
+          "patternProperties": {
+            "^[A-Z][a-zA-Z0-9]*$": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "enable": {
+          "type": "boolean",
+          "description": "Encryption is controlled by fieldLevelEncryptionMethod. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
+          "deprecated": true
         }
       },
       "additionalProperties": false
@@ -365,24 +494,23 @@
       "properties": {
         "enable": {
           "type": "boolean",
-          "description": "Enable VPC for Lambda functions",
+          "description": "Run the Lambda functions in a VPC",
           "default": false
         },
         "management": {
           "type": "string",
-          "description": "How to manage VPC infrastructure",
-          "enum": ["discover", "create-new", "existing"],
-          "default": "discover"
+          "description": "How Frigg gets the VPC. 'discover' (also when omitted): find one (discovery fails if none exists). 'create-new': create VPC, security group and subnets in the stack. 'use-existing': use `vpcId` (and securityGroupIds / subnets.ids when given). Ignored when `ownership` is set.",
+          "enum": ["discover", "create-new", "use-existing"]
         },
         "vpcId": {
           "type": "string",
-          "description": "Existing VPC ID (when management='existing')",
+          "description": "Existing VPC ID (required when management='use-existing')",
           "pattern": "^vpc-[a-z0-9]+$",
           "examples": ["vpc-abc123"]
         },
         "cidrBlock": {
           "type": "string",
-          "description": "CIDR block for VPC (when management='create-new')",
+          "description": "CIDR block for a VPC Frigg creates",
           "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$",
           "default": "10.0.0.0/16"
         },
@@ -393,7 +521,9 @@
             "type": "string",
             "pattern": "^sg-[a-z0-9]+$"
           },
-          "examples": [["sg-abc123", "sg-def456"]]
+          "examples": [
+            ["sg-abc123", "sg-def456"]
+          ]
         },
         "subnets": {
           "type": "object",
@@ -401,19 +531,20 @@
           "properties": {
             "management": {
               "type": "string",
-              "description": "How to manage subnets",
-              "enum": ["discover", "create-new", "existing"],
-              "default": "discover"
+              "description": "'create': create the subnets in the stack. 'use-existing': use `ids` (at least 2). 'discover', 'create-new' and 'existing' are accepted for compatibility but have no effect (`frigg validate` warns).",
+              "enum": ["create", "use-existing", "discover", "create-new", "existing"]
             },
             "ids": {
               "type": "array",
-              "description": "Existing subnet IDs",
+              "description": "Existing subnet IDs (management='use-existing')",
               "items": {
                 "type": "string",
                 "pattern": "^subnet-[a-z0-9]+$"
               },
               "minItems": 2,
-              "examples": [["subnet-abc123", "subnet-def456"]]
+              "examples": [
+                ["subnet-abc123", "subnet-def456"]
+              ]
             }
           },
           "additionalProperties": false
@@ -424,13 +555,12 @@
           "properties": {
             "management": {
               "type": "string",
-              "description": "How to manage NAT Gateway",
-              "enum": ["discover", "create-new", "existing"],
-              "default": "discover"
+              "description": "'createAndManage': reuse a well-placed NAT gateway or create one. 'discover', 'create-new' and 'existing' are accepted for compatibility but have no effect (`frigg validate` warns). Set `id` to use an existing NAT gateway.",
+              "enum": ["createAndManage", "discover", "create-new", "existing"]
             },
             "id": {
               "type": "string",
-              "description": "Existing NAT Gateway ID",
+              "description": "Existing NAT Gateway ID (makes the NAT gateway external)",
               "pattern": "^nat-[a-z0-9]+$",
               "examples": ["nat-abc123"]
             }
@@ -439,13 +569,112 @@
         },
         "enableVPCEndpoints": {
           "type": "boolean",
-          "description": "Create VPC endpoints for AWS services (S3, DynamoDB, KMS, Secrets Manager)",
+          "description": "Create VPC endpoints for AWS services (S3, DynamoDB, KMS, Secrets Manager). Enabled unless false.",
           "default": true
         },
         "selfHeal": {
           "type": "boolean",
-          "description": "Automatically fix VPC configuration issues",
-          "default": false
+          "description": "Repair VPC configuration issues (route table associations) during discovery. When omitted, self-healing of stack-owned subnets is on."
+        },
+        "shareAcrossStages": {
+          "type": "boolean",
+          "description": "Legacy: true reuses (auto) the VPC and subnets across stages; false creates a VPC, subnets and NAT gateway per stage. Ignored when `ownership` is set."
+        },
+        "ownership": {
+          "type": "object",
+          "description": "Per-resource ownership. When set, management, subnets, natGateway, shareAcrossStages, enableVPCEndpoints and selfHeal are not translated; use `config` instead.",
+          "properties": {
+            "vpc": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "VPC. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+            },
+            "securityGroup": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "Lambda security group. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+            },
+            "subnets": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "Private subnets. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+            },
+            "natGateway": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "NAT gateway. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+            },
+            "vpcEndpoints": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "VPC endpoints. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "external": {
+          "type": "object",
+          "description": "Ids of externally owned resources (ownership 'external'); discovered ids are used when omitted",
+          "properties": {
+            "vpcId": {
+              "type": "string",
+              "pattern": "^vpc-[a-z0-9]+$"
+            },
+            "securityGroupIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^sg-[a-z0-9]+$"
+              }
+            },
+            "subnetIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^subnet-[a-z0-9]+$"
+              }
+            },
+            "natGatewayId": {
+              "type": "string",
+              "pattern": "^nat-[a-z0-9]+$"
+            },
+            "vpcEndpointIds": {
+              "type": "object",
+              "description": "Endpoint ids by type (s3, dynamodb, kms, secretsManager, sqs)",
+              "additionalProperties": {"type": "string"}
+            }
+          },
+          "additionalProperties": false
+        },
+        "config": {
+          "type": "object",
+          "description": "Settings for the ownership-based VPC configuration",
+          "properties": {
+            "cidrBlock": {
+              "type": "string",
+              "description": "CIDR block for a VPC Frigg creates (wins over vpc.cidrBlock)",
+              "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+            },
+            "selfHeal": {
+              "type": "boolean",
+              "description": "Recreate missing stack-owned subnets. Enabled unless false."
+            },
+            "natGateway": {
+              "type": "object",
+              "properties": {
+                "enable": {
+                  "type": "boolean",
+                  "description": "Resolve a NAT gateway. Enabled unless false."
+                }
+              },
+              "additionalProperties": false
+            },
+            "enableVpcEndpoints": {
+              "type": "boolean",
+              "description": "Create VPC endpoints. Enabled unless false."
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -490,9 +719,7 @@
                   "enum": ["standard", "advanced"],
                   "default": "standard"
                 },
-                "description": {
-                  "type": "string"
-                }
+                "description": {"type": "string"}
               }
             }
           },
@@ -503,15 +730,15 @@
     },
     "secretsManager": {
       "type": "object",
-      "description": "AWS Secrets Manager configuration",
+      "description": "AWS Secrets Manager configuration. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
       "properties": {
         "enable": {
           "type": "boolean",
-          "description": "Enable AWS Secrets Manager for secure credential storage",
-          "default": false
+          "description": "Enable AWS Secrets Manager for secure credential storage"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "deprecated": true
     },
     "lambda": {
       "type": "object",
@@ -520,6 +747,11 @@
         "scopedEnvironment": {
           "type": "boolean",
           "description": "Scope framework-generated environment variables (queue URLs, migration/scheduler vars) to the functions that consume them instead of broadcasting to every function. Reduces per-function env size against the Lambda 4KB limit",
+          "default": false
+        },
+        "keepNestedNodeModules": {
+          "type": "boolean",
+          "description": "Keep nested node_modules in function packages (nested Frigg, AWS SDK and Prisma packages are still excluded)",
           "default": false
         }
       },
@@ -536,15 +768,15 @@
         },
         "routeSelectionExpression": {
           "type": "string",
-          "description": "Route selection expression for WebSocket",
-          "default": "$request.body.action"
+          "description": "Route selection expression for WebSocket. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
+          "deprecated": true
         }
       },
       "additionalProperties": false
     },
     "security": {
       "type": "object",
-      "description": "Security settings for the application",
+      "description": "Security settings for the application. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
       "properties": {
         "cors": {
           "type": "object",
@@ -553,16 +785,17 @@
             "origin": {
               "oneOf": [
                 {"type": "string"},
-                {"type": "array", "items": {"type": "string"}},
+                {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
                 {"type": "boolean"}
               ],
-              "description": "Allowed origins for CORS requests",
-              "default": "http://localhost:3000"
+              "description": "Allowed origins for CORS requests"
             },
             "credentials": {
               "type": "boolean",
-              "description": "Allow credentials in CORS requests",
-              "default": true
+              "description": "Allow credentials in CORS requests"
             },
             "methods": {
               "type": "array",
@@ -587,24 +820,23 @@
             "windowMs": {
               "type": "integer",
               "description": "Time window in milliseconds",
-              "minimum": 1000,
-              "default": 900000
+              "minimum": 1000
             },
             "max": {
-              "type": "integer", 
+              "type": "integer",
               "description": "Maximum requests per window",
-              "minimum": 1,
-              "default": 100
+              "minimum": 1
             }
           },
           "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "deprecated": true
     },
     "webhooks": {
       "type": "object",
-      "description": "Webhook handling configuration",
+      "description": "Webhook handling configuration. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set. Webhooks are declared per integration (Definition.webhooks).",
       "properties": {
         "secret": {
           "type": "string",
@@ -613,11 +845,11 @@
         "prefix": {
           "type": "string",
           "description": "Webhook endpoint prefix",
-          "pattern": "^/[a-zA-Z0-9/_-]*$",
-          "default": "/webhooks"
+          "pattern": "^/[a-zA-Z0-9/_-]*$"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "deprecated": true
     },
     "logging": {
       "type": "object",
@@ -625,9 +857,8 @@
       "properties": {
         "level": {
           "type": "string",
-          "description": "Minimum log level, in lower or upper case. Sets FRIGG_LOG_LEVEL (when not info) and the Lambda application log level.",
-          "enum": ["trace", "debug", "info", "warn", "error", "fatal", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"],
-          "default": "info"
+          "description": "Minimum log level, in lower or upper case. Sets FRIGG_LOG_LEVEL (when not info) and the Lambda application log level. When omitted, core logs at info and no Lambda log level is set.",
+          "enum": ["trace", "debug", "info", "warn", "error", "fatal", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
         },
         "retentionInDays": {
           "type": "integer",
@@ -636,46 +867,225 @@
         },
         "format": {
           "type": "string",
-          "description": "Log format. Records are always JSON lines.",
-          "enum": ["json"],
-          "default": "json"
+          "description": "Log format. Records are always JSON lines; this key is informational and has no default.",
+          "enum": ["json"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "scheduler": {
+      "type": "object",
+      "description": "EventBridge Scheduler resources for one-time jobs. Also enabled automatically when an integration declares webhooks.",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Provision the scheduler role and dead-letter queue",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "aws": {
+      "type": "object",
+      "description": "AWS options for the build",
+      "properties": {
+        "discovery": {
+          "type": "object",
+          "description": "AWS resource discovery during build/deploy",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Force discovery on or off. When omitted, discovery runs when a feature needs it (VPC, KMS, SSM, PostgreSQL) and FRIGG_SKIP_AWS_DISCOVERY is not set."
+            },
+            "failOnError": {
+              "type": "boolean",
+              "description": "Fail the build when discovery fails",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "migration": {
+      "type": "object",
+      "description": "Database migration resources",
+      "properties": {
+        "ownership": {
+          "type": "object",
+          "properties": {
+            "bucket": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "Migration S3 bucket. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+            },
+            "queue": {
+              "type": "string",
+              "enum": ["stack", "external", "auto"],
+              "description": "Migration SQS queue. Who owns the resource: 'stack' (this stack creates it), 'external' (use the id in `external`), 'auto' (reuse what discovery finds, else create)"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "telemetry": {
+      "type": "object",
+      "description": "Telemetry and usage tracking (ADR-011). An invalid block disables telemetry at runtime instead of failing.",
+      "properties": {
+        "exporter": {
+          "type": "object",
+          "description": "Where traces and metrics go. When omitted: 'console' for STAGE=local, else 'none'.",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["none", "noop", "console", "otlp", "honeycomb", "datadog"]
+            },
+            "endpoint": {
+              "type": "string",
+              "description": "OTLP endpoint (honeycomb defaults to https://api.honeycomb.io)"
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {"type": "string"}
+            },
+            "apiKey": {
+              "type": "string",
+              "description": "Honeycomb API key (sent as x-honeycomb-team)"
+            },
+            "traceExporter": {
+              "description": "A pre-built OTel trace exporter instance (advanced)"
+            },
+            "metricExporter": {
+              "description": "A pre-built OTel metric exporter instance (advanced)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "sampleRatio": {
+          "type": "number",
+          "description": "Fraction of traces exported",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "northStar": {
+          "type": "object",
+          "description": "The usage counter that measures each integration type's value: { default: { name }, byType: { <type>: { name } } }",
+          "properties": {
+            "default": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name": {"type": "string"}
+              }
+            },
+            "byType": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {"type": "string"}
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "subscribers": {
+          "type": "array",
+          "description": "Telemetry event subscribers: functions or { handler } objects",
+          "items": {
+            "description": "A function or { handler }"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "admin": {
+      "type": "object",
+      "description": "Admin Script Runner options (ADR-005, ADR-010)",
+      "properties": {
+        "includeBuiltinReports": {
+          "type": "boolean",
+          "description": "Register Frigg's built-in reports",
+          "default": false
+        },
+        "enableScheduling": {
+          "type": "boolean",
+          "description": "Provision scheduling for admin scripts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "adminScripts": {
+      "type": "array",
+      "description": "Admin script classes (each with a static Definition). Validators see each class as { Definition }.",
+      "items": {
+        "type": "object",
+        "required": ["Definition"],
+        "properties": {
+          "Definition": {"type": "object"}
+        }
+      },
+      "default": []
+    },
+    "reports": {
+      "type": "array",
+      "description": "Report classes (each with a static Definition). Validators see each class as { Definition }.",
+      "items": {
+        "type": "object",
+        "required": ["Definition"],
+        "properties": {
+          "Definition": {"type": "object"}
+        }
+      },
+      "default": []
+    },
+    "deployment": {
+      "type": "object",
+      "description": "`frigg deploy` options",
+      "properties": {
+        "skipPostDeploymentHealthCheck": {
+          "type": "boolean",
+          "description": "Skip `frigg doctor` after a deploy",
+          "default": false
         }
       },
       "additionalProperties": false
     },
     "custom": {
       "type": "object",
-      "description": "Custom application-specific configuration",
+      "description": "Custom application-specific configuration. Not read by the Frigg runtime: it has no effect. Kept so existing definitions stay valid; `frigg validate` warns when it is set.",
       "properties": {
         "appName": {
           "type": "string",
-          "description": "Application display name",
-          "default": "My Frigg Application"
+          "description": "Application display name"
         },
         "version": {
           "type": "string",
           "description": "Application version",
-          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$",
-          "default": "1.0.0"
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$"
         },
         "environment": {
           "type": "string",
           "description": "Deployment environment/stage",
-          "enum": ["development", "staging", "production", "test"],
-          "default": "development"
+          "enum": ["development", "staging", "production", "test"]
         },
         "features": {
           "type": "object",
           "description": "Feature flags and toggles",
           "patternProperties": {
-            "^[a-zA-Z][a-zA-Z0-9_]*$": {
-              "type": "boolean"
-            }
+            "^[a-zA-Z][a-zA-Z0-9_]*$": {"type": "boolean"}
           },
           "additionalProperties": false
         }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "deprecated": true
     }
   },
   "additionalProperties": false,
@@ -689,12 +1099,15 @@
       },
       "integrations": [],
       "user": {
-        "password": true
+        "usePassword": true,
+        "primary": "individual",
+        "individualUserRequired": true,
+        "organizationUserRequired": false
       },
       "database": {
         "postgres": {
           "enable": true,
-          "management": "create-new"
+          "management": "managed"
         }
       },
       "encryption": {
@@ -707,18 +1120,8 @@
         "cidrBlock": "10.0.0.0/16",
         "enableVPCEndpoints": true
       },
-      "ssm": {
-        "enable": true
-      },
-      "websockets": {
-        "enable": true
-      },
-      "security": {
-        "cors": {
-          "origin": "http://localhost:3000",
-          "credentials": true
-        }
-      },
+      "ssm": {"enable": true},
+      "websockets": {"enable": true},
       "logging": {
         "level": "info",
         "retentionInDays": 30
