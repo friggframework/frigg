@@ -32,12 +32,13 @@ npx @friggframework/devtools init my-app --yes   # without a global install
    `infrastructure.js`, `README.md`, `.gitignore`, `.env.example` (also seeded into `.env`)
 3. Writes `package.json` with:
     - scripts: `start` (`frigg start`), `build` (`frigg build`), `deploy` (`frigg deploy`),
-      `db:setup` (`frigg db:setup`), `test` (`jest`)
+      `db:setup` (`frigg db:setup`), `test` (`jest --passWithNoTests`)
     - dependencies: `@friggframework/core`, `@prisma/client`, `prisma`
     - devDependencies: `@friggframework/devtools`, `@friggframework/serverless-plugin`,
       `osls`, and the serverless plugins the composed definition loads
     - Frigg package versions match the devtools that ran `init` (a prerelease is pinned exactly)
-4. Validates the generated app definition against the app-definition schema
+4. Validates the generated app definition against the app-definition schema (problems
+   are printed as warnings; `frigg start`, `build` and `deploy` do not validate)
 5. Optionally initializes git and runs `npm install`
 6. Prints next steps. API modules picked in the interactive prompt are not wired in
    automatically; the next steps list a `frigg install <module>` command for each
@@ -83,28 +84,36 @@ frigg install salesforce
 frigg install stripe
 ```
 
+Run it in the app directory (the one with `package.json` and `index.js`).
+
 **What it does:**
-- Searches the api-module-library for the specified integration
-- Installs the npm package (@friggframework/api-module-{name})
-- Adds integration to your app definition
-- Configures OAuth flows and webhooks if applicable
-- Creates integration-specific environment variable placeholders
+- Searches npm for `@friggframework/api-module-<name>` and lets you pick the
+  packages to install (with no terminal to prompt on, it takes the exact match)
+- Runs `npm install` in the app directory. An app on a Frigg 2.x prerelease
+  (what `frigg init` scaffolds today) gets the module's `@next` release, because
+  most modules' `latest` is still a 1.x release built for Frigg 1.x
+- Resolves the installed module from the app directory and writes
+  `src/integrations/<Label>Integration.js`: an `IntegrationBase` subclass whose
+  `Definition.modules` wraps the module (an existing file is kept)
+- Registers the class in your app definition: in `index.js` it adds the
+  `require` and the first entry of the `integrations` array. When it cannot do
+  that safely (no single `integrations: [...]` array literal, or the file does not
+  parse) it changes nothing and prints the two lines to add by hand. Older apps
+  with a `backend.js` are updated there instead
+- Commits the files it changed (`git commit -- <files>`, so nothing else you have
+  staged is included) when the app is in a git repository; otherwise leaves them
+  in the working tree
+- Lists the environment variables the module reads (from its `definition.js`)
+  that are not in `.env`, and offers to add them when run in a terminal
 
 **Options:**
-- None currently (could add `--version`, `--registry` in future)
+- None
 
-**Example Output:**
-```
-🔍 Finding integration module: hubspot
-✓ Found @friggframework/api-module-hubspot@2.0.5
-📦 Installing package...
-✓ Package installed successfully
-🔧 Configuring integration in app definition...
-✓ Integration configured
-⚙️  Next steps:
-   1. Set HUBSPOT_CLIENT_ID in your environment
-   2. Set HUBSPOT_CLIENT_SECRET in your environment
-   3. Run 'frigg start' to test locally
+**Example:**
+```bash
+cd my-app
+npx frigg install hubspot
+# -> src/integrations/HubSpotIntegration.js, listed in index.js's integrations
 ```
 
 ---
