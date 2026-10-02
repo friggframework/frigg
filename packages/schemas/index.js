@@ -13,6 +13,10 @@ const path = require('path');
 // Import middleware
 const schemaValidationMiddleware = require('./middleware/schema-validation');
 const {
+    applyAppDefinitionDefaults,
+    toAppDefinitionSchemaView,
+} = require('./app-definition');
+const {
     toApiModuleDefinitionSchemaView,
 } = require('./api-module-definition');
 
@@ -79,7 +83,13 @@ function validate(schemaName, data) {
  * @returns {object} - Validation result
  */
 function validateAppDefinition(appDefinition) {
-    return validate('app-definition', appDefinition);
+    // Apps list integration classes, which JSON Schema cannot describe:
+    // validate the serialisable view and return the original definition.
+    const result = validate(
+        'app-definition',
+        toAppDefinitionSchemaView(appDefinition)
+    );
+    return { ...result, data: appDefinition };
 }
 
 /**
@@ -366,6 +376,8 @@ module.exports = {
     // Validation functions
     validate,
     validateAppDefinition,
+    applyAppDefinitionDefaults,
+    toAppDefinitionSchemaView,
     toApiModuleDefinitionSchemaView,
     validateIntegrationDefinition,
     validateApiModuleDefinition,
