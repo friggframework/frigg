@@ -1,4 +1,7 @@
 const Boom = require('@hapi/boom');
+const { getLogger } = require('../../logs');
+
+const log = getLogger('frigg.user.authentication');
 
 /**
  * Use case for authenticating a user using multiple authentication strategies.
@@ -50,18 +53,18 @@ class AuthenticateUser {
         const authModes = this.userConfig.authModes || { friggToken: true };
         const appUserId = req.headers['x-frigg-appuserid'];
         const appOrgId = req.headers['x-frigg-apporgid'];
-        console.log(
-            '[Frigg] header list:',
-            JSON.stringify(Object.keys(req.headers))
-        );
+        log.debug('Request headers received', {
+            eventName: `${log.name}.headers_received`,
+            headerNames: Object.keys(req.headers),
+        });
 
         // Priority 1: Shared Secret (backend-to-backend with API key)
         if (authModes.sharedSecret !== false) {
             const apiKey = req.headers['x-frigg-api-key'];
             if (apiKey) {
-                console.log(
-                    '[Frigg] Attempting shared secret authentication with API key'
-                );
+                log.debug('Attempting shared secret authentication', {
+                    eventName: `${log.name}.shared_secret_attempted`,
+                });
                 // Validate the API key (authentication)
                 await this.authenticateWithSharedSecret.execute(apiKey);
                 // Get user from x-frigg headers (authorization)
@@ -70,9 +73,9 @@ class AuthenticateUser {
                     appOrgId
                 );
             }
-            console.log(
-                '[Frigg] No x-frigg-api-key header found, skipping shared secret authentication'
-            );
+            log.debug('No x-frigg-api-key header, skipping shared secret', {
+                eventName: `${log.name}.shared_secret_skipped`,
+            });
         }
 
         // Priority 2: Adopter JWT (if enabled)
@@ -80,7 +83,9 @@ class AuthenticateUser {
             authModes.adopterJwt === true &&
             req.headers.authorization?.startsWith('Bearer ')
         ) {
-            console.log('[Frigg] Attempting Adopter JWT authentication');
+            log.debug('Attempting adopter JWT authentication', {
+                eventName: `${log.name}.adopter_jwt_attempted`,
+            });
             const token = req.headers.authorization.split(' ')[1];
             // Detect JWT format (3 parts separated by dots)
             if (token && token.split('.').length === 3) {
@@ -95,7 +100,9 @@ class AuthenticateUser {
 
         // Priority 3: Frigg native token (default)
         if (authModes.friggToken !== false && req.headers.authorization) {
-            console.log('[Frigg] Attempting Frigg native token authentication');
+            log.debug('Attempting Frigg native token authentication', {
+                eventName: `${log.name}.frigg_token_attempted`,
+            });
             const user = await this.getUserFromBearerToken.execute(
                 req.headers.authorization
             );

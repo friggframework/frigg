@@ -1,5 +1,8 @@
 const { Module } = require('../module');
 const { ModuleConstants } = require('../ModuleConstants');
+const { getLogger } = require('../../logs');
+
+const log = getLogger('frigg.modules.authorization_callback');
 
 // Statuses considered "broken" for an integration whose credentials have just
 // been successfully re-authorized. Both ERROR (system-driven auth failure) and
@@ -28,10 +31,12 @@ class ProcessAuthorizationCallback {
     }
 
     async execute(userId, entityType, params) {
-        const hasCode = Boolean(params && params.code);
-        console.log(
-            `[Frigg] processAuthorizationCallback start userId=${userId} entityType=${entityType} hasCode=${hasCode}`
-        );
+        log.debug('Authorization callback started', {
+            eventName: `${log.name}.started`,
+            userId,
+            entityType,
+            hasCode: Boolean(params && params.code),
+        });
 
         const moduleDefinition = this.moduleDefinitions.find((def) => {
             return entityType === def.moduleName;
@@ -58,9 +63,11 @@ class ProcessAuthorizationCallback {
                 : null;
 
         if (existingEntity) {
-            console.log(
-                `[Frigg] processAuthorizationCallback found existing entity id=${existingEntity.id} credentialId=${existingEntity.credential?.id}`
-            );
+            log.debug('Existing entity found', {
+                eventName: `${log.name}.existing_entity_found`,
+                entityId: existingEntity.id,
+                credentialId: existingEntity.credential?.id,
+            });
         }
 
         const module = new Module({
@@ -70,18 +77,25 @@ class ProcessAuthorizationCallback {
         });
 
         const authType = module.apiClass.requesterType;
-        console.log(`[Frigg][OAuth] Module created: name=${module.getName()}, authType=${authType}`);
+        log.debug('Module created', {
+            eventName: `${log.name}.module_created`,
+            moduleName: module.getName(),
+            authType,
+        });
 
         let tokenResponse;
         if (authType === ModuleConstants.authType.oauth2) {
-            console.log(`[Frigg][OAuth] Exchanging authorization code for token...`);
+            log.debug('Exchanging authorization code for token', {
+                eventName: `${log.name}.token_exchanging`,
+            });
             tokenResponse = await moduleDefinition.requiredAuthMethods.getToken(
                 module.api,
                 params
             );
-            console.log(
-                `[Frigg] processAuthorizationCallback OAuth getToken complete userId=${userId} entityType=${entityType}`
-            );
+            log.debug('Token exchange completed', {
+                eventName: `${log.name}.token_exchanged`,
+                tokenKeys: Object.keys(tokenResponse || {}),
+            });
             // Belt-and-suspenders: persist tokens explicitly here rather than
             // relying solely on the DLGT_TOKEN_UPDATE notification chain
             // inside setTokens. The notification path remains in place but
@@ -90,29 +104,35 @@ class ProcessAuthorizationCallback {
             // OAuth flow appears to succeed.
             await this.onTokenUpdate(module, moduleDefinition, userId);
         } else {
-            console.log(`[Frigg][OAuth] Setting auth params (non-OAuth2)...`);
+            log.debug('Setting auth params', {
+                eventName: `${log.name}.auth_params_setting`,
+            });
             tokenResponse =
                 await moduleDefinition.requiredAuthMethods.setAuthParams(
                     module.api,
                     params
                 );
             await this.onTokenUpdate(module, moduleDefinition, userId);
-            console.log(`[Frigg][OAuth] Auth params set and credential persisted`);
         }
 
-        console.log(
-            `[Frigg] processAuthorizationCallback credential persisted credentialId=${module.credential?.id} authIsValid=${module.credential?.authIsValid}`
-        );
+        log.debug('Credential persisted', {
+            eventName: `${log.name}.credential_persisted`,
+            credentialId: module.credential?.id,
+            authIsValid: module.credential?.authIsValid,
+        });
 
-        console.log(`[Frigg][OAuth] Testing auth...`);
+        log.debug('Testing auth', { eventName: `${log.name}.auth_testing` });
         const authRes = await module.testAuth();
         if (!authRes) {
-            console.error(`[Frigg][OAuth] testAuth() returned false — authorization failed`);
             throw new Error('Authorization failed');
         }
-        console.log(`[Frigg][OAuth] Auth test passed`);
+        log.debug('Auth test passed', {
+            eventName: `${log.name}.auth_test_passed`,
+        });
 
-        console.log(`[Frigg][OAuth] Fetching entity details...`);
+        log.debug('Fetching entity details', {
+            eventName: `${log.name}.entity_details_fetching`,
+        });
         const entityDetails =
             await moduleDefinition.requiredAuthMethods.getEntityDetails(
                 module.api,
@@ -120,20 +140,29 @@ class ProcessAuthorizationCallback {
                 tokenResponse,
                 userId
             );
-        console.log(`[Frigg][OAuth] Entity details received: identifiers=${JSON.stringify(entityDetails.identifiers)}`);
+        log.debug('Entity details received', {
+            eventName: `${log.name}.entity_details_received`,
+            externalId: entityDetails.identifiers?.externalId,
+        });
 
         Object.assign(
             entityDetails.details,
             module.apiParamsFromEntity(module.api)
         );
 
-        console.log(`[Frigg][OAuth] Finding or creating entity...`);
+        log.debug('Finding or creating entity', {
+            eventName: `${log.name}.entity_resolving`,
+        });
         const persistedEntity = await this.findOrCreateEntity(
             entityDetails,
             entityType,
             module.credential.id
         );
-        console.log(`[Frigg][OAuth] Done — entity_id=${persistedEntity.id}, credential_id=${module.credential.id}`);
+        log.debug('Authorization callback completed', {
+            eventName: `${log.name}.completed`,
+            entityId: persistedEntity.id,
+            credentialId: module.credential.id,
+        });
 
         // Best-effort: a hiccup here must not fail a successful re-auth whose
         // credential + entity are already persisted. Operators can recover
@@ -142,14 +171,17 @@ class ProcessAuthorizationCallback {
             const restoredCount = await this.restoreIntegrationsForEntity(
                 persistedEntity.id
             );
-            console.log(
-                `[Frigg] processAuthorizationCallback restored ${restoredCount} integration(s) for entityId=${persistedEntity.id}`
-            );
+            log.debug('Integrations restored', {
+                eventName: `${log.name}.integrations_restored`,
+                entityId: persistedEntity.id,
+                restoredCount,
+            });
         } catch (err) {
-            console.error(
-                `[Frigg] Failed to restore integrations for entity ${persistedEntity.id} after successful re-auth — manual intervention may be needed`,
-                err
-            );
+            log.error('Failed to restore integrations after re-auth', {
+                eventName: `${log.name}.integrations_restore_failed`,
+                entityId: persistedEntity.id,
+                error: err,
+            });
         }
 
         return {
@@ -168,9 +200,12 @@ class ProcessAuthorizationCallback {
         let restored = 0;
         for (const integration of integrations) {
             if (STATUSES_RESET_ON_REAUTH.includes(integration.status)) {
-                console.log(
-                    `[Frigg] Restoring integration ${integration.id} from ${integration.status} to ENABLED after successful re-auth (entityId=${entityId})`
-                );
+                log.info('Integration restored to ENABLED after re-auth', {
+                    eventName: `${log.name}.integration_restored`,
+                    integrationId: integration.id,
+                    previousStatus: integration.status,
+                    entityId,
+                });
                 await this.integrationRepository.updateIntegrationStatus(
                     integration.id,
                     'ENABLED'
@@ -232,9 +267,12 @@ class ProcessAuthorizationCallback {
                 credentialId &&
                 String(existingCredentialId) !== String(credentialId)
             ) {
-                console.log(
-                    `[Frigg] Repointing entity ${existingEntity.id} credentialId ${existingCredentialId} -> ${credentialId} after re-auth`
-                );
+                log.info('Entity credential repointed after re-auth', {
+                    eventName: `${log.name}.entity_credential_repointed`,
+                    entityId: existingEntity.id,
+                    previousCredentialId: existingCredentialId,
+                    credentialId,
+                });
                 const updated = await this.moduleRepository.updateEntity(
                     existingEntity.id,
                     { credential: credentialId }
