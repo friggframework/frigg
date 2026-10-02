@@ -21,7 +21,9 @@ const SCHEDULER_SDK = '@aws-sdk/client-scheduler';
  * Requiring `@aws-sdk/client-scheduler` at module top level would put the AWS
  * SDK on the load path of every consumer of `@friggframework/core`, including
  * those using the mock scheduler or no scheduler at all. Loading it here, on
- * first use of the EventBridge adapter, keeps it out of the module-load path.
+ * construction of the EventBridge adapter, keeps it out of the module-load
+ * path. The adapter calls it exactly once, in its constructor, and keeps the
+ * classes its methods need on the instance.
  *
  * Only a MODULE_NOT_FOUND for the scheduler SDK itself is rewritten into an
  * actionable message; any other failure (including a missing transitive
@@ -55,7 +57,19 @@ function loadSchedulerSdk() {
 class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
     constructor({ region } = {}) {
         super();
-        const { SchedulerClient } = loadSchedulerSdk();
+        const {
+            SchedulerClient,
+            CreateScheduleCommand,
+            DeleteScheduleCommand,
+            GetScheduleCommand,
+            ResourceNotFoundException,
+        } = loadSchedulerSdk();
+        this.sdk = {
+            CreateScheduleCommand,
+            DeleteScheduleCommand,
+            GetScheduleCommand,
+            ResourceNotFoundException,
+        };
         this.client = new SchedulerClient({
             region: region || process.env.AWS_REGION || 'us-east-1',
         });
@@ -100,7 +114,7 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
             .toISOString()
             .replace(/\.\d{3}Z$/, '')})`;
 
-        const { CreateScheduleCommand } = loadSchedulerSdk();
+        const { CreateScheduleCommand } = this.sdk;
         const command = new CreateScheduleCommand({
             Name: scheduleName,
             GroupName: this.scheduleGroupName,
@@ -147,8 +161,7 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
             throw new Error('scheduleName is required');
         }
 
-        const { DeleteScheduleCommand, ResourceNotFoundException } =
-            loadSchedulerSdk();
+        const { DeleteScheduleCommand, ResourceNotFoundException } = this.sdk;
         const command = new DeleteScheduleCommand({
             Name: scheduleName,
             GroupName: this.scheduleGroupName,
@@ -183,8 +196,7 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
             throw new Error('scheduleName is required');
         }
 
-        const { GetScheduleCommand, ResourceNotFoundException } =
-            loadSchedulerSdk();
+        const { GetScheduleCommand, ResourceNotFoundException } = this.sdk;
         const command = new GetScheduleCommand({
             Name: scheduleName,
             GroupName: this.scheduleGroupName,

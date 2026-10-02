@@ -124,4 +124,71 @@ describe('EventBridge scheduler lazy AWS SDK loading', () => {
             expect(adapter.client).toBeInstanceOf(SchedulerClient);
         });
     });
+
+    it('loads the SDK once, in the constructor, and reuses it in every method', async () => {
+        class ResourceNotFoundException extends Error {}
+        const command = () =>
+            jest.fn(function (input) {
+                this.input = input;
+            });
+        const sdk = {
+            SchedulerClient: jest.fn(),
+            CreateScheduleCommand: command(),
+            DeleteScheduleCommand: command(),
+            GetScheduleCommand: command(),
+            ResourceNotFoundException,
+        };
+        // Count every read of an SDK export. Loading once in the constructor
+        // means each export is read at most once, however many methods run.
+        const reads = {};
+        const factory = jest.fn(
+            () =>
+                new Proxy(sdk, {
+                    get(target, prop) {
+                        reads[prop] = (reads[prop] || 0) + 1;
+                        return target[prop];
+                    },
+                })
+        );
+
+        let adapter;
+        jest.isolateModules(() => {
+            jest.doMock(SDK, factory, { virtual: true });
+            const {
+                EventBridgeSchedulerAdapter,
+            } = require('./eventbridge-scheduler-adapter');
+            adapter = new EventBridgeSchedulerAdapter({});
+        });
+
+        adapter.roleArn = 'arn:aws:iam::123456789012:role/test';
+        const send = jest
+            .fn()
+            .mockResolvedValueOnce({ ScheduleArn: 'arn:schedule' })
+            .mockRejectedValueOnce(new ResourceNotFoundException('gone'))
+            .mockRejectedValueOnce(new ResourceNotFoundException('gone'));
+        adapter.client = { send };
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+
+        const created = await adapter.scheduleOneTime({
+            scheduleName: 'job',
+            scheduleAt: new Date('2030-01-01T00:00:00Z'),
+            queueResourceId: 'arn:aws:sqs:us-east-1:123456789012:queue',
+            payload: { a: 1 },
+        });
+        const deleted = await adapter.deleteSchedule('job');
+        const status = await adapter.getScheduleStatus('job');
+        console.log.mockRestore();
+
+        expect(created.scheduledJobId).toBe('arn:schedule');
+        expect(deleted).toBeUndefined();
+        expect(status).toEqual({ exists: false });
+        expect(send.mock.calls[0][0]).toBeInstanceOf(sdk.CreateScheduleCommand);
+        expect(send.mock.calls[1][0]).toBeInstanceOf(sdk.DeleteScheduleCommand);
+        expect(send.mock.calls[2][0]).toBeInstanceOf(sdk.GetScheduleCommand);
+        expect(factory).toHaveBeenCalledTimes(1);
+        expect(Object.keys(reads).length).toBeGreaterThan(0);
+        for (const [name, count] of Object.entries(reads)) {
+            expect([name, count]).toEqual([name, 1]);
+        }
+    });
 });
