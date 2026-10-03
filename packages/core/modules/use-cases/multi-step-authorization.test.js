@@ -35,8 +35,10 @@ function setup() {
     const definitions = [otpModule(), singleStepModule];
     const sessions = new InMemoryAuthorizationSessionRepository();
     const createModule = jest.fn(() => ({
-        api: { kind: 'api' },
-        getAuthorizationRequirements: () => ({ type: 'oauth2', url: 'https://provider.example/auth' }),
+        api: {
+            kind: 'api',
+            getAuthorizationRequirements: () => ({ type: 'oauth2', url: 'https://provider.example/auth' }),
+        },
     }));
     const getAuthorizationRequirements = new GetAuthorizationRequirements({
         moduleDefinitions: definitions,
@@ -110,7 +112,7 @@ describe('multi-step authorization', () => {
             email: 'a@example.com', token: 'issued',
         });
         expect(t.otp.processAuthorizationStep).toHaveBeenLastCalledWith(
-            { kind: 'api' }, 2, { otp: '123456' }, { email: 'a@example.com' }
+            expect.objectContaining({ kind: 'api' }), 2, { otp: '123456' }, { email: 'a@example.com' }
         );
         // The collected data is gone once the credential exists.
         expect(t.sessions.rows.size).toBe(0);

@@ -16,10 +16,12 @@ const multiStepDefinition = {
 
 function build() {
     const createModule = jest.fn(() => ({
-        getAuthorizationRequirements: () => ({
-            type: 'oauth2',
-            url: 'https://provider.example/authorize?state=s1',
-        }),
+        api: {
+            getAuthorizationRequirements: () => ({
+                type: 'oauth2',
+                url: 'https://provider.example/authorize?state=s1',
+            }),
+        },
     }));
     return {
         useCase: new GetAuthorizationRequirements({
@@ -78,6 +80,37 @@ describe('GetAuthorizationRequirements', () => {
         const { useCase } = build();
         await expect(useCase.execute({ entityType: 'nope' })).rejects.toMatchObject({
             output: { statusCode: 404 },
+        });
+    });
+
+    it('prefers requiredAuthMethods.getAuthorizationRequirements(api) (form-based API-key modules)', async () => {
+        const formModule = {
+            moduleName: 'formy',
+            requiredAuthMethods: {
+                getAuthorizationRequirements: jest.fn((api) => ({
+                    type: 'api-key',
+                    data: { jsonSchema: { type: 'object' }, apiSeen: Boolean(api) },
+                })),
+            },
+        };
+        const useCase = new GetAuthorizationRequirements({
+            moduleDefinitions: [formModule],
+            createModule: () => ({ api: {} }),
+        });
+        expect(await useCase.execute({ entityType: 'formy' })).toMatchObject({
+            type: 'api-key',
+            data: { jsonSchema: { type: 'object' }, apiSeen: true },
+        });
+    });
+
+    it('answers 501 when a module declares no requirements at all', async () => {
+        const useCase = new GetAuthorizationRequirements({
+            moduleDefinitions: [{ moduleName: 'bare' }],
+            createModule: () => ({ api: {} }),
+        });
+        await expect(useCase.execute({ entityType: 'bare' })).rejects.toMatchObject({
+            output: { statusCode: 501 },
+            data: { code: 'REQUIREMENTS_NOT_DECLARED' },
         });
     });
 

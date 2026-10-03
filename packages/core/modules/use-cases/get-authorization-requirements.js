@@ -22,6 +22,24 @@ function normalizeRequirements(raw) {
 }
 
 /**
+ * Single-step requirements, from wherever the module declares them: a
+ * requiredAuthMethods.getAuthorizationRequirements(api) (the form-based
+ * API-key convention `frigg auth` uses), or the Api's own
+ * getAuthorizationRequirements() (OAuth2Requester builds the authorize URL).
+ */
+async function singleStepRequirements(definition, module) {
+    const declared = definition.requiredAuthMethods?.getAuthorizationRequirements;
+    if (typeof declared === 'function') return declared(module.api);
+    if (typeof module.api?.getAuthorizationRequirements === 'function') {
+        return module.api.getAuthorizationRequirements();
+    }
+    throw Boom.notImplemented(
+        `Module ${definition.moduleName} declares no authorization requirements (add requiredAuthMethods.getAuthorizationRequirements)`,
+        { code: 'REQUIREMENTS_NOT_DECLARED', expose: true }
+    );
+}
+
+/**
  * What the caller must submit for one authorization step of an entity type
  * (Management API v2). Single-step modules use their Api's
  * getAuthorizationRequirements(); multi-step modules declare
@@ -67,7 +85,7 @@ class GetAuthorizationRequirements {
                 definition,
                 ...(state ? { state } : {}),
             });
-            raw = await module.getAuthorizationRequirements();
+            raw = await singleStepRequirements(definition, module);
         }
 
         return {
