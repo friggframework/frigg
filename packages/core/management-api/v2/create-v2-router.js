@@ -8,6 +8,7 @@ const { createIntegrationHandlers } = require('./handlers/integrations');
 const { createEntityHandlers } = require('./handlers/entities');
 const { createCredentialHandlers } = require('./handlers/credentials');
 const { createAuthorizationHandlers } = require('./handlers/authorization');
+const { createProxyHandlers } = require('./handlers/proxy');
 
 /** Every v2 handler, keyed by the registry's operationId. */
 function createV2Handlers(dependencies) {
@@ -16,6 +17,9 @@ function createV2Handlers(dependencies) {
         ...createEntityHandlers(dependencies),
         ...createCredentialHandlers(dependencies),
         ...createAuthorizationHandlers(dependencies),
+        ...(dependencies.executeEntityProxyRequest
+            ? createProxyHandlers(dependencies)
+            : {}),
     };
 }
 

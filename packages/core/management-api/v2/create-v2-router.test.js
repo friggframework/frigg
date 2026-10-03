@@ -257,6 +257,58 @@ describe('Management API v2 router: integrations and entities', () => {
         });
     });
 
+    describe('entity proxy', () => {
+        it('is not mounted unless the app enables it', async () => {
+            const res = await request(app, {
+                method: 'POST', path: '/api/v2/entities/e1/proxy', headers: AUTH, body: { method: 'GET', path: '/x' },
+            });
+            expect(res.status).toBe(404);
+            expect(deps.executeEntityProxyRequest.execute).not.toHaveBeenCalled();
+        });
+
+        describe('when enabled', () => {
+            let proxyApp;
+            beforeEach(() => {
+                deps.config = { v1: true, proxy: { enable: true } };
+                proxyApp = appWith(deps);
+            });
+
+            it('answers with the upstream status and body', async () => {
+                const res = await request(proxyApp, {
+                    method: 'POST', path: '/api/v2/entities/e1/proxy', headers: AUTH,
+                    body: { method: 'POST', path: '/contacts', body: { name: 'Ada' } },
+                });
+                expect(res.status).toBe(201);
+                expect(res.body).toEqual({ success: true, status: 201, headers: {}, data: { id: 'new' } });
+                expect(deps.executeEntityProxyRequest.execute).toHaveBeenCalledWith('e1', deps.user, {
+                    method: 'POST', path: '/contacts', body: { name: 'Ada' },
+                });
+            });
+
+            it('answers proxy errors in the proxy error shape with Retry-After', async () => {
+                const res = await request(proxyApp, {
+                    method: 'POST', path: '/api/v2/entities/e1/proxy', headers: AUTH, body: { method: 'GET', path: '/limited' },
+                });
+                expect(res.status).toBe(429);
+                expect(res.headers['retry-after']).toBe('30');
+                expect(res.body).toEqual({
+                    success: false,
+                    status: 429,
+                    error: {
+                        code: 'RATE_LIMITED',
+                        message: 'The upstream API is rate limiting this account',
+                        details: { upstreamStatus: 429 },
+                    },
+                });
+            });
+
+            it('still requires authentication', async () => {
+                const res = await request(proxyApp, { method: 'POST', path: '/api/v2/entities/e1/proxy', body: {} });
+                expect(res.status).toBe(401);
+            });
+        });
+    });
+
     it('404s an unknown v2 path and method in the v2 shape', async () => {
         const res = await request(app, { method: 'PUT', path: '/api/v2/entities/e1', headers: AUTH });
         expect(res.status).toBe(404);

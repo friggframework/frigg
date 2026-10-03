@@ -59,6 +59,9 @@ function buildV2Dependencies({ appDefinition, config }) {
         ProcessAuthorizationCallback,
     } = require('../../modules/use-cases/process-authorization-callback');
     const {
+        ExecuteEntityProxyRequest,
+    } = require('../../modules/use-cases/execute-entity-proxy-request');
+    const {
         createAuthorizationSessionRepository,
     } = require('../../modules/repositories/authorization-session-repository-factory');
     const {
@@ -224,6 +227,14 @@ function buildV2Dependencies({ appDefinition, config }) {
         // Authorization (multi-step)
         getAuthorizationStep,
         submitAuthorizationStep,
+
+        // Entity proxy (ADR-052): only built when the app enables it.
+        ...(config.proxy.enable && {
+            executeEntityProxyRequest: new ExecuteEntityProxyRequest({
+                getEntityModuleForUser,
+                proxyConfig: config.proxy,
+            }),
+        }),
     };
 }
 

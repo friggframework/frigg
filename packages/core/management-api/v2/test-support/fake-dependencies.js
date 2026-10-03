@@ -88,6 +88,14 @@ function fakeV2Dependencies(overrides = {}) {
             credential: { id: 'c2', userId: 'user-1', type: 'acme', entityIds: ['e1'], authIsValid: true },
             previousCredentialId: 'c1',
         })),
+        executeEntityProxyRequest: fn(async (entityId, _user, request) => {
+            if (request?.path === '/limited') {
+                throw Boom.tooManyRequests('The upstream API is rate limiting this account', {
+                    code: 'RATE_LIMITED', proxy: true, expose: true, retryAfter: '30', details: { upstreamStatus: 429 },
+                });
+            }
+            return { status: 201, body: { success: true, status: 201, headers: {}, data: { id: 'new' } } };
+        }),
         ...overrides,
     };
 }
