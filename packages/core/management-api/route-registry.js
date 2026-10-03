@@ -123,7 +123,7 @@ const V2_ROUTES = Object.freeze(
         { operationId: 'getIntegrationConfigOptions', method: 'GET', path: '/api/v2/integrations/:integrationId/config/options', tag: 'Integrations' },
         { operationId: 'refreshIntegrationConfigOptions', method: 'POST', path: '/api/v2/integrations/:integrationId/config/options/refresh', tag: 'Integrations' },
         { operationId: 'listIntegrationActions', method: 'GET', path: '/api/v2/integrations/:integrationId/actions', tag: 'Integrations' },
-        { operationId: 'getIntegrationActionOptions', method: 'GET', path: '/api/v2/integrations/:integrationId/actions/:actionId/options', tag: 'Integrations' },
+        { operationId: 'getIntegrationActionOptions', method: 'POST', path: '/api/v2/integrations/:integrationId/actions/:actionId/options', tag: 'Integrations' },
         { operationId: 'refreshIntegrationActionOptions', method: 'POST', path: '/api/v2/integrations/:integrationId/actions/:actionId/options/refresh', tag: 'Integrations' },
         { operationId: 'runIntegrationAction', method: 'POST', path: '/api/v2/integrations/:integrationId/actions/:actionId', tag: 'Integrations' },
         { operationId: 'testIntegrationAuth', method: 'GET', path: '/api/v2/integrations/:integrationId/test-auth', tag: 'Integrations' },
