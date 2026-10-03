@@ -286,6 +286,11 @@ function createBaseDefinition(
                 ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
                 skipEsbuild: true,  // Handlers in node_modules don't need bundling
                 package: skipEsbuildPackageConfig,
+                // Every path prefix the core integration router
+                // (createIntegrationRouter) registers must be routed here;
+                // HTTP API has no implicit catch-all, so an unlisted prefix
+                // 404s at the gateway before Express sees it. Guarded by
+                // __tests__/management-api-gateway-routes.test.js.
                 events: [
                     { httpApi: { path: '/api/integrations', method: 'ANY' } },
                     {
@@ -295,6 +300,20 @@ function createBaseDefinition(
                         },
                     },
                     { httpApi: { path: '/api/authorize', method: 'ANY' } },
+                    { httpApi: { path: '/api/entity', method: 'ANY' } },
+                    {
+                        httpApi: {
+                            path: '/api/entity/{proxy+}',
+                            method: 'ANY',
+                        },
+                    },
+                    { httpApi: { path: '/api/entities', method: 'ANY' } },
+                    {
+                        httpApi: {
+                            path: '/api/entities/{proxy+}',
+                            method: 'ANY',
+                        },
+                    },
                 ],
             },
             user: {
