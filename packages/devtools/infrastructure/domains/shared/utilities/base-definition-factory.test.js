@@ -94,7 +94,19 @@ describe('Base Definition Factory', () => {
 
             expect(result.functions.auth.handler).toBe('node_modules/@friggframework/core/handlers/routers/auth.handler');
             expect(result.functions.auth.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
-            expect(result.functions.auth.events).toHaveLength(3);
+            expect(
+                result.functions.auth.events.map(
+                    (e) => `${e.httpApi.method} ${e.httpApi.path}`
+                )
+            ).toEqual([
+                'ANY /api/integrations',
+                'ANY /api/integrations/{proxy+}',
+                'ANY /api/authorize',
+                'ANY /api/entity',
+                'ANY /api/entity/{proxy+}',
+                'ANY /api/entities',
+                'ANY /api/entities/{proxy+}',
+            ]);
         });
 
         it('should NOT include legacy dbMigrate function', () => {
