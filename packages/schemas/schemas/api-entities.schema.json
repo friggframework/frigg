@@ -51,7 +51,7 @@
     },
     "listEntitiesResponse": {
       "type": "object",
-      "description": "Response from GET /api/entities",
+      "description": "Response from GET /api/v2/entities",
       "required": ["entities"],
       "properties": {
         "entities": {
@@ -65,7 +65,7 @@
     },
     "createEntityRequest": {
       "type": "object",
-      "description": "Request to POST /api/entities",
+      "description": "Request to POST /api/entities (v1 POST /api/entity). Not served by v2: POST /api/v2/authorize creates the entity.",
       "required": ["entityType", "data"],
       "properties": {
         "entityType": {
@@ -88,7 +88,7 @@
     },
     "createEntityResponse": {
       "type": "object",
-      "description": "Response from POST /api/entities",
+      "description": "Response from POST /api/entities (v1 POST /api/entity). Not served by v2.",
       "required": ["entity_id", "credential_id", "type"],
       "properties": {
         "entity_id": {
@@ -147,7 +147,7 @@
     },
     "listEntityTypesResponse": {
       "type": "object",
-      "description": "Response from GET /api/entities/types",
+      "description": "Response from GET /api/v2/entities/types",
       "required": ["types"],
       "properties": {
         "types": {
@@ -161,7 +161,7 @@
     },
     "getEntityTypeResponse": {
       "type": "object",
-      "description": "Response from GET /api/entities/types/:typeName",
+      "description": "Response from GET /api/v2/entities/types/:entityType",
       "required": ["type", "name"],
       "properties": {
         "type": {
@@ -201,7 +201,7 @@
     },
     "reauthorizeEntityRequest": {
       "type": "object",
-      "description": "Request to POST /api/entities/:id/reauthorize",
+      "description": "Request to re-authorize an entity. Not served in 2.0.1: use POST /api/v2/credentials/:credentialId/reauthorize.",
       "required": ["data"],
       "properties": {
         "data": {
@@ -223,7 +223,7 @@
     },
     "reauthorizeEntityResponse": {
       "type": "object",
-      "description": "Response from POST /api/entities/:id/reauthorize (success or next step)",
+      "description": "Entity re-authorization result. Not served in 2.0.1: POST /api/v2/credentials/:credentialId/reauthorize answers api-authorization#/definitions/authorizeV2Response.",
       "oneOf": [
         {
           "$ref": "#/definitions/reauthorizeEntitySuccess"

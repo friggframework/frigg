@@ -111,6 +111,29 @@ describe('Health Check Endpoints', () => {
         it('should allow access to /health without authentication', async () => {
             expect(true).toBe(true);
         });
+
+        it('serves GET /api/meta without the health API key (ADR-053)', async () => {
+            const express = require('express');
+            const { request } = require('../../management-api/test-support/http-client');
+            const app = express().use(router);
+
+            const res = await request(app, { path: '/api/meta' });
+
+            expect(res.status).toBe(200);
+            expect(res.body.api.preferred).toBe('2');
+        });
+
+        it('still requires the health API key for /health/detailed', async () => {
+            const express = require('express');
+            const { request } = require('../../management-api/test-support/http-client');
+            const app = express().use(router);
+            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+            const res = await request(app, { path: '/health/detailed' });
+
+            expect(res.status).toBe(401);
+            errorSpy.mockRestore();
+        });
     });
 
     describe('GET /health', () => {

@@ -202,6 +202,24 @@ class MyIntegration extends IntegrationBase {
 }
 ```
 
+### Management API (versioned, ADR-053)
+
+The HTTP API every deployed app serves. One route registry
+(`packages/core/management-api/route-registry.js`) drives the Express routers,
+the OpenAPI documents and the API Gateway routes devtools generates.
+
+- **v2**: `/api/v2/{integrations,entities,credentials,authorize}` (auth Lambda). Handlers in
+  `management-api/v2/` call use cases only; errors are `{ error: { code, message, details? } }`;
+  responses carry `Frigg-API-Version: 2`. The entity proxy
+  (`POST /api/v2/entities/:id/proxy`, ADR-052) is beta and off unless `managementApi.proxy.enable`.
+- **v1**: the unprefixed `/api/*` routes in `integrations/integration-router.js`. Frozen and
+  deprecated (`Deprecation` + `Link` headers); `managementApi.v1: false` turns them off (410).
+- **Discovery**: `GET /api/meta` and `/api/meta/openapi/v{n}.json` on the DB-free health Lambda.
+- `/api/v2/reports` belongs to the admin-scripts Lambda (ADR-010); the registry reserves the
+  `reports` segment. Never declare `ANY /api/v2/{proxy+}`.
+- Adding a route: add it to the registry, a handler keyed by its `operationId`, and its
+  OpenAPI docs; `management-api/contract.test.js` and the devtools gateway test enforce the rest.
+
 ### Encryption & Security
 
 - **Field-Level Encryption**: Transparent database-agnostic encryption via Prisma Client Extensions
