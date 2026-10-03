@@ -74,6 +74,7 @@ Combining them into one ADR or one runtime mechanism mixes those concerns. Split
 - [CORE-EXTENSIONS](./017-core-extensions.md), [INTEGRATION-EXTENSIONS](./018-integration-extensions.md), [API-MODULE-EXTENSIONS](./019-api-module-extensions.md): the three extension types
 - [INTEGRATION-TEMPLATES](./023-integration-templates.md), [ARTIFACTS](./022-artifacts.md): adjacent siblings
 - [CAPABILITIES](./020-capabilities.md): capabilities can be `implementedBy` an extension of any of the three types
+- [ADR-054: One-File Integrations via Module Extensions](./054-one-file-integrations.md): amends this ADR. API Module Extensions and Integration Extensions share one runtime contract (contract 2); `webhooks: true` stays as the per-account shortcut (open question 3).
 
 ## Open questions
 
