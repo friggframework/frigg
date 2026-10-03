@@ -46,6 +46,7 @@ function buildV2Dependencies({ appDefinition, config }) {
     } = require('../../modules/use-cases/get-entity-module-for-user');
     const entityOps = require('../../modules/use-cases/entity-operations-for-user');
     const { ListEntityTypes, GetEntityType } = require('../../modules/use-cases/entity-types');
+    const credentialOps = require('../../credential/use-cases/credential-operations-for-user');
     const {
         GetAuthorizationRequirements,
     } = require('../../modules/use-cases/get-authorization-requirements');
@@ -77,6 +78,10 @@ function buildV2Dependencies({ appDefinition, config }) {
     const getEntityModuleForUser = new GetEntityModuleForUser({
         moduleRepository,
         moduleDefinitions,
+    });
+    const getCredentialForUser = new credentialOps.GetCredentialForUserV2({
+        credentialRepository,
+        moduleRepository,
     });
     const getOwnedIntegrationRecord = new integrationOps.GetOwnedIntegrationRecord({
         integrationRepository,
@@ -158,6 +163,18 @@ function buildV2Dependencies({ appDefinition, config }) {
         listEntityTypes: new ListEntityTypes({ moduleDefinitions }),
         getEntityType: new GetEntityType({ moduleDefinitions }),
         getAuthorizationRequirements: new GetAuthorizationRequirements({ moduleDefinitions }),
+
+        // Credentials
+        listCredentialsForUser: new credentialOps.ListCredentialsForUser({
+            credentialRepository,
+            moduleRepository,
+        }),
+        getCredentialForUser,
+        deleteCredentialForUser: new credentialOps.DeleteCredentialForUser({
+            credentialRepository,
+            moduleRepository,
+            getCredentialForUser,
+        }),
     };
 }
 

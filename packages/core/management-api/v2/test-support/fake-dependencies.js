@@ -60,6 +60,14 @@ function fakeV2Dependencies(overrides = {}) {
         getAuthorizationRequirements: fn(async ({ step }) => ({
             type: 'oauth2', data: { url: 'https://provider.example/authorize' }, step, totalSteps: 1, isMultiStep: false,
         })),
+        listCredentialsForUser: fn(async () => [
+            { id: 'c1', userId: 'user-1', type: 'acme', entityIds: ['e1'], authIsValid: true, access_token: 'ya29.secret-token-value-1234' },
+        ]),
+        getCredentialForUser: fn(async (id) => {
+            if (id !== 'c1') return notFound('CREDENTIAL_NOT_FOUND')();
+            return { id: 'c1', userId: 'user-1', type: 'acme', entityIds: ['e1'], authIsValid: true, api_key: 'sk_live_abcdefghijkl9876' };
+        }),
+        deleteCredentialForUser: fn(async () => ({ id: 'c1', entityIds: ['e1'] })),
         ...overrides,
     };
 }

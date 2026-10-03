@@ -6,12 +6,14 @@ const { listV2Routes } = require('../route-registry');
 const { resolveManagementApiConfig } = require('../management-api-config');
 const { createIntegrationHandlers } = require('./handlers/integrations');
 const { createEntityHandlers } = require('./handlers/entities');
+const { createCredentialHandlers } = require('./handlers/credentials');
 
 /** Every v2 handler, keyed by the registry's operationId. */
 function createV2Handlers(dependencies) {
     return {
         ...createIntegrationHandlers(dependencies),
         ...createEntityHandlers(dependencies),
+        ...createCredentialHandlers(dependencies),
     };
 }
 

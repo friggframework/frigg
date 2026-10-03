@@ -171,6 +171,31 @@ describe('Management API v2 router: integrations and entities', () => {
         });
     });
 
+    describe('credentials', () => {
+        it('lists credentials with secrets masked', async () => {
+            const res = await request(app, { path: '/api/v2/credentials', headers: AUTH });
+            expect(res.status).toBe(200);
+            expect(res.body.credentials[0]).toMatchObject({
+                id: 'c1', type: 'acme', entityCount: 1, data: { access_token: '****1234' },
+            });
+            expect(JSON.stringify(res.body)).not.toContain('secret-token');
+        });
+
+        it('gets one masked credential or 404s', async () => {
+            const res = await request(app, { path: '/api/v2/credentials/c1', headers: AUTH });
+            expect(res.body.data).toEqual({ api_key: '****9876' });
+            const missing = await request(app, { path: '/api/v2/credentials/c9', headers: AUTH });
+            expect(missing.status).toBe(404);
+            expect(missing.body.error.code).toBe('CREDENTIAL_NOT_FOUND');
+        });
+
+        it('deletes with 204', async () => {
+            const res = await request(app, { method: 'DELETE', path: '/api/v2/credentials/c1', headers: AUTH });
+            expect(res.status).toBe(204);
+            expect(deps.deleteCredentialForUser.execute).toHaveBeenCalledWith('c1', deps.user);
+        });
+    });
+
     it('404s an unknown v2 path and method in the v2 shape', async () => {
         const res = await request(app, { method: 'PUT', path: '/api/v2/entities/e1', headers: AUTH });
         expect(res.status).toBe(404);
