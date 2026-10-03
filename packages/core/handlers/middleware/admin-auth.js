@@ -30,6 +30,19 @@ function secretsMatch(provided, expected) {
 }
 
 /**
+ * True when `provided` matches the configured ADMIN_API_KEY. False when no
+ * key is configured or none was provided. For callers that change a response
+ * for admins rather than reject everyone else (GET /api/meta).
+ * @param {string|undefined} provided
+ * @returns {boolean}
+ */
+function isValidAdminApiKey(provided) {
+    const expectedKey = process.env.ADMIN_API_KEY;
+    if (!expectedKey || !provided) return false;
+    return secretsMatch(provided, expectedKey);
+}
+
+/**
  * Validate admin API key from request header
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -70,4 +83,4 @@ function validateAdminApiKey(req, res, next) {
     next();
 }
 
-module.exports = { validateAdminApiKey };
+module.exports = { validateAdminApiKey, isValidAdminApiKey };

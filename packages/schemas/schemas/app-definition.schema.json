@@ -643,6 +643,101 @@
       },
       "additionalProperties": false
     },
+    "managementApi": {
+      "type": "object",
+      "description": "Management API settings (ADR-053 versioning, ADR-052 entity proxy).",
+      "properties": {
+        "v1": {
+          "type": "boolean",
+          "default": true,
+          "description": "Serve the deprecated v1 routes (unprefixed /api/*). false removes them from the router and from the generated API Gateway routes."
+        },
+        "proxy": {
+          "type": "object",
+          "description": "Entity proxy, POST /api/v2/entities/:id/proxy (ADR-052). Off by default.",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": false,
+              "description": "Mount the entity proxy route and advertise the entityProxy capability."
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25000,
+              "default": 25000,
+              "description": "Upstream timeout for one proxied call, in milliseconds (can only be lowered)."
+            },
+            "maxRequestBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10485760,
+              "default": 1048576,
+              "description": "Largest proxied request body, in bytes."
+            },
+            "maxResponseBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5242880,
+              "default": 5242880,
+              "description": "Largest proxied response body, in bytes (can only be lowered)."
+            },
+            "modules": {
+              "type": "object",
+              "description": "Per-module allow-list override, keyed by module name. 'module' uses the module's own proxy.allow list.",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "allow": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "module"
+                        ]
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "method",
+                            "path"
+                          ],
+                          "properties": {
+                            "method": {
+                              "type": "string",
+                              "enum": [
+                                "GET",
+                                "POST",
+                                "PUT",
+                                "PATCH",
+                                "DELETE",
+                                "*"
+                              ],
+                              "description": "HTTP method, or * for any (app definition only; frigg validate warns)"
+                            },
+                            "path": {
+                              "type": "string",
+                              "pattern": "^/",
+                              "description": "Path pattern relative to the module's base URL. `:param` matches one segment; a trailing `/**` matches a subtree."
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "custom": {
       "type": "object",
       "description": "Custom application-specific configuration",

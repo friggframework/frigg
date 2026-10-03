@@ -33,7 +33,7 @@ function registerCredentialLogKeys(appDefinition, integrations) {
  * @function loadAppDefinition
  * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
  * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null}} An object containing the application definition.
+ * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null, managementApi: object}} An object containing the application definition.
  * @throws {Error} Throws error if backend package.json cannot be found.
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
  * @example
@@ -62,6 +62,7 @@ function loadAppDefinition() {
         reports = [],
         admin = {},
         logging = null,
+        managementApi = {},
     } = appDefinition;
 
     registerCredentialLogKeys(appDefinition, integrations);
@@ -95,6 +96,7 @@ function loadAppDefinition() {
         admin,
         telemetry,
         logging,
+        managementApi,
     };
 }
 
