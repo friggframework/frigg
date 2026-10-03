@@ -48,6 +48,8 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [031](./031-concurrent-oauth-credential-refresh.md) | Concurrent OAuth Credential Refresh Across Lambda Invocations | Proposed | 2026-08-11 |
 | [042](./042-in-process-single-flight-token-refresh.md) | In-Process Single-Flight Token Refresh | Proposed | 2026-09-04 |
 | [048](./048-structured-logging.md) | Structured Logging | Proposed | 2026-09-23 |
+| [052](./052-entity-proxy-security.md) | Entity Proxy Security | Accepted | 2026-10-03 |
+| [053](./053-management-api-versioning.md) | Management API Versioning | Accepted | 2026-10-03 |
 
 ## Conventions
 
