@@ -196,6 +196,67 @@ describe('Management API v2 router: integrations and entities', () => {
         });
     });
 
+    describe('multi-step authorize', () => {
+        it('returns the first step with a session', async () => {
+            const res = await request(app, { path: '/api/v2/authorize?entityType=acme&state=abc', headers: AUTH });
+            expect(res.body).toMatchObject({ step: 1, sessionId: 'sess-1' });
+            expect(deps.getAuthorizationStep.execute).toHaveBeenCalledWith({
+                user: deps.user, entityType: 'acme', step: 1, sessionId: undefined, state: 'abc',
+            });
+        });
+
+        it('requires entityType', async () => {
+            const res = await request(app, { path: '/api/v2/authorize', headers: AUTH });
+            expect(res.status).toBe(400);
+            expect(res.body.error).toMatchObject({ code: 'VALIDATION_ERROR', details: { missing: ['entityType'] } });
+        });
+
+        it('answers pending, then complete with masked records', async () => {
+            const pending = await request(app, {
+                method: 'POST', path: '/api/v2/authorize', headers: AUTH,
+                body: { entityType: 'acme', data: { email: 'a@example.com' } },
+            });
+            expect(pending.body).toEqual({
+                status: 'pending', step: 2, totalSteps: 2, sessionId: 'sess-1', requirements: { type: 'otp' },
+            });
+
+            const complete = await request(app, {
+                method: 'POST', path: '/api/v2/authorize', headers: AUTH,
+                body: { entityType: 'acme', data: { otp: '1' }, step: 2, sessionId: 'sess-1' },
+            });
+            expect(complete.body.status).toBe('complete');
+            expect(complete.body.entity).toMatchObject({ id: 'e1', type: 'acme', credentialId: 'c1' });
+            expect(complete.body.credential).toMatchObject({ id: 'c1', data: { access_token: '****0001' } });
+            expect(JSON.stringify(complete.body)).not.toContain('brand-new-token');
+            expect(deps.submitAuthorizationStep.execute).toHaveBeenLastCalledWith({
+                user: deps.user, entityType: 'acme', data: { otp: '1' }, step: 2, sessionId: 'sess-1',
+            });
+        });
+
+        it('requires entityType and data on POST', async () => {
+            const res = await request(app, { method: 'POST', path: '/api/v2/authorize', headers: AUTH, body: { entityType: 'acme' } });
+            expect(res.status).toBe(400);
+            expect(res.body.error.details.missing).toEqual(['data']);
+        });
+    });
+
+    describe('credential re-authorization', () => {
+        it('returns requirements for the credential', async () => {
+            const res = await request(app, { path: '/api/v2/credentials/c1/reauthorize', headers: AUTH });
+            expect(res.body).toMatchObject({ type: 'oauth2', step: 1 });
+        });
+
+        it('submits data and reports a replaced credential', async () => {
+            const res = await request(app, {
+                method: 'POST', path: '/api/v2/credentials/c1/reauthorize', headers: AUTH, body: { data: { code: 'x' } },
+            });
+            expect(res.body).toMatchObject({ status: 'complete', previousCredentialId: 'c1', credential: { id: 'c2' } });
+            expect(deps.reauthorizeCredentialForUser.execute).toHaveBeenCalledWith('c1', deps.user, {
+                data: { code: 'x' }, step: 1, sessionId: undefined,
+            });
+        });
+    });
+
     it('404s an unknown v2 path and method in the v2 shape', async () => {
         const res = await request(app, { method: 'PUT', path: '/api/v2/entities/e1', headers: AUTH });
         expect(res.status).toBe(404);

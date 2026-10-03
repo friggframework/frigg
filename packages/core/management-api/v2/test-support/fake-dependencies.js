@@ -68,6 +68,26 @@ function fakeV2Dependencies(overrides = {}) {
             return { id: 'c1', userId: 'user-1', type: 'acme', entityIds: ['e1'], authIsValid: true, api_key: 'sk_live_abcdefghijkl9876' };
         }),
         deleteCredentialForUser: fn(async () => ({ id: 'c1', entityIds: ['e1'] })),
+        getAuthorizationStep: fn(async ({ entityType, step }) => {
+            if (entityType === 'nope') return notFound('ENTITY_TYPE_NOT_FOUND')();
+            return { type: 'email', data: {}, step, totalSteps: 2, isMultiStep: true, sessionId: 'sess-1' };
+        }),
+        submitAuthorizationStep: fn(async ({ step }) =>
+            step === 1
+                ? { status: 'pending', step: 2, totalSteps: 2, sessionId: 'sess-1', requirements: { type: 'otp' } }
+                : {
+                      status: 'complete',
+                      entity: { id: 'e1', userId: 'user-1', moduleName: 'acme', credential: { id: 'c1', authIsValid: true } },
+                      credential: { id: 'c1', userId: 'user-1', type: 'acme', entityIds: ['e1'], authIsValid: true, access_token: 'ya29.brand-new-token-0001' },
+                  }
+        ),
+        getCredentialReauthorization: fn(async (id, _user, { step }) => ({ type: 'oauth2', data: {}, step, totalSteps: 1 })),
+        reauthorizeCredentialForUser: fn(async () => ({
+            status: 'complete',
+            entity: { id: 'e1', userId: 'user-1', moduleName: 'acme' },
+            credential: { id: 'c2', userId: 'user-1', type: 'acme', entityIds: ['e1'], authIsValid: true },
+            previousCredentialId: 'c1',
+        })),
         ...overrides,
     };
 }

@@ -7,6 +7,7 @@ const { resolveManagementApiConfig } = require('../management-api-config');
 const { createIntegrationHandlers } = require('./handlers/integrations');
 const { createEntityHandlers } = require('./handlers/entities');
 const { createCredentialHandlers } = require('./handlers/credentials');
+const { createAuthorizationHandlers } = require('./handlers/authorization');
 
 /** Every v2 handler, keyed by the registry's operationId. */
 function createV2Handlers(dependencies) {
@@ -14,6 +15,7 @@ function createV2Handlers(dependencies) {
         ...createIntegrationHandlers(dependencies),
         ...createEntityHandlers(dependencies),
         ...createCredentialHandlers(dependencies),
+        ...createAuthorizationHandlers(dependencies),
     };
 }
 

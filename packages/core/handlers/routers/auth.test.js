@@ -12,6 +12,9 @@ jest.mock('../../credential/repositories/credential-repository-factory', () => (
 jest.mock('../../modules/repositories/module-repository-factory', () => ({
     createModuleRepository: () => ({}),
 }));
+jest.mock('../../modules/repositories/authorization-session-repository-factory', () => ({
+    createAuthorizationSessionRepository: () => ({}),
+}));
 jest.mock('../../user/repositories/user-repository-factory', () => ({
     createUserRepository: () => ({}),
 }));

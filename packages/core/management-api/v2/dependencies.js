@@ -48,6 +48,20 @@ function buildV2Dependencies({ appDefinition, config }) {
     const { ListEntityTypes, GetEntityType } = require('../../modules/use-cases/entity-types');
     const credentialOps = require('../../credential/use-cases/credential-operations-for-user');
     const {
+        GetCredentialReauthorization,
+        ReauthorizeCredentialForUser,
+    } = require('../../credential/use-cases/reauthorize-credential-for-user');
+    const {
+        GetAuthorizationStep,
+        SubmitAuthorizationStep,
+    } = require('../../modules/use-cases/multi-step-authorization');
+    const {
+        ProcessAuthorizationCallback,
+    } = require('../../modules/use-cases/process-authorization-callback');
+    const {
+        createAuthorizationSessionRepository,
+    } = require('../../modules/repositories/authorization-session-repository-factory');
+    const {
         GetAuthorizationRequirements,
     } = require('../../modules/use-cases/get-authorization-requirements');
 
@@ -60,6 +74,7 @@ function buildV2Dependencies({ appDefinition, config }) {
     const integrationRepository = createIntegrationRepository();
     const credentialRepository = createCredentialRepository();
     const userRepository = createUserRepository();
+    const authorizationSessionRepository = createAuthorizationSessionRepository();
 
     const authenticateUser = new AuthenticateUser({
         getUserFromBearerToken: new GetUserFromBearerToken({ userRepository, userConfig }),
@@ -83,6 +98,27 @@ function buildV2Dependencies({ appDefinition, config }) {
         credentialRepository,
         moduleRepository,
     });
+    const getAuthorizationRequirements = new GetAuthorizationRequirements({
+        moduleDefinitions,
+    });
+    const getAuthorizationStep = new GetAuthorizationStep({
+        moduleDefinitions,
+        getAuthorizationRequirements,
+        authorizationSessionRepository,
+    });
+    const submitAuthorizationStep = new SubmitAuthorizationStep({
+        moduleDefinitions,
+        getAuthorizationRequirements,
+        authorizationSessionRepository,
+        processAuthorizationCallback: new ProcessAuthorizationCallback({
+            moduleRepository,
+            credentialRepository,
+            integrationRepository,
+            moduleDefinitions,
+        }),
+        moduleRepository,
+        credentialRepository,
+    });
     const getOwnedIntegrationRecord = new integrationOps.GetOwnedIntegrationRecord({
         integrationRepository,
     });
@@ -99,6 +135,7 @@ function buildV2Dependencies({ appDefinition, config }) {
             integrationRepository,
             credentialRepository,
             userRepository,
+            authorizationSessionRepository,
         },
         authenticateUser,
 
@@ -162,7 +199,7 @@ function buildV2Dependencies({ appDefinition, config }) {
         }),
         listEntityTypes: new ListEntityTypes({ moduleDefinitions }),
         getEntityType: new GetEntityType({ moduleDefinitions }),
-        getAuthorizationRequirements: new GetAuthorizationRequirements({ moduleDefinitions }),
+        getAuthorizationRequirements,
 
         // Credentials
         listCredentialsForUser: new credentialOps.ListCredentialsForUser({
@@ -175,6 +212,18 @@ function buildV2Dependencies({ appDefinition, config }) {
             moduleRepository,
             getCredentialForUser,
         }),
+        getCredentialReauthorization: new GetCredentialReauthorization({
+            getCredentialForUser,
+            getAuthorizationStep,
+        }),
+        reauthorizeCredentialForUser: new ReauthorizeCredentialForUser({
+            getCredentialForUser,
+            submitAuthorizationStep,
+        }),
+
+        // Authorization (multi-step)
+        getAuthorizationStep,
+        submitAuthorizationStep,
     };
 }
 
