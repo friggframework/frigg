@@ -1,16 +1,18 @@
 /**
  * Management API ↔ API Gateway route coverage
  *
- * The Management API is an Express app (core's createIntegrationRouter)
- * served by the `auth` Lambda. API Gateway HTTP APIs have no implicit
- * catch-all: a request whose path matches no declared route gets a gateway
- * 404 and never reaches Express. So every route the integration router
- * registers must be covered by an httpApi event on the `auth` function, and
- * no more-specific route on another function may shadow it.
+ * The Management API (ADR-053) is served by the `auth` Lambda (v1, v2 and
+ * the OAuth redirect) and, for /api/meta, by the DB-free `health` Lambda.
+ * API Gateway HTTP APIs have no implicit catch-all: a request whose path
+ * matches no declared route gets a gateway 404 and never reaches Express.
+ * So every route those routers register must be covered by an httpApi event
+ * on the right function, and no more-specific route on another function may
+ * shadow it. Both the routers and the gateway routes come from core's route
+ * registry; this test proves the outcome end to end.
  *
- * The Express routes are read from the live router (not a hard-coded list),
- * so a route added to core later fails this test until the gateway routes
- * are updated alongside it.
+ * The Express routes are read from the live routers (not a hard-coded
+ * list), so a route added to core later fails this test until the gateway
+ * routes follow.
  */
 
 // Avoid AWS calls: hand the builders a fixed discovery result.
@@ -38,45 +40,70 @@ jest.mock('../domains/shared/resource-discovery', () => {
     };
 });
 
-// createIntegrationRouter loads the app definition from the consuming
-// backend; give it an empty one so the router can be built in isolation.
+// The Management API routers load the app definition from the consuming
+// backend; give them one so they can be built in isolation. The entity proxy
+// is enabled so its route is checked too.
 jest.mock('@friggframework/core/handlers/app-definition-loader', () => ({
-    loadAppDefinition: () => ({ integrations: [], userConfig: {} }),
+    loadAppDefinition: () => ({
+        integrations: [],
+        userConfig: {},
+        managementApi: { proxy: { enable: true } },
+    }),
 }));
 
 const { composeServerlessDefinition } = require('../infrastructure-composer');
 
-// Routes the auth Lambda's handler (core/handlers/routers/auth.js) adds on
-// top of createIntegrationRouter().
-const AUTH_HANDLER_EXTRA_ROUTES = [
-    { method: 'GET', path: '/api/integrations/redirect/:appId' },
-];
+/** Routes registered on an Express router, including nested routers. */
+function collectRoutes(router, routes = new Map()) {
+    const stack = (router._router || router).stack || [];
+    for (const layer of stack) {
+        if (layer.route) {
+            for (const method of Object.keys(layer.route.methods)) {
+                const route = {
+                    method: method === '_all' ? 'ANY' : method.toUpperCase(),
+                    path: layer.route.path,
+                };
+                routes.set(`${route.method} ${route.path}`, route);
+            }
+        } else if (layer.handle && Array.isArray(layer.handle.stack)) {
+            collectRoutes(layer.handle, routes);
+        }
+    }
+    return routes;
+}
 
-function getIntegrationRouterRoutes() {
-    const { createIntegrationRouter } = require('@friggframework/core');
-    // The repository factories pick an adapter from DB_TYPE (or the backend's
-    // app definition, which doesn't exist here). Nothing connects.
+/**
+ * Builds a core router with DB_TYPE set: the repository factories pick an
+ * adapter from it (or the backend's app definition, which doesn't exist
+ * here). Nothing connects.
+ */
+function withDbType(build) {
     const previousDbType = process.env.DB_TYPE;
     process.env.DB_TYPE = 'postgresql';
-    let app;
     try {
-        app = createIntegrationRouter();
+        return build();
     } finally {
         if (previousDbType === undefined) delete process.env.DB_TYPE;
         else process.env.DB_TYPE = previousDbType;
     }
-    const stack = (app._router || app.router).stack;
-    const routes = [];
-    for (const layer of stack) {
-        if (!layer.route) continue;
-        for (const method of Object.keys(layer.route.methods)) {
-            routes.push({
-                method: method === '_all' ? 'ANY' : method.toUpperCase(),
-                path: layer.route.path,
-            });
-        }
-    }
-    return routes;
+}
+
+/** Every route the auth Lambda's router (core/handlers/routers/auth.js) serves. */
+function getAuthLambdaRoutes() {
+    const { router } = withDbType(() =>
+        require('@friggframework/core/handlers/routers/auth')
+    );
+    return [...collectRoutes(router).values()];
+}
+
+/** Every route the health Lambda serves under /api/meta. */
+function getMetaRoutes() {
+    const { router } = withDbType(() =>
+        require('@friggframework/core/handlers/routers/health')
+    );
+    return [...collectRoutes(router).values()].filter((r) =>
+        r.path.startsWith('/api/meta')
+    );
 }
 
 function getGatewayRoutes(definition) {
@@ -153,6 +180,7 @@ function selectGatewayRoute(gatewayRoutes, method, requestPath) {
 describe('Management API routes are reachable through API Gateway', () => {
     let gatewayRoutes;
     let managementRoutes;
+    let metaRoutes;
     const originalArgv = process.argv;
 
     beforeAll(async () => {
@@ -202,10 +230,8 @@ describe('Management API routes are reachable through API Gateway', () => {
             logSpy.mockRestore();
             warnSpy.mockRestore();
         }
-        managementRoutes = [
-            ...getIntegrationRouterRoutes(),
-            ...AUTH_HANDLER_EXTRA_ROUTES,
-        ];
+        managementRoutes = getAuthLambdaRoutes();
+        metaRoutes = getMetaRoutes();
     });
 
     afterAll(() => {
@@ -213,7 +239,7 @@ describe('Management API routes are reachable through API Gateway', () => {
         delete process.env.AWS_REGION;
     });
 
-    it('reads the Management API routes from the core integration router', () => {
+    it('reads the Management API routes from the live auth and health routers', () => {
         const paths = managementRoutes.map((r) => r.path);
         expect(paths).toEqual(
             expect.arrayContaining([
@@ -222,8 +248,35 @@ describe('Management API routes are reachable through API Gateway', () => {
                 '/api/entity',
                 '/api/entity/options/:credentialId',
                 '/api/entities/:entityId',
+                '/api/integrations/redirect/:appId',
+                '/api/v2/integrations',
+                '/api/v2/entities/types/:entityType/requirements',
+                '/api/v2/entities/:entityId/proxy',
+                '/api/v2/credentials/:credentialId/reauthorize',
+                '/api/v2/authorize',
             ])
         );
+        expect(metaRoutes.map((r) => r.path)).toEqual(
+            expect.arrayContaining(['/api/meta', '/api/meta/openapi/v2.json'])
+        );
+    });
+
+    it('routes /api/meta to the DB-free health function', () => {
+        const unreachable = metaRoutes
+            .map(({ method, path: requestPath }) => {
+                const selected = selectGatewayRoute(gatewayRoutes, method, requestPath);
+                return { route: `${method} ${requestPath}`, ok: selected?.functionName === 'health' };
+            })
+            .filter((r) => !r.ok)
+            .map((r) => r.route);
+        expect(unreachable).toEqual([]);
+    });
+
+    it('declares no /api/v2 catch-all', () => {
+        expect(
+            gatewayRoutes.filter((r) => r.path === '/api/v2/{proxy+}' || r.path === '/api/v2')
+        ).toEqual([]);
+        expect(selectGatewayRoute(gatewayRoutes, 'PATCH', '/api/v2/reports/daily')).toBeNull();
     });
 
     it('routes every Management API route to the auth function', () => {
@@ -252,6 +305,7 @@ describe('Management API routes are reachable through API Gateway', () => {
     it.each([
         ['GET', '/api/v2/reports', 'reportRouter'],
         ['POST', '/api/v2/reports/daily/run', 'reportRouter'],
+        ['GET', '/api/v2/reports/daily', 'reportRouter'],
         ['GET', '/admin/scripts/example-script', 'adminScriptRouter'],
         ['POST', '/api/acme-integration/webhooks', 'acmeWebhook'],
         ['POST', '/api/acme-integration/inbound/events', 'acme__inbound'],

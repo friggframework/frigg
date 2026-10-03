@@ -99,14 +99,62 @@ describe('Base Definition Factory', () => {
                     (e) => `${e.httpApi.method} ${e.httpApi.path}`
                 )
             ).toEqual([
+                // v1 (deprecated, ADR-053)
                 'ANY /api/integrations',
                 'ANY /api/integrations/{proxy+}',
                 'ANY /api/authorize',
                 'ANY /api/entity',
                 'ANY /api/entity/{proxy+}',
-                'ANY /api/entities',
                 'ANY /api/entities/{proxy+}',
+                // v2, per resource: never ANY /api/v2/{proxy+}, which would
+                // shadow /api/v2/reports on the admin-scripts Lambda
+                'ANY /api/v2/integrations',
+                'ANY /api/v2/integrations/{proxy+}',
+                'ANY /api/v2/entities',
+                'ANY /api/v2/entities/{proxy+}',
+                'ANY /api/v2/credentials',
+                'ANY /api/v2/credentials/{proxy+}',
+                'ANY /api/v2/authorize',
             ]);
+        });
+
+        it('takes the Management API routes from the core route registry', () => {
+            const { getGatewayRoutes } = require('@friggframework/core/management-api/route-registry');
+            const result = createBaseDefinition({}, {}, {});
+            const declared = (fn) =>
+                result.functions[fn].events
+                    .map((e) => `${e.httpApi.method} ${e.httpApi.path}`)
+                    .filter((route) => route.includes('/api/'));
+            const registry = (fn) =>
+                getGatewayRoutes()
+                    .filter((r) => r.function === fn)
+                    .map((r) => `${r.method} ${r.path}`);
+            expect(declared('auth')).toEqual(registry('auth'));
+            expect(declared('health')).toEqual(registry('health'));
+        });
+
+        it('serves /api/meta from the DB-free health function', () => {
+            const result = createBaseDefinition({}, {}, {});
+            expect(
+                result.functions.health.events.map((e) => `${e.httpApi.method} ${e.httpApi.path}`)
+            ).toEqual([
+                'GET /health',
+                'GET /health/{proxy+}',
+                'GET /api/meta',
+                'GET /api/meta/{proxy+}',
+            ]);
+        });
+
+        it('drops the v1 routes when managementApi.v1 is false, keeping the OAuth redirect', () => {
+            const result = createBaseDefinition({ managementApi: { v1: false } }, {}, {});
+            const routes = result.functions.auth.events.map(
+                (e) => `${e.httpApi.method} ${e.httpApi.path}`
+            );
+            expect(routes).not.toContain('ANY /api/integrations');
+            expect(routes).not.toContain('ANY /api/authorize');
+            expect(routes).not.toContain('ANY /api/entity');
+            expect(routes).toContain('GET /api/integrations/redirect/{appId}');
+            expect(routes).toContain('ANY /api/v2/integrations');
         });
 
         it('should NOT include legacy dbMigrate function', () => {
