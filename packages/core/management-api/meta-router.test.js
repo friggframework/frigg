@@ -74,6 +74,29 @@ describe('GET /api/meta', () => {
         ).toEqual([]);
     });
 
+    it('serves one OpenAPI document per major', async () => {
+        const v2 = await request(appWith(), { path: '/api/meta/openapi/v2.json' });
+        expect(v2.status).toBe(200);
+        expect(v2.body.openapi).toBe('3.0.3');
+        expect(v2.body['x-frigg-api-version']).toBe('2');
+        expect(v2.body.paths['/api/v2/integrations'].get.operationId).toBe('listIntegrations');
+        expect(v2.body.paths).not.toHaveProperty(['/api/v2/entities/{entityId}/proxy']);
+
+        const v1 = await request(appWith(), { path: '/api/meta/openapi/v1.json' });
+        expect(v1.body.paths['/api/integrations'].get.deprecated).toBe(true);
+
+        const missing = await request(appWith(), { path: '/api/meta/openapi/v9.json' });
+        expect(missing.status).toBe(404);
+        expect(missing.body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('documents the entity proxy only when the app enables it', async () => {
+        const v2 = await request(appWith({ proxy: { enable: true } }), {
+            path: '/api/meta/openapi/v2.json',
+        });
+        expect(v2.body.paths['/api/v2/entities/{entityId}/proxy'].post['x-frigg-stability']).toBe('beta');
+    });
+
     it('mounts on an existing router without claiming other paths', async () => {
         const app = createApp((a) => {
             a.use(createManagementApiMetaRouter({ appDefinition: {} }));
