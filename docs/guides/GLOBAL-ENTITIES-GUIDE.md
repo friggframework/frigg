@@ -1,5 +1,8 @@
 # Global Entities Guide
 
+> **Status: design only.** Global (app-scope) entities are not implemented yet; see
+> [ADR-056](../architecture-decisions/056-app-profiles-tenancy-entity-scopes.md).
+
 This guide explains when and how to use Global Entities in Frigg.
 
 ## What Are Global Entities?

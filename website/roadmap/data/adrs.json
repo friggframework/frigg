@@ -1,5 +1,5 @@
 {
-  "count": 31,
+  "count": 32,
   "adrs": [
     {
       "num": 1,
@@ -310,6 +310,16 @@
       "theme": "Observability & ops",
       "summary": "Replaces ad-hoc console logging with one Frigg-owned logger port in core that writes one redacted JSON record per line to stdout, with a fixed field set, six levels, ADR-011 correlation and trace ids, and redaction by construction. JSON is the only output format, in every stage; other destinations connect as sinks that only translate and send, the upgrade changes need maintainer ratification, and the Lambda log format and retention in devtools are opt-in.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/048-structured-logging.md"
+    },
+    {
+      "num": 56,
+      "id": "056",
+      "title": "App Profiles, Tenancy and Entity Scopes",
+      "status": "Proposed",
+      "date": "2026-10-03",
+      "theme": "Developer experience",
+      "summary": "Names Frigg's two adoption profiles (product: multi-tenant integrations for a software product's customers; operations: one org automating its own processes, down to a household) and codifies the adopter repo shape (backend/, optional frontend/, ui-extensions/ for ADR-022 artifacts) with frigg init writing backend/ and taking --profile. Adds browser-safe tenant auth (adopter JWT verification, org-primary login fix), user/org/app entity scopes with org admins and multi-level-auth bindings through use(), additive v2 API fields, and two adopter-owned UI templates: a product portal and an operations console.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/056-app-profiles-tenancy-entity-scopes.md"
     }
   ]
 }
