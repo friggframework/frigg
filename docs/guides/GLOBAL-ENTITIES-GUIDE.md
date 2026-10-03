@@ -1,7 +1,10 @@
 # Global Entities Guide
 
-> **Status: design only.** Global (app-scope) entities are not implemented yet; see
-> [ADR-056](../architecture-decisions/056-app-profiles-tenancy-entity-scopes.md).
+> **Status: implemented on an unmerged branch; being ported to 2.x per
+> [ADR-056](../architecture-decisions/056-app-profiles-tenancy-entity-scopes.md).** The code
+> lives on `claude/frigg-deployment-architecture-ed1CZ`, not on `next`. In the port, the
+> `isGlobal` flag shown below is stored as the entity scope `global`
+> (`individual | organization | global`).
 
 This guide explains when and how to use Global Entities in Frigg.
 
