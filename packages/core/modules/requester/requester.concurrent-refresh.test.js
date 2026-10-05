@@ -213,8 +213,8 @@ describe('Requester concurrent 401 refresh', () => {
         await expect(
             requester._get({ url: 'https://api.example.com/never-authorized' })
         ).rejects.toThrow();
-        // Terminates on the budget rather than looping forever.
-        expect(requester.refreshCalls).toBe(3);
+        // One refresh per call. The 401 of the refreshed token ends the call.
+        expect(requester.refreshCalls).toBe(1);
     });
 
     it('rejects every waiter when the shared refresh fails', async () => {

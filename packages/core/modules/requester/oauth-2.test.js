@@ -523,7 +523,7 @@ describe('OAuth2Requester', () => {
             ).toBeUndefined();
         });
 
-        it('retries consecutive 401s up to 3 times, then notifies INVALID_AUTH once the budget is exhausted', async () => {
+        it('retries one time with the refreshed token, then gives its 401 to the caller without INVALID_AUTH', async () => {
             const mockFetch = jest.fn().mockResolvedValue({
                 status: 401,
                 headers: new Map([['Content-Type', 'application/json']]),
@@ -548,12 +548,13 @@ describe('OAuth2Requester', () => {
 
             await expect(
                 requester._get({ url: 'https://api.example.com/data' })
-            ).rejects.toThrow();
+            ).rejects.toMatchObject({ statusCode: 401 });
 
-            expect(mockFetch).toHaveBeenCalledTimes(4);
-            expect(requester.notify).toHaveBeenCalledWith(
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            expect(requester.refreshAccessToken).toHaveBeenCalledTimes(1);
+            expect(requester.notify).not.toHaveBeenCalledWith(
                 requester.DLGT_INVALID_AUTH,
-                expect.objectContaining({ statusCode: 401 })
+                expect.anything()
             );
         });
 

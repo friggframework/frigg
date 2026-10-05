@@ -212,8 +212,10 @@ class Requester extends Delegate {
      * @param {number} attempt - 0-based count of retries already made for
      *   this call. Indexes `this.backOff` for the next delay and is passed
      *   back in on each recursive retry.
+     * @param {boolean} authRetried - True after this call retried with a new
+     *   token. Passed back in on each recursive retry.
      */
-    async _rawRequest(url, options, attempt = 0) {
+    async _rawRequest(url, options, attempt = 0, authRetried = false) {
         let encodedUrl = encodeURI(url);
         if (options.query) {
             let queryBuild = '?';
@@ -279,7 +281,12 @@ class Requester extends Delegate {
                     clearRequestTimer();
                     const delay = this.backOff[attempt] * 1000;
                     await new Promise((resolve) => setTimeout(resolve, delay));
-                    return this._rawRequest(url, options, attempt + 1);
+                    return this._rawRequest(
+                        url,
+                        options,
+                        attempt + 1,
+                        authRetried
+                    );
                 }
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
@@ -306,10 +313,24 @@ class Requester extends Delegate {
                 clearRequestTimer();
                 const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
-                return this._rawRequest(url, options, attempt + 1);
+                return this._rawRequest(url, options, attempt + 1, authRetried);
             }
 
-            if (status === 401) {
+            // A call that already retried with a new token does not refresh
+            // again. Its 401 does not mean "expired": for example, the grant
+            // does not have the scope that the endpoint needs. One more
+            // refresh cannot help, and each rotation of a single-use refresh
+            // token puts the grant at risk. The call can still use a token
+            // that changed during the retry, or join a refresh in flight,
+            // because neither one starts a rotation.
+            const tokenReplacedWhileInFlight =
+                this._authGeneration !== authGenerationAtDispatch;
+            if (
+                status === 401 &&
+                (!authRetried ||
+                    tokenReplacedWhileInFlight ||
+                    this._inFlightRefresh)
+            ) {
                 // A 401 from inside the refresh flow means the provider
                 // rejected the credential itself (invalid_client). A new
                 // refresh cannot help. A join would await this same call.
@@ -321,13 +342,11 @@ class Requester extends Delegate {
                     );
                 }
 
-                const tokenReplacedWhileInFlight =
-                    this._authGeneration !== authGenerationAtDispatch;
                 if (this.isRefreshable && tokenReplacedWhileInFlight) {
                     // This request did not try the current token. Retry with
                     // it. Do not spend one more provider-side rotation.
                     clearRequestTimer();
-                    return this._rawRequest(url, options, attempt + 1);
+                    return this._rawRequest(url, options, attempt + 1, true);
                 }
 
                 if (!this.isRefreshable) {
@@ -344,7 +363,12 @@ class Requester extends Delegate {
                         await new Promise((resolve) =>
                             setTimeout(resolve, delay)
                         );
-                        return this._rawRequest(url, options, attempt + 1);
+                        return this._rawRequest(
+                            url,
+                            options,
+                            attempt + 1,
+                            authRetried
+                        );
                     }
 
                     throw await this._invalidateAuth(
@@ -363,10 +387,22 @@ class Requester extends Delegate {
                     !refreshAlreadyInFlight &&
                     this.refreshCount >= MAX_AUTH_RETRIES
                 ) {
-                    throw await this._invalidateAuth(
+                    // The refreshes since the last success did not help. A
+                    // refresh that failed already gave its own call the
+                    // correct result: INVALID_AUTH for a definitive rejection,
+                    // a retryable error for a transport failure. Thus a spent
+                    // budget does not prove that the credential is dead.
+                    this._reportUnauthorized(
+                        'refresh_budget_spent',
+                        'Refresh budget spent',
+                        encodedUrl,
+                        options
+                    );
+                    throw await this._requestFailedError(
                         encodedUrl,
                         options,
-                        response
+                        response,
+                        timeoutMs
                     );
                 }
 
@@ -377,33 +413,43 @@ class Requester extends Delegate {
                 const refreshSucceeded = await this._refreshAuthOnce();
                 if (refreshSucceeded) {
                     clearRequestTimer();
-                    return this._rawRequest(url, options, attempt + 1);
+                    return this._rawRequest(url, options, attempt + 1, true);
                 }
 
                 throw await this._invalidateAuth(encodedUrl, options, response);
+            }
+
+            if (status === 401) {
+                // Only a call whose new token also got a 401 comes here.
+                this._reportUnauthorized(
+                    'new_token_refused',
+                    'New token refused',
+                    encodedUrl,
+                    options
+                );
             }
 
             // If the error wasn't retried, throw. FetchError.create reads
             // the response body (response.text()) — timer must still be
             // alive to catch a stalled body stream.
             if (status >= 400) {
-                this._logRequestFailed(encodedUrl, options, status);
-                const fetchError = await FetchError.create({
-                    resource: encodedUrl,
-                    init: options,
+                throw await this._requestFailedError(
+                    encodedUrl,
+                    options,
                     response,
-                });
-                throw this._maybeFlagTimeoutDuringBodyRead(
-                    fetchError,
                     timeoutMs
                 );
             }
 
             // Successful response: reset the per-instance refresh budget so
             // a later 401 in the same Requester lifetime can attempt refresh
-            // again instead of silently falling through.
-            this.refreshCount = 0;
-            this.authGraceRetryCount = 0;
+            // again instead of silently falling through. The token request
+            // of a refresh also comes through here. Its success does not
+            // prove that the refresh helped, so it does not reset the budget.
+            if (!this._isInsideRefreshFlow()) {
+                this.refreshCount = 0;
+                this.authGraceRetryCount = 0;
+            }
 
             // parsedBody consumes the response body stream. If the server
             // stalls mid-stream the timer (still armed) aborts it.
@@ -431,6 +477,28 @@ class Requester extends Delegate {
             statusCode: status,
             headerNames: Object.keys(options.headers || {}),
         });
+    }
+
+    _reportUnauthorized(event, message, encodedUrl, options) {
+        this.logger.warn(message, {
+            eventName: `${this.logger.name}.${event}`,
+            method: (options.method || 'GET').toUpperCase(),
+            url: redactUrl(encodedUrl),
+            statusCode: 401,
+        });
+        this.telemetry?.count?.(`frigg.auth.${event}`, 1, {
+            module: this._telemetryModuleLabel(),
+        });
+    }
+
+    async _requestFailedError(encodedUrl, options, response, timeoutMs) {
+        this._logRequestFailed(encodedUrl, options, response.status);
+        const fetchError = await FetchError.create({
+            resource: encodedUrl,
+            init: options,
+            response,
+        });
+        return this._maybeFlagTimeoutDuringBodyRead(fetchError, timeoutMs);
     }
 
     async _invalidateAuth(encodedUrl, options, response) {

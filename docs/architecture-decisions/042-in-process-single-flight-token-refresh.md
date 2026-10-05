@@ -2,6 +2,7 @@
 
 **Status**: Proposed  
 **Date**: 2026-09-04  
+**Amended**: 2026-10-05 (Rules 4 to 6)  
 **Deciders**: Daniel Klotz
 
 ## Context
@@ -20,7 +21,10 @@ This document is written in ASD-STE100 Simplified Technical English.
 - **Rotation** means the provider issues a new refresh token and kills the
   old one.
 - **Retry budget** means `MAX_AUTH_RETRIES` (3): the number of refreshes one
-  instance can start before it declares the credential dead.
+  instance can start after its last successful response outside the refresh
+  flow. Then the instance stops refreshing (Rule 6).
+- **New token** means an access token that replaced the token that a call
+  sent first. A refresh, an adoption or a sibling refresh supplies it.
 - **Slot** means the instance field that holds the promise of the refresh in
   flight (`_inFlightRefresh`).
 - **Initiator** means the request that starts a refresh. **Waiters** are the
@@ -102,7 +106,7 @@ ADR-031 names this decision as its prerequisite.
 ## Decision
 
 Three rules in the 401 path of `Requester._rawRequest`. They ship together
-in PR #636.
+in PR #636. The amendment of 2026-10-05 adds Rules 4 to 6.
 
 ### Rule 1 — single-flight refresh
 
@@ -114,9 +118,10 @@ is free before any waiter resumes. Code: `_refreshAuthOnce()` and
 `_adoptOrRefresh()`.
 
 This changes the meaning of the retry budget. It is now per initiator, not
-per request. The budget still bounds a pathological upstream that answers
-401 after a "successful" refresh, because each new refresh cycle needs a
-new initiator.
+per request. The first version of this ADR said that the budget also bounds
+a pathological upstream that answers 401 after a "successful" refresh. That
+was false for a real token request. The amendment below has the correction
+(Rules 4 to 6).
 
 `_adoptOrRefresh()` first calls the `_adoptNewerCredential()` hook, and
 calls `refreshAuth()` only when the hook returns false. The hook belongs
@@ -200,6 +205,144 @@ Not in this PR: the queue-worker change that stops the silent ack for
 integrations in `ERROR`. It is independent of the requester. It is also the
 exception to ADR-027 that a maintainer must ratify on its own, so it ships
 as its own PR.
+
+## Amendment (2026-10-05) — a refused new token
+
+### The defect
+
+Some providers answer 401, not 403, when the grant does not have the scope
+that an endpoint needs. They also answer 401 to an access token that they
+minted recently. Rule 1 expected the retry budget to stop the refreshes in
+that case. The budget did not stop them.
+
+`OAuth2Requester` sends its token request with `this._post`, which calls
+`_rawRequest` again on the same instance. A successful response resets
+`refreshCount`. Thus each 200 from the token endpoint reset the budget, and
+the budget was never spent. The sequence 401, refresh, retry, 401 continued
+until the function timed out. No test drove the 401 path with a real token
+request, so the tests did not find this.
+
+The defect occurred in one production deployment. A release added a call to
+an endpoint that older installs had no scope for. The results were:
+
+- One invocation that handled one webhook refreshed the token more than a
+  hundred times in about one minute.
+- The refresh rate of the deployment increased by more than three orders of
+  magnitude for about one day.
+- Concurrent invocations shared each credential and lost rotation races. The
+  ADR-031 re-read recovered most of them. The others got `invalid_grant`,
+  and each one moved a live integration to `ERROR`.
+- Later, most of those credentials had a dead stored refresh token.
+
+### Rule 4 — one refresh per call
+
+A call that retried with a new token does not refresh again. Usually the new
+token is not expired, so its 401 has a different cause, for example a
+missing scope. One more refresh cannot help. The call gives the 401 to its
+caller as a normal `FetchError`. It does not fire `INVALID_AUTH`.
+
+The call can still use two paths, because neither one starts a rotation:
+
+1. If the token changed during the retry, the call retries with the current
+   token (Rule 3).
+2. If a refresh is in flight, the call joins it (Rule 1). That refresh can
+   mint a new pair and revoke the token of the retry.
+
+Code: the `authRetried` argument of `_rawRequest`. The retries after a 429,
+a 5xx or an `ECONNRESET` keep its value.
+
+### Rule 5 — the token request does not reset the budget
+
+Only a successful response outside the refresh flow resets `refreshCount`
+and `authGraceRetryCount`. The token request is inside the flow (Rule 2).
+
+### Rule 6 — a spent budget does not invalidate
+
+When the budget is spent, the call gets the 401 and starts no refresh. The
+refreshes since the last success did not help. But they do not prove that
+the credential is dead. A refresh that failed already gave its own call the
+correct result. `INVALID_AUTH` stays for these cases only:
+
+- The token endpoint rejects the grant (400, or 401 for `invalid_client`),
+  and the store has nothing newer.
+- A 401 arrives inside the refresh flow (Rule 2).
+- `refreshAuth()` returns false.
+- A requester that cannot refresh spends its grace retries.
+
+### The signal
+
+A WARN record and a counter show each 401 that a rule gives to the caller:
+
+- Rule 4: `<logger>.new_token_refused` and `frigg.auth.new_token_refused`.
+- Rule 6: `<logger>.refresh_budget_spent` and
+  `frigg.auth.refresh_budget_spent`.
+
+The integration owner can then find an endpoint that the grant cannot use.
+
+### Consequences of the amendment
+
+Positive:
+
+- A refused new token costs one rotation per call, not an unbounded loop.
+  Five concurrent refused calls share one rotation.
+- Without a success in between, an instance stops after three rotations.
+- A resource that refuses a token no longer sends a live credential to
+  `ERROR`.
+
+Negative:
+
+- One rotation for each refused call remains when successful calls come
+  between them, for example one rotation per webhook. Each rotation of a
+  single-use refresh token can race with another invocation. The counter
+  shows this cost. The api module can remove it: it must not call an
+  endpoint that the grant has no scope for.
+- No rule sends a credential to `ERROR` when every endpoint refuses its new
+  tokens. Each new instance spends up to three rotations, and then each call
+  writes `refresh_budget_spent`. On the old code, a module whose refresh
+  does not use `_rawRequest` got `INVALID_AUTH` after three refreshes in
+  this case.
+- A call that adopted an expired access token from the store gets one 401.
+  It also writes `new_token_refused` for an endpoint that works. The next
+  call refreshes normally.
+- A provider that needs more than one refresh before a new token works now
+  fails the call. Before, with a real token request, the call refreshed
+  until a token worked.
+- `Module.onTokenUpdate()` writes the credential last-writer-wins. A slow
+  write of an older token pair can overwrite a newer one. Then the stored
+  refresh token is a consumed one. This defect is separate. It makes each
+  remaining rotation more dangerous, and a follow-up fixes it.
+
+### Alternatives considered for the amendment
+
+- **Rule 5 only.** Rejected. Each refused call then rotates three times and
+  fires `INVALID_AUTH`. Each install without the scope goes to `ERROR`.
+- **Remember that the provider accepted the current token (a 2xx) in the
+  last 60 s, and do not rotate on a 401 in that window.** Rejected. It
+  removes the remaining rotation in the observed flow, but it is a clock
+  heuristic. In a busy sync, the last 2xx always comes just before a real
+  expiry. The first call after the expiry then fails, but the old code
+  refreshes for that call.
+- **Read the expiry of the access token (`accessTokenExpire`, or the `exp`
+  claim of a JWT).** Rejected for now. No module definition in the api
+  module library persists `accessTokenExpire` (checked on 2026-10-05). Thus
+  a new invocation does not know it. Not all providers issue JWTs. An
+  opt-in can come later.
+
+### Tests of the amendment
+
+`oauth-2.refused-fresh-token.test.js` uses a real `OAuth2Requester`. Its
+token request uses `fetch` and reaches a fake provider with single-use
+rotating refresh tokens. The loop has no timer, so the jest timeout cannot
+stop it. Thus a mint limit makes the token endpoint answer 400 after 20
+rotations, and the old code fails in milliseconds.
+
+Thirteen of the seventeen tests fail on the old code. Four guards pass on
+both versions: an expired token, a transient failure before the first 401,
+a sibling refresh during a retry, and a rejected refresh token. One test
+records the adoption limit above.
+
+Four older tests expected up to three refreshes in one call. Two of them
+also expected `INVALID_AUTH`. They now expect Rules 4 and 6.
 
 ## Consequences
 
@@ -324,7 +467,8 @@ as its own PR.
   `_isDefinitiveAuthRejection`, `_transportFailureError`);
   `packages/core/modules/module.js` (`reloadCredential`).
 - Tests: `requester.concurrent-refresh.test.js`,
-  `oauth-2.credential-reload.test.js`, `module-credential-reload.test.js`.
+  `oauth-2.credential-reload.test.js`, `module-credential-reload.test.js`,
+  `oauth-2.refused-fresh-token.test.js` (the amendment).
 - Numbering note: 032–041 are claimed by unmerged branches
   (`claude/integration-deletion-cleanup-*`, `claude/aurora-serverless-*`,
   `claude/api-key-login-auth-mode`, and the renumbering on

@@ -469,9 +469,8 @@ describe('Requester', () => {
             expect(fetchMock).toHaveBeenCalledTimes(1);
         });
 
-        it('keeps refreshing and retrying across up to 3 consecutive 401s, then succeeds', async () => {
+        it('refreshes once per call, and gives the 401 of the refreshed token to the caller', async () => {
             const fetchMock = oauthFetch([
-                { status: 401 },
                 { status: 401 },
                 { status: 401 },
                 { status: 200, body: { ok: true } },
@@ -480,37 +479,42 @@ describe('Requester', () => {
             requester.refreshAuth = jest.fn().mockResolvedValue(true);
             requester.notify = jest.fn();
 
-            const result = await requester._get({
-                url: 'https://example.com/protected',
-            });
+            await expect(
+                requester._get({ url: 'https://example.com/protected' })
+            ).rejects.toMatchObject({ statusCode: 401 });
 
-            expect(result).toEqual({ ok: true });
-            expect(requester.refreshAuth).toHaveBeenCalledTimes(3);
+            expect(requester.refreshAuth).toHaveBeenCalledTimes(1);
             expect(requester.notify).not.toHaveBeenCalled();
-            expect(fetchMock).toHaveBeenCalledTimes(4);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
-        it('fires INVALID_AUTH once the refresh budget is exhausted even though every refresh succeeded', async () => {
-            const fetchMock = oauthFetch([
-                { status: 401 },
-                { status: 401 },
-                { status: 401 },
-                { status: 401 },
-            ]);
+        it('stops refreshing after the budget, without INVALID_AUTH, while every refresh succeeds and every call gets 401', async () => {
+            const fetchMock = oauthFetch(
+                Array.from({ length: 7 }, () => ({ status: 401 }))
+            );
             const requester = new RefreshableRequester({ fetch: fetchMock });
             requester.refreshAuth = jest.fn().mockResolvedValue(true);
             requester.notify = jest.fn();
 
-            await expect(
-                requester._get({ url: 'https://example.com/protected' })
-            ).rejects.toThrow();
+            const refreshesPerCall = [];
+            for (let call = 0; call < 4; call++) {
+                const before = requester.refreshAuth.mock.calls.length;
+                await expect(
+                    requester._get({ url: 'https://example.com/protected' })
+                ).rejects.toMatchObject({ statusCode: 401 });
+                refreshesPerCall.push(
+                    requester.refreshAuth.mock.calls.length - before
+                );
+            }
 
-            expect(requester.refreshAuth).toHaveBeenCalledTimes(3);
-            expect(requester.notify).toHaveBeenCalledWith(
+            // One refresh per call until the budget is spent. A spent budget
+            // does not prove that the credential is dead.
+            expect(refreshesPerCall).toEqual([1, 1, 1, 0]);
+            expect(requester.notify).not.toHaveBeenCalledWith(
                 requester.DLGT_INVALID_AUTH,
-                expect.objectContaining({ statusCode: 401 })
+                expect.anything()
             );
-            expect(fetchMock).toHaveBeenCalledTimes(4);
+            expect(fetchMock).toHaveBeenCalledTimes(7);
         });
 
         it('resets refreshCount after a successful 2xx so a later 401 can attempt refresh again', async () => {
