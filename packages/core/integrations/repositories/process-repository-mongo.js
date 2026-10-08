@@ -120,7 +120,7 @@ class ProcessRepositoryMongo extends ProcessRepositoryInterface {
         if (normalized.newState !== null) {
             $set.state = normalized.newState;
         }
-        $set.updatedAt = new Date();
+        $set.updatedAt = { $date: new Date().toISOString() };
         update.$set = $set;
 
         if (Object.keys(normalized.pushSlice).length > 0) {
