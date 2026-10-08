@@ -40,6 +40,21 @@ class IntegrationMappingRepositoryInterface {
     }
 
     /**
+     * Insert a mapping, failing if one already exists for the
+     * (integrationId, sourceId) pair. Atomic: usable as a claim/lock row.
+     *
+     * @param {string|number} integrationId - The integration ID
+     * @param {string} sourceId - The source ID for lookup
+     * @param {Object} mapping - The mapping data
+     * @returns {Promise<Object>} The created mapping document
+     * @throws {MappingAlreadyExistsError} If the pair already exists
+     * @abstract
+     */
+    async createMapping(integrationId, sourceId, mapping) {
+        throw new Error('createMapping must be implemented by subclass');
+    }
+
+    /**
      * Find all mappings for an integration
      *
      * @param {string|number} integrationId - The integration ID

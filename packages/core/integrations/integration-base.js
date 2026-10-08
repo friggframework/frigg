@@ -458,6 +458,35 @@ class IntegrationBase {
     }
 
     /**
+     * Insert-only mapping write; usable as an atomic claim/lock row.
+     * @throws {MappingAlreadyExistsError} If a mapping for sourceId exists
+     */
+    async createMapping(sourceId, mapping) {
+        if (!sourceId) {
+            throw new Error(`sourceId must be set`);
+        }
+        return await this.integrationMappingRepository.createMapping(
+            this.id,
+            sourceId,
+            mapping
+        );
+    }
+
+    /**
+     * Deletes the mapping for sourceId. A missing mapping is not an error
+     * (resolves with deletedCount 0).
+     */
+    async deleteMapping(sourceId) {
+        if (!sourceId) {
+            throw new Error(`sourceId must be set`);
+        }
+        return await this.integrationMappingRepository.deleteMapping(
+            this.id,
+            sourceId
+        );
+    }
+
+    /**
      * CHILDREN CAN OVERRIDE THESE CONFIGURATION METHODS
      */
     /**
