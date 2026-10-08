@@ -419,7 +419,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
         for (const [key, value] of Object.entries(patch)) {
             $set[`config.${key}`] = value;
         }
-        $set.updatedAt = new Date();
+        $set.updatedAt = { $date: new Date().toISOString() };
 
         const result = await this.prisma.$runCommandRaw({
             findAndModify: 'Integration',
