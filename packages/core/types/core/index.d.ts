@@ -1,5 +1,5 @@
 declare module "@friggframework/core" {
-  import { SQS } from "aws-sdk";
+  import type { SendMessageCommandInput } from "@aws-sdk/client-sqs";
 
   export class Delegate implements IFriggDelegate {
     delegate: any;
@@ -26,10 +26,18 @@ declare module "@friggframework/core" {
     ): Promise<any>;
   }
 
+  export interface BatchItemFailure {
+    itemIdentifier: string;
+  }
+
+  export interface BatchItemFailuresResponse {
+    batchItemFailures: BatchItemFailure[];
+  }
+
   export class Worker implements IWorker {
     getQueueURL(params: GetQueueURLParams): Promise<string | undefined>;
 
-    run(params: { Records: any }): Promise<void>;
+    run(params: { Records: any }, context?: object): Promise<BatchItemFailuresResponse>;
 
     send(params: object & { QueueUrl: any }, delay?: number): Promise<string>;
 
@@ -38,7 +46,7 @@ declare module "@friggframework/core" {
 
   interface IWorker {
     getQueueURL(params: GetQueueURLParams): Promise<string | undefined>;
-    run(params: { Records: any }): Promise<void>;
+    run(params: { Records: any }, context?: object): Promise<BatchItemFailuresResponse>;
     send(params: object & { QueueUrl: any }, delay?: number): Promise<string>;
     sendAsyncSQSMessage(params: SendSQSMessageParams): Promise<string>;
   }
@@ -50,5 +58,5 @@ declare module "@friggframework/core" {
     QueueOwnerAWSAccountId?: string;
   };
 
-  type SendSQSMessageParams = SQS.SendMessageRequest;
+  type SendSQSMessageParams = SendMessageCommandInput;
 }

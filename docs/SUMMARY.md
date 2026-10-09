@@ -6,7 +6,7 @@
 
 * [Learning Frigg](tutorials/overview.md)
 * [Quick Start Tutorial](tutorials/quick-start/README.md)
-  * [Initialize with Create Frigg App (CFA)](tutorials/quick-start/create-frigg-app.md)
+  * [Initialize with frigg init](tutorials/quick-start/frigg-init.md)
   * [Configuration](tutorials/quick-start/configuration.md)
   * [Start Your Frigg App](tutorials/quick-start/start-your-frigg-app.md)
   * [Connecting and Seeing Live Data](tutorials/quick-start/connecting-and-seeing-live-data.md)
@@ -18,6 +18,8 @@
 ## ✅ How-To Guides (Goals) <a href="#guides" id="guides"></a>
 
 * [Cooking with Frigg](guides/cooking-with-frigg.md)
+* [Logging](guides/LOGGING.md)
+  * [Logging in an Integration](guides/LOGGING-IN-INTEGRATIONS.md)
 
 ## 💭 Explanation (Understanding) <a href="#explanation" id="explanation"></a>
 
@@ -29,6 +31,9 @@
 * [API Module Definition and Functions](reference/api-module-definition-and-functions.md)
 * [Architecture](reference/architecture.md)
 * [Data Model](reference/data-model.md)
+* [Encryption and Security](reference/encryption-and-security.md)
+* [VPC Configuration](reference/vpc-configuration.md)
+* [SSM Configuration](reference/ssm-configuration.md)
 * [API Reference](reference/api-reference.md)
 
 ## 🔌 API Modules
