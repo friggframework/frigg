@@ -14,6 +14,9 @@ jest.mock('child_process', () => ({
   spawnSync: jest.fn()
 }));
 
+// The app definition validation step is tested in validate-command/.
+jest.mock('../../../validate-command', () => ({ preflightValidation: jest.fn(() => true) }));
+
 // Require after mocks
 const { spawnSync } = require('child_process');
 const { buildCommand } = require('../../../build-command');
