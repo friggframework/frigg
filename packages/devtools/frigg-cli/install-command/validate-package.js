@@ -1,12 +1,28 @@
-const { execSync } = require('child_process');
+const spawn = require('cross-spawn');
 const axios = require('axios');
 const { logError } = require('./logger');
 const { checkbox } = require('@inquirer/prompts');
 
+const API_MODULE_PREFIX = '@friggframework/api-module-';
+
 async function searchPackages(apiModuleName) {
-    const searchCommand = `npm search @friggframework/api-module-${apiModuleName} --json`;
-    const result = execSync(searchCommand, { encoding: 'utf8' });
-    return JSON.parse(result);
+    // Arguments are passed as an array (no shell), so the search term can
+    // never be interpreted as a command.
+    const result = spawn.sync(
+        'npm',
+        ['search', `${API_MODULE_PREFIX}${apiModuleName}`, '--json'],
+        { encoding: 'utf8' }
+    );
+    if (result.error) {
+        throw result.error;
+    }
+    if (result.status !== 0) {
+        throw new Error(`npm search failed: ${result.stderr || result.status}`);
+    }
+    // npm search is a full-text search; keep only Frigg API modules.
+    return JSON.parse(result.stdout || '[]').filter(
+        (pkg) => pkg && pkg.name && pkg.name.startsWith(API_MODULE_PREFIX)
+    );
 }
 
 async function checkPackageExists(packageName) {
@@ -58,6 +74,21 @@ const searchAndSelectPackage = async (apiModuleName) => {
         };
     });
 
+    // Without a terminal to prompt on, take the exact match
+    // (`frigg install hubspot` -> @friggframework/api-module-hubspot).
+    if (!process.stdin.isTTY) {
+        const exact = `${API_MODULE_PREFIX}${apiModuleName}`;
+        if (filteredResults.some((pkg) => pkg.name === exact)) {
+            return [exact];
+        }
+        logError(
+            `No exact match for ${exact}, and there is no terminal to choose from: ${filteredResults
+                .map((pkg) => pkg.name)
+                .join(', ')}`
+        );
+        process.exit(1);
+    }
+
     const selectedPackages = await checkbox({
         message: 'Select the packages to install:',
         choices,
@@ -68,6 +99,7 @@ const searchAndSelectPackage = async (apiModuleName) => {
 };
 
 module.exports = {
+    API_MODULE_PREFIX,
     validatePackageExists,
     checkPackageExists,
     searchPackages,

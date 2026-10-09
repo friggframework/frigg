@@ -7,11 +7,12 @@
 
 'use strict';
 
-const path = require('path');
 const chalk = require('chalk');
 const validateProjectName = require('validate-npm-package-name');
 const semver = require('semver');
 const BackendFirstHandler = require('./backend-first-handler');
+const { resolveProjectTarget } = require('./safe-path');
+const { DEPLOYMENT_MODES } = require('./deployment-modes');
 
 function checkAppName(appName) {
     const validationResult = validateProjectName(appName);
@@ -26,7 +27,7 @@ function checkAppName(appName) {
         [
             ...(validationResult.errors || []),
             ...(validationResult.warnings || []),
-        ].forEach(error => {
+        ].forEach((error) => {
             console.error(chalk.red(`  * ${error}`));
         });
         console.error(chalk.red('\nPlease choose a different project name.'));
@@ -44,50 +45,96 @@ function checkNodeVersion() {
         console.log(
             chalk.yellow(
                 `You are using Node ${process.version} so the project will be bootstrapped with an old unsupported version of tools.\n\n` +
-                `Please update to Node 14 or higher for a better, fully supported experience.\n`
+                    `Please update to Node 14 or higher for a better, fully supported experience.\n`
             )
         );
     }
 }
 
-async function initCommand(projectName, options) {
+async function initCommand(projectName, options = {}) {
     const verbose = options.verbose || false;
     const force = options.force || false;
-    
+
     checkNodeVersion();
 
-    const root = path.resolve(projectName);
-    const appName = path.basename(root);
+    // The legacy template system was removed; reject it before doing anything.
+    if (options.template) {
+        console.log();
+        console.log(
+            chalk.red('Legacy template system is no longer supported.')
+        );
+        console.log(
+            chalk.yellow(
+                `Run ${chalk.cyan(
+                    'frigg init <project-name>'
+                )} without --template.`
+            )
+        );
+        console.log();
+        process.exit(1);
+        return;
+    }
+
+    // Accept the project name from the positional argument or the --name flag.
+    const targetName = projectName || options.name;
+    if (!targetName) {
+        console.error(
+            chalk.red(
+                'Please specify a project name:\n' +
+                    `  ${chalk.cyan('frigg init')} ${chalk.green(
+                        '<project-name>'
+                    )}\n`
+            )
+        );
+        process.exit(1);
+        return;
+    }
+
+    if (options.mode && !DEPLOYMENT_MODES.includes(options.mode)) {
+        console.error(
+            chalk.red(
+                `Invalid --mode "${
+                    options.mode
+                }". Expected one of: ${DEPLOYMENT_MODES.join(', ')}`
+            )
+        );
+        process.exit(1);
+        return;
+    }
+
+    // The last path segment is the project (and npm package) name; the
+    // project directory is resolved inside its parent directory.
+    let root;
+    let appName;
+    try {
+        ({ projectDir: root, name: appName } =
+            resolveProjectTarget(targetName));
+    } catch (error) {
+        console.error(chalk.red(error.message));
+        process.exit(1);
+        return;
+    }
 
     checkAppName(appName);
-    
-    // Use backend-first handler by default
-    if (!options.template && !options.legacyFrontend) {
-        try {
-            const handler = new BackendFirstHandler(root, {
-                force,
-                verbose,
-                mode: options.mode,
-                frontend: options.frontend
-            });
-            
-            await handler.initialize();
-            return;
-        } catch (error) {
-            console.log();
-            console.log(chalk.red('Aborting installation.'));
-            console.log(chalk.red('Error:'), error.message);
-            console.log();
-            process.exit(1);
-        }
+
+    try {
+        const handler = new BackendFirstHandler(root, {
+            force,
+            verbose,
+            mode: options.mode,
+            yes: options.yes || false,
+            install: options.install,
+            git: options.git,
+        });
+
+        await handler.initialize();
+    } catch (error) {
+        console.log();
+        console.log(chalk.red('Aborting installation.'));
+        console.log(chalk.red('Error:'), error.message);
+        console.log();
+        process.exit(1);
     }
-    
-    // If we get here, show an error for legacy options
-    console.log();
-    console.log(chalk.red('Legacy template system is no longer supported.'));
-    console.log(chalk.yellow('Please use the new backend-first approach.'));
-    console.log();
-    process.exit(1);
 }
 
 module.exports = { initCommand };

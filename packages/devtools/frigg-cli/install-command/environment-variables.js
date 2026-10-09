@@ -43,6 +43,12 @@ const extractRawEnvVariables = (modulePath) => {
     return envVariables;
 };
 const handleEnvVariables = async (backendPath, modulePath) => {
+    if (!existsSync(resolve(modulePath, 'definition.js'))) {
+        logInfo(
+            'This module has no definition.js; check its README for the environment variables it needs.'
+        );
+        return;
+    }
     logInfo('Searching for missing environment variables...');
     const Definition = { env: extractRawEnvVariables(modulePath) };
     if (Definition && Definition.env) {
@@ -79,6 +85,15 @@ const handleEnvVariables = async (backendPath, modulePath) => {
         );
 
         logInfo(`Missing environment variables: ${missingEnvVars.join(', ')}`);
+
+        if (missingEnvVars.length > 0 && !process.stdin.isTTY) {
+            logInfo(
+                `Set these in .env for local development: ${missingEnvVars.join(
+                    ', '
+                )}`
+            );
+            return;
+        }
 
         if (missingEnvVars.length > 0) {
             const addEnvVars = await confirm({

@@ -91,11 +91,16 @@ const { ssmPushCommand } = require('./ssm-command');
 const program = new Command();
 
 program
-    .command('init [templateName]')
+    .command('init [projectName]')
     .description('Initialize a new Frigg application')
-    .option('-t, --template <template>', 'template to use', 'backend-only')
-    .option('-n, --name <name>', 'project name')
-    .option('-d, --directory <directory>', 'target directory')
+    .option('-n, --name <name>', 'project name (alternative to the positional argument)')
+    .option('-m, --mode <mode>', 'deployment mode: standalone or embedded')
+    .option('-y, --yes', 'accept the default for every prompt (implied when stdin is not a TTY)')
+    .option('--no-install', 'skip installing dependencies')
+    .option('--no-git', 'skip initializing a git repository')
+    .option('-f, --force', 'scaffold into a non-empty directory and overwrite README.md')
+    .option('-v, --verbose', 'enable verbose output')
+    .option('-t, --template <template>', 'legacy template (no longer supported)')
     .action(initCommand);
 
 program
