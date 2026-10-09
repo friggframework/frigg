@@ -7,6 +7,9 @@ const {
 const {
     WebsocketConnectionRepositoryDocumentDB,
 } = require('./websocket-connection-repository-documentdb');
+const {
+    WebsocketConnectionRepositorySqlite,
+} = require('./websocket-connection-repository-sqlite');
 const config = require('../../database/config');
 
 /**
@@ -28,9 +31,12 @@ function createWebsocketConnectionRepository() {
         case 'documentdb':
             return new WebsocketConnectionRepositoryDocumentDB();
 
+        case 'sqlite':
+            return new WebsocketConnectionRepositorySqlite();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql', 'sqlite'`
             );
     }
 }
@@ -41,4 +47,5 @@ module.exports = {
     WebsocketConnectionRepositoryMongo,
     WebsocketConnectionRepositoryPostgres,
     WebsocketConnectionRepositoryDocumentDB,
+    WebsocketConnectionRepositorySqlite,
 };
