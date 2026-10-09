@@ -206,6 +206,34 @@ class CredentialRepositoryPostgres extends CredentialRepositoryInterface {
     }
 
     /**
+     * All credentials owned by a user, newest first.
+     *
+     * @param {string} userId - User ID (string from application layer)
+     * @returns {Promise<Array<Object>>} Credentials with string IDs
+     */
+    async findCredentialsByUserId(userId) {
+        let intUserId;
+        try {
+            intUserId = this._convertId(userId);
+        } catch {
+            return [];
+        }
+        const credentials = await this.prisma.credential.findMany({
+            where: { userId: intUserId },
+            orderBy: { createdAt: 'desc' },
+        });
+        return credentials.map((credential) => ({
+            ...(credential.data || {}),
+            id: credential.id.toString(),
+            userId: credential.userId?.toString(),
+            externalId: credential.externalId,
+            authIsValid: credential.authIsValid,
+            createdAt: credential.createdAt,
+            updatedAt: credential.updatedAt,
+        }));
+    }
+
+    /**
      * Update a credential by ID
      *
      * @param {string} credentialId - Credential ID (string from application layer)

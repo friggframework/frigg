@@ -81,6 +81,21 @@ class CredentialRepositoryInterface {
     }
 
     /**
+     * All credentials owned by a user, newest first.
+     *
+     * @param {string|number} userId - User ID (string from application layer)
+     * @returns {Promise<Array<Object>>} Credentials with string IDs, `createdAt`
+     *   and `updatedAt`, and the (decrypted) data fields spread in, as
+     *   findCredentialById returns them. Empty when the user has none.
+     * @abstract
+     */
+    async findCredentialsByUserId(userId) {
+        throw new Error(
+            'Method findCredentialsByUserId must be implemented by subclass'
+        );
+    }
+
+    /**
      * Update a credential by ID
      *
      * @param {string|number} credentialId - Credential ID
