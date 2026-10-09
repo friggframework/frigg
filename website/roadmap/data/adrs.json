@@ -1,5 +1,5 @@
 {
-  "count": 31,
+  "count": 32,
   "adrs": [
     {
       "num": 1,
@@ -310,6 +310,16 @@
       "theme": "Observability & ops",
       "summary": "Replaces ad-hoc console logging with one Frigg-owned logger port in core that writes one redacted JSON record per line to stdout, with a fixed field set, six levels, ADR-011 correlation and trace ids, and redaction by construction. JSON is the only output format, in every stage; other destinations connect as sinks that only translate and send, the upgrade changes need maintainer ratification, and the Lambda log format and retention in devtools are opt-in.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/048-structured-logging.md"
+    },
+    {
+      "num": 50,
+      "id": "050",
+      "title": "Move to osls 4 for 2.0.1",
+      "status": "Accepted",
+      "date": "2026-10-02",
+      "theme": "Infra & deploy",
+      "summary": "Moves Frigg's deploy tool from osls 3 (now the legacy dist-tag) to osls ^4.4.0 in 2.0.1: converts every function-level package.include/exclude to order-preserving package.patterns, emits useDotenv only when true, pins frameworkVersion to ^4.4.0, and tightens engines to Node ^22.13.0 || >=24. Ships in two steps (conversion on osls 3, then the bump), with per-function artifact diffs and a sandbox deploy as release gates.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/050-osls-4.md"
     }
   ]
 }
