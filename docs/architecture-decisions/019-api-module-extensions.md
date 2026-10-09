@@ -107,6 +107,7 @@ Bundling these per module keeps the platform vocabulary in one place and lets ea
 - [INTEGRATION-EXTENSIONS](./018-integration-extensions.md): the consumer side of the same contract
 - [ARTIFACTS](./022-artifacts.md): API modules also ship Artifact scaffolds; some API Module Extensions are the Frigg-side bridge that pairs with a deployed Artifact
 - [CAPABILITIES](./020-capabilities.md): API Module Extensions are `implementedBy` targets for capabilities at the API module level
+- [ADR-054: One-File Integrations via Module Extensions](./054-one-file-integrations.md): amends and partly supersedes this ADR. Contract 2 replaces the extension shape in the Decision; accepts the versioning lean; closes open question 4.
 
 ## Open questions
 
