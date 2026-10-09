@@ -1,4 +1,5 @@
 const { prisma } = require('../../database/prisma');
+const { MappingAlreadyExistsError } = require('../../errors');
 const {
     assertMappingWrittenUnencrypted,
     decryptQueriedMappings,
@@ -91,6 +92,34 @@ class IntegrationMappingRepositoryMongo extends IntegrationMappingRepositoryInte
                 mapping,
             },
         });
+    }
+
+    /**
+     * Insert a mapping; fails if (integrationId, sourceId) already exists
+     *
+     * @param {string} integrationId - The integration ID
+     * @param {string} sourceId - The source ID
+     * @param {Object} mapping - The mapping data
+     * @returns {Promise<Object>} The created mapping document
+     * @throws {MappingAlreadyExistsError} If the pair already exists
+     */
+    async createMapping(integrationId, sourceId, mapping) {
+        try {
+            return await this.prisma.integrationMapping.create({
+                data: {
+                    integrationId,
+                    sourceId: this._toString(sourceId),
+                    mapping,
+                },
+            });
+        } catch (error) {
+            if (error.code === 'P2002') {
+                throw new MappingAlreadyExistsError(integrationId, sourceId, {
+                    cause: error,
+                });
+            }
+            throw error;
+        }
     }
 
     /**

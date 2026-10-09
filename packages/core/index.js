@@ -57,6 +57,7 @@ const {
     HaltError,
     RequiredPropertyError,
     ParameterTypeError,
+    MappingAlreadyExistsError,
 } = require('./errors/index');
 const {
     IntegrationBase,
@@ -144,6 +145,7 @@ module.exports = {
     HaltError,
     RequiredPropertyError,
     ParameterTypeError,
+    MappingAlreadyExistsError,
 
     // integrations
     IntegrationBase,

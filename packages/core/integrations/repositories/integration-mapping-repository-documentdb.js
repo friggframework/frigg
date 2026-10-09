@@ -1,4 +1,5 @@
 const { prisma } = require('../../database/prisma');
+const { MappingAlreadyExistsError } = require('../../errors');
 const {
     toObjectId,
     fromObjectId,
@@ -178,6 +179,55 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
             created
         );
         return this._mapMapping(decryptedMapping);
+    }
+
+    async createMapping(integrationId, sourceId, mapping) {
+        const now = new Date();
+        const encryptedDocument = await this.encryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                integrationId,
+                sourceId:
+                    sourceId === null || sourceId === undefined
+                        ? null
+                        : String(sourceId),
+                mapping,
+                createdAt: now,
+                updatedAt: now,
+            }
+        );
+
+        let insertedId;
+        try {
+            insertedId = await insertOne(
+                this.prisma,
+                'IntegrationMapping',
+                encryptedDocument
+            );
+        } catch (error) {
+            if (error.code === 11000) {
+                throw new MappingAlreadyExistsError(integrationId, sourceId, {
+                    cause: error,
+                });
+            }
+            throw error;
+        }
+
+        const created = await findOne(this.prisma, 'IntegrationMapping', {
+            _id: insertedId,
+        });
+        if (!created) {
+            throw new Error(
+                'Failed to create mapping: Document not found after insert. ' +
+                    'This indicates a database consistency issue.'
+            );
+        }
+        return this._mapMapping(
+            await this.encryptionService.decryptFields(
+                'IntegrationMapping',
+                created
+            )
+        );
     }
 
     async findMappingsByIntegration(integrationId) {
