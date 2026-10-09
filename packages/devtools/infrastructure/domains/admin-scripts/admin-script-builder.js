@@ -141,10 +141,12 @@ class AdminScriptBuilder extends InfrastructureBuilder {
     }
 
     createAdminScriptQueue(result, appDefinition) {
+        // Registered under custom so the serverless plugin creates it in LocalStack offline
+        result.custom.AdminScriptQueue = '${self:service}-${self:provider.stage}-AdminScriptQueue';
         result.resources.AdminScriptQueue = {
             Type: 'AWS::SQS::Queue',
             Properties: {
-                QueueName: '${self:service}-${self:provider.stage}-AdminScriptQueue',
+                QueueName: '${self:custom.AdminScriptQueue}',
                 MessageRetentionPeriod: 86400, // 1 day
                 VisibilityTimeout: 900, // 15 minutes (Lambda max)
                 RedrivePolicy: {
@@ -264,10 +266,12 @@ class AdminScriptBuilder extends InfrastructureBuilder {
     }
 
     createReportQueue(result, appDefinition) {
+        // Registered under custom so the serverless plugin creates it in LocalStack offline
+        result.custom.ReportQueue = '${self:service}-${self:provider.stage}-ReportQueue';
         result.resources.ReportQueue = {
             Type: 'AWS::SQS::Queue',
             Properties: {
-                QueueName: '${self:service}-${self:provider.stage}-ReportQueue',
+                QueueName: '${self:custom.ReportQueue}',
                 MessageRetentionPeriod: 86400, // 1 day
                 VisibilityTimeout: 900, // 15 minutes (Lambda max)
                 RedrivePolicy: {

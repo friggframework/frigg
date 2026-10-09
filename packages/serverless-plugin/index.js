@@ -62,7 +62,30 @@ class FriggServerlessPlugin {
       const envKey = mapper.getEnvironmentKey(key, environmentMap);
       this.serverless.extendConfiguration(['provider', 'environment', envKey], url);
       console.log(`Set ${envKey} to ${url}`);
+      this.resolveQueueRefs(key, url);
     });
+  }
+
+  // Deployed AWS resolves `{ Ref: <Queue> }` to the queue URL; offline it stays an
+  // object, so every env var holding that Ref (e.g. ADMIN_SCRIPT_QUEUE_URL) gets the
+  // LocalStack URL instead.
+  resolveQueueRefs(queueKey, url) {
+    const { provider, functions = {} } = this.serverless.service;
+    const isRef = (value) => value && value.Ref === queueKey;
+    const scopes = [
+      [['provider', 'environment'], provider.environment],
+      ...Object.entries(functions).map(([name, fn]) => [
+        ['functions', name, 'environment'],
+        fn && fn.environment,
+      ]),
+    ];
+    for (const [path, environment] of scopes) {
+      for (const [name, value] of Object.entries(environment || {})) {
+        if (!isRef(value)) continue;
+        this.serverless.extendConfiguration([...path, name], url);
+        console.log(`Set ${name} to ${url}`);
+      }
+    }
   }
 
   extractQueueDefinitions() {

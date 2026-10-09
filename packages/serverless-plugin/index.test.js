@@ -156,6 +156,43 @@ describe('FriggServerlessPlugin', () => {
       expect(mockQueueService.createQueues).toHaveBeenCalled();
       expect(mockServerless.extendConfiguration).toHaveBeenCalledTimes(2);
     });
+
+    it('points environment variables that Ref a created queue at its LocalStack url', async () => {
+      plugin = new FriggServerlessPlugin(mockServerless, mockOptions);
+      const url = 'http://localhost:4566/admin-script';
+      mockServerless.service.custom = { AdminScriptQueue: 'test-AdminScriptQueue' };
+      mockServerless.service.provider.environment = {
+        ADMIN_SCRIPT_QUEUE_URL: { Ref: 'AdminScriptQueue' },
+        OTHER_QUEUE_URL: { Ref: 'OtherQueue' },
+        STAGE: 'local',
+      };
+      mockServerless.service.functions = {
+        adminScriptRouter: { environment: { ADMIN_SCRIPT_QUEUE_URL: { Ref: 'AdminScriptQueue' } } },
+        auth: {},
+      };
+      QueueEnvironmentMapper.mockImplementation(() => ({
+        createMapping: jest.fn().mockReturnValue({ AdminScriptQueue: 'ADMINSCRIPT_QUEUE_URL' }),
+        getEnvironmentKey: jest.fn().mockReturnValue('ADMINSCRIPT_QUEUE_URL'),
+      }));
+      LocalStackQueueService.mockImplementation(() => ({
+        createQueues: jest.fn().mockResolvedValue([{ key: 'AdminScriptQueue', url }]),
+      }));
+
+      await plugin.setupOfflineQueues();
+
+      expect(mockServerless.extendConfiguration).toHaveBeenCalledWith(
+        ['provider', 'environment', 'ADMIN_SCRIPT_QUEUE_URL'],
+        url
+      );
+      expect(mockServerless.extendConfiguration).toHaveBeenCalledWith(
+        ['functions', 'adminScriptRouter', 'environment', 'ADMIN_SCRIPT_QUEUE_URL'],
+        url
+      );
+      expect(mockServerless.extendConfiguration).not.toHaveBeenCalledWith(
+        ['provider', 'environment', 'OTHER_QUEUE_URL'],
+        expect.anything()
+      );
+    });
   });
 
   describe('extractQueueDefinitions', () => {

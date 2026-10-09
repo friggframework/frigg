@@ -75,6 +75,39 @@
       },
       "default": []
     },
+    "adminScripts": {
+      "type": "array",
+      "description": "Admin script classes (extending AdminScriptBase from @friggframework/admin-scripts) served under /admin/scripts",
+      "items": {
+        "description": "Admin script class"
+      },
+      "default": []
+    },
+    "reports": {
+      "type": "array",
+      "description": "Report classes served by the admin report runner",
+      "items": {
+        "description": "Report class"
+      },
+      "default": []
+    },
+    "admin": {
+      "type": "object",
+      "description": "Admin script and report runner options",
+      "properties": {
+        "enableScheduling": {
+          "type": "boolean",
+          "description": "Provision the EventBridge Scheduler group and role so admin scripts and reports can run on a schedule",
+          "default": false
+        },
+        "includeBuiltinReports": {
+          "type": "boolean",
+          "description": "Serve the built-in reports alongside the app's own reports",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
     "user": {
       "type": "object",
       "description": "User management and authentication configuration",

@@ -168,6 +168,21 @@ describe('AdminScriptBuilder', () => {
             expect(result.resources.AdminScriptQueue.Properties.VisibilityTimeout).toBe(900); // 15 minutes
         });
 
+        it('registers AdminScriptQueue under custom so frigg start creates it locally', async () => {
+            const appDefinition = {
+                adminScripts: [{ Definition: { name: 'test-script' } }],
+            };
+
+            const result = await adminScriptBuilder.build(appDefinition, {});
+
+            expect(result.custom.AdminScriptQueue).toBe(
+                '${self:service}-${self:provider.stage}-AdminScriptQueue'
+            );
+            expect(result.resources.AdminScriptQueue.Properties.QueueName).toBe(
+                '${self:custom.AdminScriptQueue}'
+            );
+        });
+
         it('should configure AdminScriptQueue redrive policy to InternalErrorQueue', async () => {
             const appDefinition = {
                 adminScripts: [
@@ -621,6 +636,21 @@ describe('AdminScriptBuilder', () => {
     });
 
     describe('reports (ReportQueue + reportExecutor)', () => {
+        it('registers ReportQueue under custom so frigg start creates it locally', async () => {
+            const appDefinition = {
+                reports: [{ Definition: { name: 'my-report', version: '1.0.0' } }],
+            };
+
+            const result = await adminScriptBuilder.build(appDefinition, {});
+
+            expect(result.custom.ReportQueue).toBe(
+                '${self:service}-${self:provider.stage}-ReportQueue'
+            );
+            expect(result.resources.ReportQueue.Properties.QueueName).toBe(
+                '${self:custom.ReportQueue}'
+            );
+        });
+
         it('creates ReportQueue + reportExecutor and wires REPORT_QUEUE_URL when reports are present', async () => {
             const appDefinition = {
                 reports: [{ Definition: { name: 'my-report', version: '1.0.0' } }],
