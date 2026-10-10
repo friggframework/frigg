@@ -369,6 +369,13 @@ class MyIntegration extends IntegrationBase {
 - `ApiKeyRequester` - API key authentication
 - `BasicAuthRequester` - Basic authentication
 
+**Rate limits** (ADR-049): an API module declares `static rateLimit` on its
+`Requester` subclass. A hinted wait (from `classify()`, the header parsers or
+the static policy) sleeps within a budget, or throws `RateLimitError`
+(`isRateLimited`, `retryAt`) when it does not fit. A 429 with no hint keeps the
+fixed `backOff` ladder. See
+[Rate Limits](../../docs/reference/api-module-definition-and-functions.md#rate-limits-static-ratelimit).
+
 **Module Factory**:
 - `ModuleFactory` - Creates and configures API module instances
 - Handles credential injection
@@ -477,7 +484,8 @@ handlers (`{ req, res, next }`) and `this.on` events do not.
 `isLastAttempt` is `false` when either count is unknown: a local or non-SQS
 invocation, or a queue whose redrive policy the stack does not own
 (`ownership.queue: 'external'`). The value is information only: core still
-rethrows retryable errors and discards halt errors (4xx except 408/429).
+rethrows retryable errors and discards halt errors (4xx except 408, 429 and
+errors with `isRateLimited`).
 
 Use it to end a run or count lost work on the final try: when a retryable
 error (429, 5xx, network) is about to be rethrown and `isLastAttempt` is
@@ -507,6 +515,7 @@ it as `FRIGG_QUEUE_MAX_RECEIVE_COUNT` on the queue worker function.
 **Error Types**:
 - `BaseError` - Base error class
 - `FetchError` - HTTP request failures
+- `RateLimitError` - A `FetchError` for a limit the provider or the module's policy says when to retry (`retryAt`)
 - `HaltError` - Stop processing without retry
 - `RequiredPropertyError` - Missing required parameters
 - `ParameterTypeError` - Invalid parameter type
