@@ -116,6 +116,7 @@ Two reasons a sufficiently rich Integration Extension does not solve the same pr
 - [API-MODULE-EXTENSIONS](./019-api-module-extensions.md): templates know their partner module's API Module Extensions and bind them
 - [CAPABILITIES](./020-capabilities.md): each template declares the capability set it promises; the adopter inherits and can extend
 - [AGENT-HARNESS](./025-agent-harness.md): the harness uses templates as the dominant scaffold path for new integration work
+- [ADR-054: One-File Integrations via Module Extensions](./054-one-file-integrations.md): amends this ADR. A template is a `defineIntegration` file; the `workflows.js`/`user-actions.js` split is dropped.
 
 ## Open questions
 
