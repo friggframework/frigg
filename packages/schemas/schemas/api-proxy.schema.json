@@ -6,7 +6,7 @@
   "definitions": {
     "proxyRequest": {
       "type": "object",
-      "description": "Proxy request to POST /api/entities/:id/proxy or POST /api/credentials/:id/proxy",
+      "description": "Proxy request to POST /api/v2/entities/:entityId/proxy (ADR-052). Off unless the app sets managementApi.proxy.enable, and only for paths the module (or the app definition) allow-lists.",
       "required": ["method", "path"],
       "properties": {
         "method": {
@@ -16,7 +16,7 @@
         },
         "path": {
           "type": "string",
-          "description": "API path to call on the upstream service (e.g., '/v3/contacts' or '/api/users')",
+          "description": "Path relative to the module's base URL (e.g. '/v3/contacts'). Must start with a single /. Rejected: //, backslashes, ? and # (use query), . and .. segments, encoded separators (%2f, %5c), double encoding, control and whitespace characters other than %20. The host always comes from the module.",
           "pattern": "^/",
           "minLength": 1
         },
@@ -37,7 +37,7 @@
         },
         "headers": {
           "type": "object",
-          "description": "Additional headers to include in the upstream request (authorization headers are added automatically)",
+          "description": "Request headers. Only accept, content-type, accept-language, if-match, if-none-match and headers the module lists in proxy.headers are forwarded; others are dropped. Authorization, Proxy-Authorization, Cookie, Host, Forwarded, X-Forwarded-*, X-Real-IP, X-API-Key and the module's own auth header are refused (400). Auth headers come only from the module.",
           "additionalProperties": { "type": "string" }
         },
         "body": {
@@ -84,19 +84,23 @@
     },
     "proxyResponse": {
       "type": "object",
-      "description": "Successful proxy response with data from upstream API",
+      "description": "Upstream answer relayed by the proxy. The HTTP status of the Frigg response equals `status`; `success` is false for upstream 4xx.",
       "required": ["success", "status", "data"],
       "properties": {
         "success": {
           "type": "boolean",
-          "const": true,
-          "description": "Indicates successful proxy operation"
+          "description": "True when the upstream status is below 400"
         },
         "status": {
           "type": "integer",
           "minimum": 200,
-          "maximum": 299,
-          "description": "HTTP status code from the upstream API response"
+          "maximum": 499,
+          "description": "HTTP status code from the upstream API response (5xx, 401 and 429 are reported as proxy errors)"
+        },
+        "dataEncoding": {
+          "type": "string",
+          "enum": ["base64"],
+          "description": "Present when data is a base64-encoded binary body (only for modules with proxy.binary: true)"
         },
         "headers": {
           "type": "object",
@@ -171,16 +175,25 @@
               "type": "string",
               "description": "Error code identifying the type of failure",
               "enum": [
-                "INVALID_AUTH",
-                "EXPIRED_TOKEN",
+                "INVALID_PROXY_REQUEST",
+                "PROXY_NOT_ALLOWED",
+                "PROXY_NOT_CONFIGURED",
+                "PAYLOAD_TOO_LARGE",
+                "UNSUPPORTED_MEDIA_TYPE",
+                "RESPONSE_TOO_LARGE",
+                "INVALID_CREDENTIALS",
+                "RATE_LIMITED",
                 "UPSTREAM_ERROR",
                 "TIMEOUT",
                 "NETWORK_ERROR",
-                "RATE_LIMITED",
-                "INVALID_REQUEST",
+                "ENTITY_NOT_FOUND",
                 "NOT_FOUND",
+                "UNAUTHORIZED",
+                "VALIDATION_ERROR",
+                "INVALID_AUTH",
+                "EXPIRED_TOKEN",
+                "INVALID_REQUEST",
                 "PERMISSION_DENIED",
-                "INVALID_CREDENTIALS",
                 "SERVICE_UNAVAILABLE"
               ]
             },

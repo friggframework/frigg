@@ -31,6 +31,19 @@ describe('loadAppDefinition', () => {
         }
     });
 
+    it('returns managementApi from the app definition (ADR-053)', () => {
+        const managementApi = { v1: false, proxy: { enable: true } };
+        dirs.push(writeBackend({ integrations: [], managementApi }));
+
+        expect(loadAppDefinition().managementApi).toEqual(managementApi);
+    });
+
+    it('defaults managementApi to an empty object', () => {
+        dirs.push(writeBackend({ integrations: [] }));
+
+        expect(loadAppDefinition().managementApi).toEqual({});
+    });
+
     it('returns logging from the app definition', () => {
         const logging = { level: 'DEBUG', logGroup: { retentionInDays: 30 } };
         dirs.push(writeBackend({ integrations: [], logging }));

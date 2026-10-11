@@ -186,6 +186,40 @@ class CredentialRepositoryDocumentDB extends CredentialRepositoryInterface {
         return this._mapCredential(decryptedCredential);
     }
 
+    /**
+     * All credentials owned by a user, newest first.
+     *
+     * @param {string} userId - User ID
+     * @returns {Promise<Array<Object>>} Credentials with string IDs
+     */
+    async findCredentialsByUserId(userId) {
+        const userObjectId = toObjectId(userId);
+        if (!userObjectId) return [];
+        const docs = await findManyDrained(
+            this.prisma,
+            'Credential',
+            { userId: userObjectId },
+            { sort: { createdAt: -1 } }
+        );
+        const credentials = [];
+        for (const doc of docs) {
+            const decrypted = await this.encryptionService.decryptFields(
+                'Credential',
+                doc
+            );
+            credentials.push({
+                ...this._mapCredential(decrypted),
+                id: fromObjectId(doc._id),
+                userId: fromObjectId(doc.userId) ?? doc.userId,
+                externalId: doc.externalId ?? null,
+                authIsValid: doc.authIsValid ?? null,
+                createdAt: doc.createdAt ?? null,
+                updatedAt: doc.updatedAt ?? null,
+            });
+        }
+        return credentials;
+    }
+
     async updateCredential(credentialId, updates) {
         const objectId = toObjectId(credentialId);
         if (!objectId) return null;

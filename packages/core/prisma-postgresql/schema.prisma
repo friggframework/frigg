@@ -434,3 +434,29 @@ model UsageCounter {
   // Covers series() (metric + integrationType + window range).
   @@index([metric, integrationType, window])
 }
+
+// ============================================================================
+// MANAGEMENT API MODELS
+// ============================================================================
+
+/// Multi-step authorization state for Management API v2 (/api/v2/authorize,
+/// /api/v2/credentials/:id/reauthorize). Short-lived: expired rows are removed
+/// opportunistically. stepData is encrypted at rest.
+model AuthorizationSession {
+  id           Int      @id @default(autoincrement())
+  sessionId    String   @unique
+  userId       String
+  entityType   String
+  credentialId String?
+  currentStep  Int      @default(1)
+  maxSteps     Int
+  stepData     Json     @default("{}")
+  expiresAt    DateTime
+  completed    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, entityType])
+  @@index([expiresAt])
+}

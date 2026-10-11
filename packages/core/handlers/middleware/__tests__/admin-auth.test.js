@@ -92,4 +92,27 @@ describe('Admin Auth Middleware', () => {
             expect(mockNext).not.toHaveBeenCalled();
         });
     });
+
+    describe('isValidAdminApiKey', () => {
+        let isValidAdminApiKey;
+
+        beforeEach(() => {
+            isValidAdminApiKey = require('../admin-auth').isValidAdminApiKey;
+        });
+
+        it('accepts the configured key', () => {
+            expect(isValidAdminApiKey(TEST_ADMIN_KEY)).toBe(true);
+        });
+
+        it('rejects a wrong or missing key', () => {
+            expect(isValidAdminApiKey(`${TEST_ADMIN_KEY}x`)).toBe(false);
+            expect(isValidAdminApiKey(undefined)).toBe(false);
+            expect(isValidAdminApiKey('')).toBe(false);
+        });
+
+        it('rejects every key when none is configured', () => {
+            delete process.env.ADMIN_API_KEY;
+            expect(isValidAdminApiKey(TEST_ADMIN_KEY)).toBe(false);
+        });
+    });
 });

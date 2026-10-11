@@ -39,6 +39,12 @@ const CORE_ENCRYPTION_SCHEMA = {
     Token: {
         fields: ['token'],
     },
+
+    // Multi-step authorization (Management API v2): earlier steps can collect
+    // emails, usernames or one-time codes.
+    AuthorizationSession: {
+        fields: ['stepData'],
+    },
 };
 
 let customSchema = {};

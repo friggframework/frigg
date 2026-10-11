@@ -126,6 +126,13 @@ describe('Encryption Schema Registry', () => {
             expect(models).toContain('IntegrationMapping');
             expect(models).toContain('User');
             expect(models).toContain('Token');
+            expect(models).toContain('AuthorizationSession');
+        });
+
+        it('encrypts the data multi-step authorization collects', () => {
+            expect(getEncryptedFields('AuthorizationSession')).toEqual([
+                'stepData',
+            ]);
         });
 
         it('should return array with length equal to encrypted models', () => {

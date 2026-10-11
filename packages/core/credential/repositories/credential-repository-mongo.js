@@ -189,6 +189,29 @@ class CredentialRepositoryMongo extends CredentialRepositoryInterface {
     }
 
     /**
+     * All credentials owned by a user, newest first.
+     *
+     * @param {string} userId - User ID
+     * @returns {Promise<Array<Object>>} Credentials with string IDs
+     */
+    async findCredentialsByUserId(userId) {
+        if (!userId) return [];
+        const credentials = await this.prisma.credential.findMany({
+            where: { userId: String(userId) },
+            orderBy: { createdAt: 'desc' },
+        });
+        return credentials.map((credential) => ({
+            ...(credential.data || {}),
+            id: credential.id,
+            userId: credential.userId,
+            externalId: credential.externalId,
+            authIsValid: credential.authIsValid,
+            createdAt: credential.createdAt,
+            updatedAt: credential.updatedAt,
+        }));
+    }
+
+    /**
      * Update a credential by ID
      * Replaces: Credential.findByIdAndUpdate(credentialId, { $set: updates })
      *
