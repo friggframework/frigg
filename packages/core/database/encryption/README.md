@@ -13,7 +13,7 @@ This module provides **transparent field-level encryption** for sensitive data i
 -   ✅ **Hexagonal architecture**: Clean separation of concerns
 -   ✅ **AWS KMS support**: Enterprise-grade encryption with AWS Key Management Service
 -   ✅ **Local AES fallback**: Development mode using local encryption keys
--   ✅ **Environment-based**: Automatic bypass in dev/test/local environments
+-   ✅ **Fails closed**: A deployed stage with no key refuses to start; only local runs (`frigg start`, tests) skip encryption
 -   ✅ **Envelope encryption**: Secure key management pattern
 
 ## Architecture
@@ -107,18 +107,46 @@ AES_KEY=your-32-character-secret-key-here
 STAGE=production  # or development, staging, etc.
 ```
 
-**⚠️ Important**: Encryption is automatically **disabled** when `STAGE` is set to `dev`, `test`, or `local`, regardless of key configuration.
+### When Encryption Runs
 
-### Bypass Encryption
+The rule lives in `encryption-config.js` and is shared by the Prisma client, the DocumentDB encryption service, the integration-mapping helpers and the `/health/detailed` check. It depends on **where the code runs**, not on the stage name.
 
-To explicitly disable encryption:
+A process is **deployed** when it runs in AWS Lambda (`AWS_LAMBDA_FUNCTION_NAME` or `LAMBDA_TASK_ROOT` is set, or `AWS_EXECUTION_ENV` starts with `AWS_Lambda_`) and is **not** a local run (`IS_OFFLINE=true` from serverless-offline / `frigg start`, `IS_LOCAL=true` from `serverless invoke local`, or `JEST_WORKER_ID` from Jest). Everything else is **local**.
 
-```bash
-# Disable encryption (development only)
-STAGE=development  # or dev, test, local
+| Runtime | Key configured | `FRIGG_ENCRYPTION_DISABLED=true` | Result |
+| --- | --- | --- | --- |
+| Deployed, any stage (including `dev`) | `KMS_KEY_ARN` | any | Encrypt with KMS |
+| Deployed, any stage | `AES_KEY_ID` + `AES_KEY` | any | Encrypt with AES |
+| Deployed, any stage | `AES_KEY_ID` without `AES_KEY` | no | **Refuses to start** (`EncryptionConfigurationError`) |
+| Deployed, any stage | none | no | **Refuses to start** (`EncryptionConfigurationError`) |
+| Deployed, any stage | none | yes | Plaintext, with a warning on every cold start |
+| Local, `STAGE` (or `NODE_ENV`) is `dev`, `test` or `local` | any | any | Skipped |
+| Local, any other stage | `KMS_KEY_ARN` or `AES_KEY_ID` | any | Encrypt |
+| Local, any other stage | none | any | Plaintext, with a warning |
+
+KMS wins when both keys are set. A configured key always wins over `FRIGG_ENCRYPTION_DISABLED`: switching encryption off while a key exists would leave already-encrypted data unreadable, so the opt-out is ignored (with a warning).
+
+"Refuses to start" means the Prisma client is never created: the first database access on a cold start throws
+
+```
+EncryptionConfigurationError: [Frigg] No field-level encryption key is configured for stage "dev". A deployed Frigg app will not write credentials and other sensitive fields in plaintext. Fix: ...
 ```
 
-Or simply don't configure any encryption keys. In Production field level encryption **must** be enabled.
+and `/health/detailed` reports `checks.encryption.status: "unhealthy"` with the same message. If a key is configured but the encryption extension fails to initialise, the client also refuses to start rather than continuing without encryption.
+
+To encrypt a local run, use a stage other than `dev`, `test` or `local` and configure a key.
+
+### Running a Deployed Stage Without Encryption
+
+Only do this on purpose, for a stage that never holds real credentials. Either set it in the app definition:
+
+```javascript
+const appDefinition = {
+    encryption: { fieldLevelEncryptionMethod: 'none' },
+};
+```
+
+which the infrastructure builders turn into `FRIGG_ENCRYPTION_DISABLED=true` on every function, or set `FRIGG_ENCRYPTION_DISABLED=true` in the Lambda environment yourself. Every cold start logs a warning that sensitive fields are stored in plaintext. There is no default that does this.
 
 ## Encrypted Fields
 
@@ -553,8 +581,8 @@ class MyRepositoryDocumentDB {
 
 #### Configuration
 
-Uses the same environment variables and Cryptor as the Prisma Extension:
-- `STAGE`: Bypasses encryption for dev/test/local
+Uses the same rule (`encryption-config.js`, see [When Encryption Runs](#when-encryption-runs)) and Cryptor as the Prisma Extension. Constructing the service in a deployed runtime with no key throws `EncryptionConfigurationError`.
+- `STAGE`: Skips encryption for dev/test/local on local runs only
 - `KMS_KEY_ARN`: AWS KMS encryption (production)
 - `AES_KEY_ID` + `AES_KEY`: AES encryption (fallback)
 
@@ -615,10 +643,27 @@ curl http://localhost:3000/health/test-encryption
     "encryptionWorks": true
 }
 
-# Response when encryption disabled:
+# Response on a local run with STAGE=dev:
 {
     "status": "disabled",
-    "reason": "Encryption bypassed for stage: development"
+    "bypassed": true,
+    "runtime": "local",
+    "testResult": "Encryption bypassed for this stage"
+}
+
+# Response in a deployed stage with no key (the app itself refuses to start):
+{
+    "status": "unhealthy",
+    "mode": "none",
+    "runtime": "deployed",
+    "testResult": "[Frigg] No field-level encryption key is configured for stage \"dev\". ..."
+}
+
+# Response in a deployed stage with FRIGG_ENCRYPTION_DISABLED=true and no key:
+{
+    "status": "disabled",
+    "optedOut": true,
+    "testResult": "Encryption explicitly disabled (FRIGG_ENCRYPTION_DISABLED=true); sensitive fields are stored in plaintext"
 }
 ```
 
@@ -732,9 +777,10 @@ FRIGG_LOG_LEVEL=INFO
 **Check environment variables:**
 
 ```bash
-echo $STAGE              # Should be 'production' (not dev/test/local)
 echo $KMS_KEY_ARN        # Should be set (for KMS)
-echo $AES_KEY_ID         # Should be set (for AES)
+echo $AES_KEY_ID $AES_KEY  # Both should be set (for AES)
+echo $STAGE              # Local runs only: dev/test/local skip encryption
+echo $FRIGG_ENCRYPTION_DISABLED  # Should be unset
 ```
 
 **Check console logs:**
@@ -748,6 +794,22 @@ or
 ```
 [Frigg] Field-level encryption disabled
 ```
+
+### Deployed Stage Refuses to Start
+
+**Error: "EncryptionConfigurationError: [Frigg] No field-level encryption key is configured for stage ..."**
+
+The function runs in AWS and has neither `KMS_KEY_ARN` nor `AES_KEY_ID` + `AES_KEY`. Earlier versions skipped encryption on stages named `dev`, `test` or `local` and wrote plaintext when no key was set; deployed stages now refuse instead. Fix one of:
+
+1. Set `encryption: { fieldLevelEncryptionMethod: 'kms' }` in the app definition and redeploy. Frigg creates or discovers a KMS key and sets `KMS_KEY_ARN` on every function, whatever the stage name.
+2. Provide `AES_KEY_ID` and `AES_KEY` (32 characters) through the app definition's `environment` and the deploy environment.
+3. To keep the stage in plaintext on purpose, set `encryption: { fieldLevelEncryptionMethod: 'none' }` (or `FRIGG_ENCRYPTION_DISABLED=true`).
+
+Data written in plaintext before the key existed stays readable: reads leave values that are not in the encrypted `keyId:iv:cipher:encKey` format untouched, and the next write of each record encrypts it. Records that are never rewritten stay in plaintext until you re-save them.
+
+**Error: "[Frigg] AES_KEY_ID is set but AES_KEY is not"**
+
+Provide `AES_KEY` alongside `AES_KEY_ID`, or switch to KMS.
 
 ### AWS KMS Errors
 

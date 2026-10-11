@@ -225,7 +225,84 @@ Database (ENCRYPTED STORAGE) ✅ SECURE
 1. **Consistency**: Same encryption format and Cryptor as Prisma Extension
 2. **Reusability**: Single service used by all DocumentDB repositories
 3. **Schema-Driven**: Uses `encryption-schema-registry.js` (same as Prisma)
-4. **Environment-Aware**: Respects STAGE-based bypass (dev/test/local)
+4. **Fails Closed**: Same rule as the Prisma client; a deployed runtime with no key throws, only local runs skip encryption
+5. **Error-Tolerant**: Graceful handling of decryption failures
+6. **Testable**: Can be unit tested independently of repositories
+
+---
+
+## Technical Specification
+
+### Class Design
+
+```javascript
+/**
+ * Encryption service specifically for DocumentDB repositories
+ * that use $runCommandRaw and bypass Prisma Extensions.
+ *
+ * Provides document-level encryption/decryption,
+ * handling nested fields according to the encryption schema registry.
+ */
+class DocumentDBEncryptionService {
+    constructor()
+    _initializeCryptor()
+    async encryptFields(modelName, document)
+    async decryptFields(modelName, document)
+    async _encryptFieldPath(document, fieldPath, modelName)
+    async _decryptFieldPath(document, fieldPath, modelName)
+    _isEncryptedValue(value)
+}
+```
+
+### Method Specifications
+
+#### `constructor()`
+
+**Purpose**: Initialize the service and configure Cryptor
+
+**Behavior**:
+
+-   Calls `_initializeCryptor()` immediately
+-   Sets up `this.cryptor` and `this.enabled` properties
+
+**No parameters**
+
+---
+
+#### `_initializeCryptor()`
+
+**Purpose**: Initialize Cryptor with environment-based configuration
+
+**Logic**:
+
+```javascript
+1. loadCustomEncryptionSchema()
+2. config = getEncryptionConfig()   // encryption/encryption-config.js, shared with the Prisma client
+   - throws EncryptionConfigurationError in a deployed runtime with no key
+3. If !config.enabled (local dev/test/local stage, local run without keys,
+   or FRIGG_ENCRYPTION_DISABLED=true opt-out):
+   - Set this.cryptor = null
+   - Set this.enabled = false
+   - Return
+4. Create Cryptor({ shouldUseAws: config.method === 'kms' })
+5. Set this.enabled = true
+```
+
+**Environment Variables Used** (see "When Encryption Runs" in README.md):
+
+-   `AWS_LAMBDA_FUNCTION_NAME` / `LAMBDA_TASK_ROOT` / `AWS_EXECUTION_ENV=AWS_Lambda_*`, minus `IS_OFFLINE` / `IS_LOCAL` / `JEST_WORKER_ID`: deployed or local run
+-   `STAGE` or `NODE_ENV`: dev/test/local skip encryption on local runs only
+-   `KMS_KEY_ARN`: AWS KMS key ARN (enables KMS encryption)
+-   `AES_KEY_ID`: AES key identifier (enables AES encryption)
+-   `AES_KEY`: AES encryption key (required with AES_KEY_ID in a deployed runtime)
+-   `FRIGG_ENCRYPTION_DISABLED`: explicit plaintext opt-out for a deployed stage with no key
+
+### Design Principles
+
+1. **Consistency**: Same encryption format and Cryptor as Prisma Extension
+2. **Reusability**: Single service used by all DocumentDB repositories
+3. **Schema-Driven**: Uses `encryption-schema-registry.js` (same as Prisma)
+4. **Fails Closed**: Same rule as the Prisma client; a deployed runtime with no key throws, only local runs skip encryption
 5. **Error-Tolerant**: Graceful handling of decryption failures
 6. **Testable**: Can be unit tested independently of repositories
 

@@ -4,6 +4,7 @@ const {
 const { loadCustomEncryptionSchema } = require('./encryption/encryption-schema-registry');
 const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
+const { getEncryptionConfig } = require('./encryption/encryption-config');
 const config = require('./config');
 
 /**
@@ -30,33 +31,6 @@ function ensureMongoDbUrl() {
     throw new Error(
         'DATABASE_URL or MONGO_URI environment variable must be set for MongoDB/DocumentDB'
     );
-}
-
-function getEncryptionConfig() {
-    const STAGE = process.env.STAGE || process.env.NODE_ENV || 'development';
-    const shouldBypassEncryption = ['dev', 'test', 'local'].includes(STAGE);
-
-    if (shouldBypassEncryption) {
-        return { enabled: false };
-    }
-
-    const hasKMS =
-        process.env.KMS_KEY_ARN && process.env.KMS_KEY_ARN.trim() !== '';
-    const hasAES =
-        process.env.AES_KEY_ID && process.env.AES_KEY_ID.trim() !== '';
-
-    if (!hasKMS && !hasAES) {
-        logger.warn(
-            'No encryption keys configured (KMS_KEY_ARN or AES_KEY_ID). ' +
-            'Field-level encryption disabled. Set STAGE=production and configure keys to enable.'
-        );
-        return { enabled: false };
-    }
-
-    return {
-        enabled: true,
-        method: hasKMS ? 'kms' : 'aes',
-    };
 }
 
 const prismaClientSingleton = () => {
@@ -103,9 +77,13 @@ const prismaClientSingleton = () => {
         errorFormat: 'pretty',
     });
 
+    // Throws when a deployed runtime has no encryption key: the app must not
+    // start and write sensitive fields in plaintext.
     const encryptionConfig = getEncryptionConfig();
 
     if (encryptionConfig.enabled) {
+        // Fail closed: if the extension cannot be installed, do not hand out
+        // a client that would write plaintext.
         try {
             // Load custom encryption schema from appDefinition before creating extension
             loadCustomEncryptionSchema();
@@ -120,17 +98,14 @@ const prismaClientSingleton = () => {
                     enabled: true,
                 })
             );
-
-            logger.info(
-                `Field-level encryption enabled using ${encryptionConfig.method.toUpperCase()}`
-            );
         } catch (error) {
-            logger.error(
-                'Failed to initialize encryption extension:',
-                error
-            );
-            logger.warn('Continuing without encryption...');
+            logger.error('Failed to initialize encryption extension:', error);
+            throw error;
         }
+
+        logger.info(
+            `Field-level encryption enabled using ${encryptionConfig.method.toUpperCase()}`
+        );
     } else {
         logger.info('Field-level encryption disabled');
     }
