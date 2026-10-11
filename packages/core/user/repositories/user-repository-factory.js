@@ -1,6 +1,7 @@
 const { UserRepositoryMongo } = require('./user-repository-mongo');
 const { UserRepositoryPostgres } = require('./user-repository-postgres');
 const { UserRepositoryDocumentDB } = require('./user-repository-documentdb');
+const { UserRepositorySqlite } = require('./user-repository-sqlite');
 const databaseConfig = require('../../database/config');
 
 /**
@@ -9,7 +10,7 @@ const databaseConfig = require('../../database/config');
  *
  * Database-specific implementations:
  * - MongoDB: Uses String IDs (ObjectId), no conversion needed
- * - PostgreSQL: Uses Int IDs, converts String ↔ Int
+ * - PostgreSQL/SQLite: Uses Int IDs, converts String ↔ Int
  *
  * All repository methods return String IDs regardless of database type,
  * ensuring application layer consistency.
@@ -36,9 +37,12 @@ function createUserRepository() {
         case 'documentdb':
             return new UserRepositoryDocumentDB();
 
+        case 'sqlite':
+            return new UserRepositorySqlite();
+
         default:
             throw new Error(
-                `Unsupported DB_TYPE: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
+                `Unsupported DB_TYPE: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql', 'sqlite'`
             );
     }
 }
@@ -49,4 +53,5 @@ module.exports = {
     UserRepositoryMongo,
     UserRepositoryPostgres,
     UserRepositoryDocumentDB,
+    UserRepositorySqlite,
 };

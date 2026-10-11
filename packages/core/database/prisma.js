@@ -5,6 +5,8 @@ const { loadCustomEncryptionSchema } = require('./encryption/encryption-schema-r
 const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
 const config = require('./config');
+const path = require('node:path');
+const fs = require('node:fs');
 
 /**
  * Ensures DATABASE_URL is set for MongoDB connections
@@ -90,9 +92,22 @@ const prismaClientSingleton = () => {
         PrismaClient = loadPrismaClient('mongodb');
     } else if (config.DB_TYPE === 'postgresql') {
         PrismaClient = loadPrismaClient('postgresql');
+    } else if (config.DB_TYPE === 'sqlite') {
+        // Set default SQLite URL if not provided
+        if (!process.env.DATABASE_URL) {
+            // Use .frigg/frigg.db in working directory for persistence
+            // Must use absolute path for SQLite to work reliably
+            const dbPath = path.resolve('.frigg/frigg.db');
+            ensureSqliteDirectory();
+            process.env.DATABASE_URL = `file:${dbPath}`;
+            logger.info(`Using SQLite database at ${dbPath} (persistent across restarts)`);
+        } else {
+            logger.info('Using SQLite database from DATABASE_URL');
+        }
+        PrismaClient = loadPrismaClient('sqlite');
     } else {
         throw new Error(
-            `Unsupported database type: ${config.DB_TYPE}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
+            `Unsupported database type: ${config.DB_TYPE}. Supported values: 'mongodb', 'documentdb', 'postgresql', 'sqlite'`
         );
     }
 
@@ -173,10 +188,23 @@ async function connectPrisma() {
     return getPrismaClient();
 }
 
+/**
+ * Ensures .frigg directory exists for SQLite database
+ * Creates the directory if it doesn't exist
+ */
+function ensureSqliteDirectory() {
+    const dirPath = path.resolve('.frigg');
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+        logger.debug(`Created .frigg directory at ${dirPath}`);
+    }
+}
+
 module.exports = {
     prisma,
     connectPrisma,
     disconnectPrisma,
     getEncryptionConfig,
     ensureMongoDbUrl, // Exported for testing
+    ensureSqliteDirectory, // Exported for testing
 };
