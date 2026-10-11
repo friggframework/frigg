@@ -121,6 +121,27 @@ describe('Base Definition Factory', () => {
             expect(result.resources.Resources.ApiGatewayAlarm5xx).toBeDefined();
         });
 
+        it('alarms on the HTTP API 5xx metric of the API osls creates', () => {
+            // The Frigg functions use `httpApi` events, so osls creates an
+            // API Gateway v2 HTTP API (logical ID HttpApi) with only the
+            // `$default` stage. HTTP APIs publish `5xx` (REST APIs publish
+            // `5XXError`) with the ApiId dimension; a Stage dimension set to
+            // the deploy stage name would never match `$default`.
+            const result = createBaseDefinition({}, {}, {});
+            const usesHttpApi = Object.values(result.functions).some((fn) =>
+                (fn.events || []).some((event) => event.httpApi)
+            );
+            expect(usesHttpApi).toBe(true);
+
+            const alarm = result.resources.Resources.ApiGatewayAlarm5xx;
+            expect(alarm.Properties).toMatchObject({
+                Namespace: 'AWS/ApiGateway',
+                MetricName: '5xx',
+                Dimensions: [{ Name: 'ApiId', Value: { Ref: 'HttpApi' } }],
+                AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
+            });
+        });
+
         it('should include base IAM permissions', () => {
             const result = createBaseDefinition({}, {}, {});
 

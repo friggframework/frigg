@@ -118,6 +118,7 @@ async function generateCommand(options = {}) {
             if (options.format === 'cloudformation') {
                 template = await generateCloudFormationTemplate({
                     appName,
+                    serviceName: appDefinition.name || 'create-frigg-app',
                     features,
                     userPrefix: options.user || 'frigg-deployment-user',
                     stackName: options.stackName || 'frigg-deployment-iam',

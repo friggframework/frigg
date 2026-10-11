@@ -383,12 +383,18 @@ function createBaseDefinition(
                         },
                     },
                 },
+                // The functions above use `httpApi` events, so osls creates
+                // an HTTP API (API Gateway v2, logical ID HttpApi) with only
+                // the `$default` stage. HTTP APIs publish `5xx`, not the REST
+                // API metric `5XXError`, and the ApiId dimension identifies
+                // this API (a Stage dimension would have to be `$default`).
+                // https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-metrics.html
                 ApiGatewayAlarm5xx: {
                     Type: 'AWS::CloudWatch::Alarm',
                     Properties: {
                         AlarmDescription: 'API Gateway 5xx Errors',
                         Namespace: 'AWS/ApiGateway',
-                        MetricName: '5XXError',
+                        MetricName: '5xx',
                         Statistic: 'Sum',
                         Threshold: 0,
                         ComparisonOperator: 'GreaterThanThreshold',
@@ -397,7 +403,6 @@ function createBaseDefinition(
                         AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
                         Dimensions: [
                             { Name: 'ApiId', Value: { Ref: 'HttpApi' } },
-                            { Name: 'Stage', Value: '${self:provider.stage}' },
                         ],
                     },
                 },
