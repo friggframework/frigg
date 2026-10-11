@@ -5,7 +5,8 @@ const { select, confirm, multiselect } = require('@inquirer/prompts');
 const { execSync } = require('child_process');
 const spawn = require('cross-spawn');
 const npmRegistry = require('../utils/npm-registry');
-const { validateAppDefinition, formatErrors } = require('@friggframework/schemas');
+const { runValidation } = require('../validate-command');
+const { formatReport } = require('../validate-command/format-report');
 
 /**
  * Backend-first template handler that treats frontend as optional demonstration
@@ -647,61 +648,39 @@ To integrate Frigg into your production application:
     }
 
     /**
-     * Validate generated app definition against schema
+     * Validate the generated app definition with the same code path as
+     * `frigg validate`, `frigg build` and `frigg deploy` (ADR-051). Problems
+     * are reported as warnings: they never stop `frigg init`.
      */
     async validateGeneratedAppDefinition(appDefPath) {
         try {
-            if (this.options.verbose) {
-                console.log(chalk.gray('🔍 Validating app definition against schema...'));
-            }
-
-            // Read the generated index.js file
-            const content = await fs.readFile(appDefPath, 'utf8');
-            
-            // Extract the appDefinition object (simplified approach)
-            // In a real scenario, we might use AST parsing for more robust extraction
-            const appDefinitionMatch = content.match(/const appDefinition = ({[\s\S]*?});/);
-            if (!appDefinitionMatch) {
-                throw new Error('Could not extract appDefinition from generated file');
-            }
-
-            // Create a minimal representation for validation
-            // Since we can't easily execute the file, we'll validate the structure we know we generated
-            const appDefinition = {
-                integrations: [], // Will be populated based on selected integrations
-                user: { password: true },
-                encryption: { fieldLevelEncryptionMethod: 'kms' },
-                vpc: { enable: true },
-                security: {
-                    cors: {
-                        origin: 'http://localhost:3000',
-                        credentials: true
-                    }
-                },
-                logging: { level: 'info', retentionInDays: 30 },
-                custom: {
-                    appName: 'My Frigg Application',
-                    version: '1.0.0',
-                    environment: 'development'
-                }
-            };
-
-            // Validate against schema
-            const result = validateAppDefinition(appDefinition);
-            
-            if (result.valid) {
+            const report = runValidation({ cwd: path.dirname(appDefPath) });
+            const issues = [...report.errors, ...report.warnings];
+            if (issues.length === 0) {
                 if (this.options.verbose) {
-                    console.log(chalk.green('✅ App definition passes schema validation'));
+                    console.log(chalk.green('✅ App definition passes validation'));
                 }
                 return true;
-            } else {
-                console.log(chalk.yellow('⚠️  App definition has validation warnings:'));
-                console.log(chalk.gray(formatErrors(result.errors)));
-                return false;
             }
+            if (report.errors.length === 1 && report.errors[0].code === 'load-failed') {
+                // Before `npm install`, index.js cannot load its dependencies yet.
+                if (this.options.verbose) {
+                    console.log(chalk.gray('App definition not validated yet: run `frigg validate` after `npm install`.'));
+                }
+                return true;
+            }
+            console.log(chalk.yellow('⚠️  App definition validation:'));
+            console.log(
+                formatReport({
+                    ...report,
+                    errors: [],
+                    warnings: issues.map((issue) => ({ ...issue, severity: 'warning' })),
+                })
+            );
+            return report.errors.length === 0;
         } catch (error) {
             if (this.options.verbose) {
-                console.log(chalk.yellow(`⚠️  Schema validation skipped: ${error.message}`));
+                console.log(chalk.yellow(`⚠️  Validation skipped: ${error.message}`));
             }
             return true; // Don't fail the process for validation issues
         }

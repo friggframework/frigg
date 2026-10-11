@@ -23,6 +23,9 @@ jest.mock('node:child_process', () => ({
 }));
 
 jest.mock('../utils/database-validator', () => mockValidator);
+// The app definition validation step is tested in validate-command/.
+jest.mock('../validate-command', () => ({ preflightValidation: jest.fn(() => true) }));
+
 jest.mock('dotenv');
 
 const { spawn } = require('node:child_process');
