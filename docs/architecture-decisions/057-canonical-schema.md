@@ -42,25 +42,46 @@ The schema itself is **swappable**. Three sources are expected:
 
 Several schemas may be loaded at once.
 
-```yaml
-# @friggframework/canonical-schema-business/customer.yaml
-schema: business
-version: 2.3.0
-objects:
-  Customer:
-    sameAs: https://schema.org/Organization
-    fields:
-      displayName: { type: string, required: true }
-      email:       { type: email, identity: natural }
-      taxId:       { type: string }
-      billingAddress: { type: Address }
-      currency:    { type: currency, default: USD }
-    relations:
-      contacts: { to: Contact, cardinality: many }
-      invoices: { to: Invoice, cardinality: many }
-  Lead:
-    fields: { email: { type: email, identity: natural }, source: { type: string } }
+```javascript
+// @friggframework/canonical-schema-business/customer.js
+const CustomerSchema = {
+    schema: 'business',
+    version: '2.3.0',
+    objects: {
+        Customer: {
+            sameAs: 'https://schema.org/Organization',
+            fields: {
+                displayName:    { type: 'string', required: true },
+                email:          { type: 'email', identity: 'natural' },
+                taxId:          { type: 'string' },
+                billingAddress: { type: 'Address' },
+                currency:       { type: 'currency', default: 'USD' },
+            },
+            relations: {
+                contacts: { to: 'Contact', cardinality: 'many' },
+                invoices: { to: 'Invoice', cardinality: 'many' },
+            },
+        },
+        Lead: {
+            fields: { email: { type: 'email', identity: 'natural' }, source: { type: 'string' } },
+        },
+    },
+};
+
+module.exports = { CustomerSchema };
 ```
+
+### Format and validation
+
+Canonical Schemas and module mappings use the same pattern as the rest of Frigg. They are CommonJS modules that export plain object literals, in the same way an API module exports `const Definition = { ... }; module.exports = { Definition }` and an integration declares `static Definition = { ... }`. The objects must be JSON-serializable and contain no functions. Transforms are referenced by name.
+
+They are validated with JSON Schema in [`@friggframework/schemas`](../../packages/schemas), following that package's conventions (draft-07, AJV, one `*.schema.json` per artifact, a `validate*` helper per schema):
+
+- `packages/schemas/schemas/canonical-schema.schema.json` → `validateCanonicalSchema()`
+- `packages/schemas/schemas/canonical-mapping.schema.json` → `validateCanonicalMapping()`
+- `api-module-definition.schema.json` and `integration-definition.schema.json` gain optional `mappings`, `canonical` and capability `flows` properties that reference the two new schemas.
+
+Rationale: there is no file loader to maintain. Authors get the same editor type checking and autocomplete they get for definitions today, and there is one syntax across Frigg. Because the objects contain only data, the capability graph and docs generators can still read them statically, and `JSON.stringify` gives a portable form.
 
 ### Ownership split
 
@@ -75,35 +96,46 @@ objects:
 
 Mappings are **data, not functions**. Transforms are *named* functions that a mapping refers to by name, so the capability graph and fit check can read every mapping without running code. Conditional and one-to-many mappings are supported from day one.
 
-```yaml
-# @friggframework/api-module-hubspot/mappings/business.yaml
-schema: business@^2
-objects:
-  contact:
-    - when: { field: lifecyclestage, in: [customer, evangelist] }
-      to: Customer
-      identity: [externalIds.hubspot, email]
-      fields: { email: email, firstname+lastname: { to: displayName, transform: joinName } }
-    - when: { field: lifecyclestage, in: [lead, subscriber, marketingqualifiedlead] }
-      to: Lead
-      fields: { email: email, hs_analytics_source: source }
-  company:
-    - to: Customer
-      fields: { name: displayName, domain: website, hs_tax_id: taxId }
-      ops: [read, create, update, subscribe]   # informational; ADR-045 traits are authoritative
+```javascript
+// @friggframework/api-module-hubspot/mappings/business.js
+const businessMapping = {
+    schema: 'business@^2',
+    objects: {
+        contact: [
+            {
+                when: { field: 'lifecyclestage', in: ['customer', 'evangelist'] },
+                to: 'Customer',
+                identity: ['externalIds.hubspot', 'email'],
+                fields: { email: 'email', 'firstname+lastname': { to: 'displayName', transform: 'joinName' } },
+            },
+            {
+                when: { field: 'lifecyclestage', in: ['lead', 'subscriber', 'marketingqualifiedlead'] },
+                to: 'Lead',
+                fields: { email: 'email', hs_analytics_source: 'source' },
+            },
+        ],
+        company: [
+            {
+                to: 'Customer',
+                fields: { name: 'displayName', domain: 'website', hs_tax_id: 'taxId' },
+                ops: ['read', 'create', 'update', 'subscribe'], // informational; ADR-045 traits are authoritative
+            },
+        ],
+    },
+};
+
+module.exports = { businessMapping };
 ```
 
 ```javascript
 // @friggframework/api-module-quickbooks/index.js
-const path = require('path');
-const { loadYaml } = require('@friggframework/core'); // Node's require cannot load .yaml
 module.exports = {
     Definition: require('./definition'),
     Api: require('./api'),
     extensions: {
         webhooks: require('./extensions/webhooks'),
         mapping: {
-            schemas: { business: loadYaml(path.join(__dirname, 'mappings/business.yaml')) }, // invoice Line[] → InvoiceLine + Product (one-to-many)
+            schemas: { business: require('./mappings/business').businessMapping }, // invoice Line[] → InvoiceLine + Product (one-to-many)
             transforms: { toQboDate: (v) => v.slice(0, 10), splitLine: require('./transforms/split-line') },
         },
     },
@@ -229,6 +261,8 @@ flowchart BT
 2. **Leave mapping to each integration.** This is the status quo. Each pair re-implements object meaning, nothing is reusable, and the capability graph cannot see data coverage. This is the source of the drift described in Context.
 3. **Adopt a third-party unified API's schema (Merge, Apideck).** These schemas are mature for CRM, accounting and ticketing, but they carry licensing and roadmap dependence on a vendor and their versioning is not under our control. They also lack domain-specific objects. We instead *align* field names with them where practical, so that a unified API can be wrapped as a module whose mapping is near 1:1.
 
+4. **YAML (or JSON files) as the primary format.** YAML is compact and easy for non-developers to read. It was rejected because Frigg declares nothing else in YAML. It would need a loader, it loses editor type checking against definitions, and it adds a second syntax. Plain objects validated by `@friggframework/schemas` give the same static readability.
+
 ## Cross-references
 
 - [EXTENSIONS-TAXONOMY](./015-extensions-taxonomy.md): adds Canonical Schema as a fourth extension type
@@ -239,6 +273,7 @@ flowchart BT
 - [ONTOLOGY](./021-ontology.md): distinct concept (agent context). The name is deliberately avoided here
 - [INTEGRATION-TEMPLATES](./023-integration-templates.md): templates can ship pre-wired `canonical.rules` for a category
 - [ADR-044, ADR-045, ADR-046 (PR #648)](https://github.com/friggframework/frigg/pull/648): sync canonical objects, capability traits, canonical models
+- [`@friggframework/schemas`](../../packages/schemas): JSON Schemas for canonical schemas and mappings
 - [INTEGRATION-VERSIONING](./030-integration-versioning.md), [ADR-013](./013-integration-version-migrations.md): pinning and migrating schema ranges
 
 ## Open questions
