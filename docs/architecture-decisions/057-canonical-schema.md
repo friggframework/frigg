@@ -95,13 +95,15 @@ objects:
 
 ```javascript
 // @friggframework/api-module-quickbooks/index.js
+const path = require('path');
+const { loadYaml } = require('@friggframework/core'); // Node's require cannot load .yaml
 module.exports = {
     Definition: require('./definition'),
     Api: require('./api'),
     extensions: {
         webhooks: require('./extensions/webhooks'),
         mapping: {
-            schemas: { business: require('./mappings/business.yaml') }, // invoice Line[] → InvoiceLine + Product (one-to-many)
+            schemas: { business: loadYaml(path.join(__dirname, 'mappings/business.yaml')) }, // invoice Line[] → InvoiceLine + Product (one-to-many)
             transforms: { toQboDate: (v) => v.slice(0, 10), splitLine: require('./transforms/split-line') },
         },
     },
