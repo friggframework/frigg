@@ -54,7 +54,10 @@ describe('loadAppDefinition', () => {
         it('loads when adopterJwt is enabled with a jwksUri', () => {
             const user = {
                 authModes: { adopterJwt: true },
-                jwtConfig: { jwksUri: 'https://login.example.com/jwks.json' },
+                jwtConfig: {
+                    jwksUri: 'https://login.example.com/jwks.json',
+                    audience: 'frigg-api',
+                },
             };
             dirs.push(writeBackend({ integrations: [], user }));
 

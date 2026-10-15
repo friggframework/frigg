@@ -1,13 +1,16 @@
 /* eslint-disable camelcase -- JWT claim names (org_id, org_role) and reason codes are snake_case by spec */
 const jose = require('jose');
-const { GetUserFromAdopterJwt } = require('./get-user-from-adopter-jwt');
-const { createMemorySink } = require('../../logs');
+const {
+    GetUserFromAdopterJwt,
+} = require('../../use-cases/get-user-from-adopter-jwt');
+const { createMemorySink } = require('../../../logs');
 const {
     createKeys,
     signToken,
     unsignedToken,
     createUserRepositoryDouble,
-} = require('../tests/doubles/adopter-jwt-fixtures');
+} = require('../doubles/adopter-jwt-fixtures');
+const { createAdopterTokenVerifier } = require('../../adopter-token-verifier');
 
 const ISS = 'https://login.example.com/';
 const AUD = 'frigg-api';
@@ -30,11 +33,15 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
         ...overrides,
     });
 
+    // `keySource` null means "derive the key from jwtConfig" (HMAC secret).
     const build = (config = userConfig(), keySource = keys.localJwks) =>
         new GetUserFromAdopterJwt({
             userRepository: repo,
             userConfig: config,
-            keySource,
+            tokenVerifier: createAdopterTokenVerifier({
+                jwtConfig: config.jwtConfig,
+                keySource: keySource ?? undefined,
+            }),
         });
 
     const es = (claims, opts = {}) =>
@@ -109,21 +116,23 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             expect(user.getAppUserId()).toBe('u1');
         });
 
-        it('does not check iss or aud when they are not configured', async () => {
+        it('does not check iss or aud in HMAC mode when they are not configured', async () => {
             const config = userConfig({
-                jwtConfig: { jwksUri: 'https://x.example/jwks' },
+                jwtConfig: { secret: keys.hmacSecret },
             });
             const token = await signToken(
                 { sub: 'u1' },
                 {
-                    key: keys.es.privateKey,
-                    kid: 'es-1',
+                    key: new TextEncoder().encode(keys.hmacSecret),
+                    alg: 'HS256',
                     iss: 'anyone',
                     aud: 'anything',
                 }
             );
 
-            await expect(build(config).execute(token)).resolves.toBeDefined();
+            await expect(
+                build(config, null).execute(token)
+            ).resolves.toBeDefined();
         });
 
         it('accepts any one audience of a configured list', async () => {
@@ -144,13 +153,14 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             const config = userConfig({
                 jwtConfig: {
                     jwksUri: 'https://x.example/jwks',
+                    audience: AUD,
                     userIdClaim: 'uid',
                     orgIdClaim: 'tenant',
                 },
             });
             const token = await signToken(
                 { uid: 'u9', tenant: 't9' },
-                { key: keys.es.privateKey, kid: 'es-1' }
+                { key: keys.es.privateKey, kid: 'es-1', aud: AUD }
             );
 
             const user = await build(config).execute(token);
@@ -177,16 +187,17 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             const config = userConfig({
                 jwtConfig: {
                     jwksUri: 'https://x.example/jwks',
+                    audience: AUD,
                     roleClaim: 'r',
                 },
             });
             const withRole = await signToken(
                 { sub: 'u1', r: 'owner' },
-                { key: keys.es.privateKey, kid: 'es-1' }
+                { key: keys.es.privateKey, kid: 'es-1', aud: AUD }
             );
             const without = await signToken(
                 { sub: 'u2', org_role: 'admin' },
-                { key: keys.es.privateKey, kid: 'es-1' }
+                { key: keys.es.privateKey, kid: 'es-1', aud: AUD }
             );
 
             expect((await build(config).execute(withRole)).getOrgRole()).toBe(
@@ -217,6 +228,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             const config = userConfig({
                 jwtConfig: {
                     jwksUri: 'https://x.example/jwks',
+                    audience: AUD,
                     clockToleranceSec: 0,
                 },
             });
@@ -225,6 +237,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
                 {
                     key: keys.es.privateKey,
                     kid: 'es-1',
+                    aud: AUD,
                     exp: Math.floor(Date.now() / 1000) - 5,
                 }
             );
@@ -361,6 +374,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             const config = userConfig({
                 jwtConfig: {
                     jwksUri: 'https://x.example/jwks',
+                    audience: AUD,
                     algorithms: ['ES256'],
                 },
             });
@@ -378,6 +392,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             const config = userConfig({
                 jwtConfig: {
                     jwksUri: 'https://x.example/jwks',
+                    audience: AUD,
                     algorithms: ['ES256'],
                 },
             });
@@ -532,6 +547,25 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             expect(user.getAppOrgId()).toBe('o1');
             expect(repo.state.individualUsers.size).toBe(1);
             expect(repo.state.organizationUsers.size).toBe(1);
+        });
+
+        it('turns a numeric org claim into a string app org id', async () => {
+            await build().execute(await es({ sub: 'u1', org_id: 42 }));
+
+            expect(repo.findOrganizationUserByAppOrgId).toHaveBeenCalledWith(
+                '42'
+            );
+            expect(repo.createOrganizationUser).toHaveBeenCalledWith({
+                appOrgId: '42',
+            });
+        });
+
+        it('turns a numeric user claim into a string app user id', async () => {
+            await build().execute(await es({ sub: 7 }));
+
+            expect(repo.createIndividualUser).toHaveBeenCalledWith(
+                expect.objectContaining({ appUserId: '7' })
+            );
         });
 
         it('creates only the individual when the token has no org claim', async () => {

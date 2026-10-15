@@ -1,5 +1,9 @@
 const Boom = require('@hapi/boom');
-const { User } = require('../user');
+const {
+    findAppUsers,
+    createMissingAppUsers,
+    buildUser,
+} = require('../app-user-helpers');
 
 /**
  * Use case for retrieving or creating a user from x-frigg header identifiers.
@@ -36,22 +40,11 @@ class GetUserFromXFriggHeaders {
         }
 
         // Find users by both IDs if both are provided
-        let individualUserData = null;
-        let organizationUserData = null;
-
-        if (appUserId && this.userConfig.individualUserRequired !== false) {
-            individualUserData =
-                await this.userRepository.findIndividualUserByAppUserId(
-                    appUserId
-                );
-        }
-
-        if (appOrgId && this.userConfig.organizationUserRequired) {
-            organizationUserData =
-                await this.userRepository.findOrganizationUserByAppOrgId(
-                    appOrgId
-                );
-        }
+        let { individual: individualUserData, organization: organizationUserData } =
+            await findAppUsers(this.userRepository, this.userConfig, {
+                appUserId,
+                appOrgId,
+            });
 
         // VALIDATION/AUTO-LINKING: If both IDs provided and both users exist, handle mismatch
         if (
@@ -84,48 +77,33 @@ class GetUserFromXFriggHeaders {
         }
 
         // Auto-create users independently if they don't exist and are required
-        if (
-            !individualUserData &&
-            appUserId &&
-            this.userConfig.individualUserRequired !== false
-        ) {
+        const created = await createMissingAppUsers(
+            this.userRepository,
+            this.userConfig,
+            {
+                appUserId,
+                appOrgId,
+                individual: individualUserData,
+                organization: organizationUserData,
+            }
+        );
+        individualUserData = created.individual;
+        organizationUserData = created.organization;
+
+        // Link individual user to newly created org user if individual exists
+        if (created.createdOrganization && individualUserData) {
             individualUserData =
-                await this.userRepository.createIndividualUser({
-                    appUserId,
-                    username: `app-user-${appUserId}`,
-                    email: `${appUserId}@app.local`,
-                });
-        }
-
-        if (
-            !organizationUserData &&
-            appOrgId &&
-            this.userConfig.organizationUserRequired
-        ) {
-            organizationUserData =
-                await this.userRepository.createOrganizationUser({
-                    appOrgId,
-                });
-
-            // Link individual user to newly created org user if individual exists
-            if (individualUserData && organizationUserData) {
-                individualUserData = await this.userRepository.linkIndividualToOrganization(
+                await this.userRepository.linkIndividualToOrganization(
                     individualUserData.id,
                     organizationUserData.id
                 );
-            }
         }
 
-        const user = new User(
+        return buildUser(
+            this.userConfig,
             individualUserData,
-            organizationUserData,
-            this.userConfig.usePassword,
-            this.userConfig.primary,
-            this.userConfig.individualUserRequired,
-            this.userConfig.organizationUserRequired
+            organizationUserData
         );
-
-        return user;
     }
 }
 

@@ -129,12 +129,12 @@
         },
         "jwtConfig": {
           "type": "object",
-          "description": "Adopter token (JWT) verification for authModes.adopterJwt. Set jwksUri (asymmetric keys, rotating) or secret (HMAC), not both.",
+          "description": "Adopter token (JWT) verification for authModes.adopterJwt. Set exactly one of jwksUri (asymmetric keys, rotating) or secret (HMAC). With jwksUri, audience is required and issuer should be set.",
           "properties": {
             "jwksUri": {
               "type": "string",
               "format": "uri",
-              "description": "URL of the issuer's JWKS. Keys are fetched, cached and rotated per process."
+              "description": "URL of the issuer's JWKS (https; http only for localhost, 127.0.0.0/8 or ::1). Keys are fetched, cached and rotated per process."
             },
             "secret": {
               "type": "string",
@@ -142,10 +142,10 @@
             },
             "issuer": {
               "type": "string",
-              "description": "Required iss claim. Not checked when omitted; set it in production."
+              "description": "Required iss claim. Not checked when omitted; with jwksUri a startup warning is logged when it is unset."
             },
             "audience": {
-              "description": "Accepted aud claim value(s). Not checked when omitted; set it in production.",
+              "description": "Accepted aud claim value(s). Required with jwksUri; optional (not checked when omitted) with secret.",
               "oneOf": [
                 { "type": "string" },
                 { "type": "array", "items": { "type": "string" }, "minItems": 1 }
@@ -162,7 +162,7 @@
             },
             "algorithm": {
               "type": "string",
-              "description": "Deprecated: use algorithms. A single allowed algorithm.",
+              "description": "Deprecated alias for a one-item algorithms list. Setting both algorithm and algorithms is an error.",
               "enum": ["ES256", "ES384", "RS256", "RS384", "RS512", "HS256", "HS384", "HS512"]
             },
             "clockToleranceSec": {
@@ -187,10 +187,14 @@
               "default": "org_role"
             }
           },
-          "anyOf": [
+          "oneOf": [
             { "required": ["secret"] },
             { "required": ["jwksUri"] }
           ],
+          "dependencies": {
+            "jwksUri": ["audience"]
+          },
+          "not": { "required": ["algorithm", "algorithms"] },
           "additionalProperties": false
         },
         "fields": {

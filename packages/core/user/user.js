@@ -72,6 +72,10 @@ class User {
         return this.orgRole;
     }
 
+    setOrgRole(orgRole) {
+        this.orgRole = orgRole ?? null;
+    }
+
     getIndividualUser() {
         return this.individualUser;
     }

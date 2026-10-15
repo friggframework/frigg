@@ -371,21 +371,25 @@ const appDefinition = {
         jwtConfig: {
             jwksUri: 'https://login.example.com/.well-known/jwks.json',
             issuer: 'https://login.example.com/',
-            audience: 'my-frigg-api',
+            audience: 'my-frigg-api', // required with jwksUri
         },
     },
 };
 ```
 
 The client sends `Authorization: Bearer <token>`. `x-frigg-appuserid` / `x-frigg-apporgid`, if
-also sent, must match the token or the request is refused with 403.
+also sent, must match the token or the request is refused with 403. That match rule lives in
+`user/use-cases/authenticate-user.js` (`validateUserMatch`), not in the token verifier. A bearer
+value that is not a three-part JWT is not offered to the verifier at all; it falls through to
+`friggToken` (or is a 401 when that mode is off).
 
 | `jwtConfig` field | Default | Meaning |
 |---|---|---|
-| `jwksUri` | | Remote JWKS (rotating keys, fetched once per process and cached). Set this **or** `secret`. |
+| `jwksUri` | | Remote JWKS (rotating keys, one per verifier, cached by jose). Must be `https`; `http` only for `localhost`, `127.0.0.0/8` or `::1`. Set exactly one of this and `secret`. |
 | `secret` | | Shared HMAC secret. Read it from an environment variable. |
-| `issuer`, `audience` | not checked | Required `iss` and `aud` (`audience` may be a list). Set both in production. |
-| `algorithms` | `['ES256','RS256']` with `jwksUri`, `['HS256']` with `secret` | Allow-list. HS* is only accepted with `secret`, never with `jwksUri`. |
+| `issuer` | not checked | Required `iss`. With `jwksUri`, a startup warning is logged when it is unset. |
+| `audience` | not checked with `secret`; **required with `jwksUri`** | Accepted `aud` (a string or a list). |
+| `algorithms` | `['ES256','RS256']` with `jwksUri`, `['HS256']` with `secret` | Allow-list. HS* is only accepted with `secret`, never with `jwksUri`. The older single `algorithm` is a deprecated alias; setting both is an error. |
 | `clockToleranceSec` | `30` | Skew allowed on `exp` and `nbf`. |
 | `userIdClaim` | `sub` | App user id (required in the token). |
 | `orgIdClaim` | `org_id` | App organization id (optional). |
@@ -394,12 +398,14 @@ also sent, must match the token or the request is refused with 403.
 Rules worth knowing:
 
 - Tokens must carry `exp`. `alg: none` and any algorithm outside the allow-list are refused.
-- Startup fails (`loadAppDefinition` throws) when `adopterJwt` is on and neither `jwksUri` nor
-  `secret` is set, or when both are set.
+- Startup fails (`loadAppDefinition` throws) when `adopterJwt` is on and the config is unusable:
+  neither or both of `jwksUri` and `secret`, a `jwksUri` that is not https (or loopback http),
+  no `audience` with `jwksUri`, or an algorithm list that does not fit the key type.
 - Failures are `401` with a stable `data.reason`: `token_expired`, `token_not_yet_valid`,
   `token_invalid_signature`, `token_wrong_issuer`, `token_wrong_audience`,
   `token_missing_user_claim`, `token_malformed`. The message never contains the token or its claims.
-  An unreachable JWKS is `503` `jwks_unavailable`, not a 401, so clients do not drop good sessions.
+  Any other verification failure, such as an unreachable or unresolvable JWKS, is `503`
+  `jwks_unavailable`, not a 401, so clients do not drop good sessions.
 - A person belongs to one organization for now: a token naming a second one gets `403`
   `multi_org_unsupported` and nothing is moved (ADR-056 §3.6 replaces this with memberships).
 

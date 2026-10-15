@@ -12,3 +12,4 @@
 /// <reference path="./eslint-config/index.d.ts" />
 /// <reference path="./associations/index.d.ts" />
 /// <reference path="./syncs/index.d.ts" />
+/// <reference path="./user/index.d.ts" />

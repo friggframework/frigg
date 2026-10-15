@@ -1,17 +1,23 @@
 const {
     resolveAdopterJwtConfig,
     assertAdopterJwtConfig,
-} = require('./adopter-jwt-config');
+    SUPPORTED_ALGORITHMS,
+} = require('../../adopter-jwt-config');
+const { createMemorySink } = require('../../../logs');
+const schema = require('../../../../schemas/schemas/app-definition.schema.json');
 
 describe('resolveAdopterJwtConfig', () => {
     it('defaults to ES256 and RS256, 30s tolerance and the standard claims for a jwksUri', () => {
         expect(
-            resolveAdopterJwtConfig({ jwksUri: 'https://x.example/jwks' })
+            resolveAdopterJwtConfig({
+                jwksUri: 'https://x.example/jwks',
+                audience: 'frigg-api',
+            })
         ).toEqual({
             jwksUri: 'https://x.example/jwks',
             secret: undefined,
             issuer: undefined,
-            audience: undefined,
+            audience: 'frigg-api',
             algorithms: ['ES256', 'RS256'],
             clockToleranceSec: 30,
             userIdClaim: 'sub',
@@ -66,11 +72,80 @@ describe('resolveAdopterJwtConfig', () => {
         );
     });
 
-    it('accepts no jwksUri and no secret when a key source is injected in code', () => {
-        expect(
-            resolveAdopterJwtConfig(undefined, { hasInjectedKeySource: true })
-                .algorithms
-        ).toEqual(['ES256', 'RS256']);
+    describe('jwksUri', () => {
+        const withUri = (jwksUri) => ({ jwksUri, audience: 'a' });
+
+        it.each([
+            'not-a-url',
+            '/relative/path',
+            'ftp://x.example/jwks',
+            'file:///etc/jwks',
+        ])('refuses %s', (jwksUri) => {
+            expect(() => resolveAdopterJwtConfig(withUri(jwksUri))).toThrow(
+                /jwksUri/
+            );
+        });
+
+        it('refuses http to a public host', () => {
+            expect(() =>
+                resolveAdopterJwtConfig(
+                    withUri('http://login.example.com/jwks.json')
+                )
+            ).toThrow(/must use https/);
+            expect(() =>
+                resolveAdopterJwtConfig(
+                    withUri('http://127.0.0.1.example.com/jwks.json')
+                )
+            ).toThrow(/must use https/);
+        });
+
+        it.each([
+            'http://localhost:3000/jwks.json',
+            'http://127.0.0.1:8080/jwks.json',
+            'http://127.5.6.7/jwks.json',
+            'http://[::1]:9000/jwks.json',
+            'https://login.example.com/jwks.json',
+        ])('allows %s', (jwksUri) => {
+            expect(resolveAdopterJwtConfig(withUri(jwksUri)).jwksUri).toBe(
+                jwksUri
+            );
+        });
+    });
+
+    describe('audience', () => {
+        it('is required with jwksUri', () => {
+            expect(() =>
+                resolveAdopterJwtConfig({ jwksUri: 'https://x.example/jwks' })
+            ).toThrow(/audience is required/);
+            expect(() =>
+                resolveAdopterJwtConfig({
+                    jwksUri: 'https://x.example/jwks',
+                    audience: [],
+                })
+            ).toThrow(/audience is required/);
+            expect(() =>
+                resolveAdopterJwtConfig({
+                    jwksUri: 'https://x.example/jwks',
+                    audience: ' ',
+                })
+            ).toThrow(/audience is required/);
+        });
+
+        it('stays optional with a secret', () => {
+            expect(
+                resolveAdopterJwtConfig({ secret: 's' }).audience
+            ).toBeUndefined();
+        });
+    });
+
+    it('refuses both algorithm and algorithms', () => {
+        expect(() =>
+            resolveAdopterJwtConfig({
+                secret: 's',
+                algorithm: 'HS256',
+                algorithms: ['HS256'],
+            })
+        ).toThrow(/both algorithm and algorithms/);
     });
 
     it('refuses both jwksUri and secret', () => {
@@ -102,6 +177,7 @@ describe('resolveAdopterJwtConfig', () => {
         expect(() =>
             resolveAdopterJwtConfig({
                 jwksUri: 'https://x.example/jwks',
+                audience: 'a',
                 algorithms: ['ES256', 'HS256'],
             })
         ).toThrow(/may not list HS\* algorithms/);
@@ -134,7 +210,7 @@ describe('assertAdopterJwtConfig (startup check)', () => {
         expect(() =>
             assertAdopterJwtConfig({
                 authModes: { adopterJwt: true },
-                jwtConfig: { jwksUri: 'https://x.example/jwks' },
+                jwtConfig: { jwksUri: 'https://x.example/jwks', audience: 'a' },
             })
         ).not.toThrow();
         expect(() =>
@@ -163,5 +239,54 @@ describe('assertAdopterJwtConfig (startup check)', () => {
                 jwtConfig: {},
             })
         ).not.toThrow();
+    });
+});
+
+describe('SUPPORTED_ALGORITHMS', () => {
+    it('equals the algorithms the schema accepts', () => {
+        const { jwtConfig } = schema.properties.user.properties;
+        expect([...SUPPORTED_ALGORITHMS].sort()).toEqual(
+            [...jwtConfig.properties.algorithms.items.enum].sort()
+        );
+        expect([...SUPPORTED_ALGORITHMS].sort()).toEqual(
+            [...jwtConfig.properties.algorithm.enum].sort()
+        );
+    });
+});
+
+describe('assertAdopterJwtConfig warnings', () => {
+    const build = (jwtConfig) => ({
+        authModes: { adopterJwt: true },
+        jwtConfig,
+    });
+    let sink;
+
+    beforeEach(() => {
+        sink = createMemorySink();
+    });
+
+    it('warns at startup when jwksUri has no issuer', () => {
+        assertAdopterJwtConfig(
+            build({ jwksUri: 'https://x.example/jwks', audience: 'a' })
+        );
+
+        const warnings = sink.records.filter(
+            (r) => r.eventName === 'frigg.user.adopter_jwt.issuer_unset'
+        );
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0].level).toBe('WARN');
+    });
+
+    it('does not warn when an issuer is set, or in HMAC mode', () => {
+        assertAdopterJwtConfig(
+            build({
+                jwksUri: 'https://x.example/jwks',
+                audience: 'a',
+                issuer: 'i',
+            })
+        );
+        assertAdopterJwtConfig(build({ secret: 's' }));
+
+        expect(sink.records).toEqual([]);
     });
 });

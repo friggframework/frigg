@@ -8,6 +8,7 @@ const {
     signToken,
     createUserRepositoryDouble,
 } = require('../doubles/adopter-jwt-fixtures');
+const { createAdopterTokenVerifier } = require('../../adopter-token-verifier');
 
 /** AuthenticateUser wired to the real adopter-JWT use case, real signatures. */
 describe('AuthenticateUser with adopter JWT', () => {
@@ -21,26 +22,33 @@ describe('AuthenticateUser with adopter JWT', () => {
         individualUserRequired: true,
         organizationUserRequired: true,
         authModes: { adopterJwt: true, friggToken: true },
-        jwtConfig: { jwksUri: 'https://login.example.com/jwks.json' },
+        jwtConfig: {
+            jwksUri: 'https://login.example.com/jwks.json',
+            audience: 'frigg-api',
+        },
     };
 
-    const authenticate = (headers) =>
+    const authenticate = (headers, config = userConfig) =>
         new AuthenticateUser({
             getUserFromBearerToken,
             getUserFromXFriggHeaders,
             getUserFromAdopterJwt: new GetUserFromAdopterJwt({
                 userRepository: repo,
-                userConfig,
-                keySource: keys.localJwks,
+                userConfig: config,
+                tokenVerifier: createAdopterTokenVerifier({
+                    jwtConfig: config.jwtConfig,
+                    keySource: keys.localJwks,
+                }),
             }),
             authenticateWithSharedSecret: { execute: jest.fn() },
-            userConfig,
+            userConfig: config,
         }).execute({ headers });
 
     const bearer = async (claims) =>
         `Bearer ${await signToken(claims, {
             key: keys.es.privateKey,
             kid: 'es-1',
+            aud: 'frigg-api',
         })}`;
 
     beforeAll(async () => {
@@ -107,7 +115,7 @@ describe('AuthenticateUser with adopter JWT', () => {
     it('surfaces an invalid token as 401 and does not fall through to the native-token path', async () => {
         const forged = await signToken(
             { sub: 'u1' },
-            { key: keys.attacker.privateKey, kid: 'es-1' }
+            { key: keys.attacker.privateKey, kid: 'es-1', aud: 'frigg-api' }
         );
 
         const error = await authenticate({
@@ -117,5 +125,38 @@ describe('AuthenticateUser with adopter JWT', () => {
         expect(error.output.statusCode).toBe(401);
         expect(error.data.reason).toBe('token_invalid_signature');
         expect(getUserFromBearerToken.execute).not.toHaveBeenCalled();
+    });
+
+    describe('a token that is not a three-part JWT', () => {
+        it('goes to the native-token path, never to the adopter verifier', async () => {
+            const nativeUser = { getAppUserId: () => 'native' };
+            getUserFromBearerToken.execute.mockResolvedValue(nativeUser);
+
+            const user = await authenticate({
+                authorization: 'Bearer opaque-token-value',
+            });
+
+            expect(user).toBe(nativeUser);
+            expect(getUserFromBearerToken.execute).toHaveBeenCalledWith(
+                'Bearer opaque-token-value'
+            );
+            expect(repo.findIndividualUserByAppUserId).not.toHaveBeenCalled();
+        });
+
+        it('answers 401 when native tokens are off too, creating nothing', async () => {
+            const config = {
+                ...userConfig,
+                authModes: { adopterJwt: true, friggToken: false },
+            };
+
+            const error = await authenticate(
+                { authorization: 'Bearer opaque-token-value' },
+                config
+            ).catch((e) => e);
+
+            expect(error.output.statusCode).toBe(401);
+            expect(getUserFromBearerToken.execute).not.toHaveBeenCalled();
+            expect(repo.createIndividualUser).not.toHaveBeenCalled();
+        });
     });
 });

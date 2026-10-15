@@ -199,6 +199,14 @@ describe('@friggframework/schemas', () => {
                 expect(result.valid).toBe(true);
             });
 
+            test('should accept a secret config with no audience', () => {
+                const result = validateAppDefinition({
+                    integrations: [],
+                    user: { jwtConfig: { secret: 's' } },
+                });
+                expect(result.valid).toBe(true);
+            });
+
             test('should accept a single-string audience', () => {
                 const result = validateAppDefinition({
                     integrations: [],
@@ -213,7 +221,10 @@ describe('@friggframework/schemas', () => {
             });
 
             test.each([
-                ['jwksUri that is not a URI', { jwksUri: 'not a uri' }],
+                ['jwksUri that is not a URI', { jwksUri: 'not a uri', audience: 'a' }],
+                ['jwksUri without audience', { jwksUri: 'https://x.example/jwks' }],
+                ['both secret and jwksUri', { secret: 's', jwksUri: 'https://x.example/jwks', audience: 'a' }],
+                ['both algorithm and algorithms', { secret: 's', algorithm: 'HS256', algorithms: ['HS256'] }],
                 ['negative clockToleranceSec', { secret: 's', clockToleranceSec: -1 }],
                 ['fractional clockToleranceSec', { secret: 's', clockToleranceSec: 1.5 }],
                 ['unknown algorithm in algorithms', { secret: 's', algorithms: ['none'] }],
