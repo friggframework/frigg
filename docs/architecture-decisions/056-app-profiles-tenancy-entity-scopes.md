@@ -428,12 +428,23 @@ that one column). A person who belongs to two organizations is moved back and fo
 and every org-scoped check follows the last request. That is a defect, not a model.
 
 - **Membership is a relation.** A new `OrganizationMembership { individualUserId, organizationUserId,
-  orgRole }` (unique on the pair) replaces `User.organizationId` and carries the `orgRole` this ADR
-  already adds. The migration writes one row per existing `organizationId`.
+  orgRole }` (unique on the pair, `orgRole` default `MEMBER`) carries the `orgRole` this ADR already
+  adds, and is the source of truth for membership. `User.organizationId` stays as a legacy pointer:
+  set once on a person's first link, never moved, and read as an **implicit membership** when no row
+  names that org. That rule lives in the domain (`user/membership.js`), not in the repositories. There
+  is no backfill: an existing person's org is honoured at read time, and the table holds only
+  memberships added since. This replaces an earlier plan for the migration to write one row per
+  existing `organizationId`. That would mean a data migration run against every adopter's live
+  database, and it buys nothing the read-time rule does not.
 - **Every request has one active organization**: `x-frigg-apporgid`, or the adopter JWT's
   organization claim. With header auth an unknown pairing **adds** a membership (it never moves the
   person); `user.strictMembership: true` rejects unknown pairings instead, for apps where org admins
-  manage membership.
+  manage membership. Strict mode refuses any person who is not a member of an organization that
+  already existed, a brand-new person included. Only an organization created by that same request is
+  exempt. A membership added by header auth means "asserted by the shared-secret caller". Once
+  entities and integrations are scoped by organization, membership is an authorization boundary, so
+  apps with their own org admins should turn strict mode on. The adopter-JWT path trusts the IdP's
+  organization claim and always adds.
 - **Individual entities are paired with the organization they were connected in.** `Entity` gains
   `organizationId`: the active organization at connect time for `individual`, the owner for
   `organization`, null for `global`. A person's Google connected while working in organization A is
