@@ -332,12 +332,14 @@ class MyIntegration extends IntegrationBase {
 - Password-based (bcrypt hashed)
 - Token-based (Bearer tokens)
 - App-based (external app user IDs)
+- Adopter JWT (`authModes.adopterJwt`, `jwtConfig`; `jose`, JWKS or HMAC; see `README.md`)
 
 **Use Cases**:
 - `login-user.js` - User authentication
 - `create-individual-user.js` - Create personal account
 - `create-organization-user.js` - Create business account
 - `get-user-from-bearer-token.js` - Token authentication
+- `get-user-from-adopter-jwt.js` - Adopter JWT verification, find-or-create (ADR-056 §2); `adopter-jwt-config.js` validates `jwtConfig` at load
 
 **Repositories**:
 - `user-repository-factory.js` - Creates database-specific repositories

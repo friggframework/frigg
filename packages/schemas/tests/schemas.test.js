@@ -162,13 +162,13 @@ describe('@friggframework/schemas', () => {
                 expect(formatErrors(result.errors)).toContain('algorithm');
             });
 
-            test('should require jwtConfig.secret when jwtConfig present', () => {
+            test('should require a key source (secret or jwksUri) when jwtConfig present', () => {
                 const appDef = {
                     integrations: [],
                     user: {
                         authModes: { adopterJwt: true },
                         jwtConfig: {
-                            // Missing required secret
+                            // No secret and no jwksUri
                             userIdClaim: 'sub',
                         },
                     },
@@ -176,7 +176,56 @@ describe('@friggframework/schemas', () => {
 
                 const result = validateAppDefinition(appDef);
                 expect(result.valid).toBe(false);
-                expect(formatErrors(result.errors)).toContain('secret');
+                expect(formatErrors(result.errors)).toMatch(/secret|jwksUri/);
+            });
+
+            test('should validate a jwksUri config with every optional field', () => {
+                const result = validateAppDefinition({
+                    integrations: [],
+                    user: {
+                        authModes: { adopterJwt: true },
+                        jwtConfig: {
+                            jwksUri: 'https://login.example.com/.well-known/jwks.json',
+                            issuer: 'https://login.example.com/',
+                            audience: ['frigg-api', 'portal'],
+                            algorithms: ['ES256', 'RS256'],
+                            clockToleranceSec: 0,
+                            userIdClaim: 'sub',
+                            orgIdClaim: 'org_id',
+                            roleClaim: 'org_role',
+                        },
+                    },
+                });
+                expect(result.valid).toBe(true);
+            });
+
+            test('should accept a single-string audience', () => {
+                const result = validateAppDefinition({
+                    integrations: [],
+                    user: {
+                        jwtConfig: {
+                            jwksUri: 'https://login.example.com/jwks.json',
+                            audience: 'frigg-api',
+                        },
+                    },
+                });
+                expect(result.valid).toBe(true);
+            });
+
+            test.each([
+                ['jwksUri that is not a URI', { jwksUri: 'not a uri' }],
+                ['negative clockToleranceSec', { secret: 's', clockToleranceSec: -1 }],
+                ['fractional clockToleranceSec', { secret: 's', clockToleranceSec: 1.5 }],
+                ['unknown algorithm in algorithms', { secret: 's', algorithms: ['none'] }],
+                ['empty algorithms', { secret: 's', algorithms: [] }],
+                ['audience that is a number', { secret: 's', audience: 5 }],
+                ['unknown property', { secret: 's', surprise: true }],
+            ])('should reject %s', (_name, jwtConfig) => {
+                const result = validateAppDefinition({
+                    integrations: [],
+                    user: { authModes: { adopterJwt: true }, jwtConfig },
+                });
+                expect(result.valid).toBe(false);
             });
 
             test('should reject invalid authMode keys', () => {

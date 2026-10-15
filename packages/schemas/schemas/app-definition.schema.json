@@ -129,30 +129,68 @@
         },
         "jwtConfig": {
           "type": "object",
-          "description": "JWT configuration for adopter JWT authentication mode (when authModes.adopterJwt is true)",
+          "description": "Adopter token (JWT) verification for authModes.adopterJwt. Set jwksUri (asymmetric keys, rotating) or secret (HMAC), not both.",
           "properties": {
+            "jwksUri": {
+              "type": "string",
+              "format": "uri",
+              "description": "URL of the issuer's JWKS. Keys are fetched, cached and rotated per process."
+            },
             "secret": {
               "type": "string",
-              "description": "JWT secret key for signature validation (should be set via environment variable)"
+              "description": "Shared HMAC secret for HS* tokens (set via an environment variable, never in source)"
+            },
+            "issuer": {
+              "type": "string",
+              "description": "Required iss claim. Not checked when omitted; set it in production."
+            },
+            "audience": {
+              "description": "Accepted aud claim value(s). Not checked when omitted; set it in production.",
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+              ]
+            },
+            "algorithms": {
+              "type": "array",
+              "description": "Allowed signing algorithms. Defaults to ES256 and RS256 with jwksUri, HS256 with secret. HS* only with secret, never with jwksUri.",
+              "items": {
+                "type": "string",
+                "enum": ["ES256", "ES384", "RS256", "RS384", "RS512", "HS256", "HS384", "HS512"]
+              },
+              "minItems": 1
+            },
+            "algorithm": {
+              "type": "string",
+              "description": "Deprecated: use algorithms. A single allowed algorithm.",
+              "enum": ["ES256", "ES384", "RS256", "RS384", "RS512", "HS256", "HS384", "HS512"]
+            },
+            "clockToleranceSec": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Clock skew allowed on exp and nbf, in seconds",
+              "default": 30
             },
             "userIdClaim": {
               "type": "string",
-              "description": "JWT claim name containing the user ID",
+              "description": "JWT claim name containing the app user ID",
               "default": "sub"
             },
             "orgIdClaim": {
               "type": "string",
-              "description": "JWT claim name containing the organization ID",
+              "description": "JWT claim name containing the app organization ID",
               "default": "org_id"
             },
-            "algorithm": {
+            "roleClaim": {
               "type": "string",
-              "description": "JWT signing algorithm",
-              "enum": ["HS256", "HS384", "HS512", "RS256", "RS384", "RS512"],
-              "default": "HS256"
+              "description": "JWT claim name containing the organization role. Read and exposed on the authenticated user; not stored yet.",
+              "default": "org_role"
             }
           },
-          "required": ["secret"],
+          "anyOf": [
+            { "required": ["secret"] },
+            { "required": ["jwksUri"] }
+          ],
           "additionalProperties": false
         },
         "fields": {
