@@ -330,7 +330,13 @@ class UserRepositoryMongo extends UserRepositoryInterface {
             where: {
                 id: individualUserId,
                 type: 'INDIVIDUAL',
-                organizationId: null,
+                // Prisma on MongoDB: `null` matches only an explicit null, and
+                // `isSet: false` only a missing field. An individual created
+                // without the field is the common case, so match both.
+                OR: [
+                    { organizationId: null },
+                    { organizationId: { isSet: false } },
+                ],
             },
             data: { organizationId: organizationUserId },
         });

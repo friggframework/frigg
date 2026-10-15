@@ -436,6 +436,8 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             {
                 _id: toObjectId(individualUserId),
                 type: 'INDIVIDUAL',
+                // Raw MongoDB query (not Prisma): `{ field: null }` matches both a
+                // null value and a missing field, so no `$exists` branch is needed.
                 organizationId: null,
             },
             { $set: { organizationId: toObjectId(organizationUserId) } }

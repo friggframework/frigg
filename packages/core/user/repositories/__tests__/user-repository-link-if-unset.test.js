@@ -37,7 +37,7 @@ afterEach(() => jest.resetAllMocks());
 // ADR-056 §3.6: the legacy pointer is set on a first link only, and the
 // database decides "first" in the same statement.
 describe('linkIndividualToOrganizationIfUnset', () => {
-    it('Mongo: updates only an individual whose organizationId is null', async () => {
+    it('Mongo: updates only an individual whose organizationId is null or unset (both forms)', async () => {
         prisma.user.updateMany.mockResolvedValue({ count: 1 });
         prisma.user.findFirst.mockResolvedValue({ id: 'i1', organizationId: 'o1' });
 
@@ -47,7 +47,14 @@ describe('linkIndividualToOrganizationIfUnset', () => {
         );
 
         expect(prisma.user.updateMany).toHaveBeenCalledWith({
-            where: { id: 'i1', type: 'INDIVIDUAL', organizationId: null },
+            where: {
+                id: 'i1',
+                type: 'INDIVIDUAL',
+                OR: [
+                    { organizationId: null },
+                    { organizationId: { isSet: false } },
+                ],
+            },
             data: { organizationId: 'o1' },
         });
         expect(result).toEqual({ id: 'i1', organizationId: 'o1' });
