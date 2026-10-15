@@ -20,18 +20,4 @@ function mapIntegrationClassToIntegrationDTO(integration) {
 }
 
 
-const getModulesDefinitionFromIntegrationClasses = (integrationClasses) => {
-    return [
-        ...new Set(
-            integrationClasses
-                .map((integration) =>
-                    Object.values(integration.Definition.modules).map(
-                        (module) => module.definition
-                    )
-                )
-                .flat()
-        ),
-    ];
-};
-
-module.exports = { mapIntegrationClassToIntegrationDTO, getModulesDefinitionFromIntegrationClasses }; 
+module.exports = { mapIntegrationClassToIntegrationDTO };

@@ -7,16 +7,15 @@ const {
     extractCredentialFieldsFromModules,
 } = require('../database/encryption/encryption-schema-registry');
 const {
-    getModulesDefinitionFromIntegrationClasses,
-} = require('../integrations/utils/map-integration-dto');
+    getEntityTypeRegistry,
+    getEntityTypeDefinitions,
+} = require('../modules/entity-type-registry');
 
 // Handlers without a database never load the encryption registry, so the
 // credential leaf keys are registered for redaction here too.
-function registerCredentialLogKeys(appDefinition, integrations) {
+function registerCredentialLogKeys(appDefinition, moduleDefinitions) {
     try {
-        extractCredentialFieldsFromModules(
-            getModulesDefinitionFromIntegrationClasses(integrations)
-        );
+        extractCredentialFieldsFromModules(moduleDefinitions);
     } catch {
         // An odd integration shape must not stop the app from loading.
     }
@@ -33,7 +32,7 @@ function registerCredentialLogKeys(appDefinition, integrations) {
  * @function loadAppDefinition
  * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
  * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null, managementApi: object}} An object containing the application definition.
+ * @returns {{integrations: Array<object>, entities: object | null, entityTypeRegistry: Map<string, object>, moduleDefinitions: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null, managementApi: object}} An object containing the application definition.
  * @throws {Error} Throws error if backend package.json cannot be found.
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
  * @example
@@ -57,6 +56,7 @@ function loadAppDefinition() {
 
     const {
         integrations = [],
+        entities = null,
         user: userConfig = null,
         adminScripts = [],
         reports = [],
@@ -65,7 +65,13 @@ function loadAppDefinition() {
         managementApi = {},
     } = appDefinition;
 
-    registerCredentialLogKeys(appDefinition, integrations);
+    // Fail fast: a bad `entities` registry (key/name mismatch, conflicting
+    // definitions, `$infer: false` with an unregistered module) must stop the
+    // app at load, not on the first request that needs a module.
+    const entityTypeRegistry = getEntityTypeRegistry(appDefinition);
+    const moduleDefinitions = getEntityTypeDefinitions(entityTypeRegistry);
+
+    registerCredentialLogKeys(appDefinition, moduleDefinitions);
 
     // Degrade consistently: an invalid telemetry block must never take down a
     // router bundle that loads the app definition at module scope (telemetry is
@@ -90,6 +96,9 @@ function loadAppDefinition() {
 
     return {
         integrations,
+        entities,
+        entityTypeRegistry,
+        moduleDefinitions,
         userConfig,
         adminScripts,
         reports,

@@ -30,8 +30,9 @@ const {
     PatchIntegrationConfig,
 } = require('../../integrations/use-cases/patch-integration-config');
 const {
-    getModulesDefinitionFromIntegrationClasses,
-} = require('../../integrations/utils/map-integration-dto');
+    getEntityTypeRegistry,
+    getEntityTypeDefinitions,
+} = require('../../modules/entity-type-registry');
 
 const ERROR_CODE_MAP = {
     ENTITY_NOT_FOUND: 401,
@@ -51,7 +52,16 @@ function mapErrorToResponse(error) {
     };
 }
 
-function createIntegrationCommands({ integrationClass } = {}) {
+/**
+ * @param {Object} [params]
+ * @param {Function} [params.integrationClass]
+ * @param {Array<object>} [params.moduleDefinitions] - the app's offered module
+ *   definitions (`loadAppDefinition().moduleDefinitions`). Integration code
+ *   calls this from a constructor with no app definition in hand, so when it
+ *   is omitted the commands hydrate with this integration's own modules only
+ *   (a registry built from `{ integrations: [integrationClass] }`).
+ */
+function createIntegrationCommands({ integrationClass, moduleDefinitions } = {}) {
     // Always use Frigg's default repositories and use cases
     const integrationRepository = createIntegrationRepository();
 
@@ -108,13 +118,13 @@ function createIntegrationCommands({ integrationClass } = {}) {
 
     const moduleRepository = createModuleRepository();
 
-    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses([
-        integrationClass,
-    ]);
-
     const moduleFactory = new ModuleFactory({
         moduleRepository,
-        moduleDefinitions,
+        moduleDefinitions:
+            moduleDefinitions ??
+            getEntityTypeDefinitions(
+                getEntityTypeRegistry({ integrations: [integrationClass] })
+            ),
     });
 
     const loadIntegrationContextUseCase = new LoadIntegrationContextUseCase({

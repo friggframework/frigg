@@ -1,5 +1,5 @@
 jest.mock('../../handlers/app-definition-loader', () => ({
-    loadAppDefinition: () => ({ integrations: [], userConfig: {} }),
+    loadAppDefinition: () => ({ integrations: [], userConfig: {}, moduleDefinitions: [] }),
 }));
 jest.mock('../repositories/integration-repository-factory', () => ({
     createIntegrationRepository: () => ({}),

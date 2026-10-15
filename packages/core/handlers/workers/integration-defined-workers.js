@@ -10,10 +10,13 @@ const { createQueueWorker } = require('../backend-utils');
 // const { getExtensionWorkers } = require('../../integrations/extension');
 
 const handlers = {};
-const { integrations: integrationClasses } = loadAppDefinition();
+const { integrations: integrationClasses, moduleDefinitions } =
+    loadAppDefinition();
 
 integrationClasses.forEach((IntegrationClass) => {
-    const defaultQueueWorker = createQueueWorker(IntegrationClass);
+    const defaultQueueWorker = createQueueWorker(IntegrationClass, {
+        moduleDefinitions,
+    });
 
     handlers[`${IntegrationClass.Definition.name}`] = {
         queueWorker: createHandler({

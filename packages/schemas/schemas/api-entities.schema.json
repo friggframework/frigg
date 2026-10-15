@@ -122,6 +122,11 @@
           "type": "string",
           "description": "Description of the entity type"
         },
+        "usedBy": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Names of the integrations that bind this entity type; empty for a type registered only in appDefinition.entities"
+        },
         "authType": {
           "type": "string",
           "enum": ["oauth2", "form", "api-key", "basic"],

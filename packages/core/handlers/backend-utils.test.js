@@ -24,11 +24,8 @@ jest.mock(
 jest.mock('../modules/repositories/module-repository-factory', () => ({
     createModuleRepository: jest.fn(),
 }));
-jest.mock('../integrations/utils/map-integration-dto', () => ({
-    getModulesDefinitionFromIntegrationClasses: jest.fn(() => []),
-}));
 jest.mock('./app-definition-loader', () => ({
-    loadAppDefinition: jest.fn(() => ({ integrations: [] })),
+    loadAppDefinition: jest.fn(() => ({ integrations: [], moduleDefinitions: [] })),
 }));
 
 const { integrationExists, createQueueWorker } = require('./backend-utils');

@@ -1,4 +1,9 @@
-const mockAppDefinition = { integrations: [], userConfig: {}, managementApi: {} };
+const mockAppDefinition = {
+    integrations: [],
+    userConfig: {},
+    managementApi: {},
+    moduleDefinitions: [],
+};
 
 jest.mock('../app-definition-loader', () => ({
     loadAppDefinition: () => mockAppDefinition,
