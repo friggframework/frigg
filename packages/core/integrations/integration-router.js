@@ -55,6 +55,9 @@ const {
     createUserRepository,
 } = require('../user/repositories/user-repository-factory');
 const {
+    createOrganizationMembershipRepository,
+} = require('../user/repositories/organization-membership-repository-factory');
+const {
     GetUserFromBearerToken,
 } = require('../user/use-cases/get-user-from-bearer-token');
 const {
@@ -83,6 +86,8 @@ function createIntegrationRouter() {
     const integrationRepository = createIntegrationRepository();
     const credentialRepository = createCredentialRepository();
     const userRepository = createUserRepository();
+    const organizationMembershipRepository =
+        createOrganizationMembershipRepository();
 
     const getUserFromBearerToken = new GetUserFromBearerToken({
         userRepository,
@@ -91,11 +96,13 @@ function createIntegrationRouter() {
 
     const getUserFromXFriggHeaders = new GetUserFromXFriggHeaders({
         userRepository,
+        organizationMembershipRepository,
         userConfig,
     });
 
     const getUserFromAdopterJwt = new GetUserFromAdopterJwt({
         userRepository,
+        organizationMembershipRepository,
         userConfig,
         tokenVerifier: createAdopterTokenVerifier({
             jwtConfig: userConfig?.jwtConfig,

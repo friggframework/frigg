@@ -69,13 +69,38 @@ function unsignedToken(claims) {
 }
 
 /**
+ * Resolves each `wait()` only once `parties` callers have arrived, so a test
+ * can make concurrent requests all read before any of them writes.
+ */
+function createBarrier(parties) {
+    let arrived = 0;
+    let release;
+    const gate = new Promise((resolve) => {
+        release = resolve;
+    });
+    return {
+        async wait() {
+            arrived += 1;
+            if (arrived >= parties) release();
+            await gate;
+        },
+    };
+}
+
+/**
  * Stateful fake of the user repository, built from jest.fn so every call is
  * observable. Individuals carry `organizationId`, as the real repositories
- * return it.
+ * return it. Like the database, it refuses a second individual with the same
+ * `appUserId` (a Prisma-shaped `P2002`), which is what a first-login race hits.
+ *
+ * @param {Object} [options]
+ * @param {number} [options.findBarrier] Make the first N calls to
+ *   `findIndividualUserByAppUserId` wait for each other (see createBarrier).
  */
 function createUserRepositoryDouble({
     individuals = [],
     organizations = [],
+    findBarrier = 0,
 } = {}) {
     const individualUsers = new Map(
         individuals.map((u) => [u.appUserId, { ...u }])
@@ -83,23 +108,36 @@ function createUserRepositoryDouble({
     const organizationUsers = new Map(
         organizations.map((o) => [o.appOrgId, { ...o }])
     );
+    const barrier = findBarrier > 1 ? createBarrier(findBarrier) : null;
+    let barrierCalls = 0;
     let seq = 0;
 
     const repo = {
-        findIndividualUserByAppUserId: jest.fn(
-            async (appUserId) => individualUsers.get(appUserId) ?? null
-        ),
+        findIndividualUserByAppUserId: jest.fn(async (appUserId) => {
+            const found = individualUsers.get(appUserId) ?? null;
+            if (barrier && barrierCalls < findBarrier) {
+                barrierCalls += 1;
+                await barrier.wait();
+            }
+            return found && { ...found };
+        }),
         findOrganizationUserByAppOrgId: jest.fn(
             async (appOrgId) => organizationUsers.get(appOrgId) ?? null
         ),
         createIndividualUser: jest.fn(async (params) => {
+            if (individualUsers.has(params.appUserId)) {
+                throw Object.assign(
+                    new Error('Unique constraint failed on appUserId'),
+                    { code: 'P2002' }
+                );
+            }
             const created = {
                 id: `ind-${++seq}`,
                 organizationId: undefined,
                 ...params,
             };
             individualUsers.set(created.appUserId, created);
-            return created;
+            return { ...created };
         }),
         createOrganizationUser: jest.fn(async (params) => {
             const created = { id: `org-${++seq}`, ...params };
@@ -122,9 +160,65 @@ function createUserRepositoryDouble({
     return repo;
 }
 
+/**
+ * In-memory organization membership repository over the same state as
+ * `userRepo`, so the legacy `organizationId` pointer is visible to it as it is
+ * to the real adapters. The pair is unique and `addMembership` is an upsert;
+ * the legacy-pointer rules are the real ones from organization-membership-model.
+ */
+function createMembershipRepositoryDouble(userRepo) {
+    const {
+        toMembership,
+        implicitMembership,
+        withLegacyMembership,
+    } = require('../../repositories/organization-membership-model');
+    const rows = new Map();
+    const key = (i, o) => `${i}|${o}`;
+    let seq = 0;
+    const individualById = (id) =>
+        [...userRepo.state.individualUsers.values()].find((u) => u.id === id);
+
+    const repo = {
+        findMembership: jest.fn(async (individualId, organizationId) => {
+            const row = rows.get(key(individualId, organizationId));
+            if (row) return toMembership(row);
+            return implicitMembership(
+                individualById(individualId),
+                organizationId
+            );
+        }),
+        addMembership: jest.fn(
+            async (individualId, organizationId, { role } = {}) => {
+                const k = key(individualId, organizationId);
+                if (!rows.has(k)) {
+                    rows.set(k, {
+                        id: `mem-${++seq}`,
+                        individualUserId: individualId,
+                        organizationUserId: organizationId,
+                        role: role ?? null,
+                        createdAt: new Date(),
+                    });
+                }
+                return toMembership(rows.get(k));
+            }
+        ),
+        listMembershipsForIndividual: jest.fn(async (individualId) =>
+            withLegacyMembership(
+                [...rows.values()]
+                    .filter((r) => r.individualUserId === individualId)
+                    .map(toMembership),
+                individualById(individualId)
+            )
+        ),
+    };
+    repo.rows = rows;
+    return repo;
+}
+
 module.exports = {
     createKeys,
     signToken,
     unsignedToken,
     createUserRepositoryDouble,
+    createMembershipRepositoryDouble,
 };

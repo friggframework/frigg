@@ -12,6 +12,34 @@ const wantsIndividual = (userConfig) =>
 const wantsOrganization = (userConfig, appOrgId) =>
     Boolean(appOrgId) && Boolean(userConfig.organizationUserRequired);
 
+/**
+ * A create that lost a race: the Prisma unique-constraint code, a Mongo
+ * duplicate-key code, or the message `insertOne` raises for one.
+ */
+function isUniqueViolation(error) {
+    return (
+        error?.code === 'P2002' ||
+        error?.code === 11000 ||
+        /Duplicate key violation|E11000/.test(error?.message ?? '')
+    );
+}
+
+/**
+ * Runs `create`; if it loses a first-login race (a unique-constraint
+ * violation), runs `find` once, since the winner has created the row by now.
+ * Anything else, and a violation with nothing to find, is rethrown.
+ */
+async function createOrFindOnRace(create, find) {
+    try {
+        return await create();
+    } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        const found = await find();
+        if (!found) throw error;
+        return found;
+    }
+}
+
 async function findAppUsers(
     userRepository,
     userConfig,
@@ -36,21 +64,24 @@ async function createMissingAppUsers(
     userConfig,
     { appUserId, appOrgId, individual, organization }
 ) {
-    let createdOrganization = false;
     if (!individual && appUserId && wantsIndividual(userConfig)) {
-        individual = await userRepository.createIndividualUser({
-            appUserId,
-            username: `app-user-${appUserId}`,
-            email: `${appUserId}@app.local`,
-        });
+        individual = await createOrFindOnRace(
+            () =>
+                userRepository.createIndividualUser({
+                    appUserId,
+                    username: `app-user-${appUserId}`,
+                    email: `${appUserId}@app.local`,
+                }),
+            () => userRepository.findIndividualUserByAppUserId(appUserId)
+        );
     }
     if (!organization && wantsOrganization(userConfig, appOrgId)) {
-        organization = await userRepository.createOrganizationUser({
-            appOrgId,
-        });
-        createdOrganization = true;
+        organization = await createOrFindOnRace(
+            () => userRepository.createOrganizationUser({ appOrgId }),
+            () => userRepository.findOrganizationUserByAppOrgId(appOrgId)
+        );
     }
-    return { individual, organization, createdOrganization };
+    return { individual, organization };
 }
 
 function buildUser(userConfig, individual, organization) {
@@ -67,6 +98,7 @@ function buildUser(userConfig, individual, organization) {
 module.exports = {
     wantsIndividual,
     wantsOrganization,
+    isUniqueViolation,
     findAppUsers,
     createMissingAppUsers,
     buildUser,

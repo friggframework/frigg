@@ -18,8 +18,8 @@ class User {
         this.individualUser = individualUser;
         this.organizationUser = organizationUser;
         this.usePassword = usePassword;
-        // Organization role from an adopter token claim (ADR-056 §2). Read-only
-        // for now: nothing persists it until the membership package lands.
+        // Organization role from an adopter token claim (ADR-056 §2). Per request:
+        // the role stored on a membership is only what the first token carried.
         this.orgRole = null;
 
         this.config = {
@@ -29,6 +29,17 @@ class User {
         };
     }
 
+    /**
+     * The organization this request acts in (ADR-056 §3.6): the one the token or
+     * `x-frigg-appOrgId` named, not the person's legacy `organizationId`
+     * pointer. Null when the request has no organization.
+     * @returns {string|null}
+     */
+    getActiveOrganizationId() {
+        const id = this.organizationUser?.id;
+        return id === undefined || id === null || id === '' ? null : String(id);
+    }
+
     getPrimaryUser() {
         if (this.config.primary === 'organization') {
             return this.organizationUser;
@@ -36,6 +47,11 @@ class User {
         return this.individualUser;
     }
 
+    /**
+     * The id of the primary user. With `primary: 'organization'` this is the
+     * active organization (the one the request named), never the organization
+     * the person was first linked to.
+     */
     getId() {
         return this.getPrimaryUser()?.id;
     }

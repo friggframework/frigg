@@ -32,7 +32,7 @@ declare module "@friggframework/core/user" {
     userIdClaim?: string;
     /** Default `org_id`. */
     orgIdClaim?: string;
-    /** Default `org_role`. Exposed as `User#getOrgRole()`; not stored. */
+    /** Default `org_role`. Exposed as `User#getOrgRole()`; stored on a new membership. */
     roleClaim?: string;
   }
 
@@ -48,19 +48,59 @@ declare module "@friggframework/core/user" {
     primary?: "individual" | "organization";
     individualUserRequired?: boolean;
     organizationUserRequired?: boolean;
+    /**
+     * Refuse (400) a request whose person is not a member of the organization it
+     * names, instead of adding the membership. Applies to `x-frigg` headers.
+     */
+    strictMembership?: boolean;
+    /** Alias of `strictMembership`; `strictMembership` wins when both are set. */
     strictUserValidation?: boolean;
     authModes?: UserAuthModes;
     jwtConfig?: AdopterJwtConfig;
   }
 
+  /**
+   * One person's membership of one organization (ADR-056 §3.6). `implicit` is
+   * true when it is only the legacy `IndividualUser.organizationId` pointer.
+   */
+  export interface OrganizationMembership {
+    id: string | null;
+    individualUserId: string;
+    organizationUserId: string;
+    role: string | null;
+    createdAt?: Date;
+    implicit: boolean;
+  }
+
+  export interface OrganizationMembershipRepository {
+    findMembership(
+      individualUserId: string,
+      organizationUserId: string
+    ): Promise<OrganizationMembership | null>;
+    /** Idempotent: adds when absent, never changes an existing membership. */
+    addMembership(
+      individualUserId: string,
+      organizationUserId: string,
+      options?: { role?: string | null }
+    ): Promise<OrganizationMembership>;
+    listMembershipsForIndividual(
+      individualUserId: string
+    ): Promise<OrganizationMembership[]>;
+  }
+
+  export function createOrganizationMembershipRepository(): OrganizationMembershipRepository;
+
   export class User {
+    /** The primary user's id; under `primary: 'organization'` the ACTIVE organization. */
     getId(): string | undefined;
+    /** The organization this request acts in (token or `x-frigg-apporgid`), or null. */
+    getActiveOrganizationId(): string | null;
     getAppUserId(): string | null;
     getAppOrgId(): string | null;
     getIndividualUser(): any;
     getOrganizationUser(): any;
     getPrimaryUser(): any;
-    /** The organization role from the adopter token, or null. */
+    /** The organization role from the adopter token for this request, or null. */
     getOrgRole(): string | null;
     setOrgRole(orgRole: string | null): void;
   }

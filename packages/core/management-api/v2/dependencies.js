@@ -15,6 +15,9 @@ function buildV2Dependencies({ appDefinition, config }) {
     const {
         createUserRepository,
     } = require('../../user/repositories/user-repository-factory');
+    const {
+        createOrganizationMembershipRepository,
+    } = require('../../user/repositories/organization-membership-repository-factory');
     const { ModuleFactory } = require('../../modules/module-factory');
     const {
         getModulesDefinitionFromIntegrationClasses,
@@ -78,13 +81,15 @@ function buildV2Dependencies({ appDefinition, config }) {
     const integrationRepository = createIntegrationRepository();
     const credentialRepository = createCredentialRepository();
     const userRepository = createUserRepository();
+    const organizationMembershipRepository = createOrganizationMembershipRepository();
     const authorizationSessionRepository = createAuthorizationSessionRepository();
 
     const authenticateUser = new AuthenticateUser({
         getUserFromBearerToken: new GetUserFromBearerToken({ userRepository, userConfig }),
-        getUserFromXFriggHeaders: new GetUserFromXFriggHeaders({ userRepository, userConfig }),
+        getUserFromXFriggHeaders: new GetUserFromXFriggHeaders({ userRepository, organizationMembershipRepository, userConfig }),
         getUserFromAdopterJwt: new GetUserFromAdopterJwt({
             userRepository,
+            organizationMembershipRepository,
             userConfig,
             tokenVerifier: createAdopterTokenVerifier({ jwtConfig: userConfig.jwtConfig }),
         }),

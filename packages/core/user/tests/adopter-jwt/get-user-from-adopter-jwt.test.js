@@ -9,6 +9,7 @@ const {
     signToken,
     unsignedToken,
     createUserRepositoryDouble,
+    createMembershipRepositoryDouble,
 } = require('../doubles/adopter-jwt-fixtures');
 const { createAdopterTokenVerifier } = require('../../adopter-token-verifier');
 
@@ -18,6 +19,7 @@ const AUD = 'frigg-api';
 describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
     let keys;
     let repo;
+    let memberships;
 
     const userConfig = (overrides = {}) => ({
         usePassword: false,
@@ -37,6 +39,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
     const build = (config = userConfig(), keySource = keys.localJwks) =>
         new GetUserFromAdopterJwt({
             userRepository: repo,
+            organizationMembershipRepository: memberships,
             userConfig: config,
             tokenVerifier: createAdopterTokenVerifier({
                 jwtConfig: config.jwtConfig,
@@ -73,7 +76,15 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
 
     beforeEach(() => {
         repo = createUserRepositoryDouble();
+        memberships = createMembershipRepositoryDouble(repo);
     });
+
+    // Re-seed both doubles together: the membership double reads the legacy
+    // pointer from the user double's state.
+    const seed = (options) => {
+        repo = createUserRepositoryDouble(options);
+        memberships = createMembershipRepositoryDouble(repo);
+    };
 
     describe('verification', () => {
         it('accepts an ES256 token verified against a JWKS', async () => {
@@ -620,9 +631,37 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
         });
     });
 
-    describe('org linking (interim, ADR-056 §3.6)', () => {
-        it('links an existing individual who has no organization yet', async () => {
-            repo = createUserRepositoryDouble({
+    describe('organization membership (ADR-056 §3.6)', () => {
+        const personInA = (extra = {}) => ({
+            individuals: [
+                { id: 'ind-x', appUserId: 'u1', organizationId: 'org-a' },
+            ],
+            organizations: [
+                { id: 'org-a', appOrgId: 'oA' },
+                { id: 'org-b', appOrgId: 'oB' },
+            ],
+            ...extra,
+        });
+
+        it('records a membership for a new person and sets the legacy pointer on that first link', async () => {
+            const user = await build().execute(
+                await es({ sub: 'u1', org_id: 'o1', org_role: 'admin' })
+            );
+
+            const org = repo.state.organizationUsers.get('o1');
+            const individual = repo.state.individualUsers.get('u1');
+            expect(memberships.rows.size).toBe(1);
+            expect(memberships.addMembership).toHaveBeenCalledWith(
+                individual.id,
+                org.id,
+                { role: 'admin' }
+            );
+            expect(individual.organizationId).toBe(org.id);
+            expect(user.getActiveOrganizationId()).toBe(org.id);
+        });
+
+        it('links an existing individual who has no organization yet, and adds the membership', async () => {
+            seed({
                 individuals: [{ id: 'ind-x', appUserId: 'u1' }],
                 organizations: [{ id: 'org-x', appOrgId: 'o1' }],
             });
@@ -633,95 +672,211 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
 
             expect(repo.createIndividualUser).not.toHaveBeenCalled();
             expect(repo.createOrganizationUser).not.toHaveBeenCalled();
-            expect(repo.linkIndividualToOrganization).toHaveBeenCalledTimes(1);
             expect(repo.linkIndividualToOrganization).toHaveBeenCalledWith(
                 'ind-x',
                 'org-x'
             );
+            expect(memberships.addMembership).toHaveBeenCalledWith(
+                'ind-x',
+                'org-x',
+                { role: null }
+            );
             expect(user.getIndividualUser().organizationId).toBe('org-x');
         });
 
-        it('does not link again when the individual is already in the named org', async () => {
-            repo = createUserRepositoryDouble({
-                individuals: [
-                    { id: 'ind-x', appUserId: 'u1', organizationId: 'org-x' },
-                ],
-                organizations: [{ id: 'org-x', appOrgId: 'o1' }],
-            });
+        it('a person in A who logs in with B gets a membership in B, runs as B, and keeps organizationId = A', async () => {
+            seed(personInA());
 
-            await build().execute(await es({ sub: 'u1', org_id: 'o1' }));
+            const user = await build().execute(
+                await es({ sub: 'u1', org_id: 'oB', org_role: 'member' })
+            );
 
+            expect(user.getActiveOrganizationId()).toBe('org-b');
+            expect(user.getId()).toBe('org-b'); // primary: 'organization'
+            expect(user.getAppOrgId()).toBe('oB');
+            expect(user.getOrgRole()).toBe('member');
+            expect(repo.state.individualUsers.get('u1').organizationId).toBe(
+                'org-a'
+            );
+            expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
+            const orgs = (
+                await memberships.listMembershipsForIndividual('ind-x')
+            ).map((m) => m.organizationUserId);
+            expect(orgs.sort()).toEqual(['org-a', 'org-b']);
+            expect(repo.createOrganizationUser).not.toHaveBeenCalled();
+        });
+
+        it('creates a brand-new organization for a person in A and never moves them out of A', async () => {
+            seed(personInA());
+
+            const user = await build().execute(
+                await es({ sub: 'u1', org_id: 'brand-new' })
+            );
+
+            expect(repo.createOrganizationUser).toHaveBeenCalledTimes(1);
+            expect(user.getAppOrgId()).toBe('brand-new');
+            expect(repo.state.individualUsers.get('u1').organizationId).toBe(
+                'org-a'
+            );
+            expect(memberships.rows.size).toBe(1);
+        });
+
+        it('the same person logging in with A again runs as A and writes nothing', async () => {
+            seed(personInA());
+            await build().execute(await es({ sub: 'u1', org_id: 'oB' }));
+            jest.clearAllMocks();
+
+            const user = await build().execute(
+                await es({ sub: 'u1', org_id: 'oA' })
+            );
+
+            expect(user.getActiveOrganizationId()).toBe('org-a');
+            expect(user.getId()).toBe('org-a');
+            expect(user.getAppOrgId()).toBe('oA');
+            expect(memberships.addMembership).not.toHaveBeenCalled();
             expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
         });
 
+        it('treats the legacy organizationId as a membership: logging in with that org adds no row', async () => {
+            seed(personInA());
+
+            await build().execute(await es({ sub: 'u1', org_id: 'oA' }));
+
+            expect(memberships.findMembership).toHaveBeenCalledWith(
+                'ind-x',
+                'org-a'
+            );
+            expect(memberships.addMembership).not.toHaveBeenCalled();
+            expect(memberships.rows.size).toBe(0);
+        });
+
         it('compares org ids as strings, since stores return numbers or strings', async () => {
-            repo = createUserRepositoryDouble({
+            seed({
                 individuals: [
                     { id: 'ind-x', appUserId: 'u1', organizationId: '7' },
                 ],
                 organizations: [{ id: 7, appOrgId: 'o1' }],
             });
 
-            await expect(
-                build().execute(await es({ sub: 'u1', org_id: 'o1' }))
-            ).resolves.toBeDefined();
-            expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
-        });
+            await build().execute(await es({ sub: 'u1', org_id: 'o1' }));
 
-        it('refuses 403 multi_org_unsupported, naming ADR-056 §3.6, when the individual is in a different org', async () => {
-            repo = createUserRepositoryDouble({
-                individuals: [
-                    { id: 'ind-x', appUserId: 'u1', organizationId: 'org-a' },
-                ],
-                organizations: [
-                    { id: 'org-a', appOrgId: 'oA' },
-                    { id: 'org-b', appOrgId: 'oB' },
-                ],
-            });
-
-            const { status, reason, error } = await reasonOf(
-                build().execute(await es({ sub: 'u1', org_id: 'oB' }))
-            );
-
-            expect(status).toBe(403);
-            expect(reason).toBe('multi_org_unsupported');
-            expect(error.message).toContain('ADR-056 §3.6');
-            expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
-            expect(repo.state.individualUsers.get('u1').organizationId).toBe(
-                'org-a'
-            );
-        });
-
-        it('refuses without creating an org when the named org does not exist yet', async () => {
-            repo = createUserRepositoryDouble({
-                individuals: [
-                    { id: 'ind-x', appUserId: 'u1', organizationId: 'org-a' },
-                ],
-                organizations: [{ id: 'org-a', appOrgId: 'oA' }],
-            });
-
-            const { reason } = await reasonOf(
-                build().execute(await es({ sub: 'u1', org_id: 'brand-new' }))
-            );
-
-            expect(reason).toBe('multi_org_unsupported');
-            expect(repo.createOrganizationUser).not.toHaveBeenCalled();
-            expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
-            expect(repo.state.organizationUsers.has('brand-new')).toBe(false);
+            expect(memberships.addMembership).not.toHaveBeenCalled();
         });
 
         it('lets an individual in an org authenticate with no org claim, unchanged', async () => {
-            repo = createUserRepositoryDouble({
-                individuals: [
-                    { id: 'ind-x', appUserId: 'u1', organizationId: 'org-a' },
-                ],
-                organizations: [{ id: 'org-a', appOrgId: 'oA' }],
-            });
+            seed(personInA());
 
             const user = await build().execute(await es({ sub: 'u1' }));
 
             expect(user.getAppUserId()).toBe('u1');
+            expect(user.getActiveOrganizationId()).toBeNull();
+            expect(memberships.findMembership).not.toHaveBeenCalled();
             expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
+        });
+
+        it('no longer answers 403 multi_org_unsupported', async () => {
+            seed(personInA());
+
+            await expect(
+                build().execute(await es({ sub: 'u1', org_id: 'oB' }))
+            ).resolves.toBeDefined();
+        });
+
+        it('requires a membership repository rather than silently skipping membership', () => {
+            expect(
+                () =>
+                    new GetUserFromAdopterJwt({
+                        userRepository: repo,
+                        userConfig: userConfig(),
+                        tokenVerifier: {},
+                    })
+            ).toThrow('organizationMembershipRepository');
+        });
+    });
+
+    describe('first-login races', () => {
+        it('two concurrent first logins for the same new person in different orgs both succeed', async () => {
+            seed({ findBarrier: 2 });
+            const tokenA = await es({ sub: 'u1', org_id: 'oA' });
+            const tokenB = await es({ sub: 'u1', org_id: 'oB' });
+
+            const [userA, userB] = await Promise.all([
+                build().execute(tokenA),
+                build().execute(tokenB),
+            ]);
+
+            // One create won, the other hit the unique pair and found the winner.
+            expect(repo.createIndividualUser).toHaveBeenCalledTimes(2);
+            expect(repo.state.individualUsers.size).toBe(1);
+            const individual = repo.state.individualUsers.get('u1');
+            expect(userA.getIndividualUser().id).toBe(individual.id);
+            expect(userB.getIndividualUser().id).toBe(individual.id);
+
+            expect(userA.getAppOrgId()).toBe('oA');
+            expect(userB.getAppOrgId()).toBe('oB');
+            const orgIds = (
+                await memberships.listMembershipsForIndividual(individual.id)
+            )
+                .map((m) => m.organizationUserId)
+                .sort();
+            expect(orgIds).toEqual(
+                [
+                    repo.state.organizationUsers.get('oA').id,
+                    repo.state.organizationUsers.get('oB').id,
+                ].sort()
+            );
+            // The legacy pointer names one of them; it is a pointer, not the truth.
+            expect(orgIds).toContain(individual.organizationId);
+        });
+
+        it('two concurrent logins for the same person and org leave one membership', async () => {
+            seed({
+                individuals: [{ id: 'ind-x', appUserId: 'u1' }],
+                organizations: [{ id: 'org-x', appOrgId: 'o1' }],
+            });
+            const token = await es({ sub: 'u1', org_id: 'o1' });
+
+            await Promise.all([
+                build().execute(token),
+                build().execute(token),
+            ]);
+
+            expect(memberships.rows.size).toBe(1);
+        });
+
+        it('rethrows a create failure that is not a unique violation', async () => {
+            repo.createIndividualUser.mockRejectedValueOnce(
+                new Error('connection reset')
+            );
+
+            await expect(
+                build().execute(await es({ sub: 'u1' }))
+            ).rejects.toThrow('connection reset');
+        });
+
+        it('rethrows a unique violation when the winner cannot be found', async () => {
+            repo.createIndividualUser.mockRejectedValueOnce(
+                Object.assign(new Error('unique'), { code: 'P2002' })
+            );
+
+            await expect(
+                build().execute(await es({ sub: 'u1' }))
+            ).rejects.toThrow('unique');
+        });
+
+        it('retries the find once when creating the organization loses the race', async () => {
+            const winner = { id: 'org-w', appOrgId: 'o1' };
+            repo.createOrganizationUser.mockImplementationOnce(async () => {
+                repo.state.organizationUsers.set('o1', winner);
+                throw Object.assign(new Error('unique'), { code: 'P2002' });
+            });
+
+            const user = await build().execute(
+                await es({ sub: 'u1', org_id: 'o1' })
+            );
+
+            expect(user.getActiveOrganizationId()).toBe('org-w');
+            expect(repo.createOrganizationUser).toHaveBeenCalledTimes(1);
         });
     });
 });

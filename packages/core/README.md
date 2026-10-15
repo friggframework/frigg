@@ -393,7 +393,7 @@ value that is not a three-part JWT is not offered to the verifier at all; it fal
 | `clockToleranceSec` | `30` | Skew allowed on `exp` and `nbf`. |
 | `userIdClaim` | `sub` | App user id (required in the token). |
 | `orgIdClaim` | `org_id` | App organization id (optional). |
-| `roleClaim` | `org_role` | Read and exposed as `user.getOrgRole()`; not stored yet. |
+| `roleClaim` | `org_role` | Exposed as `user.getOrgRole()` for the request, and stored on a person's membership the first time they join that organization. |
 
 Rules worth knowing:
 
@@ -406,8 +406,18 @@ Rules worth knowing:
   `token_missing_user_claim`, `token_malformed`. The message never contains the token or its claims.
   Any other verification failure, such as an unreachable or unresolvable JWKS, is `503`
   `jwks_unavailable`, not a 401, so clients do not drop good sessions.
-- A person belongs to one organization for now: a token naming a second one gets `403`
-  `multi_org_unsupported` and nothing is moved (ADR-056 §3.6 replaces this with memberships).
+- **The token's organization is the request's active organization**, and a person can belong to
+  several (ADR-056 §3.6). The first time a person presents a token for an organization they are
+  not a member of, Frigg adds an `OrganizationMembership` and the request runs as that
+  organization (`user.getActiveOrganizationId()`; `user.getId()` under `primary: 'organization'`).
+  Nothing is moved: `IndividualUser.organizationId` is a legacy pointer, set only on a person's
+  first link and read as an implicit membership. The same applies to `x-frigg-apporgid` with
+  `sharedSecret`; `user.strictMembership: true` (alias `strictUserValidation`) refuses an unknown
+  person/organization pairing with 400 instead of adding it. See
+  [Organization memberships](../../docs/guides/organization-memberships.md). A token naming a second
+  organization is no longer a `403` (`multi_org_unsupported` is gone).
+- Two first logins for the same new person or organization, even in different organizations, both
+  succeed: a create that loses to a unique constraint finds the winner's row.
 
 ### 8. Lambda Utilities (`/lambda`)
 

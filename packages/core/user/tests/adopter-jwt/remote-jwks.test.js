@@ -24,6 +24,7 @@ const {
     createKeys,
     signToken,
     createUserRepositoryDouble,
+    createMembershipRepositoryDouble,
 } = require('../doubles/adopter-jwt-fixtures');
 
 const AUD = 'frigg-api';
@@ -58,9 +59,12 @@ describe('adopter token verification against a remote JWKS', () => {
         jose.createRemoteJWKSet.mockClear();
     });
 
-    const buildFor = (uri) =>
-        new GetUserFromAdopterJwt({
-            userRepository: createUserRepositoryDouble(),
+    const buildFor = (uri) => {
+        const userRepository = createUserRepositoryDouble();
+        return new GetUserFromAdopterJwt({
+            userRepository,
+            organizationMembershipRepository:
+                createMembershipRepositoryDouble(userRepository),
             tokenVerifier: createAdopterTokenVerifier({
                 jwtConfig: { jwksUri: uri, audience: AUD },
             }),
@@ -70,6 +74,7 @@ describe('adopter token verification against a remote JWKS', () => {
                 authModes: { adopterJwt: true },
             },
         });
+    };
     const build = (path = '/jwks.json') => buildFor(`${baseUrl}${path}`);
 
     const token = (claims = { sub: 'u1' }) =>

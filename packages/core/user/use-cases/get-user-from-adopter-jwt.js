@@ -4,8 +4,10 @@ const {
     findAppUsers,
     createMissingAppUsers,
     buildUser,
-    wantsOrganization,
 } = require('../app-user-helpers');
+const {
+    EnsureOrganizationMembership,
+} = require('./ensure-organization-membership');
 
 const log = getLogger('frigg.user.adopter_jwt');
 
@@ -16,43 +18,17 @@ const idFromClaim = (value) => {
     return null;
 };
 
-const hasOrganization = (individual) => {
-    const id = individual?.organizationId;
-    return id !== undefined && id !== null && id !== '';
-};
-
-/**
- * Interim rule until the membership table (ADR-056 §3.6): a person belongs to
- * one organization. Callers run this before creating anything, so a refused
- * request leaves no new organization behind.
- *
- * @param {Object|null} individual The individual user as the repository returns it.
- * @param {Object|null} organization The organization the token names, or null
- *   when it does not exist yet.
- * @throws {Boom} 403 `multi_org_unsupported`
- */
-function assertSingleOrganization(individual, organization) {
-    if (!hasOrganization(individual)) return;
-    if (
-        organization &&
-        String(individual.organizationId) === String(organization.id)
-    ) {
-        return;
-    }
-    log.debug('Adopter token names a second organization', {
-        eventName: `${log.name}.multi_org_refused`,
-    });
-    throw fail('multi_org_unsupported');
-}
-
 /**
  * Authenticates a request by a token issued by the adopter's own identity
  * system (ADR-056 §2): verifies it, then finds or creates the individual and
  * organization users it names.
  *
- * Two limits, both replaced by the membership package (F4): the first request
- * for a new person can race another and create the user twice (no upsert), and
- * the individual-to-organization link is one-way and set once.
+ * The organization the token names is the request's active organization
+ * (ADR-056 §3.6). A person who is not yet a member of it becomes one; a person
+ * can belong to several, and `IndividualUser.organizationId` is never moved
+ * (see EnsureOrganizationMembership). Two first logins racing for the same new
+ * person or organization both succeed: a create that loses to a unique
+ * constraint finds the winner's row.
  *
  * @class GetUserFromAdopterJwt
  */
@@ -61,13 +37,28 @@ class GetUserFromAdopterJwt {
      * @param {Object} params
      * @param {import('../repositories/user-repository-interface').UserRepositoryInterface} params.userRepository
      * @param {Object} params.userConfig - The user config in the app definition.
+     * @param {import('../repositories/organization-membership-repository-interface').OrganizationMembershipRepositoryInterface} params.organizationMembershipRepository
      * @param {{verify: Function, claimNames: Object}} params.tokenVerifier -
      *   from `createAdopterTokenVerifier`.
      */
-    constructor({ userRepository, userConfig, tokenVerifier }) {
+    constructor({
+        userRepository,
+        organizationMembershipRepository,
+        userConfig,
+        tokenVerifier,
+    }) {
+        if (!organizationMembershipRepository) {
+            throw new Error(
+                'GetUserFromAdopterJwt requires an organizationMembershipRepository'
+            );
+        }
         this.userRepository = userRepository;
         this.userConfig = userConfig;
         this.tokenVerifier = tokenVerifier;
+        this.ensureOrganizationMembership = new EnsureOrganizationMembership({
+            userRepository,
+            organizationMembershipRepository,
+        });
     }
 
     /**
@@ -76,7 +67,6 @@ class GetUserFromAdopterJwt {
      * @returns {Promise<import('../user').User>}
      * @throws {Boom} 401 with `data.reason` for a token the verifier refuses
      *   (including `token_missing_user_claim`).
-     * @throws {Boom} 403 `multi_org_unsupported`.
      * @throws {Boom} 503 `jwks_unavailable`, 500 `jwt_config_invalid` (from the verifier).
      */
     async execute(token) {
@@ -94,8 +84,9 @@ class GetUserFromAdopterJwt {
         }
         const role = claims[roleClaim];
 
-        const user = await this._findOrCreateUser(appUserId, appOrgId);
-        user.setOrgRole(typeof role === 'string' && role !== '' ? role : null);
+        const orgRole = typeof role === 'string' && role !== '' ? role : null;
+        const user = await this._findOrCreateUser(appUserId, appOrgId, orgRole);
+        user.setOrgRole(orgRole);
 
         log.debug('Adopter token accepted', {
             eventName: `${log.name}.accepted`,
@@ -104,33 +95,27 @@ class GetUserFromAdopterJwt {
         return user;
     }
 
-    async _findOrCreateUser(appUserId, appOrgId) {
+    async _findOrCreateUser(appUserId, appOrgId, orgRole) {
         const cfg = this.userConfig;
         const found = await findAppUsers(this.userRepository, cfg, {
             appUserId,
             appOrgId,
         });
+        const created = await createMissingAppUsers(this.userRepository, cfg, {
+            appUserId,
+            appOrgId,
+            ...found,
+        });
 
-        if (wantsOrganization(cfg, appOrgId)) {
-            assertSingleOrganization(found.individual, found.organization);
-        }
-
-        const { individual: createdIndividual, organization } =
-            await createMissingAppUsers(this.userRepository, cfg, {
-                appUserId,
-                appOrgId,
-                ...found,
-            });
-        let individual = createdIndividual;
-
-        if (individual && organization && !hasOrganization(individual)) {
-            individual = await this.userRepository.linkIndividualToOrganization(
-                individual.id,
-                organization.id
-            );
-        }
-        return buildUser(cfg, individual, organization);
+        // The token's organization is the active one whether or not this is
+        // the person's first time in it.
+        const { individual } = await this.ensureOrganizationMembership.execute({
+            individual: created.individual,
+            organization: created.organization,
+            role: orgRole,
+        });
+        return buildUser(cfg, individual, created.organization);
     }
 }
 
-module.exports = { GetUserFromAdopterJwt, assertSingleOrganization };
+module.exports = { GetUserFromAdopterJwt };
