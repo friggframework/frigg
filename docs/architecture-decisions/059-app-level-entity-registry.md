@@ -55,7 +55,7 @@ const appDefinition = {
   `moduleName` on the entity). The key must equal the definition's `getName()` / `moduleName`;
   `frigg validate` rejects a mismatch, so there is one name per entity type everywhere.
 - **Value**: `definition` (required) plus the app-level settings for that type: `scope`
-  (ADR-058 level 4), `proxy` (ADR-052's per-module allow-list override), `display` (label, icon,
+  (ADR-056 §3.1, level 4), `proxy` (ADR-052's per-module allow-list override), `display` (label, icon,
   description for UIs and `/api/v2/entity-types`).
 - **Inference stays on by default.** The offered set is the registry entries **plus** every
   module bound by a declared integration, exactly as today. An app that adds no `entities` key
@@ -74,7 +74,7 @@ they must be the same definition (same object, or the same package name and vers
 Otherwise `frigg validate` and app load fail, naming both sources. Two different modules under one
 entity type name is never what anyone means.
 
-Settings layer per ADR-058: the registry entry is level 4; an integration's binding (level 2) or
+Settings layer per ADR-056 §3.1: the registry entry is level 4; an integration's binding (level 2) or
 `Definition.ownership` (level 3) overrides it for that integration only.
 
 ### 3. Registration can be made required, per app
@@ -92,10 +92,10 @@ already the source of truth.
 
 ### 4. API
 
-- `GET /api/v2/entity-types` lists the registry: name, display, allowed scopes (ADR-058), and
+- `GET /api/v2/entity-types` lists the registry: name, display, allowed scopes (ADR-056 §3.1), and
   `usedBy` (integration names; empty for registry-only types).
 - `POST /api/v2/authorize` accepts any registry type, with or without an integration.
-- `GET /api/v2/entities` lists entities of registry-only types like any other (ADR-058 §4 fields).
+- `GET /api/v2/entities` lists entities of registry-only types like any other (ADR-056 §3.4 fields).
 - An entity whose type is no longer registered (removed from the registry and no integration
   binds it) keeps working for reads and deletion, is listed with `"registered": false`, and cannot
   be reauthorized or newly created.
