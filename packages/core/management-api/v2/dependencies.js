@@ -22,6 +22,7 @@ function buildV2Dependencies({ appDefinition, config }) {
     const { GetUserFromBearerToken } = require('../../user/use-cases/get-user-from-bearer-token');
     const { GetUserFromXFriggHeaders } = require('../../user/use-cases/get-user-from-x-frigg-headers');
     const { GetUserFromAdopterJwt } = require('../../user/use-cases/get-user-from-adopter-jwt');
+    const { createAdopterTokenVerifier } = require('../../user/adopter-token-verifier');
     const {
         AuthenticateWithSharedSecret,
     } = require('../../user/use-cases/authenticate-with-shared-secret');
@@ -82,7 +83,11 @@ function buildV2Dependencies({ appDefinition, config }) {
     const authenticateUser = new AuthenticateUser({
         getUserFromBearerToken: new GetUserFromBearerToken({ userRepository, userConfig }),
         getUserFromXFriggHeaders: new GetUserFromXFriggHeaders({ userRepository, userConfig }),
-        getUserFromAdopterJwt: new GetUserFromAdopterJwt({ userRepository, userConfig }),
+        getUserFromAdopterJwt: new GetUserFromAdopterJwt({
+            userRepository,
+            userConfig,
+            tokenVerifier: createAdopterTokenVerifier({ jwtConfig: userConfig.jwtConfig }),
+        }),
         authenticateWithSharedSecret: new AuthenticateWithSharedSecret(),
         userConfig,
     });

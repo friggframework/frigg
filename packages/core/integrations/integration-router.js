@@ -64,6 +64,9 @@ const {
     GetUserFromAdopterJwt,
 } = require('../user/use-cases/get-user-from-adopter-jwt');
 const {
+    createAdopterTokenVerifier,
+} = require('../user/adopter-token-verifier');
+const {
     AuthenticateWithSharedSecret,
 } = require('../user/use-cases/authenticate-with-shared-secret');
 const { AuthenticateUser } = require('../user/use-cases/authenticate-user');
@@ -94,6 +97,9 @@ function createIntegrationRouter() {
     const getUserFromAdopterJwt = new GetUserFromAdopterJwt({
         userRepository,
         userConfig,
+        tokenVerifier: createAdopterTokenVerifier({
+            jwtConfig: userConfig?.jwtConfig,
+        }),
     });
 
     const authenticateWithSharedSecret = new AuthenticateWithSharedSecret();

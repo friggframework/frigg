@@ -1,149 +1,136 @@
-const Boom = require('@hapi/boom');
+const { getLogger } = require('../../logs');
+const { fail } = require('../adopter-jwt-errors');
+const {
+    findAppUsers,
+    createMissingAppUsers,
+    buildUser,
+    wantsOrganization,
+} = require('../app-user-helpers');
+
+const log = getLogger('frigg.user.adopter_jwt');
+
+const idFromClaim = (value) => {
+    if (typeof value === 'string' && value.trim() !== '') return value;
+    if (typeof value === 'number' && Number.isFinite(value))
+        return String(value);
+    return null;
+};
+
+const hasOrganization = (individual) => {
+    const id = individual?.organizationId;
+    return id !== undefined && id !== null && id !== '';
+};
 
 /**
- * STUB: Use case for retrieving a user from adopter-provided JWT token.
+ * Interim rule until the membership table (ADR-056 §3.6): a person belongs to
+ * one organization. Callers run this before creating anything, so a refused
+ * request leaves no new organization behind.
  *
- * This is a stub implementation for future JWT authentication support.
- * When implemented, this will allow adopters to use their own JWT tokens
- * for authentication instead of Frigg's native token system.
+ * @param {Object|null} individual The individual user as the repository returns it.
+ * @param {Object|null} organization The organization the token names, or null
+ *   when it does not exist yet.
+ * @throws {Boom} 403 `multi_org_unsupported`
+ */
+function assertSingleOrganization(individual, organization) {
+    if (!hasOrganization(individual)) return;
+    if (
+        organization &&
+        String(individual.organizationId) === String(organization.id)
+    ) {
+        return;
+    }
+    log.debug('Adopter token names a second organization', {
+        eventName: `${log.name}.multi_org_refused`,
+    });
+    throw fail('multi_org_unsupported');
+}
+
+/**
+ * Authenticates a request by a token issued by the adopter's own identity
+ * system (ADR-056 §2): verifies it, then finds or creates the individual and
+ * organization users it names.
  *
- * FUTURE IMPLEMENTATION REQUIREMENTS:
- * - Validate JWT signature using jwtConfig.secret from app definition
- * - Support configurable signing algorithms (HS256, HS384, HS512, RS256, RS384, RS512)
- * - Extract user identifiers from JWT claims based on jwtConfig.userIdClaim and jwtConfig.orgIdClaim
- * - Find or create user based on extracted claim values
- * - Handle token expiration and validation errors
- * - Support refresh tokens (optional)
- * - Validate user ID conflicts if both individual and org IDs present in JWT
- *
- * RECOMMENDED IMPLEMENTATION:
- * - Use 'jsonwebtoken' package for JWT parsing and validation
- * - Cache JWT public keys for RS* algorithms
- * - Add comprehensive error handling for invalid tokens
- * - Log authentication attempts for security auditing
- *
- * @todo Implement JWT validation with jsonwebtoken package
- * @todo Add unit tests for JWT parsing and claim extraction
- * @todo Document adopter JWT integration guide in Frigg docs
- * @todo Add support for JWT refresh tokens
- * @todo Implement JWT public key caching for RS* algorithms
+ * Two limits, both replaced by the membership package (F4): the first request
+ * for a new person can race another and create the user twice (no upsert), and
+ * the individual-to-organization link is one-way and set once.
  *
  * @class GetUserFromAdopterJwt
  */
 class GetUserFromAdopterJwt {
     /**
-     * Creates a new GetUserFromAdopterJwt instance.
-     * @param {Object} params - Configuration parameters.
-     * @param {import('../repositories/user-repository-interface').UserRepositoryInterface} params.userRepository - Repository for user data operations.
+     * @param {Object} params
+     * @param {import('../repositories/user-repository-interface').UserRepositoryInterface} params.userRepository
      * @param {Object} params.userConfig - The user config in the app definition.
+     * @param {{verify: Function, claimNames: Object}} params.tokenVerifier -
+     *   from `createAdopterTokenVerifier`.
      */
-    constructor({ userRepository, userConfig }) {
+    constructor({ userRepository, userConfig, tokenVerifier }) {
         this.userRepository = userRepository;
         this.userConfig = userConfig;
+        this.tokenVerifier = tokenVerifier;
     }
 
     /**
-     * Executes the use case.
      * @async
-     * @param {string} jwtToken - The JWT token from the Authorization header.
-     * @returns {Promise<import('../user').User>} The authenticated user object.
-     * @throws {Boom} 501 Not Implemented - This feature is not yet available.
+     * @param {string} token - The JWT from the Authorization header.
+     * @returns {Promise<import('../user').User>}
+     * @throws {Boom} 401 with `data.reason` for a token the verifier refuses
+     *   (including `token_missing_user_claim`).
+     * @throws {Boom} 403 `multi_org_unsupported`.
+     * @throws {Boom} 503 `jwks_unavailable`, 500 `jwt_config_invalid` (from the verifier).
      */
-    async execute(jwtToken) {
-        throw Boom.notImplemented(
-            'Adopter JWT authentication is not yet implemented. ' +
-                'This feature is planned for a future Frigg release. ' +
-                'Please use one of the supported authentication modes instead: ' +
-                'friggToken (native bearer token) or xFriggHeaders (backend-to-backend with x-frigg-appUserId/appOrgId headers).'
-        );
+    async execute(token) {
+        const claims = await this.tokenVerifier.verify(token);
+        const { userIdClaim, orgIdClaim, roleClaim } =
+            this.tokenVerifier.claimNames;
 
-        /* FUTURE IMPLEMENTATION PSEUDOCODE:
+        const appUserId = idFromClaim(claims[userIdClaim]);
+        if (!appUserId) throw fail('token_missing_user_claim');
 
-        const jwt = require('jsonwebtoken');
-        
-        // Validate JWT configuration exists
-        if (!this.userConfig.jwtConfig || !this.userConfig.jwtConfig.secret) {
-            throw Boom.badImplementation('JWT configuration is required when adopterJwt auth mode is enabled');
+        const rawOrgId = claims[orgIdClaim];
+        const appOrgId = idFromClaim(rawOrgId);
+        if (rawOrgId !== undefined && rawOrgId !== null && !appOrgId) {
+            throw fail('token_malformed');
         }
-        
-        try {
-            // Verify and decode JWT
-            const decoded = jwt.verify(jwtToken, this.userConfig.jwtConfig.secret, {
-                algorithms: [this.userConfig.jwtConfig.algorithm || 'HS256']
+        const role = claims[roleClaim];
+
+        const user = await this._findOrCreateUser(appUserId, appOrgId);
+        user.setOrgRole(typeof role === 'string' && role !== '' ? role : null);
+
+        log.debug('Adopter token accepted', {
+            eventName: `${log.name}.accepted`,
+            hasOrganization: Boolean(user.getOrganizationUser()),
+        });
+        return user;
+    }
+
+    async _findOrCreateUser(appUserId, appOrgId) {
+        const cfg = this.userConfig;
+        const found = await findAppUsers(this.userRepository, cfg, {
+            appUserId,
+            appOrgId,
+        });
+
+        if (wantsOrganization(cfg, appOrgId)) {
+            assertSingleOrganization(found.individual, found.organization);
+        }
+
+        const { individual: createdIndividual, organization } =
+            await createMissingAppUsers(this.userRepository, cfg, {
+                appUserId,
+                appOrgId,
+                ...found,
             });
-            
-            // Extract user identifiers from claims
-            const appUserId = decoded[this.userConfig.jwtConfig.userIdClaim || 'sub'];
-            const appOrgId = decoded[this.userConfig.jwtConfig.orgIdClaim || 'org_id'];
-            
-            // At least one identifier required
-            if (!appUserId && !appOrgId) {
-                throw Boom.badRequest('JWT must contain user or organization identifier claims');
-            }
-            
-            // Find existing users
-            let individualUserData = null;
-            let organizationUserData = null;
-            
-            if (appUserId) {
-                individualUserData = await this.userRepository.findIndividualUserByAppUserId(appUserId);
-            }
-            
-            if (appOrgId) {
-                organizationUserData = await this.userRepository.findOrganizationUserByAppOrgId(appOrgId);
-            }
-            
-            // Validate no conflicts if both IDs present
-            if (appUserId && appOrgId && individualUserData && organizationUserData) {
-                const individualOrgId = individualUserData.organizationUser?.toString();
-                const expectedOrgId = organizationUserData.id?.toString();
-                
-                if (individualOrgId !== expectedOrgId) {
-                    throw Boom.badRequest(
-                        'User ID mismatch: JWT claims refer to different users. ' +
-                        'Individual and organization IDs must belong to the same user.'
-                    );
-                }
-            }
-            
-            // Auto-create if not found
-            if (!individualUserData && !organizationUserData) {
-                if (appUserId) {
-                    individualUserData = await this.userRepository.createIndividualUser({
-                        appUserId,
-                        username: `jwt-user-${appUserId}`,
-                        email: decoded.email || `${appUserId}@jwt.local`,
-                    });
-                } else {
-                    organizationUserData = await this.userRepository.createOrganizationUser({
-                        appOrgId,
-                    });
-                }
-            }
-            
-            return new User(
-                individualUserData,
-                organizationUserData,
-                this.userConfig.usePassword,
-                this.userConfig.primary,
-                this.userConfig.individualUserRequired,
-                this.userConfig.organizationUserRequired
+        let individual = createdIndividual;
+
+        if (individual && organization && !hasOrganization(individual)) {
+            individual = await this.userRepository.linkIndividualToOrganization(
+                individual.id,
+                organization.id
             );
-            
-        } catch (error) {
-            if (error.name === 'TokenExpiredError') {
-                throw Boom.unauthorized('JWT token has expired');
-            } else if (error.name === 'JsonWebTokenError') {
-                throw Boom.unauthorized('Invalid JWT token');
-            } else if (error.isBoom) {
-                throw error;
-            }
-            throw Boom.unauthorized('JWT authentication failed');
         }
-        */
+        return buildUser(cfg, individual, organization);
     }
 }
 
-module.exports = { GetUserFromAdopterJwt };
-
-
+module.exports = { GetUserFromAdopterJwt, assertSingleOrganization };

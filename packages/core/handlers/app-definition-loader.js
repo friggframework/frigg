@@ -2,6 +2,7 @@ const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const path = require('node:path');
 const fs = require('fs-extra');
 const { resolveTelemetryConfig } = require('../telemetry/telemetry-config');
+const { assertAdopterJwtConfig } = require('../user/adopter-jwt-config');
 const { registerDeniedKeys } = require('../logs/denied-keys');
 const {
     extractCredentialFieldsFromModules,
@@ -36,6 +37,7 @@ function registerCredentialLogKeys(appDefinition, integrations) {
  * @returns {{integrations: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null, managementApi: object}} An object containing the application definition.
  * @throws {Error} Throws error if backend package.json cannot be found.
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
+ * @throws {Error} Throws error if user.authModes.adopterJwt is enabled without a usable user.jwtConfig.
  * @example
  * const { integrations, userConfig, telemetry } = loadAppDefinition();
  * console.log(`Found ${integrations.length} integrations`);
@@ -64,6 +66,10 @@ function loadAppDefinition() {
         logging = null,
         managementApi = {},
     } = appDefinition;
+
+    // Fail at load, not on the first request: an adopter-token mode with no
+    // key source would otherwise start cleanly and answer every login with 500.
+    assertAdopterJwtConfig(userConfig);
 
     registerCredentialLogKeys(appDefinition, integrations);
 

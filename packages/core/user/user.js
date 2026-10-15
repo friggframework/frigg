@@ -18,6 +18,9 @@ class User {
         this.individualUser = individualUser;
         this.organizationUser = organizationUser;
         this.usePassword = usePassword;
+        // Organization role from an adopter token claim (ADR-056 §2). Read-only
+        // for now: nothing persists it until the membership package lands.
+        this.orgRole = null;
 
         this.config = {
             primary,
@@ -63,6 +66,14 @@ class User {
 
     isIndividualUserRequired() {
         return this.config.individualUserRequired;
+    }
+
+    getOrgRole() {
+        return this.orgRole;
+    }
+
+    setOrgRole(orgRole) {
+        this.orgRole = orgRole ?? null;
     }
 
     getIndividualUser() {

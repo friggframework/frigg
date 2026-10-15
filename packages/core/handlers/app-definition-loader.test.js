@@ -31,6 +31,46 @@ describe('loadAppDefinition', () => {
         }
     });
 
+    describe('adopter JWT startup validation (ADR-056 §2)', () => {
+        it('throws at load when adopterJwt is enabled without jwksUri or secret', () => {
+            dirs.push(
+                writeBackend({
+                    integrations: [],
+                    user: { authModes: { adopterJwt: true }, jwtConfig: { issuer: 'x' } },
+                })
+            );
+
+            expect(() => loadAppDefinition()).toThrow(/neither jwksUri nor secret/);
+        });
+
+        it('throws at load when adopterJwt is enabled with no jwtConfig at all', () => {
+            dirs.push(
+                writeBackend({ integrations: [], user: { authModes: { adopterJwt: true } } })
+            );
+
+            expect(() => loadAppDefinition()).toThrow(/neither jwksUri nor secret/);
+        });
+
+        it('loads when adopterJwt is enabled with a jwksUri', () => {
+            const user = {
+                authModes: { adopterJwt: true },
+                jwtConfig: {
+                    jwksUri: 'https://login.example.com/jwks.json',
+                    audience: 'frigg-api',
+                },
+            };
+            dirs.push(writeBackend({ integrations: [], user }));
+
+            expect(loadAppDefinition().userConfig).toEqual(user);
+        });
+
+        it('loads an app that never enabled adopterJwt, even with a stray empty jwtConfig', () => {
+            dirs.push(writeBackend({ integrations: [], user: { jwtConfig: {} } }));
+
+            expect(() => loadAppDefinition()).not.toThrow();
+        });
+    });
+
     it('returns managementApi from the app definition (ADR-053)', () => {
         const managementApi = { v1: false, proxy: { enable: true } };
         dirs.push(writeBackend({ integrations: [], managementApi }));
