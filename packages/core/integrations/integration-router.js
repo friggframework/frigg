@@ -55,24 +55,12 @@ const {
     createUserRepository,
 } = require('../user/repositories/user-repository-factory');
 const {
-    createOrganizationMembershipRepository,
-} = require('../user/repositories/organization-membership-repository-factory');
-const {
-    GetUserFromBearerToken,
-} = require('../user/use-cases/get-user-from-bearer-token');
-const {
-    GetUserFromXFriggHeaders,
-} = require('../user/use-cases/get-user-from-x-frigg-headers');
-const {
-    GetUserFromAdopterJwt,
-} = require('../user/use-cases/get-user-from-adopter-jwt');
-const {
-    createAdopterTokenVerifier,
-} = require('../user/adopter-token-verifier');
-const {
     AuthenticateWithSharedSecret,
 } = require('../user/use-cases/authenticate-with-shared-secret');
 const { AuthenticateUser } = require('../user/use-cases/authenticate-user');
+const {
+    buildUserAuthentication,
+} = require('../user/create-user-authentication');
 const {
     ProcessAuthorizationCallback,
 } = require('../modules/use-cases/process-authorization-callback');
@@ -86,28 +74,11 @@ function createIntegrationRouter() {
     const integrationRepository = createIntegrationRepository();
     const credentialRepository = createCredentialRepository();
     const userRepository = createUserRepository();
-    const organizationMembershipRepository =
-        createOrganizationMembershipRepository();
-
-    const getUserFromBearerToken = new GetUserFromBearerToken({
-        userRepository,
-        userConfig,
-    });
-
-    const getUserFromXFriggHeaders = new GetUserFromXFriggHeaders({
-        userRepository,
-        organizationMembershipRepository,
-        userConfig,
-    });
-
-    const getUserFromAdopterJwt = new GetUserFromAdopterJwt({
-        userRepository,
-        organizationMembershipRepository,
-        userConfig,
-        tokenVerifier: createAdopterTokenVerifier({
-            jwtConfig: userConfig?.jwtConfig,
-        }),
-    });
+    const {
+        getUserFromBearerToken,
+        getUserFromXFriggHeaders,
+        getUserFromAdopterJwt,
+    } = buildUserAuthentication({ userConfig, userRepository });
 
     const authenticateWithSharedSecret = new AuthenticateWithSharedSecret();
 

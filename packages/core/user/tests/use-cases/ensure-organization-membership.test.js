@@ -13,7 +13,7 @@ describe('EnsureOrganizationMembership (ADR-056 §3.6)', () => {
 
     const seed = (options) => {
         users = createUserRepositoryDouble(options);
-        memberships = createMembershipRepositoryDouble(users);
+        memberships = createMembershipRepositoryDouble();
         ensure = new EnsureOrganizationMembership({
             userRepository: users,
             organizationMembershipRepository: memberships,
@@ -39,7 +39,6 @@ describe('EnsureOrganizationMembership (ADR-056 §3.6)', () => {
         expect(result).toEqual({
             individual: args.individual,
             membership: null,
-            added: false,
         });
         expect(memberships.findMembership).not.toHaveBeenCalled();
         expect(memberships.addMembership).not.toHaveBeenCalled();
@@ -49,20 +48,19 @@ describe('EnsureOrganizationMembership (ADR-056 §3.6)', () => {
         const result = await ensure.execute({
             individual: person(),
             organization: orgB,
-            role: 'admin',
+            orgRole: 'admin',
         });
 
         expect(memberships.addMembership).toHaveBeenCalledWith(
             'ind-1',
             'org-b',
-            { role: 'admin' }
+            { orgRole: 'admin' }
         );
-        expect(users.linkIndividualToOrganization).toHaveBeenCalledWith(
+        expect(users.linkIndividualToOrganizationIfUnset).toHaveBeenCalledWith(
             'ind-1',
             'org-b'
         );
-        expect(result.added).toBe(true);
-        expect(result.membership).toMatchObject({ role: 'admin' });
+        expect(result.membership).toMatchObject({ orgRole: 'admin' });
         expect(result.individual.organizationId).toBe('org-b');
     });
 
@@ -77,8 +75,7 @@ describe('EnsureOrganizationMembership (ADR-056 §3.6)', () => {
             organization: orgB,
         });
 
-        expect(result.added).toBe(true);
-        expect(users.linkIndividualToOrganization).not.toHaveBeenCalled();
+        expect(users.linkIndividualToOrganizationIfUnset).not.toHaveBeenCalled();
         expect(result.individual.organizationId).toBe('org-a');
         expect(users.state.individualUsers.get('u1').organizationId).toBe(
             'org-a'
@@ -86,19 +83,18 @@ describe('EnsureOrganizationMembership (ADR-056 §3.6)', () => {
     });
 
     it('writes nothing for an existing membership row, and keeps its role', async () => {
-        await memberships.addMembership('ind-1', 'org-b', { role: 'owner' });
+        await memberships.addMembership('ind-1', 'org-b', { orgRole: 'owner' });
         jest.clearAllMocks();
 
         const result = await ensure.execute({
             individual: person(),
             organization: orgB,
-            role: 'member',
+            orgRole: 'member',
         });
 
-        expect(result.added).toBe(false);
-        expect(result.membership.role).toBe('owner');
+        expect(result.membership.orgRole).toBe('owner');
         expect(memberships.addMembership).not.toHaveBeenCalled();
-        expect(users.linkIndividualToOrganization).not.toHaveBeenCalled();
+        expect(users.linkIndividualToOrganizationIfUnset).not.toHaveBeenCalled();
     });
 
     it('counts the legacy pointer as a membership and writes nothing', async () => {
@@ -112,7 +108,6 @@ describe('EnsureOrganizationMembership (ADR-056 §3.6)', () => {
             organization: orgB,
         });
 
-        expect(result.added).toBe(false);
         expect(result.membership).toMatchObject({ implicit: true });
         expect(memberships.addMembership).not.toHaveBeenCalled();
         expect(memberships.rows.size).toBe(0);
@@ -126,9 +121,8 @@ describe('EnsureOrganizationMembership (ADR-056 §3.6)', () => {
         });
 
         expect(result.membership).toBeNull();
-        expect(result.added).toBe(false);
         expect(memberships.addMembership).not.toHaveBeenCalled();
-        expect(users.linkIndividualToOrganization).not.toHaveBeenCalled();
+        expect(users.linkIndividualToOrganizationIfUnset).not.toHaveBeenCalled();
     });
 
     it('with requireExisting, still accepts an existing membership', async () => {
@@ -149,6 +143,21 @@ describe('EnsureOrganizationMembership (ADR-056 §3.6)', () => {
         }
 
         expect(memberships.rows.size).toBe(1);
-        expect(users.linkIndividualToOrganization).toHaveBeenCalledTimes(1);
+        expect(users.linkIndividualToOrganizationIfUnset).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks the repository for the stored row and reads the legacy pointer from the person it already holds', async () => {
+        seed({
+            individuals: [person({ organizationId: 'org-b' })],
+            organizations: [orgB],
+        });
+
+        await ensure.execute({
+            individual: person({ organizationId: 'org-b' }),
+            organization: orgB,
+        });
+
+        expect(memberships.findMembership).toHaveBeenCalledTimes(1);
+        expect(users.findIndividualUserById).not.toHaveBeenCalled();
     });
 });

@@ -393,7 +393,7 @@ value that is not a three-part JWT is not offered to the verifier at all; it fal
 | `clockToleranceSec` | `30` | Skew allowed on `exp` and `nbf`. |
 | `userIdClaim` | `sub` | App user id (required in the token). |
 | `orgIdClaim` | `org_id` | App organization id (optional). |
-| `roleClaim` | `org_role` | Exposed as `user.getOrgRole()` for the request, and stored on a person's membership the first time they join that organization. |
+| `roleClaim` | `org_role` | Exposed as `user.getOrgRole()` for the request, and stored as the `orgRole` of a person's membership the first time they join that organization (`MEMBER` when the token names none). |
 
 Rules worth knowing:
 
@@ -412,8 +412,10 @@ Rules worth knowing:
   organization (`user.getActiveOrganizationId()`; `user.getId()` under `primary: 'organization'`).
   Nothing is moved: `IndividualUser.organizationId` is a legacy pointer, set only on a person's
   first link and read as an implicit membership. The same applies to `x-frigg-apporgid` with
-  `sharedSecret`; `user.strictMembership: true` (alias `strictUserValidation`) refuses an unknown
-  person/organization pairing with 400 instead of adding it. See
+  `sharedSecret`. With `user.strictMembership: true` those headers cannot add anyone to an organization
+  that already existed (400 for a non-member, a brand-new `appUserId` included); only an organization
+  the request itself creates is allowed. `strictUserValidation` is a deprecated alias with that same
+  meaning. See
   [Organization memberships](../../docs/guides/organization-memberships.md). A token naming a second
   organization is no longer a `403` (`multi_org_unsupported` is gone).
 - Two first logins for the same new person or organization, even in different organizations, both

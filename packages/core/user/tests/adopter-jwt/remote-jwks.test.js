@@ -19,6 +19,9 @@ jest.mock('jose', () => {
 const {
     GetUserFromAdopterJwt,
 } = require('../../use-cases/get-user-from-adopter-jwt');
+const {
+    EnsureOrganizationMembership,
+} = require('../../use-cases/ensure-organization-membership');
 const { createAdopterTokenVerifier } = require('../../adopter-token-verifier');
 const {
     createKeys,
@@ -63,8 +66,11 @@ describe('adopter token verification against a remote JWKS', () => {
         const userRepository = createUserRepositoryDouble();
         return new GetUserFromAdopterJwt({
             userRepository,
-            organizationMembershipRepository:
-                createMembershipRepositoryDouble(userRepository),
+            ensureOrganizationMembership: new EnsureOrganizationMembership({
+                    userRepository: userRepository,
+                    organizationMembershipRepository:
+                        createMembershipRepositoryDouble(),
+                }),
             tokenVerifier: createAdopterTokenVerifier({
                 jwtConfig: { jwksUri: uri, audience: AUD },
             }),

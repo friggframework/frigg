@@ -318,6 +318,24 @@ class UserRepositoryMongo extends UserRepositoryInterface {
             },
         });
     }
+
+    /**
+     * Set the legacy organizationId only if it is still null (see the interface).
+     * @param {string} individualUserId
+     * @param {string} organizationUserId
+     * @returns {Promise<Object|null>} The individual user as stored afterwards
+     */
+    async linkIndividualToOrganizationIfUnset(individualUserId, organizationUserId) {
+        await this.prisma.user.updateMany({
+            where: {
+                id: individualUserId,
+                type: 'INDIVIDUAL',
+                organizationId: null,
+            },
+            data: { organizationId: organizationUserId },
+        });
+        return this.findIndividualUserById(individualUserId);
+    }
 }
 
 module.exports = { UserRepositoryMongo };

@@ -3,6 +3,13 @@ jest.mock('../../../user/repositories/user-repository-factory', () => ({
     createUserRepository: jest.fn(),
 }));
 
+jest.mock('../../../user/repositories/organization-membership-repository-factory', () => ({
+    createOrganizationMembershipRepository: jest.fn(),
+}));
+
+const {
+    createOrganizationMembershipRepository,
+} = require('../../../user/repositories/organization-membership-repository-factory');
 const {
     createUserRepository,
 } = require('../../../user/repositories/user-repository-factory');
@@ -10,12 +17,20 @@ const { createUserCommands } = require('../user-commands');
 
 describe('user-commands findIndividualUsersByOrganizationId', () => {
     let repository;
+    let membershipRepository;
 
     beforeEach(() => {
         repository = {
             findIndividualUsersByOrganizationId: jest.fn(),
+            findIndividualUserById: jest.fn(),
+        };
+        membershipRepository = {
+            listMembershipsForOrganization: jest.fn().mockResolvedValue([]),
         };
         createUserRepository.mockReturnValue(repository);
+        createOrganizationMembershipRepository.mockReturnValue(
+            membershipRepository
+        );
     });
 
     afterEach(() => {
@@ -88,5 +103,37 @@ describe('user-commands findIndividualUsersByOrganizationId', () => {
             await commands.findIndividualUsersByOrganizationId('2019');
 
         expect(result).toEqual({ error: 500, reason: 'db down' });
+    });
+
+    it('lists a person in every organization they belong to, not only the legacy-pointer one', async () => {
+        // org-b: nobody points at it, but one person has a stored membership.
+        repository.findIndividualUsersByOrganizationId.mockResolvedValue([]);
+        membershipRepository.listMembershipsForOrganization.mockResolvedValue([
+            { individualUserId: '2018', organizationUserId: 'org-b' },
+        ]);
+        repository.findIndividualUserById.mockResolvedValue({
+            id: '2018',
+            username: 'app-user-USx4fhpNuR',
+            email: 'USx4fhpNuR@app.local',
+            appUserId: 'USx4fhpNuR',
+            hashword: 'should-not-leak',
+        });
+
+        const result =
+            await createUserCommands().findIndividualUsersByOrganizationId(
+                'org-b'
+            );
+
+        expect(membershipRepository.listMembershipsForOrganization).toHaveBeenCalledWith(
+            'org-b'
+        );
+        expect(result).toEqual([
+            {
+                id: '2018',
+                username: 'app-user-USx4fhpNuR',
+                email: 'USx4fhpNuR@app.local',
+                appUserId: 'USx4fhpNuR',
+            },
+        ]);
     });
 });

@@ -23,6 +23,7 @@ const config = require('../../../database/config');
 const documentdbUtils = require('../../../database/documentdb-utils');
 const {
     createOrganizationMembershipRepository,
+    OrganizationMembershipRepositoryPrisma,
     OrganizationMembershipRepositoryMongo,
     OrganizationMembershipRepositoryPostgres,
     OrganizationMembershipRepositoryDocumentDB,
@@ -38,20 +39,23 @@ const pair = (i, o) => ({
     },
 });
 const created = new Date('2026-10-01T00:00:00Z');
+const fs = require('fs');
+const path = require('path');
 
 afterEach(() => {
     jest.resetAllMocks();
 });
 
 describe('OrganizationMembershipRepositoryInterface', () => {
-    it.each(['findMembership', 'addMembership', 'listMembershipsForIndividual'])(
-        '%s must be implemented by a subclass',
-        async (method) => {
-            await expect(
-                new OrganizationMembershipRepositoryInterface()[method]('1', '2')
-            ).rejects.toThrow('must be implemented');
-        }
-    );
+    it.each([
+        'findMembership',
+        'addMembership',
+        'listMembershipsForOrganization',
+    ])('%s must be implemented by a subclass', async (method) => {
+        await expect(
+            new OrganizationMembershipRepositoryInterface()[method]('1', '2')
+        ).rejects.toThrow('must be implemented');
+    });
 });
 
 describe('createOrganizationMembershipRepository', () => {
@@ -73,6 +77,54 @@ describe('createOrganizationMembershipRepository', () => {
         );
         config.DB_TYPE = 'postgresql';
     });
+
+    it('Mongo and Postgres share one Prisma base class', () => {
+        expect(
+            OrganizationMembershipRepositoryMongo.prototype instanceof
+                OrganizationMembershipRepositoryPrisma
+        ).toBe(true);
+        expect(
+            OrganizationMembershipRepositoryPostgres.prototype instanceof
+                OrganizationMembershipRepositoryPrisma
+        ).toBe(true);
+        expect(() =>
+            new OrganizationMembershipRepositoryPrisma()._toDbId('1')
+        ).toThrow('must be implemented');
+    });
+});
+
+// The repository names Prisma's compound-unique key by hand. Derive the name
+// Prisma would generate from each schema, so a renamed or reordered
+// @@unique fails here instead of at the first real query.
+describe('the schemas the repository queries', () => {
+    const modelOf = (db) => {
+        const schema = fs.readFileSync(
+            path.join(__dirname, `../../../prisma-${db}/schema.prisma`),
+            'utf8'
+        );
+        const start = schema.indexOf('model OrganizationMembership {');
+        expect(start).toBeGreaterThan(-1);
+        return schema.slice(start, schema.indexOf('\n}', start));
+    };
+
+    it.each(['mongodb', 'postgresql'])(
+        '%s: unique on the pair the repository keys by, with an orgRole defaulting to MEMBER',
+        (db) => {
+            const model = modelOf(db);
+            const unique = model.match(/@@unique\(\[([^\]]+)\]\)/)[1];
+            const fields = unique.split(',').map((f) => f.trim());
+            expect(fields.join('_')).toBe('individualUserId_organizationUserId');
+            expect(model).toMatch(/orgRole\s+String\s+@default\("MEMBER"\)/);
+        }
+    );
+
+    it('queries by that compound key', async () => {
+        const repository = new OrganizationMembershipRepositoryMongo();
+        prisma.organizationMembership.findUnique.mockResolvedValue(null);
+        await repository.findMembership('a', 'b');
+        const { where } = prisma.organizationMembership.findUnique.mock.calls[0][0];
+        expect(Object.keys(where)).toEqual(['individualUserId_organizationUserId']);
+    });
 });
 
 describe.each([
@@ -87,7 +139,7 @@ describe.each([
         id: dbI === 2018 ? 7 : 'm1',
         individualUserId: dbI,
         organizationUserId: dbO,
-        role: 'admin',
+        orgRole: 'ADMIN',
         createdAt: created,
         ...extra,
     });
@@ -105,64 +157,17 @@ describe.each([
                 id: dbI === 2018 ? '7' : 'm1',
                 individualUserId: appI,
                 organizationUserId: appO,
-                role: 'admin',
+                orgRole: 'ADMIN',
                 createdAt: created,
                 implicit: false,
             });
+        });
+
+        it('is atomic: no row means null, and the user table is never read', async () => {
+            prisma.organizationMembership.findUnique.mockResolvedValue(null);
+
+            expect(await repository.findMembership(appI, appO)).toBeNull();
             expect(prisma.user.findFirst).not.toHaveBeenCalled();
-        });
-
-        it('answers from the legacy organizationId when there is no row', async () => {
-            prisma.organizationMembership.findUnique.mockResolvedValue(null);
-            prisma.user.findFirst.mockResolvedValue({
-                id: dbI,
-                organizationId: dbO,
-                createdAt: created,
-            });
-
-            const result = await repository.findMembership(appI, appO);
-
-            expect(prisma.user.findFirst).toHaveBeenCalledWith({
-                where: { id: dbI, type: 'INDIVIDUAL' },
-            });
-            expect(result).toEqual({
-                id: null,
-                individualUserId: appI,
-                organizationUserId: appO,
-                role: null,
-                createdAt: created,
-                implicit: true,
-            });
-        });
-
-        it('is null when the legacy pointer names a different organization', async () => {
-            prisma.organizationMembership.findUnique.mockResolvedValue(null);
-            prisma.user.findFirst.mockResolvedValue({
-                id: dbI,
-                organizationId: dbI === 2018 ? 9999 : 'zz',
-            });
-
-            expect(await repository.findMembership(appI, appO)).toBeNull();
-        });
-
-        it.each([null, undefined])(
-            'is null when the person has no legacy pointer (%s) and no row',
-            async (pointer) => {
-                prisma.organizationMembership.findUnique.mockResolvedValue(null);
-                prisma.user.findFirst.mockResolvedValue({
-                    id: dbI,
-                    organizationId: pointer,
-                });
-
-                expect(await repository.findMembership(appI, appO)).toBeNull();
-            }
-        );
-
-        it('is null when the person does not exist', async () => {
-            prisma.organizationMembership.findUnique.mockResolvedValue(null);
-            prisma.user.findFirst.mockResolvedValue(null);
-
-            expect(await repository.findMembership(appI, appO)).toBeNull();
         });
     });
 
@@ -171,7 +176,7 @@ describe.each([
             prisma.organizationMembership.upsert.mockResolvedValue(row());
 
             const result = await repository.addMembership(appI, appO, {
-                role: 'admin',
+                orgRole: 'ADMIN',
             });
 
             expect(prisma.organizationMembership.upsert).toHaveBeenCalledWith({
@@ -179,7 +184,7 @@ describe.each([
                 create: {
                     individualUserId: dbI,
                     organizationUserId: dbO,
-                    role: 'admin',
+                    orgRole: 'ADMIN',
                 },
                 update: {},
             });
@@ -187,17 +192,21 @@ describe.each([
             expect(result.implicit).toBe(false);
         });
 
-        it('stores a null role when none is given', async () => {
-            prisma.organizationMembership.upsert.mockResolvedValue(
-                row({ role: null })
-            );
+        it.each([[undefined], [{ orgRole: null }]])(
+            'leaves the role to the column default (MEMBER) when none is given (%p)',
+            async (options) => {
+                prisma.organizationMembership.upsert.mockResolvedValue(
+                    row({ orgRole: 'MEMBER' })
+                );
 
-            await repository.addMembership(appI, appO);
+                await repository.addMembership(appI, appO, options);
 
-            expect(
-                prisma.organizationMembership.upsert.mock.calls[0][0].create.role
-            ).toBeNull();
-        });
+                expect(
+                    prisma.organizationMembership.upsert.mock.calls[0][0].create
+                        .orgRole
+                ).toBeUndefined();
+            }
+        );
 
         it('resolves to the winner’s row when a concurrent create hits the unique pair', async () => {
             prisma.organizationMembership.upsert.mockRejectedValue(
@@ -240,83 +249,53 @@ describe.each([
         });
     });
 
-    describe('listMembershipsForIndividual', () => {
-        it('lists rows oldest first', async () => {
+    describe('listMembershipsForOrganization', () => {
+        it('lists the organization’s rows oldest first, rows only', async () => {
             prisma.organizationMembership.findMany.mockResolvedValue([row()]);
-            prisma.user.findFirst.mockResolvedValue({
-                id: dbI,
-                organizationId: null,
-            });
 
-            const result = await repository.listMembershipsForIndividual(appI);
+            const result = await repository.listMembershipsForOrganization(appO);
 
             expect(prisma.organizationMembership.findMany).toHaveBeenCalledWith({
-                where: { individualUserId: dbI },
+                where: { organizationUserId: dbO },
                 orderBy: { createdAt: 'asc' },
             });
-            expect(result.map((m) => m.organizationUserId)).toEqual([appO]);
-        });
-
-        it('adds the legacy pointer’s organization first when no row names it', async () => {
-            prisma.organizationMembership.findMany.mockResolvedValue([row()]);
-            prisma.user.findFirst.mockResolvedValue({
-                id: dbI,
-                organizationId: dbI === 2018 ? 5 : 'legacy',
-                createdAt: created,
-            });
-
-            const result = await repository.listMembershipsForIndividual(appI);
-
-            expect(result).toHaveLength(2);
-            expect(result[0]).toMatchObject({
-                organizationUserId: dbI === 2018 ? '5' : 'legacy',
-                implicit: true,
-            });
-            expect(result[1]).toMatchObject({
-                organizationUserId: appO,
-                implicit: false,
-            });
-        });
-
-        it('does not repeat the legacy organization when a row already names it', async () => {
-            prisma.organizationMembership.findMany.mockResolvedValue([row()]);
-            prisma.user.findFirst.mockResolvedValue({
-                id: dbI,
-                organizationId: dbO,
-            });
-
-            const result = await repository.listMembershipsForIndividual(appI);
-
-            expect(result).toHaveLength(1);
-            expect(result[0].implicit).toBe(false);
-        });
-
-        it('lists only the legacy pointer for a person with no rows', async () => {
-            prisma.organizationMembership.findMany.mockResolvedValue([]);
-            prisma.user.findFirst.mockResolvedValue({
-                id: dbI,
-                organizationId: dbO,
-            });
-
-            const result = await repository.listMembershipsForIndividual(appI);
-
-            expect(result).toEqual([
-                expect.objectContaining({
-                    organizationUserId: appO,
-                    implicit: true,
-                }),
-            ]);
+            expect(result.map((m) => m.individualUserId)).toEqual([appI]);
+            expect(prisma.user.findFirst).not.toHaveBeenCalled();
         });
     });
 });
 
 describe('PostgreSQL id conversion', () => {
-    it('refuses an id that is not an integer', async () => {
-        const repository = new OrganizationMembershipRepositoryPostgres();
+    let repository;
+    beforeEach(() => {
+        repository = new OrganizationMembershipRepositoryPostgres();
+    });
+
+    it.each(['12abc', '1.5', '-3', ' 4', '', 'abc', null, undefined, {}, 1.5, -1])(
+        'refuses %p rather than parsing a prefix of it',
+        async (bad) => {
+            await expect(repository.findMembership(bad, '2')).rejects.toThrow(
+                'cannot be converted to integer'
+            );
+            await expect(repository.findMembership('2', bad)).rejects.toThrow(
+                'cannot be converted to integer'
+            );
+            expect(prisma.organizationMembership.findUnique).not.toHaveBeenCalled();
+        }
+    );
+
+    it('refuses an integer too large to be exact', async () => {
         await expect(
-            repository.findMembership('not-a-number', '2')
+            repository.findMembership('9007199254740993', '2')
         ).rejects.toThrow('cannot be converted to integer');
-        expect(prisma.organizationMembership.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('accepts digit strings and integer numbers', async () => {
+        prisma.organizationMembership.findUnique.mockResolvedValue(null);
+        await repository.findMembership('12', 34);
+        expect(prisma.organizationMembership.findUnique).toHaveBeenCalledWith({
+            where: pair(12, 34),
+        });
     });
 });
 
@@ -333,7 +312,7 @@ describe('OrganizationMembershipRepositoryDocumentDB', () => {
         _id: new ObjectId(),
         individualUserId: iOid,
         organizationUserId: oOid,
-        role: 'admin',
+        orgRole: 'ADMIN',
         createdAt: { $date: created.toISOString() },
         ...extra,
     });
@@ -351,45 +330,25 @@ describe('OrganizationMembershipRepositoryDocumentDB', () => {
         expect(result).toMatchObject({
             individualUserId: iHex,
             organizationUserId: oHex,
-            role: 'admin',
+            orgRole: 'ADMIN',
             createdAt: created,
             implicit: false,
         });
     });
 
-    it('answers from the legacy organizationId when there is no document', async () => {
-        documentdbUtils.findOne
-            .mockResolvedValueOnce(null)
-            .mockResolvedValueOnce({
-                _id: iOid,
-                organizationId: oOid,
-                createdAt: created.toISOString(),
-            });
+    it('is atomic: no document means null, and the User collection is never read', async () => {
+        documentdbUtils.findOne.mockResolvedValue(null);
 
-        const result = await repository.findMembership(iHex, oHex);
-
-        expect(documentdbUtils.findOne).toHaveBeenLastCalledWith(
-            prisma,
-            'User',
-            { _id: iOid, type: 'INDIVIDUAL' }
-        );
-        expect(result).toMatchObject({
-            individualUserId: iHex,
-            organizationUserId: oHex,
-            implicit: true,
-        });
+        expect(await repository.findMembership(iHex, oHex)).toBeNull();
+        expect(documentdbUtils.findOne).toHaveBeenCalledTimes(1);
     });
 
-    it('is null for a different legacy organization, or none', async () => {
-        documentdbUtils.findOne
-            .mockResolvedValueOnce(null)
-            .mockResolvedValueOnce({ _id: iOid, organizationId: new ObjectId() });
-        expect(await repository.findMembership(iHex, oHex)).toBeNull();
+    it('reads a document without orgRole as MEMBER', async () => {
+        documentdbUtils.findOne.mockResolvedValue(doc({ orgRole: undefined }));
 
-        documentdbUtils.findOne
-            .mockResolvedValueOnce(null)
-            .mockResolvedValueOnce({ _id: iOid });
-        expect(await repository.findMembership(iHex, oHex)).toBeNull();
+        expect((await repository.findMembership(iHex, oHex)).orgRole).toBe(
+            'MEMBER'
+        );
     });
 
     it('adds with an upsert that only sets fields on insert', async () => {
@@ -397,7 +356,7 @@ describe('OrganizationMembershipRepositoryDocumentDB', () => {
         documentdbUtils.findOne.mockResolvedValue(doc());
 
         const result = await repository.addMembership(iHex, oHex, {
-            role: 'admin',
+            orgRole: 'ADMIN',
         });
 
         const [client, collection, filter, update, options] =
@@ -409,10 +368,21 @@ describe('OrganizationMembershipRepositoryDocumentDB', () => {
             organizationUserId: oOid,
         });
         expect(Object.keys(update)).toEqual(['$setOnInsert']);
-        expect(update.$setOnInsert.role).toBe('admin');
+        expect(update.$setOnInsert.orgRole).toBe('ADMIN');
         expect(update.$setOnInsert.createdAt).toBeInstanceOf(Date);
         expect(options).toEqual({ upsert: true });
         expect(result.organizationUserId).toBe(oHex);
+    });
+
+    it('defaults the role to MEMBER', async () => {
+        documentdbUtils.updateOne.mockResolvedValue({ ok: 1 });
+        documentdbUtils.findOne.mockResolvedValue(doc());
+
+        await repository.addMembership(iHex, oHex);
+
+        expect(
+            documentdbUtils.updateOne.mock.calls[0][3].$setOnInsert.orgRole
+        ).toBe('MEMBER');
     });
 
     it('treats a duplicate-key write error as the loser of a race and reads the winner', async () => {
@@ -448,23 +418,19 @@ describe('OrganizationMembershipRepositoryDocumentDB', () => {
         );
     });
 
-    it('lists documents oldest first plus the legacy organization', async () => {
+    it('lists the organization’s documents oldest first, rows only', async () => {
         documentdbUtils.findMany.mockResolvedValue([doc()]);
-        documentdbUtils.findOne.mockResolvedValue({
-            _id: iOid,
-            organizationId: new ObjectId(),
-        });
 
-        const result = await repository.listMembershipsForIndividual(iHex);
+        const result = await repository.listMembershipsForOrganization(oHex);
 
         expect(documentdbUtils.findMany).toHaveBeenCalledWith(
             prisma,
             'OrganizationMembership',
-            { individualUserId: iOid },
+            { organizationUserId: oOid },
             { sort: { createdAt: 1 } }
         );
-        expect(result).toHaveLength(2);
-        expect(result[0].implicit).toBe(true);
-        expect(result[1].organizationUserId).toBe(oHex);
+        expect(result).toHaveLength(1);
+        expect(result[0].individualUserId).toBe(iHex);
+        expect(documentdbUtils.findOne).not.toHaveBeenCalled();
     });
 });

@@ -3,6 +3,9 @@ const jose = require('jose');
 const {
     GetUserFromAdopterJwt,
 } = require('../../use-cases/get-user-from-adopter-jwt');
+const {
+    EnsureOrganizationMembership,
+} = require('../../use-cases/ensure-organization-membership');
 const { createMemorySink } = require('../../../logs');
 const {
     createKeys,
@@ -39,7 +42,10 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
     const build = (config = userConfig(), keySource = keys.localJwks) =>
         new GetUserFromAdopterJwt({
             userRepository: repo,
-            organizationMembershipRepository: memberships,
+            ensureOrganizationMembership: new EnsureOrganizationMembership({
+                userRepository: repo,
+                organizationMembershipRepository: memberships,
+            }),
             userConfig: config,
             tokenVerifier: createAdopterTokenVerifier({
                 jwtConfig: config.jwtConfig,
@@ -76,14 +82,14 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
 
     beforeEach(() => {
         repo = createUserRepositoryDouble();
-        memberships = createMembershipRepositoryDouble(repo);
+        memberships = createMembershipRepositoryDouble();
     });
 
     // Re-seed both doubles together: the membership double reads the legacy
     // pointer from the user double's state.
     const seed = (options) => {
         repo = createUserRepositoryDouble(options);
-        memberships = createMembershipRepositoryDouble(repo);
+        memberships = createMembershipRepositoryDouble();
     };
 
     describe('verification', () => {
@@ -533,10 +539,10 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             expect(repo.createOrganizationUser).toHaveBeenCalledWith({
                 appOrgId: 'o1',
             });
-            expect(repo.linkIndividualToOrganization).toHaveBeenCalledTimes(1);
+            expect(repo.linkIndividualToOrganizationIfUnset).toHaveBeenCalledTimes(1);
             const org = repo.state.organizationUsers.get('o1');
             const individual = repo.state.individualUsers.get('u1');
-            expect(repo.linkIndividualToOrganization).toHaveBeenCalledWith(
+            expect(repo.linkIndividualToOrganizationIfUnset).toHaveBeenCalledWith(
                 individual.id,
                 org.id
             );
@@ -553,7 +559,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
 
             expect(repo.createIndividualUser).not.toHaveBeenCalled();
             expect(repo.createOrganizationUser).not.toHaveBeenCalled();
-            expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
+            expect(repo.linkIndividualToOrganizationIfUnset).not.toHaveBeenCalled();
             expect(user.getAppUserId()).toBe('u1');
             expect(user.getAppOrgId()).toBe('o1');
             expect(repo.state.individualUsers.size).toBe(1);
@@ -585,7 +591,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             expect(repo.createIndividualUser).toHaveBeenCalledTimes(1);
             expect(repo.createOrganizationUser).not.toHaveBeenCalled();
             expect(repo.findOrganizationUserByAppOrgId).not.toHaveBeenCalled();
-            expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
+            expect(repo.linkIndividualToOrganizationIfUnset).not.toHaveBeenCalled();
         });
 
         it('ignores the org claim when organizationUserRequired is not set, as x-frigg headers do', async () => {
@@ -654,7 +660,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             expect(memberships.addMembership).toHaveBeenCalledWith(
                 individual.id,
                 org.id,
-                { role: 'admin' }
+                { orgRole: 'admin' }
             );
             expect(individual.organizationId).toBe(org.id);
             expect(user.getActiveOrganizationId()).toBe(org.id);
@@ -672,14 +678,14 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
 
             expect(repo.createIndividualUser).not.toHaveBeenCalled();
             expect(repo.createOrganizationUser).not.toHaveBeenCalled();
-            expect(repo.linkIndividualToOrganization).toHaveBeenCalledWith(
+            expect(repo.linkIndividualToOrganizationIfUnset).toHaveBeenCalledWith(
                 'ind-x',
                 'org-x'
             );
             expect(memberships.addMembership).toHaveBeenCalledWith(
                 'ind-x',
                 'org-x',
-                { role: null }
+                { orgRole: null }
             );
             expect(user.getIndividualUser().organizationId).toBe('org-x');
         });
@@ -698,11 +704,11 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             expect(repo.state.individualUsers.get('u1').organizationId).toBe(
                 'org-a'
             );
-            expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
-            const orgs = (
-                await memberships.listMembershipsForIndividual('ind-x')
-            ).map((m) => m.organizationUserId);
-            expect(orgs.sort()).toEqual(['org-a', 'org-b']);
+            expect(repo.linkIndividualToOrganizationIfUnset).not.toHaveBeenCalled();
+            // A is the legacy pointer (no row needed); B has a stored row.
+            const rows = [...memberships.rows.values()];
+            expect(rows.map((r) => r.organizationUserId)).toEqual(['org-b']);
+            expect(rows[0].orgRole).toBe('member');
             expect(repo.createOrganizationUser).not.toHaveBeenCalled();
         });
 
@@ -734,7 +740,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             expect(user.getId()).toBe('org-a');
             expect(user.getAppOrgId()).toBe('oA');
             expect(memberships.addMembership).not.toHaveBeenCalled();
-            expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
+            expect(repo.linkIndividualToOrganizationIfUnset).not.toHaveBeenCalled();
         });
 
         it('treats the legacy organizationId as a membership: logging in with that org adds no row', async () => {
@@ -771,7 +777,7 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             expect(user.getAppUserId()).toBe('u1');
             expect(user.getActiveOrganizationId()).toBeNull();
             expect(memberships.findMembership).not.toHaveBeenCalled();
-            expect(repo.linkIndividualToOrganization).not.toHaveBeenCalled();
+            expect(repo.linkIndividualToOrganizationIfUnset).not.toHaveBeenCalled();
         });
 
         it('no longer answers 403 multi_org_unsupported', async () => {
@@ -782,15 +788,33 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             ).resolves.toBeDefined();
         });
 
-        it('requires a membership repository rather than silently skipping membership', () => {
-            expect(
-                () =>
-                    new GetUserFromAdopterJwt({
-                        userRepository: repo,
-                        userConfig: userConfig(),
-                        tokenVerifier: {},
-                    })
-            ).toThrow('organizationMembershipRepository');
+        it('hands the use case the created users and the role claim, and builds the User from what it returns', async () => {
+            const returned = { id: 'ind-stub', appUserId: 'u1' };
+            const ensureOrganizationMembership = {
+                execute: jest.fn(async () => ({
+                    individual: returned,
+                    membership: null,
+                })),
+            };
+            const adopter = new GetUserFromAdopterJwt({
+                userRepository: repo,
+                ensureOrganizationMembership,
+                userConfig: userConfig(),
+                tokenVerifier: createAdopterTokenVerifier({
+                    jwtConfig: userConfig().jwtConfig,
+                    keySource: keys.localJwks,
+                }),
+            });
+
+            const user = await adopter.execute(
+                await es({ sub: 'u1', org_id: 'o1', org_role: 'admin' })
+            );
+
+            const call = ensureOrganizationMembership.execute.mock.calls[0][0];
+            expect(call.individual.appUserId).toBe('u1');
+            expect(call.organization.appOrgId).toBe('o1');
+            expect(call.orgRole).toBe('admin');
+            expect(user.getIndividualUser()).toBe(returned);
         });
     });
 
@@ -814,10 +838,8 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
 
             expect(userA.getAppOrgId()).toBe('oA');
             expect(userB.getAppOrgId()).toBe('oB');
-            const orgIds = (
-                await memberships.listMembershipsForIndividual(individual.id)
-            )
-                .map((m) => m.organizationUserId)
+            const orgIds = [...memberships.rows.values()]
+                .map((r) => r.organizationUserId)
                 .sort();
             expect(orgIds).toEqual(
                 [
@@ -864,19 +886,15 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             ).rejects.toThrow('unique');
         });
 
-        it('retries the find once when creating the organization loses the race', async () => {
-            const winner = { id: 'org-w', appOrgId: 'o1' };
-            repo.createOrganizationUser.mockImplementationOnce(async () => {
-                repo.state.organizationUsers.set('o1', winner);
-                throw Object.assign(new Error('unique'), { code: 'P2002' });
-            });
-
-            const user = await build().execute(
-                await es({ sub: 'u1', org_id: 'o1' })
+        it('does not pretend to recover from a lost organization race: appOrgId has no unique index', async () => {
+            repo.createOrganizationUser.mockRejectedValueOnce(
+                Object.assign(new Error('unique'), { code: 'P2002' })
             );
 
-            expect(user.getActiveOrganizationId()).toBe('org-w');
-            expect(repo.createOrganizationUser).toHaveBeenCalledTimes(1);
+            await expect(
+                build().execute(await es({ sub: 'u1', org_id: 'o1' }))
+            ).rejects.toThrow('unique');
+            expect(repo.findOrganizationUserByAppOrgId).toHaveBeenCalledTimes(1);
         });
     });
 });

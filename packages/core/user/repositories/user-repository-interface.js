@@ -209,6 +209,24 @@ class UserRepositoryInterface {
             'Method linkIndividualToOrganization must be implemented by subclass'
         );
     }
+
+    /**
+     * Set an individual user's legacy `organizationId` pointer only if it is
+     * not set yet (their first link), decided by the database in the same
+     * statement so two concurrent first logins cannot overwrite each other.
+     * Never changes an existing pointer (ADR-056 §3.6).
+     *
+     * @param {string|number} individualUserId - Individual user ID
+     * @param {string|number} organizationUserId - Organization user ID
+     * @returns {Promise<Object|null>} The individual user as stored afterwards
+     *   (null if there is no such individual)
+     * @abstract
+     */
+    async linkIndividualToOrganizationIfUnset(individualUserId, organizationUserId) {
+        throw new Error(
+            'Method linkIndividualToOrganizationIfUnset must be implemented by subclass'
+        );
+    }
 }
 
 module.exports = { UserRepositoryInterface };

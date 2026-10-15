@@ -1,17 +1,25 @@
 const {
-    OrganizationMembershipRepositoryMongo,
-} = require('./organization-membership-repository-mongo');
+    OrganizationMembershipRepositoryPrisma,
+} = require('./organization-membership-repository-prisma');
 
 /**
- * Organization membership persistence for PostgreSQL. Same Prisma queries as
- * the MongoDB adapter; the database keys are Int, the application's are
- * strings, so ids are converted in and the model stringifies them out.
+ * Organization membership persistence for PostgreSQL. The database keys are
+ * Int, the application's are strings, so ids are converted in and the record
+ * mapper stringifies them out.
  */
-class OrganizationMembershipRepositoryPostgres extends OrganizationMembershipRepositoryMongo {
-    /** @protected */
+class OrganizationMembershipRepositoryPostgres extends OrganizationMembershipRepositoryPrisma {
+    /**
+     * Strict: digits only. `parseInt` would turn '12abc' into 12 and query
+     * the wrong person.
+     * @protected
+     */
     _toDbId(id) {
-        const parsed = parseInt(id, 10);
-        if (Number.isNaN(parsed)) {
+        const text = typeof id === 'number' ? String(id) : id;
+        if (typeof text !== 'string' || !/^\d+$/.test(text)) {
+            throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
+        }
+        const parsed = Number(text);
+        if (!Number.isSafeInteger(parsed)) {
             throw new Error(`Invalid ID: ${id} cannot be converted to integer`);
         }
         return parsed;

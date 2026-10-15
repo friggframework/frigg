@@ -144,15 +144,25 @@ function createUserRepositoryDouble({
             organizationUsers.set(created.appOrgId, created);
             return created;
         }),
-        linkIndividualToOrganization: jest.fn(
+        findIndividualUserById: jest.fn(async (id) => {
+            for (const u of individualUsers.values()) {
+                if (u.id === id) return { ...u };
+            }
+            return null;
+        }),
+        // Like the database: sets the pointer only while it is unset.
+        linkIndividualToOrganizationIfUnset: jest.fn(
             async (individualId, organizationId) => {
                 for (const u of individualUsers.values()) {
-                    if (u.id === individualId) {
-                        u.organizationId = organizationId;
-                        return { ...u };
-                    }
+                    if (u.id !== individualId) continue;
+                    const unset =
+                        u.organizationId === undefined ||
+                        u.organizationId === null ||
+                        u.organizationId === '';
+                    if (unset) u.organizationId = organizationId;
+                    return { ...u };
                 }
-                throw new Error('individual not found');
+                return null;
             }
         ),
     };
@@ -161,54 +171,40 @@ function createUserRepositoryDouble({
 }
 
 /**
- * In-memory organization membership repository over the same state as
- * `userRepo`, so the legacy `organizationId` pointer is visible to it as it is
- * to the real adapters. The pair is unique and `addMembership` is an upsert;
- * the legacy-pointer rules are the real ones from organization-membership-model.
+ * In-memory organization membership repository: atomic, like the real ones. The
+ * pair is unique and `addMembership` is an upsert. It knows nothing of the
+ * legacy `organizationId` pointer; the domain (user/membership.js) does.
  */
-function createMembershipRepositoryDouble(userRepo) {
-    const {
-        toMembership,
-        implicitMembership,
-        withLegacyMembership,
-    } = require('../../repositories/organization-membership-model');
+function createMembershipRepositoryDouble() {
+    const { toMembership } = require('../../repositories/organization-membership-record');
     const rows = new Map();
     const key = (i, o) => `${i}|${o}`;
     let seq = 0;
-    const individualById = (id) =>
-        [...userRepo.state.individualUsers.values()].find((u) => u.id === id);
 
     const repo = {
         findMembership: jest.fn(async (individualId, organizationId) => {
             const row = rows.get(key(individualId, organizationId));
-            if (row) return toMembership(row);
-            return implicitMembership(
-                individualById(individualId),
-                organizationId
-            );
+            return row ? toMembership(row) : null;
         }),
         addMembership: jest.fn(
-            async (individualId, organizationId, { role } = {}) => {
+            async (individualId, organizationId, { orgRole } = {}) => {
                 const k = key(individualId, organizationId);
                 if (!rows.has(k)) {
                     rows.set(k, {
                         id: `mem-${++seq}`,
                         individualUserId: individualId,
                         organizationUserId: organizationId,
-                        role: role ?? null,
+                        orgRole: orgRole ?? 'MEMBER',
                         createdAt: new Date(),
                     });
                 }
                 return toMembership(rows.get(k));
             }
         ),
-        listMembershipsForIndividual: jest.fn(async (individualId) =>
-            withLegacyMembership(
-                [...rows.values()]
-                    .filter((r) => r.individualUserId === individualId)
-                    .map(toMembership),
-                individualById(individualId)
-            )
+        listMembershipsForOrganization: jest.fn(async (organizationId) =>
+            [...rows.values()]
+                .filter((r) => r.organizationUserId === organizationId)
+                .map(toMembership)
         ),
     };
     repo.rows = rows;

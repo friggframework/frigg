@@ -1,14 +1,12 @@
 /**
  * Organization Membership Repository Interface (ADR-056 §3.6).
  *
- * Atomic persistence of "this person belongs to that organization". No policy:
- * deciding whether a person may join, or which organization is active, belongs
- * to the use cases.
+ * Atomic persistence of "this person belongs to that organization": a row or
+ * nothing. No policy and no reading of `IndividualUser.organizationId`: the
+ * legacy pointer counts as an implicit membership, and that rule lives in the
+ * domain (`user/membership.js`), applied by the use cases.
  *
- * Backfill: `IndividualUser.organizationId` (the legacy single-org pointer) is
- * not copied into this table. Every adapter reads it as an implicit membership
- * (`implicit: true`) so a person linked before memberships existed stays a
- * member of that organization without a data migration.
+ * Every method returns String ids whatever the database stores.
  *
  * @abstract
  */
@@ -16,9 +14,7 @@ class OrganizationMembershipRepositoryInterface {
     /**
      * @param {string|number} individualUserId
      * @param {string|number} organizationUserId
-     * @returns {Promise<Object|null>} The membership, or a synthesised one
-     *   (`implicit: true`) when only the legacy pointer names the organization,
-     *   or null.
+     * @returns {Promise<Object|null>} The stored membership, or null.
      * @abstract
      */
     async findMembership(individualUserId, organizationUserId) {
@@ -33,8 +29,9 @@ class OrganizationMembershipRepositoryInterface {
      * @param {string|number} individualUserId
      * @param {string|number} organizationUserId
      * @param {Object} [options]
-     * @param {string|null} [options.role] Stored only when the row is created.
-     * @returns {Promise<Object>} The (explicit) membership.
+     * @param {string|null} [options.orgRole] Stored only when the row is
+     *   created; defaults to `MEMBER`.
+     * @returns {Promise<Object>} The stored membership.
      * @abstract
      */
     async addMembership(individualUserId, organizationUserId, options) {
@@ -42,16 +39,17 @@ class OrganizationMembershipRepositoryInterface {
     }
 
     /**
-     * Every organization the person belongs to: membership rows, plus the
-     * legacy pointer's organization (`implicit: true`) when no row names it.
+     * Stored memberships of an organization, oldest first. Rows only: people
+     * who are in the organization through the legacy pointer alone are not
+     * here.
      *
-     * @param {string|number} individualUserId
+     * @param {string|number} organizationUserId
      * @returns {Promise<Object[]>}
      * @abstract
      */
-    async listMembershipsForIndividual(individualUserId) {
+    async listMembershipsForOrganization(organizationUserId) {
         throw new Error(
-            'Method listMembershipsForIndividual must be implemented by subclass'
+            'Method listMembershipsForOrganization must be implemented by subclass'
         );
     }
 }

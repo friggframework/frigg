@@ -421,6 +421,27 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
         );
         return this._mapUser(decrypted);
     }
+
+    /**
+     * Set the legacy organizationId only if it is still null or absent (see the
+     * interface): the filter carries the condition, so it is one atomic update.
+     * @param {string} individualUserId
+     * @param {string} organizationUserId
+     * @returns {Promise<Object|null>} The individual user as stored afterwards
+     */
+    async linkIndividualToOrganizationIfUnset(individualUserId, organizationUserId) {
+        await updateOne(
+            this.prisma,
+            'User',
+            {
+                _id: toObjectId(individualUserId),
+                type: 'INDIVIDUAL',
+                organizationId: null,
+            },
+            { $set: { organizationId: toObjectId(organizationUserId) } }
+        );
+        return this.findIndividualUserById(individualUserId);
+    }
 }
 
 module.exports = { UserRepositoryDocumentDB };

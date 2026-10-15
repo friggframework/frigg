@@ -3,6 +3,9 @@ const {
     OrganizationMembershipRepositoryMongo,
 } = require('./organization-membership-repository-mongo');
 const {
+    OrganizationMembershipRepositoryPrisma,
+} = require('./organization-membership-repository-prisma');
+const {
     OrganizationMembershipRepositoryPostgres,
 } = require('./organization-membership-repository-postgres');
 const {
@@ -32,6 +35,7 @@ function createOrganizationMembershipRepository() {
 
 module.exports = {
     createOrganizationMembershipRepository,
+    OrganizationMembershipRepositoryPrisma,
     OrganizationMembershipRepositoryMongo,
     OrganizationMembershipRepositoryPostgres,
     OrganizationMembershipRepositoryDocumentDB,

@@ -15,21 +15,15 @@ function buildV2Dependencies({ appDefinition, config }) {
     const {
         createUserRepository,
     } = require('../../user/repositories/user-repository-factory');
-    const {
-        createOrganizationMembershipRepository,
-    } = require('../../user/repositories/organization-membership-repository-factory');
     const { ModuleFactory } = require('../../modules/module-factory');
     const {
         getModulesDefinitionFromIntegrationClasses,
     } = require('../../integrations/utils/map-integration-dto');
-    const { GetUserFromBearerToken } = require('../../user/use-cases/get-user-from-bearer-token');
-    const { GetUserFromXFriggHeaders } = require('../../user/use-cases/get-user-from-x-frigg-headers');
-    const { GetUserFromAdopterJwt } = require('../../user/use-cases/get-user-from-adopter-jwt');
-    const { createAdopterTokenVerifier } = require('../../user/adopter-token-verifier');
     const {
         AuthenticateWithSharedSecret,
     } = require('../../user/use-cases/authenticate-with-shared-secret');
     const { AuthenticateUser } = require('../../user/use-cases/authenticate-user');
+    const { buildUserAuthentication } = require('../../user/create-user-authentication');
     const { CreateIntegration } = require('../../integrations/use-cases/create-integration');
     const { UpdateIntegration } = require('../../integrations/use-cases/update-integration');
     const {
@@ -81,18 +75,10 @@ function buildV2Dependencies({ appDefinition, config }) {
     const integrationRepository = createIntegrationRepository();
     const credentialRepository = createCredentialRepository();
     const userRepository = createUserRepository();
-    const organizationMembershipRepository = createOrganizationMembershipRepository();
     const authorizationSessionRepository = createAuthorizationSessionRepository();
 
     const authenticateUser = new AuthenticateUser({
-        getUserFromBearerToken: new GetUserFromBearerToken({ userRepository, userConfig }),
-        getUserFromXFriggHeaders: new GetUserFromXFriggHeaders({ userRepository, organizationMembershipRepository, userConfig }),
-        getUserFromAdopterJwt: new GetUserFromAdopterJwt({
-            userRepository,
-            organizationMembershipRepository,
-            userConfig,
-            tokenVerifier: createAdopterTokenVerifier({ jwtConfig: userConfig.jwtConfig }),
-        }),
+        ...buildUserAuthentication({ userConfig, userRepository }),
         authenticateWithSharedSecret: new AuthenticateWithSharedSecret(),
         userConfig,
     });

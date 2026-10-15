@@ -5,9 +5,6 @@ const {
     createMissingAppUsers,
     buildUser,
 } = require('../app-user-helpers');
-const {
-    EnsureOrganizationMembership,
-} = require('./ensure-organization-membership');
 
 const log = getLogger('frigg.user.adopter_jwt');
 
@@ -37,28 +34,20 @@ class GetUserFromAdopterJwt {
      * @param {Object} params
      * @param {import('../repositories/user-repository-interface').UserRepositoryInterface} params.userRepository
      * @param {Object} params.userConfig - The user config in the app definition.
-     * @param {import('../repositories/organization-membership-repository-interface').OrganizationMembershipRepositoryInterface} params.organizationMembershipRepository
+     * @param {import('./ensure-organization-membership').EnsureOrganizationMembership} params.ensureOrganizationMembership
      * @param {{verify: Function, claimNames: Object}} params.tokenVerifier -
      *   from `createAdopterTokenVerifier`.
      */
     constructor({
         userRepository,
-        organizationMembershipRepository,
+        ensureOrganizationMembership,
         userConfig,
         tokenVerifier,
     }) {
-        if (!organizationMembershipRepository) {
-            throw new Error(
-                'GetUserFromAdopterJwt requires an organizationMembershipRepository'
-            );
-        }
         this.userRepository = userRepository;
+        this.ensureOrganizationMembership = ensureOrganizationMembership;
         this.userConfig = userConfig;
         this.tokenVerifier = tokenVerifier;
-        this.ensureOrganizationMembership = new EnsureOrganizationMembership({
-            userRepository,
-            organizationMembershipRepository,
-        });
     }
 
     /**
@@ -112,7 +101,7 @@ class GetUserFromAdopterJwt {
         const { individual } = await this.ensureOrganizationMembership.execute({
             individual: created.individual,
             organization: created.organization,
-            role: orgRole,
+            orgRole,
         });
         return buildUser(cfg, individual, created.organization);
     }

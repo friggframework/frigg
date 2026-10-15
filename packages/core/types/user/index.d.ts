@@ -49,11 +49,18 @@ declare module "@friggframework/core/user" {
     individualUserRequired?: boolean;
     organizationUserRequired?: boolean;
     /**
-     * Refuse (400) a request whose person is not a member of the organization it
-     * names, instead of adding the membership. Applies to `x-frigg` headers.
+     * With `x-frigg` headers, refuse (400) to make a person a member of an
+     * organization that already existed: anyone not already a member, a
+     * brand-new `appUserId` included, is rejected. Naming an organization the
+     * request itself creates is still allowed. Default false (a non-member is
+     * added).
      */
     strictMembership?: boolean;
-    /** Alias of `strictMembership`; `strictMembership` wins when both are set. */
+    /**
+     * @deprecated Alias of `strictMembership`, with the same new meaning (it
+     * used to reject a mismatched individual/organization pair). Logs a warning
+     * at startup. `strictMembership` wins when both are set.
+     */
     strictUserValidation?: boolean;
     authModes?: UserAuthModes;
     jwtConfig?: AdopterJwtConfig;
@@ -67,12 +74,14 @@ declare module "@friggframework/core/user" {
     id: string | null;
     individualUserId: string;
     organizationUserId: string;
-    role: string | null;
+    /** Defaults to `MEMBER`. */
+    orgRole: string;
     createdAt?: Date;
     implicit: boolean;
   }
 
   export interface OrganizationMembershipRepository {
+    /** The stored row or null: the legacy `organizationId` pointer is not read here. */
     findMembership(
       individualUserId: string,
       organizationUserId: string
@@ -81,10 +90,11 @@ declare module "@friggframework/core/user" {
     addMembership(
       individualUserId: string,
       organizationUserId: string,
-      options?: { role?: string | null }
+      options?: { orgRole?: string | null }
     ): Promise<OrganizationMembership>;
-    listMembershipsForIndividual(
-      individualUserId: string
+    /** Stored rows only, oldest first; legacy-pointer people are not here. */
+    listMembershipsForOrganization(
+      organizationUserId: string
     ): Promise<OrganizationMembership[]>;
   }
 

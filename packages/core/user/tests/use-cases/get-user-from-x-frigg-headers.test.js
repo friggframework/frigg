@@ -1,11 +1,27 @@
 const { GetUserFromXFriggHeaders } = require('../../use-cases/get-user-from-x-frigg-headers');
 const { User } = require('../../user');
+const {
+    EnsureOrganizationMembership,
+} = require('../../use-cases/ensure-organization-membership');
+const { createMemorySink } = require('../../../logs');
 
 describe('GetUserFromXFriggHeaders', () => {
     let getUserFromXFriggHeaders;
     let mockUserRepository;
     let mockMembershipRepository;
     let mockUserConfig;
+
+    // The real use case over the mocked repositories: strict mode is a
+    // property of both, so the tests exercise them together.
+    const build = () =>
+        new GetUserFromXFriggHeaders({
+            userRepository: mockUserRepository,
+            ensureOrganizationMembership: new EnsureOrganizationMembership({
+                userRepository: mockUserRepository,
+                organizationMembershipRepository: mockMembershipRepository,
+            }),
+            userConfig: mockUserConfig,
+        });
 
     const rejection = async (promise) => {
         try {
@@ -22,7 +38,7 @@ describe('GetUserFromXFriggHeaders', () => {
             findOrganizationUserByAppOrgId: jest.fn(),
             createIndividualUser: jest.fn(),
             createOrganizationUser: jest.fn(),
-            linkIndividualToOrganization: jest.fn(async (id, orgId) => ({
+            linkIndividualToOrganizationIfUnset: jest.fn(async (id, orgId) => ({
                 id,
                 organizationId: orgId,
             })),
@@ -46,11 +62,7 @@ describe('GetUserFromXFriggHeaders', () => {
             organizationUserRequired: false,
         };
 
-        getUserFromXFriggHeaders = new GetUserFromXFriggHeaders({
-            userRepository: mockUserRepository,
-            organizationMembershipRepository: mockMembershipRepository,
-            userConfig: mockUserConfig,
-        });
+        getUserFromXFriggHeaders = build();
     });
 
     describe('Validation', () => {
@@ -212,7 +224,7 @@ describe('GetUserFromXFriggHeaders', () => {
             mockUserRepository.createOrganizationUser.mockResolvedValue(
                 mockCreatedOrgUser
             );
-            mockUserRepository.linkIndividualToOrganization = jest.fn().mockResolvedValue({
+            mockUserRepository.linkIndividualToOrganizationIfUnset = jest.fn().mockResolvedValue({
                 ...mockIndividualUser,
                 organizationUser: 'org-new',
             });
@@ -227,7 +239,7 @@ describe('GetUserFromXFriggHeaders', () => {
                 appOrgId: 'app-org-789',
             });
             // Should link the individual user to the newly created org user
-            expect(mockUserRepository.linkIndividualToOrganization).toHaveBeenCalledWith(
+            expect(mockUserRepository.linkIndividualToOrganizationIfUnset).toHaveBeenCalledWith(
                 'user-123',
                 'org-new'
             );
@@ -266,10 +278,10 @@ describe('GetUserFromXFriggHeaders', () => {
             expect(mockMembershipRepository.addMembership).toHaveBeenCalledWith(
                 'user-123',
                 'org-888',
-                { role: null }
+                { orgRole: null }
             );
             expect(
-                mockUserRepository.linkIndividualToOrganization
+                mockUserRepository.linkIndividualToOrganizationIfUnset
             ).not.toHaveBeenCalled();
             expect(result.getActiveOrganizationId()).toBe('org-888');
             // The legacy pointer is untouched on the record that was read.
@@ -308,7 +320,7 @@ describe('GetUserFromXFriggHeaders', () => {
             }
 
             expect(
-                mockUserRepository.linkIndividualToOrganization
+                mockUserRepository.linkIndividualToOrganizationIfUnset
             ).not.toHaveBeenCalled();
             expect(mockMembershipRepository.addMembership).toHaveBeenCalledTimes(2);
         });
@@ -324,7 +336,7 @@ describe('GetUserFromXFriggHeaders', () => {
             );
 
             expect(
-                mockUserRepository.linkIndividualToOrganization
+                mockUserRepository.linkIndividualToOrganizationIfUnset
             ).toHaveBeenCalledWith('user-123', 'org-888');
             expect(mockMembershipRepository.addMembership).toHaveBeenCalled();
             expect(result.getIndividualUser().organizationId).toBe('org-888');
@@ -351,7 +363,7 @@ describe('GetUserFromXFriggHeaders', () => {
             );
             expect(mockMembershipRepository.addMembership).not.toHaveBeenCalled();
             expect(
-                mockUserRepository.linkIndividualToOrganization
+                mockUserRepository.linkIndividualToOrganizationIfUnset
             ).not.toHaveBeenCalled();
             expect(
                 mockUserRepository.createIndividualUser
@@ -366,6 +378,7 @@ describe('GetUserFromXFriggHeaders', () => {
             'rejects an unknown pairing with 400 when %s is on, and writes nothing',
             async (flag) => {
                 mockUserConfig[flag] = true;
+                getUserFromXFriggHeaders = build();
                 mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
                     individual({ organizationId: 'org-999' })
                 );
@@ -382,13 +395,14 @@ describe('GetUserFromXFriggHeaders', () => {
                 expect(error.message).toContain('not a member');
                 expect(mockMembershipRepository.addMembership).not.toHaveBeenCalled();
                 expect(
-                    mockUserRepository.linkIndividualToOrganization
+                    mockUserRepository.linkIndividualToOrganizationIfUnset
                 ).not.toHaveBeenCalled();
             }
         );
 
         it('strict mode still admits a person whose legacy pointer names the organization', async () => {
             mockUserConfig.strictMembership = true;
+            getUserFromXFriggHeaders = build();
             mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
                 individual({ organizationId: 'org-888' })
             );
@@ -403,6 +417,7 @@ describe('GetUserFromXFriggHeaders', () => {
 
         it('strict mode does not judge an organization this request just created', async () => {
             mockUserConfig.strictMembership = true;
+            getUserFromXFriggHeaders = build();
             mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
                 individual()
             );
@@ -421,13 +436,14 @@ describe('GetUserFromXFriggHeaders', () => {
             expect(mockMembershipRepository.addMembership).toHaveBeenCalledWith(
                 'user-123',
                 'org-888',
-                { role: null }
+                { orgRole: null }
             );
         });
 
         it('strictMembership takes precedence over the strictUserValidation alias', async () => {
             mockUserConfig.strictMembership = false;
             mockUserConfig.strictUserValidation = true;
+            getUserFromXFriggHeaders = build();
             mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
                 individual({ organizationId: 'org-999' })
             );
@@ -448,14 +464,137 @@ describe('GetUserFromXFriggHeaders', () => {
             expect(mockMembershipRepository.addMembership).not.toHaveBeenCalled();
         });
 
-        it('requires a membership repository', () => {
+        it('strict: a brand-new person naming an existing organization is refused, and nothing is created or added', async () => {
+            mockUserConfig.strictMembership = true;
+            getUserFromXFriggHeaders = build();
+            mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
+                null
+            );
+            mockUserRepository.createIndividualUser.mockResolvedValue(
+                individual()
+            );
+
+            const error = await rejection(
+                getUserFromXFriggHeaders.execute(
+                    'app-user-456',
+                    'app-org-789'
+                )
+            );
+
+            expect(error.output.statusCode).toBe(400);
+            expect(error.message).toContain('not a member');
+            expect(mockMembershipRepository.addMembership).not.toHaveBeenCalled();
             expect(
-                () =>
-                    new GetUserFromXFriggHeaders({
-                        userRepository: mockUserRepository,
-                        userConfig: mockUserConfig,
-                    })
-            ).toThrow('organizationMembershipRepository');
+                mockUserRepository.linkIndividualToOrganizationIfUnset
+            ).not.toHaveBeenCalled();
+        });
+
+        it('strict: a brand-new person naming a brand-new organization is allowed', async () => {
+            mockUserConfig.strictMembership = true;
+            getUserFromXFriggHeaders = build();
+            mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
+                null
+            );
+            mockUserRepository.findOrganizationUserByAppOrgId.mockResolvedValue(
+                null
+            );
+            mockUserRepository.createIndividualUser.mockResolvedValue(
+                individual()
+            );
+            mockUserRepository.createOrganizationUser.mockResolvedValue(
+                organization
+            );
+
+            const result = await getUserFromXFriggHeaders.execute(
+                'app-user-456',
+                'app-org-789'
+            );
+
+            expect(result.getActiveOrganizationId()).toBe('org-888');
+            expect(mockMembershipRepository.addMembership).toHaveBeenCalledWith(
+                'user-123',
+                'org-888',
+                { orgRole: null }
+            );
+        });
+
+        it('strict: only the organization header, no person, is not judged', async () => {
+            mockUserConfig.strictMembership = true;
+            getUserFromXFriggHeaders = build();
+
+            await expect(
+                getUserFromXFriggHeaders.execute(null, 'app-org-789')
+            ).resolves.toBeInstanceOf(User);
+        });
+
+        describe('deprecated strictUserValidation alias', () => {
+            const EVENT =
+                'frigg.user.x_frigg_headers.strict_user_validation_deprecated';
+            let sink;
+            let consoleSpies;
+            beforeEach(() => {
+                sink = createMemorySink();
+                consoleSpies = ['log', 'info', 'warn', 'error', 'debug'].map(
+                    (m) => jest.spyOn(console, m).mockImplementation(() => {})
+                );
+            });
+            afterEach(() => consoleSpies.forEach((spy) => spy.mockRestore()));
+            const warnings = () =>
+                sink.records.filter((r) => r.eventName === EVENT);
+
+            it('warns once, at construction, when it is set without strictMembership', () => {
+                mockUserConfig.strictUserValidation = true;
+
+                const useCase = build();
+                expect(warnings()).toHaveLength(1);
+                expect(warnings()[0].level).toBe('WARN');
+
+                // Not per request.
+                mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
+                    individual({ organizationId: 'org-888' })
+                );
+                return useCase.execute('app-user-456', null).then(() => {
+                    expect(warnings()).toHaveLength(1);
+                });
+            });
+
+            it('is silent when strictMembership is set, even beside the alias', () => {
+                mockUserConfig.strictMembership = false;
+                mockUserConfig.strictUserValidation = true;
+                build();
+                expect(warnings()).toHaveLength(0);
+            });
+
+            it('is silent when neither is set', () => {
+                build();
+                expect(warnings()).toHaveLength(0);
+            });
+        });
+
+        it('uses the injected use case, passing requireExisting only for an organization that already existed', async () => {
+            mockUserConfig.strictMembership = true;
+            const ensureOrganizationMembership = {
+                execute: jest.fn(async ({ individual: i }) => ({
+                    individual: i,
+                    membership: { orgRole: 'MEMBER' },
+                })),
+            };
+            const stubbed = new GetUserFromXFriggHeaders({
+                userRepository: mockUserRepository,
+                ensureOrganizationMembership,
+                userConfig: mockUserConfig,
+            });
+            mockUserRepository.findIndividualUserByAppUserId.mockResolvedValue(
+                individual()
+            );
+
+            await stubbed.execute('app-user-456', 'app-org-789');
+
+            expect(ensureOrganizationMembership.execute).toHaveBeenCalledWith({
+                individual: individual(),
+                organization,
+                requireExisting: true,
+            });
         });
 
         it('recovers from a first-login race on creating the individual', async () => {
@@ -566,7 +705,7 @@ describe('GetUserFromXFriggHeaders', () => {
             mockUserRepository.createOrganizationUser.mockResolvedValue(
                 mockCreatedOrgUser
             );
-            mockUserRepository.linkIndividualToOrganization = jest.fn().mockResolvedValue({
+            mockUserRepository.linkIndividualToOrganizationIfUnset = jest.fn().mockResolvedValue({
                 ...mockIndividualUser,
                 organizationUser: 'org-new',
             });
@@ -580,7 +719,7 @@ describe('GetUserFromXFriggHeaders', () => {
             // Should not throw conflict error when only one user found
             // Should auto-create org user and link it
             expect(mockUserRepository.createOrganizationUser).toHaveBeenCalled();
-            expect(mockUserRepository.linkIndividualToOrganization).toHaveBeenCalledWith(
+            expect(mockUserRepository.linkIndividualToOrganizationIfUnset).toHaveBeenCalledWith(
                 'user-123',
                 'org-new'
             );
