@@ -9,6 +9,13 @@
 > visibility callback to integration definitions. 2.0.1 ships only the repo shape, `frigg init`
 > and the docs. Entity scopes, the visibility callback and the default UIs are 2.1, ported from
 > the unmerged branch `claude/frigg-deployment-architecture-ed1CZ` (Decision §7).
+>
+> **Revised 2026-10-15.** Decision §3 gains §3.1–§3.6: where a scope comes from when a binding does not
+> say (app → integration → entity overrides), ownership decided by scope instead of `user.primary`,
+> explicit integration ownership, mixed-ownership list responses, proxy scopes, and users who belong
+> to more than one organization. These were drafted as a separate ADR-058 and folded in here so the
+> tenancy model reads as one decision. §3.6 reverses the earlier "`Entity` gets no `organizationId`
+> column" (see there).
 
 ## Context
 
@@ -247,7 +254,7 @@ ORGANIZATION) and ADR-024's "global", which is also the vocabulary of the branch
 ORGANIZATION user for `organization`, and null for `global`. Keeping the organization user as the
 owner of org entities means `User.ownsUserId` and the existing `[userId]` index keep working,
 and listing an org's entities is a `userId` query. Listing members' `individual` connections for
-an org admin joins through `User.organizationId`, so `Entity` gets no `organizationId` column.
+an org admin joins through `User.organizationId`, so `Entity` gets no `organizationId` column. *(Superseded by §3.6: `Entity` and `Integration` gain an `organizationId` context column, because one person can belong to several organizations.)*
 
 **`isGlobal` is migrated to `scope = 'GLOBAL'`, not kept beside it.** Recommended over keeping
 `isGlobal` and adding `scope`, because two fields that both say "global" can disagree, and
@@ -353,6 +360,95 @@ the tenant API, only through the admin routes. These are additive fields and a f
 ADR-053 already defines, so they do not block the v2 build. The entity collection itself is
 evidence for v2: the product-profile reference deployment had to derive entities from
 `/api/integrations` without it.
+
+#### 3.1 Where a scope comes from: defaults and overrides
+
+A binding without `scope` used to mean `individual`. The scope a binding accepts (and so the scope a
+new entity is created with when it is connected for that binding) is now the first one found in
+this order; each level overrides the ones below it, and nothing intersects:
+
+| # | Level | Where it is set | Applies to |
+|---|---|---|---|
+| 1 | Request | `scope` on `POST /api/v2/authorize`, only from the deciding level's `allow` list | One connection |
+| 2 | Entity (binding) | `use(module, { scope })` (ADR-054), or `Definition.entities[key].scope` | That binding in that integration |
+| 3 | Integration | `Definition.ownership.scope` | Every binding of that integration that sets none |
+| 4 | App entity type | `appDefinition.entities[name].scope` ([ADR-059](./059-app-level-entity-registry.md)) | That type wherever it is connected without an integration, and every binding of it that sets none above |
+| 5 | App | `appDefinition.ownership.scope` | Everything that sets none above |
+| 6 | Default | | `organization` when `user.primary` is `organization`, else `individual`, so apps that set nothing keep today's meaning |
+
+A setting is one scope (`'organization'`) or a default plus what a request may choose:
+`{ default: 'individual', allow: ['individual', 'organization'] }`. An `organization` choice still
+needs an org admin; `global` never comes from a tenant request. `frigg validate` prints the resolved
+scope for every binding, so nobody computes the chain by hand.
+
+#### 3.2 Ownership is decided by scope, not by `user.primary`
+
+Today every use case stamps `userId = user.getId()`, and `getId()` follows `user.primary`
+(`packages/core/user/user.js:29-37`). In an organization-primary app an `x-frigg-appuserid`-only
+request therefore resolves to no owner (`undefined`). From 2.1 the owner of a new entity is the user
+row that matches its resolved scope (the caller's individual user, the active organization's user,
+or none for `global`), and use cases take the `User`, the active organization (§3.6) and the scope
+instead of `getId()`. A request whose scope needs an identity it does not carry fails with **400**
+naming the missing header or claim. `user.primary` keeps only its login meaning and the level-6
+default.
+
+#### 3.3 Integration ownership can be set explicitly
+
+The derivation table above stays the default (`Definition.ownership.owner: 'derive'`). An integration
+may instead set `'individual'` or `'organization'`. `frigg validate` and the create use case reject
+an organization-owned integration that binds an `individual` entity: a shared integration must not
+run on one person's credential.
+
+#### 3.4 List routes return mixed ownership and say whose each record is
+
+`GET /api/v2/entities`, `/api/v2/credentials` and `/api/v2/integrations` return everything the caller
+may see under the permissions table, across scopes, for the active organization (§3.6). Every record
+carries:
+
+```json
+{ "scope": "organization", "owner": { "type": "organization", "id": "17" }, "organizationId": "17", "access": "use" }
+```
+
+`access` is `manage` (create, reauthorize, delete), `use` (bind it, proxy through it) or `view`
+(metadata only). Filters: `?scope=` and `?owner=me|org`. `global` records keep the visibility rule
+above. Credentials never return secret fields.
+
+#### 3.5 The entity proxy follows scope, narrowest by default
+
+[ADR-052](./052-entity-proxy-security.md)'s ownership check becomes "the caller has `use` access to
+the entity in the active organization". Proxying through a shared credential lets any member act on
+the organization's account, so `managementApi.proxy.scopes` (default `['individual']`) lists the
+scopes the proxy accepts; an app opts in to `organization` explicitly.
+
+#### 3.6 A user may belong to more than one organization
+
+Today an individual `User` has one `organizationId`, and `GetUserFromXFriggHeaders` re-links the
+individual to whichever organization a request names (`linkIndividualToOrganization`, an update of
+that one column). A person who belongs to two organizations is moved back and forth on every request,
+and every org-scoped check follows the last request. That is a defect, not a model.
+
+- **Membership is a relation.** A new `OrganizationMembership { individualUserId, organizationUserId,
+  orgRole }` (unique on the pair) replaces `User.organizationId` and carries the `orgRole` this ADR
+  already adds. The migration writes one row per existing `organizationId`.
+- **Every request has one active organization**: `x-frigg-apporgid`, or the adopter JWT's
+  organization claim. With header auth an unknown pairing **adds** a membership (it never moves the
+  person); `user.strictMembership: true` rejects unknown pairings instead, for apps where org admins
+  manage membership.
+- **Individual entities are paired with the organization they were connected in.** `Entity` gains
+  `organizationId`: the active organization at connect time for `individual`, the owner for
+  `organization`, null for `global`. A person's Google connected while working in organization A is
+  not visible or usable in organization B. Connecting the same account in both is two entities, which
+  is correct when the organizations are different tenants. Apps that want one connection per person
+  across all their organizations set `ownership.individualAcross: 'all'`; the default is
+  `'organization'`.
+- **Integrations carry the organization too.** `Integration` gains `organizationId` (the active
+  organization at create time). An individual-owned integration belongs to the membership, so
+  §3 "when a member leaves" applies per membership: leaving A orphans A's integrations only.
+- **Lists are scoped to the active organization.** `/entities`, `/credentials` and `/integrations`
+  return, for the active organization: its `organization` entities, the caller's `individual`
+  entities paired with it, and integrations owned by the caller or the organization in it. A
+  response never mixes organizations. A person who wants another organization's view sends that
+  organization as the active one. `GET /api/v2/me/organizations` lists the caller's memberships.
 
 ### 4. Visibility callback (2.1)
 
