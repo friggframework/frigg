@@ -62,6 +62,13 @@ declare module "@friggframework/core/user" {
      * at startup. `strictMembership` wins when both are set.
      */
     strictUserValidation?: boolean;
+    /**
+     * Roles (the adopter token's role claim) that may manage organization-level
+     * things (ADR-056 §3). Default `['ADMIN']`; a token with no role claim is
+     * `MEMBER`, never admin; a shared-secret (`x-frigg` header) caller needs no
+     * role. Compared case-insensitively. Validated at load.
+     */
+    orgAdminRoles?: string[];
     authModes?: UserAuthModes;
     jwtConfig?: AdopterJwtConfig;
   }

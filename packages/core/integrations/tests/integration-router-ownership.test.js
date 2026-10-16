@@ -57,11 +57,16 @@ const { CreateIntegration } = require('../use-cases/create-integration');
 const { GetIntegrationsForUser } = require('../use-cases/get-integrations-for-user');
 const { GetIntegrationInstance } = require('../use-cases/get-integration-instance');
 const { DeleteIntegrationForUser } = require('../use-cases/delete-integration-for-user');
+const { UpdateIntegration } = require('../use-cases/update-integration');
 const { GetEntitiesForUser } = require('../../modules/use-cases/get-entities-for-user');
 
 let currentUser;
-const caller = ({ individual = { id: '7', organizationId: null }, org = null } = {}) =>
-    new User(individual, org ? { id: String(org) } : null, false, 'individual', true, false);
+const caller = ({ individual = { id: '7', organizationId: null }, org = null, source = 'shared-secret', role } = {}) => {
+    const user = new User(individual, org ? { id: String(org) } : null, false, 'individual', true, false);
+    user.setAuthSource(source);
+    if (role) user.setOrgRole(role);
+    return user;
+};
 
 async function call(method, path, body) {
     const app = createApp((a) => a.use(createIntegrationRouter()));
@@ -189,6 +194,61 @@ describe('v1 routes follow the ownership rules', () => {
             const remove = jest.spyOn(DeleteIntegrationForUser.prototype, 'execute');
             expect((await call('DELETE', '/api/integrations/other')).status).toBe(404);
             expect(remove).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('organization roles: a member uses an organization integration, an admin manages it', () => {
+        const asToken = (role) => caller({ org: 17, source: 'adopter-jwt', role });
+
+        beforeEach(() => {
+            mockState.integrations = [
+                { id: 'mine', userId: '7', organizationId: '17', entitiesIds: ['1'], config: { type: 'sync' } },
+                { id: 'org', userId: '17', organizationId: '17', entitiesIds: ['3'], config: { type: 'sync' } },
+            ];
+        });
+
+        it.each([['a member', 'MEMBER'], ['a token with no role', undefined]])(
+            '%s: POST of an organization-owned integration is 403 and nothing is created',
+            async (_name, role) => {
+                const create = jest.spyOn(CreateIntegration.prototype, 'execute');
+                currentUser = asToken(role);
+                const res = await call('POST', '/api/integrations', { entities: ['3'], config: { type: 'sync' } });
+                expect(res.status).toBe(403);
+                expect(JSON.stringify(res.body)).toMatch(/organization admin|not change or delete|ORG_ADMIN/i);
+                expect(create).not.toHaveBeenCalled();
+            }
+        );
+
+        it('a member may still create their own integration', async () => {
+            const create = jest.spyOn(CreateIntegration.prototype, 'execute').mockResolvedValue({ id: 'new' });
+            currentUser = asToken('MEMBER');
+            const res = await call('POST', '/api/integrations', { entities: ['1'], config: { type: 'sync' } });
+            expect(res.status).toBe(201);
+            expect(create.mock.calls[0][1]).toBe('7');
+        });
+
+        it('a member may read but not PATCH or DELETE the organization integration', async () => {
+            const update = jest.spyOn(UpdateIntegration.prototype, 'execute');
+            const remove = jest.spyOn(DeleteIntegrationForUser.prototype, 'execute');
+            jest.spyOn(GetIntegrationInstance.prototype, 'execute').mockResolvedValue({
+                id: 'org', entities: [], status: 'ENABLED', config: {},
+            });
+            currentUser = asToken('MEMBER');
+            expect((await call('GET', '/api/integrations/org')).status).toBe(200);
+            expect((await call('PATCH', '/api/integrations/org', { config: { type: 'sync' } })).status).toBe(403);
+            expect((await call('DELETE', '/api/integrations/org')).status).toBe(403);
+            expect(update).not.toHaveBeenCalled();
+            expect(remove).not.toHaveBeenCalled();
+        });
+
+        it('an admin token may PATCH and DELETE it', async () => {
+            const update = jest.spyOn(UpdateIntegration.prototype, 'execute').mockResolvedValue({ id: 'org' });
+            const remove = jest.spyOn(DeleteIntegrationForUser.prototype, 'execute').mockResolvedValue();
+            currentUser = asToken('ADMIN');
+            expect((await call('PATCH', '/api/integrations/org', { config: { type: 'sync' } })).status).toBe(200);
+            expect((await call('DELETE', '/api/integrations/org')).status).toBe(204);
+            expect(update).toHaveBeenCalled();
+            expect(remove).toHaveBeenCalledWith('org', '17');
         });
     });
 });

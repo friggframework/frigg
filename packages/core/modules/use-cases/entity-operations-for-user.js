@@ -5,6 +5,7 @@ const {
     matchesListFilters,
 } = require('../scope-visibility');
 const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
+const { assertCanManage } = require('./manage-access');
 
 /**
  * Management API v2 entity operations. Each one starts from
@@ -111,10 +112,10 @@ class RefreshEntityOptionsForUser {
 }
 
 /**
- * Deletes an entity the caller may use. Refuses with 409 while integrations
- * still use it, so an integration never points at a missing entity. The
- * credential is left alone (others may share it); delete it through
- * /api/v2/credentials.
+ * Deletes an entity the caller may manage (the owner; for an organization
+ * entity, an organization admin). Refuses with 409 while integrations still
+ * use it, so an integration never points at a missing entity. The credential
+ * is left alone (others may share it); delete it through /api/v2/credentials.
  */
 class DeleteEntityForUser {
     constructor({ getEntityModuleForUser, moduleRepository, integrationRepository }) {
@@ -127,6 +128,10 @@ class DeleteEntityForUser {
         const entity = await this.getEntityModuleForUser.loadOwnedEntity(
             entityId,
             user
+        );
+        assertCanManage(
+            this.getEntityModuleForUser.describe(entity, user)?.access,
+            `entity ${entity.id}`
         );
         const integrations =
             (await this.integrationRepository.findIntegrationsByEntityId(

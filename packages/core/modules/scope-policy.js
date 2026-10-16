@@ -6,16 +6,21 @@
 
 const {
     INDIVIDUAL_ACROSS_VALUES,
+    DEFAULT_ORG_ADMIN_ROLES,
     configError,
     parseScopeSetting,
     resolveScope,
     resolveOwnerForScope,
 } = require('./scope-resolution');
-const { accessContext, describeRecord } = require('./scope-visibility');
+const {
+    accessContext,
+    accessToOwner,
+    describeRecord,
+} = require('./scope-visibility');
 
 /**
  * @param {Object} [params]
- * @param {{scope: *, individualAcross: string}} [params.ownership] - the raw
+ * @param {{scope: *, individualAcross: string, orgAdminRoles?: string[]}} [params.ownership] - the raw
  *   `appDefinition.ownership` or what resolveOwnershipConfig returned (a parsed
  *   `{ default, allow }` parses to itself)
  * @param {Map} [params.entityTypeRegistry]
@@ -33,7 +38,10 @@ function createScopePolicy({ ownership, entityTypeRegistry } = {}) {
         );
     }
 
-    const contextFor = (user) => accessContext(user, { individualAcross });
+    const orgAdminRoles = ownership?.orgAdminRoles ?? DEFAULT_ORG_ADMIN_ROLES;
+
+    const contextFor = (user) =>
+        accessContext(user, { individualAcross, orgAdminRoles });
 
     /** The scope a new connection of `entityType` gets (levels 1, 4, 5, 6). */
     const resolveEntityScope = ({ entityType, requestScope, binding, integration, user }) =>
@@ -65,8 +73,16 @@ function createScopePolicy({ ownership, entityTypeRegistry } = {}) {
     const canUseEntity = (user, entity) =>
         describeRecord(entity, contextFor(user), 'entity') !== null;
 
+    /**
+     * What `user` may do with a record owned by `ownerId` that has no
+     * organization of its own (a credential): manage, or null when not theirs.
+     */
+    const accessToOwnedBy = (user, ownerId) => accessToOwner(ownerId, contextFor(user));
+
     return Object.freeze({
         individualAcross,
+        orgAdminRoles,
+        accessToOwnedBy,
         accessContext: contextFor,
         resolveScope: resolveEntityScope,
         resolveOwnership,

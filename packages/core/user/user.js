@@ -1,6 +1,19 @@
 const bcrypt = require('bcryptjs');
 
 /**
+ * How the request that produced a `User` proved who it is. Set by
+ * AuthenticateUser, never inferred from a missing value. Organization roles
+ * (ADR-056 §3, §3.6) depend on it: a shared-secret caller is the app's own
+ * backend and is trusted to manage; a person with a token has the role the
+ * token carries, or `MEMBER`.
+ */
+const AUTH_SOURCES = Object.freeze({
+    SHARED_SECRET: 'shared-secret',
+    ADOPTER_JWT: 'adopter-jwt',
+    BEARER_TOKEN: 'bearer-token',
+});
+
+/**
  * Represents a user in the system. The User class is a domain entity,
  * @class User
  */
@@ -21,6 +34,8 @@ class User {
         // Organization role from an adopter token claim (ADR-056 §2). Per request:
         // the role stored on a membership is only what the first token carried.
         this.orgRole = null;
+        // How this request authenticated (one of AUTH_SOURCES); null until AuthenticateUser says.
+        this.authSource = null;
 
         this.config = {
             primary,
@@ -82,6 +97,14 @@ class User {
 
     isIndividualUserRequired() {
         return this.config.individualUserRequired;
+    }
+
+    getAuthSource() {
+        return this.authSource;
+    }
+
+    setAuthSource(authSource) {
+        this.authSource = authSource ?? null;
     }
 
     getOrgRole() {
@@ -149,4 +172,4 @@ class User {
     }
 }
 
-module.exports = { User }; 
+module.exports = { User, AUTH_SOURCES }; 

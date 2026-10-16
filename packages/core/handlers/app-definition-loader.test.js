@@ -244,7 +244,11 @@ describe('loadAppDefinition', () => {
 
         it('returns the resolved app-level ownership, defaulting to organization-wide individuals', () => {
             dirs.push(writeBackend({ integrations: [] }));
-            expect(loadAppDefinition().ownership).toEqual({ scope: null, individualAcross: 'organization' });
+            expect(loadAppDefinition().ownership).toEqual({
+                scope: null,
+                individualAcross: 'organization',
+                orgAdminRoles: ['ADMIN'],
+            });
 
             dirs.push(
                 writeBackend({
@@ -255,6 +259,7 @@ describe('loadAppDefinition', () => {
             expect(loadAppDefinition().ownership).toEqual({
                 scope: { default: 'organization', allow: ['organization', 'individual'] },
                 individualAcross: 'all',
+                orgAdminRoles: ['ADMIN'],
             });
         });
 

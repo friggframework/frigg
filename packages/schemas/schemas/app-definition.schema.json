@@ -115,6 +115,13 @@
           "description": "DEPRECATED alias of strictMembership; its meaning changed.",
           "default": false
         },
+        "orgAdminRoles": {
+          "type": "array",
+          "description": "Organization roles (the adopter token's role claim) that may manage organization-level things: connect or delete an organization-level account, re-authorize or delete its credential, create, change or delete an organization-owned integration (ADR-056 §3). A token with no role claim is MEMBER, never admin. A shared-secret (x-frigg header) caller needs no role. Compared case-insensitively.",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "default": ["ADMIN"]
+        },
         "authModes": {
           "type": "object",
           "description": "Authentication mode configuration - enables multiple authentication strategies. x-frigg-appUserId and x-frigg-appOrgId headers are automatically supported for user identification with any auth mode.",

@@ -14,6 +14,8 @@ const {
     applyRequest,
     matchesListFilters,
     createScopePolicy,
+    canManageOrganization,
+    accessToOwner,
     OwnershipConfigError,
 } = require('./entity-scope');
 
@@ -25,15 +27,19 @@ const user = ({
     individual = { id: '7', organizationId: null },
     org = null,
     primary = 'individual',
+    authSource = 'shared-secret',
+    role = null,
 } = {}) => ({
     config: { primary },
+    getAuthSource: () => authSource,
+    getOrgRole: () => role,
     getId: () => (primary === 'organization' ? org?.id : individual?.id),
     getIndividualUser: () => individual,
     getActiveOrganizationId: () => (org ? String(org.id) : null),
 });
 
-const ctxOf = (options, individualAcross) =>
-    accessContext(user(options), { individualAcross });
+const ctxOf = (options, individualAcross, orgAdminRoles) =>
+    accessContext(user(options), { individualAcross, orgAdminRoles });
 
 describe('resolveScope (ADR-056 §3.1)', () => {
     it('falls back to individual, or organization for an organization-primary app', () => {
@@ -179,6 +185,7 @@ describe('resolveOwnershipConfig (checked at app-definition load)', () => {
         expect(resolveOwnershipConfig({ integrations: [] }, new Map())).toEqual({
             scope: null,
             individualAcross: 'organization',
+            orgAdminRoles: ['ADMIN'],
         });
         expect(
             resolveOwnershipConfig(
@@ -188,6 +195,7 @@ describe('resolveOwnershipConfig (checked at app-definition load)', () => {
         ).toEqual({
             scope: { default: 'organization', allow: ['organization'] },
             individualAcross: 'all',
+            orgAdminRoles: ['ADMIN'],
         });
     });
 
@@ -694,5 +702,123 @@ describe('createScopePolicy', () => {
         expect(policy.resolveScope({ entityType: 'x', user: user(), requestScope: 'individual' }).scope).toBe(
             'individual'
         );
+    });
+});
+
+describe('organization roles (ADR-056 §3 permissions)', () => {
+    const member = { authSource: 'adopter-jwt', role: 'MEMBER' };
+
+    describe('canManageOrganization: a missing role never means admin', () => {
+        it.each([
+            ['shared-secret', null, true],
+            ['shared-secret', 'MEMBER', true],
+            ['adopter-jwt', 'ADMIN', true],
+            ['adopter-jwt', 'admin', true],
+            ['adopter-jwt', 'MEMBER', false],
+            ['adopter-jwt', null, false],
+            ['adopter-jwt', '', false],
+            ['bearer-token', null, false],
+            ['bearer-token', 'ADMIN', true],
+            [null, null, false],
+            [null, 'ADMIN', true],
+        ])('source %s, role %s -> %s', (authSource, orgRole, expected) => {
+            expect(canManageOrganization({ authSource, orgRole })).toBe(expected);
+        });
+
+        it('takes the configured admin roles, case-insensitively, and ADMIN stops being special', () => {
+            expect(canManageOrganization({ authSource: 'adopter-jwt', orgRole: 'Owner' }, ['owner', 'billing'])).toBe(true);
+            expect(canManageOrganization({ authSource: 'adopter-jwt', orgRole: 'ADMIN' }, ['owner'])).toBe(false);
+        });
+    });
+
+    it('a token without a role claim is a MEMBER: it cannot connect an organization-level account', () => {
+        for (const options of [{ authSource: 'adopter-jwt' }, { authSource: 'bearer-token' }, member]) {
+            expect(() => resolveOwnerForScope('organization', ctxOf({ org: { id: 17 }, ...options }))).toThrow(
+                /organization admin/
+            );
+        }
+        try {
+            resolveOwnerForScope('organization', ctxOf({ org: { id: 17 }, ...member }));
+        } catch (error) {
+            expect(error.output.statusCode).toBe(403);
+            expect(error.data.code).toBe('ORG_ADMIN_REQUIRED');
+        }
+    });
+
+    it('an admin token, a configured admin role and a shared-secret caller may', () => {
+        const owner = (options, roles) =>
+            resolveOwnerForScope('organization', ctxOf({ org: { id: 17 }, ...options }, undefined, roles)).ownerId;
+        expect(owner({ authSource: 'adopter-jwt', role: 'ADMIN' })).toBe('17');
+        expect(owner({ authSource: 'adopter-jwt', role: 'owner' }, ['OWNER'])).toBe('17');
+        expect(owner({ authSource: 'shared-secret' })).toBe('17');
+    });
+
+    it('a member still manages their own individual entity', () => {
+        expect(resolveOwnerForScope('individual', ctxOf({ org: { id: 17 }, ...member })).ownerId).toBe('7');
+    });
+
+    it('an organization-owned integration needs an admin too', () => {
+        expect(() => resolveIntegrationOwner('organization', ctxOf({ org: { id: 17 }, ...member }))).toThrow(
+            /organization admin/
+        );
+        expect(resolveIntegrationOwner('organization', ctxOf({ org: { id: 17 }, authSource: 'adopter-jwt', role: 'ADMIN' }))).toEqual({
+            ownerId: '17',
+            organizationId: '17',
+        });
+        // The person's own integration does not.
+        expect(resolveIntegrationOwner('individual', ctxOf({ org: { id: 17 }, ...member })).ownerId).toBe('7');
+    });
+
+    it('describeRecord: a member may use the organization entity and manage their own', () => {
+        const ctx = ctxOf({ org: { id: 17 }, ...member });
+        expect(describeRecord({ id: 'x', userId: '17', organizationId: '17' }, ctx, 'entity').access).toBe('use');
+        expect(describeRecord({ id: 'g', userId: '7', organizationId: '17' }, ctx, 'entity').access).toBe('manage');
+        const admin = ctxOf({ org: { id: 17 }, authSource: 'adopter-jwt', role: 'ADMIN' });
+        expect(describeRecord({ id: 'x', userId: '17', organizationId: '17' }, admin, 'entity').access).toBe('manage');
+    });
+
+    it('accessToOwner: a record without an organization of its own (a credential)', () => {
+        const ctx = ctxOf({ org: { id: 17 }, ...member });
+        expect(accessToOwner('7', ctx)).toBe('manage');
+        expect(accessToOwner('17', ctx)).toBe('use');
+        expect(accessToOwner('99', ctx)).toBeNull();
+        expect(accessToOwner(undefined, ctx)).toBeNull();
+        expect(accessToOwner('17', ctxOf({ org: { id: 17 } }))).toBe('manage');
+    });
+
+    describe('user.orgAdminRoles', () => {
+        const config = (orgAdminRoles) => resolveOwnershipConfig({ integrations: [], user: { orgAdminRoles } }, new Map());
+
+        it('defaults to ADMIN and is returned with the app config', () => {
+            expect(resolveOwnershipConfig({ integrations: [] }, new Map()).orgAdminRoles).toEqual(['ADMIN']);
+            expect(config(['owner', 'billing']).orgAdminRoles).toEqual(['owner', 'billing']);
+        });
+
+        it.each([[[]], [['']], [['ADMIN', 3]], [[' ']], ['ADMIN'], [{}]])('rejects %j at load', (roles) => {
+            expect(() => config(roles)).toThrow(OwnershipConfigError);
+            expect(() => config(roles)).toThrow(/orgAdminRoles/);
+        });
+
+        it('the policy applies the configured roles', () => {
+            const policy = createScopePolicy({ ownership: { scope: 'organization', orgAdminRoles: ['owner'] } });
+            const ownerToken = user({ org: { id: 17 }, authSource: 'adopter-jwt', role: 'OWNER' });
+            const adminToken = user({ org: { id: 17 }, authSource: 'adopter-jwt', role: 'ADMIN' });
+            expect(policy.resolveOwnership({ entityType: 'x', requestScope: 'organization', user: ownerToken }).ownerId).toBe('17');
+            expect(() => policy.resolveOwnership({ entityType: 'x', requestScope: 'organization', user: adminToken })).toThrow(
+                /organization admin/
+            );
+            expect(policy.accessToOwnedBy(ownerToken, '17')).toBe('manage');
+            expect(policy.accessToOwnedBy(adminToken, '17')).toBe('use');
+        });
+    });
+});
+
+describe('assertCanManage', () => {
+    const { assertCanManage } = require('./use-cases/manage-access');
+    it('only manage passes: use, no access and a missing access are all 403', () => {
+        expect(() => assertCanManage('manage', 'x')).not.toThrow();
+        for (const access of ['use', null, undefined]) {
+            expect(() => assertCanManage(access, 'x')).toThrow(/not change or delete/);
+        }
     });
 });

@@ -79,3 +79,13 @@ describe("integration-definition schema: ownership and binding scope", () => {
     expect(validateIntegrationDefinition(withScope("team")).valid).toBe(false);
   });
 });
+
+describe("app-definition schema: user.orgAdminRoles (ADR-056 §3)", () => {
+  it("accepts a list of role names", () => {
+    expect(validate({ user: { orgAdminRoles: ["ADMIN", "owner"] } }).valid).toBe(true);
+  });
+
+  it.each([[[]], [[""]], [["ADMIN", 1]], ["ADMIN"]])("rejects %j", (orgAdminRoles) => {
+    expect(validate({ user: { orgAdminRoles } }).valid).toBe(false);
+  });
+});

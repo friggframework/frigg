@@ -1,5 +1,6 @@
 const Boom = require('@hapi/boom');
 const { getLogger } = require('../../logs');
+const { AUTH_SOURCES } = require('../user');
 
 const log = getLogger('frigg.user.authentication');
 
@@ -68,10 +69,13 @@ class AuthenticateUser {
                 // Validate the API key (authentication)
                 await this.authenticateWithSharedSecret.execute(apiKey);
                 // Get user from x-frigg headers (authorization)
-                return await this.getUserFromXFriggHeaders.execute(
+                const user = await this.getUserFromXFriggHeaders.execute(
                     appUserId,
                     appOrgId
                 );
+                // The app's own backend: trusted to manage organization things.
+                user.setAuthSource(AUTH_SOURCES.SHARED_SECRET);
+                return user;
             }
             log.debug('No x-frigg-api-key header, skipping shared secret', {
                 eventName: `${log.name}.shared_secret_skipped`,
@@ -90,6 +94,7 @@ class AuthenticateUser {
             // Detect JWT format (3 parts separated by dots)
             if (token && token.split('.').length === 3) {
                 const user = await this.getUserFromAdopterJwt.execute(token);
+                user.setAuthSource(AUTH_SOURCES.ADOPTER_JWT);
                 // Validate x-frigg headers match JWT claims if present
                 if (appUserId || appOrgId) {
                     this.validateUserMatch(user, appUserId, appOrgId);
@@ -106,6 +111,7 @@ class AuthenticateUser {
             const user = await this.getUserFromBearerToken.execute(
                 req.headers.authorization
             );
+            user.setAuthSource(AUTH_SOURCES.BEARER_TOKEN);
             // Validate x-frigg headers match token user if present
             if (appUserId || appOrgId) {
                 this.validateUserMatch(user, appUserId, appOrgId);

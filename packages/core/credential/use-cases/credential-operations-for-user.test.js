@@ -3,6 +3,7 @@ const {
     GetCredentialForUserV2,
     DeleteCredentialForUser,
 } = require('./credential-operations-for-user');
+const { User } = require('../../user/user');
 
 const user = { getId: () => 'u1' };
 const credentials = [
@@ -71,3 +72,47 @@ describe('v2 credential operations', () => {
         expect(result).toEqual({ id: 'c1', entityIds: ['e1', 'e2'] });
     });
 });
+
+describe('an organization credential: members use it, admins delete it', () => {
+    const orgCredential = { id: 'c17', userId: '17', authIsValid: true };
+    const callerIn = (source, role) => {
+        const caller = new User({ id: '7', type: 'INDIVIDUAL' }, { id: '17' }, false, 'organization', true, true);
+        caller.setAuthSource(source);
+        if (role) caller.setOrgRole(role);
+        return caller;
+    };
+    const deleteWith = (caller) => {
+        const d = deps(orgCredential);
+        const getCredentialForUser = new GetCredentialForUserV2(d);
+        return {
+            d,
+            run: () => new DeleteCredentialForUser({ ...d, getCredentialForUser }).execute('c17', caller),
+        };
+    };
+
+    it.each([
+        ['a member', callerIn('adopter-jwt', 'MEMBER')],
+        ['a token with no role', callerIn('adopter-jwt')],
+    ])('403s %s and deletes nothing', async (_name, caller) => {
+        const { d, run } = deleteWith(caller);
+        await expect(run()).rejects.toMatchObject({ output: { statusCode: 403 }, data: { code: 'ORG_ADMIN_REQUIRED' } });
+        expect(d.moduleRepository.unsetCredential).not.toHaveBeenCalled();
+        expect(d.credentialRepository.deleteCredentialById).not.toHaveBeenCalled();
+    });
+
+    it('lets an admin token and a shared-secret caller delete it', async () => {
+        for (const caller of [callerIn('adopter-jwt', 'ADMIN'), callerIn('shared-secret')]) {
+            const { d, run } = deleteWith(caller);
+            await run();
+            expect(d.credentialRepository.deleteCredentialById).toHaveBeenCalledWith('c17');
+        }
+    });
+
+    it("a member deletes a credential they own themselves", async () => {
+        const d = deps({ id: 'c7', userId: '7' });
+        const getCredentialForUser = new GetCredentialForUserV2(d);
+        await new DeleteCredentialForUser({ ...d, getCredentialForUser }).execute('c7', callerIn('adopter-jwt', 'MEMBER'));
+        expect(d.credentialRepository.deleteCredentialById).toHaveBeenCalledWith('c7');
+    });
+});
+

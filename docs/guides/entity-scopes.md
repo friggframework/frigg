@@ -99,7 +99,28 @@ delete, actions, test-auth) reach it through the same rule.
 
 `/entities` and `/integrations` carry `scope`, `owner: { type, id }`, `organizationId` and `access` on every record,
 and take `?scope=individual|organization` and `?owner=me|org` (a bad value is 400). `access` is `manage` for the
-person's own and the organization's (there are no organization roles yet) and `use` where only use is possible.
+person's own, and for the organization's when the caller is an organization admin (see Organization roles); it is
+`use` where only use is possible.
+
+## Organization roles
+
+Anyone in an organization may **use** its entities and integrations; only an organization **admin** may create,
+change or delete them. Creating an organization-owned entity or integration, deleting an organization entity,
+PATCH/DELETE of an organization integration, and re-authorizing or deleting an organization-owned credential are 403
+`ORG_ADMIN_REQUIRED` for anyone else. A person always manages what they own themselves, whatever their role.
+
+Who counts as an admin depends on how the caller authenticated (`user.getAuthSource()`):
+
+| Auth source | Manages the organization |
+|---|---|
+| `shared-secret` (the `x-frigg-*` headers; the adopter's backend vouches for the caller) | always |
+| `adopter-jwt`, `bearer-token` | only when the token's role claim is one of `user.orgAdminRoles` |
+
+**A token without a role claim is a `MEMBER`, never an admin.** Only the shared-secret header path is trusted without
+a role. `user.orgAdminRoles` (default `['ADMIN']`, compared case-insensitively) is validated when the app definition
+loads: a non-empty array of non-empty strings. Entities and integrations take their access from `describeRecord`;
+credentials, which carry no organization of their own, from `scopePolicy.accessToOwnedBy(user, ownerId)`. Every gate
+goes through one check, `assertCanManage` in `modules/use-cases/manage-access.js`.
 
 **Credentials are not scoped in this change.** `/api/v2/credentials` still lists and fetches by owner, as before,
 so a credential owned by an organization user is not listed to an individual-primary caller. Listing credentials
@@ -177,7 +198,7 @@ both.
 ## Deferred
 
 - `managementApi.proxy.scopes` and the real-Postgres isolation suite (F6).
-- Organization roles (who may create, change or delete organization-level things), credential scoping, and the
+- Credential scoping, and the
   `ORPHANED` status with removing a member.
 - `GET /api/v2/me/organizations`, the org-admin `view` of members' individual entities.
 - Integrations that use global entities or both scopes, binding resolution at integration create (picking the entity

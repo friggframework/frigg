@@ -27,8 +27,12 @@ const {
     InMemoryAuthorizationSessionRepository,
 } = require('../../tests/doubles/in-memory-authorization-session-repository');
 
-const caller = ({ individual = { id: '7', organizationId: null }, org = null, primary = 'individual' } = {}) =>
-    new User(individual, org ? { id: String(org) } : null, false, primary, true, false);
+const caller = ({ individual = { id: '7', organizationId: null }, org = null, primary = 'individual', source = 'shared-secret', role } = {}) => {
+    const user = new User(individual, org ? { id: String(org) } : null, false, primary, true, false);
+    user.setAuthSource(source);
+    if (role) user.setOrgRole(role);
+    return user;
+};
 
 function build({ existing = [], registry, ownership } = {}) {
     const calls = { getEntityDetailsUserId: [], credentialUserId: [] };
@@ -153,6 +157,48 @@ describe('authorizing an organization entity', () => {
             data: { code: 'IDENTITY_REQUIRED', details: { field: 'x-frigg-apporgid' } },
         });
         expect(t.moduleRepository.createEntity).not.toHaveBeenCalled();
+    });
+});
+
+describe('authorizing an organization entity needs an organization admin', () => {
+    const registry = new Map([['acme', { settings: { scope: 'organization' } }]]);
+
+    it.each([
+        ['a member', { source: 'adopter-jwt', role: 'MEMBER' }],
+        ['a token with no role claim', { source: 'adopter-jwt' }],
+        ['a bearer token with no role', { source: 'bearer-token' }],
+    ])('refuses %s with 403 and creates nothing', async (_name, options) => {
+        const t = build({ registry });
+        await expect(authorize(t, caller({ org: 17, ...options }))).rejects.toMatchObject({
+            output: { statusCode: 403 },
+            data: { code: 'ORG_ADMIN_REQUIRED' },
+        });
+        expect(t.moduleRepository.createEntity).not.toHaveBeenCalled();
+    });
+
+    it('lets an admin token and a shared-secret caller connect it', async () => {
+        for (const options of [{ source: 'adopter-jwt', role: 'ADMIN' }, {}]) {
+            const t = build({ registry });
+            await authorize(t, caller({ org: 17, ...options }));
+            expect(t.moduleRepository.createEntity.mock.calls[0][0].user).toBe('17');
+        }
+    });
+
+    it('a member still connects their own individual account', async () => {
+        const t = build();
+        await authorize(t, caller({ org: 17, source: 'adopter-jwt', role: 'MEMBER' }));
+        expect(t.moduleRepository.createEntity.mock.calls[0][0].user).toBe('7');
+    });
+
+    it('the configured admin roles replace ADMIN', async () => {
+        const ownership = { scope: 'organization', orgAdminRoles: ['OWNER'] };
+        const owner = build({ registry, ownership });
+        await authorize(owner, caller({ org: 17, source: 'adopter-jwt', role: 'owner' }));
+        expect(owner.moduleRepository.createEntity).toHaveBeenCalled();
+        const admin = build({ registry, ownership });
+        await expect(authorize(admin, caller({ org: 17, source: 'adopter-jwt', role: 'ADMIN' }))).rejects.toMatchObject({
+            output: { statusCode: 403 },
+        });
     });
 });
 
