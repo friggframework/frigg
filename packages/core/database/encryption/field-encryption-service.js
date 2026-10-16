@@ -4,6 +4,16 @@
  * Infrastructure layer service that orchestrates field-level encryption/decryption.
  * Handles nested JSON paths (e.g., 'data.access_token') and bulk operations.
  */
+const { logger } = require('./logger');
+
+// Cryptor.encrypt() returns `${keyId}:${iv}:${ciphertext}:${encryptedKey}`:
+// keyId and encryptedKey are base64, iv is 16 bytes of hex, ciphertext is hex.
+// Plaintext with three colons (`https://user:pw@host:443`, `a:b:c:d`) must not
+// be mistaken for it.
+const BASE64_PART = /^[A-Za-z0-9+/]+={0,2}$/;
+const IV_PART = /^[0-9a-f]{32}$/i;
+const CIPHERTEXT_PART = /^(?:[0-9a-f]{2})+$/i;
+
 class FieldEncryptionService {
     constructor({ cryptor, schema }) {
         if (!cryptor) {
@@ -97,12 +107,23 @@ class FieldEncryptionService {
         const decryptionPromises = fields.map(async (fieldPath) => {
             const value = this._getNestedValue(decrypted, fieldPath);
 
-            if (this._isEncrypted(value)) {
+            if (!this._isEncrypted(value)) {
+                return null;
+            }
+            try {
                 const decryptedValue = await this.cryptor.decrypt(value);
                 const deserializedValue = this._deserializeAfterDecryption(decryptedValue);
                 return { fieldPath, decryptedValue: deserializedValue };
+            } catch (error) {
+                // A value that looks like ciphertext but is not (or was written
+                // before the field was encrypted) is read as it is stored. One
+                // such field must not fail the whole read, findMany included.
+                logger.warn(
+                    `Could not decrypt ${modelName}.${fieldPath}; returning the stored value`,
+                    { errorName: error?.name }
+                );
+                return null;
             }
-            return null;
         });
 
         const results = await Promise.all(decryptionPromises);
@@ -152,7 +173,13 @@ class FieldEncryptionService {
         }
 
         const parts = value.split(':');
-        return parts.length >= 4;
+        return (
+            parts.length === 4 &&
+            BASE64_PART.test(parts[0]) &&
+            IV_PART.test(parts[1]) &&
+            CIPHERTEXT_PART.test(parts[2]) &&
+            BASE64_PART.test(parts[3])
+        );
     }
 
     _getNestedValue(obj, path) {

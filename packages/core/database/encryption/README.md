@@ -428,6 +428,8 @@ Format: "keyId:encryptedText:encryptedKey"
 Example: "base64KeyId:iv:ciphertext:base64EncryptedDataKey"
 ```
 
+**Recognising ciphertext on read.** A value is decrypted only when it has exactly four colon-separated parts: base64 `keyId`, 32-hex-character `iv`, hex ciphertext, base64 `encryptedKey`. Plaintext that merely contains colons (`https://user:pw@host:443`) is left alone. A value with that shape that still fails to decrypt is returned as stored and logged as a warning, so one bad field never fails a whole read. A field that becomes encrypted later (for example a module's `credentialFields`) stays plaintext in existing rows until they are next written.
+
 **Why Envelope Encryption?**
 
 -   Reduces KMS API calls (one DEK per field, cached)
