@@ -79,6 +79,10 @@ const appDefinition = {
 
 In code, `getEntityTypeRegistry(appDefinition)` (`packages/core/modules/entity-type-registry.js`, exported from `@friggframework/core`) returns `name -> { definition, sources, settings }`. `sources` holds `{ kind: 'app' }` and one `{ kind: 'integration', name }` per binding integration. Invalid registries throw `EntityRegistryError` (`code: 'ENTITY_REGISTRY_INVALID'`). `createFriggCommands` takes an optional `moduleDefinitions`; without it the commands hydrate with the integration's own modules only.
 
+`getModulesDefinitionFromIntegrationClasses(integrationClasses, entities?)` is deprecated but still exported. It is a wrapper over the registry and returns its definitions, so it follows the registry's rules: one definition per entity type name, and registry-only types when `entities` is passed. It logs `frigg.integrations.deprecated_module_definitions` once per process.
+
+Not built yet: an entity whose type is no longer offered (unregistered and bound by no integration) still lists, reads and deletes like any other, but carries no `registered: false` flag, and module-backed calls on it (test-auth, options) return `404 ENTITY_TYPE_NOT_FOUND`.
+
 Decision record: ADR-059, app-level entity registry.
 
 ## Testing

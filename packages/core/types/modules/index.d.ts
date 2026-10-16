@@ -51,6 +51,16 @@ declare module "@friggframework/core" {
     appDefinition?: Pick<AppDefinition, "entities" | "integrations">
   ): EntityTypeRegistry;
 
+  /**
+   * @deprecated ADR-059. Use `getEntityTypeRegistry(appDefinition)` and read
+   * each entry's `definition`. Returns the registry's definitions for these
+   * integrations (plus registry-only types when `entities` is passed).
+   */
+  export function getModulesDefinitionFromIntegrationClasses(
+    integrationClasses: any[],
+    entities?: AppDefinitionEntities
+  ): any[];
+
   /** Invalid `entities` registry. `code` is always `ENTITY_REGISTRY_INVALID`. */
   export class EntityRegistryError extends Error {
     code: "ENTITY_REGISTRY_INVALID";

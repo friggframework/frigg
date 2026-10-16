@@ -63,6 +63,7 @@ const {
     Options,
     createIntegrationRouter,
     checkRequiredParams,
+    getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
 } = require('./integrations/index');
 const {
@@ -151,6 +152,8 @@ module.exports = {
     Options,
     checkRequiredParams,
     createIntegrationRouter,
+    // Deprecated (ADR-059): use getEntityTypeRegistry.
+    getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
     CreateProcess,
     UpdateProcessState,
