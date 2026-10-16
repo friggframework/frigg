@@ -9,6 +9,8 @@
  * - SCHEDULER_PROVIDER=mock -> Use in-memory mock scheduler
  * - SCHEDULER_PROVIDER=netlify -> Netlify poll-and-dispatch scheduler
  *   (friggframework/frigg#545; needs `repository`, usually `queueProvider`)
+ * - Default on Netlify (NETLIFY=true, set by the Netlify runtime and build;
+ *   provider-netlify's generated functions also set SCHEDULER_PROVIDER) -> Netlify
  * - Default in dev/test/local stages -> Mock scheduler
  * - Default in other stages -> EventBridge scheduler
  * - Any other name -> require('@friggframework/provider-<name>').SchedulerAdapter
@@ -36,12 +38,25 @@ function determineProvider() {
         return explicitProvider;
     }
 
+    // Checked before the stage: a Netlify site with no STAGE (or STAGE=dev)
+    // must still persist schedules where scheduled-sync reads them.
+    if (process.env.NETLIFY === 'true') {
+        return SCHEDULER_PROVIDERS.NETLIFY;
+    }
+
     const stage = process.env.STAGE || 'dev';
     if (LOCAL_STAGES.includes(stage)) {
         return SCHEDULER_PROVIDERS.MOCK;
     }
 
     return SCHEDULER_PROVIDERS.EVENTBRIDGE;
+}
+
+function createDefaultScheduledJobRepository() {
+    const { ScheduledJobRepository } = require('./scheduled-job-repository');
+    // The prisma export is a lazy proxy: nothing connects until a query runs.
+    const { prisma } = require('../../database/prisma');
+    return new ScheduledJobRepository({ prismaClient: prisma });
 }
 
 /**
@@ -74,7 +89,11 @@ function createSchedulerService(options = {}) {
         case SCHEDULER_PROVIDERS.NETLIFY: {
             const { NetlifySchedulerAdapter } = require('./netlify-scheduler-adapter');
             return new NetlifySchedulerAdapter({
-                repository: options.repository,
+                // Default: the Prisma ScheduledJob rows that the Netlify
+                // scheduled-sync function polls. Without it the adapter
+                // falls back to memory, and a schedule made in one function
+                // is never seen by the cron.
+                repository: options.repository || createDefaultScheduledJobRepository(),
                 queueProvider: options.queueProvider,
             });
         }

@@ -242,6 +242,10 @@ function generateNetlifyEnvTemplate(appDefinition) {
         envVars.STAGE = 'Deployment stage (production, staging, dev)';
     }
 
+    // One-time jobs are stored as ScheduledJob rows and dispatched by the
+    // scheduled-sync cron; the generated functions default to it as well.
+    envVars.SCHEDULER_PROVIDER = 'netlify (one-time jobs are polled by the scheduled-sync function)';
+
     // Queue worker authentication: required, the worker is a public URL.
     envVars.FRIGG_QUEUE_SIGNING_SECRET =
         'REQUIRED. Secret that signs queue messages to the worker-background function (HMAC-SHA256); without it every message is refused. Generate with: openssl rand -hex 32';

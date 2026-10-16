@@ -44,6 +44,9 @@ const DEFAULT_BACKEND_PATH = '../../backend';
  */
 function buildPreamble(backendPath) {
     return [
+        "// One-time jobs (createSchedulerCommands().scheduleJob) must land in the",
+        "// ScheduledJob rows scheduled-sync polls, not in EventBridge.",
+        "process.env.SCHEDULER_PROVIDER = process.env.SCHEDULER_PROVIDER || 'netlify';",
         '// Pre-load app definition so nft can trace backend dependencies statically.',
         '// This avoids process.cwd() discovery which fails in Netlify function runtime.',
         `const { setAppDefinition } = require('${backendPath}/node_modules/@friggframework/core/handlers/app-definition-loader');`,
