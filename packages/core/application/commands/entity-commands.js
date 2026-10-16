@@ -7,6 +7,13 @@ const ERROR_CODE_MAP = {
     INVALID_ENTITY_DATA: 400,
 };
 
+function toCredentialId(credential) {
+    if (credential && typeof credential === 'object') {
+        return (credential.id ?? credential._id)?.toString() ?? null;
+    }
+    return credential ?? null;
+}
+
 function mapErrorToResponse(error) {
     const status = ERROR_CODE_MAP[error?.code] || 500;
     return {
@@ -72,9 +79,7 @@ function createEntityCommands() {
                     externalId: entity.externalId,
                     name: entity.name,
                     moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
+                    credentialId: toCredentialId(entity.credential),
                 };
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -115,9 +120,7 @@ function createEntityCommands() {
                     externalId: entity.externalId,
                     name: entity.name,
                     moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
+                    credentialId: toCredentialId(entity.credential),
                 };
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -145,9 +148,7 @@ function createEntityCommands() {
                     externalId: entity.externalId,
                     name: entity.name,
                     moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
+                    credentialId: toCredentialId(entity.credential),
                 }));
             } catch (error) {
                 if (error.code) {
@@ -186,9 +187,7 @@ function createEntityCommands() {
                     externalId: entity.externalId,
                     name: entity.name,
                     moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
+                    credentialId: toCredentialId(entity.credential),
                 }));
             } catch (error) {
                 if (error.code) {
@@ -219,9 +218,7 @@ function createEntityCommands() {
                     externalId: entity.externalId,
                     name: entity.name,
                     moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
+                    credentialId: toCredentialId(entity.credential),
                 };
             } catch (error) {
                 return mapErrorToResponse(error);
@@ -256,9 +253,7 @@ function createEntityCommands() {
                     externalId: entity.externalId,
                     name: entity.name,
                     moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
+                    credentialId: toCredentialId(entity.credential),
                 };
             } catch (error) {
                 return mapErrorToResponse(error);
