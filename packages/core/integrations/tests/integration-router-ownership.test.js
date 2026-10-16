@@ -53,6 +53,7 @@ const { createApp } = require('../../handlers/app-handler-helpers');
 const { AuthenticateUser } = require('../../user/use-cases/authenticate-user');
 const { User } = require('../../user/user');
 const { ProcessAuthorizationCallback } = require('../../modules/use-cases/process-authorization-callback');
+const { GetModuleInstanceFromType } = require('../../modules/use-cases/get-module-instance-from-type');
 const { CreateIntegration } = require('../use-cases/create-integration');
 const { GetIntegrationsForUser } = require('../use-cases/get-integrations-for-user');
 const { GetIntegrationInstance } = require('../use-cases/get-integration-instance');
@@ -117,6 +118,23 @@ describe('v1 routes follow the ownership rules', () => {
             organizationId: '17',
             legacyOrgId: null,
         });
+    });
+
+    it('GET /api/authorize builds the module for the owner POST stores under, not for user.getId()', async () => {
+        const instance = jest
+            .spyOn(GetModuleInstanceFromType.prototype, 'execute')
+            .mockResolvedValue({
+                validateAuthorizationRequirements: () => true,
+                getAuthorizationRequirements: () => ({ url: 'https://example.test' }),
+            });
+        const post = jest
+            .spyOn(ProcessAuthorizationCallback.prototype, 'execute')
+            .mockResolvedValue({ credential_id: 'c', entity_id: 'e' });
+        expect((await call('GET', '/api/authorize?entityType=acme')).status).toBe(200);
+        expect((await call('POST', '/api/authorize', { entityType: 'acme', data: { key: 'k' } })).status).toBe(200);
+        // acme is organization-scoped: organization 17 owns it, not person 7.
+        expect(instance.mock.calls[0][0]).toBe('17');
+        expect(post.mock.calls[0][0]).toBe('17');
     });
 
     it('POST /api/authorize: 400 when the scope needs an organization the request does not have', async () => {

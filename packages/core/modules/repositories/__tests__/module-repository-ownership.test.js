@@ -50,6 +50,15 @@ describe('ModuleRepositoryPostgres', () => {
         expect(found[0]).toMatchObject({ id: '5', userId: '7', organizationId: '17' });
     });
 
+    it('provider data cannot replace the row identity: id, userId, organizationId and the other columns come from the row', async () => {
+        const repo = make([
+            { id: 5, userId: 7, organizationId: 17, name: 'n', externalId: 'x', moduleName: 'm', data: { id: 'evil-id', userId: 'evil-user', organizationId: 'evil-org', moduleName: 'evil', externalId: 'evil-ext', name: 'evil-name', credential: 'evil-cred' } },
+        ]);
+        const [entity] = await repo.findEntitiesByOwnership(clauses);
+        expect(entity).toMatchObject({ id: '5', userId: '7', organizationId: '17', name: 'n', externalId: 'x', moduleName: 'm' });
+        expect(entity.credential).not.toBe('evil-cred');
+    });
+
     it('asks for nothing when there are no clauses', async () => {
         const repo = make();
         expect(await repo.findEntitiesByOwnership([])).toEqual([]);
@@ -106,6 +115,15 @@ describe('ModuleRepositoryMongo', () => {
     const unset = (userId) => ({
         userId,
         OR: [{ organizationId: null }, { organizationId: { isSet: false } }],
+    });
+
+    it('provider data cannot replace the row identity: id, userId, organizationId and the other columns come from the row', async () => {
+        const repo = make([
+            { id: '5', userId: '7', organizationId: '17', name: 'n', externalId: 'x', moduleName: 'm', data: { id: 'evil-id', userId: 'evil-user', organizationId: 'evil-org', moduleName: 'evil', externalId: 'evil-ext', name: 'evil-name', credential: 'evil-cred' } },
+        ]);
+        const [entity] = await repo.findEntitiesByOwnership(clauses);
+        expect(entity).toMatchObject({ id: '5', userId: '7', organizationId: '17', name: 'n', externalId: 'x', moduleName: 'm' });
+        expect(entity.credential).not.toBe('evil-cred');
     });
 
     it('matches a null organization as null OR unset: rows written before the column have no field', async () => {
@@ -180,5 +198,30 @@ describe('ModuleRepositoryDocumentDB', () => {
         const [doc] = insert.documents;
         expect(doc.organizationId.toString()).toBe(ids.u17.toString());
         expect(doc.data).toEqual({ organizationId: 'provider' });
+    });
+    it('provider data cannot replace the document identity: id, userId, organizationId and the other columns come from the document', async () => {
+        const { repo, $runCommandRaw } = make();
+        $runCommandRaw.mockImplementation(async (command) =>
+            command.find === 'Entity'
+                ? {
+                      cursor: {
+                          firstBatch: [
+                              {
+                                  _id: { $oid: ids.u7.toString() },
+                                  userId: { $oid: ids.u7.toString() },
+                                  organizationId: { $oid: ids.u17.toString() },
+                                  name: 'n', externalId: 'x', moduleName: 'm',
+                                  data: { id: 'evil-id', userId: 'evil-user', organizationId: 'evil-org', moduleName: 'evil', externalId: 'evil-ext', name: 'evil-name', credential: 'evil-cred' },
+                              },
+                          ],
+                      },
+                  }
+                : { cursor: { firstBatch: [] } }
+        );
+        const [entity] = await repo.findEntitiesByOwnership([{ userId: ids.u7.toString(), organizationId: ids.u17.toString() }]);
+        expect(entity).toMatchObject({
+            id: ids.u7.toString(), userId: ids.u7.toString(), organizationId: ids.u17.toString(),
+            name: 'n', externalId: 'x', moduleName: 'm',
+        });
     });
 });

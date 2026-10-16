@@ -534,10 +534,14 @@ function setEntityRoutes(router, authenticateUser, useCases) {
     router.route('/api/authorize').get(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.query, ['entityType']);
+            // The owner POST stores under, so GET and POST describe one connection.
+            const { ownerId } = authorizeEntityForUser.resolveOwnership({
+                user,
+                entityType: params.entityType,
+            });
             const module = await getModuleInstanceFromType.execute(
-                userId,
+                ownerId,
                 params.entityType,
                 { state: req.query.state }
             );

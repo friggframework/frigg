@@ -79,19 +79,20 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
 
     /**
      * The one place a stored entity row becomes the entity the application sees.
-     * `organizationId` comes after the entity data: a provider field of the same
-     * name must not decide who sees the entity.
+     * The provider's `data` is spread FIRST and every column is pinned after it:
+     * a stored `id`, `userId` or `organizationId` in `data` must not decide who
+     * owns the entity or who sees it.
      * @private
      */
     _mapEntity(row, credential) {
         return {
+            ...(row.data || {}),
             id: row.id,
             credential,
             userId: row.userId,
             name: row.name,
             externalId: row.externalId,
             moduleName: row.moduleName,
-            ...(row.data || {}),
             organizationId: row.organizationId ?? null,
         };
     }
