@@ -29,17 +29,19 @@ const user = ({
     primary = 'individual',
     authSource = 'shared-secret',
     role = null,
+    membershipRole = null,
 } = {}) => ({
     config: { primary },
     getAuthSource: () => authSource,
     getOrgRole: () => role,
+    getMembershipRole: () => membershipRole,
     getId: () => (primary === 'organization' ? org?.id : individual?.id),
     getIndividualUser: () => individual,
     getActiveOrganizationId: () => (org ? String(org.id) : null),
 });
 
-const ctxOf = (options, individualAcross, orgAdminRoles) =>
-    accessContext(user(options), { individualAcross, orgAdminRoles });
+const ctxOf = (options, individualAcross, orgAdminRoles, gateBearerTokens) =>
+    accessContext(user(options), { individualAcross, orgAdminRoles, gateBearerTokens });
 
 describe('resolveScope (ADR-056 §3.1)', () => {
     it('falls back to individual, or organization for an organization-primary app', () => {
@@ -186,6 +188,7 @@ describe('resolveOwnershipConfig (checked at app-definition load)', () => {
             scope: null,
             individualAcross: 'organization',
             orgAdminRoles: ['ADMIN'],
+            gateBearerTokens: false,
         });
         expect(
             resolveOwnershipConfig(
@@ -196,6 +199,7 @@ describe('resolveOwnershipConfig (checked at app-definition load)', () => {
             scope: { default: 'organization', allow: ['organization'] },
             individualAcross: 'all',
             orgAdminRoles: ['ADMIN'],
+            gateBearerTokens: false,
         });
     });
 
@@ -717,12 +721,46 @@ describe('organization roles (ADR-056 §3 permissions)', () => {
             ['adopter-jwt', 'MEMBER', false],
             ['adopter-jwt', null, false],
             ['adopter-jwt', '', false],
-            ['bearer-token', null, false],
-            ['bearer-token', 'ADMIN', true],
             [null, null, false],
             [null, 'ADMIN', true],
         ])('source %s, role %s -> %s', (authSource, orgRole, expected) => {
             expect(canManageOrganization({ authSource, orgRole })).toBe(expected);
+        });
+
+        it.each([
+            // The token's role wins when it carries one.
+            ['ADMIN', 'MEMBER', true],
+            ['MEMBER', 'ADMIN', false],
+            // None on the token: the stored membership role.
+            [null, 'ADMIN', true],
+            ['', 'admin', true],
+            [null, 'MEMBER', false],
+            // Neither: MEMBER.
+            [null, null, false],
+            [null, '', false],
+        ])('adopter-jwt: token role %j, membership role %j -> %s', (orgRole, membershipRole, expected) => {
+            expect(canManageOrganization({ authSource: 'adopter-jwt', orgRole, membershipRole })).toBe(expected);
+        });
+
+        it('an unknown source falls back to the stored membership role too', () => {
+            expect(canManageOrganization({ authSource: null, membershipRole: 'ADMIN' })).toBe(true);
+            expect(canManageOrganization({ authSource: null, membershipRole: 'MEMBER' })).toBe(false);
+        });
+
+        it('a Frigg bearer token keeps its pre-roles behaviour (may manage) unless the app opts in', () => {
+            expect(canManageOrganization({ authSource: 'bearer-token' })).toBe(true);
+            expect(canManageOrganization({ authSource: 'bearer-token' }, undefined, {})).toBe(true);
+            const gated = (who) =>
+                canManageOrganization({ authSource: 'bearer-token', ...who }, undefined, { gateBearerTokens: true });
+            expect(gated({})).toBe(false);
+            expect(gated({ membershipRole: 'MEMBER' })).toBe(false);
+            expect(gated({ membershipRole: 'ADMIN' })).toBe(true);
+        });
+
+        it('the shared secret manages whatever the opt-in says', () => {
+            expect(
+                canManageOrganization({ authSource: 'shared-secret' }, undefined, { gateBearerTokens: true })
+            ).toBe(true);
         });
 
         it('takes the configured admin roles, case-insensitively, and ADMIN stops being special', () => {
@@ -731,8 +769,8 @@ describe('organization roles (ADR-056 §3 permissions)', () => {
         });
     });
 
-    it('a token without a role claim is a MEMBER: it cannot connect an organization-level account', () => {
-        for (const options of [{ authSource: 'adopter-jwt' }, { authSource: 'bearer-token' }, member]) {
+    it('an adopter token with no role claim and no stored role is a MEMBER: it cannot connect an organization-level account', () => {
+        for (const options of [{ authSource: 'adopter-jwt' }, member]) {
             expect(() => resolveOwnerForScope('organization', ctxOf({ org: { id: 17 }, ...options }))).toThrow(
                 /organization admin/
             );
@@ -751,6 +789,22 @@ describe('organization roles (ADR-056 §3 permissions)', () => {
         expect(owner({ authSource: 'adopter-jwt', role: 'ADMIN' })).toBe('17');
         expect(owner({ authSource: 'adopter-jwt', role: 'owner' }, ['OWNER'])).toBe('17');
         expect(owner({ authSource: 'shared-secret' })).toBe('17');
+    });
+
+    it('a bearer token connects an organization-level account as before roles, unless the app gates it', () => {
+        const bearer = { org: { id: 17 }, authSource: 'bearer-token' };
+        expect(resolveOwnerForScope('organization', ctxOf(bearer)).ownerId).toBe('17');
+        expect(() =>
+            resolveOwnerForScope('organization', ctxOf(bearer, undefined, undefined, true))
+        ).toThrow(/organization admin/);
+    });
+
+    it('an adopter token with no role claim uses the stored membership role', () => {
+        const stored = { org: { id: 17 }, authSource: 'adopter-jwt', membershipRole: 'ADMIN' };
+        expect(resolveOwnerForScope('organization', ctxOf(stored)).ownerId).toBe('17');
+        expect(() =>
+            resolveOwnerForScope('organization', ctxOf({ ...stored, role: 'MEMBER' }))
+        ).toThrow(/organization admin/);
     });
 
     it('a member still manages their own individual entity', () => {
@@ -788,6 +842,20 @@ describe('organization roles (ADR-056 §3 permissions)', () => {
 
     describe('user.orgAdminRoles', () => {
         const config = (orgAdminRoles) => resolveOwnershipConfig({ integrations: [], user: { orgAdminRoles } }, new Map());
+
+        it('orgAdminGateBearerTokens: default false, validated, and applied by the policy', () => {
+            const gate = (value) =>
+                resolveOwnershipConfig({ integrations: [], user: { orgAdminGateBearerTokens: value } }, new Map());
+            expect(resolveOwnershipConfig({ integrations: [] }, new Map()).gateBearerTokens).toBe(false);
+            expect(gate(true).gateBearerTokens).toBe(true);
+            expect(gate(false).gateBearerTokens).toBe(false);
+            expect(() => gate('yes')).toThrow(/orgAdminGateBearerTokens/);
+            const bearer = user({ org: { id: 17 }, authSource: 'bearer-token' });
+            const open = createScopePolicy({ ownership: { scope: 'organization' } });
+            const gated = createScopePolicy({ ownership: { scope: 'organization', gateBearerTokens: true } });
+            expect(open.resolveOwnership({ entityType: 'x', user: bearer }).ownerId).toBe('17');
+            expect(() => gated.resolveOwnership({ entityType: 'x', user: bearer })).toThrow(/organization admin/);
+        });
 
         it('defaults to ADMIN and is returned with the app config', () => {
             expect(resolveOwnershipConfig({ integrations: [] }, new Map()).orgAdminRoles).toEqual(['ADMIN']);

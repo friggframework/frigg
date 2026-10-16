@@ -248,6 +248,7 @@ describe('loadAppDefinition', () => {
                 scope: null,
                 individualAcross: 'organization',
                 orgAdminRoles: ['ADMIN'],
+                gateBearerTokens: false,
             });
 
             dirs.push(
@@ -260,6 +261,7 @@ describe('loadAppDefinition', () => {
                 scope: { default: 'organization', allow: ['organization', 'individual'] },
                 individualAcross: 'all',
                 orgAdminRoles: ['ADMIN'],
+                gateBearerTokens: false,
             });
         });
 

@@ -124,10 +124,20 @@ Who counts as an admin depends on how the caller authenticated (`user.getAuthSou
 | Auth source | Manages the organization |
 |---|---|
 | `shared-secret` (the `x-frigg-*` headers; the adopter's backend vouches for the caller) | always |
-| `adopter-jwt`, `bearer-token` | only when the token's role claim is one of `user.orgAdminRoles` |
+| `bearer-token` (Frigg's own `/user/login` token) | always, as before organization roles existed, unless the app sets `user.orgAdminGateBearerTokens: true`; then it is judged as `adopter-jwt` below, and since it carries no role and no membership role is read for it, it is a `MEMBER` |
+| `adopter-jwt` | when its role is one of `user.orgAdminRoles`. The role is the token's role claim; when the token carries none, the `orgRole` stored on the caller's `OrganizationMembership` for the active organization (a legacy-pointer membership counts as `MEMBER`); when there is none, `MEMBER` |
 
-**A token without a role claim is a `MEMBER`, never an admin.** Only the shared-secret header path is trusted without
-a role. `user.orgAdminRoles` (default `['ADMIN']`, compared case-insensitively) is validated when the app definition
+**The token's role wins when it carries one**, so an IdP that demotes someone takes effect at once. The stored role
+matters for tokens without a role claim: the row keeps the role the person's first token in that organization carried
+(`MEMBER` if none), and an adopter may change it in the database. **A missing role is a `MEMBER`, never an admin.**
+
+Why bearer tokens are not gated by default: a Frigg bearer token never carries a role, and in an organization-primary
+app (whose default scope is `organization`) a gate would leave Frigg-UI users unable to connect anything, which was
+not true before this change. Bearer tokens in an organization-primary app are minted for the organization user itself,
+so treating them as the organization is the old meaning. An app that wants them gated opts in, knowing they will then
+be members.
+
+`user.orgAdminRoles` (default `['ADMIN']`, compared case-insensitively) is validated when the app definition
 loads: a non-empty array of non-empty strings. Entities and integrations take their access from `describeRecord`;
 credentials, which carry no organization of their own, from `scopePolicy.accessToOwnedBy(user, ownerId)`. Every gate
 goes through one check, `assertCanManage` in `modules/use-cases/manage-access.js`.
