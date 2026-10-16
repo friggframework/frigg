@@ -55,8 +55,13 @@ let presetDefinition = null;
  * @param {Object|null} definition - the backend's `Definition` export
  */
 function setAppDefinition(definition) {
-    if (definition !== null && (typeof definition !== 'object' || Array.isArray(definition))) {
-        throw new TypeError('setAppDefinition expects the app Definition object (or null)');
+    if (
+        definition !== null &&
+        (typeof definition !== 'object' || Array.isArray(definition))
+    ) {
+        throw new TypeError(
+            'setAppDefinition expects the app Definition object (or null)'
+        );
     }
     presetDefinition = definition;
 }
