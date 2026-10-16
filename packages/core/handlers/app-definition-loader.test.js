@@ -8,6 +8,7 @@ jest.mock('@friggframework/core/utils', () => ({
 
 const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const { loadAppDefinition } = require('./app-definition-loader');
+const { EntityRegistryError } = require('../modules/entity-type-registry');
 const { isDeniedKey } = require('../logs/redact');
 const { createMemorySink } = require('../logs');
 
@@ -123,5 +124,74 @@ describe('loadAppDefinition', () => {
         expect(warnings).toEqual([
             expect.objectContaining({ level: 'WARN', key: 'user_id' }),
         ]);
+    });
+    describe('entity registry (ADR-059)', () => {
+        const xero = { moduleName: 'xero' };
+        const hubspot = { moduleName: 'hubspot' };
+        const sync = { Definition: { name: 'sync', modules: { crm: { definition: hubspot } } } };
+
+        it('returns entities, the registry and the offered definitions, registry-only types included', () => {
+            dirs.push(
+                writeBackend({
+                    integrations: [sync],
+                    entities: { xero: { definition: xero, scope: 'global' } },
+                })
+            );
+
+            const loaded = loadAppDefinition();
+
+            expect(loaded.entities).toEqual({ xero: { definition: xero, scope: 'global' } });
+            expect([...loaded.entityTypeRegistry.keys()].sort()).toEqual(['hubspot', 'xero']);
+            expect(loaded.moduleDefinitions.map((d) => d.moduleName).sort()).toEqual([
+                'hubspot',
+                'xero',
+            ]);
+        });
+
+        it('defaults entities to null and offers only integration-bound modules', () => {
+            dirs.push(writeBackend({ integrations: [sync] }));
+
+            const loaded = loadAppDefinition();
+
+            expect(loaded.entities).toBeNull();
+            expect(loaded.moduleDefinitions).toEqual([hubspot]);
+        });
+
+        it('registers a registry-only module’s credential fields as denied log keys', () => {
+            const registryOnly = {
+                moduleName: 'ledger',
+                encryption: { credentialFields: ['quokkaLedgerRef'] },
+            };
+            expect(isDeniedKey('quokkaLedgerRef')).toBe(false);
+            dirs.push(
+                writeBackend({
+                    integrations: [],
+                    entities: { ledger: { definition: registryOnly } },
+                })
+            );
+
+            loadAppDefinition();
+
+            expect(isDeniedKey('quokkaLedgerRef')).toBe(true);
+        });
+
+        it.each([
+            ['a key that is not the definition name', { entities: { crm: { definition: hubspot } } }, /key 'crm'/],
+            [
+                '$infer: false with an unregistered bound module',
+                { entities: { $infer: false, xero: { definition: xero } } },
+                /Missing: hubspot/,
+            ],
+            [
+                'a registered definition that conflicts with an integration binding',
+                { entities: { hubspot: { definition: { moduleName: 'hubspot', other: true } } } },
+                /different definitions/,
+            ],
+        ])('fails at load, not on first request, for %s', (_label, extra, message) => {
+            dirs.push(writeBackend({ integrations: [sync], ...extra }));
+
+            expect(() => loadAppDefinition()).toThrow(EntityRegistryError);
+            expect(() => loadAppDefinition()).toThrow(message);
+        });
     });
 });

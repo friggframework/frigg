@@ -99,6 +99,8 @@ const {
     Requester,
     ModuleConstants,
     ModuleFactory,
+    getEntityTypeRegistry,
+    EntityRegistryError,
 } = require('./modules/index');
 const application = require('./application');
 const utils = require('./utils');
@@ -150,6 +152,7 @@ module.exports = {
     Options,
     checkRequiredParams,
     createIntegrationRouter,
+    // Deprecated (ADR-059): use getEntityTypeRegistry.
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
     CreateProcess,
@@ -206,6 +209,8 @@ module.exports = {
     Requester,
     ModuleConstants,
     ModuleFactory,
+    getEntityTypeRegistry,
+    EntityRegistryError,
     // queues
     QueuerUtil,
 

@@ -18,8 +18,9 @@ const {
     createModuleRepository,
 } = require('../modules/repositories/module-repository-factory');
 const {
-    getModulesDefinitionFromIntegrationClasses,
-} = require('../integrations/utils/map-integration-dto');
+    getEntityTypeRegistry,
+    getEntityTypeDefinitions,
+} = require('../modules/entity-type-registry');
 const { processNotFound } = require('../integrations/use-cases/process-errors');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
@@ -61,30 +62,18 @@ const initializeRepositories = () => {
     return { processRepository, integrationRepository, moduleRepository };
 };
 
-const createModuleFactoryWithDefinitions = (
-    moduleRepository,
-    integrationClasses
-) => {
-    const moduleDefinitions =
-        getModulesDefinitionFromIntegrationClasses(integrationClasses);
-
-    return new ModuleFactory({
-        moduleRepository,
-        moduleDefinitions,
-    });
-};
-
 const loadIntegrationForWebhook = async (integrationId) => {
     const { loadAppDefinition } = require('./app-definition-loader');
-    const { integrations: integrationClasses } = loadAppDefinition();
+    const { integrations: integrationClasses, moduleDefinitions } =
+        loadAppDefinition();
 
     const { integrationRepository, moduleRepository } =
         initializeRepositories();
 
-    const moduleFactory = createModuleFactoryWithDefinitions(
+    const moduleFactory = new ModuleFactory({
         moduleRepository,
-        integrationClasses
-    );
+        moduleDefinitions,
+    });
 
     const getIntegrationInstance = new GetIntegrationInstance({
         integrationRepository,
@@ -129,13 +118,23 @@ const integrationExists = async (integrationId) => {
     }
 };
 
-const loadIntegrationForProcess = async (processId, integrationClass) => {
+const loadIntegrationForProcess = async (
+    processId,
+    integrationClass,
+    moduleDefinitions
+) => {
     const { processRepository, integrationRepository, moduleRepository } =
         initializeRepositories();
 
-    const moduleFactory = createModuleFactoryWithDefinitions(moduleRepository, [
-        integrationClass,
-    ]);
+    const moduleFactory = new ModuleFactory({
+        moduleRepository,
+        moduleDefinitions:
+            moduleDefinitions ??
+            // No app definition handed in: this integration's own modules only.
+            getEntityTypeDefinitions(
+                getEntityTypeRegistry({ integrations: [integrationClass] })
+            ),
+    });
 
     const getIntegrationInstance = new GetIntegrationInstance({
         integrationRepository,
@@ -161,7 +160,13 @@ const loadIntegrationForProcess = async (processId, integrationClass) => {
     return instance;
 };
 
-const createQueueWorker = (integrationClass) => {
+/**
+ * @param {Function} integrationClass
+ * @param {{moduleDefinitions?: Array<object>}} [options] - the app's offered
+ *   module definitions (`loadAppDefinition().moduleDefinitions`). When omitted
+ *   the worker hydrates with this integration's own modules only.
+ */
+const createQueueWorker = (integrationClass, { moduleDefinitions } = {}) => {
     const integrationName = integrationClass.Definition.name;
 
     class QueueWorker extends Worker {
@@ -183,7 +188,8 @@ const createQueueWorker = (integrationClass) => {
                     console.log(`[QueueWorker] hydrating by processId`, logCtx);
                     integrationInstance = await loadIntegrationForProcess(
                         params.data.processId,
-                        integrationClass
+                        integrationClass,
+                        moduleDefinitions
                     );
                     console.log(`[QueueWorker] hydrated`, {
                         ...logCtx,

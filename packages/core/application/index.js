@@ -17,6 +17,7 @@ const { createUsageCommands } = require('./commands/usage-commands');
  *
  * @param {Object} params
  * @param {Object} params.integrationClass - Integration class (required)
+ * @param {Array<object>} [params.moduleDefinitions] - the app's offered module definitions; defaults to the integration's own modules
  * @returns {Object} Unified commands object with all CRUD operations
  *
  * @example
@@ -24,9 +25,12 @@ const { createUsageCommands } = require('./commands/usage-commands');
  * const user = await commands.createUser({ username: 'user@example.com' });
  * const credential = await commands.createCredential({ userId: user.id, ... });
  */
-function createFriggCommands({ integrationClass }) {
+function createFriggCommands({ integrationClass, moduleDefinitions }) {
     // All commands use Frigg's default repositories and use cases
-    const integrationCommands = createIntegrationCommands({ integrationClass });
+    const integrationCommands = createIntegrationCommands({
+        integrationClass,
+        moduleDefinitions,
+    });
 
     const userCommands = createUserCommands();
 

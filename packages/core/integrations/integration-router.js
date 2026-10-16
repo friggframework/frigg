@@ -32,9 +32,6 @@ const {
 } = require('./use-cases/get-integration-instance');
 const { UpdateIntegration } = require('./use-cases/update-integration');
 const {
-    getModulesDefinitionFromIntegrationClasses,
-} = require('./utils/map-integration-dto');
-const {
     GetModuleInstanceFromType,
 } = require('../modules/use-cases/get-module-instance-from-type');
 const {
@@ -74,8 +71,13 @@ const {
 const log = getLogger('frigg.integrations');
 
 function createIntegrationRouter() {
-    const { integrations: integrationClasses, userConfig } =
-        loadAppDefinition();
+    // moduleDefinitions is the app registry's definitions (ADR-059), so
+    // /api/authorize and friends accept a type no integration binds.
+    const {
+        integrations: integrationClasses,
+        userConfig,
+        moduleDefinitions,
+    } = loadAppDefinition();
     const moduleRepository = createModuleRepository();
     const integrationRepository = createIntegrationRepository();
     const credentialRepository = createCredentialRepository();
@@ -108,8 +110,7 @@ function createIntegrationRouter() {
 
     const moduleFactory = new ModuleFactory({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
     const deleteIntegrationForUser = new DeleteIntegrationForUser({
         integrationRepository,
@@ -136,8 +137,7 @@ function createIntegrationRouter() {
 
     const getEntitiesForUser = new GetEntitiesForUser({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const getIntegrationInstance = new GetIntegrationInstance({
@@ -153,37 +153,31 @@ function createIntegrationRouter() {
     });
 
     const getModuleInstanceFromType = new GetModuleInstanceFromType({
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const getEntityOptionsByType = new GetEntityOptionsByType({
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const testModuleAuth = new TestModuleAuth({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const getModule = new GetModule({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const getEntityOptionsById = new GetEntityOptionsById({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const refreshEntityOptions = new RefreshEntityOptions({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const getPossibleIntegrations = new GetPossibleIntegrations({
@@ -194,8 +188,7 @@ function createIntegrationRouter() {
         moduleRepository,
         credentialRepository,
         integrationRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const router = express();

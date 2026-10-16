@@ -66,8 +66,8 @@ No authentication and no database access. Clients call it first.
 | POST | `/api/v2/integrations/:integrationId/actions/:actionId` | Only user actions; others are `404 ACTION_NOT_FOUND` |
 | GET | `/api/v2/integrations/:integrationId/test-auth` | `{ status: "ok" }` or `{ status: "failed", errors }` |
 | GET | `/api/v2/entities` | `{ entities }`; never credential fields |
-| GET | `/api/v2/entities/types` | `{ types }`: modules the app can connect |
-| GET | `/api/v2/entities/types/:entityType` | |
+| GET | `/api/v2/entities/types` | `{ types }`: modules the app can connect (registered in `entities` or bound by an integration). Each has `usedBy`, the integrations that bind it; empty for a registry-only type |
+| GET | `/api/v2/entities/types/:entityType` | Same shape, with `usedBy` |
 | GET | `/api/v2/entities/types/:entityType/requirements` | `?step=`; read-only, no session |
 | GET / DELETE | `/api/v2/entities/:entityId` | DELETE is `409 ENTITY_IN_USE` while integrations use it |
 | GET | `/api/v2/entities/:entityId/test-auth` | `{ status: "ok" \| "failed" }` |
