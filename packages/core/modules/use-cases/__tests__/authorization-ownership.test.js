@@ -164,11 +164,11 @@ describe('authorizing an organization entity needs an organization admin', () =>
     const registry = new Map([['acme', { settings: { scope: 'organization' } }]]);
 
     it.each([
-        ['a member', { source: 'adopter-jwt', role: 'MEMBER' }],
-        ['a token with no role claim', { source: 'adopter-jwt' }],
-        ['a bearer token with no role', { source: 'bearer-token' }],
-    ])('refuses %s with 403 and creates nothing', async (_name, options) => {
-        const t = build({ registry });
+        ['a member', { source: 'adopter-jwt', role: 'MEMBER' }, undefined],
+        ['a token with no role claim', { source: 'adopter-jwt' }, undefined],
+        ['a bearer token, once the app gates them', { source: 'bearer-token' }, { gateBearerTokens: true }],
+    ])('refuses %s with 403 and creates nothing', async (_name, options, ownership) => {
+        const t = build({ registry, ownership });
         await expect(authorize(t, caller({ org: 17, ...options }))).rejects.toMatchObject({
             output: { statusCode: 403 },
             data: { code: 'ORG_ADMIN_REQUIRED' },
@@ -176,8 +176,8 @@ describe('authorizing an organization entity needs an organization admin', () =>
         expect(t.moduleRepository.createEntity).not.toHaveBeenCalled();
     });
 
-    it('lets an admin token and a shared-secret caller connect it', async () => {
-        for (const options of [{ source: 'adopter-jwt', role: 'ADMIN' }, {}]) {
+    it('lets an admin token, a shared-secret caller and (by default) a bearer token connect it', async () => {
+        for (const options of [{ source: 'adopter-jwt', role: 'ADMIN' }, {}, { source: 'bearer-token' }]) {
             const t = build({ registry });
             await authorize(t, caller({ org: 17, ...options }));
             expect(t.moduleRepository.createEntity.mock.calls[0][0].user).toBe('17');

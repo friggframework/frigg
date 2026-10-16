@@ -89,3 +89,13 @@ describe("app-definition schema: user.orgAdminRoles (ADR-056 §3)", () => {
     expect(validate({ user: { orgAdminRoles } }).valid).toBe(false);
   });
 });
+
+describe("app-definition schema: user.orgAdminGateBearerTokens (ADR-056 §3.6)", () => {
+  it.each([[true], [false]])("accepts %j", (orgAdminGateBearerTokens) => {
+    expect(validate({ user: { orgAdminGateBearerTokens } }).valid).toBe(true);
+  });
+
+  it.each([["yes"], [1], [null]])("rejects %j", (orgAdminGateBearerTokens) => {
+    expect(validate({ user: { orgAdminGateBearerTokens } }).valid).toBe(false);
+  });
+});

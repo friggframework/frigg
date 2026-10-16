@@ -69,17 +69,34 @@ function buildClauses(base, kind) {
 
 /**
  * Whether the caller may manage organization-level things (create, change,
- * delete). A shared-secret caller is the app's own backend and may. A person
- * with a token has the role the token carries, and `MEMBER` when it carries
- * none: a missing role never means admin. An unknown source (a `User` built
- * outside AuthenticateUser) is treated like a token.
+ * delete), ADR-056 §3.6:
  *
- * @param {{authSource: (string|null), orgRole: (string|null)}} who
+ * - A shared-secret caller is the app's own backend and may.
+ * - A Frigg bearer token (`/user/login`) predates organization roles and
+ *   carries none. It keeps its pre-roles behaviour and may, unless the app
+ *   sets `user.orgAdminGateBearerTokens: true`; then it is judged like any
+ *   other caller below.
+ * - Otherwise the role is the one the token carries; when it carries none,
+ *   the role stored on the caller's membership of the active organization;
+ *   when there is none, `MEMBER`. A missing role never means admin. An
+ *   unknown source (a `User` built outside AuthenticateUser) is judged this
+ *   way too.
+ *
+ * @param {{authSource: (string|null), orgRole: (string|null), membershipRole: (string|null)}} who
  * @param {string[]} adminRoles - `user.orgAdminRoles`, compared case-insensitively
+ * @param {{gateBearerTokens?: boolean}} [options]
  */
-function canManageOrganization({ authSource, orgRole }, adminRoles = DEFAULT_ORG_ADMIN_ROLES) {
+function canManageOrganization(
+    { authSource, orgRole, membershipRole },
+    adminRoles = DEFAULT_ORG_ADMIN_ROLES,
+    { gateBearerTokens = false } = {}
+) {
     if (authSource === AUTH_SOURCES.SHARED_SECRET) return true;
-    const role = String(isPresent(orgRole) ? orgRole : 'MEMBER').toUpperCase();
+    if (authSource === AUTH_SOURCES.BEARER_TOKEN && !gateBearerTokens) return true;
+    let role = 'MEMBER';
+    if (isPresent(orgRole)) role = orgRole;
+    else if (isPresent(membershipRole)) role = membershipRole;
+    role = String(role).toUpperCase();
     return adminRoles.some((admin) => String(admin).toUpperCase() === role);
 }
 
@@ -90,11 +107,15 @@ function canManageOrganization({ authSource, orgRole }, adminRoles = DEFAULT_ORG
  * follow from them (computed once).
  *
  * @param {Object} user - the authenticated `User` (or a `{ getId }` double)
- * @param {{individualAcross?: string, orgAdminRoles?: string[]}} [options]
+ * @param {{individualAcross?: string, orgAdminRoles?: string[], gateBearerTokens?: boolean}} [options]
  */
 function accessContext(
     user,
-    { individualAcross = 'organization', orgAdminRoles = DEFAULT_ORG_ADMIN_ROLES } = {}
+    {
+        individualAcross = 'organization',
+        orgAdminRoles = DEFAULT_ORG_ADMIN_ROLES,
+        gateBearerTokens = false,
+    } = {}
 ) {
     const hasUserModel = typeof user?.getIndividualUser === 'function';
     const individual = hasUserModel ? user.getIndividualUser() : null;
@@ -111,10 +132,16 @@ function accessContext(
         authSource:
             typeof user?.getAuthSource === 'function' ? user.getAuthSource() : null,
         orgRole: typeof user?.getOrgRole === 'function' ? user.getOrgRole() : null,
+        membershipRole:
+            typeof user?.getMembershipRole === 'function'
+                ? user.getMembershipRole()
+                : null,
     };
     return {
         ...base,
-        canManageOrg: canManageOrganization(who, orgAdminRoles),
+        canManageOrg: canManageOrganization(who, orgAdminRoles, {
+            gateBearerTokens,
+        }),
         clauses: {
             entity: buildClauses(base, 'entity'),
             integration: buildClauses(base, 'integration'),
