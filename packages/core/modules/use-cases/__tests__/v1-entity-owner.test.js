@@ -33,8 +33,14 @@ const { GetModule } = require('../get-module');
 const { GetEntityOptionsById } = require('../get-entity-options-by-id');
 const { RefreshEntityOptions } = require('../refresh-entity-options');
 
-const caller = ({ org = null, primary = 'individual' } = {}) =>
-    new User({ id: '7', organizationId: null }, org ? { id: String(org) } : null, false, primary, true, false);
+// Default: the app's own backend (shared secret), which may manage the
+// organization; `source`/`role` model a person's token.
+const caller = ({ org = null, primary = 'individual', source = 'shared-secret', role } = {}) => {
+    const user = new User({ id: '7', organizationId: null }, org ? { id: String(org) } : null, false, primary, true, false);
+    user.setAuthSource(source);
+    if (role) user.setOrgRole(role);
+    return user;
+};
 
 function definition(calls) {
     return {
@@ -150,6 +156,33 @@ describe('POST /api/entity (CreateEntityFromCredential)', () => {
             data: { code: 'IDENTITY_REQUIRED' },
         });
         expect(t.moduleRepository.createEntity).not.toHaveBeenCalled();
+    });
+
+    it.each([['a member token', 'MEMBER'], ['a token with no role', undefined]])(
+        '%s: an organization type is 403 ORG_ADMIN_REQUIRED, before the credential is read',
+        async (_name, role) => {
+            const t = buildCreate({ registry: orgScoped, credential: credentialOf('17') });
+            await expect(
+                create(t, caller({ org: 17, source: 'adopter-jwt', role }))
+            ).rejects.toMatchObject({
+                output: { statusCode: 403 },
+                data: { code: 'ORG_ADMIN_REQUIRED' },
+            });
+            expect(t.moduleRepository.createEntity).not.toHaveBeenCalled();
+            expect(Module).not.toHaveBeenCalled();
+        }
+    );
+
+    it('an admin token may create the organization entity', async () => {
+        const t = buildCreate({ registry: orgScoped, credential: credentialOf('17') });
+        await create(t, caller({ org: 17, source: 'adopter-jwt', role: 'ADMIN' }));
+        expect(t.moduleRepository.createEntity.mock.calls[0][0].user).toBe('17');
+    });
+
+    it('a member token may still create their own individual entity', async () => {
+        const t = buildCreate({ credential: credentialOf('7') });
+        await create(t, caller({ org: 17, source: 'adopter-jwt', role: 'MEMBER' }));
+        expect(t.moduleRepository.createEntity.mock.calls[0][0].user).toBe('7');
     });
 
     it('an unknown entity type is a 400', async () => {

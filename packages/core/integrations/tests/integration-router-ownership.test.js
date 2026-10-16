@@ -266,6 +266,21 @@ describe('v1 routes follow the ownership rules', () => {
             }
         );
 
+        it.each([['a member', 'MEMBER'], ['a token with no role', undefined]])(
+            '%s: POST /api/entity of an organization type is 403, as POST /api/authorize is',
+            async (_name, role) => {
+                const findOrCreate = jest.spyOn(ProcessAuthorizationCallback.prototype, 'findOrCreateEntity');
+                currentUser = asToken(role);
+                const res = await call('POST', '/api/entity', {
+                    entityType: 'acme',
+                    data: { credential_id: 'c1' },
+                });
+                expect(res.status).toBe(403);
+                expect(JSON.stringify(res.body)).toMatch(/organization admin|ORG_ADMIN/i);
+                expect(findOrCreate).not.toHaveBeenCalled();
+            }
+        );
+
         it('a member may still create their own integration', async () => {
             const create = jest.spyOn(CreateIntegration.prototype, 'execute').mockResolvedValue({ id: 'new' });
             currentUser = asToken('MEMBER');
