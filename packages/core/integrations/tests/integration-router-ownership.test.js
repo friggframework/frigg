@@ -54,6 +54,7 @@ const { AuthenticateUser } = require('../../user/use-cases/authenticate-user');
 const { User } = require('../../user/user');
 const { ProcessAuthorizationCallback } = require('../../modules/use-cases/process-authorization-callback');
 const { GetModuleInstanceFromType } = require('../../modules/use-cases/get-module-instance-from-type');
+const { CreateEntityFromCredential } = require('../../modules/use-cases/create-entity-from-credential');
 const { CreateIntegration } = require('../use-cases/create-integration');
 const { GetIntegrationsForUser } = require('../use-cases/get-integrations-for-user');
 const { GetIntegrationInstance } = require('../use-cases/get-integration-instance');
@@ -130,6 +131,34 @@ describe('v1 routes follow the ownership rules', () => {
         // acme is organization-scoped: organization 17 owns it, not person 7.
         expect(instance.mock.calls[0][0]).toBe('17');
         expect(post.mock.calls[0][0]).toBe('17');
+    });
+
+    it('POST /api/entity goes through CreateEntityFromCredential with the caller, not user.getId()', async () => {
+        const execute = jest
+            .spyOn(CreateEntityFromCredential.prototype, 'execute')
+            .mockResolvedValue({ id: 'e1' });
+        const res = await call('POST', '/api/entity', {
+            entityType: 'acme',
+            data: { credential_id: 'c1' },
+        });
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ id: 'e1' });
+        expect(execute).toHaveBeenCalledWith({
+            user: currentUser,
+            entityType: 'acme',
+            credentialId: 'c1',
+        });
+    });
+
+    it('POST /api/entity: 400 IDENTITY_REQUIRED when the scope needs an organization the request does not have', async () => {
+        const findOrCreate = jest.spyOn(ProcessAuthorizationCallback.prototype, 'findOrCreateEntity');
+        currentUser = caller();
+        const res = await call('POST', '/api/entity', {
+            entityType: 'acme',
+            data: { credential_id: 'c1' },
+        });
+        expect(res.status).toBe(400);
+        expect(findOrCreate).not.toHaveBeenCalled();
     });
 
     it('POST /api/authorize: 400 when the scope needs an organization the request does not have', async () => {

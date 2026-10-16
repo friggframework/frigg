@@ -61,6 +61,16 @@ This replaces `user.getId()` as the owner. `POST /api/v2/authorize` and the v1 `
 through `AuthorizeEntityForUser`. The module's `getEntityDetails` and `getCredentialDetails` get the **owner's** id
 as their user id, and the credential is stored under it.
 
+The v1 `POST /api/entity` (an entity for a credential the caller already holds) resolves its owner the same way,
+through `CreateEntityFromCredential`, which calls `AuthorizeEntityForUser.resolveOwnership`. The credential must
+belong to that owner (the organization's, for an organization type), or the answer is 400 `INVALID_CREDENTIAL`, the
+same for a missing credential and a stranger's. Before this change the route took `user.getId()` and set no
+organization; it also called a `findOrCreateEntity` that `Module` no longer has, so it failed on every call.
+
+The v1 test-auth, `GET /api/entities/:id` and the two entity options routes build the `Module` for the entity's
+owner (`entity.userId`), as v2 does, not for the caller. A member may use an organization's entity there, and a
+token refresh during such a call updates the organization's credential instead of creating one under the member.
+
 **An integration must use entities of one scope.** Its owner is the organization when every entity is
 organization-scoped, otherwise the person (or what `Definition.ownership.owner` says). An integration is loaded by
 its owner, who must own what it uses, so `ResolveIntegrationOwnership` refuses, with a 400 and **before anything is

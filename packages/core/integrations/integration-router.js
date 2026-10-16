@@ -66,6 +66,9 @@ const {
     AuthorizeEntityForUser,
 } = require('../modules/use-cases/authorize-entity-for-user');
 const {
+    CreateEntityFromCredential,
+} = require('../modules/use-cases/create-entity-from-credential');
+const {
     ResolveIntegrationOwnership,
 } = require('./use-cases/resolve-integration-ownership');
 const { GetOwnedIntegrationRecord } = require('./use-cases/integration-operations-for-user');
@@ -199,14 +202,22 @@ function createIntegrationRouter() {
     });
 
     // The owner of what an authorization creates follows its scope (ADR-056 §3.2).
+    const processAuthorizationCallback = new ProcessAuthorizationCallback({
+        moduleRepository,
+        credentialRepository,
+        integrationRepository,
+        moduleDefinitions,
+    });
     const authorizeEntityForUser = new AuthorizeEntityForUser({
         scopePolicy,
-        processAuthorizationCallback: new ProcessAuthorizationCallback({
-            moduleRepository,
-            credentialRepository,
-            integrationRepository,
-            moduleDefinitions,
-        }),
+        processAuthorizationCallback,
+    });
+    // v1 POST /api/entity: same owner resolution as /api/authorize.
+    const createEntityFromCredential = new CreateEntityFromCredential({
+        authorizeEntityForUser,
+        processAuthorizationCallback,
+        credentialRepository,
+        moduleDefinitions,
     });
 
     const router = express();
@@ -231,6 +242,7 @@ function createIntegrationRouter() {
         getEntityOptionsById,
         refreshEntityOptions,
         authorizeEntityForUser,
+        createEntityFromCredential,
     });
     return router;
 }
@@ -527,6 +539,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
         getEntityOptionsById,
         refreshEntityOptions,
         authorizeEntityForUser,
+        createEntityFromCredential,
     } = useCases;
 
     router.route('/api/authorize').get(
@@ -601,35 +614,20 @@ function setEntityRoutes(router, authenticateUser, useCases) {
     router.route('/api/entity').post(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entityType',
                 'data',
             ]);
             checkRequiredParams(req.body.data, ['credential_id']);
 
-            // May want to pass along the user ID as well so credential ID's can't be fished???
-            const credential = await getCredentialForUser.execute(
-                params.data.credential_id,
-                userId
+            // The owner follows the entity type's scope, as /api/authorize.
+            res.json(
+                await createEntityFromCredential.execute({
+                    user,
+                    entityType: params.entityType,
+                    credentialId: params.data.credential_id,
+                })
             );
-
-            if (!credential) {
-                throw Boom.badRequest('Invalid credential ID');
-            }
-
-            const module = await getModuleInstanceFromType.execute(
-                userId,
-                params.entityType
-            );
-            const entityDetails = await module.getEntityDetails(
-                module.api,
-                null,
-                null,
-                userId
-            );
-
-            res.json(await module.findOrCreateEntity(entityDetails));
         })
     );
 
