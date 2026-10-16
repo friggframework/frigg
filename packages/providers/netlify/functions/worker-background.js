@@ -55,11 +55,17 @@ const queueProvider = createQueueProvider({
     provider: process.env.QUEUE_PROVIDER || loaded.appDefinition?.queue?.provider || 'netlify-background',
 });
 
+// Every delivery that reaches this function is an HTTP POST of one JSON
+// message (Frigg-signed or from QStash), whatever queue the app configures,
+// so it is verified and parsed as one. The configured provider is consulted
+// for verification only if it verifies HTTP deliveries (lib/queue-event-auth).
+const httpProvider = createQueueProvider({ provider: 'netlify-background' });
+
 const processQueueEvent = createNetlifyHandler({
     eventName: 'Queue Worker (Netlify Background)',
     isUserFacingResponse: false,
     method: async (event, context) => {
-        const messages = queueProvider.parseEvent(event);
+        const messages = httpProvider.parseEvent(event);
 
         for (const message of messages) {
             const { integrationName, event: jobEvent, data } = message || {};
@@ -88,7 +94,7 @@ const processQueueEvent = createNetlifyHandler({
 
 const handler = withQueueEventAuth({
     handler: processQueueEvent,
-    verify: createQueueEventVerifier({ queueProvider }),
+    verify: createQueueEventVerifier({ queueProvider, friggProvider: httpProvider }),
 });
 
 module.exports = { handler };

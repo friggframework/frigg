@@ -50,6 +50,8 @@ class QStashQueueProvider extends QueueProvider {
         this.destinationUrl = options.destinationUrl;
         this.env = options.env || process.env;
         this.clockToleranceSeconds = options.clockToleranceSeconds || 0;
+        // verifyEvent() proves an HTTP delivery came from QStash.
+        this.verifiesHttpDelivery = true;
     }
 
     // Read per call: secrets may reach the environment after construction.

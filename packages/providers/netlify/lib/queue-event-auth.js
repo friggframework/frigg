@@ -23,6 +23,14 @@ const {
 const log = getLogger('frigg.netlify.queue');
 
 /**
+ * The HTTP entry accepts only proofs that make sense for an HTTP delivery:
+ * Frigg's own HMAC, always, and the configured provider's check only when
+ * that provider declares `verifiesHttpDelivery` (QStash does). A provider
+ * whose trust comes from its transport (SQS: the Lambda event source)
+ * answers ok to anything, so it is never consulted here, whatever
+ * QUEUE_PROVIDER says: an unsigned POST of `{ Records: [...] }` would
+ * otherwise be dispatched.
+ *
  * @param {Object} params
  * @param {Object} params.queueProvider - the worker's configured provider
  * @param {Object} [params.friggProvider] - verifies Frigg-signed messages
@@ -30,10 +38,10 @@ const log = getLogger('frigg.netlify.queue');
  */
 function createQueueEventVerifier({ queueProvider, friggProvider }) {
     const signedBy = friggProvider || new NetlifyBackgroundProvider();
-    const verifiers =
-        queueProvider instanceof NetlifyBackgroundProvider
-            ? [queueProvider]
-            : [signedBy, queueProvider];
+    const verifiers = [signedBy];
+    if (queueProvider && queueProvider !== signedBy && queueProvider.verifiesHttpDelivery === true) {
+        verifiers.push(queueProvider);
+    }
 
     return async (event) => {
         const reasons = [];

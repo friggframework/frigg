@@ -49,7 +49,10 @@ class QueueProvider {
      *
      * The default refuses: an adapter that does not know how to verify its
      * events must not have them run. An adapter whose transport already
-     * authenticates the caller (SQS triggering a Lambda) overrides this.
+     * authenticates the caller (SQS triggering a Lambda) overrides this, and
+     * must not set `verifiesHttpDelivery`: an HTTP entry point (Netlify's
+     * worker-background) consults only adapters that set it to true, since
+     * a transport-trust answer says nothing about an HTTP caller.
      *
      * @param {Object} event - Raw event from the runtime
      * @returns {Promise<{ ok: boolean, reason?: string, unsigned?: boolean }>}

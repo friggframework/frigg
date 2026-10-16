@@ -1,7 +1,10 @@
 const { createMemorySink } = require('@friggframework/core/logs');
 const { createQueueEventVerifier, withQueueEventAuth } = require('../lib/queue-event-auth');
 
-const verifierReturning = (result) => ({ verifyEvent: jest.fn(async () => result) });
+const verifierReturning = (result) => ({
+    verifiesHttpDelivery: true,
+    verifyEvent: jest.fn(async () => result),
+});
 
 describe('createQueueEventVerifier', () => {
     it('accepts when either the Frigg signature or the queue provider verifies', async () => {
@@ -44,6 +47,27 @@ describe('createQueueEventVerifier', () => {
             queueProvider: verifierReturning({}),
         });
         await expect(verify({})).resolves.toMatchObject({ ok: false });
+    });
+});
+
+describe('createQueueEventVerifier and transport-trust providers', () => {
+    it('never consults a provider that does not verify HTTP deliveries (SQS answers ok to anything)', async () => {
+        const sqsLike = { verifyEvent: jest.fn(async () => ({ ok: true })) };
+        const verify = createQueueEventVerifier({
+            friggProvider: verifierReturning({ ok: false, reason: 'missing_signature' }),
+            queueProvider: sqsLike,
+        });
+        await expect(verify({ body: '{"Records":[]}' })).resolves.toEqual({
+            ok: false,
+            reasons: ['missing_signature'],
+        });
+        expect(sqsLike.verifyEvent).not.toHaveBeenCalled();
+    });
+
+    it('the real SqsQueueProvider is not an HTTP verifier', () => {
+        const { SqsQueueProvider } = require('@friggframework/core/queues/providers/sqs-queue-provider');
+        const sqs = new SqsQueueProvider({ queueClient: {} });
+        expect(sqs.verifiesHttpDelivery).not.toBe(true);
     });
 });
 

@@ -51,6 +51,8 @@ class NetlifyBackgroundProvider extends QueueProvider {
         this.signingSecret = options.signingSecret;
         this.env = options.env || process.env;
         this.now = options.now || Date.now;
+        // verifyEvent() proves an HTTP delivery came from Frigg.
+        this.verifiesHttpDelivery = true;
     }
 
     // Read on every call, not in the constructor: secrets may be loaded into

@@ -174,6 +174,38 @@ describe('worker-background authentication', () => {
         });
     });
 
+    describe('with QUEUE_PROVIDER=sqs (transport trust must not reach the HTTP entry)', () => {
+        it('rejects an unsigned SQS-shaped Records body and dispatches nothing', async () => {
+            setEnv({
+                STAGE: 'production',
+                NODE_ENV: 'production',
+                FRIGG_QUEUE_SIGNING_SECRET: SECRET,
+                QUEUE_PROVIDER: 'sqs',
+            });
+            const handler = loadWorker();
+            const body = JSON.stringify({ Records: [{ body: JSON.stringify(MESSAGE) }] });
+            await expectRejected(
+                handler,
+                { httpMethod: 'POST', headers: {}, body },
+                'missing_signature'
+            );
+            expect(rejections()[0].reasons).toEqual(['missing_signature']);
+        });
+
+        it('still runs a Frigg-signed message', async () => {
+            setEnv({
+                STAGE: 'production',
+                NODE_ENV: 'production',
+                FRIGG_QUEUE_SIGNING_SECRET: SECRET,
+                QUEUE_PROVIDER: 'sqs',
+            });
+            const handler = loadWorker();
+            const res = await handler(signedEvent(JSON.stringify(MESSAGE)), {});
+            expect(res.statusCode).toBe(200);
+            expect(runSpy).toHaveBeenCalledWith({ event: 'SYNC', data: { id: 1 } }, expect.any(Object));
+        });
+    });
+
     describe('with the qstash provider', () => {
         let handler;
         beforeAll(() => {
