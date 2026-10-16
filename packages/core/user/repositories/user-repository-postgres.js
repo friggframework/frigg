@@ -372,6 +372,24 @@ class UserRepositoryPostgres extends UserRepositoryInterface {
         });
         return this._convertUserIds(user);
     }
+
+    /**
+     * Set the legacy organizationId only if it is still null (see the interface).
+     * @param {string} individualUserId - Individual user ID (string from application layer)
+     * @param {string} organizationUserId - Organization user ID (string from application layer)
+     * @returns {Promise<Object|null>} The individual user as stored afterwards, with string IDs
+     */
+    async linkIndividualToOrganizationIfUnset(individualUserId, organizationUserId) {
+        await this.prisma.user.updateMany({
+            where: {
+                id: this._convertId(individualUserId),
+                type: 'INDIVIDUAL',
+                organizationId: null,
+            },
+            data: { organizationId: this._convertId(organizationUserId) },
+        });
+        return this.findIndividualUserById(individualUserId);
+    }
 }
 
 module.exports = { UserRepositoryPostgres };

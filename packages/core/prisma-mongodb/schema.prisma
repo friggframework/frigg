@@ -56,6 +56,14 @@ model User {
   integrations Integration[]
   processes    Process[]
 
+  // Organization memberships (ADR-056 §3.6). `organizationId` above is the legacy
+  // single-org pointer: set on a person's first link, never moved afterwards, and
+  // read as an implicit membership when no row exists for it.
+  // As an individual: the organizations this person belongs to.
+  memberships OrganizationMembership[] @relation("IndividualMemberships")
+  // As an organization: the people who belong to it.
+  orgMembers OrganizationMembership[] @relation("OrganizationMemberships")
+
   @@unique([username, appUserId])
   @@index([type])
   @@index([appUserId])
@@ -479,4 +487,28 @@ model AuthorizationSession {
   @@index([userId, entityType])
   @@index([expiresAt])
   @@map("AuthorizationSession")
+}
+
+// ============================================================================
+// ORGANIZATION MEMBERSHIP (ADR-056 §3.6)
+// ============================================================================
+
+/// One person's membership of one organization. Unique on the pair, so adding a
+/// membership is an idempotent upsert. `orgRole` is the organization role the
+/// adopter token carried when the membership was created (MEMBER when it named none). NoAction on delete
+/// because MongoDB gives no referential integrity: delete a user's memberships
+/// before the user.
+model OrganizationMembership {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  individualUserId   String   @db.ObjectId
+  organizationUserId String   @db.ObjectId
+  orgRole            String   @default("MEMBER")
+  createdAt          DateTime @default(now())
+
+  individualUser   User @relation("IndividualMemberships", fields: [individualUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizationUser User @relation("OrganizationMemberships", fields: [organizationUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([individualUserId, organizationUserId])
+  @@index([organizationUserId])
+  @@map("OrganizationMembership")
 }

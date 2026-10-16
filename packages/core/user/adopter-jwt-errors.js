@@ -38,12 +38,6 @@ const ADOPTER_JWT_ERRORS = Object.freeze({
         status: 503,
         message: 'Token verification keys are unavailable',
     }),
-    multi_org_unsupported: Object.freeze({
-        status: 403,
-        message:
-            'This user already belongs to a different organization. ' +
-            'Membership in more than one organization is not supported yet (ADR-056 §3.6).',
-    }),
     jwt_config_invalid: Object.freeze({
         status: 500,
         message: 'Adopter JWT authentication is misconfigured',

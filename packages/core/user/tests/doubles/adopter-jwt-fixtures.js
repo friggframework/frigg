@@ -69,13 +69,38 @@ function unsignedToken(claims) {
 }
 
 /**
+ * Resolves each `wait()` only once `parties` callers have arrived, so a test
+ * can make concurrent requests all read before any of them writes.
+ */
+function createBarrier(parties) {
+    let arrived = 0;
+    let release;
+    const gate = new Promise((resolve) => {
+        release = resolve;
+    });
+    return {
+        async wait() {
+            arrived += 1;
+            if (arrived >= parties) release();
+            await gate;
+        },
+    };
+}
+
+/**
  * Stateful fake of the user repository, built from jest.fn so every call is
  * observable. Individuals carry `organizationId`, as the real repositories
- * return it.
+ * return it. Like the database, it refuses a second individual with the same
+ * `appUserId` (a Prisma-shaped `P2002`), which is what a first-login race hits.
+ *
+ * @param {Object} [options]
+ * @param {number} [options.findBarrier] Make the first N calls to
+ *   `findIndividualUserByAppUserId` wait for each other (see createBarrier).
  */
 function createUserRepositoryDouble({
     individuals = [],
     organizations = [],
+    findBarrier = 0,
 } = {}) {
     const individualUsers = new Map(
         individuals.map((u) => [u.appUserId, { ...u }])
@@ -83,42 +108,106 @@ function createUserRepositoryDouble({
     const organizationUsers = new Map(
         organizations.map((o) => [o.appOrgId, { ...o }])
     );
+    const barrier = findBarrier > 1 ? createBarrier(findBarrier) : null;
+    let barrierCalls = 0;
     let seq = 0;
 
     const repo = {
-        findIndividualUserByAppUserId: jest.fn(
-            async (appUserId) => individualUsers.get(appUserId) ?? null
-        ),
+        findIndividualUserByAppUserId: jest.fn(async (appUserId) => {
+            const found = individualUsers.get(appUserId) ?? null;
+            if (barrier && barrierCalls < findBarrier) {
+                barrierCalls += 1;
+                await barrier.wait();
+            }
+            return found && { ...found };
+        }),
         findOrganizationUserByAppOrgId: jest.fn(
             async (appOrgId) => organizationUsers.get(appOrgId) ?? null
         ),
         createIndividualUser: jest.fn(async (params) => {
+            if (individualUsers.has(params.appUserId)) {
+                throw Object.assign(
+                    new Error('Unique constraint failed on appUserId'),
+                    { code: 'P2002' }
+                );
+            }
             const created = {
                 id: `ind-${++seq}`,
                 organizationId: undefined,
                 ...params,
             };
             individualUsers.set(created.appUserId, created);
-            return created;
+            return { ...created };
         }),
         createOrganizationUser: jest.fn(async (params) => {
             const created = { id: `org-${++seq}`, ...params };
             organizationUsers.set(created.appOrgId, created);
             return created;
         }),
-        linkIndividualToOrganization: jest.fn(
+        findIndividualUserById: jest.fn(async (id) => {
+            for (const u of individualUsers.values()) {
+                if (u.id === id) return { ...u };
+            }
+            return null;
+        }),
+        // Like the database: sets the pointer only while it is unset.
+        linkIndividualToOrganizationIfUnset: jest.fn(
             async (individualId, organizationId) => {
                 for (const u of individualUsers.values()) {
-                    if (u.id === individualId) {
-                        u.organizationId = organizationId;
-                        return { ...u };
-                    }
+                    if (u.id !== individualId) continue;
+                    const unset =
+                        u.organizationId === undefined ||
+                        u.organizationId === null ||
+                        u.organizationId === '';
+                    if (unset) u.organizationId = organizationId;
+                    return { ...u };
                 }
-                throw new Error('individual not found');
+                return null;
             }
         ),
     };
     repo.state = { individualUsers, organizationUsers };
+    return repo;
+}
+
+/**
+ * In-memory organization membership repository: atomic, like the real ones. The
+ * pair is unique and `addMembership` is an upsert. It knows nothing of the
+ * legacy `organizationId` pointer; the domain (user/membership.js) does.
+ */
+function createMembershipRepositoryDouble() {
+    const { toMembership } = require('../../repositories/organization-membership-record');
+    const rows = new Map();
+    const key = (i, o) => `${i}|${o}`;
+    let seq = 0;
+
+    const repo = {
+        findMembership: jest.fn(async (individualId, organizationId) => {
+            const row = rows.get(key(individualId, organizationId));
+            return row ? toMembership(row) : null;
+        }),
+        addMembership: jest.fn(
+            async (individualId, organizationId, { orgRole } = {}) => {
+                const k = key(individualId, organizationId);
+                if (!rows.has(k)) {
+                    rows.set(k, {
+                        id: `mem-${++seq}`,
+                        individualUserId: individualId,
+                        organizationUserId: organizationId,
+                        orgRole: orgRole ?? 'MEMBER',
+                        createdAt: new Date(),
+                    });
+                }
+                return toMembership(rows.get(k));
+            }
+        ),
+        listMembershipsForOrganization: jest.fn(async (organizationId) =>
+            [...rows.values()]
+                .filter((r) => r.organizationUserId === organizationId)
+                .map(toMembership)
+        ),
+    };
+    repo.rows = rows;
     return repo;
 }
 
@@ -127,4 +216,5 @@ module.exports = {
     signToken,
     unsignedToken,
     createUserRepositoryDouble,
+    createMembershipRepositoryDouble,
 };

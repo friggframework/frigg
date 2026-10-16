@@ -26,6 +26,14 @@ const {
     UserRepositoryPostgres,
 } = require('./user/repositories/user-repository-factory');
 const {
+    createOrganizationMembershipRepository,
+    OrganizationMembershipRepositoryMongo,
+    OrganizationMembershipRepositoryPostgres,
+} = require('./user/repositories/organization-membership-repository-factory');
+const {
+    EnsureOrganizationMembership,
+} = require('./user/use-cases/ensure-organization-membership');
+const {
     GetUserFromXFriggHeaders,
 } = require('./user/use-cases/get-user-from-x-frigg-headers');
 const {
@@ -130,6 +138,10 @@ module.exports = {
     createUserRepository,
     UserRepositoryMongo,
     UserRepositoryPostgres,
+    createOrganizationMembershipRepository,
+    OrganizationMembershipRepositoryMongo,
+    OrganizationMembershipRepositoryPostgres,
+    EnsureOrganizationMembership,
     GetUserFromXFriggHeaders,
     GetUserFromAdopterJwt,
     AuthenticateUser,

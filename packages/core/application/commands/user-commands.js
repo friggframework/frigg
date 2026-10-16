@@ -1,6 +1,12 @@
 const {
     createUserRepository,
 } = require('../../user/repositories/user-repository-factory');
+const {
+    createOrganizationMembershipRepository,
+} = require('../../user/repositories/organization-membership-repository-factory');
+const {
+    FindIndividualUsersByOrganization,
+} = require('../../user/use-cases/find-individual-users-by-organization');
 
 const ERROR_CODE_MAP = {
     USER_NOT_FOUND: 404,
@@ -26,6 +32,12 @@ function mapErrorToResponse(error) {
  */
 function createUserCommands() {
     const userRepository = createUserRepository();
+    const findIndividualUsersByOrganization =
+        new FindIndividualUsersByOrganization({
+            userRepository,
+            organizationMembershipRepository:
+                createOrganizationMembershipRepository(),
+        });
 
     return {
         /**
@@ -170,7 +182,8 @@ function createUserCommands() {
         },
 
         /**
-         * Find all individual users linked to an organization user
+         * Find all individual users who belong to an organization user: those with
+         * a membership and those the legacy organizationId pointer places there.
          * @param {string} organizationUserId - Organization user ID to search for
          * @returns {Promise<Object[]>} Array of individual user objects (empty if none)
          */
@@ -182,10 +195,9 @@ function createUserCommands() {
                     throw error;
                 }
 
-                const users =
-                    await userRepository.findIndividualUsersByOrganizationId(
-                        organizationUserId
-                    );
+                const users = await findIndividualUsersByOrganization.execute(
+                    organizationUserId
+                );
 
                 return (users || []).map((user) => ({
                     id: user._id?.toString() || user.id,

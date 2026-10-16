@@ -42,6 +42,11 @@ const FACTORIES = [
         exportName: 'UserRepositoryDocumentDB',
     },
     {
+        modulePath: '../user/repositories/organization-membership-repository-factory',
+        factoryName: 'createOrganizationMembershipRepository',
+        exportName: 'OrganizationMembershipRepositoryDocumentDB',
+    },
+    {
         modulePath: '../websocket/repositories/websocket-connection-repository-factory',
         factoryName: 'createWebsocketConnectionRepository',
         exportName: 'WebsocketConnectionRepositoryDocumentDB',

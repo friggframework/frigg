@@ -13,6 +13,9 @@ jest.mock('../../modules/repositories/module-repository-factory', () => ({
 jest.mock('../../user/repositories/user-repository-factory', () => ({
     createUserRepository: () => ({}),
 }));
+jest.mock('../../user/repositories/organization-membership-repository-factory', () => ({
+    createOrganizationMembershipRepository: () => ({}),
+}));
 
 const { createIntegrationRouter } = require('../integration-router');
 const { createApp } = require('../../handlers/app-handler-helpers');

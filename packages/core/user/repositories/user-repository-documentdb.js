@@ -4,7 +4,7 @@ const {
     toObjectId,
     fromObjectId,
     findOne,
-    findMany,
+    findManyDrained,
     insertOne,
     updateOne,
     deleteOne,
@@ -72,7 +72,9 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
     }
 
     async findIndividualUsersByOrganizationId(organizationUserId) {
-        const docs = await findMany(this.prisma, 'User', {
+        // Drained: findMany returns only the first cursor batch, which would
+        // drop people from a large organization.
+        const docs = await findManyDrained(this.prisma, 'User', {
             organizationId: toObjectId(organizationUserId),
             type: 'INDIVIDUAL',
         });
@@ -420,6 +422,29 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
             doc
         );
         return this._mapUser(decrypted);
+    }
+
+    /**
+     * Set the legacy organizationId only if it is still null or absent (see the
+     * interface): the filter carries the condition, so it is one atomic update.
+     * @param {string} individualUserId
+     * @param {string} organizationUserId
+     * @returns {Promise<Object|null>} The individual user as stored afterwards
+     */
+    async linkIndividualToOrganizationIfUnset(individualUserId, organizationUserId) {
+        await updateOne(
+            this.prisma,
+            'User',
+            {
+                _id: toObjectId(individualUserId),
+                type: 'INDIVIDUAL',
+                // Raw MongoDB query (not Prisma): `{ field: null }` matches both a
+                // null value and a missing field, so no `$exists` branch is needed.
+                organizationId: null,
+            },
+            { $set: { organizationId: toObjectId(organizationUserId) } }
+        );
+        return this.findIndividualUserById(individualUserId);
     }
 }
 

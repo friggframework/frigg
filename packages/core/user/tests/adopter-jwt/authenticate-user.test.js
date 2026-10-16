@@ -4,9 +4,13 @@ const {
     GetUserFromAdopterJwt,
 } = require('../../use-cases/get-user-from-adopter-jwt');
 const {
+    EnsureOrganizationMembership,
+} = require('../../use-cases/ensure-organization-membership');
+const {
     createKeys,
     signToken,
     createUserRepositoryDouble,
+    createMembershipRepositoryDouble,
 } = require('../doubles/adopter-jwt-fixtures');
 const { createAdopterTokenVerifier } = require('../../adopter-token-verifier');
 
@@ -34,6 +38,11 @@ describe('AuthenticateUser with adopter JWT', () => {
             getUserFromXFriggHeaders,
             getUserFromAdopterJwt: new GetUserFromAdopterJwt({
                 userRepository: repo,
+                ensureOrganizationMembership: new EnsureOrganizationMembership({
+                    userRepository: repo,
+                    organizationMembershipRepository:
+                        createMembershipRepositoryDouble(),
+                }),
                 userConfig: config,
                 tokenVerifier: createAdopterTokenVerifier({
                     jwtConfig: config.jwtConfig,

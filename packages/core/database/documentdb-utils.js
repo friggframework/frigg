@@ -58,7 +58,12 @@ async function insertOne(client, collection, document) {
 
         // Provide helpful context for common errors
         if (error.code === 11000) {
-            throw new Error(`${errorMsg} - Duplicate key violation`);
+            // `code` lets callers recognise a lost race without parsing text
+            // (see database/unique-violation.js).
+            throw Object.assign(
+                new Error(`${errorMsg} - Duplicate key violation`),
+                { code: 11000 }
+            );
         }
         throw new Error(errorMsg);
     }
