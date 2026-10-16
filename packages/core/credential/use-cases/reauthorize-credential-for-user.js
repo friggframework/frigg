@@ -1,5 +1,4 @@
 const Boom = require('@hapi/boom');
-const { DEFAULT_SCOPE_POLICY } = require('../../modules/scope-policy');
 const { assertCanManage } = require('../../modules/use-cases/manage-access');
 
 /**
@@ -19,7 +18,9 @@ async function credentialEntityType(getCredentialForUser, credentialId, user) {
     return {
         entityType: credential.type,
         credentialId: String(credential.id),
-        ownerId: credential.userId,
+        // A re-authorization keeps the scope the connection already has.
+        fixedScope: credential.tenancy?.scope,
+        access: credential.tenancy?.access,
     };
 }
 
@@ -31,14 +32,12 @@ class GetCredentialReauthorization {
     }
 
     async execute(credentialId, user, { step = 1, sessionId, state } = {}) {
-        const { ownerId, ...binding } = await credentialEntityType(
-            this.getCredentialForUser,
-            credentialId,
-            user
-        );
+        const { entityType, credentialId: boundCredentialId } =
+            await credentialEntityType(this.getCredentialForUser, credentialId, user);
         return this.getAuthorizationStep.execute({
             user,
-            ...binding,
+            entityType,
+            credentialId: boundCredentialId,
             step,
             sessionId,
             state,
@@ -48,21 +47,19 @@ class GetCredentialReauthorization {
 
 /** POST /api/v2/credentials/:credentialId/reauthorize */
 class ReauthorizeCredentialForUser {
-    constructor({ getCredentialForUser, submitAuthorizationStep, scopePolicy }) {
-        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
+    constructor({ getCredentialForUser, submitAuthorizationStep }) {
         this.getCredentialForUser = getCredentialForUser;
         this.submitAuthorizationStep = submitAuthorizationStep;
     }
 
     async execute(credentialId, user, { data, step = 1, sessionId } = {}) {
-        const { ownerId, ...binding } = await credentialEntityType(
+        const { access, ...binding } = await credentialEntityType(
             this.getCredentialForUser,
             credentialId,
             user
         );
         // A credential an organization owns: the organization's admins only.
-        const access = this.scopePolicy.accessToOwnedBy(user, ownerId);
-        if (access !== null) assertCanManage(access, `credential ${credentialId}`);
+        assertCanManage(access, `credential ${credentialId}`);
         return this.submitAuthorizationStep.execute({
             user,
             ...binding,

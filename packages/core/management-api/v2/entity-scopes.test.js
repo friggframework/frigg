@@ -484,7 +484,7 @@ describe('ownership by scope at the v2 API (ADR-056 §3)', () => {
     });
 
     describe('wiring: the one scope policy, with the app admin roles, reaches every manage gate', () => {
-        it('credential delete and re-authorize hold the app policy, not the default', () => {
+        it('credential list and get hold the app policy, not the default', () => {
             const { buildV2Dependencies } = require('./dependencies');
             const definition = {
                 integrations: [syncIntegration],
@@ -500,8 +500,9 @@ describe('ownership by scope at the v2 API (ADR-056 §3)', () => {
                 },
                 config: resolveManagementApiConfig(undefined),
             });
-            expect(deps.deleteCredentialForUser.scopePolicy.orgAdminRoles).toEqual(['owner']);
-            expect(deps.reauthorizeCredentialForUser.scopePolicy.orgAdminRoles).toEqual(['owner']);
+            // Delete and re-authorize read access from the credential the Get use case describes.
+            expect(deps.getCredentialForUser.scopePolicy.orgAdminRoles).toEqual(['owner']);
+            expect(deps.listCredentialsForUser.scopePolicy.orgAdminRoles).toEqual(['owner']);
         });
     });
 
@@ -531,6 +532,88 @@ describe('ownership by scope at the v2 API (ADR-056 §3)', () => {
             const admin = await reauthorize({ user: { orgAdminRoles: ['owner'] } });
             expect(admin.status).toBe(403);
             expect(admin.body.error.code).toBe('ORG_ADMIN_REQUIRED');
+        });
+    });
+
+    describe('credentials are scoped through their entities (ADR-056 §3.4)', () => {
+        const getJson = (path, extra) => request(app(extra), { method: 'GET', path, headers: AUTH });
+        const reauthorize = (id) =>
+            request(app(), {
+                method: 'POST', path: `/api/v2/credentials/${id}/reauthorize`, headers: AUTH,
+                body: { data: { key: 'k' } },
+            });
+        const createdCredentials = () =>
+            mockState.credentials.filter((c) => !['c7', 'c17', 'c18', 'orphan'].includes(c.id));
+        beforeEach(() => {
+            mockState.credentials = [
+                { id: 'c7', userId: '7', authIsValid: true, access_token: 'secret-token-value' },
+                { id: 'c17', userId: '17', authIsValid: true },
+                { id: 'c18', userId: '18', authIsValid: true },
+                { id: 'orphan', userId: '7', authIsValid: false },
+            ];
+            mockState.entities = [
+                entityRow('e17', 7, 17, { credentialId: 'c7' }),
+                entityRow('e18', 7, 18, { credentialId: 'c7' }),
+                { ...entityRow('o17', 17, 17, { credentialId: 'c17' }), moduleName: 'slack' },
+                entityRow('o18', 18, 18, { credentialId: 'c18' }),
+            ];
+        });
+
+        it('lists the credentials of the active organization with scope, owner, organizationId and access', async () => {
+            const res = await getJson('/api/v2/credentials');
+            expect(res.status).toBe(200);
+            const byId = Object.fromEntries(res.body.credentials.map((c) => [c.id, c]));
+            expect(Object.keys(byId).sort()).toEqual(['c17', 'c7', 'orphan']);
+            expect(byId.c7).toMatchObject({ scope: 'individual', organizationId: '17', access: 'manage', entityIds: ['e17'] });
+            expect(byId.c17).toMatchObject({ scope: 'organization', owner: { type: 'organization', id: '17' }, access: 'manage' });
+            // Tenancy is metadata, never provider data: nothing leaks into the masked data.
+            expect(byId.c7.data).not.toHaveProperty('tenancy');
+            expect(JSON.stringify(res.body)).not.toContain('secret-token-value');
+        });
+
+        it('?scope and ?owner filter, and a bad value is 400', async () => {
+            const org = await getJson('/api/v2/credentials?scope=organization');
+            expect(org.body.credentials.map((c) => c.id)).toEqual(['c17']);
+            const mine = await getJson('/api/v2/credentials?owner=me');
+            expect(mine.body.credentials.map((c) => c.id).sort()).toEqual(['c7', 'orphan']);
+            expect((await getJson('/api/v2/credentials?scope=nope')).status).toBe(400);
+        });
+
+        it("another organization's credential is a 404, and so is the person's when only another organization uses it", async () => {
+            expect((await getJson('/api/v2/credentials/c18')).status).toBe(404);
+            mockState.entities = mockState.entities.filter((e) => e.id !== 'e17');
+            expect((await getJson('/api/v2/credentials/c7')).status).toBe(404);
+        });
+
+        it('a member uses the organization credential but cannot delete it, even from an individual-primary session', async () => {
+            currentUser = caller({ org: 17, source: 'adopter-jwt', role: 'MEMBER' });
+            const got = await getJson('/api/v2/credentials/c17');
+            expect(got.body.access).toBe('use');
+            const refused = await request(app(), { method: 'DELETE', path: '/api/v2/credentials/c17', headers: AUTH });
+            expect(refused.status).toBe(403);
+            expect(mockState.credentials.map((c) => c.id)).toContain('c17');
+        });
+
+        it('deleting a credential another organization still uses is 409 CREDENTIAL_SHARED, and the body says nothing about it', async () => {
+            const res = await request(app(), { method: 'DELETE', path: '/api/v2/credentials/c7', headers: AUTH });
+            expect(res.status).toBe(409);
+            expect(res.body.error.code).toBe('CREDENTIAL_SHARED');
+            expect(JSON.stringify(res.body)).not.toMatch(/e18|18|otherEntityCount/);
+            expect(mockState.credentials.map((c) => c.id)).toContain('c7');
+        });
+
+        it('re-authorizing keeps the scope the connection has, whatever the config says now', async () => {
+            // c7 is the person's. slack is organization-scoped in this app, but this connection was made individually.
+            mockState.entities = [{ ...entityRow('e17', 7, 17, { credentialId: 'c7' }), moduleName: 'slack' }];
+            expect((await reauthorize('c7')).status).toBe(200);
+            expect(createdCredentials().map((c) => c.userId)).toEqual(['7']);
+        });
+
+        it("and keeps the organization's: an organization connection stays the organization's when the config says individual", async () => {
+            // acme is individual in this app, but this connection (c17) is the organization's.
+            mockState.entities = [{ ...entityRow('o17', 17, 17, { credentialId: 'c17' }), moduleName: 'acme' }];
+            expect((await reauthorize('c17')).status).toBe(200);
+            expect(createdCredentials().map((c) => c.userId)).toEqual(['17']);
         });
     });
 

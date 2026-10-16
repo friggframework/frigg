@@ -166,8 +166,10 @@ class SubmitAuthorizationStep {
      * @param {Object} params
      * @param {string} [params.scope] - the scope the caller asks for, from the
      *   deciding level's allow list (ADR-056 §3.1). Never `global`.
+     * @param {string} [params.fixedScope] - re-authorization keeps the scope the
+     *   credential already has, whatever the config says now.
      */
-    async execute({ user, entityType, data, step = 1, sessionId, credentialId = null, scope }) {
+    async execute({ user, entityType, data, step = 1, sessionId, credentialId = null, scope, fixedScope }) {
         if (!data || typeof data !== 'object' || Array.isArray(data)) {
             throw Boom.badRequest('data must be an object', {
                 code: 'VALIDATION_ERROR',
@@ -183,6 +185,7 @@ class SubmitAuthorizationStep {
             user,
             entityType,
             scope,
+            fixedScope,
         });
 
         if (!isMultiStep(definition)) {

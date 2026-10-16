@@ -1,12 +1,28 @@
 const Boom = require('@hapi/boom');
-const { userOwns } = require('../../modules/use-cases/get-entity-module-for-user');
-const { DEFAULT_SCOPE_POLICY } = require('../../modules/scope-policy');
+const {
+    createScopePolicy,
+    describeRecord,
+    visibilityClauses,
+    matchesListFilters,
+    SCOPES,
+} = require('../../modules/entity-scope');
 const { assertCanManage } = require('../../modules/use-cases/manage-access');
 
 /**
- * Management API v2 credential operations. A credential has no module name
- * of its own; its `type` and the entities that use it come from the
- * caller's entities. A missing or foreign credential is a 404.
+ * Management API v2 credential operations (ADR-056 §3.4, §3.6). A credential
+ * has no module name and no organization of its own:
+ *
+ * - its `type` and `entityIds` come from the entities that use it that the
+ *   caller may see, so the same person's account connected in two
+ *   organizations (one credential, two entities) lists in each organization
+ *   with that organization's entity only;
+ * - who it belongs to is its OWNER (`credential.userId`), never the entities:
+ *   a credential an individual entity and an organization entity both point at
+ *   (possible only through legacy data) is described by whoever owns the
+ *   credential, so the answer cannot change with the order the entities load;
+ * - a credential whose entities are all out of sight (another organization's)
+ *   is a 404, and one with no entities at all (its entity was deleted) is
+ *   visible to its owner only, as it was before scoping.
  */
 
 const credentialIdOf = (entity) => {
@@ -39,31 +55,82 @@ function withEntityUsage(credentials, entities) {
     });
 }
 
-/** The caller's credentials with their type and entity usage. */
+/**
+ * `{scope, owner, organizationId, access}` of a credential for this caller, or
+ * null when its owner is neither the caller nor the active organization. Built
+ * by `describeRecord` over the row a connection by this owner has: the
+ * organization of a visible entity, else the one a new entity would get.
+ */
+function credentialTenancy(credential, visibleEntities, ctx) {
+    const entityOrg = visibleEntities.find(
+        (entity) => entity.organizationId !== undefined && entity.organizationId !== null
+    )?.organizationId;
+    const organizationId =
+        entityOrg ?? (ctx.individualAcross === 'all' ? null : ctx.activeOrgId);
+    return describeRecord({ userId: credential.userId, organizationId }, ctx, 'entity');
+}
+
+/** The entities of `entities` the caller may see, each with its `tenancy`. */
+function visibleOf(entities, ctx) {
+    const visible = [];
+    for (const entity of entities || []) {
+        const tenancy = describeRecord(entity, ctx, 'entity');
+        if (tenancy) visible.push({ ...entity, tenancy });
+    }
+    return visible;
+}
+
+/**
+ * The caller's credentials with their type, the entities of them they may see
+ * and `tenancy`. Credentials with no entity at all are listed too, for the
+ * person and the active organization that own them.
+ */
 class ListCredentialsForUser {
-    constructor({ credentialRepository, moduleRepository }) {
+    constructor({ credentialRepository, moduleRepository, scopePolicy }) {
         this.credentialRepository = credentialRepository;
         this.moduleRepository = moduleRepository;
+        this.scopePolicy = scopePolicy || createScopePolicy();
     }
 
-    async execute(user) {
-        const userId = user.getId();
-        const [credentials, entities] = await Promise.all([
-            this.credentialRepository.findCredentialsByUserId(userId),
-            this.moduleRepository.findEntitiesByUserId(userId),
+    /** @param {{scope?: string, owner?: string}} [filters] */
+    async execute(user, filters = {}) {
+        const ctx = this.scopePolicy.accessContext(user);
+        const owners = [...new Set([ctx.callerId, ctx.activeOrgId].filter(Boolean))];
+        const [found, perOwner, owned] = await Promise.all([
+            this.moduleRepository.findEntitiesByOwnership(visibilityClauses(ctx, 'entity')),
+            Promise.all(owners.map((id) => this.credentialRepository.findCredentialsByUserId(id))),
+            // Every entity of those owners, in any organization: only to tell a credential
+            // with no entity at all from one used elsewhere.
+            Promise.all(owners.map((id) => this.moduleRepository.findEntitiesByUserId(id))),
         ]);
-        return withEntityUsage(credentials || [], entities);
+        const visible = visibleOf(found, ctx);
+        const usedAnywhere = new Set(owned.flat().map(credentialIdOf).filter(Boolean));
+        const listed = [];
+        for (const credential of perOwner.flat().filter(Boolean)) {
+            const id = String(credential.id);
+            const referencing = visible.filter((entity) => credentialIdOf(entity) === id);
+            if (referencing.length === 0 && usedAnywhere.has(id)) continue;
+            const tenancy = credentialTenancy(credential, referencing, ctx);
+            if (!tenancy || !matchesListFilters(tenancy, filters)) continue;
+            listed.push({ ...withEntityUsage([credential], referencing)[0], tenancy });
+        }
+        return listed;
     }
 }
 
-/** One credential the caller owns, with its type and entity usage. */
+/** One credential the caller may see: see the header. 404 otherwise. */
 class GetCredentialForUserV2 {
-    constructor({ credentialRepository, moduleRepository }) {
+    constructor({ credentialRepository, moduleRepository, scopePolicy }) {
         this.credentialRepository = credentialRepository;
         this.moduleRepository = moduleRepository;
+        this.scopePolicy = scopePolicy || createScopePolicy();
     }
 
     async execute(credentialId, user) {
+        const notFound = () =>
+            Boom.notFound(`Credential ${credentialId} not found`, {
+                code: 'CREDENTIAL_NOT_FOUND',
+            });
         let credential = null;
         try {
             credential = await this.credentialRepository.findCredentialById(
@@ -74,26 +141,32 @@ class GetCredentialForUserV2 {
                 throw error;
             }
         }
-        if (!credential || !userOwns(user, credential.userId)) {
-            throw Boom.notFound(`Credential ${credentialId} not found`, {
-                code: 'CREDENTIAL_NOT_FOUND',
-            });
-        }
-        const entities = await this.moduleRepository.findEntitiesByUserId(
-            credential.userId
-        );
-        return withEntityUsage([credential], entities)[0];
+        if (!credential) throw notFound();
+        const ctx = this.scopePolicy.accessContext(user);
+
+        const referencing =
+            (await this.moduleRepository.findEntities({ credentialId: credential.id })) || [];
+        const visible = visibleOf(referencing, ctx);
+        if (referencing.length > 0 && visible.length === 0) throw notFound();
+        const tenancy = credentialTenancy(credential, visible, ctx);
+        if (!tenancy) throw notFound();
+        return { ...withEntityUsage([credential], visible)[0], tenancy };
     }
 }
 
 /**
- * Deletes a credential the caller owns. The entities that used it stay, with
- * their credential unset, so they show as needing re-authorization rather
+ * Deletes a credential the caller may manage. The entities that used it stay,
+ * with their credential unset, so they show as needing re-authorization rather
  * than disappearing from integrations.
+ *
+ * Refuses with 409 `CREDENTIAL_SHARED` while an entity the caller cannot see
+ * still uses it: one credential row serves the same provider account in every
+ * organization, and deleting it from one would break the other. The message
+ * says nothing about the other connections (not even how many): remove the
+ * entities that use it, and it goes with the last one.
  */
 class DeleteCredentialForUser {
-    constructor({ credentialRepository, moduleRepository, getCredentialForUser, scopePolicy }) {
-        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
+    constructor({ credentialRepository, moduleRepository, getCredentialForUser }) {
         this.credentialRepository = credentialRepository;
         this.moduleRepository = moduleRepository;
         this.getCredentialForUser = getCredentialForUser;
@@ -104,11 +177,15 @@ class DeleteCredentialForUser {
             credentialId,
             user
         );
-        // A credential an organization owns: the organization's admins only.
-        // (null: not the person's or the active organization's, which the
-        // owner check above already decided.)
-        const access = this.scopePolicy.accessToOwnedBy(user, credential.userId);
-        if (access !== null) assertCanManage(access, `credential ${credential.id}`);
+        assertCanManage(credential.tenancy.access, `credential ${credential.id}`);
+        const usedBy =
+            (await this.moduleRepository.findEntities({ credentialId: credential.id })) || [];
+        if (usedBy.length > credential.entityIds.length) {
+            throw Boom.conflict(
+                `Credential ${credential.id} is still in use by other connections and cannot be deleted from here`,
+                { code: 'CREDENTIAL_SHARED' }
+            );
+        }
         for (const entityId of credential.entityIds) {
             await this.moduleRepository.unsetCredential(entityId);
         }

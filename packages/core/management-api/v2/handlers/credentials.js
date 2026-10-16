@@ -1,4 +1,5 @@
 const { maskCredential } = require('../dto');
+const { parseListFilters } = require('../request');
 
 /** Management API v2 credential handlers, keyed by operationId. */
 function createCredentialHandlers(useCases) {
@@ -6,8 +7,11 @@ function createCredentialHandlers(useCases) {
         useCases;
 
     return {
-        async listCredentials(_req, res, user) {
-            const credentials = await listCredentialsForUser.execute(user);
+        async listCredentials(req, res, user) {
+            const credentials = await listCredentialsForUser.execute(
+                user,
+                parseListFilters(req.query)
+            );
             res.json({ credentials: credentials.map(maskCredential) });
         },
 

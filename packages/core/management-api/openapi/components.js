@@ -206,6 +206,7 @@ const SCHEMAS = {
             authIsValid: nullable({ type: 'boolean' }),
             entityIds: { type: 'array', items: { type: 'string' } },
             entityCount: { type: 'integer', minimum: 0 },
+            ...tenancyProperties,
             createdAt: nullable({ type: 'string', format: 'date-time' }),
             updatedAt: nullable({ type: 'string', format: 'date-time' }),
             data: {

@@ -70,6 +70,20 @@ function createScopePolicy({ ownership, entityTypeRegistry } = {}) {
         };
     };
 
+    /**
+     * The owner and organization for a scope that is already decided: a
+     * re-authorization keeps the scope its connection has, whatever the config
+     * says now. The admin gate applies as it does on create.
+     */
+    const ownershipForScope = ({ scope, user }) => {
+        const ctx = contextFor(user);
+        return {
+            ...resolveOwnerForScope(scope, ctx),
+            legacyOrgId: ctx.legacyOrgId,
+            source: 'fixed',
+        };
+    };
+
     /** Whether `user` may load this stored entity for use (same clauses as the list). */
     const canUseEntity = (user, entity) =>
         describeRecord(entity, contextFor(user), 'entity') !== null;
@@ -87,6 +101,7 @@ function createScopePolicy({ ownership, entityTypeRegistry } = {}) {
         accessContext: contextFor,
         resolveScope: resolveEntityScope,
         resolveOwnership,
+        ownershipForScope,
         canUseEntity,
     });
 }

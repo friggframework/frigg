@@ -142,9 +142,32 @@ loads: a non-empty array of non-empty strings. Entities and integrations take th
 credentials, which carry no organization of their own, from `scopePolicy.accessToOwnedBy(user, ownerId)`. Every gate
 goes through one check, `assertCanManage` in `modules/use-cases/manage-access.js`.
 
-**Credentials are not scoped in this change.** `/api/v2/credentials` still lists and fetches by owner, as before,
-so a credential owned by an organization user is not listed to an individual-primary caller. Listing credentials
-through the entities the caller may see is the next change.
+## Credentials
+
+A credential has no organization column and no module name. It is seen through the entities that use it, and it
+belongs to whoever owns it (`credential.userId`):
+
+- `GET /api/v2/credentials` lists the credentials of the caller and the active organization, each with the entities
+  of it the caller may see (`entityIds`, `type`) and `scope`, `owner`, `organizationId` and `access`. The same
+  person's account connected in two organizations is one credential and two entities, so each organization lists it
+  with its own entity only. It takes `?scope=` and `?owner=` like the other lists.
+- A credential **no entity uses** (its entity was deleted) is listed to its owner, the person or the active
+  organization, as it was before scoping. A credential used only in another organization is not an orphan: it is
+  hidden here and a 404 by id.
+- `scope`, `owner` and `access` come from the credential's **owner**, never from the entities. A credential that an
+  individual entity and an organization entity both point at (only legacy data can do that) is the person's if the
+  person owns it and the organization's if the organization does, whatever order the entities load in.
+- A member uses an organization's credential; deleting or re-authorizing it needs an admin (403
+  `ORG_ADMIN_REQUIRED`, see Organization roles). Re-authorizing keeps the scope the connection already has, so a
+  config that now says `organization` does not move an individual connection to the organization.
+- **Deleting a credential that another organization still uses is 409 `CREDENTIAL_SHARED`.** One credential row
+  serves the same provider account in every organization, so deleting it from one would break the others. The
+  message does not say how many other connections there are or where. To remove it, delete the entities that use it
+  (each organization its own); the credential goes with the last one.
+
+Listing needs the caller's entities twice: the visible ones by owner and organization (the same query as the entity
+list), and every entity of the caller and the active organization in any organization, only to tell an orphan from a
+credential used elsewhere.
 
 **The entity proxy fails closed.** Until `managementApi.proxy.scopes` exists (F6), the proxy accepts only
 `individual` entities and answers 403 `PROXY_NOT_ALLOWED` (`reason: 'scope'`) for an organization one: ADR-056 §3.5,
@@ -218,8 +241,7 @@ both.
 ## Deferred
 
 - `managementApi.proxy.scopes` and the real-Postgres isolation suite (F6).
-- Credential scoping, and the
-  `ORPHANED` status with removing a member.
+- The `ORPHANED` status with removing a member.
 - `GET /api/v2/me/organizations`, the org-admin `view` of members' individual entities.
 - Integrations that use global entities or both scopes, binding resolution at integration create (picking the entity
   for a binding when the caller names none), the visibility callback, `global` entity admin routes and the `scope`
