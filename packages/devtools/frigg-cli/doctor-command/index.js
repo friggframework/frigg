@@ -246,6 +246,13 @@ async function promptForStackSelection(region) {
  */
 async function doctorCommand(stackName, options = {}) {
     try {
+        // AWS-only (CloudFormation); a non-AWS provider has nothing to inspect.
+        if (require('../utils/provider-helper').isNonAwsProject()) {
+            output.error('The doctor command is only available for AWS deployments.');
+            output.log('Your appDefinition uses a non-AWS provider.');
+            process.exit(1);
+        }
+
         // Extract options with defaults
         const region = options.region || process.env.AWS_REGION || 'us-east-1';
         const format = options.format || 'console';
