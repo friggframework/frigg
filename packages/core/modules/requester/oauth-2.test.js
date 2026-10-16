@@ -300,6 +300,21 @@ describe('OAuth2Requester', () => {
             expect(tokenRequests).toHaveLength(1);
         });
 
+        it('sends the refresh token once when the token endpoint answers 401', async () => {
+            const fetch = jest.fn(async () =>
+                tokenResponse(401, { error: 'invalid_client' })
+            );
+            const requester = makeRequester(fetch);
+
+            await expect(requester.refreshAuth()).resolves.toBe(false);
+
+            expect(fetch).toHaveBeenCalledTimes(1);
+            expect(requester.notify).toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH,
+                { statusCode: 401 }
+            );
+        });
+
         it('sends the refresh token once on invalid_grant and invalidates the credential', async () => {
             const fetch = jest.fn(async () =>
                 tokenResponse(400, { error: 'invalid_grant' })

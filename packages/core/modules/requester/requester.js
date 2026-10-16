@@ -312,6 +312,16 @@ class Requester extends Delegate {
             }
 
             if (status === 401) {
+                // A single-use grant must not reach the refresh below: it
+                // would send the same grant again. refreshAuth decides.
+                if (this._isSingleAttempt()) {
+                    throw await FetchError.create({
+                        resource: encodedUrl,
+                        init: options,
+                        response,
+                    });
+                }
+
                 // A 401 from inside the refresh flow means the provider
                 // rejected the credential itself (invalid_client). A new
                 // refresh cannot help. A join would await this same call.
@@ -595,15 +605,18 @@ class Requester extends Delegate {
     }
 
     _canRetry(attempt) {
-        return (
-            attempt < this.backOff.length &&
-            singleAttemptContext.getStore()?.requester !== this
-        );
+        return attempt < this.backOff.length && !this._isSingleAttempt();
+    }
+
+    _isSingleAttempt() {
+        return singleAttemptContext.getStore()?.requester === this;
     }
 
     /**
-     * Runs fn with transport retries off for this instance. Use it for a
-     * request that spends a single-use grant.
+     * Runs fn so that each request this instance makes goes out once: no
+     * 429/5xx/ECONNRESET retry, and a 401 throws without a refresh. Use it
+     * for a request that spends a single-use grant. Every request of this
+     * instance inside fn is affected, not only the token request.
      */
     _withoutRetries(fn) {
         return singleAttemptContext.run({ requester: this }, fn);
