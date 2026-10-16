@@ -75,6 +75,8 @@ const CREDENTIAL_METADATA = new Set([
     'type',
     'entityIds',
     'status',
+    // Added by the credential use cases (ADR-056 §3.4); never provider data.
+    'tenancy',
 ]);
 
 /**
@@ -126,6 +128,7 @@ function maskCredential(credential) {
         entityCount: entityIds.length,
         createdAt: toIso(credential.createdAt),
         updatedAt: toIso(credential.updatedAt),
+        ...tenancyFields(credential.tenancy),
         data,
     };
 }

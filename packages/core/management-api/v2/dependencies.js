@@ -124,6 +124,7 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
     const getCredentialForUser = new credentialOps.GetCredentialForUserV2({
         credentialRepository,
         moduleRepository,
+        scopePolicy,
     });
     const getAuthorizationRequirements = new GetAuthorizationRequirements({
         moduleDefinitions,
@@ -246,13 +247,13 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
         listCredentialsForUser: new credentialOps.ListCredentialsForUser({
             credentialRepository,
             moduleRepository,
+            scopePolicy,
         }),
         getCredentialForUser,
         deleteCredentialForUser: new credentialOps.DeleteCredentialForUser({
             credentialRepository,
             moduleRepository,
             getCredentialForUser,
-            scopePolicy,
         }),
         getCredentialReauthorization: new GetCredentialReauthorization({
             getCredentialForUser,
@@ -261,7 +262,6 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
         reauthorizeCredentialForUser: new ReauthorizeCredentialForUser({
             getCredentialForUser,
             submitAuthorizationStep,
-            scopePolicy,
         }),
 
         // Authorization (multi-step)

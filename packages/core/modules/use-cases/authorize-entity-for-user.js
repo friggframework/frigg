@@ -19,9 +19,11 @@ class AuthorizeEntityForUser {
      * The scope, owner and organization a new entity of `entityType` gets for
      * this caller. Throws a 400/403 when the request cannot have one.
      *
-     * @param {{user: Object, entityType: string, scope?: string}} params
+     * @param {{user: Object, entityType: string, scope?: string, fixedScope?: string}} params
+     *   `fixedScope`: a re-authorization keeps the scope its connection has
      */
-    resolveOwnership({ user, entityType, scope }) {
+    resolveOwnership({ user, entityType, scope, fixedScope }) {
+        if (fixedScope) return this.scopePolicy.ownershipForScope({ scope: fixedScope, user });
         return this.scopePolicy.resolveOwnership({
             entityType,
             requestScope: scope,

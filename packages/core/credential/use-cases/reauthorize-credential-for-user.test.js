@@ -2,13 +2,18 @@ const {
     GetCredentialReauthorization,
     ReauthorizeCredentialForUser,
 } = require('./reauthorize-credential-for-user');
-const { User } = require('../../user/user');
 
 const user = { getId: () => 'u1' };
+const tenancy = (scope, access) => ({ scope, owner: { type: scope, id: 'x' }, organizationId: null, access });
 
 describe('credential re-authorization', () => {
     const getCredentialForUser = {
-        execute: jest.fn(async (id) => ({ id, type: id === 'orphan' ? null : 'acme' })),
+        execute: jest.fn(async (id) => ({
+            id,
+            type: id === 'orphan' ? null : 'acme',
+            userId: 'u1',
+            tenancy: tenancy(id === 'org' ? 'organization' : 'individual', id === 'readonly' ? 'use' : 'manage'),
+        })),
     };
 
     it('starts the flow for the credential type, bound to the credential', async () => {
@@ -16,19 +21,36 @@ describe('credential re-authorization', () => {
         await new GetCredentialReauthorization({ getCredentialForUser, getAuthorizationStep }).execute(
             'c1', user, { step: 1, state: 's' }
         );
-        expect(getAuthorizationStep.execute).toHaveBeenCalledWith({
+        expect(getAuthorizationStep.execute.mock.calls[0][0]).toStrictEqual({
             user, entityType: 'acme', credentialId: 'c1', step: 1, sessionId: undefined, state: 's',
         });
     });
 
-    it('submits a step for the credential type, bound to the credential', async () => {
+    it('submits a step for the credential type, bound to the credential, keeping its scope', async () => {
         const submitAuthorizationStep = { execute: jest.fn().mockResolvedValue({ status: 'complete' }) };
-        await new ReauthorizeCredentialForUser({ getCredentialForUser, submitAuthorizationStep }).execute(
-            'c1', user, { data: { code: 'x' }, step: 1 }
-        );
-        expect(submitAuthorizationStep.execute).toHaveBeenCalledWith({
-            user, entityType: 'acme', credentialId: 'c1', data: { code: 'x' }, step: 1, sessionId: undefined,
+        const useCase = new ReauthorizeCredentialForUser({ getCredentialForUser, submitAuthorizationStep });
+        await useCase.execute('c1', user, { data: { code: 'x' }, step: 1 });
+        await useCase.execute('org', user, { data: { code: 'x' }, step: 1 });
+        // The scope is the one the connection already has, whatever the config says now.
+        expect(submitAuthorizationStep.execute.mock.calls.map(([call]) => [call.credentialId, call.fixedScope])).toEqual([
+            ['c1', 'individual'],
+            ['org', 'organization'],
+        ]);
+        expect(submitAuthorizationStep.execute.mock.calls[0][0]).toMatchObject({
+            user, entityType: 'acme', data: { code: 'x' }, step: 1,
         });
+        // The access the use case checked is not part of what the flow is given.
+        expect(submitAuthorizationStep.execute.mock.calls[0][0]).not.toHaveProperty('access');
+    });
+
+    it('refuses a credential the caller may only use, before any step is submitted (403)', async () => {
+        const submitAuthorizationStep = { execute: jest.fn() };
+        await expect(
+            new ReauthorizeCredentialForUser({ getCredentialForUser, submitAuthorizationStep }).execute(
+                'readonly', user, { data: {} }
+            )
+        ).rejects.toMatchObject({ output: { statusCode: 403 }, data: { code: 'ORG_ADMIN_REQUIRED' } });
+        expect(submitAuthorizationStep.execute).not.toHaveBeenCalled();
     });
 
     it('refuses a credential no entity uses with 409', async () => {
@@ -38,47 +60,5 @@ describe('credential re-authorization', () => {
                 'orphan', user, { data: {} }
             )
         ).rejects.toMatchObject({ output: { statusCode: 409 }, data: { code: 'CREDENTIAL_TYPE_UNKNOWN' } });
-    });
-});
-
-describe('re-authorizing an organization credential needs an admin', () => {
-    const getCredentialForUser = { execute: jest.fn(async (id) => ({ id, type: 'acme', userId: '17' })) };
-    const callerIn = (source, role) => {
-        const caller = new User({ id: '7', type: 'INDIVIDUAL' }, { id: '17' }, false, 'organization', true, true);
-        caller.setAuthSource(source);
-        if (role) caller.setOrgRole(role);
-        return caller;
-    };
-
-    it('403s a member and a token with no role before any step is submitted', async () => {
-        const submitAuthorizationStep = { execute: jest.fn() };
-        const useCase = new ReauthorizeCredentialForUser({ getCredentialForUser, submitAuthorizationStep });
-        for (const caller of [callerIn('adopter-jwt', 'MEMBER'), callerIn('adopter-jwt')]) {
-            await expect(useCase.execute('c17', caller, { data: {} })).rejects.toMatchObject({
-                output: { statusCode: 403 },
-                data: { code: 'ORG_ADMIN_REQUIRED' },
-            });
-        }
-        expect(submitAuthorizationStep.execute).not.toHaveBeenCalled();
-    });
-
-    it('lets an admin token through, binding the step to the credential', async () => {
-        const submitAuthorizationStep = { execute: jest.fn().mockResolvedValue({ status: 'complete' }) };
-        const caller = callerIn('adopter-jwt', 'ADMIN');
-        await new ReauthorizeCredentialForUser({ getCredentialForUser, submitAuthorizationStep }).execute('c17', caller, {
-            data: {},
-        });
-        expect(submitAuthorizationStep.execute).toHaveBeenCalledWith(
-            expect.objectContaining({ entityType: 'acme', credentialId: 'c17' })
-        );
-        expect(submitAuthorizationStep.execute.mock.calls[0][0]).not.toHaveProperty('ownerId');
-    });
-
-    it('the step it starts is bound to the credential only: the owner is for the gate, not for the flow', async () => {
-        const getAuthorizationStep = { execute: jest.fn().mockResolvedValue({ step: 1 }) };
-        await new GetCredentialReauthorization({ getCredentialForUser, getAuthorizationStep }).execute('c17', callerIn('adopter-jwt', 'MEMBER'));
-        expect(Object.keys(getAuthorizationStep.execute.mock.calls[0][0]).sort()).toEqual(
-            ['credentialId', 'entityType', 'sessionId', 'state', 'step', 'user']
-        );
     });
 });

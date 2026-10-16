@@ -184,6 +184,9 @@ const V2_OPERATIONS = {
     // Credentials
     listCredentials: {
         summary: "List the caller's credentials (masked)",
+        description:
+            'A credential is listed through the entities that use it that the caller may see, so each organization lists only its own connections; one no entity uses is listed to its owner. Each carries `scope`, `owner`, `organizationId` and `access`, taken from who owns the credential.',
+        parameters: listFilters,
         responses: { 200: ok('Credentials', ref('ListCredentialsResponse')), ...errors('Unauthorized') },
     },
     getCredential: {
