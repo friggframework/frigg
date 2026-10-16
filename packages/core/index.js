@@ -112,6 +112,9 @@ const {
     listBindingScopes,
     OwnershipConfigError,
 } = require('./modules/index');
+const {
+    ManagementApiConfigError,
+} = require('./management-api/management-api-config');
 const application = require('./application');
 const utils = require('./utils');
 
@@ -226,6 +229,7 @@ module.exports = {
     resolveScope,
     listBindingScopes,
     OwnershipConfigError,
+    ManagementApiConfigError,
     // queues
     QueuerUtil,
 

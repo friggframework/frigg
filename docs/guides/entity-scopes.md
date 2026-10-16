@@ -149,10 +149,58 @@ Listing needs the caller's entities twice: the visible ones by owner and organiz
 list), and every entity of the caller and the active organization in any organization, only to tell an orphan from a
 credential used elsewhere.
 
-**The entity proxy fails closed.** Until `managementApi.proxy.scopes` exists (F6), the proxy accepts only
-`individual` entities and answers 403 `PROXY_NOT_ALLOWED` (`reason: 'scope'`) for an organization one: ADR-056 §3.5,
-narrowest by default. An organization-primary app, whose entities are organization-scoped by default, cannot proxy
-until it opts in with `proxy.scopes` once F6 lands.
+## The entity proxy follows scope (ADR-056 §3.5)
+
+`POST /api/v2/entities/:id/proxy` (ADR-052) acts through the entity's stored credential, so it asks two questions
+about the same description the v2 lists return (`scope` and `access`), in this order:
+
+| Check | Refused with |
+|---|---|
+| Is the entity visible in the active organization? (the list clauses: the caller's own, paired with this organization or, under `individualAcross: 'all'`, with none; or the organization's own) | **404** `ENTITY_NOT_FOUND`, the same answer as an id that does not exist |
+| Does the caller have **use** access? (`use` or `manage`; `view` is metadata only) | **403** `PROXY_NOT_ALLOWED`, `details.reason: 'access'` |
+| Is the entity's scope in `managementApi.proxy.scopes`? | **403** `PROXY_NOT_ALLOWED`, `details.reason: 'scope'`, `details.scope` |
+
+Then the module's allow-list, the credential and the upstream call, as before. The two refusals are 403 rather than
+404 because the caller can already see the entity; one they cannot see is never anything but 404.
+
+```js
+managementApi: {
+    proxy: {
+        enable: true,
+        scopes: ['individual', 'organization'], // default ['individual']
+    },
+},
+```
+
+**Narrowest by default.** With no `scopes`, only `individual` entities are proxied. Proxying through an
+organization entity lets any member with use access act on the organization's account (its Slack bot, its CRM), so
+an app opts in explicitly. An organization-primary app, whose entities are organization-scoped by default, cannot
+proxy until it does. `['organization']` alone is valid too: it refuses individual entities.
+
+**Validated at load.** `loadAppDefinition` runs `resolveManagementApiConfig`, which throws
+`ManagementApiConfigError` (`code: 'MANAGEMENT_API_CONFIG_INVALID'`) for an unknown scope, `'global'` (a global
+entity belongs to the app owner and is never proxied for a tenant), a non-list, an empty list or a repeated scope,
+even while `proxy.enable` is false. Unlike the proxy's numeric limits it never falls back to a default: a typo in a
+security setting must not quietly mean something else.
+
+**A missing id is a 404 too.** Every module repository throws `Entity <id> not found` for a missing row
+(`modules/repositories/entity-not-found.js` builds it and holds the one predicate that recognises it).
+`GetEntityModuleForUser` maps it to the same 404 another tenant's entity gets. Before F6 it was a 500 on every
+database, which told a caller which ids exist; the real-Postgres suite found it.
+
+**Real-Postgres isolation suite.** `packages/core/management-api/v2/tenant-isolation.postgres.test.js` runs the
+real adopter-JWT authentication, v2 router, use cases and Prisma repositories against PostgreSQL, applying the
+migrations to the database first. Users A and B, organizations X and Y: A cannot list, read, proxy or bind B's
+entities; A active in X cannot reach A's own Y entities; organization entities are refused until `scopes` includes
+them and then work for a plain member; `individualAcross: 'all'` entities follow their owner into every
+organization and nobody else. It needs a database it may wipe (every table is truncated before each test):
+
+```bash
+FRIGG_TEST_POSTGRES_URL=postgresql://postgres@127.0.0.1:5432/frigg_isolation \
+  npx jest management-api/v2/tenant-isolation.postgres.test.js
+```
+
+Without the variable it is skipped and prints that it was skipped, so the default unit run needs no database.
 
 ## Legacy rows: an existing deployment keeps its entities
 
@@ -197,7 +245,10 @@ into unscoped ones that the rules above then show.
   first, then deploy.
 - **v1 integration create** used to check no entity ownership at all (any caller could bind any entity id). It now
   runs the same `ResolveIntegrationOwnership` as v2 and answers 404 for an entity the caller may not use.
-- **Entity proxy** refuses organization-scoped entities (see above).
+- **Entity proxy** refuses organization-scoped entities unless `managementApi.proxy.scopes` includes
+  `'organization'`, and needs use access (see above). A missing entity id answers 404 instead of 500 on every v2
+  entity route.
+- **`managementApi.proxy.scopes`** is validated at load: an app with an invalid value stops starting.
 - **Mixed integrations** (an organization entity with the person's own) are refused with a 400; before this change
   entity ownership was never checked, so they were neither refused nor meaningful.
 
@@ -220,7 +271,6 @@ both.
 
 ## Deferred
 
-- `managementApi.proxy.scopes` and the real-Postgres isolation suite (F6).
 - The `ORPHANED` status with removing a member.
 - `GET /api/v2/me/organizations`, the org-admin `view` of members' individual entities.
 - Integrations that use global entities or both scopes, binding resolution at integration create (picking the entity

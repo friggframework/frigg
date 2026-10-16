@@ -502,6 +502,29 @@ The single source of the max receive count is
 devtools integration builder uses it for the queue's `RedrivePolicy` and sets
 it as `FRIGG_QUEUE_MAX_RECEIVE_COUNT` on the queue worker function.
 
+### Management API v2 notes (`/management-api`)
+
+- Handlers in `management-api/v2/handlers/` call use cases only; dependencies are wired in
+  `management-api/v2/dependencies.js`. Errors are `{ error: { code, message, details? } }`.
+- `appDefinition.managementApi` is resolved by `resolveManagementApiConfig`, which `loadAppDefinition`
+  also calls so a bad value stops the app at load. Numeric proxy limits fall back to their defaults;
+  `proxy.scopes` (ADR-056 §3.5, default `['individual']`) never does: an unknown scope, `'global'`, a
+  non-list, an empty list or a repeated scope throws `ManagementApiConfigError`
+  (`MANAGEMENT_API_CONFIG_INVALID`).
+- **Entity proxy** (`ExecuteEntityProxyRequest`): visibility in the active organization comes from
+  `GetEntityModuleForUser` (404), then `assertProxyable` reads the same `{ scope, access }` description
+  the v2 lists return: `grantsUse(access)` (`use` or `manage`, from `modules/scope-visibility.js`) or 403
+  `PROXY_NOT_ALLOWED` `reason: 'access'`, and the scope must be in `proxy.scopes` or 403 `reason: 'scope'`.
+  Do not add a second ownership rule for the proxy; change the description instead.
+- **Not visible is 404, and so is missing.** Module repositories throw `entityNotFoundError(id)`
+  (`modules/repositories/entity-not-found.js`) for a missing row and use cases match it with
+  `isEntityNotFound`. A 500 for a missing id next to a 404 for another tenant's id tells a caller which
+  ids exist. A test double that resolves `findEntityById` to `null` hides this: no adapter does that.
+- **Tenant isolation on real PostgreSQL**: `management-api/v2/tenant-isolation.postgres.test.js`, run with
+  `FRIGG_TEST_POSTGRES_URL=<a database it may wipe>`. It applies the migrations, truncates every table
+  before each test, and drives real adopter-JWT auth through the real router and Prisma repositories.
+  Without the variable it is skipped (and says so), not passed. See `docs/guides/entity-scopes.md`.
+
 ### 8. Error Handling (`/errors`)
 
 **Purpose**: Standardized error types with proper HTTP semantics.
