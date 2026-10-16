@@ -337,9 +337,11 @@ class OAuth2Requester extends Requester {
             });
 
             if (this.grant_type !== 'client_credentials') {
-                await this.refreshAccessToken({
-                    refresh_token: this.refresh_token,
-                });
+                await this._withoutRetries(() =>
+                    this.refreshAccessToken({
+                        refresh_token: this.refresh_token,
+                    })
+                );
             } else {
                 // getTokenFromClientCredentials() reports a failed token
                 // request itself and resolves to undefined. Without this

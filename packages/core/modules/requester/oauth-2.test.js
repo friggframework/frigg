@@ -237,6 +237,133 @@ describe('OAuth2Requester', () => {
         });
     });
 
+    describe('refresh token request', () => {
+        const TOKEN_URI = 'https://auth.example.com/oauth/token';
+        const tokenResponse = (status, body = {}) => ({
+            status,
+            headers: { get: () => 'application/json' },
+            json: async () => body,
+            text: async () => JSON.stringify(body),
+        });
+        const networkError = () =>
+            Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' });
+        const makeRequester = (fetch, params = {}) => {
+            const requester = new OAuth2Requester({
+                access_token: 'old-access',
+                refresh_token: 'single-use-refresh',
+                tokenUri: TOKEN_URI,
+                fetch,
+                backOff: [0, 0, 0],
+                credentialReloadBackoffMs: [],
+                ...params,
+            });
+            requester.notify = jest.fn();
+            return requester;
+        };
+
+        it.each([
+            ['a 5xx', () => tokenResponse(502), 502],
+            ['a 429', () => tokenResponse(429), 429],
+            ['a network error', () => Promise.reject(networkError()), undefined],
+        ])(
+            'sends the refresh token once on %s and reports a transport failure',
+            async (_, answer, statusCode) => {
+                const fetch = jest.fn(answer);
+                const requester = makeRequester(fetch);
+
+                await expect(requester.refreshAuth()).rejects.toMatchObject({
+                    isTokenRefreshTransportFailure: true,
+                    statusCode,
+                });
+
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(requester.notify).not.toHaveBeenCalledWith(
+                    requester.DLGT_INVALID_AUTH,
+                    expect.anything()
+                );
+            }
+        );
+
+        it('sends the refresh token once when a 401 triggers the refresh and the token endpoint answers 502', async () => {
+            const fetch = jest.fn(async (url) =>
+                url === TOKEN_URI ? tokenResponse(502) : tokenResponse(401)
+            );
+            const requester = makeRequester(fetch);
+
+            await expect(
+                requester._get({ url: 'https://api.example.com/data' })
+            ).rejects.toMatchObject({ isTokenRefreshTransportFailure: true });
+
+            const tokenRequests = fetch.mock.calls.filter(
+                ([url]) => url === TOKEN_URI
+            );
+            expect(tokenRequests).toHaveLength(1);
+        });
+
+        it('sends the refresh token once on invalid_grant and invalidates the credential', async () => {
+            const fetch = jest.fn(async () =>
+                tokenResponse(400, { error: 'invalid_grant' })
+            );
+            const requester = makeRequester(fetch);
+
+            await expect(requester.refreshAuth()).resolves.toBe(false);
+
+            expect(fetch).toHaveBeenCalledTimes(1);
+            expect(requester.notify).toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH,
+                { statusCode: 400 }
+            );
+        });
+
+        it('sets the rotated tokens from one request on success', async () => {
+            const fetch = jest.fn(async () =>
+                tokenResponse(200, {
+                    access_token: 'new-access',
+                    refresh_token: 'new-refresh',
+                    expires_in: 3600,
+                })
+            );
+            const requester = makeRequester(fetch);
+
+            await expect(requester.refreshAuth()).resolves.toBe(true);
+
+            expect(fetch).toHaveBeenCalledTimes(1);
+            expect(requester.access_token).toBe('new-access');
+            expect(requester.refresh_token).toBe('new-refresh');
+        });
+
+        it('still retries a client_credentials token request, which carries no single-use grant', async () => {
+            const fetch = jest
+                .fn()
+                .mockResolvedValueOnce(tokenResponse(502))
+                .mockResolvedValueOnce(
+                    tokenResponse(200, { access_token: 'cc-access', expires_in: 3600 })
+                );
+            const requester = makeRequester(fetch, {
+                grant_type: 'client_credentials',
+            });
+
+            await expect(requester.refreshAuth()).resolves.toBe(true);
+
+            expect(fetch).toHaveBeenCalledTimes(2);
+            expect(requester.access_token).toBe('cc-access');
+        });
+
+        it('still retries a 5xx on other requests', async () => {
+            const fetch = jest
+                .fn()
+                .mockResolvedValueOnce(tokenResponse(502))
+                .mockResolvedValueOnce(tokenResponse(200, { ok: true }));
+            const requester = makeRequester(fetch);
+
+            await expect(
+                requester._get({ url: 'https://api.example.com/data' })
+            ).resolves.toEqual({ ok: true });
+
+            expect(fetch).toHaveBeenCalledTimes(2);
+        });
+    });
+
     describe('setTokens', () => {
         it('should set access_token and refresh_token', async () => {
             const requester = new OAuth2Requester({});

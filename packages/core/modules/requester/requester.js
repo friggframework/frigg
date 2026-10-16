@@ -30,6 +30,11 @@ const MAX_AUTH_RETRIES = 3;
 // AsyncLocalStorage reaches the nested calls without help from the subclasses.
 const refreshContext = new AsyncLocalStorage();
 
+// Marks the async call chain that sends a single-use grant, such as a
+// rotating refresh token. A retry after a lost 2xx re-sends a grant the
+// provider already consumed, so requests in this chain are never retried.
+const singleAttemptContext = new AsyncLocalStorage();
+
 class Requester extends Delegate {
     constructor(params) {
         super(params);
@@ -275,7 +280,7 @@ class Requester extends Delegate {
                 // stall at batch scale.
                 const isTimeout =
                     e?.name === 'AbortError' || e?.type === 'aborted';
-                if (e?.code === 'ECONNRESET' && attempt < this.backOff.length) {
+                if (e?.code === 'ECONNRESET' && this._canRetry(attempt)) {
                     clearRequestTimer();
                     const delay = this.backOff[attempt] * 1000;
                     await new Promise((resolve) => setTimeout(resolve, delay));
@@ -299,10 +304,7 @@ class Requester extends Delegate {
             const { status } = response;
 
             // If the status is retriable and there are back off requests left, retry the request
-            if (
-                (status === 429 || status >= 500) &&
-                attempt < this.backOff.length
-            ) {
+            if ((status === 429 || status >= 500) && this._canRetry(attempt)) {
                 clearRequestTimer();
                 const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
@@ -590,6 +592,21 @@ class Requester extends Delegate {
      */
     async _adoptNewerCredential() {
         return false;
+    }
+
+    _canRetry(attempt) {
+        return (
+            attempt < this.backOff.length &&
+            singleAttemptContext.getStore()?.requester !== this
+        );
+    }
+
+    /**
+     * Runs fn with transport retries off for this instance. Use it for a
+     * request that spends a single-use grant.
+     */
+    _withoutRetries(fn) {
+        return singleAttemptContext.run({ requester: this }, fn);
     }
 
     /** True while this instance runs its own refresh. */
