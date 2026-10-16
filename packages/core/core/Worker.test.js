@@ -484,3 +484,28 @@ describe('Worker - AWS SDK v3', () => {
         });
     });
 });
+
+describe('Worker queue client injection (friggframework/frigg#545)', () => {
+    it('uses an injected QueueClientInterface instead of SQS', async () => {
+        const queueClient = {
+            sendMessage: jest.fn().mockResolvedValue({ MessageId: 'injected-1' }),
+            getQueueUrl: jest.fn().mockResolvedValue('https://queue/injected'),
+        };
+        const worker = new Worker({ queueClient });
+
+        await expect(worker.getQueueURL({ QueueName: 'q' })).resolves.toBe('https://queue/injected');
+        await expect(
+            worker.send({ QueueUrl: 'https://queue/injected', event: 'E' }, 5)
+        ).resolves.toBe('injected-1');
+        expect(queueClient.sendMessage).toHaveBeenCalledWith({
+            DelaySeconds: 5,
+            MessageBody: JSON.stringify({ event: 'E' }),
+            QueueUrl: 'https://queue/injected',
+        });
+    });
+
+    it('constructs no SQS client until a queue method is used', () => {
+        const worker = new Worker();
+        expect(worker._queueClient).toBeNull();
+    });
+});

@@ -7,16 +7,20 @@
  * Environment Detection:
  * - SCHEDULER_PROVIDER=eventbridge -> Use AWS EventBridge Scheduler
  * - SCHEDULER_PROVIDER=mock -> Use in-memory mock scheduler
+ * - SCHEDULER_PROVIDER=netlify -> Netlify poll-and-dispatch scheduler
+ *   (friggframework/frigg#545; needs `repository`, usually `queueProvider`)
  * - Default in dev/test/local stages -> Mock scheduler
  * - Default in other stages -> EventBridge scheduler
+ * - Any other name -> require('@friggframework/provider-<name>').SchedulerAdapter
+ *
+ * Adapters are required inside their branch so building one never loads
+ * another's SDK (@aws-sdk/client-scheduler is not a core dependency).
  */
-
-const { EventBridgeSchedulerAdapter } = require('./eventbridge-scheduler-adapter');
-const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
 
 const SCHEDULER_PROVIDERS = {
     EVENTBRIDGE: 'eventbridge',
     MOCK: 'mock',
+    NETLIFY: 'netlify',
 };
 
 const LOCAL_STAGES = ['dev', 'test', 'local'];
@@ -47,22 +51,47 @@ function determineProvider() {
  * @param {string} options.provider - Scheduler provider ('eventbridge' or 'mock')
  * @param {string} options.region - AWS region (for EventBridge)
  * @param {boolean} options.verbose - Verbose logging (for Mock)
+ * @param {Object} [options.repository] - Schedule repository (for Netlify: persists schedules)
+ * @param {Object} [options.queueProvider] - Queue provider (for Netlify: dispatches due jobs)
  * @returns {SchedulerServiceInterface} Implementation of scheduler interface
  */
 function createSchedulerService(options = {}) {
     const provider = options.provider || determineProvider();
 
     switch (provider) {
-        case SCHEDULER_PROVIDERS.EVENTBRIDGE:
+        case SCHEDULER_PROVIDERS.EVENTBRIDGE: {
+            const { EventBridgeSchedulerAdapter } = require('./eventbridge-scheduler-adapter');
             return new EventBridgeSchedulerAdapter({
                 region: options.region,
             });
-        case SCHEDULER_PROVIDERS.MOCK:
+        }
+        case SCHEDULER_PROVIDERS.MOCK: {
+            const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
             return new MockSchedulerAdapter({
                 verbose: options.verbose,
             });
-        default:
-            throw new Error(`Unknown scheduler provider: ${provider}`);
+        }
+        case SCHEDULER_PROVIDERS.NETLIFY: {
+            const { NetlifySchedulerAdapter } = require('./netlify-scheduler-adapter');
+            return new NetlifySchedulerAdapter({
+                repository: options.repository,
+                queueProvider: options.queueProvider,
+            });
+        }
+        default: {
+            let plugin;
+            try {
+                plugin = require('../../providers/resolve-provider').resolveProvider(null, {
+                    provider,
+                });
+            } catch (error) {
+                throw new Error(`Unknown scheduler provider: ${provider} (${error.message})`);
+            }
+            if (!plugin.SchedulerAdapter) {
+                throw new Error(`Unknown scheduler provider: ${provider}`);
+            }
+            return new plugin.SchedulerAdapter(options);
+        }
     }
 }
 
