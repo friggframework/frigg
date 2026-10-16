@@ -266,8 +266,9 @@ admin routes. For a database created from a branch build, the migration sets
 the branch's `entities[key].global: true` stays accepted as a deprecated alias for
 `scope: 'global'`.
 
-Org membership gains a role: the individual `User` gets `orgRole` (`MEMBER | ADMIN`, default
-`MEMBER`), set by the adopter JWT `role` claim in profile A or by an org admin in profile B. The
+Org membership gains a role: `orgRole` (`MEMBER | ADMIN`, default `MEMBER`) on the membership
+(§3.6), set from the adopter JWT `role` claim in profile A or by an org admin in profile B. Who counts
+as an org admin for a request is decided per auth source in §3.6 ("Organization roles"). The
 credential stays on the entity, so field-level encryption and the repositories' encryption are
 unchanged.
 
@@ -301,8 +302,17 @@ likely, which [ADR-031](./031-concurrent-oauth-credential-refresh.md) and
 |---|---|
 | All `individual` | The individual |
 | All `organization` | The organization (the ORGANIZATION-type `User`) |
-| Mixed `organization` + `individual` | **The individual** |
-| Mixed with `global` | The individual |
+| Mixed `organization` + `individual` | **The individual** (target; refused for now, see below) |
+| Mixed with `global` | The individual (target; refused for now, see below) |
+
+**Implemented so far (2.1 first cut): only the first two rows.** An integration must use entities of
+one scope. Creating one that mixes `organization` and `individual` entities is refused with **400
+`MIXED_ENTITY_SCOPES`** (`ResolveIntegrationOwnership`), and an entity the caller may not use,
+which includes every `global` entity because none is visible through the tenant API yet, is a **404**,
+the same answer as a missing one. Both rows above are **deferred**, not dropped: refusing is safe
+until `ORPHANED` and member removal exist, because a mixed integration owned by the individual has
+nowhere to go when that person leaves. The `workspace`/`me` example under "Multi-level-auth APIs"
+below depends on the mixed row and does not work until it lands.
 
 `global` entities do not decide ownership; the rule is applied to the remaining entities, so
 `global` + `organization` only is organization-owned. Mixed integrations belong to the
@@ -460,6 +470,26 @@ and every org-scoped check follows the last request. That is a defect, not a mod
   §3 "when a member leaves" applies per membership: leaving A orphans A's integrations only. Under
   `'all'`, the person's organization-independent entities are not tied to A and are not orphaned
   when they leave it. An integration in A may use such an entity only while its owner is a member of A.
+- **Organization roles.** Whether a caller may manage organization-level things (create, change or
+  delete an `organization` entity, integration or credential) depends on how the request
+  authenticated:
+  - **Shared secret** (`x-frigg-api-key` with the `x-frigg-*` headers): always. The adopter's own
+    backend vouches for the caller.
+  - **Adopter JWT**: the token's role claim **wins** when the token carries one, so an IdP that
+    demotes someone takes effect at once. When it carries none, the `orgRole` stored on the caller's
+    membership of the active organization applies (the row keeps the first token's role, `MEMBER`
+    when it had none; a legacy-pointer membership reads as `MEMBER`). When there is neither, the
+    caller is a `MEMBER`. A missing role never means admin. `user.orgAdminRoles` (default
+    `['ADMIN']`, case-insensitive) names the admin roles.
+  - **Frigg bearer token** (`/user/login`): carries no role and predates roles, so it keeps its
+    earlier behaviour and may manage, unless the app sets `user.orgAdminGateBearerTokens: true`, in
+    which case it is judged as above (and, with no role, is a `MEMBER`). Gating it by default would
+    leave a Frigg-UI user in an organization-primary app, whose level-6 default is `organization`,
+    unable to connect anything, and in that profile the token is minted for the organization user
+    itself.
+
+  The membership row is therefore read for authorization, not only written: it is the fallback when
+  the token is silent, never an override of what the token says.
 - **Lists are scoped to the active organization.** `/entities`, `/credentials` and `/integrations`
   return, for the active organization: its `organization` entities, the caller's `individual`
   entities, and integrations owned by the caller or the organization in it. The caller's
