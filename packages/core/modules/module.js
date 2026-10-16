@@ -21,9 +21,17 @@ class Module extends Delegate {
      * @param {string} params.userId The user id
      * @param {Object} params.entity The entity record from the database
      * @param {string} [params.state] Optional OAuth state value forwarded to the API client (round-trips through the OAuth provider).
-     * @param {Object} [params.resolvedEnv] definition.env already resolved by Module.create(); defaults to the static definition.env.
+     * @param {Object} [params.resolvedEnv] definition.env as Module.create() resolved it (may be undefined).
+     * @param {boolean} [params.envResolved=false] true when resolvedEnv carries the resolved env, even an undefined one; otherwise the static definition.env is used.
      */
-    constructor({ definition, userId = null, entity: entityObj = null, state = null, resolvedEnv = null }) {
+    constructor({
+        definition,
+        userId = null,
+        entity: entityObj = null,
+        state = null,
+        resolvedEnv,
+        envResolved = false,
+    }) {
         super({ definition, userId, entity: entityObj });
 
         this.validateDefinition(definition);
@@ -58,9 +66,10 @@ class Module extends Delegate {
         // A pre-resolved env (Module.create()) supports definition.env as an
         // async function, e.g. OAuth app credentials loaded from the database
         // by the db-credentials extension; otherwise the static object.
-        // No resolved env (the null default; an explicit undefined takes it
-        // too) means the static definition.env applies.
-        const envValues = resolvedEnv ?? this.definition.env;
+        // "Resolved" is an explicit flag, not a non-null value: a function env
+        // may legitimately resolve to undefined (no static env, no DB row),
+        // and falling back to definition.env would then read the function.
+        const envValues = envResolved ? resolvedEnv : this.definition.env;
         if (typeof envValues === 'function') {
             // Spreading a function yields no keys, so the API client would
             // silently get no client_id / client_secret.
@@ -106,7 +115,7 @@ class Module extends Delegate {
      */
     static async create({ definition, userId = null, entity = null, state = null }) {
         const resolvedEnv = await Module.resolveEnv(definition);
-        return new Module({ definition, userId, entity, state, resolvedEnv });
+        return new Module({ definition, userId, entity, state, resolvedEnv, envResolved: true });
     }
 
     getName() {

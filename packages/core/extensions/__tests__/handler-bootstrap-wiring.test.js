@@ -132,6 +132,25 @@ describe('createHandler runs extension bootstraps', () => {
     });
 });
 
+describe('a bootstrapped module with no static env and no DB row', () => {
+    it('is created without throwing and gets no credentials', async () => {
+        const { Module } = require('../../modules/module');
+        const { definition, appDefinition } = makeApp();
+        delete definition.env;
+        mockPrisma.oAuthAppCredential.findUnique.mockReset();
+        mockPrisma.oAuthAppCredential.findUnique.mockResolvedValue(null);
+
+        await dbCredentials.bootstrap(mockPrisma, appDefinition);
+        expect(typeof definition.env).toBe('function');
+
+        const module = await Module.create({ definition });
+        expect(module.api.params.client_id).toBeUndefined();
+        expect(mockPrisma.oAuthAppCredential.findUnique).toHaveBeenCalledWith({
+            where: { moduleName: 'hubspot' },
+        });
+    });
+});
+
 describe('use cases build modules through Module.create', () => {
     // `new Module(...)` reads definition.env synchronously, so a function env
     // (installed by the db-credentials bootstrap) would give the API client no

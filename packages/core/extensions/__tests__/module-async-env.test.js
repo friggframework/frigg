@@ -120,16 +120,30 @@ describe('Module async env support', () => {
             expect(module.api.params.client_id).toBe('old-style');
         });
 
-        it('uses the static env when no resolved env is passed (undefined takes the null default)', () => {
+        it('uses the static env when no resolved env is passed', () => {
             const definition = { ...mockDefinition, env: { client_id: 'static' } };
-            const module = new Module({ definition, resolvedEnv: undefined });
+            const module = new Module({ definition });
             expect(module.api.params.client_id).toBe('static');
         });
 
         it('prefers a resolved env over the static one', () => {
             const definition = { ...mockDefinition, env: { client_id: 'static' } };
-            const module = new Module({ definition, resolvedEnv: { client_id: 'resolved' } });
+            const module = new Module({ definition, resolvedEnv: { client_id: 'resolved' }, envResolved: true });
             expect(module.api.params.client_id).toBe('resolved');
+        });
+
+        it('Module.create accepts a function env that resolves to undefined (bootstrapped, no static env, no DB row)', async () => {
+            // What the db-credentials bootstrap installs on a module with no
+            // static env when no OAuthAppCredential row exists.
+            const definition = { ...mockDefinition, env: async () => undefined };
+            const module = await Module.create({ definition });
+            expect(module.api.params.client_id).toBeUndefined();
+            expect(module.api.params.delegate).toBe(module);
+        });
+
+        it('Module.create accepts a function env that resolves to null', async () => {
+            const definition = { ...mockDefinition, env: async () => null };
+            await expect(Module.create({ definition })).resolves.toBeInstanceOf(Module);
         });
 
         it('refuses a function env built with new Module() instead of dropping the credentials', () => {
