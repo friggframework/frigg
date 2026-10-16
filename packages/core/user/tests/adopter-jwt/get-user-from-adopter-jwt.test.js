@@ -743,6 +743,29 @@ describe('GetUserFromAdopterJwt (ADR-056 §2)', () => {
             expect(repo.linkIndividualToOrganizationIfUnset).not.toHaveBeenCalled();
         });
 
+        it('carries the stored membership role, which applies when a later token has no role claim', async () => {
+            seed(personInA());
+            const first = await build().execute(
+                await es({ sub: 'u1', org_id: 'oB', org_role: 'ADMIN' })
+            );
+            expect(first.getOrgRole()).toBe('ADMIN');
+            expect(first.getMembershipRole()).toBe('ADMIN');
+
+            const later = await build().execute(
+                await es({ sub: 'u1', org_id: 'oB' })
+            );
+            expect(later.getOrgRole()).toBeNull();
+            expect(later.getMembershipRole()).toBe('ADMIN');
+        });
+
+        it('the legacy pointer is an implicit MEMBER membership', async () => {
+            seed(personInA());
+            const user = await build().execute(
+                await es({ sub: 'u1', org_id: 'oA' })
+            );
+            expect(user.getMembershipRole()).toBe('MEMBER');
+        });
+
         it('treats the legacy organizationId as a membership: logging in with that org adds no row', async () => {
             seed(personInA());
 
