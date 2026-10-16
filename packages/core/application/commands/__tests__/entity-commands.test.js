@@ -104,6 +104,19 @@ describe('entity-commands credentialId', () => {
         expect(result.credentialId).toBe('42');
     });
 
+    it('returns a numeric credential id as a string', async () => {
+        repository.findEntity.mockResolvedValue({
+            ...repositoryEntity,
+            credential: { id: 42, data: {} },
+        });
+
+        const result = await createEntityCommands().findEntity({
+            externalId: 'ext-1',
+        });
+
+        expect(result.credentialId).toBe('42');
+    });
+
     it('returns a null credentialId for an entity without a credential', async () => {
         repository.findEntity.mockResolvedValue({
             ...repositoryEntity,
