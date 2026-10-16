@@ -9,8 +9,32 @@
  *   save(scheduleData)        — Upsert a scheduled job
  *   delete(scheduleName)      — Remove a scheduled job
  *   findByName(scheduleName)  — Find a single scheduled job
- *   findDue(now)              — Find all PENDING jobs where scheduledAt <= now
+ *   findDue(now, { leaseMs }) — Find due jobs: PENDING, or PROCESSING with an
+ *                               expired lease (a dispatcher that died after
+ *                               claiming), where scheduledAt <= now
+ *   claim(scheduleName, now, { leaseMs })
+ *                             — Atomically move one due job to PROCESSING;
+ *                               true only for the one caller that won it
+ *
+ * The lease clock is the row's updatedAt: a claim writes it, so a PROCESSING
+ * row whose updatedAt is older than now - leaseMs is claimable again.
  */
+
+const DEFAULT_LEASE_MS = 5 * 60 * 1000;
+
+// Rows a dispatcher may take: never claimed, or claimed by one that has not
+// finished within the lease.
+function claimableWhere(now, leaseMs = DEFAULT_LEASE_MS) {
+    return {
+        OR: [
+            { state: 'PENDING' },
+            {
+                state: 'PROCESSING',
+                updatedAt: { lt: new Date(now.getTime() - leaseMs) },
+            },
+        ],
+    };
+}
 
 class ScheduledJobRepository {
     /**
@@ -64,15 +88,31 @@ class ScheduledJobRepository {
         });
     }
 
-    async findDue(now) {
+    async findDue(now, { leaseMs = DEFAULT_LEASE_MS } = {}) {
         return this.prisma.scheduledJob.findMany({
             where: {
-                state: 'PENDING',
                 scheduledAt: { lte: now },
+                ...claimableWhere(now, leaseMs),
             },
             orderBy: { scheduledAt: 'asc' },
         });
     }
+
+    /**
+     * Conditional update: only a row that is still claimable moves to
+     * PROCESSING, so of two overlapping ticks exactly one gets count === 1.
+     * (PostgreSQL re-checks the WHERE on the row it locked; MongoDB updates
+     * each document atomically.)
+     *
+     * @returns {Promise<boolean>} true when this caller claimed the job
+     */
+    async claim(scheduleName, now, { leaseMs = DEFAULT_LEASE_MS } = {}) {
+        const { count } = await this.prisma.scheduledJob.updateMany({
+            where: { scheduleName, ...claimableWhere(now, leaseMs) },
+            data: { state: 'PROCESSING', updatedAt: now },
+        });
+        return count === 1;
+    }
 }
 
-module.exports = { ScheduledJobRepository };
+module.exports = { ScheduledJobRepository, DEFAULT_LEASE_MS };

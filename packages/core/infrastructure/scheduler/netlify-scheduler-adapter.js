@@ -27,6 +27,7 @@ const { SchedulerServiceInterface } = require('./scheduler-service-interface');
 // The one queue worker every Netlify deployment has (provider-netlify's
 // worker-background function); it dispatches by integrationName.
 const DEFAULT_WORKER_PATH = '/.netlify/functions/worker-background';
+const DEFAULT_LEASE_MS = 5 * 60 * 1000;
 
 class NetlifySchedulerAdapter extends SchedulerServiceInterface {
     /**
@@ -35,11 +36,15 @@ class NetlifySchedulerAdapter extends SchedulerServiceInterface {
      *   Must implement: save(schedule), delete(scheduleName),
      *   findByName(scheduleName), findDue(now)
      * @param {Object} [options.queueProvider] - Queue provider for dispatching due jobs
+     * @param {number} [options.leaseMs] - how long a claimed (PROCESSING) job
+     *   is held before another tick may take it again (default 5 minutes,
+     *   well past a Netlify scheduled function's 60-second limit)
      */
     constructor(options = {}) {
         super();
         this.repository = options.repository;
         this.queueProvider = options.queueProvider;
+        this.leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
 
         if (!this.repository) {
             console.warn(
@@ -147,23 +152,31 @@ class NetlifySchedulerAdapter extends SchedulerServiceInterface {
             console.warn(
                 '[NetlifyScheduler] Cannot process due schedules without a repository'
             );
-            return { processed: 0, errors: 0 };
+            return { processed: 0, errors: 0, skipped: 0 };
         }
 
         const now = new Date();
-        const dueSchedules = await this.repository.findDue(now);
+        const lease = { leaseMs: this.leaseMs };
+        const dueSchedules = await this.repository.findDue(now, lease);
 
         let processed = 0;
         let errors = 0;
+        let skipped = 0;
 
         for (const schedule of dueSchedules) {
             try {
-                // Mark as PROCESSING before dispatch so the next cron tick
-                // won't re-pick this schedule (findDue only returns PENDING).
-                await this.repository.save({
-                    ...schedule,
-                    state: 'PROCESSING',
-                });
+                // Claim before dispatch. Two overlapping ticks can both see
+                // the row in findDue; only the one whose conditional update
+                // wins sends it. A repository without claim() (a custom one)
+                // keeps the old unconditional PROCESSING write.
+                const claimed =
+                    typeof this.repository.claim === 'function'
+                        ? await this.repository.claim(schedule.scheduleName, now, lease)
+                        : (await this.repository.save({ ...schedule, state: 'PROCESSING' }), true);
+                if (!claimed) {
+                    skipped++;
+                    continue;
+                }
 
                 if (this.queueProvider) {
                     await this.queueProvider.send(
@@ -194,10 +207,10 @@ class NetlifySchedulerAdapter extends SchedulerServiceInterface {
         }
 
         console.log(
-            `[NetlifyScheduler] Processed ${processed} due schedules, ${errors} errors`
+            `[NetlifyScheduler] Processed ${processed} due schedules, ${errors} errors, ${skipped} claimed elsewhere`
         );
-        return { processed, errors };
+        return { processed, errors, skipped };
     }
 }
 
-module.exports = { NetlifySchedulerAdapter, DEFAULT_WORKER_PATH };
+module.exports = { NetlifySchedulerAdapter, DEFAULT_WORKER_PATH, DEFAULT_LEASE_MS };

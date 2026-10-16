@@ -188,7 +188,7 @@ describe('NetlifySchedulerAdapter', () => {
 
             const result = await adapter.processDueSchedules();
 
-            expect(result).toEqual({ processed: 0, errors: 0 });
+            expect(result).toEqual({ processed: 0, errors: 0, skipped: 0 });
             expect(console.warn).toHaveBeenCalledWith(
                 expect.stringContaining('Cannot process due schedules')
             );
@@ -199,7 +199,7 @@ describe('NetlifySchedulerAdapter', () => {
 
             const result = await adapter.processDueSchedules();
 
-            expect(result).toEqual({ processed: 0, errors: 0 });
+            expect(result).toEqual({ processed: 0, errors: 0, skipped: 0 });
             expect(mockQueueProvider.send).not.toHaveBeenCalled();
         });
 
@@ -220,7 +220,7 @@ describe('NetlifySchedulerAdapter', () => {
                 { event: 'SYNC' },
                 '/fn/worker-background'
             );
-            expect(result).toEqual({ processed: 1, errors: 0 });
+            expect(result).toEqual({ processed: 1, errors: 0, skipped: 0 });
         });
 
         it('marks schedule as PROCESSING before dispatching', async () => {
@@ -288,7 +288,7 @@ describe('NetlifySchedulerAdapter', () => {
 
             const result = await adapter.processDueSchedules();
 
-            expect(result).toEqual({ processed: 0, errors: 1 });
+            expect(result).toEqual({ processed: 0, errors: 1, skipped: 0 });
             // Should save with FAILED state
             expect(mockRepository.save).toHaveBeenCalledWith(
                 expect.objectContaining({ state: 'FAILED' })
@@ -305,7 +305,7 @@ describe('NetlifySchedulerAdapter', () => {
 
             const result = await adapter.processDueSchedules();
 
-            expect(result).toEqual({ processed: 0, errors: 0 });
+            expect(result).toEqual({ processed: 0, errors: 0, skipped: 0 });
             expect(mockQueueProvider.send).not.toHaveBeenCalled();
         });
 
@@ -335,7 +335,7 @@ describe('NetlifySchedulerAdapter', () => {
 
             // save called twice: once PROCESSING, once FAILED
             expect(saveCallCount).toBe(2);
-            expect(result).toEqual({ processed: 0, errors: 1 });
+            expect(result).toEqual({ processed: 0, errors: 1, skipped: 0 });
         });
 
         it('handles FAILED save gracefully (catch swallows)', async () => {
@@ -359,7 +359,7 @@ describe('NetlifySchedulerAdapter', () => {
             // Should NOT throw — the .catch(() => {}) swallows the save(FAILED) error
             const result = await adapter.processDueSchedules();
 
-            expect(result).toEqual({ processed: 0, errors: 1 });
+            expect(result).toEqual({ processed: 0, errors: 1, skipped: 0 });
         });
 
         it('logs payload when no queue provider is configured', async () => {
@@ -384,7 +384,7 @@ describe('NetlifySchedulerAdapter', () => {
                 expect.stringContaining('No queue provider'),
                 expect.stringContaining('"event":"SYNC"')
             );
-            expect(result).toEqual({ processed: 1, errors: 0 });
+            expect(result).toEqual({ processed: 1, errors: 0, skipped: 0 });
         });
 
         it('processes multiple schedules independently', async () => {
@@ -412,7 +412,7 @@ describe('NetlifySchedulerAdapter', () => {
 
             const result = await adapter.processDueSchedules();
 
-            expect(result).toEqual({ processed: 1, errors: 1 });
+            expect(result).toEqual({ processed: 1, errors: 1, skipped: 0 });
             // job-1 deleted, job-2 marked FAILED
             expect(mockRepository.delete).toHaveBeenCalledWith('job-1');
             expect(mockRepository.delete).not.toHaveBeenCalledWith('job-2');

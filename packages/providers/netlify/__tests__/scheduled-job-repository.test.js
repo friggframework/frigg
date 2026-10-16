@@ -89,14 +89,17 @@ describe('ScheduledJobRepository', () => {
             });
         });
 
-        test('findDue queries PENDING jobs before cutoff', async () => {
-            const now = new Date();
+        test('findDue queries PENDING jobs, and PROCESSING jobs whose lease expired, before cutoff', async () => {
+            const now = new Date('2026-10-16T12:00:00Z');
             await repo.findDue(now);
 
             expect(mockPrisma.scheduledJob.findMany).toHaveBeenCalledWith({
                 where: {
-                    state: 'PENDING',
                     scheduledAt: { lte: now },
+                    OR: [
+                        { state: 'PENDING' },
+                        { state: 'PROCESSING', updatedAt: { lt: new Date('2026-10-16T11:55:00Z') } },
+                    ],
                 },
                 orderBy: { scheduledAt: 'asc' },
             });
