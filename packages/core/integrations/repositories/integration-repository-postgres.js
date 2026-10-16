@@ -375,22 +375,22 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
      */
     async addEntitiesToIntegration(integrationId, entityIds) {
         const intId = this._convertId(integrationId);
-        const existing = await this.prisma.integration.findUnique({
-            where: { id: intId },
-            select: { id: true },
-        });
-        if (!existing) return null;
 
-        await this.prisma.integration.update({
-            where: { id: intId },
-            data: {
-                entities: {
-                    connect: entityIds.map((id) => ({
-                        id: this._convertId(id),
-                    })),
+        try {
+            await this.prisma.integration.update({
+                where: { id: intId },
+                data: {
+                    entities: {
+                        connect: entityIds.map((id) => ({
+                            id: this._convertId(id),
+                        })),
+                    },
                 },
-            },
-        });
+            });
+        } catch (error) {
+            if (error.code === 'P2025') return null;
+            throw error;
+        }
         return this.findIntegrationById(integrationId);
     }
 
@@ -404,22 +404,22 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
      */
     async removeEntitiesFromIntegration(integrationId, entityIds) {
         const intId = this._convertId(integrationId);
-        const existing = await this.prisma.integration.findUnique({
-            where: { id: intId },
-            select: { id: true },
-        });
-        if (!existing) return null;
 
-        await this.prisma.integration.update({
-            where: { id: intId },
-            data: {
-                entities: {
-                    disconnect: entityIds.map((id) => ({
-                        id: this._convertId(id),
-                    })),
+        try {
+            await this.prisma.integration.update({
+                where: { id: intId },
+                data: {
+                    entities: {
+                        disconnect: entityIds.map((id) => ({
+                            id: this._convertId(id),
+                        })),
+                    },
                 },
-            },
-        });
+            });
+        } catch (error) {
+            if (error.code === 'P2025') return null;
+            throw error;
+        }
         return this.findIntegrationById(integrationId);
     }
 

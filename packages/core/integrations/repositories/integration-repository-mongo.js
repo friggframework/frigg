@@ -347,20 +347,20 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
      * @returns {Promise<Object|null>} Updated integration, or null when the integration does not exist
      */
     async addEntitiesToIntegration(integrationId, entityIds) {
-        const existing = await this.prisma.integration.findUnique({
-            where: { id: integrationId },
-            select: { id: true },
-        });
-        if (!existing) return null;
 
-        await this.prisma.integration.update({
-            where: { id: integrationId },
-            data: {
-                entities: {
-                    connect: entityIds.map((id) => ({ id })),
+        try {
+            await this.prisma.integration.update({
+                where: { id: integrationId },
+                data: {
+                    entities: {
+                        connect: entityIds.map((id) => ({ id })),
+                    },
                 },
-            },
-        });
+            });
+        } catch (error) {
+            if (error.code === 'P2025') return null;
+            throw error;
+        }
         return this.findIntegrationById(integrationId);
     }
 
@@ -373,20 +373,20 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
      * @returns {Promise<Object|null>} Updated integration, or null when the integration does not exist
      */
     async removeEntitiesFromIntegration(integrationId, entityIds) {
-        const existing = await this.prisma.integration.findUnique({
-            where: { id: integrationId },
-            select: { id: true },
-        });
-        if (!existing) return null;
 
-        await this.prisma.integration.update({
-            where: { id: integrationId },
-            data: {
-                entities: {
-                    disconnect: entityIds.map((id) => ({ id })),
+        try {
+            await this.prisma.integration.update({
+                where: { id: integrationId },
+                data: {
+                    entities: {
+                        disconnect: entityIds.map((id) => ({ id })),
+                    },
                 },
-            },
-        });
+            });
+        } catch (error) {
+            if (error.code === 'P2025') return null;
+            throw error;
+        }
         return this.findIntegrationById(integrationId);
     }
 

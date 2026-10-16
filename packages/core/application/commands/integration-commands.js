@@ -31,8 +31,10 @@ const {
 } = require('../../integrations/use-cases/patch-integration-config');
 const {
     AddEntitiesToIntegration,
+} = require('../../integrations/use-cases/add-entities-to-integration');
+const {
     RemoveEntitiesFromIntegration,
-} = require('../../integrations/use-cases/update-integration-entities');
+} = require('../../integrations/use-cases/remove-entities-from-integration');
 const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../../integrations/utils/map-integration-dto');
@@ -45,6 +47,8 @@ const ERROR_CODE_MAP = {
     TYPE_REQUIRED: 400,
     INTEGRATION_RECORD_NOT_FOUND: 404,
     INVALID_INTEGRATION_DATA: 400,
+    ENTITIES_NOT_FOUND: 404,
+    ENTITY_USER_MISMATCH: 403,
 };
 
 function mapErrorToResponse(error) {
@@ -170,6 +174,7 @@ function createIntegrationCommands({ integrationClass } = {}) {
 
     const addEntitiesToIntegrationUseCase = new AddEntitiesToIntegration({
         integrationRepository,
+        moduleRepository,
     });
 
     const removeEntitiesFromIntegrationUseCase =
@@ -322,7 +327,8 @@ function createIntegrationCommands({ integrationClass } = {}) {
         },
 
         /**
-         * Attach entities to an existing integration. Entities that are
+         * Attach entities to an existing integration. Every entity must
+         * exist and belong to the integration's user; entities that are
          * already attached are left as they are.
          * @param {Object} params
          * @param {string} params.integrationId - Integration ID

@@ -36,11 +36,16 @@ jest.mock('../../integrations/use-cases/patch-integration-config', () => {
     };
 });
 
-jest.mock('../../integrations/use-cases/update-integration-entities', () => {
+jest.mock('../../integrations/use-cases/add-entities-to-integration', () => {
     return {
         AddEntitiesToIntegration: jest.fn().mockImplementation(() => ({
             execute: mockAddEntitiesExecute,
         })),
+    };
+});
+
+jest.mock('../../integrations/use-cases/remove-entities-from-integration', () => {
+    return {
         RemoveEntitiesFromIntegration: jest.fn().mockImplementation(() => ({
             execute: mockRemoveEntitiesExecute,
         })),
@@ -316,6 +321,8 @@ describe('integration commands', () => {
         it.each([
             ['INTEGRATION_NOT_FOUND', 404],
             ['INVALID_INTEGRATION_DATA', 400],
+            ['ENTITIES_NOT_FOUND', 404],
+            ['ENTITY_USER_MISMATCH', 403],
         ])('maps %s to status %s', async (code, status) => {
             const error = new Error('nope');
             error.code = code;

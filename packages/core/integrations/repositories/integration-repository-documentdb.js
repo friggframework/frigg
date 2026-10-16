@@ -167,36 +167,32 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     async addEntitiesToIntegration(integrationId, entityIds) {
         const objectId = toObjectId(integrationId);
         if (!objectId) return null;
-        const existing = await findOne(this.prisma, 'Integration', { _id: objectId });
-        if (!existing) return null;
-
-        await updateOne(
+        const result = await updateOne(
             this.prisma,
             'Integration',
             { _id: objectId },
             {
                 $addToSet: { entityIds: { $each: toObjectIdArray(entityIds) } },
-                $set: { updatedAt: new Date() },
+                $set: { updatedAt: { $date: new Date().toISOString() } },
             }
         );
+        if (!result?.n) return null;
         return this.findIntegrationById(integrationId);
     }
 
     async removeEntitiesFromIntegration(integrationId, entityIds) {
         const objectId = toObjectId(integrationId);
         if (!objectId) return null;
-        const existing = await findOne(this.prisma, 'Integration', { _id: objectId });
-        if (!existing) return null;
-
-        await updateOne(
+        const result = await updateOne(
             this.prisma,
             'Integration',
             { _id: objectId },
             {
                 $pullAll: { entityIds: toObjectIdArray(entityIds) },
-                $set: { updatedAt: new Date() },
+                $set: { updatedAt: { $date: new Date().toISOString() } },
             }
         );
+        if (!result?.n) return null;
         return this.findIntegrationById(integrationId);
     }
 

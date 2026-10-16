@@ -59,6 +59,31 @@ describeLegs('integration entities on %s', (_, makeClient, Repository) => {
     const created = { integrations: [], entities: [], users: [] };
 
     const id = (record) => record.id.toString();
+    const rawId = (value) =>
+        Repository === IntegrationRepositoryPostgres ? Number(value) : value;
+
+    const unknownIntegrationId = () =>
+        Repository === IntegrationRepositoryPostgres
+            ? '999999999'
+            : '0123456789abcdef01234567';
+
+    // The DocumentDB adapter writes through raw commands and reads them back
+    // the same way, so its stored updatedAt is checked on the raw document.
+    async function storedUpdatedAtIsDate(integrationId) {
+        if (Repository === IntegrationRepositoryDocumentDB) {
+            const result = await client.$runCommandRaw({
+                find: 'Integration',
+                filter: { _id: integrationId },
+                limit: 1,
+            });
+            return Boolean(result.cursor.firstBatch[0]?.updatedAt?.$date);
+        }
+        const row = await client.integration.findUnique({
+            where: { id: rawId(integrationId) },
+            select: { updatedAt: true },
+        });
+        return row.updatedAt instanceof Date;
+    }
 
     async function createEntity(externalId) {
         const entity = await client.entity.create({
@@ -151,10 +176,7 @@ describeLegs('integration entities on %s', (_, makeClient, Repository) => {
     });
 
     it('addEntitiesToIntegration returns null for an unknown integration', async () => {
-        const unknownId =
-            Repository === IntegrationRepositoryPostgres
-                ? '999999999'
-                : '0123456789abcdef01234567';
+        const unknownId = unknownIntegrationId();
 
         const result = await repo.addEntitiesToIntegration(unknownId, [
             entityIds[0],
@@ -192,10 +214,7 @@ describeLegs('integration entities on %s', (_, makeClient, Repository) => {
     });
 
     it('removeEntitiesFromIntegration returns null for an unknown integration', async () => {
-        const unknownId =
-            Repository === IntegrationRepositoryPostgres
-                ? '999999999'
-                : '0123456789abcdef01234567';
+        const unknownId = unknownIntegrationId();
 
         const result = await repo.removeEntitiesFromIntegration(unknownId, [
             entityIds[0],
@@ -203,4 +222,16 @@ describeLegs('integration entities on %s', (_, makeClient, Repository) => {
 
         expect(result).toBeNull();
     });
+
+    it.each(['addEntitiesToIntegration', 'removeEntitiesFromIntegration'])(
+        '%s stores updatedAt as a date',
+        async (method) => {
+            const [first, second] = entityIds;
+            const integration = await createIntegration([first]);
+
+            await repo[method](integration.id, [second]);
+
+            expect(await storedUpdatedAtIsDate(integration.id)).toBe(true);
+        }
+    );
 });
