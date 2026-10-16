@@ -3,10 +3,16 @@ const {
     findAppUsers,
     createMissingAppUsers,
     buildUser,
+    wantsIndividual,
 } = require('../app-user-helpers');
 const { getLogger } = require('../../logs');
 
 const log = getLogger('frigg.user.x_frigg_headers');
+
+const NOT_A_MEMBER_MESSAGE =
+    'Not a member: the user identified by x-frigg-appUserId is not a member of the ' +
+    'organization identified by x-frigg-appOrgId, and strict membership does not ' +
+    'allow these headers to add them.';
 
 /**
  * Use case for retrieving or creating a user from x-frigg header identifiers.
@@ -80,6 +86,18 @@ class GetUserFromXFriggHeaders {
         // exempt, since it has no members to disagree with.
         const refuseNewMembers = this.strict && Boolean(organizationUserData);
 
+        // A person who does not exist yet cannot already be a member, so refuse
+        // now, before anything is persisted: refusing after creating them would
+        // leave an orphan individual behind on every refused request.
+        if (
+            refuseNewMembers &&
+            appUserId &&
+            wantsIndividual(this.userConfig) &&
+            !individualUserData
+        ) {
+            throw Boom.badRequest(NOT_A_MEMBER_MESSAGE);
+        }
+
         // Auto-create users independently if they don't exist and are required
         const created = await createMissingAppUsers(
             this.userRepository,
@@ -102,11 +120,7 @@ class GetUserFromXFriggHeaders {
             requireExisting: refuseNewMembers,
         });
         if (refuseNewMembers && individualUserData && !ensured.membership) {
-            throw Boom.badRequest(
-                'Not a member: the user identified by x-frigg-appUserId is not a member of the ' +
-                    'organization identified by x-frigg-appOrgId, and strict membership does not ' +
-                    'allow these headers to add them.'
-            );
+            throw Boom.badRequest(NOT_A_MEMBER_MESSAGE);
         }
         individualUserData = ensured.individual;
 

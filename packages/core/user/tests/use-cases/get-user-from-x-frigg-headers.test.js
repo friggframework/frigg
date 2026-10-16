@@ -483,10 +483,25 @@ describe('GetUserFromXFriggHeaders', () => {
 
             expect(error.output.statusCode).toBe(400);
             expect(error.message).toContain('not a member');
+            // Refused before anything is persisted: no orphan individual.
+            expect(mockUserRepository.createIndividualUser).not.toHaveBeenCalled();
+            expect(mockUserRepository.createOrganizationUser).not.toHaveBeenCalled();
+            expect(mockMembershipRepository.findMembership).not.toHaveBeenCalled();
             expect(mockMembershipRepository.addMembership).not.toHaveBeenCalled();
             expect(
                 mockUserRepository.linkIndividualToOrganizationIfUnset
             ).not.toHaveBeenCalled();
+        });
+
+        it('strict: a brand-new person is not refused when individuals are not required', async () => {
+            mockUserConfig.strictMembership = true;
+            mockUserConfig.individualUserRequired = false;
+            getUserFromXFriggHeaders = build();
+
+            await expect(
+                getUserFromXFriggHeaders.execute('app-user-456', 'app-org-789')
+            ).resolves.toBeInstanceOf(User);
+            expect(mockUserRepository.createIndividualUser).not.toHaveBeenCalled();
         });
 
         it('strict: a brand-new person naming a brand-new organization is allowed', async () => {
