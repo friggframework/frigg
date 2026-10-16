@@ -2,7 +2,16 @@
  * Wires the repositories and use cases behind Management API v2. Kept apart
  * from the router so tests can hand the router doubles instead.
  */
-function buildV2Dependencies({ appDefinition, config }) {
+/**
+ * @param {Object} params
+ * @param {Object} params.appDefinition - the loaded app definition. Its
+ *   `entityTypeRegistry` (built once by loadAppDefinition) is used.
+ * @param {Object} params.config
+ * @param {Map} [params.entityTypeRegistry] - overrides the registry on the
+ *   app definition. When neither exists (a raw definition in a test), it is
+ *   built here from the definition.
+ */
+function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
     const {
         createIntegrationRepository,
     } = require('../../integrations/repositories/integration-repository-factory');
@@ -17,8 +26,9 @@ function buildV2Dependencies({ appDefinition, config }) {
     } = require('../../user/repositories/user-repository-factory');
     const { ModuleFactory } = require('../../modules/module-factory');
     const {
-        getModulesDefinitionFromIntegrationClasses,
-    } = require('../../integrations/utils/map-integration-dto');
+        getEntityTypeRegistry,
+        getEntityTypeDefinitions,
+    } = require('../../modules/entity-type-registry');
     const {
         AuthenticateWithSharedSecret,
     } = require('../../user/use-cases/authenticate-with-shared-secret');
@@ -68,8 +78,13 @@ function buildV2Dependencies({ appDefinition, config }) {
 
     const integrationClasses = appDefinition.integrations || [];
     const userConfig = appDefinition.userConfig || {};
-    const moduleDefinitions =
-        getModulesDefinitionFromIntegrationClasses(integrationClasses);
+    // The registry holds entity types registered on the app as well as those
+    // integrations bind (ADR-059), so v2 authorize/entities accept both.
+    const registry =
+        entityTypeRegistry ??
+        appDefinition.entityTypeRegistry ??
+        getEntityTypeRegistry(appDefinition);
+    const moduleDefinitions = getEntityTypeDefinitions(registry);
 
     const moduleRepository = createModuleRepository();
     const integrationRepository = createIntegrationRepository();
@@ -196,8 +211,8 @@ function buildV2Dependencies({ appDefinition, config }) {
         refreshEntityOptionsForUser: new entityOps.RefreshEntityOptionsForUser({
             getEntityModuleForUser,
         }),
-        listEntityTypes: new ListEntityTypes({ moduleDefinitions }),
-        getEntityType: new GetEntityType({ moduleDefinitions }),
+        listEntityTypes: new ListEntityTypes({ entityTypeRegistry: registry }),
+        getEntityType: new GetEntityType({ entityTypeRegistry: registry }),
         getAuthorizationRequirements,
 
         // Credentials

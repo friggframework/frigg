@@ -71,7 +71,6 @@ const {
     Options,
     createIntegrationRouter,
     checkRequiredParams,
-    getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
 } = require('./integrations/index');
 const {
@@ -107,6 +106,8 @@ const {
     Requester,
     ModuleConstants,
     ModuleFactory,
+    getEntityTypeRegistry,
+    EntityRegistryError,
 } = require('./modules/index');
 const application = require('./application');
 const utils = require('./utils');
@@ -162,7 +163,6 @@ module.exports = {
     Options,
     checkRequiredParams,
     createIntegrationRouter,
-    getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
     CreateProcess,
     UpdateProcessState,
@@ -218,6 +218,8 @@ module.exports = {
     Requester,
     ModuleConstants,
     ModuleFactory,
+    getEntityTypeRegistry,
+    EntityRegistryError,
     // queues
     QueuerUtil,
 

@@ -112,10 +112,14 @@ const V2_OPERATIONS = {
     },
     listEntityTypes: {
         summary: 'List the entity types (API modules) this app can connect',
+        description:
+            'Every type registered in appDefinition.entities plus every module a declared integration binds. `usedBy` lists the integrations that bind each type; it is empty for a type registered without any integration.',
         responses: { 200: ok('Entity types', ref('ListEntityTypesResponse')), ...errors('Unauthorized') },
     },
     getEntityType: {
         summary: 'Describe an entity type',
+        description:
+            'Includes `usedBy`, the integrations that bind the type (empty for a registry-only type).',
         responses: { 200: ok('Entity type', ref('EntityType')), ...errors('Unauthorized', 'NotFound') },
     },
     getEntityTypeRequirements: {

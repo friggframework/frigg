@@ -180,6 +180,13 @@ function loadModuleEncryptionSchemas(integrations) {
         return;
     }
 
+    // NOTE: this path does not exist ('../integrations' resolves to
+    // database/integrations), so today this function throws MODULE_NOT_FOUND,
+    // loadCustomEncryptionSchema swallows it, and module credentialFields are
+    // effectively NOT registered. Fixing it changes which fields are encrypted
+    // and needs a decrypt that tolerates plaintext, so it ships separately:
+    // branch claude/internal-mcp-03b-module-credential-encryption. Left as is
+    // here on purpose (ADR-059 must not change what gets encrypted).
     const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
 
     const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);

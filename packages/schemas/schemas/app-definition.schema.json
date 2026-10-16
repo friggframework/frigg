@@ -685,6 +685,56 @@
       },
       "additionalProperties": false
     },
+    "entities": {
+      "type": "object",
+      "description": "App-level entity type registry (ADR-059). Keyed by entity type name; each key must equal its definition's moduleName / getName(). Registered types can be connected without any integration. Entity types bound by declared integrations are inferred and merged unless $infer is false.",
+      "properties": {
+        "$infer": {
+          "type": "boolean",
+          "default": true,
+          "description": "false turns inference off: every module an integration binds must then be registered here, or the app fails to load."
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "description": "One entity type: its module definition plus app-level settings.",
+        "required": ["definition"],
+        "properties": {
+          "definition": {
+            "type": "object",
+            "description": "The API module definition (the object an integration binds as modules.<key>.definition)."
+          },
+          "scope": {
+            "description": "Who owns entities of this type (ADR-056): one scope, or a default plus the scopes callers may choose.",
+            "oneOf": [
+              { "type": "string", "enum": ["individual", "organization", "global"] },
+              {
+                "type": "object",
+                "properties": {
+                  "default": { "type": "string", "enum": ["individual", "organization", "global"] },
+                  "allow": {
+                    "type": "array",
+                    "items": { "type": "string", "enum": ["individual", "organization", "global"] },
+                    "minItems": 1,
+                    "uniqueItems": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "proxy": {
+            "type": "object",
+            "description": "Per-type entity proxy allow-list override (ADR-052)."
+          },
+          "display": {
+            "type": "object",
+            "description": "Label, icon and description shown by UIs and GET /api/v2/entity-types."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "managementApi": {
       "type": "object",
       "description": "Management API settings (ADR-053 versioning, ADR-052 entity proxy).",

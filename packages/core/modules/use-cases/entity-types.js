@@ -1,5 +1,6 @@
 const Boom = require('@hapi/boom');
 const { ModuleConstants } = require('../ModuleConstants');
+const { usedByOf } = require('../entity-type-registry');
 
 const AUTH_TYPE_BY_REQUESTER = {
     [ModuleConstants.authType.oauth2]: 'oauth2',
@@ -22,16 +23,16 @@ function getAuthStepCount(definition) {
  * definition: display metadata, auth type and step count. Never credentials
  * or env values.
  */
-function describeEntityType(definition) {
+function describeEntityType(definition, typeName = definition.moduleName) {
     const stepCount = getAuthStepCount(definition);
     const display = definition.display || {};
     const description = {
-        type: definition.moduleName,
+        type: typeName,
         name:
             callIfFunction(definition, 'getDisplayName') ??
             display.label ??
             display.name ??
-            definition.moduleName,
+            typeName,
         authType:
             callIfFunction(definition, 'getAuthType') ??
             AUTH_TYPE_BY_REQUESTER[definition.API?.requesterType] ??
@@ -58,27 +59,50 @@ function findDefinition(moduleDefinitions, entityType) {
     return definition;
 }
 
-/** Lists the entity types (API modules) this app can authorize. */
+const describeEntry = (name, entry) => ({
+    // The registry key is the name the API uses, whatever the definition spells.
+    ...describeEntityType(entry.definition, name),
+    usedBy: usedByOf(entry),
+});
+
+function requireRegistry(entityTypeRegistry) {
+    if (!(entityTypeRegistry instanceof Map)) {
+        throw new TypeError('entityTypeRegistry is required (see getEntityTypeRegistry)');
+    }
+    return entityTypeRegistry;
+}
+
+/**
+ * Lists the entity types this app can authorize: registry entries plus every
+ * module an integration binds (ADR-059). `usedBy` names the integrations that
+ * bind each type; it is empty for a registry-only type.
+ */
 class ListEntityTypes {
-    constructor({ moduleDefinitions }) {
-        this.moduleDefinitions = moduleDefinitions || [];
+    constructor({ entityTypeRegistry }) {
+        this.registry = requireRegistry(entityTypeRegistry);
     }
 
     async execute() {
-        return this.moduleDefinitions
-            .map(describeEntityType)
+        return [...this.registry]
+            .map(([name, entry]) => describeEntry(name, entry))
             .sort((a, b) => a.name.localeCompare(b.name));
     }
 }
 
-/** Describes one entity type; 404 when the app does not configure it. */
+/** Describes one entity type, looked up by its registry key; 404 when absent. */
 class GetEntityType {
-    constructor({ moduleDefinitions }) {
-        this.moduleDefinitions = moduleDefinitions || [];
+    constructor({ entityTypeRegistry }) {
+        this.registry = requireRegistry(entityTypeRegistry);
     }
 
     async execute(entityType) {
-        return describeEntityType(findDefinition(this.moduleDefinitions, entityType));
+        const entry = this.registry.get(entityType);
+        if (!entry) {
+            throw Boom.notFound(`Entity type '${entityType}' not found`, {
+                code: 'ENTITY_TYPE_NOT_FOUND',
+            });
+        }
+        return describeEntry(entityType, entry);
     }
 }
 

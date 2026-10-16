@@ -138,11 +138,17 @@ const SCHEMAS = {
     },
     EntityType: {
         type: 'object',
-        required: ['type', 'name', 'authType', 'isMultiStep', 'stepCount'],
+        required: ['type', 'name', 'authType', 'isMultiStep', 'stepCount', 'usedBy'],
         properties: {
             type: { type: 'string' },
             name: { type: 'string' },
             description: { type: 'string' },
+            usedBy: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                    'Names of the integrations that bind this entity type. Empty for a type registered only in appDefinition.entities.',
+            },
             authType: { type: 'string', description: 'oauth2, oauth1, api-key, basic or custom' },
             isMultiStep: { type: 'boolean' },
             stepCount: { type: 'integer', minimum: 1 },
