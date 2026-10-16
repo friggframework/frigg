@@ -4,7 +4,7 @@ const {
     toObjectId,
     fromObjectId,
     findOne,
-    findMany,
+    findManyDrained,
     insertOne,
     updateOne,
     deleteOne,
@@ -72,7 +72,9 @@ class UserRepositoryDocumentDB extends UserRepositoryInterface {
     }
 
     async findIndividualUsersByOrganizationId(organizationUserId) {
-        const docs = await findMany(this.prisma, 'User', {
+        // Drained: findMany returns only the first cursor batch, which would
+        // drop people from a large organization.
+        const docs = await findManyDrained(this.prisma, 'User', {
             organizationId: toObjectId(organizationUserId),
             type: 'INDIVIDUAL',
         });

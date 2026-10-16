@@ -13,7 +13,7 @@ jest.mock('../../../database/config', () => ({ DB_TYPE: 'postgresql' }));
 jest.mock('../../../database/documentdb-utils', () => ({
     ...jest.requireActual('../../../database/documentdb-utils'),
     findOne: jest.fn(),
-    findMany: jest.fn(),
+    findManyDrained: jest.fn(),
     updateOne: jest.fn(),
 }));
 
@@ -419,11 +419,11 @@ describe('OrganizationMembershipRepositoryDocumentDB', () => {
     });
 
     it('lists the organization’s documents oldest first, rows only', async () => {
-        documentdbUtils.findMany.mockResolvedValue([doc()]);
+        documentdbUtils.findManyDrained.mockResolvedValue([doc()]);
 
         const result = await repository.listMembershipsForOrganization(oHex);
 
-        expect(documentdbUtils.findMany).toHaveBeenCalledWith(
+        expect(documentdbUtils.findManyDrained).toHaveBeenCalledWith(
             prisma,
             'OrganizationMembership',
             { organizationUserId: oOid },
