@@ -3,7 +3,7 @@ const {
     toObjectId,
     fromObjectId,
     findOne,
-    findMany,
+    findManyDrained,
     updateOne,
 } = require('../../database/documentdb-utils');
 const { DUPLICATE_KEY_CODE } = require('../../database/unique-violation');
@@ -66,7 +66,9 @@ class OrganizationMembershipRepositoryDocumentDB extends OrganizationMembershipR
     }
 
     async listMembershipsForOrganization(organizationUserId) {
-        const docs = await findMany(
+        // Drained: findMany returns only the first cursor batch (~101 documents),
+        // which would silently drop members of a large organization.
+        const docs = await findManyDrained(
             this.prisma,
             COLLECTION,
             { organizationUserId: toObjectId(organizationUserId) },
