@@ -1,5 +1,6 @@
 const { prisma } = require('../../database/prisma');
 const { ModuleRepositoryInterface } = require('./module-repository-interface');
+const { entityNotFoundError } = require('./entity-not-found');
 
 /**
  * Prisma-based Module Repository
@@ -37,7 +38,7 @@ class ModuleRepository extends ModuleRepositoryInterface {
         });
 
         if (!entity) {
-            throw new Error(`Entity ${entityId} not found`);
+            throw entityNotFoundError(entityId);
         }
 
         return {

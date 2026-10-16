@@ -225,3 +225,58 @@ describe('ModuleRepositoryDocumentDB', () => {
         });
     });
 });
+
+describe('findEntityById on a missing row (one predicate, every adapter)', () => {
+    const { isEntityNotFound } = require('../entity-not-found');
+    const { GetEntityModuleForUser } = require('../../use-cases/get-entity-module-for-user');
+
+    const missing = {
+        postgres: () => {
+            const repo = new ModuleRepositoryPostgres();
+            repo.prisma = { entity: { findUnique: jest.fn().mockResolvedValue(null) } };
+            return [repo, '42'];
+        },
+        mongo: () => {
+            const repo = new ModuleRepositoryMongo();
+            repo.prisma = { entity: { findUnique: jest.fn().mockResolvedValue(null) } };
+            return [repo, new ObjectId().toHexString()];
+        },
+        // An id that cannot be an ObjectId never reaches the database.
+        documentdb: () => [new ModuleRepositoryDocumentDB(), 'not-an-object-id'],
+    };
+
+    it.each(Object.keys(missing))('%s throws the error isEntityNotFound recognises', async (name) => {
+        const [repo, id] = missing[name]();
+        const error = await repo.findEntityById(id).catch((e) => e);
+        expect(error).toBeInstanceOf(Error);
+        expect(isEntityNotFound(error)).toBe(true);
+    });
+
+    it.each(Object.keys(missing))(
+        '%s: the use case answers that with the same 404 as another tenant’s entity, not a 500',
+        async (name) => {
+            const [repo, id] = missing[name]();
+            const useCase = new GetEntityModuleForUser({
+                moduleRepository: repo,
+                moduleDefinitions: [{ moduleName: 'acme' }],
+            });
+            await expect(useCase.execute(id, { getId: () => '7' })).rejects.toMatchObject({
+                output: { statusCode: 404 },
+                data: { code: 'ENTITY_NOT_FOUND' },
+            });
+        }
+    );
+});
+
+describe('isEntityNotFound', () => {
+    const { entityNotFoundError, isEntityNotFound } = require('../entity-not-found');
+
+    it('recognises only the adapters’ missing-row error', () => {
+        expect(isEntityNotFound(entityNotFoundError('5'))).toBe(true);
+        expect(isEntityNotFound(new Error('Entity 5 not found'))).toBe(true);
+        expect(isEntityNotFound(new Error('connect ECONNREFUSED 127.0.0.1:5432'))).toBe(false);
+        expect(isEntityNotFound(new Error('Entity 5 not found; also the database is down'))).toBe(false);
+        expect(isEntityNotFound(new Error('Integration with id 5 not found'))).toBe(false);
+        expect(isEntityNotFound(undefined)).toBe(false);
+    });
+});

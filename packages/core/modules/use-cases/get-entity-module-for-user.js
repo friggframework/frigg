@@ -1,6 +1,7 @@
 const Boom = require('@hapi/boom');
 const { describeRecord } = require('../scope-visibility');
 const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
+const { isEntityNotFound } = require('../repositories/entity-not-found');
 
 /**
  * True when `user` may act on records owned by `ownerId`. Uses the User
@@ -79,8 +80,14 @@ class GetEntityModuleForUser {
         try {
             entity = await this.moduleRepository.findEntityById(entityId);
         } catch (error) {
-            // A malformed id (e.g. not an integer on Postgres) is "not found".
-            if (/Invalid ID|ObjectId|Malformed/i.test(error?.message || '')) {
+            // Every adapter throws for a missing row, and a malformed id (e.g.
+            // not an integer on Postgres) is "not found" too. Both must be the
+            // 404 another tenant's entity gets, or the status says which ids
+            // exist. Anything else is a real failure.
+            if (
+                isEntityNotFound(error) ||
+                /Invalid ID|ObjectId|Malformed/i.test(error?.message || '')
+            ) {
                 entity = null;
             } else {
                 throw error;

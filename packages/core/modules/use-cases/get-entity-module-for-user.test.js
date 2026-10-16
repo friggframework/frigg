@@ -49,6 +49,23 @@ describe('GetEntityModuleForUser', () => {
         });
     });
 
+    it('answers 404 for the error every adapter throws for a missing row, not a 500', async () => {
+        const { entityNotFoundError } = require('../repositories/entity-not-found');
+        const { useCase, moduleRepository } = build(null);
+        moduleRepository.findEntityById.mockRejectedValue(entityNotFoundError('999'));
+        await expect(useCase.execute('999', user('u1'))).rejects.toMatchObject({
+            output: { statusCode: 404 },
+            data: { code: 'ENTITY_NOT_FOUND' },
+        });
+    });
+
+    it('still rethrows a real failure', async () => {
+        const { useCase, moduleRepository } = build(null);
+        const failure = new Error('connect ECONNREFUSED 127.0.0.1:5432');
+        moduleRepository.findEntityById.mockRejectedValue(failure);
+        await expect(useCase.execute('e1', user('u1'))).rejects.toBe(failure);
+    });
+
     it('answers 404 for a malformed id instead of a 500', async () => {
         const { useCase, moduleRepository } = build(null);
         moduleRepository.findEntityById.mockRejectedValue(

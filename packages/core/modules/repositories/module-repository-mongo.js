@@ -1,6 +1,7 @@
 const { prisma } = require('../../database/prisma');
 const { organizationWhere } = require('../../database/organization-where');
 const { ModuleRepositoryInterface } = require('./module-repository-interface');
+const { entityNotFoundError } = require('./entity-not-found');
 
 /**
  * MongoDB Module Repository Adapter
@@ -111,7 +112,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
         });
 
         if (!entity) {
-            throw new Error(`Entity ${entityId} not found`);
+            throw entityNotFoundError(entityId);
         }
 
         const credential = await this._fetchCredential(entity.credentialId);
