@@ -10,6 +10,9 @@ const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const { loadAppDefinition } = require('./app-definition-loader');
 const { EntityRegistryError } = require('../modules/entity-type-registry');
 const { OwnershipConfigError } = require('../modules/entity-scope');
+const {
+    ManagementApiConfigError,
+} = require('../management-api/management-api-config');
 const { isDeniedKey } = require('../logs/redact');
 const { createMemorySink } = require('../logs');
 
@@ -84,6 +87,26 @@ describe('loadAppDefinition', () => {
         dirs.push(writeBackend({ integrations: [] }));
 
         expect(loadAppDefinition().managementApi).toEqual({});
+    });
+
+    describe('managementApi.proxy.scopes (ADR-056 §3.5)', () => {
+        it.each([
+            ['an unknown scope', ['individual', 'team'], /unknown scope "team"/],
+            ['global, which is never a tenant’s', ['global'], /'global' is not allowed/],
+            ['a single string instead of a list', 'organization', /non-empty list/],
+            ['an empty list', [], /non-empty list/],
+            ['a scope listed twice', ['individual', 'individual'], /more than once/],
+        ])('fails at load for %s, even with the proxy off', (_label, scopes, message) => {
+            dirs.push(writeBackend({ integrations: [], managementApi: { proxy: { scopes } } }));
+            expect(() => loadAppDefinition()).toThrow(ManagementApiConfigError);
+            expect(() => loadAppDefinition()).toThrow(message);
+        });
+
+        it('loads with organization opted in, and returns the definition’s own block', () => {
+            const managementApi = { proxy: { enable: true, scopes: ['individual', 'organization'] } };
+            dirs.push(writeBackend({ integrations: [], managementApi }));
+            expect(loadAppDefinition().managementApi).toEqual(managementApi);
+        });
     });
 
     it('returns logging from the app definition', () => {

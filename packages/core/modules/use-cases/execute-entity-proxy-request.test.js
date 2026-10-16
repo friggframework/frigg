@@ -28,7 +28,15 @@ function upstream(status, data, headers = {}) {
     };
 }
 
-function setup({ entity, def = definition, proxyRequest, overrides, entityScope = 'individual' } = {}) {
+function setup({
+    entity,
+    def = definition,
+    proxyRequest,
+    overrides,
+    entityScope = 'individual',
+    access = 'manage',
+    tenancy,
+} = {}) {
     const api = {
         api_key_name: 'X-Crm-Key',
         _proxyRequest: jest.fn(proxyRequest || (async () => upstream(200, { id: '7', name: 'Ada' }))),
@@ -42,8 +50,9 @@ function setup({ entity, def = definition, proxyRequest, overrides, entityScope 
                 module: { api },
             };
         }),
-        // The scope the real GetEntityModuleForUser reads from the owner.
-        describe: jest.fn(() => ({ scope: entityScope })),
+        // What the real GetEntityModuleForUser.describe returns: the same
+        // `{ scope, access }` a v2 list item carries.
+        describe: jest.fn(() => (tenancy !== undefined ? tenancy : { scope: entityScope, access })),
     };
     const telemetry = { count: jest.fn() };
     const config = resolveManagementApiConfig({ proxy: { enable: true, ...(overrides || {}) } });
@@ -141,18 +150,104 @@ describe('ExecuteEntityProxyRequest (ADR-052)', () => {
         expect(audits()[0]).toMatchObject({ level: 'WARN', outcome: 'denied', reason: 'PROXY_NOT_ALLOWED' });
     });
 
-    it.each(['organization', 'global', null])(
-        'fails closed for an entity of scope %s until proxy.scopes lets an app opt in (ADR-056 §3.5)',
-        async (entityScope) => {
-            const { useCase, api } = setup({ entityScope });
-            const error = await useCase.execute('e1', user, { method: 'GET', path: '/contacts/7' }).catch((e) => e);
-            expect(error.output.statusCode).toBe(403);
-            expect(error.data).toMatchObject({ code: 'PROXY_NOT_ALLOWED', details: { reason: 'scope' } });
-            // Refused before the module is asked about the call, and nothing went upstream.
+    describe('scope and access (ADR-056 §3.5)', () => {
+        const call = (useCase) =>
+            useCase.execute('e1', user, { method: 'GET', path: '/contacts/7' }).catch((e) => e);
+
+        it.each(['organization', 'global', null, undefined])(
+            'fails closed for an entity of scope %s when proxy.scopes is the default',
+            async (entityScope) => {
+                const { useCase, api } = setup({ tenancy: { scope: entityScope, access: 'manage' } });
+                const error = await call(useCase);
+                expect(error.output.statusCode).toBe(403);
+                expect(error.data).toMatchObject({
+                    code: 'PROXY_NOT_ALLOWED',
+                    details: { reason: 'scope', module: 'crm' },
+                });
+                expect(error.message).toMatch(/does not accept/);
+                // Refused before the module is asked about the call, and nothing went upstream.
+                expect(api._proxyRequest).not.toHaveBeenCalled();
+                expect(audits()[0]).toMatchObject({ outcome: 'denied', reason: 'PROXY_NOT_ALLOWED' });
+            }
+        );
+
+        it('proxies an organization entity once proxy.scopes opts in to it', async () => {
+            const { useCase, api } = setup({
+                entityScope: 'organization',
+                access: 'use',
+                overrides: { scopes: ['individual', 'organization'] },
+            });
+            const result = await call(useCase);
+            expect(result.status).toBe(200);
+            expect(api._proxyRequest).toHaveBeenCalledTimes(1);
+        });
+
+        it('refuses an individual entity when the app accepts only organization ones', async () => {
+            const { useCase, api } = setup({ overrides: { scopes: ['organization'] } });
+            const error = await call(useCase);
+            expect(error.data).toMatchObject({
+                code: 'PROXY_NOT_ALLOWED',
+                details: { reason: 'scope', scope: 'individual' },
+            });
             expect(api._proxyRequest).not.toHaveBeenCalled();
-            expect(audits()[0]).toMatchObject({ outcome: 'denied', reason: 'PROXY_NOT_ALLOWED' });
-        }
-    );
+        });
+
+        it('treats a hand-built proxy config with no scopes as the narrow default', async () => {
+            const { useCase, api } = setup({ entityScope: 'organization', access: 'use' });
+            delete useCase.proxyConfig.scopes;
+            expect((await call(useCase)).data.details.reason).toBe('scope');
+
+            const individual = setup();
+            delete individual.useCase.proxyConfig.scopes;
+            expect((await call(individual.useCase)).status).toBe(200);
+            expect(api._proxyRequest).not.toHaveBeenCalled();
+        });
+
+        it.each(['use', 'manage'])('allows %s access', async (access) => {
+            const { useCase } = setup({ access });
+            expect((await call(useCase)).status).toBe(200);
+        });
+
+        it.each(['view', undefined, 'MANAGE', 'owner'])(
+            'refuses access %s with 403 reason access, even for an accepted scope',
+            async (access) => {
+                const { useCase, api } = setup({
+                    tenancy: { scope: 'individual', access },
+                    overrides: { scopes: ['individual', 'organization'] },
+                });
+                const error = await call(useCase);
+                expect(error.output.statusCode).toBe(403);
+                expect(error.data).toMatchObject({
+                    code: 'PROXY_NOT_ALLOWED',
+                    details: { reason: 'access' },
+                });
+                expect(api._proxyRequest).not.toHaveBeenCalled();
+            }
+        );
+
+        it('checks access before scope, so a viewer of an organization entity hears about access', async () => {
+            const { useCase } = setup({ entityScope: 'organization', access: 'view' });
+            expect((await call(useCase)).data.details.reason).toBe('access');
+        });
+
+        it('answers 404 when the entity has no description for this caller', async () => {
+            const { useCase, api } = setup({ tenancy: null });
+            const error = await call(useCase);
+            expect(error.output.statusCode).toBe(404);
+            expect(error.data.code).toBe('ENTITY_NOT_FOUND');
+            expect(api._proxyRequest).not.toHaveBeenCalled();
+            expect(audits()[0]).toMatchObject({ outcome: 'denied', reason: 'ENTITY_NOT_FOUND' });
+        });
+
+        it('asks describe about the loaded entity and the caller', async () => {
+            const { useCase, getEntityModuleForUser } = setup();
+            await call(useCase);
+            expect(getEntityModuleForUser.describe).toHaveBeenCalledWith(
+                expect.objectContaining({ id: 'e1' }),
+                user
+            );
+        });
+    });
 
     it('denies a method or path the module does not list', async () => {
         const { useCase, api } = setup();

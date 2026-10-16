@@ -12,6 +12,9 @@ const {
     getEntityTypeDefinitions,
 } = require('../modules/entity-type-registry');
 const { resolveOwnershipConfig } = require('../modules/entity-scope');
+const {
+    resolveManagementApiConfig,
+} = require('../management-api/management-api-config');
 
 // Handlers without a database never load the encryption registry, so the
 // credential leaf keys are registered for redaction here too.
@@ -39,6 +42,7 @@ function registerCredentialLogKeys(appDefinition, moduleDefinitions) {
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
  * @throws {Error} Throws error if user.authModes.adopterJwt is enabled without a usable user.jwtConfig.
  * @throws {OwnershipConfigError} Throws if an ownership or scope setting is invalid (ADR-056 §3.1).
+ * @throws {ManagementApiConfigError} Throws if `managementApi.proxy.scopes` is invalid (ADR-056 §3.5).
  * @example
  * const { integrations, userConfig, telemetry } = loadAppDefinition();
  * console.log(`Found ${integrations.length} integrations`);
@@ -83,6 +87,11 @@ function loadAppDefinition() {
     // `individualAcross`, or an organization-owned integration that binds an
     // individual entity stops the app at load.
     const ownership = resolveOwnershipConfig(appDefinition, entityTypeRegistry);
+
+    // And for the Management API: `managementApi.proxy.scopes` decides whose
+    // credentials the entity proxy may act through (ADR-056 §3.5), so an
+    // unknown scope stops the app here rather than being read as a default.
+    resolveManagementApiConfig(managementApi);
 
     registerCredentialLogKeys(appDefinition, moduleDefinitions);
 

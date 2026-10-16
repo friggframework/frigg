@@ -16,6 +16,7 @@ const {
     createScopePolicy,
     canManageOrganization,
     accessToOwner,
+    grantsUse,
     OwnershipConfigError,
 } = require('./entity-scope');
 
@@ -538,6 +539,20 @@ describe('describeRecord: the list and the access check agree (§3.4)', () => {
 
     it('compares ids as strings: stores return numbers or strings', () => {
         expect(describeRecord(row(7, 17), ctxOf(active), 'entity')).not.toBeNull();
+    });
+});
+
+describe('grantsUse: what `use` access means (§3.4, §3.5)', () => {
+    it.each([
+        ['use', true],
+        ['manage', true],
+        ['view', false],
+        [undefined, false],
+        [null, false],
+        ['USE', false],
+        ['owner', false],
+    ])('%s → %s', (access, expected) => {
+        expect(grantsUse(access)).toBe(expected);
     });
 });
 

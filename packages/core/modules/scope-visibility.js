@@ -149,6 +149,13 @@ const accessFor = (scope, ctx) => {
 };
 
 /**
+ * Whether an access level lets the caller use a record: bind it, proxy through
+ * it (§3.4). `manage` includes `use`; `view` (metadata only) does not, and
+ * neither does anything unrecognised.
+ */
+const grantsUse = (access) => access === ACCESS.USE || access === ACCESS.MANAGE;
+
+/**
  * What the caller may do with a record owned by `ownerId` that carries no
  * organization of its own (a credential): manage the person's own, manage the
  * active organization's only as an admin, nothing otherwise. Null when the
@@ -207,6 +214,7 @@ module.exports = {
     matchesClause,
     scopeOf,
     describeRecord,
+    grantsUse,
     LIST_OWNERS,
     matchesListFilters,
 };

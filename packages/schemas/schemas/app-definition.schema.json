@@ -823,6 +823,22 @@
               "default": 5242880,
               "description": "Largest proxied response body, in bytes (can only be lowered)."
             },
+            "scopes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "individual",
+                  "organization"
+                ]
+              },
+              "default": [
+                "individual"
+              ],
+              "description": "Entity scopes the proxy accepts (ADR-056 §3.5). Narrowest by default: proxying through an organization entity lets any member with use access act on the organization's account, so an app opts in to 'organization' explicitly. 'global' is never accepted."
+            },
             "modules": {
               "type": "object",
               "description": "Per-module allow-list override, keyed by module name. 'module' uses the module's own proxy.allow list.",
