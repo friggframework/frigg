@@ -40,7 +40,8 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
      */
     async findIntegrationsByOwnership(clauses) {
         if (!Array.isArray(clauses) || clauses.length === 0) return [];
-        const records = await findMany(this.prisma, 'Integration', {
+        // Drained: a list can hold more than the first cursor batch (~101).
+        const records = await findManyDrained(this.prisma, 'Integration', {
             $or: clauses.map(({ userId, organizationId }) => ({
                 userId: toObjectId(userId),
                 organizationId:
