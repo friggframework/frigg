@@ -121,3 +121,25 @@ describe('Module async env support', () => {
         });
     });
 });
+
+describe('ModuleFactory with an async definition.env (db-credentials bootstrap)', () => {
+    const { ModuleFactory } = require('../../modules/module-factory');
+
+    it('resolves a function env before building the API client', async () => {
+        const definition = {
+            ...mockDefinition,
+            env: async () => ({ client_id: 'from-db', client_secret: 'secret-from-db' }),
+        };
+        const factory = new ModuleFactory({
+            moduleRepository: {
+                findEntityById: async () => ({ id: 'e1', moduleName: 'test-module', userId: 'u1' }),
+            },
+            moduleDefinitions: [definition],
+        });
+
+        const module = await factory.getModuleInstance('e1', 'u1');
+
+        expect(module.api.params.client_id).toBe('from-db');
+        expect(module.api.params.client_secret).toBe('secret-from-db');
+    });
+});
