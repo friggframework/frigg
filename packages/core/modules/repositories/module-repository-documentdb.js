@@ -3,6 +3,7 @@ const {
     toObjectId,
     fromObjectId,
     findMany,
+    findManyDrained,
     findOne,
     insertOne,
     updateOne,
@@ -87,7 +88,8 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
      */
     async findEntitiesByOwnership(clauses) {
         if (!Array.isArray(clauses) || clauses.length === 0) return [];
-        const docs = await findMany(this.prisma, 'Entity', {
+        // Drained: a list can hold more than the first cursor batch (~101).
+        const docs = await findManyDrained(this.prisma, 'Entity', {
             $or: clauses.map(({ userId, organizationId }) => ({
                 userId: toObjectId(userId),
                 organizationId:
@@ -277,8 +279,9 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
             const objectIds = ids.map(id => toObjectId(id)).filter(Boolean);
             if (objectIds.length === 0) return new Map();
 
-            // Use raw findMany to bypass Prisma encryption extension
-            const rawCredentials = await findMany(this.prisma, 'Credential', {
+            // Raw read to bypass the Prisma encryption extension. Drained:
+            // more ids than the first cursor batch must all come back.
+            const rawCredentials = await findManyDrained(this.prisma, 'Credential', {
                 _id: { $in: objectIds }
             });
 

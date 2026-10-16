@@ -20,7 +20,7 @@ const {
 
 /**
  * @param {Object} [params]
- * @param {{scope: *, individualAcross: string, orgAdminRoles?: string[]}} [params.ownership] - the raw
+ * @param {{scope: *, individualAcross: string, orgAdminRoles?: string[], gateBearerTokens?: boolean}} [params.ownership] - the raw
  *   `appDefinition.ownership` or what resolveOwnershipConfig returned (a parsed
  *   `{ default, allow }` parses to itself)
  * @param {Map} [params.entityTypeRegistry]
@@ -39,9 +39,10 @@ function createScopePolicy({ ownership, entityTypeRegistry } = {}) {
     }
 
     const orgAdminRoles = ownership?.orgAdminRoles ?? DEFAULT_ORG_ADMIN_ROLES;
+    const gateBearerTokens = ownership?.gateBearerTokens === true;
 
     const contextFor = (user) =>
-        accessContext(user, { individualAcross, orgAdminRoles });
+        accessContext(user, { individualAcross, orgAdminRoles, gateBearerTokens });
 
     /** The scope a new connection of `entityType` gets (levels 1, 4, 5, 6). */
     const resolveEntityScope = ({ entityType, requestScope, binding, integration, user }) =>

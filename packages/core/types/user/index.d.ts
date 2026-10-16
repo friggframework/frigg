@@ -63,12 +63,19 @@ declare module "@friggframework/core/user" {
      */
     strictUserValidation?: boolean;
     /**
-     * Roles (the adopter token's role claim) that may manage organization-level
-     * things (ADR-056 §3). Default `['ADMIN']`; a token with no role claim is
-     * `MEMBER`, never admin; a shared-secret (`x-frigg` header) caller needs no
-     * role. Compared case-insensitively. Validated at load.
+     * Roles that may manage organization-level things (ADR-056 §3). Default
+     * `['ADMIN']`. The role is the adopter token's role claim, else the stored
+     * membership `orgRole`, else `MEMBER` (never admin). A shared-secret
+     * (`x-frigg` header) caller needs no role, nor does a Frigg bearer token
+     * unless `orgAdminGateBearerTokens`. Compared case-insensitively.
+     * Validated at load.
      */
     orgAdminRoles?: string[];
+    /**
+     * Judge Frigg bearer-token callers by role like adopter-token callers.
+     * Default false: they keep their behaviour from before organization roles.
+     */
+    orgAdminGateBearerTokens?: boolean;
     authModes?: UserAuthModes;
     jwtConfig?: AdopterJwtConfig;
   }
@@ -120,5 +127,8 @@ declare module "@friggframework/core/user" {
     /** The organization role from the adopter token for this request, or null. */
     getOrgRole(): string | null;
     setOrgRole(orgRole: string | null): void;
+    /** The stored `orgRole` of the membership of the active organization, or null. Used when the token carries no role. */
+    getMembershipRole(): string | null;
+    setMembershipRole(membershipRole: string | null): void;
   }
 }
