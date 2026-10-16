@@ -7,7 +7,7 @@ jest.mock('@friggframework/core/utils', () => ({
 }));
 
 const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
-const { loadAppDefinition } = require('./app-definition-loader');
+const { loadAppDefinition, setAppDefinition } = require('./app-definition-loader');
 const { EntityRegistryError } = require('../modules/entity-type-registry');
 const { OwnershipConfigError } = require('../modules/entity-scope');
 const {
@@ -304,5 +304,80 @@ describe('loadAppDefinition', () => {
             expect(() => loadAppDefinition()).toThrow(OwnershipConfigError);
             expect(() => loadAppDefinition()).toThrow(message);
         });
+    });
+});
+
+describe('setAppDefinition (provider-netlify preamble)', () => {
+    beforeEach(() => {
+        findNearestBackendPackageJson.mockReset();
+    });
+
+    afterEach(() => {
+        setAppDefinition(null);
+        findNearestBackendPackageJson.mockReset();
+    });
+
+    it('returns the preset definition without discovering the backend', () => {
+        const definition = {
+            name: 'preset-app',
+            provider: 'netlify',
+            integrations: [],
+            user: { primary: 'individual' },
+        };
+        setAppDefinition(definition);
+
+        const result = loadAppDefinition();
+
+        expect(findNearestBackendPackageJson).not.toHaveBeenCalled();
+        expect(result.appDefinition).toBe(definition);
+        expect(result.integrations).toEqual([]);
+        expect(result.userConfig).toEqual({ primary: 'individual' });
+    });
+
+    it('validates and derives a preset definition exactly like a discovered one', () => {
+        setAppDefinition({
+            integrations: [],
+            user: { authModes: { adopterJwt: true }, jwtConfig: { issuer: 'x' } },
+        });
+        expect(() => loadAppDefinition()).toThrow(/neither jwksUri nor secret/);
+
+        setAppDefinition({
+            integrations: [],
+            managementApi: { proxy: { enable: true, scopes: ['nonsense'] } },
+        });
+        expect(() => loadAppDefinition()).toThrow(ManagementApiConfigError);
+
+        setAppDefinition({ integrations: [], managementApi: { v1: false } });
+        const result = loadAppDefinition();
+        expect(result.managementApi).toEqual({ v1: false });
+        expect(result.entityTypeRegistry).toBeInstanceOf(Map);
+        expect(result.ownership).toEqual(
+            expect.objectContaining({ individualAcross: expect.any(String) })
+        );
+    });
+
+    it('falls back to discovery once cleared with null', () => {
+        setAppDefinition({ integrations: [] });
+        setAppDefinition(null);
+        findNearestBackendPackageJson.mockReturnValue(null);
+
+        expect(() => loadAppDefinition()).toThrow('Could not find backend package.json');
+    });
+
+    it('returns the raw Definition as appDefinition on the discovery path too', () => {
+        const dir = writeBackend({ name: 'discovered', integrations: [] });
+        try {
+            expect(loadAppDefinition().appDefinition).toEqual({
+                name: 'discovered',
+                integrations: [],
+            });
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('rejects a value that is not a definition object', () => {
+        expect(() => setAppDefinition([])).toThrow(TypeError);
+        expect(() => setAppDefinition('backend/index.js')).toThrow(TypeError);
     });
 });

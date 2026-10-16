@@ -33,21 +33,48 @@ function registerCredentialLogKeys(appDefinition, moduleDefinitions) {
 }
 
 /**
- * Loads the App definition from the nearest backend package
- * @function loadAppDefinition
- * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
- * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, entities: object | null, entityTypeRegistry: Map<string, object>, moduleDefinitions: Array<object>, ownership: {scope: ({default: string, allow: string[]}|null), individualAcross: string}, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null, managementApi: object}} An object containing the application definition.
- * @throws {Error} Throws error if backend package.json cannot be found.
- * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
- * @throws {Error} Throws error if user.authModes.adopterJwt is enabled without a usable user.jwtConfig.
- * @throws {OwnershipConfigError} Throws if an ownership or scope setting is invalid (ADR-056 §3.1).
- * @throws {ManagementApiConfigError} Throws if `managementApi.proxy.scopes` is invalid (ADR-056 §3.5).
- * @example
- * const { integrations, userConfig, telemetry } = loadAppDefinition();
- * console.log(`Found ${integrations.length} integrations`);
+ * The definition handed to setAppDefinition(), or null when the backend is
+ * discovered from process.cwd().
  */
-function loadAppDefinition() {
+let presetDefinition = null;
+
+/**
+ * Pre-set the app definition so loadAppDefinition() does not discover the
+ * backend through process.cwd().
+ *
+ * Platforms such as Netlify need this: the function bundler (nft/esbuild)
+ * only traces static require() calls, and at runtime process.cwd() is the
+ * function root, not the backend. A generated function entry point therefore
+ * requires the backend's index.js statically and passes its Definition here.
+ *
+ * The preset definition is validated and derived exactly like a discovered
+ * one: adopter-JWT config, the entity registry, ownership and the Management
+ * API config all apply, so a Netlify function and an AWS Lambda load the
+ * same app the same way. Pass null to clear it.
+ *
+ * @param {Object|null} definition - the backend's `Definition` export
+ */
+function setAppDefinition(definition) {
+    if (definition !== null && (typeof definition !== 'object' || Array.isArray(definition))) {
+        throw new TypeError('setAppDefinition expects the app Definition object (or null)');
+    }
+    presetDefinition = definition;
+}
+
+/**
+ * The definition preset with setAppDefinition(), unvalidated, or null.
+ *
+ * For low-level readers that only need one raw field before the app is
+ * fully loaded (the database type, the custom encryption schema) and keep
+ * their own process.cwd() discovery as the fallback.
+ *
+ * @returns {Object|null}
+ */
+function getPresetAppDefinition() {
+    return presetDefinition;
+}
+
+function discoverAppDefinition() {
     const backendPath = findNearestBackendPackageJson();
     if (!backendPath) {
         throw new Error('Could not find backend package.json');
@@ -60,8 +87,31 @@ function loadAppDefinition() {
     }
 
     const backendJsFile = require(backendFilePath);
-    const appDefinition = backendJsFile.Definition;
+    return backendJsFile.Definition;
+}
 
+/**
+ * Loads the App definition: the one preset with setAppDefinition(), or the
+ * nearest backend package's index.js.
+ * @function loadAppDefinition
+ * @description Uses the definition preset by setAppDefinition() when there is one; otherwise searches for the nearest backend package.json, loads the corresponding index.js file,
+ * and extracts the application definition containing integrations and user configuration.
+ * @returns {{appDefinition: object, integrations: Array<object>, entities: object | null, entityTypeRegistry: Map<string, object>, moduleDefinitions: Array<object>, ownership: {scope: ({default: string, allow: string[]}|null), individualAcross: string}, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null, managementApi: object}} An object containing the application definition. `appDefinition` is the raw Definition object.
+ * @throws {Error} Throws error if backend package.json cannot be found.
+ * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
+ * @throws {Error} Throws error if user.authModes.adopterJwt is enabled without a usable user.jwtConfig.
+ * @throws {OwnershipConfigError} Throws if an ownership or scope setting is invalid (ADR-056 §3.1).
+ * @throws {ManagementApiConfigError} Throws if `managementApi.proxy.scopes` is invalid (ADR-056 §3.5).
+ * @example
+ * const { integrations, userConfig, telemetry } = loadAppDefinition();
+ * console.log(`Found ${integrations.length} integrations`);
+ */
+function loadAppDefinition() {
+    const appDefinition = presetDefinition || discoverAppDefinition();
+    return resolveAppDefinition(appDefinition);
+}
+
+function resolveAppDefinition(appDefinition) {
     const {
         integrations = [],
         entities = null,
@@ -117,6 +167,7 @@ function loadAppDefinition() {
     }
 
     return {
+        appDefinition,
         integrations,
         entities,
         entityTypeRegistry,
@@ -134,4 +185,6 @@ function loadAppDefinition() {
 
 module.exports = {
     loadAppDefinition,
+    setAppDefinition,
+    getPresetAppDefinition,
 };
