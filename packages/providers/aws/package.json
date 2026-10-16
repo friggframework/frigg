@@ -1,0 +1,28 @@
+{
+    "name": "@friggframework/provider-aws",
+    "version": "0.1.0",
+    "description": "AWS provider plugin for the Frigg Framework (re-exports core's SQS, EventBridge, Lambda and S3 adapters under the provider plugin interface)",
+    "main": "index.js",
+    "scripts": {
+        "test": "jest --passWithNoTests"
+    },
+    "keywords": [
+        "frigg",
+        "aws",
+        "serverless",
+        "adapter"
+    ],
+    "license": "MIT",
+    "dependencies": {
+        "@aws-sdk/client-scheduler": "^3.588.0"
+    },
+    "peerDependencies": {
+        "@friggframework/core": "*"
+    },
+    "devDependencies": {
+        "jest": "^29.7.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
