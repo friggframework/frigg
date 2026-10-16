@@ -194,6 +194,9 @@ function generateNetlifyToml(appDefinition, options = {}) {
 
     // Queue worker (background function)
     lines.push('# Queue worker (background function - 15min execution limit)');
+    lines.push('# REQUIRED: set FRIGG_QUEUE_SIGNING_SECRET in the site environment. The worker');
+    lines.push('# refuses (401, logged as frigg.netlify.queue.rejected) every message that is not');
+    lines.push('# signed with it, or with a valid Upstash-Signature when the queue is QStash.');
     lines.push('[[redirects]]');
     lines.push('  from = "/api/queue"');
     lines.push('  to = "/.netlify/functions/worker-background"');
@@ -239,12 +242,16 @@ function generateNetlifyEnvTemplate(appDefinition) {
         envVars.STAGE = 'Deployment stage (production, staging, dev)';
     }
 
+    // Queue worker authentication: required, the worker is a public URL.
+    envVars.FRIGG_QUEUE_SIGNING_SECRET =
+        'REQUIRED. Secret that signs queue messages to the worker-background function (HMAC-SHA256); without it every message is refused. Generate with: openssl rand -hex 32';
+
     // Queue provider
     const queueProvider = appDefinition.queue?.provider;
     if (queueProvider === 'qstash') {
         envVars.QSTASH_TOKEN = 'Upstash QStash token (from console.upstash.com)';
-        envVars.QSTASH_CURRENT_SIGNING_KEY = 'QStash webhook verification signing key';
-        envVars.QSTASH_NEXT_SIGNING_KEY = 'QStash webhook verification next signing key';
+        envVars.QSTASH_CURRENT_SIGNING_KEY = 'REQUIRED. QStash current signing key: the worker verifies every Upstash-Signature with it';
+        envVars.QSTASH_NEXT_SIGNING_KEY = 'REQUIRED. QStash next signing key (used during key rotation)';
     }
 
     // Integration-specific env vars from app definition

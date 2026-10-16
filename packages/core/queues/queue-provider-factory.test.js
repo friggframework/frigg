@@ -65,7 +65,7 @@ describe('NetlifyBackgroundProvider', () => {
 
     it('POSTs the message to the background function under the site URL', async () => {
         global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 202 });
-        const provider = new NetlifyBackgroundProvider({ baseUrl: 'https://site.example' });
+        const provider = new NetlifyBackgroundProvider({ baseUrl: 'https://site.example', signingSecret: 's' });
 
         const result = await provider.send({ event: 'X' }, '/.netlify/functions/worker-background');
 
@@ -78,7 +78,7 @@ describe('NetlifyBackgroundProvider', () => {
 
     it('throws on a non-2xx, non-202 response', async () => {
         global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500, statusText: 'boom' });
-        const provider = new NetlifyBackgroundProvider({ baseUrl: 'https://site.example' });
+        const provider = new NetlifyBackgroundProvider({ baseUrl: 'https://site.example', signingSecret: 's' });
         await expect(provider.send({}, '/q')).rejects.toThrow(/500 boom/);
     });
 

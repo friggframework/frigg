@@ -16,8 +16,24 @@
  * - QSTASH_CURRENT_SIGNING_KEY and QSTASH_NEXT_SIGNING_KEY for verification
  *
  * Queue ID format: The destination URL that QStash will POST to when delivering the message.
+ *
+ * Verification (verifyEvent), per Upstash's documented scheme and its
+ * @upstash/qstash Receiver: every delivery carries an `Upstash-Signature`
+ * header, a JWT signed HS256 with the current signing key (the next key
+ * during rotation). Its claims are iss "Upstash", sub the destination URL,
+ * exp / nbf / iat, and body = base64url(SHA-256(raw body)). A delivery is
+ * accepted when the JWT verifies with either key, has not expired, and its
+ * body claim matches the body received (trailing '=' padding ignored, as the
+ * Receiver does). With neither key configured it is refused, except outside
+ * production with FRIGG_QUEUE_ALLOW_UNSIGNED=true.
  */
+const crypto = require('crypto');
 const { QueueProvider } = require('../queue-provider');
+const {
+    allowsUnsignedMessages,
+    readHeader,
+    readRawBody,
+} = require('../queue-message-auth');
 
 const QSTASH_API_BASE = 'https://qstash.upstash.io/v2';
 
@@ -28,6 +44,66 @@ class QStashQueueProvider extends QueueProvider {
             options.token || process.env.QSTASH_TOKEN;
         this.retries =
             options.retries !== undefined ? options.retries : 3;
+        this.currentSigningKey = options.currentSigningKey;
+        this.nextSigningKey = options.nextSigningKey;
+        // Optional: when set, the JWT's sub must equal this destination URL.
+        this.destinationUrl = options.destinationUrl;
+        this.env = options.env || process.env;
+        this.clockToleranceSeconds = options.clockToleranceSeconds || 0;
+    }
+
+    // Read per call: secrets may reach the environment after construction.
+    _signingKeys() {
+        return [
+            this.currentSigningKey || this.env.QSTASH_CURRENT_SIGNING_KEY,
+            this.nextSigningKey || this.env.QSTASH_NEXT_SIGNING_KEY,
+        ].filter((key) => typeof key === 'string' && key.length > 0);
+    }
+
+    /**
+     * Verify the Upstash-Signature JWT of a QStash delivery.
+     *
+     * @param {Object} event - Lambda-shaped HTTP event
+     * @returns {Promise<{ ok: boolean, reason?: string, unsigned?: boolean }>}
+     */
+    async verifyEvent(event) {
+        const keys = this._signingKeys();
+        if (keys.length === 0) {
+            return allowsUnsignedMessages(this.env)
+                ? { ok: true, unsigned: true }
+                : { ok: false, reason: 'signing_keys_not_configured' };
+        }
+        const token = readHeader(event, 'upstash-signature');
+        if (!token) return { ok: false, reason: 'missing_signature' };
+        const body = readRawBody(event);
+        if (body === null) return { ok: false, reason: 'missing_body' };
+
+        const jose = require('jose');
+        let payload;
+        for (const key of keys) {
+            try {
+                ({ payload } = await jose.jwtVerify(token, new TextEncoder().encode(key), {
+                    issuer: 'Upstash',
+                    algorithms: ['HS256'],
+                    requiredClaims: ['exp', 'body'],
+                    clockTolerance: this.clockToleranceSeconds,
+                }));
+                break;
+            } catch (_) {
+                // try the next key
+            }
+        }
+        if (!payload) return { ok: false, reason: 'invalid_signature' };
+
+        if (this.destinationUrl !== undefined && payload.sub !== this.destinationUrl) {
+            return { ok: false, reason: 'invalid_subject' };
+        }
+        const bodyHash = crypto.createHash('sha256').update(body, 'utf8').digest('base64url');
+        const claimed = typeof payload.body === 'string' ? payload.body.replace(/=+$/, '') : '';
+        if (claimed !== bodyHash.replace(/=+$/, '')) {
+            return { ok: false, reason: 'body_mismatch' };
+        }
+        return { ok: true };
     }
 
     /**
@@ -109,10 +185,8 @@ class QStashQueueProvider extends QueueProvider {
      * QStash POSTs the message body directly to the destination URL.
      */
     parseEvent(event) {
-        const body =
-            typeof event.body === 'string'
-                ? JSON.parse(event.body)
-                : event.body;
+        const raw = readRawBody(event);
+        const body = raw !== null ? JSON.parse(raw) : event.body;
 
         // QStash delivers a single message per invocation
         return [body];

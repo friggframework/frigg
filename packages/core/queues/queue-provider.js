@@ -41,6 +41,22 @@ class QueueProvider {
     parseEvent(event) {
         throw new Error('Method parseEvent must be implemented by subclass');
     }
+
+    /**
+     * Prove an incoming event was sent by Frigg before anything is parsed or
+     * dispatched. HTTP-delivered queues (Netlify Background Functions,
+     * QStash) are public URLs, so their adapters check a signature here.
+     *
+     * The default refuses: an adapter that does not know how to verify its
+     * events must not have them run. An adapter whose transport already
+     * authenticates the caller (SQS triggering a Lambda) overrides this.
+     *
+     * @param {Object} event - Raw event from the runtime
+     * @returns {Promise<{ ok: boolean, reason?: string, unsigned?: boolean }>}
+     */
+    async verifyEvent(event) {
+        return { ok: false, reason: 'verification_not_implemented' };
+    }
 }
 
 module.exports = { QueueProvider };

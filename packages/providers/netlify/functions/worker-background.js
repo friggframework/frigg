@@ -19,9 +19,15 @@
  * or appDefinition.queue.provider ('qstash') select another HTTP queue.
  *
  * Security: this function is reachable over HTTP by anyone who knows its
- * path (and /api/queue if the netlify.toml redirect is kept). Netlify
- * Background Functions carry no caller authentication, and neither this
- * worker nor the QStash provider verifies a signature.
+ * path (and /api/queue if the netlify.toml redirect is kept), and Netlify
+ * does not authenticate the caller. So every event must carry a signature:
+ * Frigg's own HMAC (FRIGG_QUEUE_SIGNING_SECRET, sent by
+ * NetlifyBackgroundProvider) or, with the qstash provider, a valid
+ * Upstash-Signature. An unverified event is answered 401 (the caller still
+ * sees Netlify's 202) and logs one WARN, frigg.netlify.queue.rejected; it is
+ * not parsed, connects no database and dispatches nothing. Without a secret
+ * every event is refused, unless FRIGG_QUEUE_ALLOW_UNSIGNED=true outside
+ * production (lib/queue-event-auth.js).
  */
 const {
     loadAppDefinition,
@@ -29,6 +35,10 @@ const {
 const { createQueueWorker } = require('@friggframework/core/handlers/backend-utils');
 const { createQueueProvider } = require('@friggframework/core/queues');
 const { createNetlifyHandler } = require('../lib/create-netlify-handler');
+const {
+    createQueueEventVerifier,
+    withQueueEventAuth,
+} = require('../lib/queue-event-auth');
 
 const loaded = loadAppDefinition();
 const { integrations: integrationClasses, moduleDefinitions } = loaded;
@@ -45,7 +55,7 @@ const queueProvider = createQueueProvider({
     provider: process.env.QUEUE_PROVIDER || loaded.appDefinition?.queue?.provider || 'netlify-background',
 });
 
-const handler = createNetlifyHandler({
+const processQueueEvent = createNetlifyHandler({
     eventName: 'Queue Worker (Netlify Background)',
     isUserFacingResponse: false,
     method: async (event, context) => {
@@ -74,6 +84,11 @@ const handler = createNetlifyHandler({
             }),
         };
     },
+});
+
+const handler = withQueueEventAuth({
+    handler: processQueueEvent,
+    verify: createQueueEventVerifier({ queueProvider }),
 });
 
 module.exports = { handler };

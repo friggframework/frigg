@@ -235,3 +235,22 @@ describe('resolveDbTypes', () => {
         expect(resolveDbTypes({ database: {} })).toEqual(['postgresql', 'mongodb']);
     });
 });
+
+describe('queue worker authentication settings', () => {
+    test('netlify.toml marks FRIGG_QUEUE_SIGNING_SECRET as required beside the queue redirect', () => {
+        const toml = generateNetlifyToml({ integrations: [] });
+        const redirectAt = toml.indexOf('from = "/api/queue"');
+        const noteAt = toml.indexOf('# REQUIRED: set FRIGG_QUEUE_SIGNING_SECRET');
+        expect(noteAt).toBeGreaterThan(-1);
+        expect(noteAt).toBeLessThan(redirectAt);
+    });
+
+    test('the env template always lists FRIGG_QUEUE_SIGNING_SECRET as required', () => {
+        for (const def of [{}, { queue: { provider: 'qstash' } }]) {
+            expect(generateNetlifyEnvTemplate(def).FRIGG_QUEUE_SIGNING_SECRET).toMatch(/^REQUIRED/);
+        }
+        expect(generateNetlifyEnvTemplate({ queue: { provider: 'qstash' } }).QSTASH_CURRENT_SIGNING_KEY).toMatch(
+            /^REQUIRED/
+        );
+    });
+});

@@ -56,6 +56,14 @@ class SqsQueueProvider extends QueueProvider {
         const records = event?.Records || [];
         return records.map((record) => JSON.parse(record.body));
     }
+
+    /**
+     * SQS events reach a Lambda only through its event source mapping, which
+     * AWS authenticates; there is no public URL to post to.
+     */
+    async verifyEvent() {
+        return { ok: true };
+    }
 }
 
 module.exports = { SqsQueueProvider };
