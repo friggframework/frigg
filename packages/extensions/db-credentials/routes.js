@@ -11,6 +11,19 @@ const express = require('express');
 function createRouter(prisma) {
     const router = express.Router();
 
+    // The OAuthAppCredential model exists only when the extension's schema
+    // was composed into the generated Prisma client. Without it every query
+    // throws a TypeError, so say what is missing instead of a bare 500.
+    router.use((_req, res, next) => {
+        if (!prisma?.oAuthAppCredential) {
+            return res.status(503).json({
+                error: 'OAuthAppCredential model is not in the generated Prisma client; compose the db-credentials schema and regenerate it',
+                code: 'EXTENSION_SCHEMA_NOT_COMPOSED',
+            });
+        }
+        return next();
+    });
+
     // List all stored credentials (client_secret is redacted)
     router.get('/', async (_req, res) => {
         try {

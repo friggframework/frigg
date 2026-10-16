@@ -180,4 +180,45 @@ describe('db-credentials bootstrap', () => {
         expect(typeof moduleDefinition.env).toBe('object');
         expect(moduleDefinition.env.client_id).toBe('original');
     });
+
+    it('wraps the definition in the `{ definition }` shape Definition.modules uses', async () => {
+        const definition = {
+            moduleName: 'hubspot',
+            API: class {},
+            env: { client_id: 'static-id', client_secret: 'static-secret' },
+        };
+        class TestIntegration {
+            static Definition = { name: 'test', modules: { hubspot: { definition } } };
+        }
+        mockPrisma.oAuthAppCredential.findUnique.mockResolvedValue({
+            moduleName: 'hubspot',
+            clientId: 'db-id',
+            clientSecret: 'db-secret',
+            extra: {},
+        });
+
+        await bootstrap(mockPrisma, { integrations: [TestIntegration] });
+
+        expect(typeof definition.env).toBe('function');
+        await expect(definition.env()).resolves.toEqual({
+            client_id: 'db-id',
+            client_secret: 'db-secret',
+        });
+    });
+
+    it('wraps a module definition shared by two integrations (or bootstrapped twice) only once', async () => {
+        const definition = { moduleName: 'hubspot', API: class {}, env: { client_id: 'static-id' } };
+        const make = (name) =>
+            class {
+                static Definition = { name, modules: { hubspot: { definition } } };
+            };
+        mockPrisma.oAuthAppCredential.findUnique.mockResolvedValue(null);
+
+        await bootstrap(mockPrisma, { integrations: [make('a'), make('b')] });
+        await bootstrap(mockPrisma, { integrations: [make('a')] });
+
+        await expect(definition.env()).resolves.toEqual({ client_id: 'static-id' });
+        expect(mockPrisma.oAuthAppCredential.findUnique).toHaveBeenCalledTimes(1);
+    });
 });
+

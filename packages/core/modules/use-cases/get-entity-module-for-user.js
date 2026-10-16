@@ -20,7 +20,7 @@ function userOwns(user, ownerId) {
 
 const defaultCreateModule = (params) => {
     const { Module } = require('../module');
-    return new Module(params);
+    return Module.create(params);
 };
 
 /**
@@ -62,7 +62,7 @@ class GetEntityModuleForUser {
                 { code: 'ENTITY_TYPE_NOT_FOUND' }
             );
         }
-        const module = this.createModule({
+        const module = await this.createModule({
             userId: entity.userId,
             entity,
             definition,

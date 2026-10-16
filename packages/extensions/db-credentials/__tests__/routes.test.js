@@ -56,3 +56,32 @@ describe('db-credentials routes', () => {
         );
     });
 });
+
+describe('db-credentials routes without the composed schema', () => {
+    async function request(app, method, path) {
+        const server = app.listen(0);
+        try {
+            const { port } = server.address();
+            const res = await fetch(`http://127.0.0.1:${port}${path}`, { method });
+            return { status: res.status, body: await res.json() };
+        } finally {
+            server.close();
+        }
+    }
+
+    it('answers 503 EXTENSION_SCHEMA_NOT_COMPOSED when the Prisma model is missing', async () => {
+        const app = createTestApp({});
+        for (const [method, path] of [['GET', '/creds'], ['GET', '/creds/hubspot'], ['DELETE', '/creds/hubspot']]) {
+            const res = await request(app, method, path);
+            expect(res.status).toBe(503);
+            expect(res.body.code).toBe('EXTENSION_SCHEMA_NOT_COMPOSED');
+        }
+    });
+
+    it('serves normally when the model exists', async () => {
+        const app = createTestApp({ oAuthAppCredential: { findMany: jest.fn(async () => []) } });
+        const res = await request(app, 'GET', '/creds');
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual([]);
+    });
+});

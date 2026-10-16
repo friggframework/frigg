@@ -11,6 +11,8 @@
  * @param {Object} prisma - Prisma client instance
  * @param {Object} appDefinition - Full Frigg app definition
  */
+const DB_CREDENTIALS_ENV = Symbol.for('frigg.extension.db-credentials.env');
+
 async function bootstrap(prisma, appDefinition) {
     if (!appDefinition?.integrations || !Array.isArray(appDefinition.integrations)) {
         return;
@@ -22,8 +24,17 @@ async function bootstrap(prisma, appDefinition) {
             continue;
         }
 
-        for (const moduleDefinition of Object.values(modules)) {
+        for (const entry of Object.values(modules)) {
+            // Definition.modules entries are `{ definition }` (the shape
+            // IntegrationBase and the entity-type registry read); a bare
+            // module definition is accepted too.
+            const moduleDefinition = entry?.definition ?? entry;
             if (!moduleDefinition?.moduleName) {
+                continue;
+            }
+            // Two integrations can share one module definition, and a
+            // forced re-initialization runs the bootstrap again: wrap once.
+            if (moduleDefinition.env?.[DB_CREDENTIALS_ENV]) {
                 continue;
             }
 
@@ -61,6 +72,7 @@ async function bootstrap(prisma, appDefinition) {
                 }
                 return originalEnv;
             };
+            moduleDefinition.env[DB_CREDENTIALS_ENV] = true;
         }
     }
 }

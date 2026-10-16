@@ -21,7 +21,7 @@ class GetEntityOptionsByType {
         if (!moduleDefinition) {
             throw new Error(`Module definition not found for type: ${type}`);
         }
-        const moduleInstance = new Module({
+        const moduleInstance = await Module.create({
             userId,
             definition: moduleDefinition,
         });

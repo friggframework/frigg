@@ -23,7 +23,7 @@ class GetModuleInstanceFromType {
         if (!moduleDefinition) {
             throw new Error(`Module definition not found for type: ${type}`);
         }
-        return new Module({
+        return Module.create({
             userId,
             definition: moduleDefinition,
             state: options.state,
