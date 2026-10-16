@@ -373,14 +373,15 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
     _mapEntity(doc, credential) {
         const dynamicData = doc?.data || {};
         return {
+            // First, so no stored provider field can replace a column below
+            // (identity, owner or organization decide who sees the entity).
+            ...dynamicData,
             id: fromObjectId(doc?._id),
             credential,
             userId: fromObjectId(doc?.userId),
             name: doc?.name ?? null,
             externalId: doc?.externalId ?? null,
             moduleName: doc?.moduleName ?? null,
-            ...dynamicData,
-            // After the spread: a provider field of the same name must not decide visibility.
             organizationId: fromObjectId(doc?.organizationId) ?? null,
         };
     }
