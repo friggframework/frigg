@@ -108,6 +108,9 @@ const {
     ModuleFactory,
     getEntityTypeRegistry,
     EntityRegistryError,
+    resolveScope,
+    listBindingScopes,
+    OwnershipConfigError,
 } = require('./modules/index');
 const application = require('./application');
 const utils = require('./utils');
@@ -220,6 +223,9 @@ module.exports = {
     ModuleFactory,
     getEntityTypeRegistry,
     EntityRegistryError,
+    resolveScope,
+    listBindingScopes,
+    OwnershipConfigError,
     // queues
     QueuerUtil,
 

@@ -1,8 +1,10 @@
 const { prisma } = require('../../database/prisma');
+const { organizationWhere } = require('../../database/organization-where');
 const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
+const { integrationNotFoundError } = require('./integration-not-found');
 
 /**
  * MongoDB Integration Repository Adapter
@@ -26,6 +28,25 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
     }
 
     /**
+     * The one place a integration integration row becomes the record the
+     * application sees (ids of its entities, its organization).
+     * @private
+     */
+    _mapIntegration(integration) {
+        return {
+            id: integration.id,
+            entitiesIds: integration.entities.map((e) => e.id),
+            userId: integration.userId,
+            organizationId: integration.organizationId ?? null,
+            config: integration.config,
+            version: integration.version,
+            status: integration.status,
+            messages: integration.messages,
+            createdAt: integration.createdAt,
+        };
+    }
+
+    /**
      * Find all integrations for a user
      * Replaces: IntegrationModel.find({ user: userId }).populate('entities')
      *
@@ -41,16 +62,32 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
         });
 
         // Map to domain objects (maintains same API)
-        return integrations.map((integration) => ({
-            id: integration.id,
-            entitiesIds: integration.entities.map((e) => e.id),
-            userId: integration.userId,
-            config: integration.config,
-            version: integration.version,
-            status: integration.status,
-            messages: integration.messages,
-            createdAt: integration.createdAt,
-        }));
+        return integrations.map((integration) => (this._mapIntegration(integration)));
+    }
+
+    /**
+     * Find integrations matching any of the owner/organization pairs, in one
+     * query. `organizationId: null` matches rows with no organization. The
+     * caller (a use case) decides which pairs; this only runs them.
+     *
+     * @param {Array<{userId: string, organizationId: (string|null)}>} clauses
+     * @returns {Promise<Array>} Array of integration objects
+     */
+    async findIntegrationsByOwnership(clauses) {
+        if (!Array.isArray(clauses) || clauses.length === 0) return [];
+        const integrations = await this.prisma.integration.findMany({
+            where: {
+                OR: clauses.map(({ userId, organizationId }) => ({
+                    userId,
+                    ...organizationWhere(organizationId),
+                })),
+            },
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => (this._mapIntegration(integration)));
     }
 
     /**
@@ -77,16 +114,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             },
         });
 
-        return integrations.map((integration) => ({
-            id: integration.id,
-            entitiesIds: integration.entities.map((e) => e.id),
-            userId: integration.userId,
-            config: integration.config,
-            version: integration.version,
-            status: integration.status,
-            messages: integration.messages,
-            createdAt: integration.createdAt,
-        }));
+        return integrations.map((integration) => (this._mapIntegration(integration)));
     }
 
     /**
@@ -165,15 +193,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             throw new Error(`Integration with name ${name} not found`);
         }
 
-        return {
-            id: integration.id,
-            entitiesIds: integration.entities.map((e) => e.id),
-            userId: integration.userId,
-            config: integration.config,
-            version: integration.version,
-            status: integration.status,
-            messages: integration.messages,
-        };
+        return this._mapIntegration(integration);
     }
 
     /**
@@ -192,18 +212,10 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
         });
 
         if (!integration) {
-            throw new Error(`Integration with id ${id} not found`);
+            throw integrationNotFoundError(id);
         }
 
-        return {
-            id: integration.id,
-            entitiesIds: integration.entities.map((e) => e.id),
-            userId: integration.userId,
-            config: integration.config,
-            version: integration.version,
-            status: integration.status,
-            messages: integration.messages,
-        };
+        return this._mapIntegration(integration);
     }
 
     /**
@@ -290,15 +302,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             },
         });
 
-        return integrations.map((integration) => ({
-            id: integration.id,
-            entitiesIds: integration.entities.map((e) => e.id),
-            userId: integration.userId,
-            config: integration.config,
-            version: integration.version,
-            status: integration.status,
-            messages: integration.messages,
-        }));
+        return integrations.map((integration) => (this._mapIntegration(integration)));
     }
 
     /**
@@ -310,13 +314,16 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
      * @param {Array<string>} entities - Array of entity IDs (MongoDB ObjectIds)
      * @param {string} userId - User ID (MongoDB ObjectId)
      * @param {Object} config - Integration configuration
+     * @param {{organizationId?: (string|null)}} [tenancy] - the organization the
+     *   integration is created in (ADR-056 §3.6)
      * @returns {Promise<Object>} Created integration object
      */
-    async createIntegration(entities, userId, config) {
+    async createIntegration(entities, userId, config, tenancy = {}) {
         const data = {
             config,
             version: '0.0.0',
             userId: userId,
+            organizationId: tenancy.organizationId ?? null,
             entityIds: entities,
         };
 
@@ -327,15 +334,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             },
         });
 
-        return {
-            id: integration.id,
-            entitiesIds: integration.entities.map((e) => e.id),
-            userId: integration.userId,
-            config: integration.config,
-            version: integration.version,
-            status: integration.status,
-            messages: integration.messages,
-        };
+        return this._mapIntegration(integration);
     }
 
     /**
@@ -357,15 +356,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             return null;
         }
 
-        return {
-            id: integration.id,
-            entitiesIds: integration.entities.map((e) => e.id),
-            userId: integration.userId,
-            config: integration.config,
-            version: integration.version,
-            status: integration.status,
-            messages: integration.messages,
-        };
+        return this._mapIntegration(integration);
     }
 
     /**
@@ -389,15 +380,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             },
         });
 
-        return {
-            id: integration.id,
-            entitiesIds: integration.entities.map((e) => e.id),
-            userId: integration.userId,
-            config: integration.config,
-            version: integration.version,
-            status: integration.status,
-            messages: integration.messages,
-        };
+        return this._mapIntegration(integration);
     }
 
     /**

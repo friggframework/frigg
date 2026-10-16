@@ -1,4 +1,5 @@
 const { Module } = require('../module');
+const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
 
 class TestModuleAuth {
     /**
@@ -6,9 +7,11 @@ class TestModuleAuth {
      * @param {import('../repositories/module-repository-interface').ModuleRepositoryInterface} params.moduleRepository - Repository for module data operations.
      * @param {Array<Object>} params.moduleDefinitions - Array of module definitions.
      */
-    constructor({ moduleRepository, moduleDefinitions }) {
+    constructor({ moduleRepository, moduleDefinitions, scopePolicy }) {
         this.moduleRepository = moduleRepository;
         this.moduleDefinitions = moduleDefinitions;
+        // Who may load an entity follows its scope (ADR-056 §3.6).
+        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
     }
 
     /**
@@ -35,7 +38,7 @@ class TestModuleAuth {
 
         // Validate entity ownership
         const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
-            ? userIdOrUser.ownsUserId(entity.userId)
+            ? this.scopePolicy.canUseEntity(userIdOrUser, entity)
             : entity.userId?.toString() === userId?.toString();
 
         if (!isOwned) {

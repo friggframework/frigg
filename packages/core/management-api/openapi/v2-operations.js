@@ -34,6 +34,11 @@ const stepQuery = [
     query('step', 'Step number, 1-based (default 1)', { type: 'integer', minimum: 1 }),
     query('sessionId', 'Session from step 1; required for later steps'),
 ];
+// ADR-056 §3.4: the same two filters on every list that mixes ownership.
+const listFilters = [
+    query('scope', 'Only records of this scope', { type: 'string', enum: ['individual', 'organization'] }),
+    query('owner', 'Only the caller\'s own (`me`) or the active organization\'s (`org`)', { type: 'string', enum: ['me', 'org'] }),
+];
 const anyJson = { description: 'Defined by the integration or module' };
 
 const V2_OPERATIONS = {
@@ -41,7 +46,8 @@ const V2_OPERATIONS = {
     listIntegrations: {
         summary: "List the caller's integrations",
         description:
-            'Returns only `{ integrations }`. Integration types are at /api/v2/integrations/options and connected accounts at /api/v2/entities.',
+            'Returns only `{ integrations }`: the caller\'s and the active organization\'s, created in that organization (ADR-056 §3.6). Each carries `scope`, `owner`, `organizationId` and `access`. Integration types are at /api/v2/integrations/options and connected accounts at /api/v2/entities.',
+        parameters: listFilters,
         responses: { 200: ok('Integrations', ref('ListIntegrationsResponse')), ...errors('Unauthorized') },
     },
     listIntegrationOptions: {
@@ -108,6 +114,9 @@ const V2_OPERATIONS = {
     // Entities
     listEntities: {
         summary: "List the caller's connected entities",
+        description:
+            "The active organization's entities and the caller's individual ones (ADR-056 §3.6): an individual entity belongs to the organization it was connected in, unless `ownership.individualAcross` is `all`. Each carries `scope`, `owner`, `organizationId` and `access`.",
+        parameters: listFilters,
         responses: { 200: ok('Entities', ref('ListEntitiesResponse')), ...errors('Unauthorized') },
     },
     listEntityTypes: {

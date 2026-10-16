@@ -61,10 +61,10 @@ describe('ProcessAuthorizationCallback logs (ADR-048)', () => {
                     credential: { id: 'cred-1' },
                 },
             ]),
-            findEntity: jest.fn().mockResolvedValue({
+            findEntities: jest.fn().mockResolvedValue([{
                 id: 'entity-1',
                 credential: { id: 'cred-1' },
-            }),
+            }]),
             createEntity: jest.fn(),
             updateEntity: jest.fn(),
         };
@@ -236,10 +236,10 @@ describe('ProcessAuthorizationCallback logs (ADR-048)', () => {
     });
 
     it('writes an INFO record when re-auth repoints an entity to a new credential', async () => {
-        moduleRepository.findEntity.mockResolvedValue({
+        moduleRepository.findEntities.mockResolvedValue([{
             id: 'entity-1',
             credential: { id: 'old-cred' },
-        });
+        }]);
         moduleRepository.updateEntity.mockResolvedValue({ id: 'entity-1' });
 
         await useCase.execute('user-1', 'testmodule', { code: SECRETS.oauthCode });

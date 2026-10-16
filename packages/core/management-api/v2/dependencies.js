@@ -29,6 +29,13 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
         getEntityTypeRegistry,
         getEntityTypeDefinitions,
     } = require('../../modules/entity-type-registry');
+    const { createScopePolicy } = require('../../modules/scope-policy');
+    const {
+        AuthorizeEntityForUser,
+    } = require('../../modules/use-cases/authorize-entity-for-user');
+    const {
+        ResolveIntegrationOwnership,
+    } = require('../../integrations/use-cases/resolve-integration-ownership');
     const {
         AuthenticateWithSharedSecret,
     } = require('../../user/use-cases/authenticate-with-shared-secret');
@@ -85,6 +92,11 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
         appDefinition.entityTypeRegistry ??
         getEntityTypeRegistry(appDefinition);
     const moduleDefinitions = getEntityTypeDefinitions(registry);
+    // Ownership by scope (ADR-056 §3): one object every use case asks.
+    const scopePolicy = createScopePolicy({
+        ownership: appDefinition.ownership,
+        entityTypeRegistry: registry,
+    });
 
     const moduleRepository = createModuleRepository();
     const integrationRepository = createIntegrationRepository();
@@ -107,6 +119,7 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
     const getEntityModuleForUser = new GetEntityModuleForUser({
         moduleRepository,
         moduleDefinitions,
+        scopePolicy,
     });
     const getCredentialForUser = new credentialOps.GetCredentialForUserV2({
         credentialRepository,
@@ -124,17 +137,22 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
         moduleDefinitions,
         getAuthorizationRequirements,
         authorizationSessionRepository,
-        processAuthorizationCallback: new ProcessAuthorizationCallback({
-            moduleRepository,
-            credentialRepository,
-            integrationRepository,
-            moduleDefinitions,
+        authorizeEntityForUser: new AuthorizeEntityForUser({
+            scopePolicy,
+            processAuthorizationCallback: new ProcessAuthorizationCallback({
+                moduleRepository,
+                credentialRepository,
+                integrationRepository,
+                moduleDefinitions,
+            }),
         }),
         moduleRepository,
         credentialRepository,
+        scopePolicy,
     });
     const getOwnedIntegrationRecord = new integrationOps.GetOwnedIntegrationRecord({
         integrationRepository,
+        scopePolicy,
     });
     const getIntegrationInstanceForUser = new integrationOps.GetIntegrationInstanceForUser({
         getOwnedIntegrationRecord,
@@ -144,6 +162,7 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
     return {
         config,
         moduleDefinitions,
+        scopePolicy,
         repositories: {
             moduleRepository,
             integrationRepository,
@@ -159,6 +178,7 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
             integrationClasses,
             moduleFactory,
             moduleRepository,
+            scopePolicy,
         }),
         getPossibleIntegrations: new GetPossibleIntegrations({ integrationClasses }),
         createIntegrationForUser: new integrationOps.CreateIntegrationForUser({
@@ -167,7 +187,11 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
                 integrationClasses,
                 moduleFactory,
             }),
-            getEntityModuleForUser,
+            resolveIntegrationOwnership: new ResolveIntegrationOwnership({
+                moduleRepository,
+                integrationClasses,
+                scopePolicy,
+            }),
             integrationClasses,
         }),
         getIntegrationInstanceForUser,
@@ -199,7 +223,10 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
 
         // Entities
         getEntityModuleForUser,
-        listEntitiesForUser: new entityOps.ListEntitiesForUser({ moduleRepository }),
+        listEntitiesForUser: new entityOps.ListEntitiesForUser({
+            moduleRepository,
+            scopePolicy,
+        }),
         getEntityForUser: new entityOps.GetEntityForUser({ getEntityModuleForUser }),
         deleteEntityForUser: new entityOps.DeleteEntityForUser({
             getEntityModuleForUser,
@@ -211,8 +238,8 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
         refreshEntityOptionsForUser: new entityOps.RefreshEntityOptionsForUser({
             getEntityModuleForUser,
         }),
-        listEntityTypes: new ListEntityTypes({ entityTypeRegistry: registry }),
-        getEntityType: new GetEntityType({ entityTypeRegistry: registry }),
+        listEntityTypes: new ListEntityTypes({ entityTypeRegistry: registry, scopePolicy }),
+        getEntityType: new GetEntityType({ entityTypeRegistry: registry, scopePolicy }),
         getAuthorizationRequirements,
 
         // Credentials

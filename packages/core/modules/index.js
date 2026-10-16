@@ -8,6 +8,11 @@ const {
     getEntityTypeRegistry,
     EntityRegistryError,
 } = require('./entity-type-registry');
+const {
+    resolveScope,
+    listBindingScopes,
+    OwnershipConfigError,
+} = require('./entity-scope');
 
 module.exports = {
     ApiKeyRequester,
@@ -18,4 +23,7 @@ module.exports = {
     ModuleFactory,
     getEntityTypeRegistry,
     EntityRegistryError,
+    resolveScope,
+    listBindingScopes,
+    OwnershipConfigError,
 };

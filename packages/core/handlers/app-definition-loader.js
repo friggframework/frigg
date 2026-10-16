@@ -11,6 +11,7 @@ const {
     getEntityTypeRegistry,
     getEntityTypeDefinitions,
 } = require('../modules/entity-type-registry');
+const { resolveOwnershipConfig } = require('../modules/entity-scope');
 
 // Handlers without a database never load the encryption registry, so the
 // credential leaf keys are registered for redaction here too.
@@ -33,10 +34,11 @@ function registerCredentialLogKeys(appDefinition, moduleDefinitions) {
  * @function loadAppDefinition
  * @description Searches for the nearest backend package.json, loads the corresponding index.js file,
  * and extracts the application definition containing integrations and user configuration.
- * @returns {{integrations: Array<object>, entities: object | null, entityTypeRegistry: Map<string, object>, moduleDefinitions: Array<object>, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null, managementApi: object}} An object containing the application definition.
+ * @returns {{integrations: Array<object>, entities: object | null, entityTypeRegistry: Map<string, object>, moduleDefinitions: Array<object>, ownership: {scope: ({default: string, allow: string[]}|null), individualAcross: string}, userConfig: object | null, adminScripts: Array<object>, reports: Array<object>, admin: object, telemetry: object, logging: object | null, managementApi: object}} An object containing the application definition.
  * @throws {Error} Throws error if backend package.json cannot be found.
  * @throws {Error} Throws error if index.js file cannot be found in the backend directory.
  * @throws {Error} Throws error if user.authModes.adopterJwt is enabled without a usable user.jwtConfig.
+ * @throws {OwnershipConfigError} Throws if an ownership or scope setting is invalid (ADR-056 §3.1).
  * @example
  * const { integrations, userConfig, telemetry } = loadAppDefinition();
  * console.log(`Found ${integrations.length} integrations`);
@@ -77,6 +79,11 @@ function loadAppDefinition() {
     const entityTypeRegistry = getEntityTypeRegistry(appDefinition);
     const moduleDefinitions = getEntityTypeDefinitions(entityTypeRegistry);
 
+    // Same reason for entity scopes (ADR-056 §3.1): a mistyped scope, an unknown
+    // `individualAcross`, or an organization-owned integration that binds an
+    // individual entity stops the app at load.
+    const ownership = resolveOwnershipConfig(appDefinition, entityTypeRegistry);
+
     registerCredentialLogKeys(appDefinition, moduleDefinitions);
 
     // Degrade consistently: an invalid telemetry block must never take down a
@@ -105,6 +112,7 @@ function loadAppDefinition() {
         entities,
         entityTypeRegistry,
         moduleDefinitions,
+        ownership,
         userConfig,
         adminScripts,
         reports,

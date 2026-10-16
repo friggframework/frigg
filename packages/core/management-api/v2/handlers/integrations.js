@@ -1,5 +1,5 @@
 const { toIntegrationDto } = require('../dto');
-const { objectBody, optionalString } = require('../request');
+const { objectBody, optionalString, parseListFilters } = require('../request');
 
 /**
  * Management API v2 integration handlers, keyed by registry operationId.
@@ -27,8 +27,11 @@ function createIntegrationHandlers(useCases) {
         );
 
     return {
-        async listIntegrations(_req, res, user) {
-            const integrations = await getIntegrationsForUser.execute(user.getId());
+        async listIntegrations(req, res, user) {
+            const integrations = await getIntegrationsForUser.execute(
+                user,
+                parseListFilters(req.query)
+            );
             res.json({ integrations: integrations.map(toIntegrationDto) });
         },
 

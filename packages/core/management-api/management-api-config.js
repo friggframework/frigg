@@ -16,6 +16,9 @@
  *     },
  * }
  * ```
+ *
+ * TODO(F6): `proxy.scopes` (ADR-056 §3.5) is not read yet; see
+ * ExecuteEntityProxyRequest.
  */
 
 // ADR-052 §7. API Gateway HTTP APIs time out at 30s and Lambda responses cap

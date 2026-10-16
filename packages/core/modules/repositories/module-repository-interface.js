@@ -68,6 +68,21 @@ class ModuleRepositoryInterface {
     }
 
     /**
+     * Find entities matching any of the owner/organization pairs, in one query
+     * (ADR-056 §3.6). `organizationId: null` matches rows with no organization.
+     * Which pairs is decided by the caller (modules/entity-scope.js), not here.
+     *
+     * @param {Array<{userId: string|number, organizationId: (string|number|null)}>} clauses
+     * @returns {Promise<Array>} Array of entity objects
+     * @abstract
+     */
+    async findEntitiesByOwnership(clauses) {
+        throw new Error(
+            'Method findEntitiesByOwnership must be implemented by subclass'
+        );
+    }
+
+    /**
      * Unset credential from entity
      *
      * @param {string|number} entityId - Entity ID
@@ -110,11 +125,13 @@ class ModuleRepositoryInterface {
     /**
      * Create a new entity
      *
-     * @param {Object} entityData - Entity data
+     * @param {Object} entityData - Entity data (provider fields included)
+     * @param {{organizationId?: (string|number|null)}} [tenancy] - the organization
+     *   the entity belongs to (ADR-056 §3.6), kept apart from `entityData`
      * @returns {Promise<Object>} Created entity object
      * @abstract
      */
-    async createEntity(entityData) {
+    async createEntity(entityData, tenancy) {
         throw new Error('Method createEntity must be implemented by subclass');
     }
 

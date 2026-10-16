@@ -1,5 +1,6 @@
 const { v4: uuid } = require('uuid');
 const { validateConfigPatch } = require('../../repositories/config-patch-shared');
+const { matchesAnyClause } = require('../../../modules/tests/doubles/ownership-matching');
 
 class TestIntegrationRepository {
     constructor() {
@@ -7,13 +8,14 @@ class TestIntegrationRepository {
         this.operationHistory = [];
     }
 
-    async createIntegration(entities, userId, config) {
+    async createIntegration(entities, userId, config, tenancy = {}) {
         const id = uuid();
         const record = {
             id,
             _id: id,
             entitiesIds: entities,
             userId: userId,
+            organizationId: tenancy.organizationId ?? null,
             config,
             version: '0.0.0',
             status: 'IN_CREATION',
@@ -35,6 +37,15 @@ class TestIntegrationRepository {
     async findIntegrationsByUserId(userId) {
         const results = Array.from(this.store.values()).filter(r => r.userId === userId);
         this.operationHistory.push({ operation: 'findByUserId', userId, count: results.length });
+        return results;
+    }
+
+    // Answers the way a database does for the clauses a use case hands it.
+    async findIntegrationsByOwnership(clauses) {
+        const results = Array.from(this.store.values()).filter((r) =>
+            matchesAnyClause(r, clauses)
+        );
+        this.operationHistory.push({ operation: 'findByOwnership', clauses, count: results.length });
         return results;
     }
 

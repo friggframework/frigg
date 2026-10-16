@@ -76,6 +76,28 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
         return docs.map((doc) => this._mapEntity(doc, credentialMap.get(fromObjectId(doc.credentialId)) || null));
     }
 
+    /**
+     * Find entities matching any of the owner/organization pairs, in one query.
+     * `organizationId: null` matches rows with no organization (a raw MongoDB
+     * `null` also matches a missing field). The caller (a use case) decides
+     * which pairs; this only runs them.
+     *
+     * @param {Array<{userId: string, organizationId: (string|null)}>} clauses
+     * @returns {Promise<Array>}
+     */
+    async findEntitiesByOwnership(clauses) {
+        if (!Array.isArray(clauses) || clauses.length === 0) return [];
+        const docs = await findMany(this.prisma, 'Entity', {
+            $or: clauses.map(({ userId, organizationId }) => ({
+                userId: toObjectId(userId),
+                organizationId:
+                    organizationId === null ? null : toObjectId(organizationId),
+            })),
+        });
+        const credentialMap = await this._fetchCredentialsBulk(docs.map((doc) => doc.credentialId));
+        return docs.map((doc) => this._mapEntity(doc, credentialMap.get(fromObjectId(doc.credentialId)) || null));
+    }
+
     async unsetCredential(entityId) {
         const objectId = toObjectId(entityId);
         if (!objectId) return false;
@@ -115,7 +137,14 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
         );
     }
 
-    async createEntity(entityData) {
+    /**
+     * @param {Object} entityData
+     * @param {{organizationId?: (string|null)}} [tenancy] - the organization the entity
+     *   belongs to (ADR-056 §3.6). A separate argument, not a field of `entityData`,
+     *   because `entityData` carries provider fields and one named `organizationId`
+     *   must not be taken for ours.
+     */
+    async createEntity(entityData, tenancy = {}) {
         const {
             user,
             userId,
@@ -133,6 +162,7 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
             name: name ?? null,
             moduleName: moduleName ?? null,
             externalId: externalId ?? null,
+            organizationId: toObjectId(tenancy.organizationId) || null,
             data: dynamicData,
         };
         const insertedId = await insertOne(this.prisma, 'Entity', document);
@@ -329,6 +359,14 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
         if (filter.name) query.name = filter.name;
         if (filter.moduleName) query.moduleName = filter.moduleName;
         if (filter.externalId) query.externalId = filter.externalId;
+        // `null` means "no organization"; absent means "any". A raw MongoDB
+        // `{ field: null }` matches both a null value and a missing field.
+        if (filter.organizationId !== undefined) {
+            query.organizationId =
+                filter.organizationId === null
+                    ? null
+                    : toObjectId(filter.organizationId);
+        }
         return query;
     }
 
@@ -342,6 +380,8 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
             externalId: doc?.externalId ?? null,
             moduleName: doc?.moduleName ?? null,
             ...dynamicData,
+            // After the spread: a provider field of the same name must not decide visibility.
+            organizationId: fromObjectId(doc?.organizationId) ?? null,
         };
     }
 }

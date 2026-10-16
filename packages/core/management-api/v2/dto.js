@@ -13,6 +13,20 @@ const idOf = (value) => {
     return String(value);
 };
 
+/**
+ * `{ scope, owner, organizationId, access }` (ADR-056 §3.4): whose a record is
+ * and what the caller may do with it. Empty when the use case did not say.
+ */
+function tenancyFields(tenancy) {
+    if (!tenancy) return {};
+    return {
+        scope: tenancy.scope,
+        owner: tenancy.owner,
+        organizationId: tenancy.organizationId ?? null,
+        access: tenancy.access,
+    };
+}
+
 /** An entity (connected account). */
 function toEntityDto(entity) {
     const credential =
@@ -30,6 +44,7 @@ function toEntityDto(entity) {
             typeof credential?.authIsValid === 'boolean'
                 ? credential.authIsValid
                 : null,
+        ...tenancyFields(entity.tenancy),
     };
 }
 
@@ -42,6 +57,7 @@ function toIntegrationDto(integration) {
         config: integration.config ?? {},
         version: integration.version ?? null,
         messages: integration.messages ?? {},
+        ...tenancyFields(integration.tenancy),
     };
 }
 
@@ -115,6 +131,7 @@ function maskCredential(credential) {
 }
 
 module.exports = {
+    tenancyFields,
     toEntityDto,
     toIntegrationDto,
     maskCredential,

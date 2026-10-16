@@ -76,10 +76,9 @@ composes them.
 
 ## What is not done here
 
-- **Active-organization scoping of ownership is F5.** Credentials, entities and integrations are still
-  owned by `user.getId()`, which is the individual under the default `primary: 'individual'`, so the
-  active organization does not yet scope them (it already decides `getId()` under
-  `primary: 'organization'`). `organizationId` on Entity and Integration, list filtering,
-  `GET /api/v2/me/organizations` and removing a member are the next work packages.
+- **Scoping of ownership by the active organization is done** (see [Entity scopes](./entity-scopes.md)):
+  entities and integrations carry `organizationId` and lists follow the active organization.
+  `GET /api/v2/me/organizations` and removing a member (which orphans that membership's integrations)
+  are the next work packages.
 - Deleting a user does not delete its memberships on MongoDB (no referential integrity); PostgreSQL
   cascades.

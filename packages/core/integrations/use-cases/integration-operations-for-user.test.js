@@ -1,3 +1,4 @@
+const { ResolveIntegrationOwnership } = require('./resolve-integration-ownership');
 const {
     GetOwnedIntegrationRecord,
     CreateIntegrationForUser,
@@ -48,21 +49,23 @@ describe('v2 integration operations', () => {
     describe('CreateIntegrationForUser', () => {
         const build = () => {
             const createIntegration = { execute: jest.fn().mockResolvedValue({ id: 'new' }) };
-            const getEntityModuleForUser = {
-                loadOwnedEntity: jest.fn(async (id) => {
-                    if (id !== 'e1' && id !== 'e2') {
-                        const Boom = require('@hapi/boom');
-                        throw Boom.notFound('nope');
-                    }
-                    return { id };
-                }),
+            // The real ownership rule, over a repository that knows e1 and e2 (the caller's).
+            const moduleRepository = {
+                findEntitiesByIds: jest.fn(async (ids) =>
+                    ids.filter((id) => id === 'e1' || id === 'e2').map((id) => ({ id, userId: 'u1', moduleName: 'acme' }))
+                ),
             };
+            const integrationClasses = [{ Definition: { name: 'sync' } }];
             return {
                 createIntegration,
+                moduleRepository,
                 useCase: new CreateIntegrationForUser({
                     createIntegration,
-                    getEntityModuleForUser,
-                    integrationClasses: [{ Definition: { name: 'sync' } }],
+                    resolveIntegrationOwnership: new ResolveIntegrationOwnership({
+                        moduleRepository,
+                        integrationClasses,
+                    }),
+                    integrationClasses,
                 }),
             };
         };
@@ -70,7 +73,10 @@ describe('v2 integration operations', () => {
         it('creates an integration between owned entities', async () => {
             const { useCase, createIntegration } = build();
             await useCase.execute({ entities: ['e1', 'e2'], config: { type: 'sync' } }, user);
-            expect(createIntegration.execute).toHaveBeenCalledWith(['e1', 'e2'], 'u1', { type: 'sync' });
+            expect(createIntegration.execute).toHaveBeenCalledWith(
+                ['e1', 'e2'], 'u1', { type: 'sync' },
+                { organizationId: null, adoptUnscoped: true }
+            );
         });
 
         it('refuses entities the caller does not own', async () => {

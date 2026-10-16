@@ -18,7 +18,7 @@ const {
     ListIntegrationsByEntityExternalIdUseCase,
 } = require('../../integrations/use-cases/list-integrations-by-entity-external-id');
 const {
-    GetIntegrationsForUser,
+    GetIntegrationsByUserId,
 } = require('../../integrations/use-cases/get-integrations-for-user');
 const {
     CreateIntegration,
@@ -152,7 +152,7 @@ function createIntegrationCommands({ integrationClass, moduleDefinitions } = {})
             moduleRepository,
         });
 
-    const getIntegrationsForUserUseCase = new GetIntegrationsForUser({
+    const getIntegrationsForUserUseCase = new GetIntegrationsByUserId({
         integrationRepository,
         integrationClasses: [integrationClass],
         moduleFactory,

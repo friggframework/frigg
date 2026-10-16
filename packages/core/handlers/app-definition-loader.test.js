@@ -9,6 +9,7 @@ jest.mock('@friggframework/core/utils', () => ({
 const { findNearestBackendPackageJson } = require('@friggframework/core/utils');
 const { loadAppDefinition } = require('./app-definition-loader');
 const { EntityRegistryError } = require('../modules/entity-type-registry');
+const { OwnershipConfigError } = require('../modules/entity-scope');
 const { isDeniedKey } = require('../logs/redact');
 const { createMemorySink } = require('../logs');
 
@@ -231,6 +232,48 @@ describe('loadAppDefinition', () => {
             dirs.push(writeBackend({ integrations: [sync], ...extra }));
 
             expect(() => loadAppDefinition()).toThrow(EntityRegistryError);
+            expect(() => loadAppDefinition()).toThrow(message);
+        });
+    });
+
+    describe('ownership and entity scopes (ADR-056 §3.1)', () => {
+        const hubspot = { moduleName: 'hubspot' };
+        const sync = (extra = {}) => ({
+            Definition: { name: 'sync', modules: { crm: { definition: hubspot } }, ...extra },
+        });
+
+        it('returns the resolved app-level ownership, defaulting to organization-wide individuals', () => {
+            dirs.push(writeBackend({ integrations: [] }));
+            expect(loadAppDefinition().ownership).toEqual({ scope: null, individualAcross: 'organization' });
+
+            dirs.push(
+                writeBackend({
+                    integrations: [],
+                    ownership: { scope: { default: 'organization', allow: ['organization', 'individual'] }, individualAcross: 'all' },
+                })
+            );
+            expect(loadAppDefinition().ownership).toEqual({
+                scope: { default: 'organization', allow: ['organization', 'individual'] },
+                individualAcross: 'all',
+            });
+        });
+
+        it.each([
+            ['an unknown individualAcross', { ownership: { individualAcross: 'everywhere' } }, /individualAcross/],
+            ['a scope that is not one', { ownership: { scope: 'team' } }, /appDefinition.ownership.scope/],
+            [
+                'a registry scope that is not one',
+                { integrations: [], entities: { hubspot: { definition: hubspot, scope: 'team' } } },
+                /entity type 'hubspot' scope/,
+            ],
+            [
+                'an organization-owned integration that binds an individual entity',
+                { user: { primary: 'individual' }, integrations: [sync({ ownership: { owner: 'organization' } })] },
+                /cannot bind an 'individual' entity/,
+            ],
+        ])('fails at load, not on the first request, for %s', (_label, extra, message) => {
+            dirs.push(writeBackend({ integrations: [sync()], ...extra }));
+            expect(() => loadAppDefinition()).toThrow(OwnershipConfigError);
             expect(() => loadAppDefinition()).toThrow(message);
         });
     });

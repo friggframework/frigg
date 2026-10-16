@@ -1,4 +1,5 @@
 const { prisma } = require('../../database/prisma');
+const { organizationWhere } = require('../../database/organization-where');
 const { ModuleRepositoryInterface } = require('./module-repository-interface');
 
 /**
@@ -77,6 +78,25 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
     }
 
     /**
+     * The one place a stored entity row becomes the entity the application sees.
+     * `organizationId` comes after the entity data: a provider field of the same
+     * name must not decide who sees the entity.
+     * @private
+     */
+    _mapEntity(row, credential) {
+        return {
+            id: row.id,
+            credential,
+            userId: row.userId,
+            name: row.name,
+            externalId: row.externalId,
+            moduleName: row.moduleName,
+            ...(row.data || {}),
+            organizationId: row.organizationId ?? null,
+        };
+    }
+
+    /**
      * Find entity by ID with credential
      * Replaces: Entity.findById(entityId).populate('credential')
      *
@@ -95,15 +115,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
 
         const credential = await this._fetchCredential(entity.credentialId);
 
-        return {
-            id: entity.id,
-            credential,
-            userId: entity.userId,
-            name: entity.name,
-            externalId: entity.externalId,
-            moduleName: entity.moduleName,
-            ...(entity.data || {}),
-        };
+        return this._mapEntity(entity, credential);
     }
 
     /**
@@ -121,15 +133,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
         const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
-        return entities.map((e) => ({
-            id: e.id,
-            credential: credentialMap.get(e.credentialId) || null,
-            userId: e.userId,
-            name: e.name,
-            externalId: e.externalId,
-            moduleName: e.moduleName,
-            ...(e.data || {}),
-        }));
+        return entities.map((e) => (this._mapEntity(e, credentialMap.get(e.credentialId) || null)));
     }
 
     /**
@@ -147,15 +151,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
         const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
-        return entities.map((e) => ({
-            id: e.id,
-            credential: credentialMap.get(e.credentialId) || null,
-            userId: e.userId,
-            name: e.name,
-            externalId: e.externalId,
-            moduleName: e.moduleName,
-            ...(e.data || {}),
-        }));
+        return entities.map((e) => (this._mapEntity(e, credentialMap.get(e.credentialId) || null)));
     }
 
     /**
@@ -177,15 +173,32 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
         const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
-        return entities.map((e) => ({
-            id: e.id,
-            credential: credentialMap.get(e.credentialId) || null,
-            userId: e.userId,
-            name: e.name,
-            externalId: e.externalId,
-            moduleName: e.moduleName,
-            ...(e.data || {}),
-        }));
+        return entities.map((e) => (this._mapEntity(e, credentialMap.get(e.credentialId) || null)));
+    }
+
+    /**
+     * Find entities matching any of the owner/organization pairs, in one query.
+     * `organizationId: null` matches rows with no organization. The caller
+     * (a use case) decides which pairs; this only runs them.
+     *
+     * @param {Array<{userId: string, organizationId: (string|null)}>} clauses
+     * @returns {Promise<Array>} Array of entity objects with string IDs
+     */
+    async findEntitiesByOwnership(clauses) {
+        if (!Array.isArray(clauses) || clauses.length === 0) return [];
+        const entities = await this.prisma.entity.findMany({
+            where: {
+                OR: clauses.map(({ userId, organizationId }) => ({
+                    userId,
+                    ...organizationWhere(organizationId),
+                })),
+            },
+        });
+
+        const credentialIds = entities.map(e => e.credentialId).filter(Boolean);
+        const credentialMap = await this._fetchCredentialsBulk(credentialIds);
+
+        return entities.map((e) => (this._mapEntity(e, credentialMap.get(e.credentialId) || null)));
     }
 
     /**
@@ -223,15 +236,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
 
         const credential = await this._fetchCredential(entity.credentialId);
 
-        return {
-            id: entity.id,
-            credential,
-            userId: entity.userId,
-            name: entity.name,
-            externalId: entity.externalId,
-            moduleName: entity.moduleName,
-            ...(entity.data || {}),
-        };
+        return this._mapEntity(entity, credential);
     }
 
     /**
@@ -251,15 +256,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             .filter(Boolean);
         const credentialMap = await this._fetchCredentialsBulk(credentialIds);
 
-        return entities.map((e) => ({
-            id: e.id,
-            credential: credentialMap.get(e.credentialId) || null,
-            userId: e.userId,
-            name: e.name,
-            externalId: e.externalId,
-            moduleName: e.moduleName,
-            ...(e.data || {}),
-        }));
+        return entities.map((e) => (this._mapEntity(e, credentialMap.get(e.credentialId) || null)));
     }
 
     /**
@@ -267,9 +264,13 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
      * Replaces: Entity.create(entityData)
      *
      * @param {Object} entityData - Entity data
+     * @param {{organizationId?: (string|null)}} [tenancy] - the organization the entity
+     *   belongs to (ADR-056 §3.6). A separate argument, not a field of `entityData`,
+     *   because `entityData` carries provider fields and one named `organizationId`
+     *   must not be taken for ours.
      * @returns {Promise<Object>} Created entity object with string IDs
      */
-    async createEntity(entityData) {
+    async createEntity(entityData, tenancy = {}) {
         const {
             user,
             userId,
@@ -287,6 +288,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
             name,
             moduleName,
             externalId,
+            organizationId: tenancy.organizationId ?? null,
             data: dynamicData,
         };
 
@@ -296,15 +298,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
 
         const credentialObj = await this._fetchCredential(entity.credentialId);
 
-        return {
-            id: entity.id,
-            credential: credentialObj,
-            userId: entity.userId,
-            name: entity.name,
-            externalId: entity.externalId,
-            moduleName: entity.moduleName,
-            ...(entity.data || {}),
-        };
+        return this._mapEntity(entity, credentialObj);
     }
 
     /**
@@ -358,15 +352,7 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
 
             const credentialObj = await this._fetchCredential(entity.credentialId);
 
-            return {
-                id: entity.id,
-                credential: credentialObj,
-                userId: entity.userId,
-                name: entity.name,
-                externalId: entity.externalId,
-                moduleName: entity.moduleName,
-                ...(entity.data || {}),
-            };
+            return this._mapEntity(entity, credentialObj);
         } catch (error) {
             if (error.code === 'P2025') {
                 return null;
@@ -428,6 +414,11 @@ class ModuleRepositoryMongo extends ModuleRepositoryInterface {
         if (filter.name) where.name = filter.name;
         if (filter.moduleName) where.moduleName = filter.moduleName;
         if (filter.externalId) where.externalId = this._toString(filter.externalId);
+
+        // `null` means "no organization"; absent means "any".
+        if (filter.organizationId !== undefined) {
+            Object.assign(where, organizationWhere(filter.organizationId));
+        }
 
         return where;
     }

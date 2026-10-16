@@ -1,5 +1,5 @@
 const { toEntityDto } = require('../dto');
-const { objectBody, parseStep } = require('../request');
+const { objectBody, parseStep, parseListFilters } = require('../request');
 
 /** Management API v2 entity and entity-type handlers, keyed by operationId. */
 function createEntityHandlers(useCases) {
@@ -16,17 +16,20 @@ function createEntityHandlers(useCases) {
     } = useCases;
 
     return {
-        async listEntities(_req, res, user) {
-            const entities = await listEntitiesForUser.execute(user);
+        async listEntities(req, res, user) {
+            const entities = await listEntitiesForUser.execute(
+                user,
+                parseListFilters(req.query)
+            );
             res.json({ entities: entities.map(toEntityDto) });
         },
 
-        async listEntityTypes(_req, res) {
-            res.json({ types: await listEntityTypes.execute() });
+        async listEntityTypes(_req, res, user) {
+            res.json({ types: await listEntityTypes.execute({ user }) });
         },
 
-        async getEntityType(req, res) {
-            res.json(await getEntityType.execute(req.params.entityType));
+        async getEntityType(req, res, user) {
+            res.json(await getEntityType.execute(req.params.entityType, { user }));
         },
 
         // Describes a step's requirements without starting an authorization

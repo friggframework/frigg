@@ -14,6 +14,7 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
+const { integrationNotFoundError } = require('./integration-not-found');
 
 class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     constructor() {
@@ -25,6 +26,27 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         const objectId = toObjectId(userId);
         const filter = objectId ? { userId: objectId } : {};
         const records = await findMany(this.prisma, 'Integration', filter);
+        return records.map((doc) => this._mapIntegration(doc));
+    }
+
+    /**
+     * Find integrations matching any of the owner/organization pairs, in one
+     * query. `organizationId: null` matches rows with no organization (a raw
+     * MongoDB `null` also matches a missing field). The caller (a use case)
+     * decides which pairs; this only runs them.
+     *
+     * @param {Array<{userId: string, organizationId: (string|null)}>} clauses
+     * @returns {Promise<Array>}
+     */
+    async findIntegrationsByOwnership(clauses) {
+        if (!Array.isArray(clauses) || clauses.length === 0) return [];
+        const records = await findMany(this.prisma, 'Integration', {
+            $or: clauses.map(({ userId, organizationId }) => ({
+                userId: toObjectId(userId),
+                organizationId:
+                    organizationId === null ? null : toObjectId(organizationId),
+            })),
+        });
         return records.map((doc) => this._mapIntegration(doc));
     }
 
@@ -68,11 +90,11 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     async findIntegrationById(id) {
         const objectId = toObjectId(id);
         if (!objectId) {
-            throw new Error(`Integration with id ${id} not found`);
+            throw integrationNotFoundError(id);
         }
         const doc = await findOne(this.prisma, 'Integration', { _id: objectId });
         if (!doc) {
-            throw new Error(`Integration with id ${id} not found`);
+            throw integrationNotFoundError(id);
         }
         return this._mapIntegration(doc);
     }
@@ -132,10 +154,18 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         return true;
     }
 
-    async createIntegration(entities, userId, config) {
+    /**
+     * @param {Array<string>} entities - entity ids
+     * @param {string} userId - owner (the person, or the organization's user)
+     * @param {Object} config - Integration configuration
+     * @param {{organizationId?: (string|null)}} [tenancy] - the organization the
+     *   integration is created in (ADR-056 §3.6)
+     */
+    async createIntegration(entities, userId, config, tenancy = {}) {
         const now = new Date();
         const document = {
             userId: toObjectId(userId) || null,
+            organizationId: toObjectId(tenancy.organizationId) || null,
             config,
             version: '0.0.0',
             status: 'IN_CREATION',
@@ -298,6 +328,7 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             id: fromObjectId(doc?._id),
             entitiesIds: (doc?.entityIds || []).map((value) => fromObjectId(value)),
             userId: fromObjectId(doc?.userId),
+            organizationId: fromObjectId(doc?.organizationId) ?? null,
             config: doc?.config ?? null,
             version: doc?.version ?? null,
             status: doc?.status ?? null,

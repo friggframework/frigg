@@ -59,10 +59,31 @@ function findDefinition(moduleDefinitions, entityType) {
     return definition;
 }
 
-const describeEntry = (name, entry) => ({
+/**
+ * With a scope policy the entry also says which scope a new connection gets
+ * and which a request may choose (ADR-056 §3.1), so a UI can offer the choice.
+ * `global` is never offered: a tenant request cannot create one.
+ */
+const scopeOf = (scopePolicy, name, user) => {
+    if (!scopePolicy) return {};
+    const { scope, source, allow } = scopePolicy.resolveScope({
+        entityType: name,
+        user,
+    });
+    return {
+        scope: {
+            default: scope,
+            allow: allow.filter((value) => value !== 'global'),
+            source,
+        },
+    };
+};
+
+const describeEntry = (name, entry, scopePolicy, user) => ({
     // The registry key is the name the API uses, whatever the definition spells.
     ...describeEntityType(entry.definition, name),
     usedBy: usedByOf(entry),
+    ...scopeOf(scopePolicy, name, user),
 });
 
 function requireRegistry(entityTypeRegistry) {
@@ -78,31 +99,34 @@ function requireRegistry(entityTypeRegistry) {
  * bind each type; it is empty for a registry-only type.
  */
 class ListEntityTypes {
-    constructor({ entityTypeRegistry }) {
+    constructor({ entityTypeRegistry, scopePolicy }) {
         this.registry = requireRegistry(entityTypeRegistry);
+        this.scopePolicy = scopePolicy;
     }
 
-    async execute() {
+    /** @param {{user?: Object}} [params] - the caller, for the level-6 scope default */
+    async execute({ user } = {}) {
         return [...this.registry]
-            .map(([name, entry]) => describeEntry(name, entry))
+            .map(([name, entry]) => describeEntry(name, entry, this.scopePolicy, user))
             .sort((a, b) => a.name.localeCompare(b.name));
     }
 }
 
 /** Describes one entity type, looked up by its registry key; 404 when absent. */
 class GetEntityType {
-    constructor({ entityTypeRegistry }) {
+    constructor({ entityTypeRegistry, scopePolicy }) {
         this.registry = requireRegistry(entityTypeRegistry);
+        this.scopePolicy = scopePolicy;
     }
 
-    async execute(entityType) {
+    async execute(entityType, { user } = {}) {
         const entry = this.registry.get(entityType);
         if (!entry) {
             throw Boom.notFound(`Entity type '${entityType}' not found`, {
                 code: 'ENTITY_TYPE_NOT_FOUND',
             });
         }
-        return describeEntry(entityType, entry);
+        return describeEntry(entityType, entry, this.scopePolicy, user);
     }
 }
 

@@ -105,6 +105,16 @@
           "description": "Require organization user for authentication",
           "default": false
         },
+        "strictMembership": {
+          "type": "boolean",
+          "description": "Reject x-frigg headers that name an organization the person is not already a member of, instead of adding the membership (ADR-056 §3.6). Turn on once entities and integrations are scoped by organization and your app manages membership itself.",
+          "default": false
+        },
+        "strictUserValidation": {
+          "type": "boolean",
+          "description": "DEPRECATED alias of strictMembership; its meaning changed.",
+          "default": false
+        },
         "authModes": {
           "type": "object",
           "description": "Authentication mode configuration - enables multiple authentication strategies. x-frigg-appUserId and x-frigg-appOrgId headers are automatically supported for user identification with any auth mode.",
@@ -734,6 +744,38 @@
         },
         "additionalProperties": false
       }
+    },
+    "ownership": {
+      "type": "object",
+      "description": "Who owns what a person connects (ADR-056 §3). `scope` is the app-level default for any entity type or integration binding that sets none; the order is request, binding, integration, entity type, app, then `organization` for an organization-primary app and `individual` otherwise.",
+      "properties": {
+        "scope": {
+        "description": "One scope, or a default plus the scopes a request may choose from.",
+        "oneOf": [
+          { "type": "string", "enum": ["individual", "organization", "global"] },
+          {
+            "type": "object",
+            "properties": {
+              "default": { "type": "string", "enum": ["individual", "organization", "global"] },
+              "allow": {
+                "type": "array",
+                "items": { "type": "string", "enum": ["individual", "organization", "global"] },
+                "minItems": 1,
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+        "individualAcross": {
+          "type": "string",
+          "enum": ["organization", "all"],
+          "default": "organization",
+          "description": "`organization` (default): an individual entity belongs to the organization it was connected in and is not visible in another. `all`: one connection per person across every organization they belong to, stored with no organizationId."
+        }
+      },
+      "additionalProperties": false
     },
     "managementApi": {
       "type": "object",

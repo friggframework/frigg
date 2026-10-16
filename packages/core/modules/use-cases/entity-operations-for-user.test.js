@@ -9,6 +9,12 @@ const {
 } = require('./entity-operations-for-user');
 
 const user = { getId: () => 'u1' };
+const ownerTenancy = {
+    scope: 'individual',
+    owner: { type: 'individual', id: 'u1' },
+    organizationId: null,
+    access: 'manage',
+};
 const entity = { id: 'e1', userId: 'u1', moduleName: 'acme', credential: { id: 'c1' } };
 
 function setup({ module: moduleOverrides = {}, integrations = [] } = {}) {
@@ -20,7 +26,7 @@ function setup({ module: moduleOverrides = {}, integrations = [] } = {}) {
     };
     const moduleRepository = {
         findEntityById: jest.fn(async (id) => (id === 'e1' ? entity : null)),
-        findEntitiesByUserId: jest.fn().mockResolvedValue([entity]),
+        findEntitiesByOwnership: jest.fn().mockResolvedValue([entity]),
         deleteEntity: jest.fn().mockResolvedValue(true),
     };
     const integrationRepository = {
@@ -37,14 +43,19 @@ function setup({ module: moduleOverrides = {}, integrations = [] } = {}) {
 describe('v2 entity operations', () => {
     it('lists the caller entities', async () => {
         const { moduleRepository } = setup();
-        expect(await new ListEntitiesForUser({ moduleRepository }).execute(user)).toEqual([entity]);
-        expect(moduleRepository.findEntitiesByUserId).toHaveBeenCalledWith('u1');
+        expect(await new ListEntitiesForUser({ moduleRepository }).execute(user)).toEqual([
+            { ...entity, tenancy: ownerTenancy },
+        ]);
+        // One query for the caller's owner/organization pairs: no organization here.
+        expect(moduleRepository.findEntitiesByOwnership).toHaveBeenCalledWith([
+            { userId: 'u1', organizationId: null },
+        ]);
     });
 
     it('gets an owned entity and 404s otherwise', async () => {
         const deps = setup();
         const useCase = new GetEntityForUser(deps);
-        expect(await useCase.execute('e1', user)).toBe(entity);
+        expect(await useCase.execute('e1', user)).toEqual({ ...entity, tenancy: ownerTenancy });
         await expect(useCase.execute('e2', user)).rejects.toMatchObject({
             output: { statusCode: 404 },
         });
