@@ -100,7 +100,8 @@ class NetlifyBackgroundProvider extends QueueProvider {
     /**
      * Send batch of messages sequentially (background functions are HTTP-triggered).
      */
-    async batchSend(entries = [], queueId) {
+    async batchSend(batch, queueId) {
+        const entries = batch ?? [];
         const results = [];
         for (const entry of entries) {
             const result = await this.send(entry, queueId);

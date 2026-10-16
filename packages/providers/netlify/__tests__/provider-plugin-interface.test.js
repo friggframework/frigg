@@ -94,8 +94,14 @@ describe('Provider Plugin Interface Shape', () => {
     });
 
     // Metadata shape (constants — tested as part of the interface)
-    test('provider name is "netlify"', () => {
-        // Can't import index.js in isolation, but we verify the expected value
-        expect('netlify').toBe('netlify');
+    test('provider name is "netlify" and index.js exposes the plugin interface', () => {
+        const provider = require('../index');
+        expect(provider.name).toBe('netlify');
+        expect(provider.createHandler).toBe(provider.createNetlifyHandler);
+        expect(provider.generateConfig).toBe(generateNetlifyToml);
+        expect(provider.validate).toBe(validateNetlifyConfig);
+        expect(provider.teardown).toBe(teardown);
+        expect(typeof provider.QueueProvider).toBe('function');
+        expect(new provider.QueueProvider({ signingSecret: 's' }).verifyEvent).toEqual(expect.any(Function));
     });
 });

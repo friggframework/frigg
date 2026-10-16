@@ -8,6 +8,17 @@ jest.mock('../../handlers/middleware/admin-auth', () => ({
 
 const { validateAdminApiKey } = require('../../handlers/middleware/admin-auth');
 
+async function request(app, urlPath) {
+    const server = app.listen(0);
+    try {
+        const { port } = server.address();
+        const res = await fetch(`http://127.0.0.1:${port}${urlPath}`);
+        return { status: res.status };
+    } finally {
+        server.close();
+    }
+}
+
 describe('Route Mounter', () => {
     let app;
 
@@ -55,8 +66,9 @@ describe('Route Mounter', () => {
         expect(handlerFactory).toHaveBeenCalledWith(mockPrisma, mockAppDef);
     });
 
-    it('should apply admin auth middleware by default', () => {
+    it('should apply admin auth middleware by default', async () => {
         const router = express.Router();
+        router.get('/ping', (req, res) => res.json({ ok: true }));
         const handlerFactory = () => router;
 
         mountExtensionRoutes(
@@ -70,15 +82,17 @@ describe('Route Mounter', () => {
             {}
         );
 
-        // app.use should have been called with the path, middleware, and router
-        // The admin auth middleware should be the one from the mock
-        expect(validateAdminApiKey).toBeDefined();
+        const res = await request(app, '/api/test/ping');
+        expect(res.status).toBe(200);
+        expect(validateAdminApiKey).toHaveBeenCalledTimes(1);
     });
 
-    it('should accept custom auth middleware', () => {
+    it('should accept custom auth middleware', async () => {
         const router = express.Router();
+        router.get('/ping', (req, res) => res.json({ ok: true }));
         const handlerFactory = () => router;
-        const customAuth = jest.fn((req, res, next) => next());
+        // Refuses everything, so a 401 proves this middleware guards the route.
+        const customAuth = jest.fn((req, res) => res.status(401).json({ error: 'nope' }));
 
         mountExtensionRoutes(
             app,
@@ -91,8 +105,10 @@ describe('Route Mounter', () => {
             { authMiddleware: customAuth }
         );
 
-        // Custom middleware was provided (doesn't throw)
-        expect(true).toBe(true);
+        const res = await request(app, '/api/test/ping');
+        expect(res.status).toBe(401);
+        expect(customAuth).toHaveBeenCalledTimes(1);
+        expect(validateAdminApiKey).not.toHaveBeenCalled();
     });
 
     it('should mount a direct router object', () => {

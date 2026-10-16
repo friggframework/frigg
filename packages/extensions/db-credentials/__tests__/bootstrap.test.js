@@ -16,10 +16,11 @@ describe('db-credentials bootstrap', () => {
     });
 
     it('should do nothing when no integrations', async () => {
-        await bootstrap(mockPrisma, {});
-        await bootstrap(mockPrisma, { integrations: [] });
-        await bootstrap(mockPrisma, null);
-        // No errors thrown
+        await expect(bootstrap(mockPrisma, {})).resolves.toBeUndefined();
+        await expect(bootstrap(mockPrisma, { integrations: [] })).resolves.toBeUndefined();
+        await expect(bootstrap(mockPrisma, null)).resolves.toBeUndefined();
+        await expect(bootstrap(mockPrisma, { integrations: 'not-a-list' })).resolves.toBeUndefined();
+        expect(mockPrisma.oAuthAppCredential.findUnique).not.toHaveBeenCalled();
     });
 
     it('should replace definition.env with async function', async () => {

@@ -147,7 +147,8 @@ class QStashQueueProvider extends QueueProvider {
     /**
      * Send batch of messages via QStash batch API.
      */
-    async batchSend(entries = [], queueId) {
+    async batchSend(batch, queueId) {
+        const entries = batch ?? [];
         if (!this.token) {
             throw new Error(
                 'QSTASH_TOKEN is required. Get one at https://console.upstash.com'

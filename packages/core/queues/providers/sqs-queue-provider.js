@@ -34,7 +34,8 @@ class SqsQueueProvider extends QueueProvider {
         });
     }
 
-    async batchSend(entries = [], queueUrl) {
+    async batchSend(batch, queueUrl) {
+        const entries = batch ?? [];
         let last = {};
         for (let i = 0; i < entries.length; i += SQS_BATCH_SIZE) {
             const Entries = entries.slice(i, i + SQS_BATCH_SIZE).map((entry) => ({

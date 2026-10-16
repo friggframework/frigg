@@ -119,6 +119,23 @@ describe('Module async env support', () => {
             const module = new Module({ definition });
             expect(module.api.params.client_id).toBe('old-style');
         });
+
+        it('uses the static env when no resolved env is passed (undefined takes the null default)', () => {
+            const definition = { ...mockDefinition, env: { client_id: 'static' } };
+            const module = new Module({ definition, resolvedEnv: undefined });
+            expect(module.api.params.client_id).toBe('static');
+        });
+
+        it('prefers a resolved env over the static one', () => {
+            const definition = { ...mockDefinition, env: { client_id: 'static' } };
+            const module = new Module({ definition, resolvedEnv: { client_id: 'resolved' } });
+            expect(module.api.params.client_id).toBe('resolved');
+        });
+
+        it('refuses a function env built with new Module() instead of dropping the credentials', () => {
+            const definition = { ...mockDefinition, env: async () => ({ client_id: 'db' }) };
+            expect(() => new Module({ definition })).toThrow(/Module\.create/);
+        });
     });
 });
 

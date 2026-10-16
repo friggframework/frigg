@@ -6,25 +6,20 @@
  *   - deploy() — generate config and deploy to Netlify
  *   - teardown() — remove deployed resources
  */
-const { execSync, spawn } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { generateNetlifyToml, generateNetlifyEnvTemplate } = require('./generate-netlify-config');
 const { validateNetlifyConfig } = require('./validate');
+const { resolveExecutable } = require('./resolve-executable');
 
 /**
- * Check if a CLI tool is installed and available on PATH
+ * Check if a CLI tool is installed in an absolute PATH directory
  * @param {string} command
  * @returns {boolean}
  */
 function isCommandAvailable(command) {
-    try {
-        const cmd = process.platform === 'win32' ? 'where' : 'which';
-        execSync(`${cmd} ${command}`, { stdio: 'ignore' });
-        return true;
-    } catch {
-        return false;
-    }
+    return resolveExecutable(command) !== null;
 }
 
 /**
@@ -163,10 +158,18 @@ function runNetlifyDeploy({ prod, dir, functionsDir, logs, log }) {
         args.push('--dir', dir);
         args.push('--functions', functionsDir);
 
-        const netlifyCmd = isCommandAvailable('netlify') ? 'netlify' : 'npx';
-        const fullArgs = netlifyCmd === 'npx' ? ['netlify-cli', ...args] : args;
+        // Spawn an absolute path (resolve-executable.js): never a bare name
+        // the OS would look up through a possibly relative PATH entry.
+        const netlifyPath = resolveExecutable('netlify');
+        const npxPath = netlifyPath ? null : resolveExecutable('npx');
+        if (!netlifyPath && !npxPath) {
+            reject(new Error('Neither the netlify CLI nor npx was found in an absolute PATH directory'));
+            return;
+        }
+        const command = netlifyPath || npxPath;
+        const fullArgs = netlifyPath ? args : ['netlify-cli', ...args];
 
-        const child = spawn(netlifyCmd, fullArgs, {
+        const child = spawn(command, fullArgs, {
             cwd: dir,
             stdio: ['inherit', 'pipe', 'pipe'],
             env: { ...process.env },
@@ -235,14 +238,15 @@ async function teardown(appDefinition, options = {}) {
     }
 
     if (deleteSite) {
-        if (!isCommandAvailable('netlify')) {
+        const netlifyPath = resolveExecutable('netlify');
+        if (!netlifyPath) {
             throw new Error(
                 'Netlify CLI required for site deletion. Install with: npm install -g netlify-cli'
             );
         }
 
         console.log('[Netlify Teardown] Deleting Netlify site...');
-        execSync('netlify sites:delete --force', {
+        execFileSync(netlifyPath, ['sites:delete', '--force'], {
             cwd: dir,
             stdio: 'inherit',
         });

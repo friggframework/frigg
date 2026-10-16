@@ -58,7 +58,16 @@ class Module extends Delegate {
         // A pre-resolved env (Module.create()) supports definition.env as an
         // async function, e.g. OAuth app credentials loaded from the database
         // by the db-credentials extension; otherwise the static object.
-        const envValues = resolvedEnv !== null ? resolvedEnv : this.definition.env;
+        // No resolved env (the null default; an explicit undefined takes it
+        // too) means the static definition.env applies.
+        const envValues = resolvedEnv ?? this.definition.env;
+        if (typeof envValues === 'function') {
+            // Spreading a function yields no keys, so the API client would
+            // silently get no client_id / client_secret.
+            throw new TypeError(
+                `Module ${this.name}: definition.env is a function; build the module with await Module.create(...)`
+            );
+        }
 
         const apiParams = {
             ...envValues,
