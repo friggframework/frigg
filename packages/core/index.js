@@ -120,6 +120,10 @@ const utils = require('./utils');
 
 const { QueuerUtil } = require('./queues');
 
+// App-level extensions (appDefinition.extensions): Prisma models, encrypted
+// fields, admin routes and bootstrap hooks (friggframework/frigg#545).
+const extensions = require('./extensions');
+
 module.exports = {
     // assertions
     get,
@@ -232,6 +236,15 @@ module.exports = {
     ManagementApiConfigError,
     // queues
     QueuerUtil,
+
+    // app-level extensions
+    extensions,
+    loadExtensions: extensions.loadExtensions,
+    composeSchemas: extensions.composeSchemas,
+    mountExtensionRoutes: extensions.mountExtensionRoutes,
+    createExtensionRoutesRouter: extensions.createExtensionRoutesRouter,
+    runExtensionBootstraps: extensions.runExtensionBootstraps,
+    initializeApp: extensions.initializeApp,
 
     // utils
     ...utils,

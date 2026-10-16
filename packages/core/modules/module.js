@@ -21,8 +21,9 @@ class Module extends Delegate {
      * @param {string} params.userId The user id
      * @param {Object} params.entity The entity record from the database
      * @param {string} [params.state] Optional OAuth state value forwarded to the API client (round-trips through the OAuth provider).
+     * @param {Object} [params.resolvedEnv] definition.env already resolved by Module.create(); defaults to the static definition.env.
      */
-    constructor({ definition, userId = null, entity: entityObj = null, state = null }) {
+    constructor({ definition, userId = null, entity: entityObj = null, state = null, resolvedEnv = null }) {
         super({ definition, userId, entity: entityObj });
 
         this.validateDefinition(definition);
@@ -54,8 +55,13 @@ class Module extends Delegate {
 
         Object.assign(this, this.definition.requiredAuthMethods);
 
+        // A pre-resolved env (Module.create()) supports definition.env as an
+        // async function, e.g. OAuth app credentials loaded from the database
+        // by the db-credentials extension; otherwise the static object.
+        const envValues = resolvedEnv !== null ? resolvedEnv : this.definition.env;
+
         const apiParams = {
-            ...this.definition.env,
+            ...envValues,
             delegate: this,
             logger: this.logger,
             ...(state ? { state } : {}),
@@ -65,6 +71,33 @@ class Module extends Delegate {
             ...this.apiParamsFromEntity(this.entity),
         };
         this.api = new this.apiClass(apiParams);
+    }
+
+    /**
+     * Resolves definition.env, supporting both a static object and a
+     * (possibly async) function.
+     *
+     * @param {Object} definition - Module definition
+     * @returns {Promise<Object|undefined>} Resolved env values
+     */
+    static async resolveEnv(definition) {
+        if (typeof definition.env === 'function') {
+            return await definition.env();
+        }
+        return definition.env;
+    }
+
+    /**
+     * Async factory that resolves definition.env first, so a module whose
+     * env is a function gets its values. Prefer it over `new Module(...)`
+     * wherever the call site can await.
+     *
+     * @param {Object} params - same as the constructor, minus resolvedEnv
+     * @returns {Promise<Module>}
+     */
+    static async create({ definition, userId = null, entity = null, state = null }) {
+        const resolvedEnv = await Module.resolveEnv(definition);
+        return new Module({ definition, userId, entity, state, resolvedEnv });
     }
 
     getName() {

@@ -129,7 +129,7 @@
  * @typedef {Object} AppDefinition
  * @property {string} name - Application name
  * @property {string} stage - Deployment stage (e.g., 'dev', 'production')
- * @property {string} provider - Cloud provider (e.g., 'aws')
+ * @property {string} provider - Deployment provider: 'aws' (serverless/Lambda) or 'netlify' (@friggframework/provider-netlify)
  * @property {string} region - AWS region
  *
  * @property {VpcDefinition} [vpc] - VPC configuration
@@ -144,6 +144,20 @@
  * @property {AdminConfig} [admin] - Admin configuration
  *
  * @property {Object} [environment] - Environment variables
+ *
+ * @property {ExtensionDefinition[]} [extensions] - App-level extensions that add custom Prisma models, encrypted fields, admin routes and bootstrap hooks (not an integration's Definition.extensions)
+ */
+
+/**
+ * App-level extension: custom models, encryption, admin routes and bootstrap
+ * @typedef {Object} ExtensionDefinition
+ * @property {string} name - Unique identifier for this extension
+ * @property {string} [schema] - Absolute path to a .prisma schema fragment
+ * @property {Object<string, {fields: string[]}>} [encryption] - Model name → encrypted fields mapping
+ * @property {Object} [routes] - Express router configuration
+ * @property {string} routes.path - Base URL path for the extension routes
+ * @property {Function|Object} routes.handler - Router factory (prisma, appDefinition) → Router, or { router } object
+ * @property {Function} [bootstrap] - Async function (prisma, appDefinition) → void, run by initializeApp()
  */
 
 /**
