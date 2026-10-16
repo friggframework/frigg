@@ -10,6 +10,7 @@ const {
     deleteOne,
 } = require('../../database/documentdb-utils');
 const { ModuleRepositoryInterface } = require('./module-repository-interface');
+const { entityNotFoundError } = require('./entity-not-found');
 const { DocumentDBEncryptionService } = require('../../database/documentdb-encryption-service');
 
 /**
@@ -34,11 +35,11 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
     async findEntityById(entityId) {
         const objectId = toObjectId(entityId);
         if (!objectId) {
-            throw new Error(`Entity ${entityId} not found`);
+            throw entityNotFoundError(entityId);
         }
         const doc = await findOne(this.prisma, 'Entity', { _id: objectId });
         if (!doc) {
-            throw new Error(`Entity ${entityId} not found`);
+            throw entityNotFoundError(entityId);
         }
         const credential = await this._fetchCredential(doc.credentialId);
         return this._mapEntity(doc, credential);

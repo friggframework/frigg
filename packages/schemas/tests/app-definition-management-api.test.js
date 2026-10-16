@@ -30,6 +30,13 @@ describe('app-definition schema: managementApi (ADR-052, ADR-053)', () => {
         ).toBe(true);
     });
 
+    it.each([[['individual']], [['individual', 'organization']], [['organization']]])(
+        'accepts proxy.scopes %j (ADR-056 §3.5)',
+        (scopes) => {
+            expect(validate({ proxy: { enable: true, scopes } }).valid).toBe(true);
+        }
+    );
+
     it('accepts an empty block', () => {
         expect(validate({}).valid).toBe(true);
     });
@@ -43,6 +50,11 @@ describe('app-definition schema: managementApi (ADR-052, ADR-053)', () => {
         [{ proxy: { modules: { erp: { allow: 'everything' } } } }],
         [{ proxy: { modules: { erp: { allow: [{ method: 'TRACE', path: '/x' }] } } } }],
         [{ proxy: { modules: { erp: { allow: [{ method: 'GET', path: 'no-slash' }] } } } }],
+        [{ proxy: { scopes: ['global'] } }],
+        [{ proxy: { scopes: ['team'] } }],
+        [{ proxy: { scopes: 'organization' } }],
+        [{ proxy: { scopes: [] } }],
+        [{ proxy: { scopes: ['individual', 'individual'] } }],
         [{ unknown: true }],
     ])('rejects %j', (managementApi) => {
         expect(validate(managementApi).valid).toBe(false);

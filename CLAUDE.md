@@ -212,6 +212,8 @@ the OpenAPI documents and the API Gateway routes devtools generates.
   `management-api/v2/` call use cases only; errors are `{ error: { code, message, details? } }`;
   responses carry `Frigg-API-Version: 2`. The entity proxy
   (`POST /api/v2/entities/:id/proxy`, ADR-052) is beta and off unless `managementApi.proxy.enable`.
+  It needs `use` access to the entity in the active organization and accepts only the scopes in
+  `managementApi.proxy.scopes` (default `['individual']`, ADR-056 §3.5; validated at load).
 - **v1**: the unprefixed `/api/*` routes in `integrations/integration-router.js`. Frozen and
   deprecated (`Deprecation` + `Link` headers); `managementApi.v1: false` turns them off (410).
 - **Discovery**: `GET /api/meta` and `/api/meta/openapi/v{n}.json` on the DB-free health Lambda.

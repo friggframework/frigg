@@ -1,5 +1,6 @@
 const { prisma } = require('../../database/prisma');
 const { ModuleRepositoryInterface } = require('./module-repository-interface');
+const { entityNotFoundError } = require('./entity-not-found');
 
 /**
  * PostgreSQL Module Repository Adapter
@@ -144,7 +145,7 @@ class ModuleRepositoryPostgres extends ModuleRepositoryInterface {
         });
 
         if (!entity) {
-            throw new Error(`Entity ${entityId} not found`);
+            throw entityNotFoundError(entityId);
         }
 
         const credential = await this._fetchCredential(entity.credentialId);

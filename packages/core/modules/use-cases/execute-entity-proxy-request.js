@@ -2,6 +2,8 @@ const Boom = require('@hapi/boom');
 const { getLogger } = require('../../logs');
 const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 const { ProxyRequestError } = require('../proxy/proxy-errors');
+const { SCOPES } = require('../scope-resolution');
+const { grantsUse } = require('../scope-visibility');
 const { normalizeProxyPath, matchAllowRule } = require('../proxy/proxy-path');
 const {
     validateProxyRequest,
@@ -55,9 +57,11 @@ const authHeaderNamesOf = (api) =>
  * through its module with the stored credential, inside the limits the app
  * and the module set.
  *
- * Order of checks: request shape and size, path rules, entity ownership
- * (404), the module's allow-list (403, deny by default), credential
- * readiness (401), then the call through Requester._proxyRequest. Every call,
+ * Order of checks: request shape and size, path rules, entity visibility in
+ * the active organization (404), `use` access (403), the entity's scope
+ * against `managementApi.proxy.scopes` (403), the module's allow-list (403,
+ * deny by default), credential readiness (401), then the call through
+ * Requester._proxyRequest. Every call,
  * allowed or denied, writes one audit record and one usage count. Bodies,
  * headers, query values and the raw path are never logged.
  */
@@ -98,24 +102,14 @@ class ExecuteEntityProxyRequest {
             audit.requestBytes = validated.requestBytes;
             const path = normalizeProxyPath(validated.path);
 
-            // Access is `use` in the active organization (ADR-056 §3.5, §3.6): the
-            // owner's entity there, or the organization's. A `global` entity is
-            // never the tenant's.
+            // Visible in the active organization, or 404 (ADR-056 §3.6): the
+            // same clauses the v2 lists use, so a missing entity, another
+            // person's and one paired with another organization look alike.
             const { entity, definition, module } =
                 await this.getEntityModuleForUser.execute(entityId, user);
             audit.module = definition.moduleName;
-            // Narrowest by default (§3.5): proxying through a shared credential
-            // lets any member act on the organization's account, so only an
-            // individual entity may be proxied until `managementApi.proxy.scopes`
-            // lets an app opt in to `organization`.
-            // TODO(F6): read proxy.scopes here instead of refusing outright.
-            if (this.getEntityModuleForUser.describe(entity, user)?.scope !== 'individual') {
-                throw new ProxyRequestError(
-                    'PROXY_NOT_ALLOWED',
-                    'The entity proxy only accepts individual entities; organization-level entities are not proxied',
-                    { module: definition.moduleName, reason: 'scope' }
-                );
-            }
+            this.assertProxyable(entityId, entity, definition, user);
+
             const credentialRef = entity.credential;
             const credentialId =
                 credentialRef && typeof credentialRef === 'object'
@@ -214,6 +208,44 @@ class ExecuteEntityProxyRequest {
                 error?.data?.code || (error?.isBoom ? undefined : 'INTERNAL_ERROR')
             );
             throw error;
+        }
+    }
+
+    /**
+     * ADR-056 §3.5: the caller needs `use` access to the entity in the active
+     * organization, and the entity's scope must be one the app lets the proxy
+     * accept. `access` and `scope` come from the description the v2 lists
+     * return (GetEntityModuleForUser.describe), never from a second rule.
+     *
+     * Both refusals are 403 PROXY_NOT_ALLOWED: the caller can already see the
+     * entity, so saying it exists leaks nothing. `details.reason` tells them
+     * apart ('access' or 'scope').
+     */
+    assertProxyable(entityId, entity, definition, user) {
+        const tenancy = this.getEntityModuleForUser.describe(entity, user);
+        if (!tenancy) {
+            // Not visible after all: the same 404 as a missing entity.
+            throw Boom.notFound(`Entity ${entityId} not found`, {
+                code: 'ENTITY_NOT_FOUND',
+            });
+        }
+        if (!grantsUse(tenancy.access)) {
+            throw new ProxyRequestError(
+                'PROXY_NOT_ALLOWED',
+                'Proxying through an entity needs use access to it; you can only view this one',
+                { module: definition.moduleName, reason: 'access' }
+            );
+        }
+        // Narrowest by default (§3.5): with no setting only individual
+        // entities are proxied, because proxying through a shared credential
+        // lets any member act on the organization's account.
+        const acceptedScopes = this.proxyConfig.scopes ?? [SCOPES.INDIVIDUAL];
+        if (!acceptedScopes.includes(tenancy.scope)) {
+            throw new ProxyRequestError(
+                'PROXY_NOT_ALLOWED',
+                `The entity proxy does not accept ${tenancy.scope} entities in this app`,
+                { module: definition.moduleName, reason: 'scope', scope: tenancy.scope }
+            );
         }
     }
 

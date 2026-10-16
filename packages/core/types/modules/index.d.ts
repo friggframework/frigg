@@ -68,12 +68,49 @@ declare module "@friggframework/core" {
     owner?: "derive" | "individual" | "organization";
   }
 
+  /** One operation a module or the app lets the entity proxy forward (ADR-052). */
+  export interface ProxyAllowRule {
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "*";
+    /** Relative to the module's base URL. `:param` is one segment; a trailing `/**` is a subtree. */
+    path: string;
+  }
+
+  /** `appDefinition.managementApi.proxy`: the entity proxy, POST /api/v2/entities/:id/proxy (ADR-052). */
+  export interface ManagementApiProxyConfig {
+    /** Mount the route. Default false. */
+    enable?: boolean;
+    /** Upstream timeout in ms; can only be lowered from 25000. */
+    timeoutMs?: number;
+    /** Largest request body in bytes; default 1 MiB, at most 10 MiB. */
+    maxRequestBytes?: number;
+    /** Largest response body in bytes; can only be lowered from 5 MiB. */
+    maxResponseBytes?: number;
+    /**
+     * Entity scopes the proxy accepts (ADR-056 §3.5). Default `['individual']`.
+     * Add `'organization'` to let a member with use access proxy through the
+     * organization's shared credential. `global` is never accepted. An unknown,
+     * empty or repeated value throws ManagementApiConfigError at load.
+     */
+    scopes?: Array<Exclude<EntityScope, "global">>;
+    /** Per-module allow-list override; `'module'` uses the module's own list. */
+    modules?: Record<string, { allow: "module" | ProxyAllowRule[] }>;
+  }
+
+  /** `appDefinition.managementApi` (ADR-052, ADR-053). */
+  export interface ManagementApiConfig {
+    /** Serve the deprecated v1 routes. Default true. */
+    v1?: boolean;
+    proxy?: ManagementApiProxyConfig;
+  }
+
   export interface AppDefinition {
     integrations: any[];
     /** App-level entity type registry (ADR-059). */
     entities?: AppDefinitionEntities;
     /** Who owns what a person connects (ADR-056). */
     ownership?: AppOwnership;
+    /** Management API versions and the entity proxy (ADR-052, ADR-053, ADR-056 §3.5). */
+    managementApi?: ManagementApiConfig;
     [key: string]: unknown;
   }
 
@@ -137,6 +174,11 @@ declare module "@friggframework/core" {
   export function getEntityTypeRegistry(
     appDefinition?: Pick<AppDefinition, "entities" | "integrations">
   ): EntityTypeRegistry;
+
+  /** Invalid `managementApi` setting (today: `proxy.scopes`), thrown at app-definition load. */
+  export class ManagementApiConfigError extends Error {
+    code: "MANAGEMENT_API_CONFIG_INVALID";
+  }
 
   /**
    * @deprecated ADR-059. Use `getEntityTypeRegistry(appDefinition)` and read
