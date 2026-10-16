@@ -67,7 +67,8 @@ const appDefinition = {
 where `sources` lists `'app'` and/or each `integration:<name>` that binds it. All five call sites
 read from it, so the encryption schema, health checks and the authorize routes all see
 registry-only entity types. `getModulesDefinitionFromIntegrationClasses` stays as a deprecated
-wrapper returning the registry's definitions.
+wrapper returning the registry's definitions (it takes an optional `entities` argument so it can
+include registry-only types, and logs a deprecation warning once per process).
 
 **Conflict rule:** when the registry and an integration both supply a type with the same name,
 they must be the same definition (same object, or the same package name and version).
@@ -98,7 +99,12 @@ already the source of truth.
 - `GET /api/v2/entities` lists entities of registry-only types like any other (ADR-056 §3.4 fields).
 - An entity whose type is no longer registered (removed from the registry and no integration
   binds it) keeps working for reads and deletion, is listed with `"registered": false`, and cannot
-  be reauthorized or newly created.
+  be reauthorized or newly created. **Deferred:** the first implementation lists, reads and deletes
+  such an entity like any other and refuses to create a new one, but does not yet emit
+  `"registered": false`, and module-backed calls on it (test-auth, options) answer `404
+  ENTITY_TYPE_NOT_FOUND`. The flag needs the list and entity DTOs, the API schema and the OpenAPI
+  document to change together, so it lands with the v2 entity list work rather than with the
+  registry.
 
 ## Consequences
 
