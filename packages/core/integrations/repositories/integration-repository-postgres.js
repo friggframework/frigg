@@ -366,6 +366,64 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
     }
 
     /**
+     * Attach entities to an existing integration. Entities already attached
+     * are left as they are.
+     *
+     * @param {string} integrationId - Integration ID (string from application layer)
+     * @param {Array<string>} entityIds - Entity IDs to attach
+     * @returns {Promise<Object|null>} Updated integration, or null when the integration does not exist
+     */
+    async addEntitiesToIntegration(integrationId, entityIds) {
+        const intId = this._convertId(integrationId);
+
+        try {
+            await this.prisma.integration.update({
+                where: { id: intId },
+                data: {
+                    entities: {
+                        connect: entityIds.map((id) => ({
+                            id: this._convertId(id),
+                        })),
+                    },
+                },
+            });
+        } catch (error) {
+            if (error.code === 'P2025') return null;
+            throw error;
+        }
+        return this.findIntegrationById(integrationId);
+    }
+
+    /**
+     * Detach entities from an integration. Entities that are not attached
+     * are ignored. The entities themselves are not deleted.
+     *
+     * @param {string} integrationId - Integration ID (string from application layer)
+     * @param {Array<string>} entityIds - Entity IDs to detach
+     * @returns {Promise<Object|null>} Updated integration, or null when the integration does not exist
+     */
+    async removeEntitiesFromIntegration(integrationId, entityIds) {
+        const intId = this._convertId(integrationId);
+
+        try {
+            await this.prisma.integration.update({
+                where: { id: intId },
+                data: {
+                    entities: {
+                        disconnect: entityIds.map((id) => ({
+                            id: this._convertId(id),
+                        })),
+                    },
+                },
+            });
+        } catch (error) {
+            if (error.code === 'P2025') return null;
+            throw error;
+        }
+        return this.findIntegrationById(integrationId);
+    }
+
+    /**
      * Find integration by user ID (returns single integration)
      *
      * @param {string} userId - User ID (string from application layer)
