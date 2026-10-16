@@ -1,9 +1,12 @@
 const { Module } = require('../module');
+const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
 
 class GetModule {
-    constructor({ moduleRepository, moduleDefinitions }) {
+    constructor({ moduleRepository, moduleDefinitions, scopePolicy }) {
         this.moduleRepository = moduleRepository;
         this.moduleDefinitions = moduleDefinitions;
+        // Who may load an entity follows its scope (ADR-056 §3.6).
+        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
     }
 
     /**
@@ -32,7 +35,7 @@ class GetModule {
         // If User object provided, use ownsUserId to check linked users
         // Otherwise fall back to simple equality check
         const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
-            ? userIdOrUser.ownsUserId(entity.userId)
+            ? this.scopePolicy.canUseEntity(userIdOrUser, entity)
             : entity.userId?.toString() === userId?.toString();
 
         if (!isOwned) {
@@ -53,8 +56,11 @@ class GetModule {
             );
         }
 
+        // Built for the entity's OWNER, not the caller: a caller may use an
+        // organization's entity, and a token refresh during this call must
+        // update the owner's credential, not create one under the caller.
         const module = new Module({
-            userId,
+            userId: entity.userId ?? userId,
             entity,
             definition: moduleDefinition,
         });

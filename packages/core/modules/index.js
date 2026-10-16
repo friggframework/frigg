@@ -4,6 +4,15 @@ const { OAuth2Requester } = require('./requester/oauth-2');
 const { Requester } = require('./requester/requester');
 const { ModuleConstants } = require('./ModuleConstants');
 const { ModuleFactory } = require('./module-factory');
+const {
+    getEntityTypeRegistry,
+    EntityRegistryError,
+} = require('./entity-type-registry');
+const {
+    resolveScope,
+    listBindingScopes,
+    OwnershipConfigError,
+} = require('./entity-scope');
 
 module.exports = {
     ApiKeyRequester,
@@ -12,4 +21,9 @@ module.exports = {
     Requester,
     ModuleConstants,
     ModuleFactory,
+    getEntityTypeRegistry,
+    EntityRegistryError,
+    resolveScope,
+    listBindingScopes,
+    OwnershipConfigError,
 };

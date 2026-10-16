@@ -13,3 +13,4 @@
 /// <reference path="./associations/index.d.ts" />
 /// <reference path="./syncs/index.d.ts" />
 /// <reference path="./user/index.d.ts" />
+/// <reference path="./modules/index.d.ts" />

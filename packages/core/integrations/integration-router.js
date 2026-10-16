@@ -32,9 +32,6 @@ const {
 } = require('./use-cases/get-integration-instance');
 const { UpdateIntegration } = require('./use-cases/update-integration');
 const {
-    getModulesDefinitionFromIntegrationClasses,
-} = require('./utils/map-integration-dto');
-const {
     GetModuleInstanceFromType,
 } = require('../modules/use-cases/get-module-instance-from-type');
 const {
@@ -64,12 +61,32 @@ const {
 const {
     ProcessAuthorizationCallback,
 } = require('../modules/use-cases/process-authorization-callback');
+const { createScopePolicy } = require('../modules/scope-policy');
+const {
+    AuthorizeEntityForUser,
+} = require('../modules/use-cases/authorize-entity-for-user');
+const {
+    CreateEntityFromCredential,
+} = require('../modules/use-cases/create-entity-from-credential');
+const {
+    ResolveIntegrationOwnership,
+} = require('./use-cases/resolve-integration-ownership');
+const { GetOwnedIntegrationRecord } = require('./use-cases/integration-operations-for-user');
 
 const log = getLogger('frigg.integrations');
 
 function createIntegrationRouter() {
-    const { integrations: integrationClasses, userConfig } =
-        loadAppDefinition();
+    // moduleDefinitions is the app registry's definitions (ADR-059), so
+    // /api/authorize and friends accept a type no integration binds.
+    const {
+        integrations: integrationClasses,
+        userConfig,
+        moduleDefinitions,
+        ownership,
+        entityTypeRegistry,
+    } = loadAppDefinition();
+    // Ownership by scope (ADR-056 §3): one object every use case asks.
+    const scopePolicy = createScopePolicy({ ownership, entityTypeRegistry });
     const moduleRepository = createModuleRepository();
     const integrationRepository = createIntegrationRepository();
     const credentialRepository = createCredentialRepository();
@@ -92,8 +109,7 @@ function createIntegrationRouter() {
 
     const moduleFactory = new ModuleFactory({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
     const deleteIntegrationForUser = new DeleteIntegrationForUser({
         integrationRepository,
@@ -106,6 +122,19 @@ function createIntegrationRouter() {
         integrationClasses,
         moduleFactory,
         moduleRepository,
+        scopePolicy,
+    });
+
+    // Decides who owns a new integration and which entities the caller may bind
+    // (the v1 create used to check neither), and who may reach an existing one.
+    const resolveIntegrationOwnership = new ResolveIntegrationOwnership({
+        moduleRepository,
+        integrationClasses,
+        scopePolicy,
+    });
+    const getOwnedIntegrationRecord = new GetOwnedIntegrationRecord({
+        integrationRepository,
+        scopePolicy,
     });
 
     const getCredentialForUser = new GetCredentialForUser({
@@ -120,8 +149,8 @@ function createIntegrationRouter() {
 
     const getEntitiesForUser = new GetEntitiesForUser({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
+        scopePolicy,
     });
 
     const getIntegrationInstance = new GetIntegrationInstance({
@@ -137,54 +166,65 @@ function createIntegrationRouter() {
     });
 
     const getModuleInstanceFromType = new GetModuleInstanceFromType({
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const getEntityOptionsByType = new GetEntityOptionsByType({
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
     });
 
     const testModuleAuth = new TestModuleAuth({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
+        scopePolicy,
     });
 
     const getModule = new GetModule({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
+        scopePolicy,
     });
 
     const getEntityOptionsById = new GetEntityOptionsById({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
+        scopePolicy,
     });
 
     const refreshEntityOptions = new RefreshEntityOptions({
         moduleRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
+        scopePolicy,
     });
 
     const getPossibleIntegrations = new GetPossibleIntegrations({
         integrationClasses,
     });
 
+    // The owner of what an authorization creates follows its scope (ADR-056 §3.2).
     const processAuthorizationCallback = new ProcessAuthorizationCallback({
         moduleRepository,
         credentialRepository,
         integrationRepository,
-        moduleDefinitions:
-            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+        moduleDefinitions,
+    });
+    const authorizeEntityForUser = new AuthorizeEntityForUser({
+        scopePolicy,
+        processAuthorizationCallback,
+    });
+    // v1 POST /api/entity: same owner resolution as /api/authorize.
+    const createEntityFromCredential = new CreateEntityFromCredential({
+        authorizeEntityForUser,
+        processAuthorizationCallback,
+        credentialRepository,
+        moduleDefinitions,
     });
 
     const router = express();
 
     setIntegrationRoutes(router, authenticateUser, {
+        resolveIntegrationOwnership,
+        getOwnedIntegrationRecord,
         createIntegration,
         deleteIntegrationForUser,
         getIntegrationsForUser,
@@ -201,7 +241,8 @@ function createIntegrationRouter() {
         getModule,
         getEntityOptionsById,
         refreshEntityOptions,
-        processAuthorizationCallback,
+        authorizeEntityForUser,
+        createEntityFromCredential,
     });
     return router;
 }
@@ -238,6 +279,8 @@ function checkRequiredParams(params, requiredKeys) {
  */
 function setIntegrationRoutes(router, authenticateUser, useCases) {
     const {
+        resolveIntegrationOwnership,
+        getOwnedIntegrationRecord,
         createIntegration,
         deleteIntegrationForUser,
         getIntegrationsForUser,
@@ -246,15 +289,20 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
         updateIntegration,
         getPossibleIntegrations,
     } = useCases;
+
+    // The owner of an integration the caller may reach (404 otherwise), which is
+    // what the id-and-owner use cases below expect.
+    const ownerOf = async (integrationId, user) =>
+        (await getOwnedIntegrationRecord.execute(integrationId, user)).userId;
+
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
-            const integrations = await getIntegrationsForUser.execute(userId);
+            const integrations = await getIntegrationsForUser.execute(user);
             const results = {
                 entities: {
                     options: await getPossibleIntegrations.execute(),
-                    authorized: await getEntitiesForUser.execute(userId),
+                    authorized: await getEntitiesForUser.execute(user),
                 },
                 integrations: integrations,
             };
@@ -266,7 +314,6 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
     router.route('/api/integrations').post(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entities',
                 'config',
@@ -274,10 +321,17 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
 
             get(params.config, 'type');
 
+            const { ownerId, organizationId, adoptUnscoped } =
+                await resolveIntegrationOwnership.execute({
+                    entityIds: params.entities,
+                    config: params.config,
+                    user,
+                });
             const integration = await createIntegration.execute(
                 params.entities,
-                userId,
-                params.config
+                ownerId,
+                params.config,
+                { organizationId, adoptUnscoped }
             );
 
             res.status(201).json(integration);
@@ -287,12 +341,11 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
     router.route('/api/integrations/:integrationId').patch(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.body, ['config']);
 
             const integration = await updateIntegration.execute(
                 req.params.integrationId,
-                userId,
+                await ownerOf(req.params.integrationId, user),
                 params.config
             );
             res.json(integration);
@@ -305,7 +358,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             const params = checkRequiredParams(req.params, ['integrationId']);
             await deleteIntegrationForUser.execute(
                 params.integrationId,
-                user.getId()
+                await ownerOf(params.integrationId, user)
             );
             res.status(204).json({});
         })
@@ -317,7 +370,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration = await getIntegrationInstance.execute(
                 params.integrationId,
-                user.getId()
+                await ownerOf(params.integrationId, user)
             );
             res.json(await integration.send('GET_CONFIG_OPTIONS'));
         })
@@ -333,7 +386,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                 ]);
                 const integration = await getIntegrationInstance.execute(
                     params.integrationId,
-                    user.getId()
+                    await ownerOf(params.integrationId, user)
                 );
 
                 res.json(
@@ -347,7 +400,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration = await getIntegrationInstance.execute(
                 params.integrationId,
-                user.getId()
+                await ownerOf(params.integrationId, user)
             );
             res.json(await integration.send('GET_USER_ACTIONS', req.body));
         })
@@ -364,7 +417,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                 ]);
                 const integration = await getIntegrationInstance.execute(
                     params.integrationId,
-                    user.getId()
+                    await ownerOf(params.integrationId, user)
                 );
 
                 res.json(
@@ -389,7 +442,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                 ]);
                 const integration = await getIntegrationInstance.execute(
                     params.integrationId,
-                    user.getId()
+                    await ownerOf(params.integrationId, user)
                 );
 
                 res.json(
@@ -410,7 +463,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             ]);
             const integration = await getIntegrationInstance.execute(
                 params.integrationId,
-                user.getId()
+                await ownerOf(params.integrationId, user)
             );
             res.json(await integration.send(params.actionId, req.body));
         })
@@ -427,7 +480,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             const params = checkRequiredParams(req.params, ['integrationId']);
             const integration = await getIntegrationInstance.execute(
                 params.integrationId,
-                user.getId()
+                await ownerOf(params.integrationId, user)
             );
 
             // We could perhaps augment router with dynamic options? Haven't decided yet, but here may be the place
@@ -447,7 +500,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             const params = checkRequiredParams(req.params, ['integrationId']);
             const instance = await getIntegrationInstance.execute(
                 params.integrationId,
-                user.getId()
+                await ownerOf(params.integrationId, user)
             );
 
             if (!instance) {
@@ -485,16 +538,21 @@ function setEntityRoutes(router, authenticateUser, useCases) {
         getModule,
         getEntityOptionsById,
         refreshEntityOptions,
-        processAuthorizationCallback,
+        authorizeEntityForUser,
+        createEntityFromCredential,
     } = useCases;
 
     router.route('/api/authorize').get(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.query, ['entityType']);
+            // The owner POST stores under, so GET and POST describe one connection.
+            const { ownerId } = authorizeEntityForUser.resolveOwnership({
+                user,
+                entityType: params.entityType,
+            });
             const module = await getModuleInstanceFromType.execute(
-                userId,
+                ownerId,
                 params.entityType,
                 { state: req.query.state }
             );
@@ -513,11 +571,15 @@ function setEntityRoutes(router, authenticateUser, useCases) {
     router.route('/api/authorize').post(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entityType',
                 'data',
             ]);
+            const ownership = authorizeEntityForUser.resolveOwnership({
+                user,
+                entityType: params.entityType,
+            });
+            const userId = ownership.ownerId;
 
             const dataKeys =
                 params.data && typeof params.data === 'object'
@@ -529,11 +591,13 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 dataKeys,
             });
 
-            const entityDetails = await processAuthorizationCallback.execute(
-                userId,
-                params.entityType,
-                params.data
-            );
+            const { result: entityDetails } =
+                await authorizeEntityForUser.execute({
+                    user,
+                    entityType: params.entityType,
+                    data: params.data,
+                    ownership,
+                });
 
             log.info('Entity authorized', {
                 eventName: 'frigg.integrations.authorized',
@@ -550,35 +614,20 @@ function setEntityRoutes(router, authenticateUser, useCases) {
     router.route('/api/entity').post(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entityType',
                 'data',
             ]);
             checkRequiredParams(req.body.data, ['credential_id']);
 
-            // May want to pass along the user ID as well so credential ID's can't be fished???
-            const credential = await getCredentialForUser.execute(
-                params.data.credential_id,
-                userId
+            // The owner follows the entity type's scope, as /api/authorize.
+            res.json(
+                await createEntityFromCredential.execute({
+                    user,
+                    entityType: params.entityType,
+                    credentialId: params.data.credential_id,
+                })
             );
-
-            if (!credential) {
-                throw Boom.badRequest('Invalid credential ID');
-            }
-
-            const module = await getModuleInstanceFromType.execute(
-                userId,
-                params.entityType
-            );
-            const entityDetails = await module.getEntityDetails(
-                module.api,
-                null,
-                null,
-                userId
-            );
-
-            res.json(await module.findOrCreateEntity(entityDetails));
         })
     );
 

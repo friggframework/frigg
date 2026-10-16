@@ -3,6 +3,7 @@ const {
     toObjectId,
     fromObjectId,
     findMany,
+    findManyDrained,
     findOne,
     insertOne,
     updateOne,
@@ -76,6 +77,29 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
         return docs.map((doc) => this._mapEntity(doc, credentialMap.get(fromObjectId(doc.credentialId)) || null));
     }
 
+    /**
+     * Find entities matching any of the owner/organization pairs, in one query.
+     * `organizationId: null` matches rows with no organization (a raw MongoDB
+     * `null` also matches a missing field). The caller (a use case) decides
+     * which pairs; this only runs them.
+     *
+     * @param {Array<{userId: string, organizationId: (string|null)}>} clauses
+     * @returns {Promise<Array>}
+     */
+    async findEntitiesByOwnership(clauses) {
+        if (!Array.isArray(clauses) || clauses.length === 0) return [];
+        // Drained: a list can hold more than the first cursor batch (~101).
+        const docs = await findManyDrained(this.prisma, 'Entity', {
+            $or: clauses.map(({ userId, organizationId }) => ({
+                userId: toObjectId(userId),
+                organizationId:
+                    organizationId === null ? null : toObjectId(organizationId),
+            })),
+        });
+        const credentialMap = await this._fetchCredentialsBulk(docs.map((doc) => doc.credentialId));
+        return docs.map((doc) => this._mapEntity(doc, credentialMap.get(fromObjectId(doc.credentialId)) || null));
+    }
+
     async unsetCredential(entityId) {
         const objectId = toObjectId(entityId);
         if (!objectId) return false;
@@ -115,7 +139,14 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
         );
     }
 
-    async createEntity(entityData) {
+    /**
+     * @param {Object} entityData
+     * @param {{organizationId?: (string|null)}} [tenancy] - the organization the entity
+     *   belongs to (ADR-056 §3.6). A separate argument, not a field of `entityData`,
+     *   because `entityData` carries provider fields and one named `organizationId`
+     *   must not be taken for ours.
+     */
+    async createEntity(entityData, tenancy = {}) {
         const {
             user,
             userId,
@@ -133,6 +164,7 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
             name: name ?? null,
             moduleName: moduleName ?? null,
             externalId: externalId ?? null,
+            organizationId: toObjectId(tenancy.organizationId) || null,
             data: dynamicData,
         };
         const insertedId = await insertOne(this.prisma, 'Entity', document);
@@ -247,8 +279,9 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
             const objectIds = ids.map(id => toObjectId(id)).filter(Boolean);
             if (objectIds.length === 0) return new Map();
 
-            // Use raw findMany to bypass Prisma encryption extension
-            const rawCredentials = await findMany(this.prisma, 'Credential', {
+            // Raw read to bypass the Prisma encryption extension. Drained:
+            // more ids than the first cursor batch must all come back.
+            const rawCredentials = await findManyDrained(this.prisma, 'Credential', {
                 _id: { $in: objectIds }
             });
 
@@ -329,19 +362,30 @@ class ModuleRepositoryDocumentDB extends ModuleRepositoryInterface {
         if (filter.name) query.name = filter.name;
         if (filter.moduleName) query.moduleName = filter.moduleName;
         if (filter.externalId) query.externalId = filter.externalId;
+        // `null` means "no organization"; absent means "any". A raw MongoDB
+        // `{ field: null }` matches both a null value and a missing field.
+        if (filter.organizationId !== undefined) {
+            query.organizationId =
+                filter.organizationId === null
+                    ? null
+                    : toObjectId(filter.organizationId);
+        }
         return query;
     }
 
     _mapEntity(doc, credential) {
         const dynamicData = doc?.data || {};
         return {
+            // First, so no stored provider field can replace a column below
+            // (identity, owner or organization decide who sees the entity).
+            ...dynamicData,
             id: fromObjectId(doc?._id),
             credential,
             userId: fromObjectId(doc?.userId),
             name: doc?.name ?? null,
             externalId: doc?.externalId ?? null,
             moduleName: doc?.moduleName ?? null,
-            ...dynamicData,
+            organizationId: fromObjectId(doc?.organizationId) ?? null,
         };
     }
 }

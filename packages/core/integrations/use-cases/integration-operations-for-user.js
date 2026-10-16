@@ -1,11 +1,14 @@
 const Boom = require('@hapi/boom');
-const { userOwns } = require('../../modules/use-cases/get-entity-module-for-user');
+const { describeRecord } = require('../../modules/scope-visibility');
+const { DEFAULT_SCOPE_POLICY } = require('../../modules/scope-policy');
+const { isIntegrationNotFound } = require('../repositories/integration-not-found');
 
 /**
- * Management API v2 integration operations. They put an ownership check
- * (missing or foreign integration = 404) in front of the existing
- * integration use cases, and pass the record's owner id on, so the
- * organisation user model works the same as for entities.
+ * Management API v2 integration operations. They put an access check
+ * (missing or unavailable integration = 404) in front of the existing
+ * integration use cases, and pass the record's owner id on. Access follows
+ * the owner and the organization the integration was created in (ADR-056
+ * §3.6), not the owner alone.
  */
 
 const notFound = (integrationId) =>
@@ -13,10 +16,20 @@ const notFound = (integrationId) =>
         code: 'INTEGRATION_NOT_FOUND',
     });
 
-/** The integration record, or 404 when it is missing or not the caller's. */
+/**
+ * The integration record, or 404 when it is missing or the caller may not
+ * use it: not theirs or their active organization's, or created in another
+ * organization.
+ */
 class GetOwnedIntegrationRecord {
-    constructor({ integrationRepository }) {
+    constructor({ integrationRepository, scopePolicy }) {
         this.integrationRepository = integrationRepository;
+        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
+    }
+
+    /** `{ scope, owner, organizationId, access }` of a record to this caller, or null. */
+    describe(record, user) {
+        return describeRecord(record, this.scopePolicy.accessContext(user), 'integration');
     }
 
     async execute(integrationId, user) {
@@ -26,12 +39,15 @@ class GetOwnedIntegrationRecord {
                 integrationId
             );
         } catch (error) {
-            if (/Invalid ID|ObjectId|Malformed/i.test(error?.message || '')) {
+            if (
+                /Invalid ID|ObjectId|Malformed/i.test(error?.message || '') ||
+                isIntegrationNotFound(error)
+            ) {
                 throw notFound(integrationId);
             }
             throw error;
         }
-        if (!record || !userOwns(user, record.userId)) {
+        if (!record || !this.describe(record, user)) {
             throw notFound(integrationId);
         }
         return record;
@@ -39,14 +55,15 @@ class GetOwnedIntegrationRecord {
 }
 
 /**
- * Creates (or reuses) an integration between entities the caller owns.
- * Unlike v1, the entities' ownership and the integration type are checked
- * before anything is written.
+ * Creates (or reuses) an integration between entities the caller may use.
+ * The entities' access, the binding scopes and the integration type are
+ * checked before anything is written, and the integration is owned and
+ * paired with an organization by `resolveIntegrationOwnership` (§3, §3.6).
  */
 class CreateIntegrationForUser {
-    constructor({ createIntegration, getEntityModuleForUser, integrationClasses }) {
+    constructor({ createIntegration, resolveIntegrationOwnership, integrationClasses }) {
         this.createIntegration = createIntegration;
-        this.getEntityModuleForUser = getEntityModuleForUser;
+        this.resolveIntegrationOwnership = resolveIntegrationOwnership;
         this.integrationClasses = integrationClasses || [];
     }
 
@@ -74,13 +91,17 @@ class CreateIntegrationForUser {
                 details: { field: 'entities' },
             });
         }
-        for (const entityId of entities) {
-            await this.getEntityModuleForUser.loadOwnedEntity(String(entityId), user);
-        }
+        const { ownerId, organizationId, adoptUnscoped } =
+            await this.resolveIntegrationOwnership.execute({
+                entityIds: entities,
+                config,
+                user,
+            });
         return this.createIntegration.execute(
             entities.map(String),
-            user.getId(),
-            config
+            ownerId,
+            config,
+            { organizationId, adoptUnscoped }
         );
     }
 }

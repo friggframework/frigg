@@ -4,7 +4,7 @@
  * packages/devtools/infrastructure/__tests__/management-api-gateway-routes.test.js.
  */
 jest.mock('../handlers/app-definition-loader', () => ({
-    loadAppDefinition: () => ({ integrations: [], userConfig: {} }),
+    loadAppDefinition: () => ({ integrations: [], userConfig: {}, moduleDefinitions: [] }),
 }));
 jest.mock('../integrations/repositories/integration-repository-factory', () => ({
     createIntegrationRepository: () => ({}),

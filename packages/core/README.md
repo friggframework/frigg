@@ -421,6 +421,42 @@ Rules worth knowing:
 - Two first logins for the same new person or organization, even in different organizations, both
   succeed: a create that loses to a unique constraint finds the winner's row.
 
+#### Entity scopes and ownership (ADR-056 §3)
+
+Who owns an entity (a connected account) or an integration follows its **scope**, not `user.primary`:
+
+| Scope | Owned by | Created with |
+|---|---|---|
+| `individual` | the person (`individualUser`) | the active organization (`organizationId`), or none under `individualAcross: 'all'` |
+| `organization` | the active organization's user | that organization |
+| `global` | nobody (the app owner) | none; refused by the tenant API (admin routes only) |
+
+The scope of a new connection is the first of: the request (`scope` on `POST /api/v2/authorize`, only from
+the deciding level's `allow` list), the integration binding (`Definition.modules[key].scope` or
+`Definition.entities[key].scope`), `Definition.ownership.scope`, the entity type
+(`appDefinition.entities[name].scope`), `appDefinition.ownership.scope`, then `organization` for an
+organization-primary app and `individual` otherwise. A setting is `'organization'` or
+`{ default: 'individual', allow: ['individual', 'organization'] }`.
+
+```javascript
+const appDefinition = {
+    user: { primary: 'individual', authModes: { adopterJwt: true } },
+    ownership: { scope: 'individual', individualAcross: 'organization' }, // the defaults
+    entities: {
+        google: { definition: google, scope: 'individual' },
+        xero: { definition: xero, scope: { default: 'organization', allow: ['organization', 'individual'] } },
+    },
+    integrations: [Sync], // Sync.Definition.ownership = { owner: 'derive' }
+};
+```
+
+`GET /api/v2/entities` and `/integrations` return, for the active organization, its own
+rows and the caller's, each with `scope`, `owner`, `organizationId` and `access`, and take `?scope=` and
+`?owner=me|org`. An individual entity is only visible and usable in the organization it was connected in
+(or in all of them, with `individualAcross: 'all'`). Rows written before this existed keep working: see
+[Entity scopes](../../docs/guides/entity-scopes.md), which also covers the schema (`organizationId` on
+`Entity` and `Integration`, no `scope` column) and what is deferred.
+
 ### 8. Lambda Utilities (`/lambda`)
 
 AWS Lambda-specific utilities and helpers.

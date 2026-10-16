@@ -2,7 +2,16 @@
  * Wires the repositories and use cases behind Management API v2. Kept apart
  * from the router so tests can hand the router doubles instead.
  */
-function buildV2Dependencies({ appDefinition, config }) {
+/**
+ * @param {Object} params
+ * @param {Object} params.appDefinition - the loaded app definition. Its
+ *   `entityTypeRegistry` (built once by loadAppDefinition) is used.
+ * @param {Object} params.config
+ * @param {Map} [params.entityTypeRegistry] - overrides the registry on the
+ *   app definition. When neither exists (a raw definition in a test), it is
+ *   built here from the definition.
+ */
+function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
     const {
         createIntegrationRepository,
     } = require('../../integrations/repositories/integration-repository-factory');
@@ -17,8 +26,16 @@ function buildV2Dependencies({ appDefinition, config }) {
     } = require('../../user/repositories/user-repository-factory');
     const { ModuleFactory } = require('../../modules/module-factory');
     const {
-        getModulesDefinitionFromIntegrationClasses,
-    } = require('../../integrations/utils/map-integration-dto');
+        getEntityTypeRegistry,
+        getEntityTypeDefinitions,
+    } = require('../../modules/entity-type-registry');
+    const { createScopePolicy } = require('../../modules/scope-policy');
+    const {
+        AuthorizeEntityForUser,
+    } = require('../../modules/use-cases/authorize-entity-for-user');
+    const {
+        ResolveIntegrationOwnership,
+    } = require('../../integrations/use-cases/resolve-integration-ownership');
     const {
         AuthenticateWithSharedSecret,
     } = require('../../user/use-cases/authenticate-with-shared-secret');
@@ -68,8 +85,18 @@ function buildV2Dependencies({ appDefinition, config }) {
 
     const integrationClasses = appDefinition.integrations || [];
     const userConfig = appDefinition.userConfig || {};
-    const moduleDefinitions =
-        getModulesDefinitionFromIntegrationClasses(integrationClasses);
+    // The registry holds entity types registered on the app as well as those
+    // integrations bind (ADR-059), so v2 authorize/entities accept both.
+    const registry =
+        entityTypeRegistry ??
+        appDefinition.entityTypeRegistry ??
+        getEntityTypeRegistry(appDefinition);
+    const moduleDefinitions = getEntityTypeDefinitions(registry);
+    // Ownership by scope (ADR-056 §3): one object every use case asks.
+    const scopePolicy = createScopePolicy({
+        ownership: appDefinition.ownership,
+        entityTypeRegistry: registry,
+    });
 
     const moduleRepository = createModuleRepository();
     const integrationRepository = createIntegrationRepository();
@@ -92,6 +119,7 @@ function buildV2Dependencies({ appDefinition, config }) {
     const getEntityModuleForUser = new GetEntityModuleForUser({
         moduleRepository,
         moduleDefinitions,
+        scopePolicy,
     });
     const getCredentialForUser = new credentialOps.GetCredentialForUserV2({
         credentialRepository,
@@ -109,17 +137,22 @@ function buildV2Dependencies({ appDefinition, config }) {
         moduleDefinitions,
         getAuthorizationRequirements,
         authorizationSessionRepository,
-        processAuthorizationCallback: new ProcessAuthorizationCallback({
-            moduleRepository,
-            credentialRepository,
-            integrationRepository,
-            moduleDefinitions,
+        authorizeEntityForUser: new AuthorizeEntityForUser({
+            scopePolicy,
+            processAuthorizationCallback: new ProcessAuthorizationCallback({
+                moduleRepository,
+                credentialRepository,
+                integrationRepository,
+                moduleDefinitions,
+            }),
         }),
         moduleRepository,
         credentialRepository,
+        scopePolicy,
     });
     const getOwnedIntegrationRecord = new integrationOps.GetOwnedIntegrationRecord({
         integrationRepository,
+        scopePolicy,
     });
     const getIntegrationInstanceForUser = new integrationOps.GetIntegrationInstanceForUser({
         getOwnedIntegrationRecord,
@@ -129,6 +162,7 @@ function buildV2Dependencies({ appDefinition, config }) {
     return {
         config,
         moduleDefinitions,
+        scopePolicy,
         repositories: {
             moduleRepository,
             integrationRepository,
@@ -144,6 +178,7 @@ function buildV2Dependencies({ appDefinition, config }) {
             integrationClasses,
             moduleFactory,
             moduleRepository,
+            scopePolicy,
         }),
         getPossibleIntegrations: new GetPossibleIntegrations({ integrationClasses }),
         createIntegrationForUser: new integrationOps.CreateIntegrationForUser({
@@ -152,7 +187,11 @@ function buildV2Dependencies({ appDefinition, config }) {
                 integrationClasses,
                 moduleFactory,
             }),
-            getEntityModuleForUser,
+            resolveIntegrationOwnership: new ResolveIntegrationOwnership({
+                moduleRepository,
+                integrationClasses,
+                scopePolicy,
+            }),
             integrationClasses,
         }),
         getIntegrationInstanceForUser,
@@ -184,7 +223,10 @@ function buildV2Dependencies({ appDefinition, config }) {
 
         // Entities
         getEntityModuleForUser,
-        listEntitiesForUser: new entityOps.ListEntitiesForUser({ moduleRepository }),
+        listEntitiesForUser: new entityOps.ListEntitiesForUser({
+            moduleRepository,
+            scopePolicy,
+        }),
         getEntityForUser: new entityOps.GetEntityForUser({ getEntityModuleForUser }),
         deleteEntityForUser: new entityOps.DeleteEntityForUser({
             getEntityModuleForUser,
@@ -196,8 +238,8 @@ function buildV2Dependencies({ appDefinition, config }) {
         refreshEntityOptionsForUser: new entityOps.RefreshEntityOptionsForUser({
             getEntityModuleForUser,
         }),
-        listEntityTypes: new ListEntityTypes({ moduleDefinitions }),
-        getEntityType: new GetEntityType({ moduleDefinitions }),
+        listEntityTypes: new ListEntityTypes({ entityTypeRegistry: registry, scopePolicy }),
+        getEntityType: new GetEntityType({ entityTypeRegistry: registry, scopePolicy }),
         getAuthorizationRequirements,
 
         // Credentials

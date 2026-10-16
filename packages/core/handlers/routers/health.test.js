@@ -50,14 +50,11 @@ jest.mock('../../database/repositories/health-check-repository-factory', () => (
 jest.mock('./../app-definition-loader', () => ({
     loadAppDefinition: jest.fn(() => ({
         integrations: [{ Definition: { name: 'test-integration' } }],
+        moduleDefinitions: [
+            { moduleName: 'test-module' },
+            { moduleName: 'another-module' },
+        ],
     })),
-}));
-
-jest.mock('../../integrations/utils/map-integration-dto', () => ({
-    getModulesDefinitionFromIntegrationClasses: jest.fn(() => [
-        { moduleName: 'test-module' },
-        { moduleName: 'another-module' },
-    ]),
 }));
 
 jest.mock('../../modules/repositories/module-repository-factory', () => ({

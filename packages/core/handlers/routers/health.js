@@ -3,9 +3,6 @@ const { createAppHandler } = require('./../app-handler-helpers');
 const { loadAppDefinition } = require('./../app-definition-loader');
 const { ModuleFactory } = require('../../modules/module-factory');
 const {
-    getModulesDefinitionFromIntegrationClasses,
-} = require('../../integrations/utils/map-integration-dto');
-const {
     createModuleRepository,
 } = require('../../modules/repositories/module-repository-factory');
 const {
@@ -45,7 +42,7 @@ try {
     integrationClasses = appDef.integrations || [];
 
     const moduleRepository = createModuleRepository();
-    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrationClasses);
+    const { moduleDefinitions } = appDef;
 
     moduleFactory = new ModuleFactory({
         moduleRepository,

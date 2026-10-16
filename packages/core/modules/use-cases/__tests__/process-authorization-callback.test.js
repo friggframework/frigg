@@ -31,13 +31,15 @@ describe('ProcessAuthorizationCallback — re-auth status restoration', () => {
         integrationRepository = new TestIntegrationRepository();
 
         moduleRepository = {
-            findEntity: jest.fn().mockResolvedValue({
-                id: 'entity-1',
-                userId: 'user-1',
-                moduleName: 'testmodule',
-                externalId: 'ext-1',
-                credential: { id: 'cred-1' },
-            }),
+            findEntities: jest.fn().mockResolvedValue([
+                {
+                    id: 'entity-1',
+                    userId: 'user-1',
+                    moduleName: 'testmodule',
+                    externalId: 'ext-1',
+                    credential: { id: 'cred-1' },
+                },
+            ]),
             findEntitiesByUserIdAndModuleName: jest.fn().mockResolvedValue([
                 {
                     id: 'entity-1',

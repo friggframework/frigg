@@ -27,13 +27,19 @@ class CreateIntegration {
      * and entity set, instead of creating a duplicate.
      * @async
      * @param {string[]} entities - Array of entity IDs to associate with the integration.
-     * @param {string} userId - ID of the user creating the integration.
+     * @param {string} userId - ID of the OWNER of the integration (ADR-056 §3):
+     *   the person or the organization's user, as ResolveIntegrationOwnership decided.
      * @param {Object} config - Configuration object for the integration.
      * @param {string} config.type - Type of integration to create.
+     * @param {{organizationId?: (string|null), adoptUnscoped?: boolean}} [tenancy]
+     *   the organization it is created in (§3.6). A duplicate is only reused in
+     *   the same organization, so one person's integration in organization A is
+     *   not handed back as the one they asked for in B. `adoptUnscoped` also
+     *   accepts a duplicate written before scoping (no organization).
      * @returns {Promise<Object>} The created or reused integration DTO.
      * @throws {Error} When integration class is not found for the specified type.
      */
-    async execute(entities, userId, config) {
+    async execute(entities, userId, config, tenancy = {}) {
         console.log(
             `[Frigg] Creating ${config?.type} integration for user ${userId} with entities [${entities}]`
         );
@@ -41,7 +47,8 @@ class CreateIntegration {
         const existing = await this._findDuplicate(
             userId,
             config?.type,
-            entities
+            entities,
+            tenancy
         );
         if (existing) {
             console.log(
@@ -50,11 +57,18 @@ class CreateIntegration {
             return this._reuseExisting(existing, config);
         }
 
+        // Everything that can be refused is refused before a row is written: an
+        // unknown type, or an entity the owner cannot load, would otherwise
+        // leave an IN_CREATION integration behind that nothing moves on.
+        const integrationClass = this._requireClass(config?.type);
+        const modules = await this._loadModules(entities, userId);
+
         const integrationRecord =
             await this.integrationRepository.createIntegration(
                 entities,
                 userId,
-                config
+                config,
+                { organizationId: tenancy.organizationId ?? null }
             );
         console.log(
             `[Frigg] Created integration ${integrationRecord.id} for user ${userId}`
@@ -65,7 +79,8 @@ class CreateIntegration {
         const survivor = await this._findDuplicate(
             userId,
             config?.type,
-            entities
+            entities,
+            tenancy
         );
         if (survivor && String(survivor.id) !== String(integrationRecord.id)) {
             console.log(
@@ -78,7 +93,8 @@ class CreateIntegration {
         }
 
         const integrationInstance = await this._buildInstance(
-            integrationRecord
+            integrationRecord,
+            { integrationClass, modules }
         );
         console.log(
             `[Frigg] Sending ON_CREATE for integration ${integrationRecord.id}`
@@ -135,7 +151,7 @@ class CreateIntegration {
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }
 
-    async _findDuplicate(userId, type, entityIds) {
+    async _findDuplicate(userId, type, entityIds, tenancy = {}) {
         const candidates =
             await this.integrationRepository.findIntegrationsByUserId(userId);
         const target = [...(entityIds ?? [])].map(String).sort();
@@ -150,6 +166,7 @@ class CreateIntegration {
             // matching how teardown failures are already handled here.
             if (integration.status === 'IN_DELETION') return false;
             if (integration.config?.type !== type) return false;
+            if (!this._sameOrganization(integration, tenancy)) return false;
             const current = [...(integration.entitiesIds ?? [])]
                 .map(String)
                 .sort();
@@ -160,6 +177,15 @@ class CreateIntegration {
         });
 
         return matches.length ? this._pickOldest(matches) : null;
+    }
+
+    /** Same organization, or a row from before scoping that belongs here. */
+    _sameOrganization(integration, tenancy) {
+        const wanted = tenancy.organizationId ?? null;
+        const has = integration.organizationId ?? null;
+        if (wanted === null && has === null) return true;
+        if (wanted !== null && has !== null) return String(wanted) === String(has);
+        return has === null && tenancy.adoptUnscoped === true;
     }
 
     _pickOldest(records) {
@@ -173,27 +199,36 @@ class CreateIntegration {
         })[0];
     }
 
-    async _buildInstance(integrationRecord) {
+    _requireClass(type) {
         const integrationClass = this.integrationClasses.find(
-            (integrationClass) =>
-                integrationClass.Definition.name ===
-                integrationRecord.config.type
+            (integrationClass) => integrationClass.Definition.name === type
         );
-
         if (!integrationClass) {
-            throw new Error(
-                `No integration class found for type: ${integrationRecord.config.type}`
-            );
+            throw new Error(`No integration class found for type: ${type}`);
         }
+        return integrationClass;
+    }
 
+    async _loadModules(entityIds, userId) {
         const modules = [];
-        for (const entityId of integrationRecord.entitiesIds) {
-            const moduleInstance = await this.moduleFactory.getModuleInstance(
-                entityId,
-                integrationRecord.userId
+        for (const entityId of entityIds) {
+            modules.push(
+                await this.moduleFactory.getModuleInstance(entityId, userId)
             );
-            modules.push(moduleInstance);
         }
+        return modules;
+    }
+
+    async _buildInstance(integrationRecord, preloaded) {
+        const integrationClass =
+            preloaded?.integrationClass ??
+            this._requireClass(integrationRecord.config.type);
+        const modules =
+            preloaded?.modules ??
+            (await this._loadModules(
+                integrationRecord.entitiesIds,
+                integrationRecord.userId
+            ));
 
         const integrationInstance = new integrationClass({
             id: integrationRecord.id,

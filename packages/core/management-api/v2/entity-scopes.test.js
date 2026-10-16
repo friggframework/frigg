@@ -1,0 +1,445 @@
+/**
+ * ADR-056 §3 at the v2 API, through the real router, dependencies and use
+ * cases. The repositories are the only fakes, and they answer the way a
+ * database does: they run the owner/organization clauses they are handed, so
+ * a use case that asked for the wrong rows would get the wrong rows back.
+ * Module is faked because building a real API client is not what is tested.
+ */
+jest.mock('../../modules/module', () => ({
+    Module: jest.fn().mockImplementation(({ userId, definition, entity }) => ({
+        userId,
+        entity,
+        credential: undefined,
+        definition,
+        apiClass: { requesterType: 'apiKey' },
+        api: { delegate: null },
+        testAuth: jest.fn().mockResolvedValue(true),
+        apiParamsFromCredential: jest.fn().mockReturnValue({}),
+        apiParamsFromEntity: jest.fn().mockReturnValue({}),
+        getName: jest.fn().mockReturnValue('acme'),
+    })),
+}));
+
+const mockState = { entities: [], credentials: [], integrations: [], nextId: 100 };
+const mockSame = (a, b) =>
+    a !== undefined && a !== null && b !== undefined && b !== null && String(a) === String(b);
+
+jest.mock('../../modules/repositories/module-repository-factory', () => ({
+    createModuleRepository: () => ({
+        findEntitiesByOwnership: async (clauses) =>
+            mockState.entities.filter((row) => require('../../modules/tests/doubles/ownership-matching').matchesAnyClause(row, clauses)),
+        findEntityById: async (id) => {
+            const row = mockState.entities.find((e) => String(e.id) === String(id));
+            if (!row) throw new Error(`Entity ${id} not found`);
+            return row;
+        },
+        findEntitiesByIds: async (ids) =>
+            mockState.entities.filter((e) => ids.map(String).includes(String(e.id))),
+        findEntitiesByUserIdAndModuleName: async (userId, moduleName) =>
+            mockState.entities.filter((e) => mockSame(e.userId, userId) && e.moduleName === moduleName),
+        findEntities: async (filter) =>
+            mockState.entities.filter(
+                (e) =>
+                    (filter.credentialId === undefined ||
+                        String(e.credential?.id) === String(filter.credentialId)) &&
+                    (filter.user === undefined || mockSame(e.userId, filter.user)) &&
+                    (filter.moduleName === undefined || e.moduleName === filter.moduleName) &&
+                    (filter.externalId === undefined || e.externalId === filter.externalId)
+            ),
+        findEntity: async () => null,
+        createEntity: async (data, tenancy = {}) => {
+            const { user, credential, ...rest } = data;
+            const row = {
+                ...rest,
+                id: String(mockState.nextId++),
+                userId: String(user),
+                credential: credential ? { id: String(credential) } : null,
+                organizationId: tenancy.organizationId ?? null,
+            };
+            mockState.entities.push(row);
+            return row;
+        },
+        updateEntity: async () => null,
+        unsetCredential: async () => true,
+        deleteEntity: async (id) => {
+            mockState.entities = mockState.entities.filter((e) => String(e.id) !== String(id));
+            return true;
+        },
+    }),
+}));
+jest.mock('../../credential/repositories/credential-repository-factory', () => ({
+    createCredentialRepository: () => ({
+        findCredentialsByUserId: async (userId) =>
+            mockState.credentials.filter((c) => mockSame(c.userId, userId)),
+        findCredentialById: async (id) =>
+            mockState.credentials.find((c) => String(c.id) === String(id)) ?? null,
+        upsertCredential: async ({ identifiers, details }) => {
+            const row = {
+                id: `c${mockState.nextId++}`,
+                userId: String(identifiers.user),
+                externalId: identifiers.externalId,
+                ...details,
+            };
+            mockState.credentials.push(row);
+            return row;
+        },
+        deleteCredentialById: async () => true,
+    }),
+}));
+jest.mock('../../integrations/repositories/integration-repository-factory', () => ({
+    createIntegrationRepository: () => ({
+        findIntegrationsByOwnership: async (clauses) =>
+            mockState.integrations.filter((row) => require('../../modules/tests/doubles/ownership-matching').matchesAnyClause(row, clauses)),
+        findIntegrationById: async (id) => {
+            const row = mockState.integrations.find((i) => String(i.id) === String(id));
+            if (!row) throw new Error(`Integration with id ${id} not found`);
+            return row;
+        },
+        findIntegrationsByEntityId: async () => [],
+        findIntegrationsByUserId: async (userId) =>
+            mockState.integrations.filter((i) => mockSame(i.userId, userId)),
+        createIntegration: async (entities, userId, config, tenancy = {}) => {
+            const row = {
+                id: `i${mockState.nextId++}`,
+                entitiesIds: entities,
+                userId: String(userId),
+                organizationId: tenancy.organizationId ?? null,
+                config,
+                version: '0.0.0',
+                status: 'IN_CREATION',
+                messages: {},
+                createdAt: new Date(),
+            };
+            mockState.integrations.push(row);
+            return row;
+        },
+        patchIntegrationConfig: async (id) => mockState.integrations.find((i) => i.id === id),
+        updateIntegrationStatus: async () => true,
+    }),
+}));
+jest.mock('../../user/repositories/user-repository-factory', () => ({
+    createUserRepository: () => ({}),
+}));
+jest.mock('../../user/repositories/organization-membership-repository-factory', () => ({
+    createOrganizationMembershipRepository: () => ({}),
+}));
+jest.mock('../../modules/repositories/authorization-session-repository-factory', () => ({
+    createAuthorizationSessionRepository: () => ({}),
+}));
+
+const { createApp } = require('../../handlers/app-handler-helpers');
+const { request } = require('../test-support/http-client');
+const { AuthenticateUser } = require('../../user/use-cases/authenticate-user');
+const { User } = require('../../user/user');
+const { resolveManagementApiConfig } = require('../management-api-config');
+const { createManagementApiV2Router } = require('./create-v2-router');
+const { getEntityTypeRegistry } = require('../../modules/entity-type-registry');
+const { resolveOwnershipConfig } = require('../../modules/entity-scope');
+
+const AUTH = { authorization: 'Bearer token' };
+
+const moduleDefinition = (moduleName, extra = {}) => ({
+    moduleName,
+    getName: () => moduleName,
+    modelName: moduleName,
+    API: { requesterType: 'apiKey' },
+    requiredAuthMethods: {
+        setAuthParams: async () => ({}),
+        getCredentialDetails: async (_api, userId) => ({
+            identifiers: { user: userId, externalId: `cred-${userId}` },
+            details: { api_key: 'sk_live_0123456789abcdef' },
+        }),
+        getEntityDetails: async (_api, _params, _token, userId) => ({
+            identifiers: { user: userId, externalId: 'acct-1' },
+            details: { name: 'Acme account' },
+        }),
+    },
+    getAuthRequirementsForStep: async () => ({
+        type: 'api-key',
+        data: { jsonSchema: { type: 'object', properties: { key: { type: 'string' } } } },
+    }),
+    ...extra,
+});
+
+const acme = moduleDefinition('acme');
+const slack = moduleDefinition('slack');
+const { IntegrationBase } = require('../../integrations/integration-base');
+
+class SyncIntegration extends IntegrationBase {
+    static Definition = {
+        name: 'sync',
+        version: '1.0.0',
+        modules: { acme: { definition: acme } },
+        display: {
+            label: 'Sync',
+            description: 'Sync',
+            detailsUrl: 'https://example.com',
+            icon: 'sync',
+        },
+    };
+    static getOptionDetails() {
+        return { name: 'sync' };
+    }
+    // The lifecycle is not under test: ownership is decided before it runs.
+    async initialize() {}
+    async send() {
+        return null;
+    }
+}
+const syncIntegration = SyncIntegration;
+
+let currentUser;
+const caller = ({ individual = { id: '7', organizationId: null }, org = null } = {}) =>
+    new User(individual, org ? { id: String(org) } : null, false, 'individual', true, false);
+
+function appFor(appDefinition) {
+    const entityTypeRegistry = getEntityTypeRegistry(appDefinition);
+    const definition = {
+        ...appDefinition,
+        entityTypeRegistry,
+        ownership: resolveOwnershipConfig(appDefinition, entityTypeRegistry),
+    };
+    const config = resolveManagementApiConfig(definition.managementApi);
+    return createApp((app) => app.use(createManagementApiV2Router({ appDefinition: definition, config })));
+}
+
+const entityRow = (id, userId, organizationId, extra = {}) => ({
+    id,
+    userId: String(userId),
+    organizationId: organizationId === null ? null : String(organizationId),
+    moduleName: 'acme',
+    name: `entity ${id}`,
+    credential: extra.credentialId ? { id: extra.credentialId, authIsValid: true } : null,
+});
+
+describe('ownership by scope at the v2 API (ADR-056 §3)', () => {
+    const previousDbType = process.env.DB_TYPE;
+    beforeAll(() => {
+        process.env.DB_TYPE = 'postgresql';
+    });
+    afterAll(() => {
+        if (previousDbType === undefined) delete process.env.DB_TYPE;
+        else process.env.DB_TYPE = previousDbType;
+    });
+    beforeEach(() => {
+        mockState.entities = [];
+        mockState.credentials = [];
+        mockState.integrations = [];
+        mockState.nextId = 100;
+        currentUser = caller({ org: 17 });
+        jest.spyOn(AuthenticateUser.prototype, 'execute').mockImplementation(async () => currentUser);
+    });
+    afterEach(() => jest.restoreAllMocks());
+
+    const app = (extra = {}) =>
+        appFor({
+            integrations: [syncIntegration],
+            entities: { slack: { definition: slack, scope: 'organization' } },
+            ...extra,
+        });
+
+    describe('authorize', () => {
+        it('creates an individual entity owned by the person, in the active organization', async () => {
+            const res = await request(app(), {
+                method: 'POST',
+                path: '/api/v2/authorize',
+                headers: AUTH,
+                body: { entityType: 'acme', data: { key: 'k' } },
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.entity).toMatchObject({
+                scope: 'individual',
+                owner: { type: 'individual', id: '7' },
+                organizationId: '17',
+                access: 'manage',
+            });
+            expect(mockState.entities[0]).toMatchObject({ userId: '7', organizationId: '17' });
+            expect(mockState.credentials[0].userId).toBe('7');
+        });
+
+        it('creates an organization entity owned by the organization when the registry says so', async () => {
+            const res = await request(app(), {
+                method: 'POST',
+                path: '/api/v2/authorize',
+                headers: AUTH,
+                body: { entityType: 'slack', data: { key: 'k' } },
+            });
+            expect(res.status).toBe(200);
+            expect(res.body.entity).toMatchObject({
+                scope: 'organization',
+                owner: { type: 'organization', id: '17' },
+                organizationId: '17',
+            });
+            expect(mockState.entities[0]).toMatchObject({ userId: '17', organizationId: '17' });
+        });
+
+        it('lets the request choose within the allow list and refuses outside it', async () => {
+            const flexible = app({
+                entities: {
+                    slack: { definition: slack, scope: { default: 'organization', allow: ['organization', 'individual'] } },
+                },
+            });
+            const asIndividual = await request(flexible, {
+                method: 'POST', path: '/api/v2/authorize', headers: AUTH,
+                body: { entityType: 'slack', scope: 'individual', data: { key: 'k' } },
+            });
+            expect(asIndividual.body.entity).toMatchObject({ scope: 'individual', owner: { id: '7' } });
+
+            const refused = await request(app(), {
+                method: 'POST', path: '/api/v2/authorize', headers: AUTH,
+                body: { entityType: 'slack', scope: 'individual', data: { key: 'k' } },
+            });
+            expect(refused.status).toBe(403);
+            expect(refused.body.error.code).toBe('SCOPE_NOT_ALLOWED');
+        });
+
+        it('refuses global with 403 and a clear message, and creates nothing', async () => {
+            const res = await request(app(), {
+                method: 'POST', path: '/api/v2/authorize', headers: AUTH,
+                body: { entityType: 'acme', scope: 'global', data: { key: 'k' } },
+            });
+            expect(res.status).toBe(403);
+            expect(res.body.error.message).toMatch(/app owner through admin routes/);
+            expect(mockState.entities).toHaveLength(0);
+        });
+
+        it('400s an organization entity with no active organization, naming the header', async () => {
+            currentUser = caller();
+            const res = await request(app(), {
+                method: 'POST', path: '/api/v2/authorize', headers: AUTH,
+                body: { entityType: 'slack', data: { key: 'k' } },
+            });
+            expect(res.status).toBe(400);
+            expect(res.body.error.details.field).toBe('x-frigg-apporgid');
+        });
+
+        it("under individualAcross 'all' stores the entity with no organization", async () => {
+            const res = await request(app({ ownership: { individualAcross: 'all' } }), {
+                method: 'POST', path: '/api/v2/authorize', headers: AUTH,
+                body: { entityType: 'acme', data: { key: 'k' } },
+            });
+            expect(res.body.entity).toMatchObject({ scope: 'individual', organizationId: null });
+            expect(mockState.entities[0].organizationId).toBeNull();
+        });
+    });
+
+    describe('lists', () => {
+        beforeEach(() => {
+            mockState.entities = [
+                entityRow('1', 7, 17, { credentialId: 'c1' }),
+                entityRow('2', 7, 18, { credentialId: 'c1' }),
+                entityRow('3', 17, 17, { credentialId: 'c17' }),
+                entityRow('4', 8, 17),
+                entityRow('5', 18, 18),
+            ];
+            mockState.credentials = [
+                { id: 'c1', userId: '7', authIsValid: true, access_token: 'sk_live_0123456789abcdef' },
+                { id: 'c17', userId: '17', authIsValid: true, api_key: 'sk_live_0123456789abcdef' },
+            ];
+        });
+        const ids = (list) => list.map((e) => e.id).sort();
+
+        it('lists entities per active organization with scope, owner, organizationId and access', async () => {
+            const res = await request(app(), { path: '/api/v2/entities', headers: AUTH });
+            expect(res.status).toBe(200);
+            expect(ids(res.body.entities)).toEqual(['1', '3']);
+            expect(res.body.entities.find((e) => e.id === '3')).toMatchObject({
+                scope: 'organization',
+                owner: { type: 'organization', id: '17' },
+                organizationId: '17',
+                access: 'manage',
+            });
+            currentUser = caller({ org: 18 });
+            const other = await request(app(), { path: '/api/v2/entities', headers: AUTH });
+            expect(ids(other.body.entities)).toEqual(['2', '5']);
+        });
+
+        it('filters by ?scope and ?owner, and 400s a value it does not know', async () => {
+            const byScope = await request(app(), { path: '/api/v2/entities?scope=organization', headers: AUTH });
+            expect(ids(byScope.body.entities)).toEqual(['3']);
+            const byOwner = await request(app(), { path: '/api/v2/entities?owner=me', headers: AUTH });
+            expect(ids(byOwner.body.entities)).toEqual(['1']);
+            const bad = await request(app(), { path: '/api/v2/entities?scope=global', headers: AUTH });
+            expect(bad.status).toBe(400);
+        });
+
+        it('gets one entity in its organization and 404s it from another', async () => {
+            const ok = await request(app(), { path: '/api/v2/entities/1', headers: AUTH });
+            expect(ok.status).toBe(200);
+            expect(ok.body).toMatchObject({ scope: 'individual', organizationId: '17' });
+            currentUser = caller({ org: 18 });
+            const elsewhere = await request(app(), { path: '/api/v2/entities/1', headers: AUTH });
+            expect(elsewhere.status).toBe(404);
+        });
+
+        it('lists integrations per active organization with the same fields', async () => {
+            mockState.integrations = [
+                { id: 'i1', userId: '7', organizationId: '17', entitiesIds: ['1'], config: { type: 'sync' }, status: 'ENABLED' },
+                { id: 'i2', userId: '7', organizationId: '18', entitiesIds: ['2'], config: { type: 'sync' }, status: 'ENABLED' },
+                { id: 'i3', userId: '17', organizationId: '17', entitiesIds: ['3'], config: { type: 'sync' }, status: 'ENABLED' },
+            ];
+            const res = await request(app(), { path: '/api/v2/integrations', headers: AUTH });
+            expect(res.status).toBe(200);
+            expect(res.body.integrations.map((i) => [i.id, i.scope, i.organizationId, i.access]).sort()).toEqual([
+                ['i1', 'individual', '17', 'manage'],
+                ['i3', 'organization', '17', 'manage'],
+            ]);
+            const filtered = await request(app(), { path: '/api/v2/integrations?owner=org', headers: AUTH });
+            expect(filtered.body.integrations.map((i) => i.id)).toEqual(['i3']);
+        });
+    });
+
+    describe('integrations', () => {
+        beforeEach(() => {
+            mockState.entities = [
+                entityRow('1', 7, 17, { credentialId: 'c1' }),
+                entityRow('2', 7, 18, { credentialId: 'c1' }),
+                entityRow('3', 8, 17, { credentialId: 'c8' }),
+            ];
+        });
+        const create = (entities, extra = {}) =>
+            request(app(), {
+                method: 'POST', path: '/api/v2/integrations', headers: AUTH,
+                body: { entities, config: { type: 'sync' }, ...extra },
+            });
+
+        it('creates one owned by the person and paired with the active organization', async () => {
+            const res = await create(['1']);
+            expect(res.status).toBe(201);
+            expect(mockState.integrations).toHaveLength(1);
+            expect(mockState.integrations[0]).toMatchObject({ userId: '7', organizationId: '17' });
+        });
+
+        it('refuses an entity connected in another organization, and a colleague one, with 404 and no write', async () => {
+            for (const entities of [['2'], ['3']]) {
+                const res = await create(entities);
+                expect(res.status).toBe(404);
+            }
+            expect(mockState.integrations).toHaveLength(0);
+        });
+
+        it('does not reuse an integration from another organization', async () => {
+            await create(['1']);
+            currentUser = caller({ org: 18 });
+            const res = await create(['2']);
+            expect(res.status).toBe(201);
+            expect(mockState.integrations.map((i) => i.organizationId).sort()).toEqual(['17', '18']);
+        });
+    });
+
+    describe('entity types', () => {
+        it('say which scope a connection gets and which a request may choose', async () => {
+            const res = await request(
+                app({
+                    entities: {
+                        slack: { definition: slack, scope: { default: 'organization', allow: ['organization', 'individual'] } },
+                    },
+                }),
+                { path: '/api/v2/entities/types', headers: AUTH }
+            );
+            const byType = Object.fromEntries(res.body.types.map((t) => [t.type, t.scope]));
+            expect(byType.slack).toEqual({ default: 'organization', allow: ['organization', 'individual'], source: 'entityType' });
+            expect(byType.acme).toEqual({ default: 'individual', allow: ['individual'], source: 'default' });
+        });
+    });
+});

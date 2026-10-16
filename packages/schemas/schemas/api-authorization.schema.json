@@ -173,6 +173,11 @@
           "default": 1,
           "description": "Current step number for multi-step flows"
         },
+        "scope": {
+          "type": "string",
+          "enum": ["individual", "organization"],
+          "description": "The scope to connect at, from the entity type's allow list (ADR-056 §3.1). Omit to take the type's default. global is refused."
+        },
         "sessionId": {
           "type": "string",
           "description": "Session ID from previous step (required for step > 1)"

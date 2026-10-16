@@ -105,6 +105,16 @@
           "description": "Require organization user for authentication",
           "default": false
         },
+        "strictMembership": {
+          "type": "boolean",
+          "description": "Reject x-frigg headers that name an organization the person is not already a member of, instead of adding the membership (ADR-056 §3.6). Turn on once entities and integrations are scoped by organization and your app manages membership itself.",
+          "default": false
+        },
+        "strictUserValidation": {
+          "type": "boolean",
+          "description": "DEPRECATED alias of strictMembership; its meaning changed.",
+          "default": false
+        },
         "authModes": {
           "type": "object",
           "description": "Authentication mode configuration - enables multiple authentication strategies. x-frigg-appUserId and x-frigg-appOrgId headers are automatically supported for user identification with any auth mode.",
@@ -681,6 +691,88 @@
           "description": "Log format. Records are always JSON lines.",
           "enum": ["json"],
           "default": "json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "entities": {
+      "type": "object",
+      "description": "App-level entity type registry (ADR-059). Keyed by entity type name; each key must equal its definition's moduleName / getName(). Registered types can be connected without any integration. Entity types bound by declared integrations are inferred and merged unless $infer is false.",
+      "properties": {
+        "$infer": {
+          "type": "boolean",
+          "default": true,
+          "description": "false turns inference off: every module an integration binds must then be registered here, or the app fails to load."
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "description": "One entity type: its module definition plus app-level settings.",
+        "required": ["definition"],
+        "properties": {
+          "definition": {
+            "type": "object",
+            "description": "The API module definition (the object an integration binds as modules.<key>.definition)."
+          },
+          "scope": {
+            "description": "Who owns entities of this type (ADR-056): one scope, or a default plus the scopes callers may choose.",
+            "oneOf": [
+              { "type": "string", "enum": ["individual", "organization", "global"] },
+              {
+                "type": "object",
+                "properties": {
+                  "default": { "type": "string", "enum": ["individual", "organization", "global"] },
+                  "allow": {
+                    "type": "array",
+                    "items": { "type": "string", "enum": ["individual", "organization", "global"] },
+                    "minItems": 1,
+                    "uniqueItems": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "proxy": {
+            "type": "object",
+            "description": "Per-type entity proxy allow-list override (ADR-052)."
+          },
+          "display": {
+            "type": "object",
+            "description": "Label, icon and description shown by UIs and GET /api/v2/entity-types."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "ownership": {
+      "type": "object",
+      "description": "Who owns what a person connects (ADR-056 §3). `scope` is the app-level default for any entity type or integration binding that sets none; the order is request, binding, integration, entity type, app, then `organization` for an organization-primary app and `individual` otherwise.",
+      "properties": {
+        "scope": {
+        "description": "One scope, or a default plus the scopes a request may choose from.",
+        "oneOf": [
+          { "type": "string", "enum": ["individual", "organization", "global"] },
+          {
+            "type": "object",
+            "properties": {
+              "default": { "type": "string", "enum": ["individual", "organization", "global"] },
+              "allow": {
+                "type": "array",
+                "items": { "type": "string", "enum": ["individual", "organization", "global"] },
+                "minItems": 1,
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+        "individualAcross": {
+          "type": "string",
+          "enum": ["organization", "all"],
+          "default": "organization",
+          "description": "`organization` (default): an individual entity belongs to the organization it was connected in and is not visible in another. `all`: one connection per person across every organization they belong to, stored with no organizationId."
         }
       },
       "additionalProperties": false
