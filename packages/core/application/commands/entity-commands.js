@@ -1,11 +1,23 @@
 const {
     createModuleRepository,
 } = require('../../modules/repositories/module-repository-factory');
+const { toCredentialId } = require('../../modules/utils/to-credential-id');
 
 const ERROR_CODE_MAP = {
     ENTITY_NOT_FOUND: 404,
     INVALID_ENTITY_DATA: 400,
 };
+
+function toEntityDto(entity) {
+    return {
+        id: entity.id,
+        userId: entity.userId,
+        externalId: entity.externalId,
+        name: entity.name,
+        moduleName: entity.moduleName,
+        credentialId: toCredentialId(entity.credential),
+    };
+}
 
 function mapErrorToResponse(error) {
     const status = ERROR_CODE_MAP[error?.code] || 500;
@@ -66,16 +78,7 @@ function createEntityCommands() {
 
                 const entity = await moduleRepo.createEntity(entityData);
 
-                return {
-                    id: entity.id,
-                    userId: entity.userId,
-                    externalId: entity.externalId,
-                    name: entity.name,
-                    moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
-                };
+                return toEntityDto(entity);
             } catch (error) {
                 return mapErrorToResponse(error);
             }
@@ -109,16 +112,7 @@ function createEntityCommands() {
                     return null;
                 }
 
-                return {
-                    id: entity.id,
-                    userId: entity.userId,
-                    externalId: entity.externalId,
-                    name: entity.name,
-                    moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
-                };
+                return toEntityDto(entity);
             } catch (error) {
                 return mapErrorToResponse(error);
             }
@@ -139,16 +133,7 @@ function createEntityCommands() {
 
                 const entities = await moduleRepo.findEntitiesByUserId(userId);
 
-                return entities.map((entity) => ({
-                    id: entity.id,
-                    userId: entity.userId,
-                    externalId: entity.externalId,
-                    name: entity.name,
-                    moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
-                }));
+                return entities.map((entity) => toEntityDto(entity));
             } catch (error) {
                 if (error.code) {
                     return mapErrorToResponse(error);
@@ -180,16 +165,7 @@ function createEntityCommands() {
                         moduleName
                     );
 
-                return entities.map((entity) => ({
-                    id: entity.id,
-                    userId: entity.userId,
-                    externalId: entity.externalId,
-                    name: entity.name,
-                    moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
-                }));
+                return entities.map((entity) => toEntityDto(entity));
             } catch (error) {
                 if (error.code) {
                     return mapErrorToResponse(error);
@@ -213,16 +189,7 @@ function createEntityCommands() {
 
                 const entity = await moduleRepo.findEntityById(entityId);
 
-                return {
-                    id: entity.id,
-                    userId: entity.userId,
-                    externalId: entity.externalId,
-                    name: entity.name,
-                    moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
-                };
+                return toEntityDto(entity);
             } catch (error) {
                 return mapErrorToResponse(error);
             }
@@ -250,16 +217,7 @@ function createEntityCommands() {
                     throw error;
                 }
 
-                return {
-                    id: entity.id,
-                    userId: entity.userId,
-                    externalId: entity.externalId,
-                    name: entity.name,
-                    moduleName: entity.moduleName,
-                    credentialId: entity.credential?._id
-                        ? entity.credential._id.toString()
-                        : entity.credential,
-                };
+                return toEntityDto(entity);
             } catch (error) {
                 return mapErrorToResponse(error);
             }
