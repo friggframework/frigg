@@ -449,17 +449,31 @@ and every org-scoped check follows the last request. That is a defect, not a mod
   `organizationId`: the active organization at connect time for `individual`, the owner for
   `organization`, null for `global`. A person's Google connected while working in organization A is
   not visible or usable in organization B. Connecting the same account in both is two entities, which
-  is correct when the organizations are different tenants. Apps that want one connection per person
-  across all their organizations set `ownership.individualAcross: 'all'`; the default is
-  `'organization'`.
+  is correct when the organizations are different tenants.
+- **`ownership.individualAcross: 'all'`** is for apps that want one connection per person across all
+  their organizations; the default is `'organization'`. Under `'all'`, an `individual` entity is
+  stored with `organizationId` null and identified by its owner. Its owner can see and use it in every
+  organization they are a member of, and nobody else can. A null `organizationId` on an
+  `individual` entity is valid only under `'all'`. It is not `global`: a `global` entity has no owner.
 - **Integrations carry the organization too.** `Integration` gains `organizationId` (the active
   organization at create time). An individual-owned integration belongs to the membership, so
-  §3 "when a member leaves" applies per membership: leaving A orphans A's integrations only.
+  §3 "when a member leaves" applies per membership: leaving A orphans A's integrations only. Under
+  `'all'`, the person's organization-independent entities are not tied to A and are not orphaned
+  when they leave it. An integration in A may use such an entity only while its owner is a member of A.
 - **Lists are scoped to the active organization.** `/entities`, `/credentials` and `/integrations`
   return, for the active organization: its `organization` entities, the caller's `individual`
-  entities paired with it, and integrations owned by the caller or the organization in it. A
-  response never mixes organizations. A person who wants another organization's view sends that
-  organization as the active one. `GET /api/v2/me/organizations` lists the caller's memberships.
+  entities, and integrations owned by the caller or the organization in it. The caller's
+  `individual` entities are, in both lists and access checks:
+
+  ```
+  owner = caller AND (organizationId = active org
+                      OR (individualAcross = 'all' AND organizationId IS NULL))
+  ```
+
+  A response never mixes organizations' data. The only rows that appear in more than one
+  organization's list are the caller's own organization-independent `individual` entities under
+  `'all'`, which belong to no organization. A person who wants another organization's view sends
+  that organization as the active one. `GET /api/v2/me/organizations` lists the caller's memberships.
 
 ### 4. Visibility callback (2.1)
 
