@@ -48,8 +48,12 @@ function fakeRepos({ entities = [], integrations = [] } = {}) {
 // Person 7 belongs to organizations 17 (the legacy pointer) and 18. Person 8 is in 17.
 const person = (id, pointer = null) => ({ id: String(id), type: 'INDIVIDUAL', organizationId: pointer });
 const orgUser = (id) => ({ id: String(id), type: 'ORGANIZATION' });
-const callerIn = (individual, org, { primary = 'individual' } = {}) =>
-    new User(individual, org ? orgUser(org) : null, false, primary, true, false);
+const callerIn = (individual, org, { primary = 'individual', source = 'shared-secret', role } = {}) => {
+    const user = new User(individual, org ? orgUser(org) : null, false, primary, true, false);
+    user.setAuthSource(source);
+    if (role) user.setOrgRole(role);
+    return user;
+};
 
 const entity = (id, userId, organizationId, extra = {}) => ({
     id: String(id),
@@ -246,6 +250,24 @@ describe('entities are listed and loaded per active organization', () => {
             const { repos, useCase } = build([entity('x18', 18, 18)]);
             await expect(useCase.execute('x18', callerIn(person(7), 17))).rejects.toMatchObject({ output: { statusCode: 404 } });
             expect(repos.moduleRepository.deleteEntity).not.toHaveBeenCalled();
+        });
+
+        it('a member may not delete an organization entity (403), an admin may', async () => {
+            const { repos, useCase } = build([entity('x17', 17, 17)]);
+            await expect(
+                useCase.execute('x17', callerIn(person(7), 17, { source: 'adopter-jwt' }))
+            ).rejects.toMatchObject({ output: { statusCode: 403 }, data: { code: 'ORG_ADMIN_REQUIRED' } });
+            expect(repos.moduleRepository.deleteEntity).not.toHaveBeenCalled();
+            const admin = callerIn(person(7), 17, { source: 'adopter-jwt' });
+            admin.setOrgRole('ADMIN');
+            await useCase.execute('x17', admin);
+            expect(repos.moduleRepository.deleteEntity).toHaveBeenCalledWith('x17');
+        });
+
+        it("a member deletes their own entity in the organization", async () => {
+            const { repos, useCase } = build([entity('g17', 7, 17)]);
+            await useCase.execute('g17', callerIn(person(7), 17, { source: 'adopter-jwt' }));
+            expect(repos.moduleRepository.deleteEntity).toHaveBeenCalledWith('g17');
         });
 
         it('deletes an entity the caller may use', async () => {

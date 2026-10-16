@@ -9,7 +9,8 @@ shared-secret path.
 `OrganizationMembership { individualUserId, organizationUserId, orgRole, createdAt }`, unique on the
 pair, in both Prisma schemas (migration `20261015000000_add_organization_membership` for PostgreSQL).
 `orgRole` defaults to `MEMBER` and is the organization role the token carried when the membership was
-created; the role of the current request always comes from the current token (`user.getOrgRole()`).
+created; the role of the current request always comes from the current token (`user.getOrgRole()`). That request role
+decides who may manage organization-level entities and integrations: see "Organization roles" in `entity-scopes.md`.
 
 `IndividualUser.organizationId` stays as a **legacy pointer**. It is set when a person is first
 linked to an organization (the database repeats "only while it is still null" in the update, so two

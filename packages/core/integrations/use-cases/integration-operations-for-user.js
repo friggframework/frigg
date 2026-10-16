@@ -1,6 +1,7 @@
 const Boom = require('@hapi/boom');
 const { describeRecord } = require('../../modules/scope-visibility');
 const { DEFAULT_SCOPE_POLICY } = require('../../modules/scope-policy');
+const { assertCanManage } = require('../../modules/use-cases/manage-access');
 const { isIntegrationNotFound } = require('../repositories/integration-not-found');
 
 /**
@@ -32,7 +33,14 @@ class GetOwnedIntegrationRecord {
         return describeRecord(record, this.scopePolicy.accessContext(user), 'integration');
     }
 
-    async execute(integrationId, user) {
+    /**
+     * @param {string} integrationId
+     * @param {Object} user - authenticated User
+     * @param {{manage?: boolean}} [options] - `manage: true` for changing or
+     *   deleting: a person may use an organization's integration but only an
+     *   admin may change it (403 ORG_ADMIN_REQUIRED)
+     */
+    async execute(integrationId, user, { manage = false } = {}) {
         let record = null;
         try {
             record = await this.integrationRepository.findIntegrationById(
@@ -47,9 +55,9 @@ class GetOwnedIntegrationRecord {
             }
             throw error;
         }
-        if (!record || !this.describe(record, user)) {
-            throw notFound(integrationId);
-        }
+        const tenancy = record && this.describe(record, user);
+        if (!tenancy) throw notFound(integrationId);
+        if (manage) assertCanManage(tenancy.access, `integration ${integrationId}`);
         return record;
     }
 }
@@ -138,7 +146,8 @@ class UpdateIntegrationForUser {
         }
         const record = await this.getOwnedIntegrationRecord.execute(
             integrationId,
-            user
+            user,
+            { manage: true }
         );
         return this.updateIntegration.execute(record.id, record.userId, config);
     }
@@ -154,7 +163,8 @@ class RemoveIntegrationForUser {
     async execute(integrationId, user) {
         const record = await this.getOwnedIntegrationRecord.execute(
             integrationId,
-            user
+            user,
+            { manage: true }
         );
         await this.deleteIntegrationForUser.execute(record.id, record.userId);
     }

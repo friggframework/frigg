@@ -8,6 +8,7 @@ const {
     SCOPES,
     INDIVIDUAL_ACROSS_VALUES,
     OWNER_RULES,
+    DEFAULT_ORG_ADMIN_ROLES,
     configError,
     isPlainObject,
     parseScopeSetting,
@@ -76,6 +77,40 @@ function readIntegrationOwnership(integrationClass) {
 }
 
 /**
+ * `user.orgAdminRoles`: the token roles that may manage organization-level
+ * things. Default `['ADMIN']`. A shared-secret caller needs no role.
+ */
+function readOrgAdminRoles(appDefinition) {
+    const raw = appDefinition?.user?.orgAdminRoles;
+    if (raw === undefined || raw === null) return [...DEFAULT_ORG_ADMIN_ROLES];
+    if (
+        !Array.isArray(raw) ||
+        raw.length === 0 ||
+        raw.some((role) => typeof role !== 'string' || role.trim() === '')
+    ) {
+        throw configError(
+            'appDefinition.user.orgAdminRoles',
+            'must be a non-empty array of role names'
+        );
+    }
+    return [...raw];
+}
+
+/**
+ * `user.orgAdminGateBearerTokens`: judge Frigg bearer-token callers by role
+ * like adopter-token callers. Default false: they keep their pre-roles
+ * behaviour and may manage the organization they act in.
+ */
+function readGateBearerTokens(appDefinition) {
+    const raw = appDefinition?.user?.orgAdminGateBearerTokens;
+    if (raw === undefined || raw === null) return false;
+    if (typeof raw !== 'boolean') {
+        throw configError('appDefinition.user.orgAdminGateBearerTokens', 'must be a boolean');
+    }
+    return raw;
+}
+
+/**
  * Every binding of every integration with its resolved scope and where it came
  * from, parsing each integration's settings once. Throws OwnershipConfigError
  * for any invalid one. Exported for tooling that wants to show the chain.
@@ -118,7 +153,7 @@ function listBindingScopes(appDefinition, entityTypeRegistry, primary) {
  * Validates every ownership setting in one pass and returns the app-level
  * config the runtime needs.
  *
- * @returns {{scope: ({default: string, allow: string[]}|null), individualAcross: string}}
+ * @returns {{scope: ({default: string, allow: string[]}|null), individualAcross: string, orgAdminRoles: string[], gateBearerTokens: boolean}}
  * @throws {OwnershipConfigError}
  */
 function resolveOwnershipConfig(appDefinition, entityTypeRegistry) {
@@ -143,6 +178,8 @@ function resolveOwnershipConfig(appDefinition, entityTypeRegistry) {
     return Object.freeze({
         scope: app.scope,
         individualAcross: app.individualAcross,
+        orgAdminRoles: Object.freeze(readOrgAdminRoles(appDefinition)),
+        gateBearerTokens: readGateBearerTokens(appDefinition),
     });
 }
 

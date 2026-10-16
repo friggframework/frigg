@@ -17,13 +17,19 @@ const { GetIntegrationsForUser } = require('../../use-cases/get-integrations-for
 const {
     GetOwnedIntegrationRecord,
     CreateIntegrationForUser,
+    UpdateIntegrationForUser,
+    RemoveIntegrationForUser,
 } = require('../../use-cases/integration-operations-for-user');
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 const { TestModuleFactory } = require('../../../modules/tests/doubles/test-module-factory');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
-const caller = ({ individual = { id: '7', organizationId: null }, org = null } = {}) =>
-    new User(individual, org ? { id: String(org) } : null, false, 'individual', true, false);
+const caller = ({ individual = { id: '7', organizationId: null }, org = null, source = 'shared-secret', role } = {}) => {
+    const user = new User(individual, org ? { id: String(org) } : null, false, 'individual', true, false);
+    user.setAuthSource(source);
+    if (role) user.setOrgRole(role);
+    return user;
+};
 
 const entity = (id, userId, organizationId, moduleName = 'crm') => ({
     id,
@@ -432,7 +438,11 @@ describe('creating twice is idempotent for a legacy organization-owned integrati
     };
     const create = (useCase, user) =>
         useCase.execute({ entities: ['x'], config: { type: 'dummy' } }, user);
-    const orgUser = (individual) => new User(individual, { id: '17' }, false, 'organization', false, true);
+    const orgUser = (individual) => {
+        const user = new User(individual, { id: '17' }, false, 'organization', false, true);
+        user.setAuthSource('shared-secret');
+        return user;
+    };
 
     it('reuses it when the caller sends only the organization (x-frigg-apporgid)', async () => {
         const { repository, legacy, useCase } = await setup();
@@ -497,5 +507,78 @@ describe('CreateIntegration refuses before it persists: no orphan IN_CREATION ro
         await expect(create.execute(['e1'], '7', { type: 'dummy' })).rejects.toThrow(/does not belong/);
         expect(repository.store.size).toBe(0);
         expect(repository.operationHistory.some((op) => op.operation === 'create')).toBe(false);
+    });
+});
+
+describe('organization roles: a member uses an organization integration, an admin manages it', () => {
+    const member = { org: 17, source: 'adopter-jwt', role: 'MEMBER' };
+    const admin = { org: 17, source: 'adopter-jwt', role: 'ADMIN' };
+    const noRole = { org: 17, source: 'adopter-jwt' };
+    const entities = [entity('mine', 7, 17), entity('org', 17, 17)];
+
+    it('creating an organization integration needs an admin (403 ORG_ADMIN_REQUIRED)', async () => {
+        const r = resolver({ entities });
+        for (const options of [member, noRole]) {
+            await expect(resolve(r, ['org'], caller(options))).rejects.toMatchObject({
+                output: { statusCode: 403 },
+                data: { code: 'ORG_ADMIN_REQUIRED' },
+            });
+        }
+        expect(await resolve(r, ['org'], caller(admin))).toMatchObject({ ownerId: '17', ownerKind: 'organization' });
+        expect(await resolve(r, ['org'], caller({ org: 17 }))).toMatchObject({ ownerId: '17' });
+    });
+
+    it("a member's own integration is theirs to create whatever their role", async () => {
+        expect(await resolve(resolver({ entities }), ['mine'], caller(member))).toMatchObject({
+            ownerId: '7',
+            ownerKind: 'individual',
+        });
+    });
+
+    describe('changing and deleting', () => {
+        let repository;
+        let rows;
+        const build = async () => {
+            repository = new TestIntegrationRepository();
+            const make = (userId, name) =>
+                repository.createIntegration(['e1'], userId, { type: 'dummy', name }, { organizationId: '17' });
+            rows = { org: await make('17', 'org'), mine: await make('7', 'mine') };
+            const getOwnedIntegrationRecord = new GetOwnedIntegrationRecord({ integrationRepository: repository });
+            const updateIntegration = { execute: jest.fn(async () => ({ ok: true })) };
+            const deleteIntegrationForUser = { execute: jest.fn() };
+            return {
+                get: getOwnedIntegrationRecord,
+                updateIntegration,
+                deleteIntegrationForUser,
+                update: new UpdateIntegrationForUser({ getOwnedIntegrationRecord, updateIntegration }),
+                remove: new RemoveIntegrationForUser({ getOwnedIntegrationRecord, deleteIntegrationForUser }),
+            };
+        };
+
+        it('a member may read it but not PATCH or DELETE it, and nothing is written', async () => {
+            const t = await build();
+            await expect(t.get.execute(rows.org.id, caller(member))).resolves.toMatchObject({ id: rows.org.id });
+            const refused = { output: { statusCode: 403 }, data: { code: 'ORG_ADMIN_REQUIRED' } };
+            await expect(t.update.execute(rows.org.id, caller(member), { name: 'x' })).rejects.toMatchObject(refused);
+            await expect(t.remove.execute(rows.org.id, caller(member))).rejects.toMatchObject(refused);
+            await expect(t.remove.execute(rows.org.id, caller(noRole))).rejects.toMatchObject(refused);
+            expect(t.updateIntegration.execute).not.toHaveBeenCalled();
+            expect(t.deleteIntegrationForUser.execute).not.toHaveBeenCalled();
+        });
+
+        it('an admin may; so may a shared-secret caller', async () => {
+            const t = await build();
+            await t.update.execute(rows.org.id, caller(admin), { name: 'x' });
+            await t.remove.execute(rows.org.id, caller({ org: 17 }));
+            expect(t.updateIntegration.execute).toHaveBeenCalledTimes(1);
+            expect(t.deleteIntegrationForUser.execute).toHaveBeenCalledTimes(1);
+        });
+
+        it("a member manages their own integration, and an unreachable one is still a 404, not a 403", async () => {
+            const t = await build();
+            await t.remove.execute(rows.mine.id, caller(member));
+            expect(t.deleteIntegrationForUser.execute).toHaveBeenCalledTimes(1);
+            await expect(t.remove.execute('nope', caller(member))).rejects.toMatchObject({ output: { statusCode: 404 } });
+        });
     });
 });

@@ -393,7 +393,7 @@ value that is not a three-part JWT is not offered to the verifier at all; it fal
 | `clockToleranceSec` | `30` | Skew allowed on `exp` and `nbf`. |
 | `userIdClaim` | `sub` | App user id (required in the token). |
 | `orgIdClaim` | `org_id` | App organization id (optional). |
-| `roleClaim` | `org_role` | Exposed as `user.getOrgRole()` for the request, and stored as the `orgRole` of a person's membership the first time they join that organization (`MEMBER` when the token names none). |
+| `roleClaim` | `org_role` | Exposed as `user.getOrgRole()` for the request, and stored as the `orgRole` of a person's membership the first time they join that organization (`MEMBER` when the token names none). For permissions the token's role wins; a token with none uses the role stored on the person's membership of the active organization, and is a member when there is none: it cannot create or change organization-level entities or integrations. `user.orgAdminRoles` (default `['ADMIN']`) names the roles that can. Frigg bearer tokens are not gated unless `user.orgAdminGateBearerTokens: true`. |
 
 Rules worth knowing:
 

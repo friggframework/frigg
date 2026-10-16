@@ -74,8 +74,14 @@ class GetUserFromAdopterJwt {
         const role = claims[roleClaim];
 
         const orgRole = typeof role === 'string' && role !== '' ? role : null;
-        const user = await this._findOrCreateUser(appUserId, appOrgId, orgRole);
+        const { user, membership } = await this._findOrCreateUser(
+            appUserId,
+            appOrgId,
+            orgRole
+        );
         user.setOrgRole(orgRole);
+        // What the membership row says: the role when the token carries none.
+        user.setMembershipRole(membership?.orgRole ?? null);
 
         log.debug('Adopter token accepted', {
             eventName: `${log.name}.accepted`,
@@ -98,12 +104,16 @@ class GetUserFromAdopterJwt {
 
         // The token's organization is the active one whether or not this is
         // the person's first time in it.
-        const { individual } = await this.ensureOrganizationMembership.execute({
-            individual: created.individual,
-            organization: created.organization,
-            orgRole,
-        });
-        return buildUser(cfg, individual, created.organization);
+        const { individual, membership } =
+            await this.ensureOrganizationMembership.execute({
+                individual: created.individual,
+                organization: created.organization,
+                orgRole,
+            });
+        return {
+            user: buildUser(cfg, individual, created.organization),
+            membership,
+        };
     }
 }
 

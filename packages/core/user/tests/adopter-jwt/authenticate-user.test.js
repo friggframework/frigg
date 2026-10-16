@@ -138,7 +138,7 @@ describe('AuthenticateUser with adopter JWT', () => {
 
     describe('a token that is not a three-part JWT', () => {
         it('goes to the native-token path, never to the adopter verifier', async () => {
-            const nativeUser = { getAppUserId: () => 'native' };
+            const nativeUser = { getAppUserId: () => 'native', setAuthSource: () => {} };
             getUserFromBearerToken.execute.mockResolvedValue(nativeUser);
 
             const user = await authenticate({
