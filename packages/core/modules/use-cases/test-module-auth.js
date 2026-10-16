@@ -63,7 +63,7 @@ class TestModuleAuth {
         // Built for the entity's OWNER, not the caller: a caller may use an
         // organization's entity, and a token refresh during this call must
         // update the owner's credential, not create one under the caller.
-        const module = new Module({
+        const module = await Module.create({
             userId: entity.userId ?? userId,
             entity,
             definition: moduleDefinition,

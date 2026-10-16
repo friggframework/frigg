@@ -121,17 +121,19 @@ function createSchedulerCommands({ integrationName, schedulerService }) {
                     throw error;
                 }
 
-                if (!queueUrl) {
+                // An adapter with its own notion of a queue target (Netlify:
+                // the worker function) resolves it; otherwise the target is
+                // an SQS queue and its URL is required.
+                const service = getSchedulerService();
+                const resolvesOwnTarget =
+                    typeof service?.toQueueResourceId === 'function';
+
+                if (!queueUrl && !resolvesOwnTarget) {
                     const error = new Error('queueUrl is required');
                     error.code = 'INVALID_JOB_DATA';
                     throw error;
                 }
 
-                // Derive ARN from URL (business logic - transformation)
-                const queueArn = deriveArnFromQueueUrl(queueUrl);
-
-                // Get scheduler service (via DI or factory)
-                const service = getSchedulerService();
                 if (!service) {
                     console.warn(
                         `[${integrationName}] Scheduler not configured, skipping job schedule`
@@ -157,7 +159,9 @@ function createSchedulerCommands({ integrationName, schedulerService }) {
                 const result = await service.scheduleOneTime({
                     scheduleName: jobId,
                     scheduleAt: scheduledAt,
-                    queueResourceId: queueArn,
+                    queueResourceId: resolvesOwnTarget
+                        ? service.toQueueResourceId(queueUrl)
+                        : deriveArnFromQueueUrl(queueUrl),
                     payload: sqsPayload,
                 });
 

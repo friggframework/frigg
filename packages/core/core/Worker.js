@@ -1,4 +1,3 @@
-const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
@@ -6,18 +5,44 @@ const { readQueueDelivery } = require('../queues/queue-delivery');
 const { runMessageScope } = require('./invocation-scope');
 const { getLogger } = require('../logs');
 
-const sqs = new SQSClient({ region: process.env.AWS_REGION });
 const log = getLogger('frigg.worker');
 
+/**
+ * Worker - queue message producer/consumer base class.
+ *
+ * Subclass and override _run(). The queue transport is behind
+ * QueueClientInterface and can be injected (friggframework/frigg#545):
+ * `new MyWorker({ queueClient })`. Unlike #545 it is not required: without
+ * one the worker uses an SqsQueueClient configured exactly as before
+ * (AWS_REGION), created on first use rather than at module load, so
+ * requiring core constructs no AWS client and a Netlify/QStash worker that
+ * only calls _run() never touches SQS.
+ */
 class Worker {
+    /**
+     * @param {Object} [options]
+     * @param {import('../queues/queue-client-interface').QueueClientInterface} [options.queueClient]
+     */
+    constructor(options = {}) {
+        this._queueClient = options.queueClient || null;
+    }
+
+    _getQueueClient() {
+        if (!this._queueClient) {
+            const { SqsQueueClient } = require('../queues/sqs-queue-client');
+            this._queueClient = new SqsQueueClient({
+                clientConfig: { region: process.env.AWS_REGION },
+            });
+        }
+        return this._queueClient;
+    }
+
     async getQueueURL(params) {
         // Passing params in because there will be multiple QueueNames
         // let params = {
         //     QueueName:  process.env.QueueName
         // };
-        const command = new GetQueueUrlCommand(params);
-        const data = await sqs.send(command);
-        return data.QueueUrl;
+        return this._getQueueClient().getQueueUrl(params);
     }
 
     async run(params, context = {}) {
@@ -91,8 +116,7 @@ class Worker {
     }
 
     async sendAsyncSQSMessage(params) {
-        const command = new SendMessageCommand(params);
-        const data = await sqs.send(command);
+        const data = await this._getQueueClient().sendMessage(params);
         return data.MessageId;
     }
 

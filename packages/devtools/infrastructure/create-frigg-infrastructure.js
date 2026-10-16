@@ -35,6 +35,20 @@ async function createFriggInfrastructure() {
         throw new Error('Could not find index.js');
     }
 
+    // A non-AWS provider (appDefinition.provider, e.g. 'netlify') builds
+    // through its provider plugin instead of serverless/CloudFormation
+    // (friggframework/frigg#545). Checked before the cache: the cache holds
+    // serverless definitions only. Returns an empty serverless definition,
+    // so an osls invocation has nothing to package.
+    {
+        const { isNonAwsProvider, buildWithProvider } = require('./provider-build');
+        const appDefinition = require(backendFilePath).Definition;
+        if (isNonAwsProvider(appDefinition)) {
+            buildWithProvider({ appDefinition, backendDir });
+            return {};
+        }
+    }
+
     const cachePath = getCachePath(backendDir);
     const lockPath = getLockPath(backendDir);
 

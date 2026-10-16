@@ -10,7 +10,7 @@ const log = getLogger('frigg.api.authorize');
 
 const defaultCreateModule = (params) => {
     const { Module } = require('../module');
-    return new Module(params);
+    return Module.create(params);
 };
 
 const isMultiStep = (definition) =>
@@ -225,7 +225,7 @@ class SubmitAuthorizationStep {
             );
         }
 
-        const module = this.createModule({ userId: ownership.ownerId, definition });
+        const module = await this.createModule({ userId: ownership.ownerId, definition });
         let result;
         try {
             result = await definition.processAuthorizationStep(

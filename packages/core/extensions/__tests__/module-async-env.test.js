@@ -1,0 +1,176 @@
+const { Module } = require('../../modules/module');
+
+// Create a minimal mock API class
+class MockApi {
+    constructor(params) {
+        this.params = params;
+    }
+
+    static get requesterType() {
+        return 'api-key';
+    }
+
+    getAuthorizationRequirements() {
+        return { type: 'api_key' };
+    }
+}
+
+const mockDefinition = {
+    moduleName: 'test-module',
+    modelName: 'TestModule',
+    API: MockApi,
+    requiredAuthMethods: {
+        getToken: async () => {},
+        getEntityDetails: async () => {},
+        getCredentialDetails: async () => {},
+        apiPropertiesToPersist: { credential: [], entity: [] },
+        testAuthRequest: async () => true,
+    },
+};
+
+// Mock the repository factories
+jest.mock('../../credential/repositories/credential-repository-factory', () => ({
+    createCredentialRepository: () => ({}),
+}));
+
+jest.mock('../../modules/repositories/module-repository-factory', () => ({
+    createModuleRepository: () => ({}),
+}));
+
+describe('Module async env support', () => {
+    describe('Module.resolveEnv', () => {
+        it('should return static env as-is', async () => {
+            const env = { client_id: 'abc', client_secret: 'xyz' };
+            const result = await Module.resolveEnv({ ...mockDefinition, env });
+            expect(result).toEqual(env);
+        });
+
+        it('should call and await function env', async () => {
+            const env = async () => ({
+                client_id: 'from-db',
+                client_secret: 'from-db-secret',
+            });
+            const result = await Module.resolveEnv({ ...mockDefinition, env });
+            expect(result).toEqual({
+                client_id: 'from-db',
+                client_secret: 'from-db-secret',
+            });
+        });
+
+        it('should handle sync function env', async () => {
+            const env = () => ({ client_id: 'sync-fn' });
+            const result = await Module.resolveEnv({ ...mockDefinition, env });
+            expect(result).toEqual({ client_id: 'sync-fn' });
+        });
+
+        it('should return undefined when env is not defined', async () => {
+            const result = await Module.resolveEnv(mockDefinition);
+            expect(result).toBeUndefined();
+        });
+    });
+
+    describe('Module.create (async factory)', () => {
+        it('should create module with static env', async () => {
+            const definition = {
+                ...mockDefinition,
+                env: { client_id: 'static-id', client_secret: 'static-secret' },
+            };
+
+            const module = await Module.create({ definition });
+            expect(module.api.params.client_id).toBe('static-id');
+            expect(module.api.params.client_secret).toBe('static-secret');
+        });
+
+        it('should create module with async function env', async () => {
+            const definition = {
+                ...mockDefinition,
+                env: async () => ({
+                    client_id: 'async-id',
+                    client_secret: 'async-secret',
+                }),
+            };
+
+            const module = await Module.create({ definition });
+            expect(module.api.params.client_id).toBe('async-id');
+            expect(module.api.params.client_secret).toBe('async-secret');
+        });
+
+        it('should propagate async env errors', async () => {
+            const definition = {
+                ...mockDefinition,
+                env: async () => {
+                    throw new Error('DB unavailable');
+                },
+            };
+
+            await expect(Module.create({ definition })).rejects.toThrow(
+                'DB unavailable'
+            );
+        });
+    });
+
+    describe('backward compatibility', () => {
+        it('should still work with new Module() and static env', () => {
+            const definition = {
+                ...mockDefinition,
+                env: { client_id: 'old-style' },
+            };
+
+            const module = new Module({ definition });
+            expect(module.api.params.client_id).toBe('old-style');
+        });
+
+        it('uses the static env when no resolved env is passed', () => {
+            const definition = { ...mockDefinition, env: { client_id: 'static' } };
+            const module = new Module({ definition });
+            expect(module.api.params.client_id).toBe('static');
+        });
+
+        it('prefers a resolved env over the static one', () => {
+            const definition = { ...mockDefinition, env: { client_id: 'static' } };
+            const module = new Module({ definition, resolvedEnv: { client_id: 'resolved' }, envResolved: true });
+            expect(module.api.params.client_id).toBe('resolved');
+        });
+
+        it('Module.create accepts a function env that resolves to undefined (bootstrapped, no static env, no DB row)', async () => {
+            // What the db-credentials bootstrap installs on a module with no
+            // static env when no OAuthAppCredential row exists.
+            const definition = { ...mockDefinition, env: async () => undefined };
+            const module = await Module.create({ definition });
+            expect(module.api.params.client_id).toBeUndefined();
+            expect(module.api.params.delegate).toBe(module);
+        });
+
+        it('Module.create accepts a function env that resolves to null', async () => {
+            const definition = { ...mockDefinition, env: async () => null };
+            await expect(Module.create({ definition })).resolves.toBeInstanceOf(Module);
+        });
+
+        it('refuses a function env built with new Module() instead of dropping the credentials', () => {
+            const definition = { ...mockDefinition, env: async () => ({ client_id: 'db' }) };
+            expect(() => new Module({ definition })).toThrow(/Module\.create/);
+        });
+    });
+});
+
+describe('ModuleFactory with an async definition.env (db-credentials bootstrap)', () => {
+    const { ModuleFactory } = require('../../modules/module-factory');
+
+    it('resolves a function env before building the API client', async () => {
+        const definition = {
+            ...mockDefinition,
+            env: async () => ({ client_id: 'from-db', client_secret: 'secret-from-db' }),
+        };
+        const factory = new ModuleFactory({
+            moduleRepository: {
+                findEntityById: async () => ({ id: 'e1', moduleName: 'test-module', userId: 'u1' }),
+            },
+            moduleDefinitions: [definition],
+        });
+
+        const module = await factory.getModuleInstance('e1', 'u1');
+
+        expect(module.api.params.client_id).toBe('from-db');
+        expect(module.api.params.client_secret).toBe('secret-from-db');
+    });
+});

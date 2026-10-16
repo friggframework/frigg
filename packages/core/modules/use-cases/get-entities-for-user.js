@@ -27,16 +27,18 @@ class GetEntitiesForUser {
             describeRecord(entity, ctx, 'entity')
         );
 
-        return entities.map((entity) => {
-            const definition = this.definitionMap.get(entity.moduleName);
+        return Promise.all(
+            entities.map(async (entity) => {
+                const definition = this.definitionMap.get(entity.moduleName);
 
-            const moduleInstance = new Module({
-                userId: entity.userId,
-                definition: definition,
-                entity: entity,
-            });
-            return mapModuleClassToModuleDTO(moduleInstance);
-        });
+                const moduleInstance = await Module.create({
+                    userId: entity.userId,
+                    definition: definition,
+                    entity: entity,
+                });
+                return mapModuleClassToModuleDTO(moduleInstance);
+            })
+        );
     }
 }
 

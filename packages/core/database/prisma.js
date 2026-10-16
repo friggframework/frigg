@@ -67,13 +67,15 @@ const prismaClientSingleton = () => {
         const paths = [
             // Lambda layer location (when using Prisma Lambda layer)
             `/opt/nodejs/node_modules/generated/prisma-${dbType}`,
+            // __dirname-based absolute path (Netlify functions and bundlers)
+            require('node:path').resolve(__dirname, `../generated/prisma-${dbType}`),
             // Local development location (relative to core package)
             `../generated/prisma-${dbType}`,
         ];
 
-        for (const path of paths) {
+        for (const candidate of paths) {
             try {
-                return require(path).PrismaClient;
+                return require(candidate).PrismaClient;
             } catch (err) {
                 // Continue to next path
             }

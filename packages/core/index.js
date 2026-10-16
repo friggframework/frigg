@@ -119,7 +119,23 @@ const {
 const application = require('./application');
 const utils = require('./utils');
 
-const { QueuerUtil } = require('./queues');
+const {
+    QueuerUtil,
+    QueueProvider,
+    QueueClientInterface,
+    createQueueProvider,
+    QUEUE_PROVIDERS,
+} = require('./queues');
+const {
+    resolveProvider,
+    determineProviderName,
+    providerPackageName,
+    KNOWN_PROVIDERS,
+} = require('./providers');
+
+// App-level extensions (appDefinition.extensions): Prisma models, encrypted
+// fields, admin routes and bootstrap hooks (friggframework/frigg#545).
+const extensions = require('./extensions');
 
 module.exports = {
     // assertions
@@ -235,6 +251,25 @@ module.exports = {
     ManagementApiConfigError,
     // queues
     QueuerUtil,
+    QueueProvider,
+    QueueClientInterface,
+    createQueueProvider,
+    QUEUE_PROVIDERS,
+
+    // provider plugins (appDefinition.provider)
+    resolveProvider,
+    determineProviderName,
+    providerPackageName,
+    KNOWN_PROVIDERS,
+
+    // app-level extensions
+    extensions,
+    loadExtensions: extensions.loadExtensions,
+    composeSchemas: extensions.composeSchemas,
+    mountExtensionRoutes: extensions.mountExtensionRoutes,
+    createExtensionRoutesRouter: extensions.createExtensionRoutesRouter,
+    runExtensionBootstraps: extensions.runExtensionBootstraps,
+    initializeApp: extensions.initializeApp,
 
     // utils
     ...utils,

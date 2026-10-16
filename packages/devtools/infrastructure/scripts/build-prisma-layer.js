@@ -250,6 +250,36 @@ async function createLayerStructure() {
 }
 
 /**
+ * Run `npm install --omit=dev` confined to the layer directory.
+ *
+ * npm resolves its project root by walking up from cwd to the nearest
+ * package.json. If the layer's package.json is missing when npm starts (a
+ * concurrent build cleaned the directory, as two jest workers composing at
+ * once did), npm walked up into the enclosing workspace and ran
+ * `install --omit=dev` there, pruning the devDependencies (jest, jest-util)
+ * out of the repository's root node_modules. So: the package.json must exist,
+ * and `--prefix` pins npm's root to the layer directory while
+ * `--workspaces=false` stops it acting on an enclosing workspace.
+ *
+ * @param {string} layerNodejsDir - absolute path of <layer>/nodejs
+ * @param {Object} [options]
+ * @param {Object} [options.env]
+ * @param {Function} [options.exec] - execSync stand-in (tests)
+ */
+function runLayerInstall(layerNodejsDir, { env = process.env, exec = execSync } = {}) {
+    const manifest = path.join(layerNodejsDir, 'package.json');
+    if (!fs.existsSync(manifest)) {
+        throw new Error(
+            `Refusing to run npm install: ${manifest} does not exist (npm would install into an enclosing project)`
+        );
+    }
+    exec(
+        `npm install --omit=dev --no-package-lock --workspaces=false --prefix ${JSON.stringify(layerNodejsDir)}`,
+        { cwd: layerNodejsDir, stdio: 'inherit', env }
+    );
+}
+
+/**
  * Install Prisma client directly into layer (RUNTIME ONLY - NO CLI)
  *
  * The Prisma CLI is NOT included in this layer to keep it small.
@@ -285,11 +315,7 @@ async function installPrismaPackages() {
             PRISMA_CLI_BINARY_TARGETS: 'rhel-openssl-3.0.x',
         };
 
-        execSync('npm install --omit=dev --no-package-lock', {
-            cwd: path.join(LAYER_OUTPUT_PATH, 'nodejs'),
-            stdio: 'inherit',
-            env,
-        });
+        runLayerInstall(path.join(LAYER_OUTPUT_PATH, 'nodejs'), { env });
         logSuccess('Prisma packages installed with Lambda binary target');
     } catch (error) {
         throw new Error(`Failed to install Prisma packages: ${error.message}`);
@@ -693,6 +719,7 @@ if (require.main === module) {
 
 module.exports = {
     buildPrismaLayer,
+    runLayerInstall,
     getGeneratedClientPackages,
     getMigrationsPackages,
     getMigrationSourcePath,

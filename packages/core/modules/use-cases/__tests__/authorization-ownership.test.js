@@ -90,6 +90,14 @@ function build({ existing = [], registry, ownership } = {}) {
 const authorize = (t, user, extra = {}) =>
     t.submit.execute({ user, entityType: 'acme', data: { api_key: 'k' }, ...extra });
 
+
+// The use cases build modules through the async Module.create (it resolves a
+// function env); route it to the mocked constructor.
+{
+    const { Module: MockedModule } = require('../../module');
+    MockedModule.create = async (params) => new MockedModule(params);
+}
+
 describe('authorizing an individual entity', () => {
     it('owns it by the person and pairs it with the active organization', async () => {
         const t = build();

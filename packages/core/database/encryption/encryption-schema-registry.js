@@ -218,22 +218,80 @@ function loadModuleEncryptionSchemas(integrations) {
  *
  * Used by both Prisma (MongoDB/PostgreSQL) and DocumentDB encryption services.
  */
-function loadCustomEncryptionSchema() {
-    try {
-        // Lazy require to avoid circular dependency issues
-        const path = require('node:path');
-        const { findNearestBackendPackageJson } = require('../../utils');
+/**
+ * Registers encryption schemas declared by app-level extensions
+ * (`appDefinition.extensions[].encryption`), e.g. the db-credentials
+ * extension's `OAuthAppCredential.clientSecret`.
+ *
+ * @param {Array<Object>} extensions - Normalized extensions (extension-loader)
+ */
+function loadExtensionEncryptionSchemas(extensions) {
+    if (!extensions || !Array.isArray(extensions) || extensions.length === 0) {
+        return;
+    }
 
-        const backendPackagePath = findNearestBackendPackageJson();
-        if (!backendPackagePath) {
-            return; // No backend found, skip custom schema
+    for (const ext of extensions) {
+        if (!ext.encryption || typeof ext.encryption !== 'object') {
+            continue;
         }
 
-        const backendDir = path.dirname(backendPackagePath);
-        const backendIndexPath = path.join(backendDir, 'index.js');
+        const schema = {};
+        for (const [modelName, config] of Object.entries(ext.encryption)) {
+            if (config && Array.isArray(config.fields) && config.fields.length > 0) {
+                schema[modelName] = { fields: config.fields };
+            }
+        }
 
-        const backendModule = require(backendIndexPath);
-        const appDefinition = backendModule?.Definition;
+        if (Object.keys(schema).length > 0) {
+            logger.info(
+                `Registering encryption schema from extension "${ext.name}" for models: ${Object.keys(schema).join(', ')}`
+            );
+            // registerCustomSchema replaces the registered schema, so merge:
+            // an extension adds its models to the app's encryption.schema
+            // rather than dropping it.
+            const merged = { ...customSchema };
+            for (const [modelName, config] of Object.entries(schema)) {
+                const existing = merged[modelName]?.fields || [];
+                merged[modelName] = {
+                    ...merged[modelName],
+                    fields: [...new Set([...existing, ...config.fields])],
+                };
+            }
+            registerCustomSchema(merged);
+        }
+    }
+}
+
+function readAppDefinitionForEncryption() {
+    // Lazy require to avoid circular dependency issues
+    const {
+        getPresetAppDefinition,
+    } = require('../../handlers/app-definition-loader');
+    // A definition preset with setAppDefinition() (provider-netlify's
+    // preamble) wins: on Netlify process.cwd() cannot find the backend.
+    const preset = getPresetAppDefinition();
+    if (preset) {
+        return preset;
+    }
+
+    const path = require('node:path');
+    const { findNearestBackendPackageJson } = require('../../utils');
+
+    const backendPackagePath = findNearestBackendPackageJson();
+    if (!backendPackagePath) {
+        return null; // No backend found, skip custom schema
+    }
+
+    const backendDir = path.dirname(backendPackagePath);
+    const backendIndexPath = path.join(backendDir, 'index.js');
+
+    const backendModule = require(backendIndexPath);
+    return backendModule?.Definition || null;
+}
+
+function loadCustomEncryptionSchema() {
+    try {
+        const appDefinition = readAppDefinitionForEncryption();
 
         if (!appDefinition) {
             return; // No app definition found
@@ -251,6 +309,15 @@ function loadCustomEncryptionSchema() {
         const disable = appDefinition.encryption?.disable;
         if (disable && Object.keys(disable).length > 0) {
             registerEncryptionOptOut(disable);
+        }
+
+        // Load app-level extension encryption schemas. Before the module
+        // schemas: loadModuleEncryptionSchemas currently throws (see the
+        // NOTE inside it) and the throw would skip anything after it.
+        const { loadExtensions } = require('../../extensions/extension-loader');
+        const extensions = loadExtensions(appDefinition);
+        if (extensions.length > 0) {
+            loadExtensionEncryptionSchemas(extensions);
         }
 
         // Load module-level encryption schemas from integrations
@@ -409,6 +476,7 @@ module.exports = {
     registerEncryptionOptOut,
     loadCustomEncryptionSchema,
     loadModuleEncryptionSchemas,
+    loadExtensionEncryptionSchemas,
     extractCredentialFieldsFromModules,
     validateCustomSchema,
     validateOptOut,

@@ -101,6 +101,14 @@ const credentialOf = (userId) => ({
 
 beforeEach(() => jest.clearAllMocks());
 
+
+// The use cases build modules through the async Module.create (it resolves a
+// function env); route it to the mocked constructor.
+{
+    const { Module: MockedModule } = require('../../module');
+    MockedModule.create = async (params) => new MockedModule(params);
+}
+
 describe('POST /api/entity (CreateEntityFromCredential)', () => {
     const orgScoped = new Map([['acme', { settings: { scope: 'organization' } }]]);
 

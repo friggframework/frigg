@@ -310,9 +310,16 @@ async function pushOffloadedParametersOrAbort(appDefinition, options) {
 }
 
 async function deployCommand(options) {
-    console.log('Deploying the serverless application...');
-
     const appDefinition = loadAppDefinition();
+
+    // A non-AWS provider (appDefinition.provider) deploys through its plugin
+    // (friggframework/frigg#545).
+    const providerName = appDefinition?.provider;
+    if (providerName && providerName !== 'aws') {
+        return deployWithProvider(appDefinition, providerName, options);
+    }
+
+    console.log('Deploying the serverless application...');
     const environment = validateAndBuildEnvironment(appDefinition, options);
 
     await pushOffloadedParametersOrAbort(appDefinition, options);
@@ -343,6 +350,47 @@ async function deployCommand(options) {
     } else {
         const reason = options.skipDoctor ? '--skip-doctor flag' : 'deployment.skipPostDeploymentHealthCheck: true';
         console.log(`\n⏭️  Skipping post-deployment health check (${reason})`);
+    }
+}
+
+/**
+ * Deploy with a provider plugin: validate(), then deploy() (which runs its
+ * own preflightCheck()).
+ */
+async function deployWithProvider(appDefinition, providerName, options = {}) {
+    let provider;
+    try {
+        const { resolveProvider } = require('@friggframework/core/providers/resolve-provider');
+        provider = resolveProvider(appDefinition);
+    } catch (error) {
+        console.error(`Failed to load provider '${providerName}': ${error.message}`);
+        process.exit(1);
+    }
+
+    console.log(`Deploying with ${providerName} provider...`);
+
+    if (typeof provider.validate === 'function') {
+        const validation = provider.validate(appDefinition);
+        if (validation.errors?.length > 0) {
+            console.error(`\nValidation errors for ${providerName}:`);
+            for (const error of validation.errors) console.error(`  - ${error}`);
+            process.exit(1);
+        }
+        for (const warning of validation.warnings || []) console.warn(`  Warning: ${warning}`);
+    }
+
+    try {
+        const result = await provider.deploy(appDefinition, {
+            stage: options.stage,
+            prod: options.stage === 'production' || options.stage === 'prod',
+            dryRun: options.dryRun || false,
+        });
+        console.log('\nDeployment completed successfully.');
+        if (result?.url) console.log(`  URL: ${result.url}`);
+    } catch (error) {
+        console.error(`\nDeployment failed: ${error.message}`);
+        for (const item of error.missing || []) console.error(`    - ${item}`);
+        process.exit(1);
     }
 }
 

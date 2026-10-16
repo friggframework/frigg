@@ -9,6 +9,13 @@ const { generateIAMCloudFormation, getFeatureSummary } = require('../infrastruct
  */
 async function generateIamCommand(options = {}) {
     try {
+        // AWS-only (CloudFormation); a non-AWS provider has nothing to inspect.
+        if (require('./utils/provider-helper').isNonAwsProject()) {
+            console.error('The generate-iam command is only available for AWS deployments.');
+            console.log('Your appDefinition uses a non-AWS provider.');
+            process.exit(1);
+        }
+
         console.log('🔍 Finding Frigg application...');
 
         // Find the backend package.json

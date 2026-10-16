@@ -64,6 +64,14 @@ const entity = (id, userId, organizationId, extra = {}) => ({
     ...extra,
 });
 
+
+// The use cases build modules through the async Module.create (it resolves a
+// function env); route it to the mocked constructor.
+{
+    const { Module: MockedModule } = require('../../module');
+    MockedModule.create = async (params) => new MockedModule(params);
+}
+
 describe('entities are listed and loaded per active organization', () => {
     const rows = [
         entity('g17', 7, 17), // 7's Google, connected in 17

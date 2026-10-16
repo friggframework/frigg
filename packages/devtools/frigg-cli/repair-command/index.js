@@ -453,6 +453,13 @@ async function handleReconcileRepair(stackIdentifier, report, options) {
  */
 async function repairCommand(stackName, options = {}) {
     try {
+        // AWS-only (CloudFormation); a non-AWS provider has nothing to inspect.
+        if (require('../utils/provider-helper').isNonAwsProject()) {
+            output.error('The repair command is only available for AWS deployments.');
+            output.log('Your appDefinition uses a non-AWS provider.');
+            process.exit(1);
+        }
+
         // Validate required parameter
         if (!stackName) {
             console.error('Error: Stack name is required');

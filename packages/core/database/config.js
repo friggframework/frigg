@@ -4,6 +4,39 @@
  */
 
 /**
+ * Maps an app definition's `database` block to a Prisma database type.
+ *
+ * @param {Object|undefined} database - `Definition.database`
+ * @param {string} where - where the definition lives, for the error message
+ * @returns {'mongodb'|'postgresql'|'documentdb'}
+ */
+function databaseTypeFromConfig(database, where) {
+    if (!database) {
+        throw new Error(
+            '[Frigg] App definition missing database configuration. ' +
+            `Add database: { postgres: { enable: true } } (or mongoDB/documentDB) to ${where}`
+        );
+    }
+
+    // Determine database type from enabled database
+    // Priority order: postgres > mongoDB > documentDB
+    if (database.postgres?.enable === true) {
+        return 'postgresql';
+    }
+    if (database.mongoDB?.enable === true) {
+        return 'mongodb';
+    }
+    if (database.documentDB?.enable === true) {
+        return 'documentdb';
+    }
+
+    throw new Error(
+        '[Frigg] No database enabled in app definition. ' +
+        'Set one of: database.postgres.enable, database.mongoDB.enable, or database.documentDB.enable to true'
+    );
+}
+
+/**
  * Determines database type from environment or app definition
  * 
  * Detection order:
@@ -21,6 +54,20 @@ function getDatabaseType() {
 
     // Fallback: Load app definition
     try {
+        // A definition preset with setAppDefinition() (provider-netlify's
+        // function preamble) wins: on Netlify process.cwd() is the function
+        // root at runtime, so discovery cannot find the backend.
+        const {
+            getPresetAppDefinition,
+        } = require('../handlers/app-definition-loader');
+        const preset = getPresetAppDefinition();
+        if (preset) {
+            return databaseTypeFromConfig(
+                preset.database,
+                'your backend/index.js'
+            );
+        }
+
         const path = require('node:path');
         const fs = require('node:fs');
         const { findNearestBackendPackageJson } = require('../utils');
@@ -76,30 +123,7 @@ function getDatabaseType() {
         }
 
         database = backendModule?.Definition?.database;
-
-        if (!database) {
-            throw new Error(
-                '[Frigg] App definition missing database configuration. ' +
-                `Add database: { postgres: { enable: true } } (or mongoDB/documentDB) to ${backendIndexPath}`
-            );
-        }
-
-        // Determine database type from enabled database
-        // Priority order: postgres > mongoDB > documentDB
-        if (database.postgres?.enable === true) {
-            return 'postgresql';
-        }
-        if (database.mongoDB?.enable === true) {
-            return 'mongodb';
-        }
-        if (database.documentDB?.enable === true) {
-            return 'documentdb';
-        }
-
-        throw new Error(
-            '[Frigg] No database enabled in app definition. ' +
-            'Set one of: database.postgres.enable, database.mongoDB.enable, or database.documentDB.enable to true'
-        );
+        return databaseTypeFromConfig(database, backendIndexPath);
     } catch (error) {
         // Re-throw with context if it's our error
         if (error.message.includes('[Frigg]')) {
