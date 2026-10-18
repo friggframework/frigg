@@ -31,10 +31,6 @@ describe('proxy bases (ADR-052 amendment)', () => {
             expect(bases.names).toEqual(['default', 'docs']);
         });
 
-        it('accepts a function value, resolved against the api at call time', () => {
-            expect(() => resolveModuleBases(mod({ baseUrls: { tenant: () => 'https://x.example.com' } }))).not.toThrow();
-        });
-
         it.each([
             ['both baseUrl and baseUrls', { baseUrl: 'https://a.example.com', baseUrls: { default: 'https://a.example.com' } }, /both proxy\.baseUrl and proxy\.baseUrls/],
             ['http', { baseUrls: { docs: 'http://docs.example.com' } }, /proxy\.baseUrls\.docs must use https/],
@@ -44,6 +40,7 @@ describe('proxy bases (ADR-052 amendment)', () => {
             ['a query', { baseUrls: { docs: 'https://docs.example.com/?a=1' } }, /credentials, a query or a fragment/],
             ['a fragment', { baseUrls: { docs: 'https://docs.example.com/#x' } }, /credentials, a query or a fragment/],
             ['a non-string URL', { baseUrls: { docs: 42 } }, /absolute https URL string/],
+            ['a function value', { baseUrls: { tenant: () => 'https://x.example.com' } }, /functions are not accepted/],
             ['an upper-case name', { baseUrls: { Docs: 'https://docs.example.com' } }, /invalid name "Docs"/],
             ['a name with a dot', { baseUrls: { 'a.b': 'https://docs.example.com' } }, /invalid name "a\.b"/],
             ['a name starting with a digit', { baseUrls: { '1x': 'https://docs.example.com' } }, /invalid name "1x"/],

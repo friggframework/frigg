@@ -74,8 +74,8 @@ function validateProxyRequest(request, { maxRequestBytes }) {
         throw invalid('path is required', { field: 'path' });
     }
 
-    // Omitted means `default`, which the caller applies. A NAME the module declared, never a URL or host: anything that does not
-    // look like a name is refused here, before a module is even looked up.
+    // `base` is a name, never a URL or host; anything else is refused before
+    // a module is looked up. Omitted means `default` (the caller applies it).
     let base;
     if (request.base !== undefined && request.base !== null) {
         if (typeof request.base !== 'string' || !isValidBaseName(request.base)) {
@@ -135,11 +135,13 @@ function validateProxyRequest(request, { maxRequestBytes }) {
             `The proxied request body is larger than ${maxRequestBytes} bytes`
         );
     }
-    return { method, path: request.path, base, query, headers, body, bodyIsJson, requestBytes };
+    return { method, path: request.path, ...(base !== undefined && { base }), query, headers, body, bodyIsJson, requestBytes };
 }
 
 const isWildcardRule = (rule) => rule?.method === '*' || rule?.path === '/**';
 
+// A rule's `base` is checked against the module's declared bases at load, by
+// assertProxyConfig (proxy-bases.js); here only its shape is.
 const isValidRule = (rule) =>
     isPlainObject(rule) &&
     typeof rule.method === 'string' &&

@@ -26,14 +26,10 @@ function isValidBaseName(name) {
     return typeof name === 'string' && name.length <= 64 && BASE_NAME.test(name);
 }
 
-/** The error text says why; it never echoes more than the offending URL's origin-free shape. */
 function assertBaseUrl(moduleName, name, value) {
     const where = `Module ${moduleName} proxy.baseUrls.${name}`;
-    // A function resolves against the module's api at call time, as the
-    // single `baseUrl` always could; joinProxyUrl checks what it returns.
-    if (typeof value === 'function') return;
     if (typeof value !== 'string') {
-        throw new ProxyConfigError(`${where} must be an absolute https URL string`);
+        throw new ProxyConfigError(`${where} must be an absolute https URL string (functions are not accepted)`);
     }
     let url;
     try {
@@ -166,7 +162,6 @@ function assertRulesUseDeclaredBases(moduleName, names, rules, where) {
 
 module.exports = {
     DEFAULT_BASE,
-    BASE_NAME,
     isValidBaseName,
     resolveModuleBases,
     ruleBase,

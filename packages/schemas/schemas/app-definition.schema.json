@@ -883,6 +883,11 @@
                               "type": "string",
                               "pattern": "^/",
                               "description": "Path pattern relative to the module's base URL. `:param` matches one segment; a trailing `/**` matches a subtree."
+                            },
+                            "base": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9-]*$",
+                              "description": "Which of the module's named bases the rule applies to. Default 'default'. A base the module does not declare stops the app at load."
                             }
                           },
                           "additionalProperties": false

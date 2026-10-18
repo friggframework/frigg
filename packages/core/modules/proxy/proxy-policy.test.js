@@ -35,6 +35,11 @@ describe('entity proxy policy (ADR-052 §5-§7)', () => {
             });
         });
 
+        it('omits the `base` key when not supplied', () => {
+            expect('base' in validateProxyRequest({ method: 'GET', path: '/x' }, limits)).toBe(false);
+            expect('base' in validateProxyRequest({ method: 'GET', path: '/x', base: null }, limits)).toBe(false);
+        });
+
         it('leaves `base` undefined when omitted and keeps a valid name', () => {
             expect(validateProxyRequest({ method: 'GET', path: '/x' }, limits).base).toBeUndefined();
             expect(validateProxyRequest({ method: 'GET', path: '/x', base: null }, limits).base).toBeUndefined();

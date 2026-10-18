@@ -15,7 +15,7 @@ declare module "@friggframework/core" {
 
   export interface EntityTypeEntry {
     /** The API module definition. */
-    definition: any;
+    definition: { moduleName?: string; proxy?: ModuleProxyConfig; [key: string]: any };
     /** Frozen. `{ kind: 'app' }` first when registered, then each binding integration. */
     sources: readonly EntityTypeSource[];
     /** Frozen. */
@@ -81,12 +81,12 @@ declare module "@friggframework/core" {
    * A module definition's `proxy` setting (ADR-052). Declare `baseUrl` (one host,
    * meaning `{ default: baseUrl }`) or `baseUrls` (several), never both.
    * `baseUrls` values are absolute https URLs with no credentials, query or
-   * fragment, or functions of the module's api; names match `^[a-z][a-z0-9-]*$`.
+   * fragment (strings only, unlike `baseUrl`); names match `^[a-z][a-z0-9-]*$`.
    * A caller picks a base by name in the proxy request's `base`.
    */
   export interface ModuleProxyConfig {
     baseUrl?: string | ((api: any) => string);
-    baseUrls?: Record<string, string | ((api: any) => string)>;
+    baseUrls?: Record<string, string>;
     allow?: ProxyAllowRule[];
     headers?: string[];
     binary?: boolean;

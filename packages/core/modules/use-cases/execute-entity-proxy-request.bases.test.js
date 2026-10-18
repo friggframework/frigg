@@ -141,7 +141,11 @@ describe('ExecuteEntityProxyRequest: named bases (ADR-052 amendment)', () => {
         });
         expect(error.message).toMatch(/default, docs, sheets/);
         expect(fetch).not.toHaveBeenCalled();
-        expect(audits()[0]).toMatchObject({ outcome: 'denied', reason: 'PROXY_UNKNOWN_BASE' });
+        expect(audits()[0]).toMatchObject({
+            outcome: 'denied',
+            reason: 'PROXY_UNKNOWN_BASE',
+            base: 'ads',
+        });
     });
 
     it('treats an omitted base as default even when the module declares no default', async () => {
@@ -201,6 +205,42 @@ describe('ExecuteEntityProxyRequest: named bases (ADR-052 amendment)', () => {
             const { useCase, fetch } = setup({ def: legacy });
             const error = await run(useCase, { path: '/contacts', base: 'docs' });
             expect(error.data).toMatchObject({ code: 'PROXY_UNKNOWN_BASE', details: { bases: ['default'] } });
+            expect(fetch).not.toHaveBeenCalled();
+        });
+
+        it('keeps the PROXY_NOT_ALLOWED message byte-identical for a single-base module', async () => {
+            const { useCase } = setup({ def: legacy });
+            const error = await run(useCase, { path: '/other' });
+            expect(error.message).toBe('Module crm does not allow GET on this path');
+            expect(error.data.details).toEqual({ module: 'crm', method: 'GET', base: 'default' });
+        });
+
+        it('names the base in the message only for a multi-base module', async () => {
+            const { useCase } = setup();
+            const error = await run(useCase, { path: '/nope', base: 'docs' });
+            expect(error.message).toBe('Module googleish does not allow GET on this path of base docs');
+        });
+
+        it('never falls back to the requester host when a declared legacy baseUrl resolves to nothing', async () => {
+            const { useCase, fetch } = setup({
+                def: { moduleName: 'tenanted', proxy: { baseUrl: () => undefined, allow: [{ method: 'GET', path: '/x' }] } },
+            });
+            const error = await run(useCase, { path: '/x' });
+            expect(error.output.statusCode).toBe(501);
+            expect(error.data.code).toBe('PROXY_NOT_CONFIGURED');
+            expect(fetch).not.toHaveBeenCalled();
+        });
+
+        it('maps a definition that skipped load validation to 501, not an unmapped 500', async () => {
+            const { useCase, fetch } = setup({
+                def: {
+                    moduleName: 'broken',
+                    proxy: { baseUrls: { docs: () => 'https://x.example.com' } },
+                },
+            });
+            const error = await run(useCase, { path: '/x', base: 'docs' });
+            expect(error.output.statusCode).toBe(501);
+            expect(error.data.code).toBe('PROXY_NOT_CONFIGURED');
             expect(fetch).not.toHaveBeenCalled();
         });
 

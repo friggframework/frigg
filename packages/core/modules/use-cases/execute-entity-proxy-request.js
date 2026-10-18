@@ -1,7 +1,7 @@
 const Boom = require('@hapi/boom');
 const { getLogger } = require('../../logs');
 const { getTelemetry } = require('../../telemetry/telemetry-runtime');
-const { ProxyRequestError } = require('../proxy/proxy-errors');
+const { ProxyRequestError, ProxyConfigError } = require('../proxy/proxy-errors');
 const { SCOPES } = require('../scope-resolution');
 const { grantsUse } = require('../scope-visibility');
 const { normalizeProxyPath, matchAllowRule } = require('../proxy/proxy-path');
@@ -115,7 +115,8 @@ class ExecuteEntityProxyRequest {
             // The base is a name the module declared; the host comes from the
             // module's declaration, never from the request.
             const base = validated.base ?? DEFAULT_BASE;
-            const bases = resolveModuleBases(definition);
+            audit.base = base;
+            const bases = this.basesOf(definition);
             if (!bases.names.includes(base)) {
                 throw new ProxyRequestError(
                     'PROXY_UNKNOWN_BASE',
@@ -123,7 +124,6 @@ class ExecuteEntityProxyRequest {
                     { module: definition.moduleName, base, bases: bases.names }
                 );
             }
-            audit.base = base;
 
             const credentialRef = entity.credential;
             const credentialId =
@@ -139,7 +139,9 @@ class ExecuteEntityProxyRequest {
             if (!rule) {
                 throw new ProxyRequestError(
                     'PROXY_NOT_ALLOWED',
-                    `Module ${definition.moduleName} does not allow ${validated.method} on this path of base ${base}`,
+                    `Module ${definition.moduleName} does not allow ${validated.method} on this path` +
+                        // Single-base modules keep the message they always had.
+                        (bases.names.length > 1 ? ` of base ${base}` : ''),
                     { module: definition.moduleName, method: validated.method, base }
                 );
             }
@@ -265,15 +267,39 @@ class ExecuteEntityProxyRequest {
     }
 
     /**
-     * The URL of the named base: a module may pin it (string, or a function of
-     * the api). Undefined for `default` on a module that pins nothing, in which
-     * case the requester's own base URL is used.
+     * The module's bases. Load already validated the definition
+     * (assertProxyConfig), so this only fails for a definition that skipped
+     * load; that is a configuration fault (501), never an unmapped 500.
+     */
+    basesOf(definition) {
+        try {
+            return resolveModuleBases(definition);
+        } catch (error) {
+            if (!(error instanceof ProxyConfigError)) throw error;
+            throw new ProxyRequestError(
+                'PROXY_NOT_CONFIGURED',
+                `Module ${definition.moduleName} has invalid proxy settings`
+            );
+        }
+    }
+
+    /**
+     * The URL of the named base. A base the module declared never falls back
+     * to the requester's own host (that would send the module's token to a
+     * host the module did not name); only a module that declares nothing at
+     * all uses the requester's base URL, signalled by undefined.
      */
     resolveBaseUrl(bases, api, name) {
         const declared = bases.values.get(name);
-        if (typeof declared === 'function') return declared(api);
-        if (typeof declared === 'string') return declared;
-        return undefined;
+        if (!bases.declared) return undefined;
+        const url = typeof declared === 'function' ? declared(api) : declared;
+        if (typeof url !== 'string' || url === '') {
+            throw new ProxyRequestError(
+                'PROXY_NOT_CONFIGURED',
+                `The module declares no usable URL for base ${name}`
+            );
+        }
+        return url;
     }
 
     /** One audit record (ADR-048) and one usage count (ADR-011) per call. */
