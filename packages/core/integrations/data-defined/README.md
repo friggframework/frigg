@@ -87,8 +87,28 @@ they were routed under and finish on it.
 npx jest --config '{}' --rootDir packages/core/integrations/data-defined tests
 ```
 
-`tests/schemas.test.js` runs every example and manifest through the JSON Schemas with `ajv` (installed at the
-monorepo root by `@friggframework/schemas`). It fails, rather than skips, if `ajv` is missing.
+## Validating
+
+Validation is two layers, and a document is valid only when both pass (`schema-check.js`):
+
+1. **JSON Schema** (`schema/*.schema.json`): the published shape.
+2. **References** (`validate.js`, `manifests.js`): what a schema cannot see — steps name declared capabilities,
+   `$.steps.x` is an earlier step, view paths exist, option inputs are declared, `$.install` paths resolve.
+
+```bash
+npm run validate:definitions --workspace @friggframework/core          # bundled manifests + examples
+node packages/core/integrations/data-defined/scripts/validate.js my.definition.json --strict
+node packages/core/integrations/data-defined/scripts/validate.js --manifests ./capabilities --json defs/
+```
+
+Exit codes: `0` valid, `1` invalid (or a warning with `--strict`), `2` could not run (unreadable JSON, missing file,
+unknown option, `ajv` not installed). Manifests are checked first and an invalid manifest fails the run, because a
+definition is only as trustworthy as the manifests it is checked against.
+
+`ajv` comes from the monorepo root (`@friggframework/schemas` depends on it); core's runtime stays dependency-free and
+loads it only for validation. `tests/schemas.test.js` runs both layers over every example and manifest and drives the
+CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's `npm test`, and so CI's
+`npm run test:all`, runs it on every change.
 
 ## Not in v0.1
 

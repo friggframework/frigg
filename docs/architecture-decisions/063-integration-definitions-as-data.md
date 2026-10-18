@@ -125,7 +125,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 66 tests. It runs 16 example definitions (Quo ⇄ HubSpot is the
+`packages/core/integrations/data-defined/`, with 72 tests. It runs 16 example definitions (Quo ⇄ HubSpot is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
 references are relative to that directory.
@@ -307,9 +307,19 @@ Treat all three as the ceiling, not a first step.
 
 An invalid definition cannot be published. This is the "checks still compile" property from Context, made literal.
 
-The JSON Schemas are the published contract and `validate` is what the runtime enforces; `tests/schemas.test.js`
-runs every example and manifest through both with `ajv` (already a dependency of `@friggframework/schemas`), and
-pins the schema's transform list to the runtime's, so the two cannot drift.
+Validation is two layers, run together by `schema-check.js`: the JSON Schemas (the published contract) and the
+reference checks above (what the runtime enforces). A document is valid only when both pass. They run in three
+places:
+- `scripts/validate.js` (`npm run validate:definitions` in core): any definitions and manifests, exit `0` valid, `1`
+  invalid, `2` could not run; `--strict` fails on warnings and `--json` is for pipelines. It is what a publish step
+  calls before writing an `IntegrationDefinitionVersion` row.
+- `tests/schemas.test.js`, in CI on every change: every bundled example and manifest, plus the CLI driven as a child
+  process, and the schema's transform list pinned to the runtime's so the two cannot drift.
+- Anything that copies definitions elsewhere refuses to write invalid output; the Integrator's definitions page
+  sync is one.
+
+`ajv` is already a dependency of `@friggframework/schemas`; core's runtime stays dependency-free and loads it only
+for validation.
 
 ### 12. Compiling an installation into ordinary Frigg events
 

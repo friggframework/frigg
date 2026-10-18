@@ -14,6 +14,7 @@ const { BUILTINS } = require('./steps');
 const { TRANSFORMS, applyMapping } = require('./transforms');
 const { FILTERS } = require('./expressions');
 const { validateManifest } = require('./manifests');
+const { checkDefinition, checkManifest, checkInstallation } = require('./schema-check');
 
 /** Load every capabilities/*.capabilities.json (bundled mocks; real modules ship their own). */
 function loadManifests(dir = path.join(__dirname, 'capabilities')) {
@@ -27,7 +28,7 @@ function loadExamples(dir = path.join(__dirname, 'examples')) {
 
 module.exports = {
     SCHEMA_VERSION: '0.1',
-    validate, validateManifest, compile, routeWebhook, eventName, execute,
+    validate, validateManifest, checkDefinition, checkManifest, checkInstallation, compile, routeWebhook, eventName, execute,
     makePorts, runWorkflow, runQuery, renderSurface, resolveView, runLifecycle,
     diff, checkBump, planUpgrade,
     defineIntegrationClass, defineSharedIntegrationClass, memoryDefinitions,
