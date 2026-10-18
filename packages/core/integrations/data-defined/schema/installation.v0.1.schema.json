@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://friggframework.org/schemas/installation/v0.1.json",
+  "title": "Data-defined installation config v0.1",
+  "description": "What one customer chose, stored as Integration.config. The definition says what is possible; this says what is on.",
+  "type": "object",
+  "required": [
+    "definition"
+  ],
+  "properties": {
+    "definition": {
+      "type": "object",
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "checksum": {
+          "type": "string"
+        }
+      }
+    },
+    "settings": {
+      "type": "object"
+    },
+    "syncs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "mapping": {
+            "type": "array",
+            "description": "Full replacement mapping when the customer overrides the default."
+          }
+        }
+      }
+    },
+    "workflows": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "settings": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Owned by the runtime, not the customer: webhook subscription ids, sync cursors.",
+      "properties": {
+        "subscriptions": {
+          "type": "object"
+        },
+        "cursors": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

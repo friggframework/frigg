@@ -1,0 +1,81 @@
+{
+  "$comment": "Frigg Integration row (existing model). Only `config` is new in shape; everything else is what Frigg stores today.",
+  "id": "int_7f3a9c",
+  "userId": "usr_acme_admin",
+  "status": "ENABLED",
+  "version": "1.4.0",
+  "entities": [
+    {
+      "id": "ent_quo_51",
+      "moduleName": "quo",
+      "externalId": "ws_9a1"
+    },
+    {
+      "id": "ent_hs_88",
+      "moduleName": "hubspot",
+      "externalId": "1944396"
+    }
+  ],
+  "config": {
+    "definition": {
+      "id": "quo-hubspot",
+      "version": "1.4.0",
+      "checksum": "sha256:108758e3ebd74b6003fa2250116443a564cca19bd1f6ccfd2ad7c254ccbbc163"
+    },
+    "settings": {
+      "fromNumber": "+15125550100"
+    },
+    "syncs": {
+      "contacts": {
+        "enabled": true
+      }
+    },
+    "workflows": {
+      "log-call": {
+        "enabled": true
+      },
+      "call-summary": {
+        "enabled": true
+      },
+      "missed-call-task": {
+        "enabled": true,
+        "settings": {
+          "owner": "81273645",
+          "dueIn": "2h"
+        }
+      },
+      "texts-timeline": {
+        "enabled": true
+      },
+      "won-thank-you": {
+        "enabled": false
+      },
+      "stale-contacts": {
+        "enabled": false
+      },
+      "text-from-card": {
+        "enabled": true
+      }
+    },
+    "ui": {
+      "quo-card": {
+        "enabled": true
+      },
+      "deals-panel": {
+        "enabled": true
+      }
+    },
+    "runtime": {
+      "subscriptions": {
+        "quo": "WHk2c9"
+      },
+      "cursors": {
+        "contacts": {
+          "hubspot": "2026-10-18T13:59:00Z"
+        }
+      }
+    }
+  },
+  "createdAt": "2026-09-02T15:20:00Z",
+  "updatedAt": "2026-10-18T09:12:44Z"
+}

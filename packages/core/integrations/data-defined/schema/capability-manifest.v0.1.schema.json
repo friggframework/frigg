@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "title": "Frigg API module capability manifest v0.1",
+  "description": "What an API module can do, in terms a definition can reference: objects and their fields, events it emits, capabilities (each backed by one Api method) and option lists for settings. Shipped with the module.",
+  "type": "object",
+  "required": [
+    "module",
+    "package",
+    "objects",
+    "capabilities"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "module": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "package": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "auth": {
+      "enum": [
+        "oauth2",
+        "api_key",
+        "basic"
+      ]
+    },
+    "objects": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "type"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "readOnly": {
+                  "type": "boolean"
+                },
+                "values": {
+                  "type": "array"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "delivery"
+        ],
+        "properties": {
+          "delivery": {
+            "enum": [
+              "webhook",
+              "poll"
+            ]
+          },
+          "object": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Example payload; the shape $.event has."
+          },
+          "subscribe": {
+            "type": "string",
+            "description": "Capability that registers the subscription on install."
+          },
+          "record": {
+            "type": "string",
+            "description": "Path inside the payload to the record the event is about (exposed as $.record). Omit when the payload is the record."
+          },
+          "idPath": {
+            "type": "string",
+            "default": "id",
+            "description": "Path to the provider's event id, used to run each event once."
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "kind",
+          "method"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "read",
+              "write",
+              "delete",
+              "subscribe",
+              "search"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "description": "Api class method that implements it."
+          },
+          "label": {
+            "type": "string"
+          },
+          "input": {
+            "type": "object",
+            "description": "Argument names -> {type, required}."
+          },
+          "output": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "capability",
+          "label",
+          "value"
+        ],
+        "properties": {
+          "capability": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "placements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "renderer": {
+          "type": "string",
+          "description": "The generic renderer extension deployed once for this host."
+        }
+      }
+    }
+  }
+}

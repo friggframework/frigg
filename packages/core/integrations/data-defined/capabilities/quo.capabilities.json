@@ -1,0 +1,456 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "quo",
+  "label": "Quo",
+  "package": "@lefthook/api-module-quo",
+  "version": "2.1.0",
+  "auth": "api_key",
+  "objects": {
+    "contact": {
+      "label": "Contact",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "defaultFields.firstName",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "defaultFields.lastName",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "defaultFields.company",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "defaultFields.emails[0].value",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "defaultFields.phoneNumbers[0].value",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "externalId",
+          "type": "string",
+          "tag": "record.externalId"
+        },
+        {
+          "name": "source",
+          "type": "string"
+        }
+      ]
+    },
+    "call": {
+      "label": "Call",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "direction",
+          "type": "enum",
+          "values": [
+            "incoming",
+            "outgoing"
+          ]
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "completed",
+            "missed",
+            "voicemail",
+            "busy"
+          ]
+        },
+        {
+          "name": "participants",
+          "type": "phone[]",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "duration",
+          "type": "number"
+        },
+        {
+          "name": "answeredAt",
+          "type": "datetime"
+        },
+        {
+          "name": "userId",
+          "type": "string",
+          "tag": "record.owner"
+        }
+      ]
+    },
+    "message": {
+      "label": "Text message",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "from",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "to",
+          "type": "phone[]",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "text",
+          "type": "text"
+        },
+        {
+          "name": "direction",
+          "type": "enum",
+          "values": [
+            "incoming",
+            "outgoing"
+          ]
+        },
+        {
+          "name": "createdAt",
+          "type": "datetime"
+        }
+      ]
+    },
+    "summary": {
+      "label": "Call summary",
+      "fields": [
+        {
+          "name": "callId",
+          "type": "id"
+        },
+        {
+          "name": "summary",
+          "type": "text[]"
+        },
+        {
+          "name": "nextSteps",
+          "type": "text[]"
+        }
+      ]
+    }
+  },
+  "events": {
+    "call.completed": {
+      "delivery": "webhook",
+      "object": "call",
+      "subscribe": "webhook.create",
+      "payload": {
+        "id": "EVc0a1",
+        "type": "call.completed",
+        "data": {
+          "object": {
+            "id": "AC9x",
+            "direction": "incoming",
+            "status": "completed",
+            "from": "+15125550142",
+            "to": "+15125550100",
+            "participants": [
+              "+15125550142"
+            ],
+            "duration": 312,
+            "userId": "US1",
+            "answeredAt": "2026-10-18T14:02:00Z",
+            "completedAt": "2026-10-18T14:07:12Z"
+          }
+        }
+      },
+      "record": "data.object"
+    },
+    "call.missed": {
+      "delivery": "webhook",
+      "object": "call",
+      "subscribe": "webhook.create",
+      "payload": {
+        "id": "EVc0a2",
+        "type": "call.ringing",
+        "data": {
+          "object": {
+            "id": "AC9y",
+            "direction": "incoming",
+            "status": "missed",
+            "from": "+15125550142",
+            "participants": [
+              "+15125550142"
+            ],
+            "userId": "US1",
+            "createdAt": "2026-10-18T15:00:00Z"
+          }
+        }
+      },
+      "record": "data.object"
+    },
+    "call.summary.completed": {
+      "delivery": "webhook",
+      "object": "summary",
+      "subscribe": "webhook.create",
+      "payload": {
+        "id": "EVs01",
+        "type": "call.summary.completed",
+        "data": {
+          "object": {
+            "callId": "AC9x",
+            "status": "completed",
+            "summary": [
+              "Asked about renewal pricing"
+            ],
+            "nextSteps": [
+              "Send the renewal quote by Friday"
+            ]
+          }
+        }
+      },
+      "record": "data.object"
+    },
+    "message.received": {
+      "delivery": "webhook",
+      "object": "message",
+      "subscribe": "webhook.create",
+      "payload": {
+        "id": "EVm01",
+        "type": "message.received",
+        "data": {
+          "object": {
+            "id": "ACm1",
+            "from": "+15125550142",
+            "to": [
+              "+15125550100"
+            ],
+            "text": "Can we move tomorrow to 3pm?",
+            "direction": "incoming",
+            "createdAt": "2026-10-18T16:00:00Z"
+          }
+        }
+      },
+      "record": "data.object"
+    },
+    "contact.updated": {
+      "delivery": "webhook",
+      "object": "contact",
+      "subscribe": "webhook.create",
+      "payload": {
+        "id": "EVk01",
+        "type": "contact.updated",
+        "data": {
+          "object": {
+            "id": "CT7",
+            "defaultFields": {
+              "firstName": "Dana",
+              "phoneNumbers": [
+                {
+                  "value": "+15125550142"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "record": "data.object"
+    }
+  },
+  "capabilities": {
+    "contact.get": {
+      "kind": "read",
+      "method": "getContact",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "contact"
+    },
+    "contact.search": {
+      "kind": "search",
+      "method": "searchContacts",
+      "input": {
+        "phone": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        }
+      },
+      "output": "contact[]"
+    },
+    "contact.list": {
+      "kind": "read",
+      "method": "listContacts",
+      "input": {
+        "pageToken": {
+          "type": "string"
+        },
+        "maxResults": {
+          "type": "number"
+        }
+      },
+      "output": "page<contact>"
+    },
+    "contact.create": {
+      "kind": "write",
+      "method": "createContact",
+      "input": {
+        "defaultFields": {
+          "type": "object",
+          "required": true
+        },
+        "externalId": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "output": "contact"
+    },
+    "contact.update": {
+      "kind": "write",
+      "method": "updateContact",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "defaultFields": {
+          "type": "object"
+        }
+      },
+      "output": "contact"
+    },
+    "call.list": {
+      "kind": "read",
+      "method": "listCalls",
+      "input": {
+        "participant": {
+          "type": "string",
+          "required": true
+        },
+        "maxResults": {
+          "type": "number"
+        }
+      },
+      "output": "call[]"
+    },
+    "call.recording": {
+      "kind": "read",
+      "method": "getCallRecordings",
+      "input": {
+        "callId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "recording[]"
+    },
+    "message.send": {
+      "kind": "write",
+      "method": "sendMessage",
+      "input": {
+        "to": {
+          "type": "array",
+          "required": true
+        },
+        "from": {
+          "type": "string",
+          "required": true
+        },
+        "content": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "message"
+    },
+    "message.list": {
+      "kind": "read",
+      "method": "listMessages",
+      "input": {
+        "participants": {
+          "type": "array",
+          "required": true
+        },
+        "maxResults": {
+          "type": "number"
+        }
+      },
+      "output": "message[]"
+    },
+    "phoneNumber.list": {
+      "kind": "read",
+      "method": "listPhoneNumbers",
+      "input": {},
+      "output": "phoneNumber[]"
+    },
+    "user.list": {
+      "kind": "read",
+      "method": "listUsers",
+      "input": {},
+      "output": "user[]"
+    },
+    "webhook.create": {
+      "kind": "subscribe",
+      "method": "createWebhook",
+      "input": {
+        "url": {
+          "type": "string",
+          "required": true
+        },
+        "events": {
+          "type": "array",
+          "required": true
+        }
+      },
+      "output": "webhook"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhook",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  },
+  "options": {
+    "phoneNumber": {
+      "capability": "phoneNumber.list",
+      "label": "{{item.name}} {{item.number}}",
+      "value": "$.item.number"
+    },
+    "user": {
+      "capability": "user.list",
+      "label": "{{item.firstName}} {{item.lastName}}",
+      "value": "$.item.id"
+    }
+  },
+  "ui": {
+    "placements": [
+      "conversation.sidebar",
+      "contact.panel"
+    ],
+    "renderer": "quo-integrations-panel"
+  }
+}

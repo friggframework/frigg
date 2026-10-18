@@ -1,0 +1,62 @@
+{
+  "$comment": "WorkflowRun row written by the runtime for one delivered Quo call.completed event. `outbound` is the captured HubSpot call (shown here for documentation; production stores a digest).",
+  "id": "run_01JB8A0K",
+  "integrationId": "int_7f3a9c",
+  "definition": {
+    "id": "quo-hubspot",
+    "version": "1.4.0"
+  },
+  "workflowId": "log-call",
+  "trigger": {
+    "type": "webhook",
+    "eventId": "EVc0a1"
+  },
+  "startedAt": "2026-10-18T14:07:13.037Z",
+  "status": "completed",
+  "endedAt": "2026-10-18T14:07:13.074Z",
+  "trace": [
+    {
+      "id": "contact",
+      "use": "links.find",
+      "at": "steps[0]",
+      "status": "ok",
+      "ms": 0
+    },
+    {
+      "id": "stop#1",
+      "use": "stop",
+      "at": "steps[1]",
+      "status": "skipped"
+    },
+    {
+      "id": "body",
+      "use": "template",
+      "at": "steps[2]",
+      "status": "ok",
+      "ms": 2
+    },
+    {
+      "id": "engagement",
+      "use": "hubspot.call.create",
+      "at": "steps[3]",
+      "status": "ok",
+      "ms": 0
+    }
+  ],
+  "outbound": [
+    {
+      "module": "hubspot",
+      "method": "createCallEngagement",
+      "args": {
+        "contactId": "51",
+        "properties": {
+          "hs_call_title": "Quo call (incoming)",
+          "hs_call_body": "Quo call with +15125550142 · 312s (completed)",
+          "hs_call_duration": 312,
+          "hs_call_direction": "INCOMING",
+          "hs_timestamp": "2026-10-18T14:07:12Z"
+        }
+      }
+    }
+  ]
+}
