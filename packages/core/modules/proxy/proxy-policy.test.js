@@ -35,6 +35,21 @@ describe('entity proxy policy (ADR-052 §5-§7)', () => {
             });
         });
 
+        it('leaves `base` undefined when omitted and keeps a valid name', () => {
+            expect(validateProxyRequest({ method: 'GET', path: '/x' }, limits).base).toBeUndefined();
+            expect(validateProxyRequest({ method: 'GET', path: '/x', base: null }, limits).base).toBeUndefined();
+            expect(validateProxyRequest({ method: 'GET', path: '/x', base: 'docs-v2' }, limits).base).toBe('docs-v2');
+        });
+
+        it.each(['https://evil.example', 'evil.example', '../x', 'default/../x', '', 'Docs', 7, {}])(
+            'refuses base %j: it is a name, never a URL or host',
+            (base) => {
+                expect(codeOf(() => validateProxyRequest({ method: 'GET', path: '/x', base }, limits))).toBe(
+                    'INVALID_PROXY_REQUEST'
+                );
+            }
+        );
+
         it('accepts scalar and string-array query values', () => {
             const { query } = validateProxyRequest(
                 { method: 'GET', path: '/x', query: { a: 'b', n: 2, f: false, ids: ['1', '2'] } },

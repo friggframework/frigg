@@ -73,6 +73,23 @@ declare module "@friggframework/core" {
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "*";
     /** Relative to the module's base URL. `:param` is one segment; a trailing `/**` is a subtree. */
     path: string;
+    /** Which of the module's named base URLs the rule applies to. Default `"default"`. Must be declared by the module (checked at load). */
+    base?: string;
+  }
+
+  /**
+   * A module definition's `proxy` setting (ADR-052). Declare `baseUrl` (one host,
+   * meaning `{ default: baseUrl }`) or `baseUrls` (several), never both.
+   * `baseUrls` values are absolute https URLs with no credentials, query or
+   * fragment, or functions of the module's api; names match `^[a-z][a-z0-9-]*$`.
+   * A caller picks a base by name in the proxy request's `base`.
+   */
+  export interface ModuleProxyConfig {
+    baseUrl?: string | ((api: any) => string);
+    baseUrls?: Record<string, string | ((api: any) => string)>;
+    allow?: ProxyAllowRule[];
+    headers?: string[];
+    binary?: boolean;
   }
 
   /** `appDefinition.managementApi.proxy`: the entity proxy, POST /api/v2/entities/:id/proxy (ADR-052). */

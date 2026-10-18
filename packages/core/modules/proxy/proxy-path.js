@@ -1,4 +1,5 @@
 const { ProxyRequestError } = require('./proxy-errors');
+const { DEFAULT_BASE, ruleBase } = require('./proxy-bases');
 
 /**
  * Path rules for the entity proxy (ADR-052 §4). The caller supplies a path
@@ -133,7 +134,7 @@ function joinProxyUrl(baseUrl, normalizedPath) {
 }
 
 /**
- * Finds the allow-list rule that permits `method` on `path`.
+ * Finds the allow-list rule that permits `method` on `path` of `base`.
  *
  * Patterns use `:param` for exactly one segment and a trailing `/**` for a
  * subtree (the prefix itself included). `method: '*'` matches any method.
@@ -141,14 +142,17 @@ function joinProxyUrl(baseUrl, normalizedPath) {
  * @param {Array<{method: string, path: string}>} rules
  * @param {string} method - upper case
  * @param {string} path - normalised path
- * @returns {{method: string, path: string}|null}
+ * @param {string} [base='default'] - the named base the request targets; a
+ *   rule applies to its own `base` only (no `base` means `default`)
+ * @returns {{method: string, path: string, base?: string}|null}
  */
-function matchAllowRule(rules, method, path) {
+function matchAllowRule(rules, method, path, base = DEFAULT_BASE) {
     const requestSegments = path.split('/').slice(1);
     for (const rule of rules || []) {
         if (!rule || typeof rule.path !== 'string' || typeof rule.method !== 'string') {
             continue;
         }
+        if (ruleBase(rule) !== base) continue;
         const ruleMethod = rule.method.toUpperCase();
         if (ruleMethod !== '*' && ruleMethod !== method) continue;
         if (patternMatches(rule.path, requestSegments)) return rule;

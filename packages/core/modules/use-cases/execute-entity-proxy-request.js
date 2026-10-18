@@ -5,6 +5,7 @@ const { ProxyRequestError } = require('../proxy/proxy-errors');
 const { SCOPES } = require('../scope-resolution');
 const { grantsUse } = require('../scope-visibility');
 const { normalizeProxyPath, matchAllowRule } = require('../proxy/proxy-path');
+const { DEFAULT_BASE, resolveModuleBases } = require('../proxy/proxy-bases');
 const {
     validateProxyRequest,
     resolveAllowRules,
@@ -18,6 +19,7 @@ const log = getLogger('frigg.api.proxy');
 /** HTTP status and audit outcome for each proxy error code (ADR-052 §10). */
 const ERROR_MAP = {
     INVALID_PROXY_REQUEST: { status: 400, outcome: 'denied' },
+    PROXY_UNKNOWN_BASE: { status: 400, outcome: 'denied' },
     PROXY_NOT_ALLOWED: { status: 403, outcome: 'denied' },
     PAYLOAD_TOO_LARGE: { status: 413, outcome: 'too_large' },
     UNSUPPORTED_MEDIA_TYPE: { status: 415, outcome: 'denied' },
@@ -110,6 +112,19 @@ class ExecuteEntityProxyRequest {
             audit.module = definition.moduleName;
             this.assertProxyable(entityId, entity, definition, user);
 
+            // The base is a name the module declared; the host comes from the
+            // module's declaration, never from the request.
+            const base = validated.base ?? DEFAULT_BASE;
+            const bases = resolveModuleBases(definition);
+            if (!bases.names.includes(base)) {
+                throw new ProxyRequestError(
+                    'PROXY_UNKNOWN_BASE',
+                    `Module ${definition.moduleName} has no base named ${base}; use one of: ${bases.names.join(', ')}`,
+                    { module: definition.moduleName, base, bases: bases.names }
+                );
+            }
+            audit.base = base;
+
             const credentialRef = entity.credential;
             const credentialId =
                 credentialRef && typeof credentialRef === 'object'
@@ -120,12 +135,12 @@ class ExecuteEntityProxyRequest {
             }
 
             const { rules } = resolveAllowRules(definition, this.proxyConfig.modules);
-            const rule = matchAllowRule(rules, validated.method, path);
+            const rule = matchAllowRule(rules, validated.method, path, base);
             if (!rule) {
                 throw new ProxyRequestError(
                     'PROXY_NOT_ALLOWED',
-                    `Module ${definition.moduleName} does not allow ${validated.method} on this path`,
-                    { module: definition.moduleName, method: validated.method }
+                    `Module ${definition.moduleName} does not allow ${validated.method} on this path of base ${base}`,
+                    { module: definition.moduleName, method: validated.method, base }
                 );
             }
             audit.pattern = rule.path;
@@ -153,11 +168,11 @@ class ExecuteEntityProxyRequest {
                 query: validated.query,
                 headers,
                 body: validated.body,
-                baseUrl: this.resolveBaseUrl(definition, module.api),
+                baseUrl: this.resolveBaseUrl(bases, module.api, base),
                 timeoutMs: this.proxyConfig.timeoutMs,
                 maxResponseBytes: this.proxyConfig.maxResponseBytes,
                 isAllowedRedirect: (nextPath, nextMethod) =>
-                    Boolean(matchAllowRule(rules, nextMethod, nextPath)),
+                    Boolean(matchAllowRule(rules, nextMethod, nextPath, base)),
             });
             audit.upstreamStatus = upstream.status;
             audit.responseBytes = upstream.body?.length ?? 0;
@@ -249,9 +264,13 @@ class ExecuteEntityProxyRequest {
         }
     }
 
-    /** A module may pin its proxy base URL (string, or a function of the api). */
-    resolveBaseUrl(definition, api) {
-        const declared = definition.proxy?.baseUrl;
+    /**
+     * The URL of the named base: a module may pin it (string, or a function of
+     * the api). Undefined for `default` on a module that pins nothing, in which
+     * case the requester's own base URL is used.
+     */
+    resolveBaseUrl(bases, api, name) {
+        const declared = bases.values.get(name);
         if (typeof declared === 'function') return declared(api);
         if (typeof declared === 'string') return declared;
         return undefined;

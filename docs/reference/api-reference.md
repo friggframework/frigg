@@ -139,11 +139,34 @@ POST /api/v2/entities/7/proxy
 
 - `path` is relative to the module's base URL. The host always comes from the
   module; absolute URLs, `//`, `..`, encoded separators, `?` and `#` are refused.
+- A module whose API spans several hosts declares named bases instead of one
+  `baseUrl` (declare one or the other, not both):
+
+  ```js
+  proxy: {
+      baseUrls: {
+          default: 'https://www.googleapis.com',
+          docs: 'https://docs.googleapis.com',
+          sheets: 'https://sheets.googleapis.com',
+      },
+      allow: [
+          { method: 'GET', path: '/drive/v3/files' },                       // default
+          { method: 'GET', path: '/v1/documents/:id', base: 'docs' },      // docs only
+      ],
+  },
+  ```
+
+  The request picks a base by name: `{ "method": "GET", "path": "/v1/documents/abc", "base": "docs" }`.
+  `base` is a name the module declared, never a URL or host; omitted means
+  `default`. Allow rules (module or app level) match only their own `base`.
+  A malformed `base` is `400 INVALID_PROXY_REQUEST`, an undeclared one
+  `400 PROXY_UNKNOWN_BASE` (the message lists the module's names). Bad
+  `baseUrls`, or a rule naming an undeclared base, stop the app at load.
 - The call goes through the module's Requester, so token refresh applies.
   API-key and basic-auth modules work the same as OAuth2.
 - The response status follows the upstream status. Upstream 5xx is
   `502 UPSTREAM_ERROR`, 429 keeps `Retry-After`, a timeout is `504 TIMEOUT`.
-  Refusals: `400 INVALID_PROXY_REQUEST`, `403 PROXY_NOT_ALLOWED`, `413`, `415`.
+  Refusals: `400 INVALID_PROXY_REQUEST` / `PROXY_UNKNOWN_BASE`, `403 PROXY_NOT_ALLOWED`, `413`, `415`.
 - Every call writes a `frigg.api.proxy.request` audit record and counts
   `frigg.api.proxy.requests`.
 
