@@ -125,7 +125,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 136 tests (the persistence suite runs against real PostgreSQL and
+`packages/core/integrations/data-defined/`, with 156 tests (the persistence suite runs against real PostgreSQL and
 MongoDB). It runs 16 example definitions (Quo ⇄ HubSpot is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
@@ -553,6 +553,63 @@ Ticks for an installation that is not `ENABLED` are discarded by the queue worke
 Pausing the host schedule when the status changes is not done yet. Changing status does not go through `onUpdate`,
 so it needs a hook of its own.
 
+### 15b. The sync engine
+
+`sync-engine.js` keeps records on two modules as copies of each other. Its I/O is the ports (Api calls through the
+manifest, links over `IntegrationMapping`) and a state store, so tests drive it against in-memory APIs.
+
+**How an object is read and written is the manifest's, not the definition's.** Paging, the id path and the payload
+shape are facts about an API, so each syncable object declares them once. A definition only says what to copy:
+
+```json
+"objects": { "contact": { "sync": {
+  "id": "id", "updatedAt": "updatedAt",
+  "list":   { "capability": "contact.list", "cursor": "after", "limit": "limit", "since": "updatedSince", "items": "results", "next": "paging.next.after" },
+  "get":    { "capability": "contact.get", "id": "id" },
+  "search": { "capability": "contact.search" },
+  "create": { "capability": "contact.create" },
+  "update": { "capability": "contact.update", "id": "id" }
+} } }
+```
+
+Lists page by `cursor` (read from the response), `offset` or `page`. A write sends the mapped record. It is wrapped
+in one argument when the capability takes it that way (`"body": "customer"` for Shopify), and trimmed to the
+arguments the capability accepts. An event that carries only an id (`"recordId": "objectId"`, HubSpot) is fetched
+with `get`. A definition adds per-module arguments with `sync.args` (`{ "github": { "owner": "{{install.repo |
+split: '/' | first}}" } }`). Validation refuses a sync whose sides cannot do what it asks: no list for a backfill, no
+modified-since list for a poll, no get for an id-only event, neither create nor update on the side written to.
+
+**One record, one direction.**
+1. **Find the other side.** First its link. Then the identity index. Then the other side's search, by the identity
+   keys its search accepts, using values normalised the way the index stores them (`onAmbiguous`: skip, first or
+   create). Otherwise it creates the record.
+2. **Map.** A create applies every row flowing that way. An update applies a row only when its `master` is the side
+   the change came from. The default is the source. `newest` applies unless the other side was seen changing later
+   (a late webhook or a delayed poll cannot overwrite a newer edit).
+3. **Write only what changed.** Each link carries a short hash of every mapped value known on each side. An update
+   sends only the fields whose value the other side does not already hold, so it cannot clobber a concurrent edit to
+   another field. A payload with nothing new is not sent at all. That is also what ends the echo: our write comes
+   back as the other side's webhook, maps to values already known, and stops.
+4. **Link.** Both ids and both sides' identity keys are written to `link:` / `idx:` rows, with what is now known
+   (`known`, `seen`).
+
+**Backfill.** `SYNC_<ID>_BACKFILL` (a button, or `onInstall`) writes a progress row (`sync:<id>:backfill`: run id,
+side, cursor, pages, counts by outcome, the last 20 errors) and queues `SYNC_<ID>_PAGE`. Each page queues the next,
+then the target side of a two-way sync that can list. One backfill runs at a time; a page of an older run is dropped,
+and a record that fails is counted without stopping the page. `GET /api/integrations/:id/syncs` returns the progress.
+A long backfill re-enqueues many times. On AWS that needs the same Lambda recursion override `BaseCRMIntegration`
+needs (the detector stops a chain at depth 16), until Frigg's orchestrator queue lands.
+
+**Ongoing.** Webhook mode routes the object's events to `SYNC_<ID>_ONGOING`. Poll mode runs on the installation's
+recurring schedule (§15a). The first poll only sets a mark. Later polls read what changed since (at most ten pages
+per side, the rest from the saved cursor next tick) and move the mark to the newest `updatedAt` seen.
+
+**Relink.** An upgrade whose plan says `relink` starts a backfill with reason `relink`, which rewrites every link with
+the new identity keys and creates nothing that already links.
+
+**syncRecord workflows** run per synced record whose outcome (`created`, `updated`, `linked`) they listen for. A
+create or link is once per record, so its run carries a dedupe id; updates do not.
+
 ### 16. UI surfaces
 
 A UI extension is a `query` plus a `view`. The view is a tree of a **fixed component set**: `Stack`, `Heading`,
@@ -634,9 +691,7 @@ work kept apart from bulk work.
 
 | Missing | Why it matters | Plan |
 |---|---|---|
-| **Sync engine**: backfill pages, ongoing deltas, two-way master and conflict rules | `SYNC_*` events compile, but `runSync` throws "not implemented in v0.1" | Reuse the existing `SYNC_PAGE` and `Process` patterns from `BaseCRMIntegration` |
 | `delay`, approvals, per-module rate limits | Common in workflows; each needs durable state between steps | With step checkpointing |
-| Rebuilding links after an identity change | `planUpgrade` reports `relink` / `reindex`; nothing performs it | With the sync engine, which owns backfill |
 | Host renderers (HubSpot card, Quo panel) | `renderSurface` returns trees that nothing draws yet | Per host |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |
 

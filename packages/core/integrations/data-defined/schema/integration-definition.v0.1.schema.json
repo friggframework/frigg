@@ -232,6 +232,13 @@
               "off"
             ],
             "default": "on"
+          },
+          "args": {
+            "type": "object",
+            "description": "Extra arguments for every call to a side's module, by module key: { \"github\": { \"owner\": \"$.install.owner\", \"repo\": \"$.install.repo\" } }. Values read only $.install.",
+            "additionalProperties": {
+              "type": "object"
+            }
           }
         }
       }

@@ -60,7 +60,32 @@
           "tag": "record.updatedAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "update_time",
+        "list": {
+          "capability": "person.list",
+          "cursor": "cursor",
+          "limit": "limit",
+          "since": "updated_since",
+          "items": "data",
+          "next": "additional_data.next_cursor"
+        },
+        "get": {
+          "capability": "person.get",
+          "id": "id"
+        },
+        "create": {
+          "capability": "person.create",
+          "body": "person"
+        },
+        "update": {
+          "capability": "person.update",
+          "id": "id",
+          "body": "person"
+        }
+      }
     },
     "activity": {
       "label": "Activity",

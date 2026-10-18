@@ -73,7 +73,30 @@
           "tag": "record.createdAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "list": {
+          "capability": "customer.list",
+          "cursor": "starting_after",
+          "limit": "limit",
+          "items": "data",
+          "next": "lastId"
+        },
+        "get": {
+          "capability": "customer.get",
+          "id": "id"
+        },
+        "create": {
+          "capability": "customer.create",
+          "body": "params"
+        },
+        "update": {
+          "capability": "customer.update",
+          "id": "id",
+          "body": "params"
+        }
+      }
     },
     "paymentIntent": {
       "label": "Payment intent",

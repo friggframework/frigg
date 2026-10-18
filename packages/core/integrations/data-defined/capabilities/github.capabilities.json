@@ -85,7 +85,29 @@
           "tag": "record.updatedAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "number",
+        "updatedAt": "updated_at",
+        "list": {
+          "capability": "issue.list",
+          "cursor": "page",
+          "limit": "per_page",
+          "since": "since",
+          "paging": "page"
+        },
+        "get": {
+          "capability": "issue.get",
+          "id": "issue_number"
+        },
+        "create": {
+          "capability": "issue.create"
+        },
+        "update": {
+          "capability": "issue.update",
+          "id": "issue_number"
+        }
+      }
     },
     "pullRequest": {
       "label": "Pull request",

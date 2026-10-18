@@ -163,6 +163,30 @@ function validate(def, manifests = {}) {
             const hasEvents = (k, o) => Object.values(manifestOf[k]?.events || {}).some((e) => e.object === o);
             if (manifestOf[src.k] && !hasEvents(src.k, src.o)) warn(`${p}.ongoing`, `${s.source} declares no webhook events; ongoing sync will need polling`);
         }
+        // What the sync engine needs from each side's manifest (objects.<obj>.sync).
+        const specOf = (r) => manifestOf[r.k]?.objects?.[r.o]?.sync;
+        const sides = s.direction === 'two_way' ? [[src, tgt, s.source], [tgt, src, s.target]] : [[src, tgt, s.source]];
+        for (const [from, to, fromName] of sides) {
+            const fs = specOf(from), ts = specOf(to);
+            if (!manifestOf[from.k] || !manifestOf[to.k]) continue;
+            const toName = `${to.k}.${to.o}`;
+            if (!fs) { err(`${p}.${from === src ? 'source' : 'target'}`, `${fromName} declares no sync block (objects.${from.o}.sync), so it cannot be read`); continue; }
+            if (!ts) { err(`${p}.${to === tgt ? 'target' : 'source'}`, `${toName} declares no sync block (objects.${to.o}.sync), so it cannot be written`); continue; }
+            if (!ts.create && !ts.update) err(`${p}.${to === tgt ? 'target' : 'source'}`, `${toName} has neither sync.create nor sync.update`);
+            if ((s.backfill?.trigger || 'none') !== 'none' && !fs.list && from === src) err(`${p}.backfill`, `A backfill pages through ${fromName}, which has no sync.list`);
+            // A two-way backfill also reads the target when it can list; when it cannot, it reads only the source.
+            if (s.ongoing?.mode === 'poll' && !fs.list?.since) err(`${p}.ongoing`, `Polling ${fromName} needs sync.list with a modified-since argument`);
+            if (s.ongoing?.mode === 'webhook') {
+                for (const [topic, e] of Object.entries(manifestOf[from.k].events || {})) if (e.object === from.o && e.recordId && !fs.get) err(`${p}.ongoing`, `${from.k} event "${topic}" carries only an id and ${fromName} has no sync.get`);
+            }
+        }
+        for (const [k, args] of Object.entries(s.args || {})) {
+            if (k !== src.k && k !== tgt.k) err(`${p}.args.${k}`, `"${k}" is neither side of this sync`);
+            for (const [a, v] of Object.entries(args || {})) {
+                if (referencedPaths(v).some((r) => !r.startsWith('$.install'))) err(`${p}.args.${k}.${a}`, 'A sync argument can read only $.install (integration settings and accounts)');
+                else checkRefs(v, `${p}.args.${k}.${a}`, null);
+            }
+        }
         if (s.ongoing?.mode === 'poll') checkSchedule({ every: s.ongoing.every || '15m' }, s.ongoing.configurable, `${p}.ongoing`);
         else if (s.ongoing?.configurable) err(`${p}.ongoing.configurable`, 'Only a polling sync has an interval to configure');
         if (s.filter) checkCondition(s.filter, `${p}.filter`);

@@ -75,7 +75,32 @@
           "tag": "record.updatedAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "updated_at",
+        "list": {
+          "capability": "customer.list",
+          "cursor": "page",
+          "limit": "page_size",
+          "since": "updated_since",
+          "items": "customers",
+          "paging": "page"
+        },
+        "get": {
+          "capability": "customer.get",
+          "id": "id"
+        },
+        "create": {
+          "capability": "customer.create",
+          "body": "customer"
+        },
+        "update": {
+          "capability": "customer.update",
+          "id": "id",
+          "body": "customer"
+        }
+      }
     },
     "job": {
       "label": "Job",

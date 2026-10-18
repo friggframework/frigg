@@ -114,6 +114,134 @@
                 }
               }
             }
+          },
+          "sync": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "How a sync reads and writes this object (sync-engine.js). A write's arguments are the mapped record (wrapped in `body` when the capability takes it in one argument); update and get also pass the record id as `id`.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "default": "id",
+                "description": "Path of the record's id."
+              },
+              "updatedAt": {
+                "type": "string",
+                "description": "Path of the record's last-modified time: poll high-water marks and master: newest."
+              },
+              "list": {
+                "type": "object",
+                "required": [
+                  "capability"
+                ],
+                "additionalProperties": false,
+                "description": "Pages through every record.",
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "cursor": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$",
+                    "description": "Argument taking the cursor, offset or page number."
+                  },
+                  "limit": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$",
+                    "description": "Argument taking the page size."
+                  },
+                  "since": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$",
+                    "description": "Argument taking a modified-since time (polling)."
+                  },
+                  "items": {
+                    "type": "string",
+                    "description": "Path of the records in the response; omit when the response is the array."
+                  },
+                  "next": {
+                    "type": "string",
+                    "description": "cursor paging: path of the next cursor in the response."
+                  },
+                  "paging": {
+                    "enum": [
+                      "cursor",
+                      "offset",
+                      "page"
+                    ],
+                    "default": "cursor"
+                  }
+                }
+              },
+              "get": {
+                "type": "object",
+                "required": [
+                  "capability"
+                ],
+                "additionalProperties": false,
+                "description": "Reads one record by id (an event that carries only an id is fetched with it).",
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  }
+                }
+              },
+              "search": {
+                "type": "object",
+                "required": [
+                  "capability"
+                ],
+                "additionalProperties": false,
+                "description": "Finds candidates by identity key; its arguments are named after the definition's identity keys.",
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  }
+                }
+              },
+              "create": {
+                "type": "object",
+                "required": [
+                  "capability"
+                ],
+                "additionalProperties": false,
+                "description": "Creates a record.",
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  }
+                }
+              },
+              "update": {
+                "type": "object",
+                "required": [
+                  "capability"
+                ],
+                "additionalProperties": false,
+                "description": "Updates a record.",
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "body": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -169,6 +297,10 @@
           "headers": {
             "type": "object",
             "description": "Headers of the example delivery, when the topic is in a header."
+          },
+          "recordId": {
+            "type": "string",
+            "description": "Path in the event to the record id, when the event carries only an id (HubSpot's objectId): a sync fetches the record with the object's sync.get."
           }
         }
       }

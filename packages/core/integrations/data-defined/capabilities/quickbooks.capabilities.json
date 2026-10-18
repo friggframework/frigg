@@ -110,7 +110,27 @@
           "tag": "record.updatedAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "Id",
+        "updatedAt": "MetaData.LastUpdatedTime",
+        "list": {
+          "capability": "customer.list",
+          "cursor": "startPosition",
+          "limit": "maxResults",
+          "since": "changedSince",
+          "items": "QueryResponse.Customer",
+          "paging": "offset"
+        },
+        "get": {
+          "capability": "customer.get",
+          "id": "id"
+        },
+        "create": {
+          "capability": "customer.create",
+          "body": "customer"
+        }
+      }
     },
     "salesReceipt": {
       "label": "Sales receipt",

@@ -114,7 +114,33 @@
           "tag": "contact.emailOptOut",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "updatedAt",
+        "list": {
+          "capability": "contact.list",
+          "cursor": "after",
+          "limit": "limit",
+          "since": "updatedSince",
+          "items": "results",
+          "next": "paging.next.after"
+        },
+        "get": {
+          "capability": "contact.get",
+          "id": "id"
+        },
+        "search": {
+          "capability": "contact.search"
+        },
+        "create": {
+          "capability": "contact.create"
+        },
+        "update": {
+          "capability": "contact.update",
+          "id": "id"
+        }
+      }
     },
     "deal": {
       "label": "Deal",
@@ -306,7 +332,8 @@
           "eventId": 9001
         }
       ],
-      "match": "contact.creation"
+      "match": "contact.creation",
+      "recordId": "objectId"
     },
     "contact.propertyChange": {
       "delivery": "webhook",
@@ -321,7 +348,8 @@
           "eventId": 9002,
           "subscriptionType": "contact.propertyChange"
         }
-      ]
+      ],
+      "recordId": "objectId"
     },
     "deal.propertyChange": {
       "delivery": "webhook",

@@ -53,9 +53,10 @@ function makePorts({ def, manifests, callApi, store, runCode }) {
                 }
                 return null;
             },
-            async upsert({ link, sync, ids, keys }) {
+            /** meta (the sync engine's known/seen) rides on the link rows; ids are what everything else reads. */
+            async upsert({ link, sync, ids, keys, meta }) {
                 const s = linkSetOf({ link, sync });
-                const value = { ...ids, linkedAt: new Date().toISOString() };
+                const value = { ...(meta || {}), ...ids, linkedAt: new Date().toISOString() };
                 for (const [mod, id] of Object.entries(ids || {})) if (id != null) await store.put(`link:${s.id}:${mod}:${id}`, value);
                 for (const [k, v] of Object.entries(keys || {})) if (v != null && v !== '') await store.put(`idx:${s.id}:${k}:${normalise(s, k, v)}`, value);
                 return value;

@@ -16,8 +16,9 @@
  * Ports used: definitions.get(id, version) -> definition doc (immutable; cache freely)
  *             runCode(ref, args) -> registered code steps (optional)
  */
-const { compile, routeWebhook } = require('./compile');
-const { makePorts, runWorkflow, runQuery, renderSurface, runLifecycle, resolveOptions } = require('./runtime');
+const { compile, routeWebhook, eventName } = require('./compile');
+const { makePorts, runWorkflow, runQuery, renderSurface, runLifecycle, resolveOptions, installContext } = require('./runtime');
+const { createSyncEngine } = require('./sync-engine');
 const { eventsIn, handshakeFor, modulesFor } = require('./webhooks');
 const { buildConfigForm, missingRequired } = require('./config-form');
 
@@ -128,13 +129,18 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
                 def, manifests, runCode,
                 // The shared class registers modules by module name; a definition may name them by its own keys.
                 callApi: (moduleKey, method, args) => this.moduleFor(moduleKey).api[method](args),
-                store: {
-                    get: async (key) => (await this.getMapping(key))?.mapping || null,
-                    put: (key, value) => this.upsertMapping(key, value),
-                    claim: async (key, value) => { try { await this.createMapping(key, value); return true; } catch (e) { if (e.name === 'MappingAlreadyExistsError') return false; throw e; } },
-                    release: (key) => this.deleteMapping(key),
-                },
+                store: this.mappingStore(),
             });
+        }
+
+        /** Key-value rows in IntegrationMapping: links, dedupe claims and sync progress all live here. */
+        mappingStore() {
+            return {
+                get: async (key) => (await this.getMapping(key))?.mapping || null,
+                put: (key, value) => this.upsertMapping(key, value),
+                claim: async (key, value) => { try { await this.createMapping(key, value); return true; } catch (e) { if (e.name === 'MappingAlreadyExistsError') return false; throw e; } },
+                release: (key) => this.deleteMapping(key),
+            };
         }
 
         moduleFor(key) {
@@ -242,7 +248,12 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             // ($.install.runtime.installed.<step id>). Saved even when empty, so a re-install replaces stale ids.
             const installed = Object.fromEntries((this.def.lifecycle?.onInstall || []).filter((st) => st.id).map((st) => [st.id, out.steps?.[st.id] ?? null]));
             await this.patchConfig({ ...(this.config?.definition ? { definition: this.config.definition } : {}), runtime: { ...(this.config?.runtime || {}), installed } });
-            return super.onCreate(params);
+            const result = await super.onCreate(params);
+            // Syncs that copy what already exists at install time start their backfill now (through the queue).
+            for (const sy of this.def.syncs || []) {
+                if (sy.backfill?.trigger === 'onInstall' && this.compiled.events[eventName('SYNC', sy.id, 'PAGE')]) await this.startBackfill(sy.id, 'install');
+            }
+            return result;
         }
 
         async onUpdate(params) {
@@ -338,6 +349,9 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             await this.loadDefinition();
             // The new version may add, drop or retime schedules.
             const schedules = typeof this.syncSchedules === 'function' ? await this.syncSchedules() : null;
+            // New identity keys: a backfill rewrites every link with them. A new sync starts its own backfill
+            // only if its definition says so (onInstall); otherwise it waits for its button.
+            for (const a of plan.actions.filter((x) => x.kind === 'relink')) await this.startBackfill(a.id, 'relink');
             return { ...plan, config, applied: true, ...(schedules ? { schedules } : {}) };
         }
 
@@ -354,10 +368,71 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             return run;
         }
 
-        async runSync(ref) {
-            // The sync engine (backfill pages, ongoing deltas, two-way master rules) reuses Frigg's existing SYNC_PAGE
-            // pattern; it is specified in README.md and not built yet.
-            throw new Error(`Sync ${ref.id} (${ref.phase}) is not implemented yet`);
+        /** The sync engine over this installation's ports and mapping store (sync-engine.js). */
+        syncEngine(def = this.def) {
+            const installation = this.installation();
+            return createSyncEngine({ def, installation, install: installContext(def, installation), manifests, ports: def === this.def ? this.ports : this.portsFor(def), state: this.mappingStore() });
+        }
+
+        /**
+         * SYNC_<ID>_BACKFILL (a button), SYNC_<ID>_PAGE (the queue, one page per message) and SYNC_<ID>_ONGOING
+         * (a webhook event about a synced object, or a poll tick). Each page queues the next, so a long backfill is
+         * many short messages; the progress row says where it is (GET /api/integrations/:id/syncs).
+         */
+        async runSync(ref, msg = {}) {
+            const engine = this.syncEngine();
+            if (ref.phase === 'backfill') return this.startBackfill(ref.id, msg.reason || 'user');
+            if (ref.phase === 'page') {
+                const out = await engine.continueBackfill({ syncId: ref.id, runId: msg.runId, role: msg.role, cursor: msg.cursor ?? null });
+                if (out.next) await this.queueWebhook({ event: eventName('SYNC', ref.id, 'PAGE'), integrationId: this.id, ...out.next, definitionVersion: this.def.version });
+                await this.fireSyncWorkflows(ref.id, out.results || []);
+                return { progress: out.progress, stale: out.stale || false };
+            }
+            if (ref.phase === 'ongoing') {
+                if (msg.module && msg.topic) {
+                    const result = await engine.handleEvent({ syncId: ref.id, moduleKey: msg.module, topic: msg.topic, event: msg.body });
+                    await this.fireSyncWorkflows(ref.id, [result]);
+                    return result;
+                }
+                return engine.poll({ syncId: ref.id });
+            }
+            throw new Error(`Unknown sync phase "${ref.phase}"`);
+        }
+
+        /** Start a backfill (or a relink after an identity change) and queue its first page. */
+        async startBackfill(syncId, reason = 'user') {
+            const runId = `bf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+            const out = await this.syncEngine().startBackfill({ syncId, runId, reason });
+            if (out.started) await this.queueWebhook({ event: eventName('SYNC', syncId, 'PAGE'), integrationId: this.id, ...out.next, definitionVersion: this.def.version });
+            return { started: out.started, progress: out.progress };
+        }
+
+        /**
+         * syncRecord workflows: queue one run per synced record whose action (created, updated, linked) a switched-on
+         * workflow listens for. A create or link happens once per record, so it carries a dedupe id; updates do not.
+         */
+        async fireSyncWorkflows(syncId, results) {
+            for (const w of this.def.workflows || []) {
+                const t = w.trigger || {};
+                const n = eventName('WF', w.id);
+                if (t.type !== 'syncRecord' || t.sync !== syncId || !this.compiled.events[n]) continue;
+                for (const r of results) {
+                    if (!r?.action || !(t.on || []).includes(r.action)) continue;
+                    const ids = Object.entries(r.ids || {}).map(([k, v]) => `${k}:${v}`).sort().join('|');
+                    await this.queueWebhook({ event: n, integrationId: this.id, body: { sync: syncId, action: r.action, ids: r.ids }, ...(r.action !== 'updated' ? { eventId: `${syncId}:${r.action}:${ids}` } : {}), definitionVersion: this.def.version });
+                }
+            }
+        }
+
+        /** Every switched-on sync's progress: the current or last backfill, and the poll marks. */
+        async syncStatus() {
+            const engine = this.syncEngine();
+            const out = [];
+            for (const sy of this.def.syncs || []) {
+                if (!this.compiled.events[eventName('SYNC', sy.id, 'PAGE')]) continue;
+                out.push({ id: sy.id, label: sy.label, source: sy.source, target: sy.target, direction: sy.direction, ongoing: sy.ongoing?.mode || 'none', ...(await engine.status(sy.id)) });
+            }
+            return out;
         }
     }
     Object.defineProperty(DataDefinedIntegration, 'name', { value: `DataDefined_${id.replace(/-/g, '_')}` });

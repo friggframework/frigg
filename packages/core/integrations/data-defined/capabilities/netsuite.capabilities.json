@@ -70,7 +70,35 @@
           "tag": "record.updatedAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "lastModifiedDate",
+        "list": {
+          "capability": "customer.list",
+          "cursor": "offset",
+          "limit": "limit",
+          "since": "lastModifiedAfter",
+          "items": "items",
+          "paging": "offset"
+        },
+        "get": {
+          "capability": "customer.get",
+          "id": "id"
+        },
+        "search": {
+          "capability": "customer.search"
+        },
+        "create": {
+          "capability": "customer.create",
+          "body": "record"
+        },
+        "update": {
+          "capability": "customer.update",
+          "id": "id",
+          "body": "record"
+        }
+      }
     },
     "salesOrder": {
       "label": "Sales order",
@@ -165,7 +193,23 @@
           "type": "lineItem[]",
           "tag": "order.lineItems"
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "get": {
+          "capability": "salesOrder.get",
+          "id": "id"
+        },
+        "create": {
+          "capability": "salesOrder.create",
+          "body": "record"
+        },
+        "update": {
+          "capability": "salesOrder.update",
+          "id": "id",
+          "body": "record"
+        }
+      }
     },
     "itemFulfillment": {
       "label": "Item fulfillment",
