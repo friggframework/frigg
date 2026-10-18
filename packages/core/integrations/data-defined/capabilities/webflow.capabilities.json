@@ -1,0 +1,189 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "webflow",
+  "label": "Webflow",
+  "package": "@friggframework/api-module-webflow",
+  "version": "2.0.0",
+  "auth": "oauth2",
+  "objects": {
+    "formSubmission": {
+      "label": "Form submission",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "form.name"
+        },
+        {
+          "name": "formId",
+          "type": "string"
+        },
+        {
+          "name": "siteId",
+          "type": "string"
+        },
+        {
+          "name": "publishedPath",
+          "type": "string",
+          "tag": "web.pagePath"
+        },
+        {
+          "name": "submittedAt",
+          "type": "datetime",
+          "tag": "record.createdAt"
+        },
+        {
+          "name": "data.Name",
+          "type": "string",
+          "tag": "person.fullName"
+        },
+        {
+          "name": "data.Email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "data.Phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "data.Company",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "data.Interest",
+          "type": "enum",
+          "values": [
+            "Sales",
+            "Support",
+            "Partnerships"
+          ]
+        },
+        {
+          "name": "data.Message",
+          "type": "text"
+        },
+        {
+          "name": "data.Website",
+          "type": "string",
+          "help": "Hidden honeypot field; humans leave it empty."
+        }
+      ]
+    }
+  },
+  "events": {
+    "form.submitted": {
+      "delivery": "webhook",
+      "object": "formSubmission",
+      "subscribe": "webhook.create",
+      "description": "triggerType form_submission, registered per site.",
+      "payload": {
+        "triggerType": "form_submission",
+        "payload": {
+          "name": "Contact Us",
+          "siteId": "65427cf400e02b306eaa049c",
+          "formId": "65429eadebe8a9f3a30f62d0",
+          "formElementId": "4e038d2c-6a1e-4953-7be9-a59a2b453177",
+          "pageId": "65427cf400e02b306eaa04a0",
+          "publishedPath": "/contact",
+          "id": "6321ca84df3949bfc6752327",
+          "submittedAt": "2026-10-20T17:12:00.000Z",
+          "data": {
+            "Name": "Priya Natarajan",
+            "Email": "priya@acme.example",
+            "Phone": "512 555 0177",
+            "Company": "Acme Corp",
+            "Interest": "Sales",
+            "Message": "We need a Salesforce ↔ NetSuite integration by Q1.",
+            "Website": ""
+          }
+        }
+      },
+      "record": "payload",
+      "idPath": "payload.id"
+    }
+  },
+  "capabilities": {
+    "site.list": {
+      "kind": "read",
+      "method": "listSites",
+      "input": {},
+      "output": "site[]"
+    },
+    "form.list": {
+      "kind": "read",
+      "method": "listForms",
+      "input": {
+        "siteId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "form[]"
+    },
+    "form.submissions": {
+      "kind": "read",
+      "method": "listFormSubmissions",
+      "input": {
+        "formId": {
+          "type": "string",
+          "required": true
+        },
+        "offset": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "formSubmission[]"
+    },
+    "webhook.create": {
+      "kind": "subscribe",
+      "method": "createWebhook",
+      "input": {
+        "siteId": {
+          "type": "string",
+          "required": true
+        },
+        "triggerType": {
+          "type": "string",
+          "required": true
+        },
+        "url": {
+          "type": "string",
+          "required": true
+        },
+        "filter": {
+          "type": "object"
+        }
+      },
+      "output": "webhook"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhook",
+      "input": {
+        "webhookId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  },
+  "options": {
+    "site": {
+      "capability": "site.list",
+      "label": "{{item.displayName}}",
+      "value": "$.item.id"
+    }
+  }
+}

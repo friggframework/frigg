@@ -1,0 +1,215 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "asana-slack",
+  "version": "0.2.0",
+  "display": {
+    "label": "Asana → Slack nudges",
+    "description": "Each afternoon, everyone gets a DM listing their Asana tasks due tomorrow; completed tasks in a project are announced in its channel.",
+    "category": "Notifications",
+    "tags": [
+      "tasks",
+      "slack",
+      "project-management"
+    ]
+  },
+  "modules": {
+    "asana": {
+      "module": "asana",
+      "version": "^1.5"
+    },
+    "slack": {
+      "module": "slack",
+      "version": "^2.0"
+    }
+  },
+  "settings": {
+    "workspace": {
+      "type": "option",
+      "options": "asana.workspace",
+      "label": "Asana workspace",
+      "required": true
+    },
+    "project": {
+      "type": "option",
+      "options": "asana.project",
+      "label": "Project to announce completed tasks from",
+      "required": true
+    }
+  },
+  "workflows": [
+    {
+      "id": "due-tomorrow-digest",
+      "label": "DM each assignee their tasks due tomorrow",
+      "purpose": "notify",
+      "default": "on",
+      "settings": {
+        "unassignedChannel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Post unassigned tasks to"
+        }
+      },
+      "trigger": {
+        "type": "schedule",
+        "cron": "0 16 * * 1-5",
+        "timezone": "America/New_York"
+      },
+      "steps": [
+        {
+          "id": "tasks",
+          "use": "asana.task.search",
+          "with": {
+            "workspaceGid": "$.install.workspace",
+            "due_on": "+1d",
+            "completed": false,
+            "limit": 100
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.tasks[0] == null",
+          "with": {
+            "reason": "Nothing due tomorrow"
+          }
+        },
+        {
+          "id": "groups",
+          "use": "code",
+          "with": {
+            "ref": "@lefthook/asana-steps#groupByAssignee@1.0.0",
+            "with": {
+              "tasks": "$.steps.tasks"
+            }
+          }
+        },
+        {
+          "id": "dms",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.groups.assigned",
+            "max": 100
+          },
+          "do": [
+            {
+              "id": "slackUser",
+              "use": "slack.user.lookupByEmail",
+              "with": {
+                "email": "$.item.email"
+              },
+              "onError": "continue"
+            },
+            {
+              "id": "text",
+              "use": "template",
+              "with": {
+                "id": "assignee-digest"
+              }
+            },
+            {
+              "use": "slack.message.post",
+              "when": "$.steps.slackUser.id exists",
+              "with": {
+                "channel": "$.steps.slackUser.id",
+                "text": "$.steps.text",
+                "unfurl_links": false
+              }
+            }
+          ]
+        },
+        {
+          "id": "unassigned",
+          "use": "template",
+          "with": {
+            "id": "unassigned-digest"
+          }
+        },
+        {
+          "use": "slack.message.post",
+          "when": "$.settings.unassignedChannel exists && $.steps.groups.unassigned[0] exists",
+          "with": {
+            "channel": "$.settings.unassignedChannel",
+            "text": "$.steps.unassigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "completed-in-project",
+      "label": "Announce completed tasks",
+      "purpose": "notify",
+      "default": "on",
+      "settings": {
+        "channel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Announce in",
+          "required": true
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "asana",
+        "topic": "task.changed",
+        "filter": "$.event.events[0].change.field == 'completed' && $.event.events[0].change.new_value == true"
+      },
+      "steps": [
+        {
+          "id": "task",
+          "use": "asana.task.get",
+          "with": {
+            "taskGid": "$.record.gid",
+            "opt_fields": "name,completed,completed_by.name,assignee.name,permalink_url"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.task.completed != true",
+          "with": {
+            "reason": "Reopened before we got to it"
+          }
+        },
+        {
+          "use": "slack.message.post",
+          "with": {
+            "channel": "$.settings.channel",
+            "text": ":white_check_mark: {{steps.task.completed_by.name | default: 'Someone'}} completed <{{steps.task.permalink_url}}|{{steps.task.name}}>"
+          }
+        }
+      ]
+    }
+  ],
+  "templates": {
+    "assignee-digest": ":spiral_calendar_pad: Hi {{item.firstName | default: item.name}}, you have {{item.count}} Asana task(s) due tomorrow:\n{{item.lines}}",
+    "unassigned-digest": ":warning: {{steps.groups.unassignedCount}} task(s) due tomorrow have no assignee:\n{{steps.groups.unassignedLines}}"
+  },
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "hook",
+        "use": "asana.webhook.create",
+        "with": {
+          "resource": "$.install.project",
+          "target": "$.install.webhookUrl",
+          "filters": [
+            {
+              "resource_type": "task",
+              "action": "changed",
+              "fields": [
+                "completed"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "asana.webhook.delete",
+        "with": {
+          "webhookGid": "$.install.runtime.subscriptions.asana"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,575 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "fathom-hubspot-notion",
+  "version": "0.4.0",
+  "display": {
+    "label": "Fathom call follow-through",
+    "description": "After a recorded customer call: the summary lands on the HubSpot deal, action items become tasks, the meeting gets a Notion page, and proposed deal-stage changes wait for approval in Slack.",
+    "category": "Sales productivity",
+    "tags": [
+      "meetings",
+      "crm",
+      "notes",
+      "ai"
+    ]
+  },
+  "modules": {
+    "fathom": {
+      "module": "fathom",
+      "version": "^0.4"
+    },
+    "hubspot": {
+      "module": "hubspot",
+      "version": "^1.4"
+    },
+    "notion": {
+      "module": "notion",
+      "version": "^1.3"
+    },
+    "slack": {
+      "module": "slack",
+      "version": "^2.0"
+    }
+  },
+  "settings": {
+    "meetingsDatabase": {
+      "type": "option",
+      "options": "notion.database",
+      "label": "Notion meetings database",
+      "required": true
+    }
+  },
+  "workflows": [
+    {
+      "id": "summary-note",
+      "label": "Call summary as a deal note",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "fathom",
+        "topic": "meeting.ready"
+      },
+      "steps": [
+        {
+          "id": "people",
+          "use": "code",
+          "with": {
+            "ref": "@lefthook/meeting-steps#externalInvitees@1.0.0",
+            "with": {
+              "invitees": "$.record.calendar_invitees"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.people.primaryEmail == null",
+          "with": {
+            "reason": "No external attendees: an internal meeting"
+          }
+        },
+        {
+          "id": "contacts",
+          "use": "hubspot.contact.search",
+          "with": {
+            "email": "$.steps.people.primaryEmail",
+            "limit": 1
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.contacts[0] == null",
+          "with": {
+            "reason": "Attendee is not a HubSpot contact"
+          }
+        },
+        {
+          "id": "deals",
+          "use": "hubspot.deal.listForContact",
+          "with": {
+            "contactId": "$.steps.contacts[0].id",
+            "open": true
+          }
+        },
+        {
+          "id": "body",
+          "use": "template",
+          "with": {
+            "id": "summary-note"
+          }
+        },
+        {
+          "use": "hubspot.note.create",
+          "with": {
+            "contactId": "$.steps.contacts[0].id",
+            "dealId": "$.steps.deals[0].id",
+            "properties": {
+              "hs_note_body": "$.steps.body",
+              "hs_timestamp": "$.record.recording_end_time"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "action-item-tasks",
+      "label": "Action items become HubSpot tasks",
+      "purpose": "write",
+      "default": "on",
+      "settings": {
+        "fallbackOwner": {
+          "type": "option",
+          "options": "hubspot.owner",
+          "label": "Owner when the assignee is not a HubSpot user"
+        },
+        "dueIn": {
+          "type": "duration",
+          "label": "Due in",
+          "default": "2d"
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "fathom",
+        "topic": "meeting.ready",
+        "filter": "$.record.action_items[0] exists"
+      },
+      "steps": [
+        {
+          "id": "people",
+          "use": "code",
+          "with": {
+            "ref": "@lefthook/meeting-steps#externalInvitees@1.0.0",
+            "with": {
+              "invitees": "$.record.calendar_invitees"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.people.primaryEmail == null",
+          "with": {
+            "reason": "No external attendees: an internal meeting"
+          }
+        },
+        {
+          "id": "contacts",
+          "use": "hubspot.contact.search",
+          "with": {
+            "email": "$.steps.people.primaryEmail",
+            "limit": 1
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.contacts[0] == null",
+          "with": {
+            "reason": "Attendee is not a HubSpot contact"
+          }
+        },
+        {
+          "id": "tasks",
+          "use": "foreach",
+          "with": {
+            "over": "$.record.action_items",
+            "max": 25
+          },
+          "do": [
+            {
+              "id": "assignee",
+              "use": "hubspot.owner.findByEmail",
+              "when": "$.item.assignee.email exists",
+              "with": {
+                "email": "$.item.assignee.email"
+              },
+              "onError": "continue"
+            },
+            {
+              "use": "hubspot.task.create",
+              "when": "$.item.completed != true",
+              "with": {
+                "contactId": "$.steps.contacts[0].id",
+                "properties": {
+                  "hs_task_subject": "{{item.description | truncate: 120}}",
+                  "hs_task_body": "From \"{{record.title}}\" at {{item.recording_timestamp}}: {{record.share_url}}",
+                  "hs_timestamp": "$.now",
+                  "hs_task_priority": "MEDIUM",
+                  "hubspot_owner_id": "{{steps.assignee.id | default: settings.fallbackOwner}}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "meeting-page",
+      "label": "Meeting page in Notion",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "fathom",
+        "topic": "meeting.ready"
+      },
+      "steps": [
+        {
+          "id": "blocks",
+          "use": "code",
+          "with": {
+            "ref": "@lefthook/notion-steps#markdownToBlocks@1.1.0",
+            "with": {
+              "markdown": "$.record.default_summary.markdown_formatted",
+              "actionItems": "$.record.action_items"
+            }
+          }
+        },
+        {
+          "id": "attendees",
+          "use": "code",
+          "with": {
+            "ref": "@lefthook/meeting-steps#inviteeNames@1.0.0",
+            "with": {
+              "invitees": "$.record.calendar_invitees"
+            }
+          }
+        },
+        {
+          "use": "notion.page.create",
+          "with": {
+            "parent": {
+              "database_id": "$.install.meetingsDatabase"
+            },
+            "icon": {
+              "type": "emoji",
+              "emoji": "📞"
+            },
+            "properties": {
+              "Name": {
+                "title": [
+                  {
+                    "text": {
+                      "content": "$.record.title"
+                    }
+                  }
+                ]
+              },
+              "Date": {
+                "date": {
+                  "start": "$.record.recording_start_time",
+                  "end": "$.record.recording_end_time"
+                }
+              },
+              "Recording": {
+                "url": "$.record.share_url"
+              },
+              "Attendees": {
+                "rich_text": [
+                  {
+                    "text": {
+                      "content": "$.steps.attendees.text"
+                    }
+                  }
+                ]
+              },
+              "Recorded by": {
+                "email": "$.record.recorded_by.email"
+              }
+            },
+            "children": "$.steps.blocks.blocks"
+          }
+        }
+      ]
+    },
+    {
+      "id": "deal-updates",
+      "label": "Propose deal updates from the call",
+      "description": "A stage change proposed by the call goes to Slack for approval; a next step alone is written straight to the deal.",
+      "purpose": "write",
+      "default": "off",
+      "settings": {
+        "approvalChannel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Ask for approval in",
+          "required": true
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "fathom",
+        "topic": "meeting.ready"
+      },
+      "steps": [
+        {
+          "id": "people",
+          "use": "code",
+          "with": {
+            "ref": "@lefthook/meeting-steps#externalInvitees@1.0.0",
+            "with": {
+              "invitees": "$.record.calendar_invitees"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.people.primaryEmail == null",
+          "with": {
+            "reason": "No external attendees: an internal meeting"
+          }
+        },
+        {
+          "id": "contacts",
+          "use": "hubspot.contact.search",
+          "with": {
+            "email": "$.steps.people.primaryEmail",
+            "limit": 1
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.contacts[0] == null",
+          "with": {
+            "reason": "Attendee is not a HubSpot contact"
+          }
+        },
+        {
+          "id": "deals",
+          "use": "hubspot.deal.listForContact",
+          "with": {
+            "contactId": "$.steps.contacts[0].id",
+            "open": true
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.deals[0] == null",
+          "with": {
+            "reason": "Contact has no open deal"
+          }
+        },
+        {
+          "id": "proposal",
+          "use": "code",
+          "with": {
+            "ref": "@lefthook/meeting-steps#proposeDealUpdates@1.0.0",
+            "with": {
+              "summary": "$.record.default_summary.markdown_formatted",
+              "actionItems": "$.record.action_items",
+              "deal": "$.steps.deals[0]"
+            }
+          }
+        },
+        {
+          "id": "route",
+          "use": "branch",
+          "cases": [
+            {
+              "when": "$.steps.proposal.stage exists && $.steps.proposal.stage != $.steps.deals[0].properties.dealstage",
+              "do": [
+                {
+                  "id": "ask",
+                  "use": "template",
+                  "with": {
+                    "id": "approval-request"
+                  }
+                },
+                {
+                  "use": "slack.message.post",
+                  "with": {
+                    "channel": "$.settings.approvalChannel",
+                    "text": "$.steps.ask",
+                    "metadata": {
+                      "event_type": "deal_stage_proposal",
+                      "event_payload": {
+                        "dealId": "$.steps.deals[0].id",
+                        "stage": "$.steps.proposal.stage",
+                        "nextStep": "$.steps.proposal.nextStep",
+                        "recording": "$.record.share_url"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "when": "$.steps.proposal.nextStep exists",
+              "do": [
+                {
+                  "use": "hubspot.deal.update",
+                  "with": {
+                    "id": "$.steps.deals[0].id",
+                    "properties": {
+                      "hs_next_step": "$.steps.proposal.nextStep"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "approve-stage",
+      "label": "Approve a proposed stage change",
+      "purpose": "respond",
+      "default": "on",
+      "trigger": {
+        "type": "userAction",
+        "label": "Approve",
+        "from": "stage-approval"
+      },
+      "steps": [
+        {
+          "use": "stop",
+          "when": "$.record.metadata.event_type != 'deal_stage_proposal'",
+          "with": {
+            "reason": "Not a stage proposal"
+          }
+        },
+        {
+          "use": "hubspot.deal.update",
+          "with": {
+            "id": "$.record.metadata.event_payload.dealId",
+            "properties": {
+              "dealstage": "$.record.metadata.event_payload.stage",
+              "hs_next_step": "$.record.metadata.event_payload.nextStep"
+            }
+          }
+        },
+        {
+          "use": "slack.message.update",
+          "with": {
+            "channel": "$.record.channel",
+            "ts": "$.record.ts",
+            "text": ":white_check_mark: Approved by <@{{event.user.id}}>. {{record.text}}"
+          }
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "stage-proposal",
+      "description": "The deal a stage-proposal message is about, with the proposed stage.",
+      "steps": [
+        {
+          "use": "stop",
+          "when": "$.record.metadata.event_type != 'deal_stage_proposal'",
+          "with": {
+            "reason": "Not a stage proposal"
+          }
+        },
+        {
+          "id": "deal",
+          "use": "hubspot.deal.get",
+          "with": {
+            "id": "$.record.metadata.event_payload.dealId"
+          }
+        }
+      ],
+      "returns": {
+        "deal": "$.steps.deal",
+        "proposal": "$.record.metadata.event_payload"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "stage-approval",
+      "label": "Deal stage proposal",
+      "host": "slack",
+      "placement": "message.actions",
+      "data": {
+        "query": "stage-proposal"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "{{data.deal.properties.dealname}}"
+            }
+          },
+          {
+            "component": "KeyValue",
+            "props": {
+              "items": [
+                {
+                  "label": "Current stage",
+                  "value": "{{data.deal.properties.dealstage}}"
+                },
+                {
+                  "label": "Proposed stage",
+                  "value": "{{data.proposal.stage}}"
+                },
+                {
+                  "label": "Next step",
+                  "value": "{{data.proposal.nextStep | default: '—'}}"
+                }
+              ]
+            }
+          },
+          {
+            "component": "Divider"
+          },
+          {
+            "component": "Button",
+            "when": "$.data.deal.properties.dealstage != $.data.proposal.stage",
+            "props": {
+              "label": "Approve",
+              "style": "primary",
+              "action": {
+                "type": "userAction",
+                "workflow": "approve-stage"
+              }
+            }
+          },
+          {
+            "component": "Button",
+            "props": {
+              "label": "Watch the call",
+              "action": {
+                "type": "open_url",
+                "url": "{{data.proposal.recording}}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "templates": {
+    "summary-note": "<b>{{record.title}}</b> ({{record.recording_start_time | date}})<br/>{{record.default_summary.markdown_formatted}}<br/><a href=\"{{record.share_url}}\">Watch the recording</a>",
+    "approval-request": ":telephone_receiver: After \"{{record.title}}\", Fathom suggests moving *{{steps.deals[0].properties.dealname}}* from `{{steps.deals[0].properties.dealstage}}` to `{{steps.proposal.stage}}`.\nNext step: {{steps.proposal.nextStep | default: 'none captured'}}\nUse the message menu → *Deal stage proposal* to approve."
+  },
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "hook",
+        "use": "fathom.webhook.create",
+        "with": {
+          "destination_url": "$.install.webhookUrl",
+          "triggered_for": [
+            "my_recordings",
+            "shared_external_recordings"
+          ],
+          "include_summary": true,
+          "include_action_items": true,
+          "include_transcript": false
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "fathom.webhook.delete",
+        "with": {
+          "id": "$.install.runtime.subscriptions.fathom"
+        }
+      }
+    ]
+  }
+}

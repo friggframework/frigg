@@ -1,0 +1,222 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "fathom",
+  "label": "Fathom",
+  "package": "@friggframework/api-module-fathom",
+  "version": "0.4.0",
+  "auth": "api_key",
+  "objects": {
+    "meeting": {
+      "label": "Meeting recording",
+      "fields": [
+        {
+          "name": "recording_id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "tag": "meeting.title"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "readOnly": true
+        },
+        {
+          "name": "share_url",
+          "type": "string",
+          "tag": "meeting.recordingUrl",
+          "readOnly": true
+        },
+        {
+          "name": "scheduled_start_time",
+          "type": "datetime",
+          "tag": "meeting.scheduledStart"
+        },
+        {
+          "name": "recording_start_time",
+          "type": "datetime",
+          "tag": "meeting.start"
+        },
+        {
+          "name": "recording_end_time",
+          "type": "datetime",
+          "tag": "meeting.end"
+        },
+        {
+          "name": "recorded_by.email",
+          "type": "email",
+          "tag": "record.owner"
+        },
+        {
+          "name": "calendar_invitees",
+          "type": "json",
+          "tag": "meeting.attendees"
+        },
+        {
+          "name": "default_summary.markdown_formatted",
+          "type": "text",
+          "tag": "meeting.summary"
+        },
+        {
+          "name": "action_items",
+          "type": "json",
+          "tag": "meeting.actionItems"
+        },
+        {
+          "name": "transcript_language",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "events": {
+    "meeting.ready": {
+      "delivery": "webhook",
+      "object": "meeting",
+      "subscribe": "webhook.create",
+      "description": "Fired when a recording's summary, action items (and transcript, if asked for) are ready. The payload is the meeting.",
+      "payload": {
+        "recording_id": 123456789,
+        "title": "Acme / Left Hook renewal review",
+        "meeting_title": "Acme renewal",
+        "url": "https://fathom.video/calls/123456789",
+        "share_url": "https://fathom.video/share/zXv8m2KqQhJt",
+        "created_at": "2026-10-20T15:47:10Z",
+        "scheduled_start_time": "2026-10-20T15:00:00Z",
+        "recording_start_time": "2026-10-20T15:01:12Z",
+        "recording_end_time": "2026-10-20T15:46:30Z",
+        "transcript_language": "en",
+        "recorded_by": {
+          "name": "Sean Matthews",
+          "email": "sean@lefthook.example",
+          "team": "Sales"
+        },
+        "calendar_invitees": [
+          {
+            "name": "Sean Matthews",
+            "email": "sean@lefthook.example",
+            "is_external": false
+          },
+          {
+            "name": "Priya Natarajan",
+            "email": "priya@acme.example",
+            "email_domain": "acme.example",
+            "is_external": true
+          }
+        ],
+        "default_summary": {
+          "template_name": "general",
+          "markdown_formatted": "## Summary\nAcme wants to renew at the Medium tier and add a support block.\n\n## Next steps\n- Send revised order form"
+        },
+        "action_items": [
+          {
+            "description": "Send revised order form with the support block",
+            "user_generated": false,
+            "completed": false,
+            "recording_timestamp": "00:31:05",
+            "recording_playback_url": "https://fathom.video/calls/123456789?timestamp=1865",
+            "assignee": {
+              "name": "Sean Matthews",
+              "email": "sean@lefthook.example"
+            }
+          },
+          {
+            "description": "Confirm procurement contact",
+            "user_generated": false,
+            "completed": false,
+            "recording_timestamp": "00:38:40",
+            "assignee": {
+              "name": "Priya Natarajan",
+              "email": "priya@acme.example"
+            }
+          }
+        ]
+      },
+      "idPath": "recording_id"
+    }
+  },
+  "capabilities": {
+    "meeting.list": {
+      "kind": "read",
+      "method": "listMeetings",
+      "input": {
+        "created_after": {
+          "type": "string"
+        },
+        "calendar_invitees_domains": {
+          "type": "array"
+        },
+        "include_summary": {
+          "type": "boolean"
+        },
+        "include_action_items": {
+          "type": "boolean"
+        },
+        "cursor": {
+          "type": "string"
+        }
+      },
+      "output": "page<meeting>"
+    },
+    "meeting.summary": {
+      "kind": "read",
+      "method": "getRecordingSummary",
+      "input": {
+        "recordingId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "summary"
+    },
+    "meeting.transcript": {
+      "kind": "read",
+      "method": "getRecordingTranscript",
+      "input": {
+        "recordingId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "transcript"
+    },
+    "webhook.create": {
+      "kind": "subscribe",
+      "method": "createWebhook",
+      "input": {
+        "destination_url": {
+          "type": "string",
+          "required": true
+        },
+        "triggered_for": {
+          "type": "array",
+          "required": true
+        },
+        "include_summary": {
+          "type": "boolean"
+        },
+        "include_action_items": {
+          "type": "boolean"
+        },
+        "include_transcript": {
+          "type": "boolean"
+        }
+      },
+      "output": "webhook"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhook",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  }
+}

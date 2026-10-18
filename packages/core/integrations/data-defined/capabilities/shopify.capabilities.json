@@ -1,0 +1,1028 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "shopify",
+  "label": "Shopify",
+  "package": "@friggframework/api-module-shopify",
+  "version": "3.1.0",
+  "auth": "oauth2",
+  "objects": {
+    "customer": {
+      "label": "Customer",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "tags",
+          "type": "string",
+          "tag": "record.tags"
+        },
+        {
+          "name": "note",
+          "type": "text"
+        },
+        {
+          "name": "email_marketing_consent.state",
+          "type": "enum",
+          "tag": "contact.emailConsent",
+          "values": [
+            "subscribed",
+            "not_subscribed",
+            "pending",
+            "unsubscribed",
+            "redacted",
+            "invalid"
+          ]
+        },
+        {
+          "name": "default_address.company",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "default_address.address1",
+          "type": "string",
+          "tag": "address.line1"
+        },
+        {
+          "name": "default_address.city",
+          "type": "string",
+          "tag": "address.locality"
+        },
+        {
+          "name": "default_address.province_code",
+          "type": "string",
+          "tag": "address.region"
+        },
+        {
+          "name": "default_address.zip",
+          "type": "string",
+          "tag": "address.postalCode"
+        },
+        {
+          "name": "default_address.country_code",
+          "type": "string",
+          "tag": "address.country"
+        },
+        {
+          "name": "orders_count",
+          "type": "number",
+          "tag": "customer.orderCount",
+          "readOnly": true
+        },
+        {
+          "name": "total_spent",
+          "type": "number",
+          "tag": "customer.lifetimeValue",
+          "readOnly": true
+        },
+        {
+          "name": "created_at",
+          "type": "datetime",
+          "tag": "record.createdAt",
+          "readOnly": true
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "order": {
+      "label": "Order",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "order.number",
+          "readOnly": true
+        },
+        {
+          "name": "order_number",
+          "type": "number",
+          "readOnly": true
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime",
+          "tag": "order.createdAt",
+          "readOnly": true
+        },
+        {
+          "name": "processed_at",
+          "type": "datetime"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "tag": "order.currency"
+        },
+        {
+          "name": "financial_status",
+          "type": "enum",
+          "tag": "order.paymentStatus",
+          "values": [
+            "pending",
+            "authorized",
+            "partially_paid",
+            "paid",
+            "partially_refunded",
+            "refunded",
+            "voided"
+          ]
+        },
+        {
+          "name": "fulfillment_status",
+          "type": "enum",
+          "tag": "order.fulfillmentStatus",
+          "values": [
+            "unfulfilled",
+            "partial",
+            "fulfilled",
+            "restocked"
+          ]
+        },
+        {
+          "name": "subtotal_price",
+          "type": "number",
+          "tag": "order.subtotal"
+        },
+        {
+          "name": "total_discounts",
+          "type": "number",
+          "tag": "order.discount"
+        },
+        {
+          "name": "total_tax",
+          "type": "number",
+          "tag": "order.tax"
+        },
+        {
+          "name": "total_price",
+          "type": "number",
+          "tag": "order.total"
+        },
+        {
+          "name": "total_shipping_price_set.shop_money.amount",
+          "type": "number",
+          "tag": "order.shipping"
+        },
+        {
+          "name": "customer.id",
+          "type": "string"
+        },
+        {
+          "name": "line_items",
+          "type": "lineItem[]",
+          "tag": "order.lineItems"
+        },
+        {
+          "name": "discount_codes",
+          "type": "json"
+        },
+        {
+          "name": "shipping_address.name",
+          "type": "string",
+          "tag": "person.fullName"
+        },
+        {
+          "name": "shipping_address.address1",
+          "type": "string",
+          "tag": "address.line1"
+        },
+        {
+          "name": "shipping_address.city",
+          "type": "string",
+          "tag": "address.locality"
+        },
+        {
+          "name": "shipping_address.province_code",
+          "type": "string",
+          "tag": "address.region"
+        },
+        {
+          "name": "shipping_address.zip",
+          "type": "string",
+          "tag": "address.postalCode"
+        },
+        {
+          "name": "shipping_address.country_code",
+          "type": "string",
+          "tag": "address.country"
+        },
+        {
+          "name": "note",
+          "type": "text"
+        },
+        {
+          "name": "tags",
+          "type": "string",
+          "tag": "record.tags"
+        },
+        {
+          "name": "source_name",
+          "type": "string"
+        }
+      ]
+    },
+    "fulfillment": {
+      "label": "Fulfillment",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "pending",
+            "open",
+            "success",
+            "cancelled",
+            "error",
+            "failure"
+          ]
+        },
+        {
+          "name": "tracking_company",
+          "type": "string",
+          "tag": "shipment.carrier"
+        },
+        {
+          "name": "tracking_number",
+          "type": "string",
+          "tag": "shipment.trackingNumber"
+        },
+        {
+          "name": "tracking_url",
+          "type": "string",
+          "tag": "shipment.trackingUrl"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime",
+          "readOnly": true
+        }
+      ]
+    },
+    "refund": {
+      "label": "Refund",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime",
+          "readOnly": true
+        },
+        {
+          "name": "note",
+          "type": "text"
+        },
+        {
+          "name": "refund_line_items",
+          "type": "json"
+        },
+        {
+          "name": "transactions",
+          "type": "json"
+        }
+      ]
+    },
+    "checkout": {
+      "label": "Abandoned checkout",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "token",
+          "type": "string"
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "abandoned_checkout_url",
+          "type": "string"
+        },
+        {
+          "name": "total_price",
+          "type": "number",
+          "tag": "order.total"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "tag": "order.currency"
+        },
+        {
+          "name": "line_items",
+          "type": "lineItem[]",
+          "tag": "order.lineItems"
+        },
+        {
+          "name": "customer.id",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime",
+          "readOnly": true
+        },
+        {
+          "name": "completed_at",
+          "type": "datetime",
+          "readOnly": true
+        }
+      ]
+    },
+    "inventoryLevel": {
+      "label": "Inventory level",
+      "fields": [
+        {
+          "name": "inventory_item_id",
+          "type": "id"
+        },
+        {
+          "name": "location_id",
+          "type": "string"
+        },
+        {
+          "name": "available",
+          "type": "number",
+          "tag": "inventory.available"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime",
+          "readOnly": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "order.created": {
+      "delivery": "webhook",
+      "subscribe": "webhook.create",
+      "description": "Shopify topic orders/create. The payload is the resource itself.",
+      "object": "order",
+      "payload": {
+        "id": 5612789014562,
+        "admin_graphql_api_id": "gid://shopify/Order/5612789014562",
+        "name": "#1042",
+        "order_number": 1042,
+        "email": "dana.reyes@example.com",
+        "created_at": "2026-10-18T09:14:22-05:00",
+        "processed_at": "2026-10-18T09:14:21-05:00",
+        "currency": "USD",
+        "financial_status": "paid",
+        "fulfillment_status": null,
+        "subtotal_price": "128.00",
+        "total_discounts": "12.80",
+        "total_tax": "9.50",
+        "total_price": "139.70",
+        "total_shipping_price_set": {
+          "shop_money": {
+            "amount": "15.00",
+            "currency_code": "USD"
+          }
+        },
+        "discount_codes": [
+          {
+            "code": "FALL10",
+            "amount": "12.80",
+            "type": "percentage"
+          }
+        ],
+        "note": "Gift wrap please",
+        "tags": "wholesale",
+        "source_name": "web",
+        "customer": {
+          "id": 7012345678901,
+          "email": "dana.reyes@example.com",
+          "first_name": "Dana",
+          "last_name": "Reyes"
+        },
+        "line_items": [
+          {
+            "id": 13579246801,
+            "variant_id": 44012345678,
+            "product_id": 8123456789,
+            "sku": "TW-MUG-12",
+            "title": "Tidewater Mug",
+            "variant_title": "12 oz / Slate",
+            "quantity": 2,
+            "price": "32.00",
+            "total_discount": "6.40"
+          },
+          {
+            "id": 13579246802,
+            "variant_id": 44012345690,
+            "product_id": 8123456790,
+            "sku": "TW-PRESS-01",
+            "title": "Pour-over Press",
+            "variant_title": null,
+            "quantity": 1,
+            "price": "64.00",
+            "total_discount": "6.40"
+          }
+        ],
+        "shipping_address": {
+          "name": "Dana Reyes",
+          "address1": "501 Congress Ave",
+          "city": "Austin",
+          "province_code": "TX",
+          "zip": "78701",
+          "country_code": "US",
+          "phone": "+15125550142"
+        }
+      }
+    },
+    "order.paid": {
+      "delivery": "webhook",
+      "subscribe": "webhook.create",
+      "description": "Shopify topic orders/paid. The payload is the resource itself.",
+      "object": "order",
+      "payload": {
+        "id": 5612789014562,
+        "admin_graphql_api_id": "gid://shopify/Order/5612789014562",
+        "name": "#1042",
+        "order_number": 1042,
+        "email": "dana.reyes@example.com",
+        "created_at": "2026-10-18T09:14:22-05:00",
+        "processed_at": "2026-10-18T09:14:21-05:00",
+        "currency": "USD",
+        "financial_status": "paid",
+        "fulfillment_status": null,
+        "subtotal_price": "128.00",
+        "total_discounts": "12.80",
+        "total_tax": "9.50",
+        "total_price": "139.70",
+        "total_shipping_price_set": {
+          "shop_money": {
+            "amount": "15.00",
+            "currency_code": "USD"
+          }
+        },
+        "discount_codes": [
+          {
+            "code": "FALL10",
+            "amount": "12.80",
+            "type": "percentage"
+          }
+        ],
+        "note": "Gift wrap please",
+        "tags": "wholesale",
+        "source_name": "web",
+        "customer": {
+          "id": 7012345678901,
+          "email": "dana.reyes@example.com",
+          "first_name": "Dana",
+          "last_name": "Reyes"
+        },
+        "line_items": [
+          {
+            "id": 13579246801,
+            "variant_id": 44012345678,
+            "product_id": 8123456789,
+            "sku": "TW-MUG-12",
+            "title": "Tidewater Mug",
+            "variant_title": "12 oz / Slate",
+            "quantity": 2,
+            "price": "32.00",
+            "total_discount": "6.40"
+          },
+          {
+            "id": 13579246802,
+            "variant_id": 44012345690,
+            "product_id": 8123456790,
+            "sku": "TW-PRESS-01",
+            "title": "Pour-over Press",
+            "variant_title": null,
+            "quantity": 1,
+            "price": "64.00",
+            "total_discount": "6.40"
+          }
+        ],
+        "shipping_address": {
+          "name": "Dana Reyes",
+          "address1": "501 Congress Ave",
+          "city": "Austin",
+          "province_code": "TX",
+          "zip": "78701",
+          "country_code": "US",
+          "phone": "+15125550142"
+        }
+      }
+    },
+    "order.updated": {
+      "delivery": "webhook",
+      "subscribe": "webhook.create",
+      "description": "Shopify topic orders/updated. The payload is the resource itself.",
+      "object": "order",
+      "payload": {
+        "id": 5612789014562,
+        "admin_graphql_api_id": "gid://shopify/Order/5612789014562",
+        "name": "#1042",
+        "order_number": 1042,
+        "email": "dana.reyes@example.com",
+        "created_at": "2026-10-18T09:14:22-05:00",
+        "processed_at": "2026-10-18T09:14:21-05:00",
+        "currency": "USD",
+        "financial_status": "paid",
+        "fulfillment_status": null,
+        "subtotal_price": "128.00",
+        "total_discounts": "12.80",
+        "total_tax": "9.50",
+        "total_price": "139.70",
+        "total_shipping_price_set": {
+          "shop_money": {
+            "amount": "15.00",
+            "currency_code": "USD"
+          }
+        },
+        "discount_codes": [
+          {
+            "code": "FALL10",
+            "amount": "12.80",
+            "type": "percentage"
+          }
+        ],
+        "note": "Gift wrap please",
+        "tags": "wholesale, gift",
+        "source_name": "web",
+        "customer": {
+          "id": 7012345678901,
+          "email": "dana.reyes@example.com",
+          "first_name": "Dana",
+          "last_name": "Reyes"
+        },
+        "line_items": [
+          {
+            "id": 13579246801,
+            "variant_id": 44012345678,
+            "product_id": 8123456789,
+            "sku": "TW-MUG-12",
+            "title": "Tidewater Mug",
+            "variant_title": "12 oz / Slate",
+            "quantity": 2,
+            "price": "32.00",
+            "total_discount": "6.40"
+          },
+          {
+            "id": 13579246802,
+            "variant_id": 44012345690,
+            "product_id": 8123456790,
+            "sku": "TW-PRESS-01",
+            "title": "Pour-over Press",
+            "variant_title": null,
+            "quantity": 1,
+            "price": "64.00",
+            "total_discount": "6.40"
+          }
+        ],
+        "shipping_address": {
+          "name": "Dana Reyes",
+          "address1": "501 Congress Ave",
+          "city": "Austin",
+          "province_code": "TX",
+          "zip": "78701",
+          "country_code": "US",
+          "phone": "+15125550142"
+        }
+      }
+    },
+    "customer.created": {
+      "delivery": "webhook",
+      "subscribe": "webhook.create",
+      "description": "Shopify topic customers/create. The payload is the resource itself.",
+      "object": "customer",
+      "payload": {
+        "id": 7012345678901,
+        "email": "dana.reyes@example.com",
+        "first_name": "Dana",
+        "last_name": "Reyes",
+        "phone": "+15125550142",
+        "tags": "wholesale, vip",
+        "note": null,
+        "orders_count": 7,
+        "total_spent": "1240.55",
+        "created_at": "2025-03-02T11:20:00-05:00",
+        "updated_at": "2026-10-18T09:14:23-05:00",
+        "email_marketing_consent": {
+          "state": "subscribed",
+          "opt_in_level": "confirmed_opt_in",
+          "consent_updated_at": "2025-03-02T11:20:00-05:00"
+        },
+        "default_address": {
+          "company": "Reyes Coffee Co",
+          "address1": "501 Congress Ave",
+          "city": "Austin",
+          "province_code": "TX",
+          "zip": "78701",
+          "country_code": "US"
+        }
+      }
+    },
+    "customer.updated": {
+      "delivery": "webhook",
+      "subscribe": "webhook.create",
+      "description": "Shopify topic customers/update. The payload is the resource itself.",
+      "object": "customer",
+      "payload": {
+        "id": 7012345678901,
+        "email": "dana.reyes@example.com",
+        "first_name": "Dana",
+        "last_name": "Reyes",
+        "phone": "+15125550142",
+        "tags": "wholesale, vip, net30",
+        "note": null,
+        "orders_count": 7,
+        "total_spent": "1240.55",
+        "created_at": "2025-03-02T11:20:00-05:00",
+        "updated_at": "2026-10-18T09:14:23-05:00",
+        "email_marketing_consent": {
+          "state": "subscribed",
+          "opt_in_level": "confirmed_opt_in",
+          "consent_updated_at": "2025-03-02T11:20:00-05:00"
+        },
+        "default_address": {
+          "company": "Reyes Coffee Co",
+          "address1": "501 Congress Ave",
+          "city": "Austin",
+          "province_code": "TX",
+          "zip": "78701",
+          "country_code": "US"
+        }
+      }
+    },
+    "fulfillment.created": {
+      "delivery": "webhook",
+      "subscribe": "webhook.create",
+      "description": "Shopify topic fulfillments/create. The payload is the resource itself.",
+      "object": "fulfillment",
+      "payload": {
+        "id": 4987654321098,
+        "order_id": 5612789014562,
+        "status": "success",
+        "tracking_company": "UPS",
+        "tracking_number": "1Z999AA10123456784",
+        "tracking_url": "https://www.ups.com/track?tracknum=1Z999AA10123456784",
+        "created_at": "2026-10-19T14:02:00-05:00",
+        "line_items": [
+          {
+            "id": 13579246801,
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    "refund.created": {
+      "delivery": "webhook",
+      "subscribe": "webhook.create",
+      "description": "Shopify topic refunds/create. The payload is the resource itself.",
+      "object": "refund",
+      "payload": {
+        "id": 929361462,
+        "order_id": 5612789014562,
+        "created_at": "2026-10-21T10:30:00-05:00",
+        "note": "Mug arrived chipped",
+        "refund_line_items": [
+          {
+            "id": 104689539,
+            "line_item_id": 13579246801,
+            "quantity": 1,
+            "restock_type": "return",
+            "subtotal": 28.8,
+            "total_tax": 2.38,
+            "line_item": {
+              "sku": "TW-MUG-12",
+              "title": "Tidewater Mug"
+            }
+          }
+        ],
+        "transactions": [
+          {
+            "id": 389404469,
+            "kind": "refund",
+            "gateway": "shopify_payments",
+            "status": "success",
+            "amount": "31.18",
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    "inventory.updated": {
+      "delivery": "webhook",
+      "subscribe": "webhook.create",
+      "description": "Shopify topic inventory_levels/update. The payload is the resource itself.",
+      "object": "inventoryLevel",
+      "payload": {
+        "inventory_item_id": 46012345678,
+        "location_id": 61234567890,
+        "available": 3,
+        "updated_at": "2026-10-18T09:14:23-05:00",
+        "admin_graphql_api_id": "gid://shopify/InventoryLevel/61234567890?inventory_item_id=46012345678"
+      }
+    },
+    "checkout.abandoned": {
+      "delivery": "poll",
+      "object": "checkout",
+      "description": "Polled from GET /checkouts.json. Shopify sends no webhook when a checkout is abandoned; a checkout with an email and no completed_at after an hour counts as abandoned.",
+      "payload": {
+        "id": 35112233445566,
+        "token": "b1946ac92492d2347c6235b4d2611184",
+        "email": "dana.reyes@example.com",
+        "abandoned_checkout_url": "https://tidewater-goods.myshopify.com/58912/checkouts/b1946ac9/recover?key=7c2f",
+        "total_price": "64.00",
+        "currency": "USD",
+        "customer": {
+          "id": 7012345678901
+        },
+        "line_items": [
+          {
+            "variant_id": 44012345690,
+            "sku": "TW-PRESS-01",
+            "title": "Pour-over Press",
+            "quantity": 1,
+            "price": "64.00"
+          }
+        ],
+        "created_at": "2026-10-18T20:41:00-05:00",
+        "completed_at": null
+      }
+    }
+  },
+  "capabilities": {
+    "order.get": {
+      "kind": "read",
+      "method": "getOrder",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "fields": {
+          "type": "string"
+        }
+      },
+      "output": "order"
+    },
+    "order.list": {
+      "kind": "read",
+      "method": "listOrders",
+      "input": {
+        "status": {
+          "type": "string"
+        },
+        "created_at_min": {
+          "type": "string"
+        },
+        "updated_at_min": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "page_info": {
+          "type": "string"
+        }
+      },
+      "output": "page<order>"
+    },
+    "order.update": {
+      "kind": "write",
+      "method": "updateOrder",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "order": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "order"
+    },
+    "order.fulfillmentOrders": {
+      "kind": "read",
+      "method": "listFulfillmentOrders",
+      "input": {
+        "orderId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "fulfillmentOrder[]"
+    },
+    "fulfillment.create": {
+      "kind": "write",
+      "method": "createFulfillment",
+      "input": {
+        "fulfillmentOrderId": {
+          "type": "string",
+          "required": true
+        },
+        "trackingInfo": {
+          "type": "object"
+        },
+        "notifyCustomer": {
+          "type": "boolean"
+        }
+      },
+      "output": "fulfillment"
+    },
+    "customer.get": {
+      "kind": "read",
+      "method": "getCustomer",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.list": {
+      "kind": "read",
+      "method": "listCustomers",
+      "input": {
+        "updated_at_min": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "page_info": {
+          "type": "string"
+        }
+      },
+      "output": "page<customer>"
+    },
+    "customer.search": {
+      "kind": "search",
+      "method": "searchCustomers",
+      "input": {
+        "query": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "customer[]"
+    },
+    "customer.create": {
+      "kind": "write",
+      "method": "createCustomer",
+      "input": {
+        "customer": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.update": {
+      "kind": "write",
+      "method": "updateCustomer",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "customer": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "checkout.list": {
+      "kind": "read",
+      "method": "listAbandonedCheckouts",
+      "input": {
+        "created_at_min": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "checkout[]"
+    },
+    "variant.byInventoryItem": {
+      "kind": "read",
+      "method": "getVariantByInventoryItemId",
+      "input": {
+        "inventoryItemId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "variant"
+    },
+    "location.list": {
+      "kind": "read",
+      "method": "listLocations",
+      "input": {},
+      "output": "location[]"
+    },
+    "webhook.create": {
+      "kind": "subscribe",
+      "method": "createWebhook",
+      "input": {
+        "topic": {
+          "type": "string",
+          "required": true
+        },
+        "address": {
+          "type": "string",
+          "required": true
+        },
+        "format": {
+          "type": "string"
+        }
+      },
+      "output": "webhook"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhook",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  },
+  "options": {
+    "location": {
+      "capability": "location.list",
+      "label": "{{item.name}}",
+      "value": "$.item.id"
+    }
+  },
+  "ui": {
+    "placements": [
+      "admin.customer-details.block",
+      "admin.order-details.block",
+      "admin.product-details.block"
+    ],
+    "renderer": "frigg-shopify-admin-extension"
+  }
+}

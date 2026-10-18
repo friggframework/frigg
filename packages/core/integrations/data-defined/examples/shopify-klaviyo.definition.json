@@ -1,0 +1,507 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "shopify-klaviyo",
+  "version": "1.5.0",
+  "display": {
+    "label": "Shopify → Klaviyo",
+    "description": "Customers become Klaviyo profiles, and orders, ordered products, abandoned checkouts and fulfillments become Klaviyo events for flows. The Shopify customer page shows the customer's Klaviyo lists.",
+    "category": "Marketing",
+    "tags": [
+      "ecommerce",
+      "email",
+      "events"
+    ]
+  },
+  "modules": {
+    "shopify": {
+      "module": "shopify",
+      "version": "^3.1"
+    },
+    "klaviyo": {
+      "module": "klaviyo",
+      "version": "^1.1"
+    }
+  },
+  "syncs": [
+    {
+      "id": "customers",
+      "label": "Customers",
+      "source": "shopify.customer",
+      "target": "klaviyo.profile",
+      "direction": "one_way",
+      "identity": {
+        "match": [
+          {
+            "source": "email",
+            "target": "attributes.email",
+            "transform": "lowercase",
+            "key": "email"
+          }
+        ]
+      },
+      "mapping": [
+        {
+          "source": "email",
+          "target": "attributes.email",
+          "transform": "lowercase"
+        },
+        {
+          "source": "first_name",
+          "target": "attributes.first_name"
+        },
+        {
+          "source": "last_name",
+          "target": "attributes.last_name"
+        },
+        {
+          "source": "phone",
+          "target": "attributes.phone_number",
+          "transform": "to_e164_phone"
+        },
+        {
+          "source": "default_address.company",
+          "target": "attributes.organization"
+        },
+        {
+          "source": "default_address.city",
+          "target": "attributes.location.city"
+        },
+        {
+          "source": "default_address.province_code",
+          "target": "attributes.location.region"
+        },
+        {
+          "source": "default_address.country_code",
+          "target": "attributes.location.country"
+        },
+        {
+          "source": "default_address.zip",
+          "target": "attributes.location.zip"
+        },
+        {
+          "source": "total_spent",
+          "target": "attributes.properties.lifetime_value",
+          "transform": "number"
+        },
+        {
+          "source": "tags",
+          "target": "attributes.properties.shopify_tags"
+        },
+        {
+          "source": "id",
+          "target": "attributes.external_id"
+        }
+      ],
+      "filter": "$.record.email exists",
+      "backfill": {
+        "trigger": "onInstall",
+        "pageSize": 250
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "placed-order",
+      "label": "Placed Order and Ordered Product events",
+      "description": "One \"Placed Order\" event per order and one \"Ordered Product\" per line item, the shape Klaviyo's ecommerce flows expect.",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "shopify",
+        "topic": "order.created",
+        "filter": "$.record.email exists"
+      },
+      "steps": [
+        {
+          "id": "amounts",
+          "use": "map",
+          "with": {
+            "record": "$.record",
+            "mapping": [
+              {
+                "source": "total_price",
+                "target": "value",
+                "transform": "number"
+              }
+            ]
+          }
+        },
+        {
+          "use": "klaviyo.event.create",
+          "with": {
+            "metric": "Placed Order",
+            "profile": {
+              "email": "$.record.email",
+              "external_id": "{{record.customer.id}}"
+            },
+            "properties": {
+              "OrderId": "$.record.id",
+              "OrderNumber": "$.record.name",
+              "Items": "$.record.line_items",
+              "DiscountCodes": "$.record.discount_codes",
+              "SourceName": "$.record.source_name",
+              "ShippingCity": "$.record.shipping_address.city"
+            },
+            "value": "$.steps.amounts.value",
+            "time": "$.record.created_at",
+            "uniqueId": "order-{{record.id}}"
+          }
+        },
+        {
+          "id": "products",
+          "use": "foreach",
+          "with": {
+            "over": "$.record.line_items",
+            "max": 100
+          },
+          "do": [
+            {
+              "id": "price",
+              "use": "map",
+              "with": {
+                "record": "$.item",
+                "mapping": [
+                  {
+                    "source": "price",
+                    "target": "value",
+                    "transform": "number"
+                  }
+                ]
+              }
+            },
+            {
+              "use": "klaviyo.event.create",
+              "with": {
+                "metric": "Ordered Product",
+                "profile": {
+                  "email": "$.record.email",
+                  "external_id": "{{record.customer.id}}"
+                },
+                "properties": {
+                  "OrderId": "$.record.id",
+                  "ProductID": "$.item.product_id",
+                  "SKU": "$.item.sku",
+                  "ProductName": "$.item.title",
+                  "VariantName": "$.item.variant_title",
+                  "Quantity": "$.item.quantity"
+                },
+                "value": "$.steps.price.value",
+                "time": "$.record.created_at",
+                "uniqueId": "order-{{record.id}}-line-{{item.id}}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abandoned-checkout",
+      "label": "Started Checkout events for abandoned checkouts",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "shopify",
+        "topic": "checkout.abandoned",
+        "filter": "$.record.email exists && !($.record.completed_at exists)"
+      },
+      "steps": [
+        {
+          "id": "amounts",
+          "use": "map",
+          "with": {
+            "record": "$.record",
+            "mapping": [
+              {
+                "source": "total_price",
+                "target": "value",
+                "transform": "number"
+              }
+            ]
+          }
+        },
+        {
+          "use": "klaviyo.event.create",
+          "with": {
+            "metric": "Started Checkout",
+            "profile": {
+              "email": "$.record.email",
+              "external_id": "{{record.customer.id}}"
+            },
+            "properties": {
+              "CheckoutURL": "$.record.abandoned_checkout_url",
+              "Items": "$.record.line_items",
+              "Currency": "$.record.currency"
+            },
+            "value": "$.steps.amounts.value",
+            "time": "$.record.created_at",
+            "uniqueId": "checkout-{{record.token}}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fulfilled-order",
+      "label": "Fulfilled Order events",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "shopify",
+        "topic": "fulfillment.created"
+      },
+      "steps": [
+        {
+          "id": "order",
+          "use": "shopify.order.get",
+          "with": {
+            "id": "$.record.order_id",
+            "fields": "id,name,email,customer,total_price"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "!($.steps.order.email exists)",
+          "with": {
+            "reason": "Order has no email"
+          }
+        },
+        {
+          "use": "klaviyo.event.create",
+          "with": {
+            "metric": "Fulfilled Order",
+            "profile": {
+              "email": "$.steps.order.email",
+              "external_id": "{{steps.order.customer.id}}"
+            },
+            "properties": {
+              "OrderId": "$.steps.order.id",
+              "OrderNumber": "$.steps.order.name",
+              "TrackingCompany": "$.record.tracking_company",
+              "TrackingNumber": "$.record.tracking_number",
+              "TrackingUrl": "$.record.tracking_url"
+            },
+            "time": "$.record.created_at",
+            "uniqueId": "fulfillment-{{record.id}}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "add-to-list",
+      "label": "Subscribe the customer to a Klaviyo list",
+      "purpose": "respond",
+      "default": "on",
+      "settings": {
+        "list": {
+          "type": "option",
+          "options": "klaviyo.list",
+          "label": "List the button subscribes to",
+          "required": true
+        }
+      },
+      "trigger": {
+        "type": "userAction",
+        "label": "Subscribe to list",
+        "from": "klaviyo-block"
+      },
+      "steps": [
+        {
+          "use": "stop",
+          "when": "!($.record.email exists)",
+          "with": {
+            "reason": "Customer has no email"
+          }
+        },
+        {
+          "use": "klaviyo.profile.subscribe",
+          "with": {
+            "listId": "$.settings.list",
+            "email": "$.record.email",
+            "channels": [
+              "email"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "klaviyo-profile",
+      "description": "The Klaviyo profile for this Shopify customer and the lists it is on.",
+      "steps": [
+        {
+          "use": "stop",
+          "when": "!($.record.email exists)",
+          "with": {
+            "reason": "Customer has no email"
+          }
+        },
+        {
+          "id": "profiles",
+          "use": "klaviyo.profile.search",
+          "with": {
+            "email": "$.record.email"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.profiles[0] == null",
+          "with": {
+            "reason": "No Klaviyo profile"
+          }
+        },
+        {
+          "id": "lists",
+          "use": "klaviyo.profile.lists",
+          "with": {
+            "id": "$.steps.profiles[0].id"
+          }
+        }
+      ],
+      "returns": {
+        "profile": "$.steps.profiles[0]",
+        "lists": "$.steps.lists"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "klaviyo-block",
+      "label": "Klaviyo",
+      "host": "shopify",
+      "placement": "admin.customer-details.block",
+      "objects": [
+        "customer"
+      ],
+      "data": {
+        "query": "klaviyo-profile"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "Klaviyo"
+            }
+          },
+          {
+            "component": "Empty",
+            "when": "!($.data.profile exists)",
+            "props": {
+              "text": "No Klaviyo profile for this customer yet."
+            }
+          },
+          {
+            "component": "KeyValue",
+            "when": "$.data.profile exists",
+            "props": {
+              "items": [
+                {
+                  "label": "Email consent",
+                  "value": "{{data.profile.attributes.subscriptions.email.marketing.consent | default: 'NEVER_SUBSCRIBED'}}"
+                },
+                {
+                  "label": "Lifetime value",
+                  "value": "{{data.profile.attributes.properties.lifetime_value | default: 0}}"
+                }
+              ]
+            }
+          },
+          {
+            "component": "List",
+            "props": {
+              "items": "$.data.lists",
+              "title": "{{item.attributes.name}}",
+              "meta": "since {{item.attributes.created | date}}"
+            }
+          },
+          {
+            "component": "Button",
+            "props": {
+              "label": "Subscribe to list",
+              "action": {
+                "type": "userAction",
+                "workflow": "add-to-list"
+              }
+            }
+          },
+          {
+            "component": "Button",
+            "when": "$.data.profile exists",
+            "props": {
+              "label": "Open in Klaviyo",
+              "action": {
+                "type": "open_url",
+                "url": "https://www.klaviyo.com/profile/{{data.profile.id}}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "lifecycle": {
+    "onInstall": [
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "orders/create",
+          "address": "$.install.webhookUrl",
+          "format": "json"
+        }
+      },
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "fulfillments/create",
+          "address": "$.install.webhookUrl",
+          "format": "json"
+        }
+      },
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "customers/create",
+          "address": "$.install.webhookUrl",
+          "format": "json"
+        }
+      },
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "customers/update",
+          "address": "$.install.webhookUrl",
+          "format": "json"
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "id": "unhook",
+        "use": "foreach",
+        "with": {
+          "over": "$.install.runtime.subscriptions.shopify",
+          "max": 20
+        },
+        "do": [
+          {
+            "use": "shopify.webhook.delete",
+            "with": {
+              "id": "$.item"
+            },
+            "onError": "continue"
+          }
+        ]
+      }
+    ]
+  }
+}

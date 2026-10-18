@@ -1,0 +1,586 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "zendesk-jira",
+  "version": "2.0.0",
+  "display": {
+    "label": "Zendesk ↔ Jira escalation",
+    "description": "Escalate a ticket to a Jira issue from the ticket sidebar or with a tag, keep priority in step, and post Jira status changes back to the ticket as internal notes.",
+    "category": "Support",
+    "tags": [
+      "helpdesk",
+      "engineering",
+      "escalation"
+    ]
+  },
+  "modules": {
+    "zendesk": {
+      "module": "zendesk",
+      "version": "^1.6"
+    },
+    "jira": {
+      "module": "jira",
+      "version": "^2.2"
+    }
+  },
+  "settings": {
+    "project": {
+      "type": "option",
+      "options": "jira.project",
+      "label": "Jira project for escalations",
+      "required": true
+    },
+    "issueType": {
+      "type": "option",
+      "options": "jira.issueType",
+      "label": "Issue type",
+      "required": true
+    }
+  },
+  "syncs": [
+    {
+      "id": "escalations",
+      "label": "Escalated tickets",
+      "description": "Only tickets that have been escalated. The ticket's external_id holds the Jira key; summary and priority follow the ticket.",
+      "source": "zendesk.ticket",
+      "target": "jira.issue",
+      "direction": "one_way",
+      "identity": {
+        "match": [
+          {
+            "source": "external_id",
+            "target": "key",
+            "key": "issueKey"
+          }
+        ],
+        "onAmbiguous": "skip"
+      },
+      "mapping": [
+        {
+          "source": "subject",
+          "target": "fields.summary",
+          "transform": "trim"
+        },
+        {
+          "source": "priority",
+          "target": "fields.priority.name",
+          "transform": "map_values",
+          "options": {
+            "values": {
+              "urgent": "Highest",
+              "high": "High",
+              "normal": "Medium",
+              "low": "Low"
+            },
+            "fallback": "Medium"
+          }
+        }
+      ],
+      "filter": "$.record.tags contains 'jira_escalated' || $.record.tags contains 'escalate_jira'",
+      "backfill": {
+        "trigger": "none"
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "escalate-on-tag",
+      "label": "Escalate when an agent adds the escalate_jira tag",
+      "description": "Lets Zendesk triggers and macros escalate by tagging.",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "zendesk",
+        "topic": "ticket.tagsChanged",
+        "filter": "$.event.event.tags_added contains 'escalate_jira'"
+      },
+      "steps": [
+        {
+          "id": "existing",
+          "use": "links.find",
+          "with": {
+            "sync": "escalations",
+            "from": "zendesk",
+            "id": "$.record.id"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.existing != null",
+          "with": {
+            "reason": "Ticket is already escalated"
+          }
+        },
+        {
+          "id": "mapped",
+          "use": "map",
+          "with": {
+            "sync": "escalations",
+            "record": "$.record"
+          }
+        },
+        {
+          "id": "description",
+          "use": "template",
+          "with": {
+            "id": "issue-description"
+          }
+        },
+        {
+          "id": "issue",
+          "use": "jira.issue.create",
+          "with": {
+            "fields": {
+              "project": {
+                "key": "$.install.project"
+              },
+              "issuetype": {
+                "id": "$.install.issueType"
+              },
+              "summary": "$.steps.mapped.fields.summary",
+              "priority": {
+                "name": "$.steps.mapped.fields.priority.name"
+              },
+              "description": "$.steps.description",
+              "labels": [
+                "zendesk",
+                "zd-{{record.id}}"
+              ]
+            }
+          }
+        },
+        {
+          "use": "links.upsert",
+          "with": {
+            "sync": "escalations",
+            "ids": {
+              "zendesk": "$.record.id",
+              "jira": "$.steps.issue.id"
+            },
+            "keys": {
+              "issueKey": "$.steps.issue.key"
+            }
+          }
+        },
+        {
+          "use": "jira.remoteLink.create",
+          "with": {
+            "issueIdOrKey": "$.steps.issue.key",
+            "url": "https://{{install.runtime.zendeskSubdomain}}.zendesk.com/agent/tickets/{{record.id}}",
+            "title": "Zendesk #{{record.id}}"
+          }
+        },
+        {
+          "use": "zendesk.ticket.update",
+          "with": {
+            "id": "$.record.id",
+            "ticket": {
+              "external_id": "$.steps.issue.key",
+              "additional_tags": [
+                "jira_escalated"
+              ],
+              "remove_tags": [
+                "escalate_jira"
+              ]
+            }
+          }
+        },
+        {
+          "use": "zendesk.ticket.addComment",
+          "with": {
+            "id": "$.record.id",
+            "public": false,
+            "body": "Escalated to Jira {{steps.issue.key}}."
+          }
+        }
+      ]
+    },
+    {
+      "id": "escalate-from-sidebar",
+      "label": "Escalate from the ticket sidebar",
+      "purpose": "respond",
+      "default": "on",
+      "trigger": {
+        "type": "userAction",
+        "label": "Escalate to Jira",
+        "from": "jira-panel"
+      },
+      "steps": [
+        {
+          "id": "existing",
+          "use": "links.find",
+          "with": {
+            "sync": "escalations",
+            "from": "zendesk",
+            "id": "$.record.id"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.existing != null",
+          "with": {
+            "reason": "Ticket is already escalated"
+          }
+        },
+        {
+          "id": "mapped",
+          "use": "map",
+          "with": {
+            "sync": "escalations",
+            "record": "$.record"
+          }
+        },
+        {
+          "id": "description",
+          "use": "template",
+          "with": {
+            "id": "issue-description"
+          }
+        },
+        {
+          "id": "issue",
+          "use": "jira.issue.create",
+          "with": {
+            "fields": {
+              "project": {
+                "key": "$.install.project"
+              },
+              "issuetype": {
+                "id": "$.install.issueType"
+              },
+              "summary": "$.steps.mapped.fields.summary",
+              "priority": {
+                "name": "$.steps.mapped.fields.priority.name"
+              },
+              "description": "$.steps.description",
+              "labels": [
+                "zendesk",
+                "zd-{{record.id}}"
+              ]
+            }
+          }
+        },
+        {
+          "use": "links.upsert",
+          "with": {
+            "sync": "escalations",
+            "ids": {
+              "zendesk": "$.record.id",
+              "jira": "$.steps.issue.id"
+            },
+            "keys": {
+              "issueKey": "$.steps.issue.key"
+            }
+          }
+        },
+        {
+          "use": "jira.remoteLink.create",
+          "with": {
+            "issueIdOrKey": "$.steps.issue.key",
+            "url": "https://{{install.runtime.zendeskSubdomain}}.zendesk.com/agent/tickets/{{record.id}}",
+            "title": "Zendesk #{{record.id}}"
+          }
+        },
+        {
+          "use": "zendesk.ticket.update",
+          "with": {
+            "id": "$.record.id",
+            "ticket": {
+              "external_id": "$.steps.issue.key",
+              "additional_tags": [
+                "jira_escalated"
+              ],
+              "remove_tags": [
+                "escalate_jira"
+              ]
+            }
+          }
+        },
+        {
+          "use": "zendesk.ticket.addComment",
+          "with": {
+            "id": "$.record.id",
+            "public": false,
+            "body": "Escalated to Jira {{steps.issue.key}}: {{event.input.reason}}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "status-to-ticket",
+      "label": "Jira status changes as internal notes",
+      "purpose": "write",
+      "default": "on",
+      "settings": {
+        "reopenOnDone": {
+          "type": "boolean",
+          "label": "Reopen the ticket when the issue is done",
+          "default": true,
+          "help": "So the agent can confirm the fix with the customer."
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "jira",
+        "topic": "issue.updated",
+        "filter": "$.event.changelog.items[0].field == 'status'"
+      },
+      "steps": [
+        {
+          "id": "ticket",
+          "use": "links.find",
+          "with": {
+            "sync": "escalations",
+            "from": "jira",
+            "id": "$.record.id"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.ticket == null",
+          "with": {
+            "reason": "Issue was not escalated from Zendesk"
+          }
+        },
+        {
+          "id": "note",
+          "use": "template",
+          "with": {
+            "id": "status-note"
+          }
+        },
+        {
+          "use": "zendesk.ticket.addComment",
+          "with": {
+            "id": "$.steps.ticket.zendesk",
+            "body": "$.steps.note",
+            "public": false
+          }
+        },
+        {
+          "use": "zendesk.ticket.update",
+          "when": "$.settings.reopenOnDone == true && $.record.fields.status.statusCategory.key == 'done'",
+          "with": {
+            "id": "$.steps.ticket.zendesk",
+            "ticket": {
+              "status": "open"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "refresh-jira-webhook",
+      "label": "Keep the Jira webhook alive",
+      "description": "Jira dynamic webhooks expire after 30 days; refresh weekly.",
+      "purpose": "maintain",
+      "default": "on",
+      "trigger": {
+        "type": "schedule",
+        "cron": "17 4 * * 0",
+        "timezone": "UTC"
+      },
+      "steps": [
+        {
+          "use": "jira.webhook.refresh",
+          "with": {
+            "webhookIds": "$.install.runtime.subscriptions.jira"
+          }
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "linked-issue",
+      "description": "The Jira issue this ticket was escalated to, if any.",
+      "steps": [
+        {
+          "id": "link",
+          "use": "links.find",
+          "with": {
+            "sync": "escalations",
+            "from": "zendesk",
+            "id": "$.record.id"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.link == null",
+          "with": {
+            "reason": "Not escalated"
+          }
+        },
+        {
+          "id": "issue",
+          "use": "jira.issue.get",
+          "with": {
+            "issueIdOrKey": "$.steps.link.jira",
+            "fields": [
+              "summary",
+              "status",
+              "priority",
+              "assignee",
+              "updated"
+            ]
+          }
+        }
+      ],
+      "returns": {
+        "issue": "$.steps.issue",
+        "site": "$.install.runtime.jiraSite"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "jira-panel",
+      "label": "Jira",
+      "host": "zendesk",
+      "placement": "ticket_sidebar",
+      "objects": [
+        "ticket"
+      ],
+      "data": {
+        "query": "linked-issue"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "Jira escalation"
+            }
+          },
+          {
+            "component": "Stack",
+            "when": "$.data.issue exists",
+            "children": [
+              {
+                "component": "KeyValue",
+                "props": {
+                  "items": [
+                    {
+                      "label": "Issue",
+                      "value": "{{data.issue.key}}"
+                    },
+                    {
+                      "label": "Priority",
+                      "value": "{{data.issue.fields.priority.name}}"
+                    },
+                    {
+                      "label": "Assignee",
+                      "value": "{{data.issue.fields.assignee.displayName | default: 'Unassigned'}}"
+                    },
+                    {
+                      "label": "Updated",
+                      "value": "{{data.issue.fields.updated | date}}"
+                    }
+                  ]
+                }
+              },
+              {
+                "component": "Badge",
+                "props": {
+                  "text": "{{data.issue.fields.status.name}}",
+                  "tone": "{{data.issue.fields.status.statusCategory.key}}"
+                }
+              },
+              {
+                "component": "Button",
+                "props": {
+                  "label": "Open in Jira",
+                  "action": {
+                    "type": "open_url",
+                    "url": "https://{{data.site}}/browse/{{data.issue.key}}"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "component": "Stack",
+            "when": "!($.data.issue exists)",
+            "children": [
+              {
+                "component": "Empty",
+                "props": {
+                  "text": "Not escalated yet."
+                }
+              },
+              {
+                "component": "Button",
+                "props": {
+                  "label": "Escalate to Jira",
+                  "style": "primary",
+                  "action": {
+                    "type": "userAction",
+                    "workflow": "escalate-from-sidebar",
+                    "input": {
+                      "reason": {
+                        "type": "text",
+                        "label": "What should engineering know?"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "templates": {
+    "issue-description": "Escalated from Zendesk ticket #{{record.id}} ({{record.priority}}, {{record.type | default: 'question'}}).\n\n{{record.description}}\n\nTicket: https://{{install.runtime.zendeskSubdomain}}.zendesk.com/agent/tickets/{{record.id}}",
+    "status-note": "Jira {{record.key}} moved from \"{{event.changelog.items[0].fromString}}\" to \"{{event.changelog.items[0].toString}}\" (by {{event.user.displayName | default: 'Jira'}})."
+  },
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "zendeskHook",
+        "use": "zendesk.webhook.create",
+        "with": {
+          "name": "Frigg: Jira escalation",
+          "endpoint": "$.install.webhookUrl",
+          "subscriptions": [
+            "zen:event-type:ticket.tags_changed",
+            "zen:event-type:ticket.priority_changed"
+          ]
+        }
+      },
+      {
+        "id": "jiraHook",
+        "use": "jira.webhook.register",
+        "with": {
+          "url": "$.install.webhookUrl",
+          "events": [
+            "jira:issue_updated"
+          ],
+          "jqlFilter": "labels = zendesk"
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "zendesk.webhook.delete",
+        "with": {
+          "id": "$.install.runtime.subscriptions.zendesk"
+        },
+        "onError": "continue"
+      },
+      {
+        "use": "jira.webhook.delete",
+        "with": {
+          "webhookIds": "$.install.runtime.subscriptions.jira"
+        }
+      }
+    ]
+  }
+}

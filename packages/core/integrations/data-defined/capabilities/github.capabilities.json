@@ -1,0 +1,531 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "github",
+  "label": "GitHub",
+  "package": "@friggframework/api-module-github",
+  "version": "1.8.0",
+  "auth": "oauth2",
+  "objects": {
+    "issue": {
+      "label": "Issue",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "number",
+          "type": "number",
+          "tag": "record.displayId",
+          "readOnly": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "tag": "task.title"
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "tag": "task.description"
+        },
+        {
+          "name": "state",
+          "type": "enum",
+          "tag": "task.state",
+          "values": [
+            "open",
+            "closed"
+          ]
+        },
+        {
+          "name": "state_reason",
+          "type": "enum",
+          "values": [
+            "completed",
+            "not_planned",
+            "reopened"
+          ]
+        },
+        {
+          "name": "labels",
+          "type": "label[]",
+          "tag": "record.tags"
+        },
+        {
+          "name": "labels[0].name",
+          "type": "string"
+        },
+        {
+          "name": "assignee.login",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "html_url",
+          "type": "string",
+          "tag": "record.url",
+          "readOnly": true
+        },
+        {
+          "name": "pull_request",
+          "type": "json",
+          "readOnly": true
+        },
+        {
+          "name": "created_at",
+          "type": "datetime",
+          "tag": "record.createdAt",
+          "readOnly": true
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "pullRequest": {
+      "label": "Pull request",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "number",
+          "type": "number",
+          "readOnly": true
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "body",
+          "type": "text"
+        },
+        {
+          "name": "state",
+          "type": "enum",
+          "values": [
+            "open",
+            "closed"
+          ]
+        },
+        {
+          "name": "merged",
+          "type": "boolean",
+          "readOnly": true
+        },
+        {
+          "name": "merged_at",
+          "type": "datetime",
+          "readOnly": true
+        },
+        {
+          "name": "head.ref",
+          "type": "string",
+          "tag": "git.branch"
+        },
+        {
+          "name": "base.ref",
+          "type": "string"
+        },
+        {
+          "name": "html_url",
+          "type": "string",
+          "tag": "record.url",
+          "readOnly": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "issue.opened": {
+      "delivery": "webhook",
+      "object": "issue",
+      "description": "GitHub App webhook (issues/opened); app-level, routed by installation.id.",
+      "payload": {
+        "action": "opened",
+        "issue": {
+          "id": 2601234567,
+          "number": 318,
+          "title": "Webhook retries double-post comments",
+          "body": "When the queue retries a delivery, the comment is posted twice.",
+          "state": "open",
+          "state_reason": null,
+          "labels": [
+            {
+              "id": 6012345,
+              "name": "bug"
+            },
+            {
+              "id": 6012399,
+              "name": "P1"
+            }
+          ],
+          "assignee": {
+            "login": "octocat"
+          },
+          "html_url": "https://github.com/acme/platform/issues/318",
+          "user": {
+            "login": "dana-r"
+          },
+          "created_at": "2026-10-19T10:00:00Z",
+          "updated_at": "2026-10-20T08:00:00Z",
+          "closed_at": null
+        },
+        "repository": {
+          "id": 712345678,
+          "full_name": "acme/platform",
+          "name": "platform",
+          "owner": {
+            "login": "acme"
+          }
+        },
+        "installation": {
+          "id": 51234567
+        },
+        "sender": {
+          "login": "dana-r"
+        }
+      },
+      "record": "issue"
+    },
+    "issue.edited": {
+      "delivery": "webhook",
+      "object": "issue",
+      "payload": {
+        "action": "edited",
+        "issue": {
+          "id": 2601234567,
+          "number": 318,
+          "title": "Webhook retries double-post comments",
+          "body": "When the queue retries a delivery, the comment is posted twice.",
+          "state": "open",
+          "state_reason": null,
+          "labels": [
+            {
+              "id": 6012345,
+              "name": "bug"
+            },
+            {
+              "id": 6012399,
+              "name": "P1"
+            }
+          ],
+          "assignee": {
+            "login": "octocat"
+          },
+          "html_url": "https://github.com/acme/platform/issues/318",
+          "user": {
+            "login": "dana-r"
+          },
+          "created_at": "2026-10-19T10:00:00Z",
+          "updated_at": "2026-10-20T08:00:00Z",
+          "closed_at": null
+        },
+        "changes": {
+          "title": {
+            "from": "Webhook retries double post"
+          }
+        },
+        "repository": {
+          "id": 712345678,
+          "full_name": "acme/platform",
+          "name": "platform",
+          "owner": {
+            "login": "acme"
+          }
+        },
+        "installation": {
+          "id": 51234567
+        }
+      },
+      "record": "issue"
+    },
+    "issue.closed": {
+      "delivery": "webhook",
+      "object": "issue",
+      "payload": {
+        "action": "closed",
+        "issue": {
+          "id": 2601234567,
+          "number": 318,
+          "title": "Webhook retries double-post comments",
+          "body": "When the queue retries a delivery, the comment is posted twice.",
+          "state": "closed",
+          "state_reason": "completed",
+          "labels": [
+            {
+              "id": 6012345,
+              "name": "bug"
+            },
+            {
+              "id": 6012399,
+              "name": "P1"
+            }
+          ],
+          "assignee": {
+            "login": "octocat"
+          },
+          "html_url": "https://github.com/acme/platform/issues/318",
+          "user": {
+            "login": "dana-r"
+          },
+          "created_at": "2026-10-19T10:00:00Z",
+          "updated_at": "2026-10-20T08:00:00Z",
+          "closed_at": "2026-10-21T09:00:00Z"
+        },
+        "repository": {
+          "id": 712345678,
+          "full_name": "acme/platform",
+          "name": "platform",
+          "owner": {
+            "login": "acme"
+          }
+        },
+        "installation": {
+          "id": 51234567
+        }
+      },
+      "record": "issue"
+    },
+    "issue.labeled": {
+      "delivery": "webhook",
+      "object": "issue",
+      "payload": {
+        "action": "labeled",
+        "issue": {
+          "id": 2601234567,
+          "number": 318,
+          "title": "Webhook retries double-post comments",
+          "body": "When the queue retries a delivery, the comment is posted twice.",
+          "state": "open",
+          "state_reason": null,
+          "labels": [
+            {
+              "id": 6012345,
+              "name": "bug"
+            },
+            {
+              "id": 6012399,
+              "name": "P1"
+            }
+          ],
+          "assignee": {
+            "login": "octocat"
+          },
+          "html_url": "https://github.com/acme/platform/issues/318",
+          "user": {
+            "login": "dana-r"
+          },
+          "created_at": "2026-10-19T10:00:00Z",
+          "updated_at": "2026-10-20T08:00:00Z",
+          "closed_at": null
+        },
+        "label": {
+          "name": "P1"
+        },
+        "repository": {
+          "id": 712345678,
+          "full_name": "acme/platform",
+          "name": "platform",
+          "owner": {
+            "login": "acme"
+          }
+        },
+        "installation": {
+          "id": 51234567
+        }
+      },
+      "record": "issue"
+    },
+    "pullRequest.closed": {
+      "delivery": "webhook",
+      "object": "pullRequest",
+      "payload": {
+        "action": "closed",
+        "number": 412,
+        "pull_request": {
+          "id": 2109876543,
+          "number": 412,
+          "title": "Fix duplicate comment on retry (ENG-142)",
+          "state": "closed",
+          "merged": true,
+          "merged_at": "2026-10-21T08:55:00Z",
+          "head": {
+            "ref": "dana/eng-142-dedupe-comments"
+          },
+          "base": {
+            "ref": "main"
+          },
+          "html_url": "https://github.com/acme/platform/pull/412",
+          "body": "Closes #318"
+        },
+        "repository": {
+          "id": 712345678,
+          "full_name": "acme/platform",
+          "name": "platform",
+          "owner": {
+            "login": "acme"
+          }
+        },
+        "installation": {
+          "id": 51234567
+        }
+      },
+      "record": "pull_request"
+    }
+  },
+  "capabilities": {
+    "issue.get": {
+      "kind": "read",
+      "method": "getIssue",
+      "input": {
+        "owner": {
+          "type": "string",
+          "required": true
+        },
+        "repo": {
+          "type": "string",
+          "required": true
+        },
+        "issue_number": {
+          "type": "number",
+          "required": true
+        }
+      },
+      "output": "issue"
+    },
+    "issue.list": {
+      "kind": "read",
+      "method": "listIssuesForRepo",
+      "input": {
+        "owner": {
+          "type": "string",
+          "required": true
+        },
+        "repo": {
+          "type": "string",
+          "required": true
+        },
+        "state": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "per_page": {
+          "type": "number"
+        },
+        "page": {
+          "type": "number"
+        }
+      },
+      "output": "issue[]"
+    },
+    "issue.create": {
+      "kind": "write",
+      "method": "createIssue",
+      "input": {
+        "owner": {
+          "type": "string",
+          "required": true
+        },
+        "repo": {
+          "type": "string",
+          "required": true
+        },
+        "title": {
+          "type": "string",
+          "required": true
+        },
+        "body": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array"
+        },
+        "assignees": {
+          "type": "array"
+        }
+      },
+      "output": "issue"
+    },
+    "issue.update": {
+      "kind": "write",
+      "method": "updateIssue",
+      "input": {
+        "owner": {
+          "type": "string",
+          "required": true
+        },
+        "repo": {
+          "type": "string",
+          "required": true
+        },
+        "issue_number": {
+          "type": "number",
+          "required": true
+        },
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "state_reason": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array"
+        }
+      },
+      "output": "issue"
+    },
+    "issue.comment": {
+      "kind": "write",
+      "method": "createIssueComment",
+      "input": {
+        "owner": {
+          "type": "string",
+          "required": true
+        },
+        "repo": {
+          "type": "string",
+          "required": true
+        },
+        "issue_number": {
+          "type": "number",
+          "required": true
+        },
+        "body": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "comment"
+    },
+    "repo.list": {
+      "kind": "read",
+      "method": "listInstallationRepos",
+      "input": {},
+      "output": "repository[]"
+    }
+  },
+  "options": {
+    "repo": {
+      "capability": "repo.list",
+      "label": "{{item.full_name}}",
+      "value": "$.item.full_name"
+    }
+  }
+}

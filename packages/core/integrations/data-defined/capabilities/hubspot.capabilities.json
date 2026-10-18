@@ -72,6 +72,37 @@
           "name": "properties.quo_last_call",
           "type": "datetime",
           "custom": true
+        },
+        {
+          "name": "properties.jobtitle",
+          "type": "string",
+          "tag": "person.jobTitle"
+        },
+        {
+          "name": "properties.city",
+          "type": "string",
+          "tag": "address.locality"
+        },
+        {
+          "name": "properties.hs_lead_status",
+          "type": "enum",
+          "tag": "contact.leadStatus",
+          "values": [
+            "NEW",
+            "OPEN",
+            "IN_PROGRESS",
+            "OPEN_DEAL",
+            "UNQUALIFIED",
+            "ATTEMPTED_TO_CONTACT",
+            "CONNECTED",
+            "BAD_TIMING"
+          ]
+        },
+        {
+          "name": "properties.hs_email_optout",
+          "type": "boolean",
+          "tag": "contact.emailOptOut",
+          "readOnly": true
         }
       ]
     },
@@ -107,6 +138,16 @@
           "name": "properties.hubspot_owner_id",
           "type": "string",
           "tag": "record.owner"
+        },
+        {
+          "name": "properties.pipeline",
+          "type": "string",
+          "tag": "deal.pipeline"
+        },
+        {
+          "name": "properties.hs_next_step",
+          "type": "text",
+          "tag": "deal.nextStep"
         }
       ]
     },
@@ -155,6 +196,28 @@
         {
           "name": "properties.hubspot_owner_id",
           "type": "string"
+        },
+        {
+          "name": "properties.hs_task_status",
+          "type": "enum",
+          "tag": "task.status",
+          "values": [
+            "NOT_STARTED",
+            "IN_PROGRESS",
+            "WAITING",
+            "COMPLETED",
+            "DEFERRED"
+          ]
+        },
+        {
+          "name": "properties.hs_task_priority",
+          "type": "enum",
+          "tag": "task.priority",
+          "values": [
+            "LOW",
+            "MEDIUM",
+            "HIGH"
+          ]
         }
       ]
     },
@@ -439,6 +502,157 @@
         }
       },
       "output": "stage[]"
+    },
+    "contact.upsertByEmail": {
+      "kind": "write",
+      "method": "upsertContactByEmail",
+      "label": "Batch upsert with idProperty=email",
+      "input": {
+        "email": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "contact"
+    },
+    "deal.update": {
+      "kind": "write",
+      "method": "updateDeal",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "deal"
+    },
+    "deal.search": {
+      "kind": "search",
+      "method": "searchDeals",
+      "input": {
+        "open": {
+          "type": "boolean"
+        },
+        "closeDateBefore": {
+          "type": "string"
+        },
+        "closeDateAfter": {
+          "type": "string"
+        },
+        "minAmount": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "deal[]"
+    },
+    "task.get": {
+      "kind": "read",
+      "method": "getTaskById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "array"
+        }
+      },
+      "output": "task"
+    },
+    "task.update": {
+      "kind": "write",
+      "method": "updateTask",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "task"
+    },
+    "task.search": {
+      "kind": "search",
+      "method": "searchTasks",
+      "input": {
+        "dueBefore": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "task[]"
+    },
+    "owner.get": {
+      "kind": "read",
+      "method": "getOwnerById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "owner"
+    },
+    "owner.findByEmail": {
+      "kind": "search",
+      "method": "getOwnerByEmail",
+      "input": {
+        "email": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "owner"
+    },
+    "subscription.definitions": {
+      "kind": "read",
+      "method": "listSubscriptionDefinitions",
+      "input": {},
+      "output": "subscriptionDefinition[]"
+    },
+    "subscription.unsubscribe": {
+      "kind": "write",
+      "method": "unsubscribeEmail",
+      "label": "Communication preferences API; hs_email_optout itself is read-only",
+      "input": {
+        "emailAddress": {
+          "type": "string",
+          "required": true
+        },
+        "subscriptionId": {
+          "type": "string",
+          "required": true
+        },
+        "legalBasis": {
+          "type": "string"
+        },
+        "legalBasisExplanation": {
+          "type": "string"
+        }
+      },
+      "output": "subscriptionStatus"
     }
   },
   "options": {
@@ -450,6 +664,11 @@
     "dealStage": {
       "capability": "pipeline.stages",
       "label": "$.item.label",
+      "value": "$.item.id"
+    },
+    "subscriptionType": {
+      "capability": "subscription.definitions",
+      "label": "{{item.name}}",
       "value": "$.item.id"
     }
   },

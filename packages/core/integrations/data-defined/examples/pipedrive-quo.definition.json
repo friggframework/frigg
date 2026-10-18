@@ -1,0 +1,337 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "pipedrive-quo",
+  "version": "0.3.1",
+  "display": {
+    "label": "Quo ↔ Pipedrive",
+    "description": "Two-way person sync, Quo calls logged as Pipedrive call activities, missed calls as call-back activities, and recent Quo activity on the person panel.",
+    "category": "CRM",
+    "tags": [
+      "calls",
+      "sms",
+      "crm"
+    ]
+  },
+  "modules": {
+    "quo": {
+      "module": "quo",
+      "version": "^2.1"
+    },
+    "pipedrive": {
+      "module": "pipedrive",
+      "version": "^2.1"
+    }
+  },
+  "syncs": [
+    {
+      "id": "people",
+      "label": "People and contacts",
+      "source": "pipedrive.person",
+      "target": "quo.contact",
+      "direction": "two_way",
+      "identity": {
+        "match": [
+          {
+            "source": "phones[0].value",
+            "target": "defaultFields.phoneNumbers[0].value",
+            "transform": "to_e164_phone",
+            "key": "phone"
+          },
+          {
+            "source": "emails[0].value",
+            "target": "defaultFields.emails[0].value",
+            "transform": "lowercase",
+            "key": "email"
+          }
+        ],
+        "onAmbiguous": "skip"
+      },
+      "mapping": [
+        {
+          "source": "first_name",
+          "target": "defaultFields.firstName"
+        },
+        {
+          "source": "last_name",
+          "target": "defaultFields.lastName"
+        },
+        {
+          "source": "emails[0].value",
+          "target": "defaultFields.emails[0].value",
+          "transform": "lowercase"
+        },
+        {
+          "source": "phones[0].value",
+          "target": "defaultFields.phoneNumbers[0].value",
+          "transform": "to_e164_phone"
+        },
+        {
+          "source": "id",
+          "target": "externalId",
+          "direction": "to_target"
+        }
+      ],
+      "backfill": {
+        "trigger": "userAction",
+        "pageSize": 100
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "log-call",
+      "label": "Log Quo calls as call activities",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "quo",
+        "topic": "call.completed"
+      },
+      "steps": [
+        {
+          "id": "person",
+          "use": "links.find",
+          "with": {
+            "sync": "people",
+            "key": {
+              "phone": "$.record.participants[0]"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.person == null",
+          "with": {
+            "reason": "Caller is not a linked Pipedrive person"
+          }
+        },
+        {
+          "use": "pipedrive.activity.create",
+          "with": {
+            "activity": {
+              "subject": "Quo call ({{record.direction}})",
+              "type": "call",
+              "done": true,
+              "due_date": "{{record.completedAt | date}}",
+              "person_id": "$.steps.person.pipedrive",
+              "note": "{{record.direction | upper}} call with {{record.participants[0]}}, {{record.duration}}s ({{record.status}})."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "missed-call-activity",
+      "label": "Call-back activity for missed calls",
+      "purpose": "write",
+      "default": "off",
+      "settings": {
+        "owner": {
+          "type": "option",
+          "options": "pipedrive.user",
+          "label": "Assign to",
+          "help": "Leave empty to use the person's owner."
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "quo",
+        "topic": "call.missed",
+        "filter": "$.record.direction == 'incoming'"
+      },
+      "steps": [
+        {
+          "id": "person",
+          "use": "links.find",
+          "with": {
+            "sync": "people",
+            "key": {
+              "phone": "$.record.from"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.person == null",
+          "with": {
+            "reason": "Caller is not a known person"
+          }
+        },
+        {
+          "id": "full",
+          "use": "pipedrive.person.get",
+          "with": {
+            "id": "$.steps.person.pipedrive"
+          }
+        },
+        {
+          "use": "pipedrive.activity.create",
+          "with": {
+            "activity": {
+              "subject": "Call back {{steps.full.first_name | default: 'caller'}} (missed Quo call)",
+              "type": "call",
+              "done": false,
+              "due_date": "{{record.createdAt | date}}",
+              "person_id": "$.steps.person.pipedrive",
+              "owner_id": "{{settings.owner | default: steps.full.owner_id}}",
+              "note": "Missed call from {{record.from}} at {{record.createdAt}}."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "quo-activity",
+      "description": "Last five Quo calls and texts with this person's phone number.",
+      "steps": [
+        {
+          "use": "stop",
+          "when": "!($.record.phones[0].value exists)",
+          "with": {
+            "reason": "Person has no phone number"
+          }
+        },
+        {
+          "id": "calls",
+          "use": "quo.call.list",
+          "with": {
+            "participant": "$.record.phones[0].value",
+            "maxResults": 5
+          }
+        },
+        {
+          "id": "texts",
+          "use": "quo.message.list",
+          "with": {
+            "participants": [
+              "$.record.phones[0].value"
+            ],
+            "maxResults": 5
+          }
+        }
+      ],
+      "returns": {
+        "calls": "$.steps.calls",
+        "texts": "$.steps.texts"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "quo-panel",
+      "label": "Quo",
+      "host": "pipedrive",
+      "placement": "person.details.panel",
+      "objects": [
+        "person"
+      ],
+      "data": {
+        "query": "quo-activity"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "Quo activity"
+            }
+          },
+          {
+            "component": "List",
+            "props": {
+              "items": "$.data.calls",
+              "title": "{{item.direction}} call · {{item.duration | default: 0}}s",
+              "meta": "{{item.createdAt | date}}"
+            }
+          },
+          {
+            "component": "List",
+            "props": {
+              "items": "$.data.texts",
+              "title": "{{item.text | truncate: 60}}",
+              "meta": "{{item.createdAt | date}}"
+            }
+          },
+          {
+            "component": "Empty",
+            "when": "$.data.calls[0] == null && $.data.texts[0] == null",
+            "props": {
+              "text": "No Quo calls or texts with this person yet."
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "quoHook",
+        "use": "quo.webhook.create",
+        "with": {
+          "url": "$.install.webhookUrl",
+          "events": [
+            "call.completed",
+            "call.ringing",
+            "contact.updated"
+          ]
+        }
+      },
+      {
+        "id": "personCreated",
+        "use": "pipedrive.webhook.create",
+        "with": {
+          "subscription_url": "$.install.webhookUrl",
+          "event_action": "create",
+          "event_object": "person",
+          "version": "2.0"
+        }
+      },
+      {
+        "id": "personChanged",
+        "use": "pipedrive.webhook.create",
+        "with": {
+          "subscription_url": "$.install.webhookUrl",
+          "event_action": "change",
+          "event_object": "person",
+          "version": "2.0"
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "quo.webhook.delete",
+        "with": {
+          "id": "$.install.runtime.subscriptions.quo"
+        },
+        "onError": "continue"
+      },
+      {
+        "id": "unhook",
+        "use": "foreach",
+        "with": {
+          "over": "$.install.runtime.subscriptions.pipedrive",
+          "max": 5
+        },
+        "do": [
+          {
+            "use": "pipedrive.webhook.delete",
+            "with": {
+              "id": "$.item"
+            },
+            "onError": "continue"
+          }
+        ]
+      }
+    ]
+  }
+}

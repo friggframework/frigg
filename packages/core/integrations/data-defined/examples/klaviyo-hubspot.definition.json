@@ -1,0 +1,339 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "klaviyo-hubspot",
+  "version": "0.3.1",
+  "display": {
+    "label": "Klaviyo ↔ HubSpot",
+    "description": "Keep Klaviyo profiles and HubSpot contacts in step, move contacts to a lifecycle stage when they join a Klaviyo list, and honour unsubscribes in both directions.",
+    "category": "Marketing",
+    "tags": [
+      "email",
+      "marketing",
+      "crm",
+      "consent"
+    ]
+  },
+  "modules": {
+    "klaviyo": {
+      "module": "klaviyo",
+      "version": "^1.1"
+    },
+    "hubspot": {
+      "module": "hubspot",
+      "version": "^1.4"
+    }
+  },
+  "settings": {
+    "subscriptionType": {
+      "type": "option",
+      "options": "hubspot.subscriptionType",
+      "label": "HubSpot subscription type that mirrors Klaviyo email marketing",
+      "required": true
+    }
+  },
+  "syncs": [
+    {
+      "id": "profiles",
+      "label": "Profiles and contacts",
+      "description": "One person on both sides, matched by email. HubSpot owns the lifecycle stage; names and phone follow whichever side changed last.",
+      "source": "klaviyo.profile",
+      "target": "hubspot.contact",
+      "direction": "two_way",
+      "identity": {
+        "match": [
+          {
+            "source": "attributes.email",
+            "target": "properties.email",
+            "transform": "lowercase",
+            "key": "email"
+          }
+        ],
+        "onAmbiguous": "skip"
+      },
+      "mapping": [
+        {
+          "source": "attributes.email",
+          "target": "properties.email",
+          "transform": "lowercase"
+        },
+        {
+          "source": "attributes.first_name",
+          "target": "properties.firstname",
+          "master": "newest"
+        },
+        {
+          "source": "attributes.last_name",
+          "target": "properties.lastname",
+          "master": "newest"
+        },
+        {
+          "source": "attributes.phone_number",
+          "target": "properties.phone",
+          "transform": "to_e164_phone",
+          "master": "newest"
+        },
+        {
+          "source": "attributes.organization",
+          "target": "properties.company",
+          "master": "target"
+        },
+        {
+          "source": "attributes.title",
+          "target": "properties.jobtitle",
+          "master": "target"
+        },
+        {
+          "source": "attributes.location.city",
+          "target": "properties.city",
+          "direction": "to_target"
+        },
+        {
+          "source": "attributes.properties.hubspot_lifecycle_stage",
+          "target": "properties.lifecyclestage",
+          "direction": "to_source"
+        },
+        {
+          "source": "attributes.external_id",
+          "target": "id",
+          "direction": "to_source"
+        }
+      ],
+      "backfill": {
+        "trigger": "onInstall",
+        "pageSize": 200
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "list-lifecycle",
+      "label": "Set lifecycle stage when a profile joins a list",
+      "description": "HubSpot never moves a lifecycle stage backwards, so a customer who joins a newsletter list stays a customer.",
+      "purpose": "write",
+      "default": "off",
+      "settings": {
+        "list": {
+          "type": "option",
+          "options": "klaviyo.list",
+          "label": "Klaviyo list",
+          "required": true
+        },
+        "stage": {
+          "type": "enum",
+          "label": "Set lifecycle stage to",
+          "enum": [
+            "subscriber",
+            "lead",
+            "marketingqualifiedlead"
+          ],
+          "default": "subscriber"
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "klaviyo",
+        "topic": "list.subscribed",
+        "filter": "$.event.data.attributes.event_properties.list_id == $.settings.list"
+      },
+      "steps": [
+        {
+          "id": "contact",
+          "use": "links.find",
+          "with": {
+            "sync": "profiles",
+            "key": {
+              "email": "$.record.email"
+            }
+          }
+        },
+        {
+          "id": "write",
+          "use": "branch",
+          "cases": [
+            {
+              "when": "$.steps.contact == null",
+              "do": [
+                {
+                  "id": "created",
+                  "use": "hubspot.contact.upsertByEmail",
+                  "with": {
+                    "email": "$.record.email",
+                    "properties": {
+                      "email": "$.record.email",
+                      "firstname": "$.record.first_name",
+                      "lastname": "$.record.last_name",
+                      "lifecyclestage": "$.settings.stage"
+                    }
+                  }
+                },
+                {
+                  "use": "links.upsert",
+                  "with": {
+                    "sync": "profiles",
+                    "ids": {
+                      "klaviyo": "$.record.id",
+                      "hubspot": "$.steps.created.id"
+                    },
+                    "keys": {
+                      "email": "$.record.email"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "use": "hubspot.contact.update",
+              "with": {
+                "id": "$.steps.contact.hubspot",
+                "properties": {
+                  "lifecyclestage": "$.settings.stage"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "unsubscribe-to-hubspot",
+      "label": "Klaviyo unsubscribes opt the contact out in HubSpot",
+      "purpose": "maintain",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "klaviyo",
+        "topic": "profile.unsubscribed"
+      },
+      "steps": [
+        {
+          "use": "hubspot.subscription.unsubscribe",
+          "with": {
+            "emailAddress": "$.record.email",
+            "subscriptionId": "$.install.subscriptionType",
+            "legalBasis": "CONSENT_WITH_NOTICE",
+            "legalBasisExplanation": "Unsubscribed in Klaviyo ({{event.data.attributes.event_properties.method}}) on {{event.data.attributes.datetime | date}}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "unsubscribe-to-klaviyo",
+      "label": "HubSpot opt-outs unsubscribe the Klaviyo profile",
+      "purpose": "maintain",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "hubspot",
+        "topic": "contact.propertyChange",
+        "filter": "$.record.propertyName == 'hs_email_optout' && $.record.propertyValue == 'true'"
+      },
+      "steps": [
+        {
+          "id": "contact",
+          "use": "hubspot.contact.get",
+          "with": {
+            "id": "$.record.objectId",
+            "properties": [
+              "email"
+            ]
+          }
+        },
+        {
+          "use": "stop",
+          "when": "!($.steps.contact.properties.email exists)",
+          "with": {
+            "reason": "Contact has no email address"
+          }
+        },
+        {
+          "use": "klaviyo.profile.unsubscribe",
+          "with": {
+            "email": "$.steps.contact.properties.email"
+          }
+        }
+      ]
+    },
+    {
+      "id": "won-to-customers-list",
+      "label": "Add closed-won contacts to a Klaviyo list",
+      "purpose": "write",
+      "default": "off",
+      "settings": {
+        "list": {
+          "type": "option",
+          "options": "klaviyo.list",
+          "label": "Customers list",
+          "required": true
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "hubspot",
+        "topic": "deal.propertyChange",
+        "filter": "$.record.propertyName == 'dealstage' && $.record.propertyValue == 'closedwon'"
+      },
+      "steps": [
+        {
+          "id": "contacts",
+          "use": "hubspot.deal.contacts",
+          "with": {
+            "dealId": "$.record.objectId"
+          }
+        },
+        {
+          "id": "subscribe",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.contacts",
+            "max": 25
+          },
+          "do": [
+            {
+              "use": "klaviyo.profile.subscribe",
+              "when": "$.item.properties.email exists",
+              "with": {
+                "listId": "$.settings.list",
+                "email": "$.item.properties.email",
+                "channels": [
+                  "email"
+                ]
+              },
+              "onError": "continue"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "hook",
+        "use": "klaviyo.webhook.create",
+        "with": {
+          "name": "Frigg: HubSpot sync",
+          "endpointUrl": "$.install.webhookUrl",
+          "topics": [
+            "event:klaviyo.subscribed_to_list",
+            "event:klaviyo.unsubscribed"
+          ]
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "klaviyo.webhook.delete",
+        "with": {
+          "id": "$.install.runtime.subscriptions.klaviyo"
+        }
+      }
+    ]
+  }
+}

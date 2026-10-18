@@ -1,0 +1,504 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "stripe-quickbooks",
+  "version": "1.0.0",
+  "display": {
+    "label": "Stripe → QuickBooks Online",
+    "description": "Book every Stripe payment as a QuickBooks sales receipt, refunds as refund receipts, keep customers matched, and reconcile each night's payouts into deposits net of Stripe fees.",
+    "category": "Accounting",
+    "tags": [
+      "payments",
+      "accounting",
+      "reconciliation"
+    ]
+  },
+  "modules": {
+    "stripe": {
+      "module": "stripe",
+      "version": "^2.3"
+    },
+    "quickbooks": {
+      "module": "quickbooks",
+      "version": "^2.0"
+    }
+  },
+  "settings": {
+    "clearingAccount": {
+      "type": "option",
+      "options": "quickbooks.account",
+      "label": "Book Stripe payments to (a Stripe clearing account)",
+      "required": true,
+      "help": "Payouts move money from this account to your bank."
+    },
+    "salesItem": {
+      "type": "option",
+      "options": "quickbooks.item",
+      "label": "Product/service for Stripe payments",
+      "required": true
+    },
+    "guestCustomer": {
+      "type": "option",
+      "options": "quickbooks.customer",
+      "label": "Customer for payments without a Stripe customer",
+      "help": "For example \"Stripe guest checkout\"."
+    }
+  },
+  "syncs": [
+    {
+      "id": "customers",
+      "label": "Customers",
+      "source": "stripe.customer",
+      "target": "quickbooks.customer",
+      "direction": "one_way",
+      "identity": {
+        "match": [
+          {
+            "source": "email",
+            "target": "PrimaryEmailAddr.Address",
+            "transform": "lowercase",
+            "key": "email"
+          }
+        ],
+        "onAmbiguous": "first"
+      },
+      "mapping": [
+        {
+          "source": "name",
+          "target": "DisplayName",
+          "transform": "default",
+          "options": {
+            "value": "Stripe customer"
+          }
+        },
+        {
+          "source": "name",
+          "target": "GivenName",
+          "transform": "split_full_name",
+          "options": {
+            "part": "first"
+          }
+        },
+        {
+          "source": "name",
+          "target": "FamilyName",
+          "transform": "split_full_name",
+          "options": {
+            "part": "last"
+          }
+        },
+        {
+          "source": "email",
+          "target": "PrimaryEmailAddr.Address",
+          "transform": "lowercase"
+        },
+        {
+          "source": "phone",
+          "target": "PrimaryPhone.FreeFormNumber",
+          "transform": "to_e164_phone"
+        },
+        {
+          "source": "address.line1",
+          "target": "BillAddr.Line1"
+        },
+        {
+          "source": "address.city",
+          "target": "BillAddr.City"
+        },
+        {
+          "source": "address.state",
+          "target": "BillAddr.CountrySubDivisionCode"
+        },
+        {
+          "source": "address.postal_code",
+          "target": "BillAddr.PostalCode"
+        },
+        {
+          "source": "address.country",
+          "target": "BillAddr.Country"
+        },
+        {
+          "source": "id",
+          "target": "Notes",
+          "transform": "none"
+        }
+      ],
+      "backfill": {
+        "trigger": "userAction",
+        "pageSize": 100
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "payment-sales-receipt",
+      "label": "Book payments as sales receipts",
+      "description": "Each succeeded payment intent becomes one sales receipt, deposited to the Stripe clearing account.",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "stripe",
+        "topic": "payment_intent.succeeded",
+        "filter": "$.record.metadata.quickbooks != 'skip'"
+      },
+      "steps": [
+        {
+          "id": "customer",
+          "use": "links.find",
+          "with": {
+            "sync": "customers",
+            "from": "stripe",
+            "id": "$.record.customer"
+          }
+        },
+        {
+          "id": "resolveCustomer",
+          "use": "branch",
+          "cases": [
+            {
+              "when": "$.record.customer == null",
+              "do": [
+                {
+                  "use": "set",
+                  "with": {
+                    "customerId": "$.install.guestCustomer"
+                  }
+                }
+              ]
+            },
+            {
+              "when": "$.steps.customer == null",
+              "do": [
+                {
+                  "id": "stripeCustomer",
+                  "use": "stripe.customer.get",
+                  "with": {
+                    "id": "$.record.customer"
+                  }
+                },
+                {
+                  "id": "qbFields",
+                  "use": "map",
+                  "with": {
+                    "sync": "customers",
+                    "record": "$.steps.stripeCustomer"
+                  }
+                },
+                {
+                  "id": "qbCustomer",
+                  "use": "quickbooks.customer.create",
+                  "with": {
+                    "customer": "$.steps.qbFields"
+                  }
+                },
+                {
+                  "use": "links.upsert",
+                  "with": {
+                    "sync": "customers",
+                    "ids": {
+                      "stripe": "$.steps.stripeCustomer.id",
+                      "quickbooks": "$.steps.qbCustomer.Id"
+                    },
+                    "keys": {
+                      "email": "$.steps.stripeCustomer.email"
+                    }
+                  }
+                },
+                {
+                  "use": "set",
+                  "with": {
+                    "customerId": "$.steps.qbCustomer.Id"
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "use": "set",
+              "with": {
+                "customerId": "$.steps.customer.quickbooks"
+              }
+            }
+          ]
+        },
+        {
+          "use": "stop",
+          "when": "$.vars.customerId == null",
+          "with": {
+            "reason": "Guest payment and no guest customer is configured"
+          }
+        },
+        {
+          "id": "money",
+          "use": "code",
+          "with": {
+            "ref": "@lefthook/finance-steps#fromMinorUnits@1.0.0",
+            "with": {
+              "amount": "$.record.amount_received",
+              "currency": "$.record.currency",
+              "timestamp": "$.record.created"
+            }
+          }
+        },
+        {
+          "id": "receipt",
+          "use": "map",
+          "with": {
+            "record": {
+              "paymentId": "$.record.id",
+              "amount": "$.steps.money.amount",
+              "date": "$.steps.money.date",
+              "currency": "$.record.currency",
+              "description": "$.record.description",
+              "email": "$.record.receipt_email",
+              "customerId": "$.vars.customerId",
+              "depositTo": "$.install.clearingAccount",
+              "itemId": "$.install.salesItem"
+            },
+            "mapping": [
+              {
+                "source": "customerId",
+                "target": "CustomerRef.value"
+              },
+              {
+                "source": "date",
+                "target": "TxnDate"
+              },
+              {
+                "source": "depositTo",
+                "target": "DepositToAccountRef.value"
+              },
+              {
+                "source": "paymentId",
+                "target": "PaymentRefNum"
+              },
+              {
+                "source": "currency",
+                "target": "CurrencyRef.value",
+                "transform": "uppercase"
+              },
+              {
+                "source": "email",
+                "target": "BillEmail.Address",
+                "transform": "lowercase"
+              },
+              {
+                "source": "description",
+                "target": "PrivateNote",
+                "transform": "default",
+                "options": {
+                  "value": "Stripe payment"
+                }
+              },
+              {
+                "source": "detailType",
+                "target": "Line[0].DetailType",
+                "transform": "default",
+                "options": {
+                  "value": "SalesItemLineDetail"
+                }
+              },
+              {
+                "source": "amount",
+                "target": "Line[0].Amount",
+                "transform": "number"
+              },
+              {
+                "source": "description",
+                "target": "Line[0].Description"
+              },
+              {
+                "source": "itemId",
+                "target": "Line[0].SalesItemLineDetail.ItemRef.value"
+              }
+            ]
+          }
+        },
+        {
+          "use": "quickbooks.salesReceipt.create",
+          "with": {
+            "salesReceipt": "$.steps.receipt"
+          }
+        }
+      ],
+      "retry": {
+        "max": 6,
+        "backoff": "exponential"
+      }
+    },
+    {
+      "id": "refund-receipt",
+      "label": "Book refunds as refund receipts",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "stripe",
+        "topic": "refund.created",
+        "filter": "$.record.status == 'succeeded' || $.record.status == 'pending'"
+      },
+      "steps": [
+        {
+          "id": "payment",
+          "use": "stripe.paymentIntent.get",
+          "with": {
+            "id": "$.record.payment_intent"
+          }
+        },
+        {
+          "id": "customer",
+          "use": "links.find",
+          "with": {
+            "sync": "customers",
+            "from": "stripe",
+            "id": "$.steps.payment.customer"
+          }
+        },
+        {
+          "id": "money",
+          "use": "code",
+          "with": {
+            "ref": "@lefthook/finance-steps#fromMinorUnits@1.0.0",
+            "with": {
+              "amount": "$.record.amount",
+              "currency": "$.record.currency",
+              "timestamp": "$.record.created"
+            }
+          }
+        },
+        {
+          "id": "note",
+          "use": "template",
+          "with": {
+            "id": "refund-note"
+          }
+        },
+        {
+          "use": "quickbooks.refundReceipt.create",
+          "with": {
+            "refundReceipt": {
+              "CustomerRef": {
+                "value": "{{steps.customer.quickbooks | default: install.guestCustomer}}"
+              },
+              "TxnDate": "$.steps.money.date",
+              "DepositToAccountRef": {
+                "value": "$.install.clearingAccount"
+              },
+              "PaymentRefNum": "$.record.id",
+              "PrivateNote": "$.steps.note",
+              "Line": [
+                {
+                  "Amount": "$.steps.money.amount",
+                  "DetailType": "SalesItemLineDetail",
+                  "SalesItemLineDetail": {
+                    "ItemRef": {
+                      "value": "$.install.salesItem"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "payout-reconciliation",
+      "label": "Nightly payout reconciliation",
+      "description": "For each payout that arrived yesterday, record a deposit from the clearing account to the bank, with Stripe fees split out to an expense account.",
+      "purpose": "maintain",
+      "default": "on",
+      "settings": {
+        "bankAccount": {
+          "type": "option",
+          "options": "quickbooks.account",
+          "label": "Bank account payouts land in",
+          "required": true
+        },
+        "feeAccount": {
+          "type": "option",
+          "options": "quickbooks.account",
+          "label": "Expense account for Stripe fees",
+          "required": true
+        }
+      },
+      "trigger": {
+        "type": "schedule",
+        "cron": "30 2 * * *",
+        "timezone": "America/Chicago"
+      },
+      "steps": [
+        {
+          "id": "payouts",
+          "use": "stripe.payout.list",
+          "with": {
+            "status": "paid",
+            "arrivedAfter": "-1d",
+            "limit": 100
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.payouts[0] == null",
+          "with": {
+            "reason": "No payouts arrived yesterday"
+          }
+        },
+        {
+          "id": "deposits",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.payouts",
+            "max": 50
+          },
+          "do": [
+            {
+              "id": "transactions",
+              "use": "stripe.balanceTransaction.list",
+              "with": {
+                "payout": "$.item.id",
+                "limit": 100
+              }
+            },
+            {
+              "id": "summary",
+              "use": "code",
+              "with": {
+                "ref": "@lefthook/finance-steps#payoutDepositLines@1.0.0",
+                "with": {
+                  "payout": "$.item",
+                  "transactions": "$.steps.transactions",
+                  "clearingAccount": "$.install.clearingAccount",
+                  "feeAccount": "$.settings.feeAccount"
+                }
+              }
+            },
+            {
+              "id": "deposit",
+              "use": "quickbooks.deposit.create",
+              "with": {
+                "deposit": {
+                  "TxnDate": "$.steps.summary.date",
+                  "DepositToAccountRef": {
+                    "value": "$.settings.bankAccount"
+                  },
+                  "PrivateNote": "Stripe payout {{item.id}} ({{steps.summary.count}} transactions)",
+                  "Line": "$.steps.summary.lines"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "templates": {
+    "refund-note": "Stripe refund {{record.id}} for payment {{record.payment_intent}} ({{record.reason | default: 'no reason given'}})."
+  }
+}

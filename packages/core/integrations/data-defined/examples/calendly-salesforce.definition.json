@@ -1,0 +1,501 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "calendly-salesforce",
+  "version": "1.1.0",
+  "display": {
+    "label": "Calendly → Salesforce",
+    "description": "Booked meetings land in Salesforce as Events on the right Lead or Contact (creating a Lead when the invitee is new), cancellations update the Event, and the record page shows upcoming meetings.",
+    "category": "Scheduling",
+    "tags": [
+      "meetings",
+      "crm",
+      "lead-capture"
+    ]
+  },
+  "modules": {
+    "calendly": {
+      "module": "calendly",
+      "version": "^1.0"
+    },
+    "salesforce": {
+      "module": "salesforce",
+      "version": "^3.0"
+    }
+  },
+  "settings": {
+    "leadOwner": {
+      "type": "option",
+      "options": "salesforce.user",
+      "label": "Owner of new Leads and Events",
+      "required": true
+    },
+    "leadSource": {
+      "type": "string",
+      "label": "Lead Source for new Leads",
+      "default": "Calendly"
+    }
+  },
+  "syncs": [
+    {
+      "id": "people",
+      "label": "Invitees and Leads",
+      "description": "Links an invitee to the Salesforce Lead or Contact they booked as. Written by the booking workflow; no backfill.",
+      "source": "calendly.invitee",
+      "target": "salesforce.lead",
+      "direction": "one_way",
+      "identity": {
+        "match": [
+          {
+            "source": "email",
+            "target": "Email",
+            "transform": "lowercase",
+            "key": "email"
+          }
+        ],
+        "onAmbiguous": "first"
+      },
+      "mapping": [
+        {
+          "source": "name",
+          "target": "FirstName",
+          "transform": "split_full_name",
+          "options": {
+            "part": "first"
+          }
+        },
+        {
+          "source": "name",
+          "target": "LastName",
+          "transform": "split_full_name",
+          "options": {
+            "part": "last"
+          }
+        },
+        {
+          "source": "first_name",
+          "target": "FirstName"
+        },
+        {
+          "source": "last_name",
+          "target": "LastName"
+        },
+        {
+          "source": "email",
+          "target": "Email",
+          "transform": "lowercase"
+        },
+        {
+          "source": "text_reminder_number",
+          "target": "Phone",
+          "transform": "to_e164_phone"
+        },
+        {
+          "source": "tracking.utm_source",
+          "target": "LeadSource"
+        }
+      ],
+      "backfill": {
+        "trigger": "none"
+      },
+      "ongoing": {
+        "mode": "none"
+      },
+      "default": "on"
+    },
+    {
+      "id": "meetings",
+      "label": "Meetings and Events",
+      "description": "Each Calendly meeting is one Salesforce Event; the Event carries the Calendly URI in a custom field.",
+      "source": "calendly.scheduledEvent",
+      "target": "salesforce.event",
+      "direction": "one_way",
+      "identity": {
+        "match": [
+          {
+            "source": "uri",
+            "target": "Calendly_Event_URI__c",
+            "key": "eventUri"
+          }
+        ]
+      },
+      "mapping": [
+        {
+          "source": "name",
+          "target": "Subject"
+        },
+        {
+          "source": "start_time",
+          "target": "StartDateTime",
+          "transform": "to_iso_date"
+        },
+        {
+          "source": "end_time",
+          "target": "EndDateTime",
+          "transform": "to_iso_date"
+        },
+        {
+          "source": "location.join_url",
+          "target": "Location"
+        },
+        {
+          "source": "uri",
+          "target": "Calendly_Event_URI__c"
+        }
+      ],
+      "backfill": {
+        "trigger": "none"
+      },
+      "ongoing": {
+        "mode": "none"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "booking-to-event",
+      "label": "Log bookings as Events on the Lead or Contact",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "calendly",
+        "topic": "invitee.created"
+      },
+      "steps": [
+        {
+          "id": "link",
+          "use": "links.find",
+          "with": {
+            "sync": "people",
+            "key": {
+              "email": "$.record.email"
+            }
+          }
+        },
+        {
+          "id": "found",
+          "use": "salesforce.person.searchByEmail",
+          "when": "$.steps.link == null",
+          "with": {
+            "email": "$.record.email"
+          }
+        },
+        {
+          "id": "who",
+          "use": "branch",
+          "cases": [
+            {
+              "when": "$.steps.link != null",
+              "do": [
+                {
+                  "use": "set",
+                  "with": {
+                    "whoId": "$.steps.link.salesforce"
+                  }
+                }
+              ]
+            },
+            {
+              "when": "$.steps.found.contacts[0] exists",
+              "do": [
+                {
+                  "use": "set",
+                  "with": {
+                    "whoId": "$.steps.found.contacts[0].Id"
+                  }
+                }
+              ]
+            },
+            {
+              "when": "$.steps.found.leads[0] exists",
+              "do": [
+                {
+                  "use": "set",
+                  "with": {
+                    "whoId": "$.steps.found.leads[0].Id"
+                  }
+                },
+                {
+                  "use": "links.upsert",
+                  "with": {
+                    "sync": "people",
+                    "ids": {
+                      "calendly": "$.record.uri",
+                      "salesforce": "$.steps.found.leads[0].Id"
+                    },
+                    "keys": {
+                      "email": "$.record.email"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "id": "leadFields",
+              "use": "map",
+              "with": {
+                "sync": "people",
+                "record": "$.record"
+              }
+            },
+            {
+              "id": "leadNote",
+              "use": "template",
+              "with": {
+                "id": "lead-description"
+              }
+            },
+            {
+              "id": "lead",
+              "use": "salesforce.lead.create",
+              "with": {
+                "fields": {
+                  "FirstName": "$.steps.leadFields.FirstName",
+                  "LastName": "{{steps.leadFields.LastName | default: '(unknown)'}}",
+                  "Email": "$.steps.leadFields.Email",
+                  "Phone": "$.steps.leadFields.Phone",
+                  "Company": "{{record.questions_and_answers[0].answer | default: '[not provided]'}}",
+                  "LeadSource": "{{steps.leadFields.LeadSource | default: settings.leadSource}}",
+                  "OwnerId": "$.install.leadOwner",
+                  "Description": "$.steps.leadNote"
+                }
+              }
+            },
+            {
+              "use": "links.upsert",
+              "with": {
+                "sync": "people",
+                "ids": {
+                  "calendly": "$.record.uri",
+                  "salesforce": "$.steps.lead.id"
+                },
+                "keys": {
+                  "email": "$.record.email"
+                }
+              }
+            },
+            {
+              "use": "set",
+              "with": {
+                "whoId": "$.steps.lead.id"
+              }
+            }
+          ]
+        },
+        {
+          "id": "eventNote",
+          "use": "template",
+          "with": {
+            "id": "event-description"
+          }
+        },
+        {
+          "id": "event",
+          "use": "salesforce.event.create",
+          "with": {
+            "fields": {
+              "Subject": "{{record.scheduled_event.name}} with {{record.name}}",
+              "StartDateTime": "$.record.scheduled_event.start_time",
+              "EndDateTime": "$.record.scheduled_event.end_time",
+              "Location": "$.record.scheduled_event.location.join_url",
+              "Description": "$.steps.eventNote",
+              "WhoId": "$.vars.whoId",
+              "OwnerId": "$.install.leadOwner",
+              "Calendly_Event_URI__c": "$.record.scheduled_event.uri"
+            }
+          }
+        },
+        {
+          "use": "links.upsert",
+          "with": {
+            "sync": "meetings",
+            "ids": {
+              "calendly": "$.record.scheduled_event.uri",
+              "salesforce": "$.steps.event.id"
+            },
+            "keys": {
+              "eventUri": "$.record.scheduled_event.uri"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cancellation",
+      "label": "Mark canceled meetings on the Event",
+      "purpose": "write",
+      "default": "on",
+      "settings": {
+        "followUpTask": {
+          "type": "boolean",
+          "label": "Create a follow-up task to rebook",
+          "default": false
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "calendly",
+        "topic": "invitee.canceled",
+        "filter": "$.record.rescheduled != true"
+      },
+      "steps": [
+        {
+          "id": "meeting",
+          "use": "links.find",
+          "with": {
+            "sync": "meetings",
+            "key": {
+              "eventUri": "$.record.scheduled_event.uri"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.meeting == null",
+          "with": {
+            "reason": "Meeting was booked before the integration was installed"
+          }
+        },
+        {
+          "use": "salesforce.event.update",
+          "with": {
+            "id": "$.steps.meeting.salesforce",
+            "fields": {
+              "Subject": "Canceled: {{record.scheduled_event.name}} with {{record.name}}",
+              "ShowAs": "Free",
+              "Description": "Canceled by {{record.cancellation.canceled_by}}: {{record.cancellation.reason | default: 'no reason given'}}"
+            }
+          }
+        },
+        {
+          "id": "person",
+          "use": "links.find",
+          "when": "$.settings.followUpTask == true",
+          "with": {
+            "sync": "people",
+            "key": {
+              "email": "$.record.email"
+            }
+          }
+        },
+        {
+          "use": "salesforce.task.create",
+          "when": "$.settings.followUpTask == true && $.steps.person != null",
+          "with": {
+            "fields": {
+              "Subject": "Rebook {{record.name}} ({{record.scheduled_event.name}} canceled)",
+              "Status": "Not Started",
+              "Priority": "Normal",
+              "ActivityDate": "$.record.scheduled_event.start_time",
+              "WhoId": "$.steps.person.salesforce",
+              "OwnerId": "$.install.leadOwner"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "upcoming-meetings",
+      "description": "Active Calendly meetings booked by this Lead or Contact's email, soonest first.",
+      "steps": [
+        {
+          "use": "stop",
+          "when": "!($.record.Email exists)",
+          "with": {
+            "reason": "Record has no email"
+          }
+        },
+        {
+          "id": "events",
+          "use": "calendly.event.list",
+          "with": {
+            "organization": "$.install.runtime.calendlyOrganization",
+            "invitee_email": "$.record.Email",
+            "min_start_time": "$.now",
+            "status": "active",
+            "count": 5
+          }
+        }
+      ],
+      "returns": {
+        "events": "$.steps.events"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "meetings-card",
+      "label": "Upcoming Calendly meetings",
+      "host": "salesforce",
+      "placement": "lightning.record.sidebar",
+      "objects": [
+        "lead",
+        "contact"
+      ],
+      "data": {
+        "query": "upcoming-meetings"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "Upcoming meetings"
+            }
+          },
+          {
+            "component": "List",
+            "props": {
+              "items": "$.data.events",
+              "title": "{{item.name}}",
+              "meta": "{{item.start_time | date}} · {{item.location.type}}"
+            }
+          },
+          {
+            "component": "Empty",
+            "when": "$.data.events[0] == null",
+            "props": {
+              "text": "No upcoming Calendly meetings with this person."
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "templates": {
+    "lead-description": "Booked \"{{record.scheduled_event.name}}\" via Calendly on {{record.created_at | date}}.\nTopic: {{record.questions_and_answers[1].answer | default: 'not given'}}\nCampaign: {{record.tracking.utm_campaign | default: 'none'}}",
+    "event-description": "{{record.questions_and_answers[1].answer | default: 'No agenda given.'}}\n\nJoin: {{record.scheduled_event.location.join_url}}\nReschedule: {{record.reschedule_url}}\nCancel: {{record.cancel_url}}"
+  },
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "hook",
+        "use": "calendly.webhook.create",
+        "with": {
+          "url": "$.install.webhookUrl",
+          "events": [
+            "invitee.created",
+            "invitee.canceled"
+          ],
+          "organization": "$.install.runtime.calendlyOrganization",
+          "scope": "organization"
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "calendly.webhook.delete",
+        "with": {
+          "uri": "$.install.runtime.subscriptions.calendly"
+        }
+      }
+    ]
+  }
+}

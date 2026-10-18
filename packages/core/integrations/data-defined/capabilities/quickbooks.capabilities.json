@@ -1,0 +1,594 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "quickbooks",
+  "label": "QuickBooks Online",
+  "package": "@friggframework/api-module-quickbooks",
+  "version": "2.0.1",
+  "auth": "oauth2",
+  "objects": {
+    "customer": {
+      "label": "Customer",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "SyncToken",
+          "type": "string",
+          "readOnly": true
+        },
+        {
+          "name": "DisplayName",
+          "type": "string",
+          "tag": "record.displayName",
+          "required": true
+        },
+        {
+          "name": "GivenName",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "FamilyName",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "CompanyName",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "PrimaryEmailAddr.Address",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "PrimaryPhone.FreeFormNumber",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "Mobile.FreeFormNumber",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "BillAddr.Line1",
+          "type": "string",
+          "tag": "address.line1"
+        },
+        {
+          "name": "BillAddr.City",
+          "type": "string",
+          "tag": "address.locality"
+        },
+        {
+          "name": "BillAddr.CountrySubDivisionCode",
+          "type": "string",
+          "tag": "address.region"
+        },
+        {
+          "name": "BillAddr.PostalCode",
+          "type": "string",
+          "tag": "address.postalCode"
+        },
+        {
+          "name": "BillAddr.Country",
+          "type": "string",
+          "tag": "address.country"
+        },
+        {
+          "name": "Notes",
+          "type": "text"
+        },
+        {
+          "name": "Active",
+          "type": "boolean"
+        },
+        {
+          "name": "Balance",
+          "type": "number",
+          "tag": "customer.balance",
+          "readOnly": true
+        },
+        {
+          "name": "MetaData.LastUpdatedTime",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "salesReceipt": {
+      "label": "Sales receipt",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "DocNumber",
+          "type": "string",
+          "tag": "record.displayId"
+        },
+        {
+          "name": "TxnDate",
+          "type": "date"
+        },
+        {
+          "name": "CustomerRef.value",
+          "type": "string"
+        },
+        {
+          "name": "DepositToAccountRef.value",
+          "type": "string"
+        },
+        {
+          "name": "PaymentRefNum",
+          "type": "string",
+          "tag": "record.externalId"
+        },
+        {
+          "name": "PrivateNote",
+          "type": "text"
+        },
+        {
+          "name": "BillEmail.Address",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "CurrencyRef.value",
+          "type": "string"
+        },
+        {
+          "name": "Line",
+          "type": "lineItem[]"
+        },
+        {
+          "name": "Line[0].Amount",
+          "type": "number"
+        },
+        {
+          "name": "Line[0].Description",
+          "type": "string"
+        },
+        {
+          "name": "Line[0].DetailType",
+          "type": "string"
+        },
+        {
+          "name": "Line[0].SalesItemLineDetail.ItemRef.value",
+          "type": "string"
+        },
+        {
+          "name": "TotalAmt",
+          "type": "number",
+          "readOnly": true
+        }
+      ]
+    },
+    "refundReceipt": {
+      "label": "Refund receipt",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "DocNumber",
+          "type": "string"
+        },
+        {
+          "name": "TxnDate",
+          "type": "date"
+        },
+        {
+          "name": "CustomerRef.value",
+          "type": "string"
+        },
+        {
+          "name": "DepositToAccountRef.value",
+          "type": "string"
+        },
+        {
+          "name": "PaymentRefNum",
+          "type": "string"
+        },
+        {
+          "name": "PrivateNote",
+          "type": "text"
+        },
+        {
+          "name": "Line",
+          "type": "lineItem[]"
+        },
+        {
+          "name": "TotalAmt",
+          "type": "number",
+          "readOnly": true
+        }
+      ]
+    },
+    "invoice": {
+      "label": "Invoice",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "DocNumber",
+          "type": "string",
+          "tag": "record.displayId"
+        },
+        {
+          "name": "TxnDate",
+          "type": "date"
+        },
+        {
+          "name": "DueDate",
+          "type": "date"
+        },
+        {
+          "name": "CustomerRef.value",
+          "type": "string"
+        },
+        {
+          "name": "BillEmail.Address",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "CustomerMemo.value",
+          "type": "text"
+        },
+        {
+          "name": "PrivateNote",
+          "type": "text"
+        },
+        {
+          "name": "Line",
+          "type": "lineItem[]"
+        },
+        {
+          "name": "TotalAmt",
+          "type": "number",
+          "tag": "invoice.total",
+          "readOnly": true
+        },
+        {
+          "name": "Balance",
+          "type": "number",
+          "tag": "invoice.balance",
+          "readOnly": true
+        },
+        {
+          "name": "EmailStatus",
+          "type": "enum",
+          "values": [
+            "NotSet",
+            "NeedToSend",
+            "EmailSent"
+          ]
+        }
+      ]
+    },
+    "payment": {
+      "label": "Payment",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "TxnDate",
+          "type": "date"
+        },
+        {
+          "name": "TotalAmt",
+          "type": "number"
+        },
+        {
+          "name": "CustomerRef.value",
+          "type": "string"
+        },
+        {
+          "name": "PaymentRefNum",
+          "type": "string"
+        },
+        {
+          "name": "Line",
+          "type": "json"
+        }
+      ]
+    },
+    "deposit": {
+      "label": "Deposit",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "TxnDate",
+          "type": "date"
+        },
+        {
+          "name": "DepositToAccountRef.value",
+          "type": "string"
+        },
+        {
+          "name": "PrivateNote",
+          "type": "text"
+        },
+        {
+          "name": "Line",
+          "type": "json"
+        },
+        {
+          "name": "TotalAmt",
+          "type": "number",
+          "readOnly": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "payment.created": {
+      "delivery": "webhook",
+      "object": "payment",
+      "description": "Intuit webhooks are app-level and carry only entity references (name, id, operation); Frigg routes by realmId. Fetch the entity to read it.",
+      "payload": {
+        "eventNotifications": [
+          {
+            "realmId": "9130354628571476",
+            "dataChangeEvent": {
+              "entities": [
+                {
+                  "name": "Payment",
+                  "id": "1871",
+                  "operation": "Create",
+                  "lastUpdated": "2026-10-20T18:22:41.000Z"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "record": "eventNotifications[0].dataChangeEvent.entities[0]"
+    },
+    "customer.updated": {
+      "delivery": "webhook",
+      "object": "customer",
+      "payload": {
+        "eventNotifications": [
+          {
+            "realmId": "9130354628571476",
+            "dataChangeEvent": {
+              "entities": [
+                {
+                  "name": "Customer",
+                  "id": "58",
+                  "operation": "Update",
+                  "lastUpdated": "2026-10-20T18:22:41.000Z"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "record": "eventNotifications[0].dataChangeEvent.entities[0]"
+    },
+    "customer.created": {
+      "delivery": "webhook",
+      "object": "customer",
+      "payload": {
+        "eventNotifications": [
+          {
+            "realmId": "9130354628571476",
+            "dataChangeEvent": {
+              "entities": [
+                {
+                  "name": "Customer",
+                  "id": "59",
+                  "operation": "Create",
+                  "lastUpdated": "2026-10-20T18:22:41.000Z"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "record": "eventNotifications[0].dataChangeEvent.entities[0]"
+    }
+  },
+  "capabilities": {
+    "customer.get": {
+      "kind": "read",
+      "method": "getCustomer",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.query": {
+      "kind": "search",
+      "method": "queryCustomers",
+      "input": {
+        "where": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "customer[]"
+    },
+    "customer.list": {
+      "kind": "read",
+      "method": "listCustomers",
+      "input": {
+        "changedSince": {
+          "type": "string"
+        },
+        "startPosition": {
+          "type": "number"
+        },
+        "maxResults": {
+          "type": "number"
+        }
+      },
+      "output": "page<customer>"
+    },
+    "customer.create": {
+      "kind": "write",
+      "method": "createCustomer",
+      "input": {
+        "customer": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.update": {
+      "kind": "write",
+      "method": "updateCustomer",
+      "label": "Sparse update; needs Id and SyncToken",
+      "input": {
+        "customer": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "salesReceipt.create": {
+      "kind": "write",
+      "method": "createSalesReceipt",
+      "input": {
+        "salesReceipt": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "salesReceipt"
+    },
+    "refundReceipt.create": {
+      "kind": "write",
+      "method": "createRefundReceipt",
+      "input": {
+        "refundReceipt": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "refundReceipt"
+    },
+    "invoice.create": {
+      "kind": "write",
+      "method": "createInvoice",
+      "input": {
+        "invoice": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "invoice"
+    },
+    "invoice.get": {
+      "kind": "read",
+      "method": "getInvoice",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "invoice"
+    },
+    "invoice.send": {
+      "kind": "write",
+      "method": "sendInvoice",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "sendTo": {
+          "type": "string"
+        }
+      },
+      "output": "invoice"
+    },
+    "payment.get": {
+      "kind": "read",
+      "method": "getPayment",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "payment"
+    },
+    "deposit.create": {
+      "kind": "write",
+      "method": "createDeposit",
+      "input": {
+        "deposit": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "deposit"
+    },
+    "item.list": {
+      "kind": "read",
+      "method": "listItems",
+      "input": {
+        "type": {
+          "type": "string"
+        }
+      },
+      "output": "item[]"
+    },
+    "account.list": {
+      "kind": "read",
+      "method": "listAccounts",
+      "input": {
+        "accountType": {
+          "type": "string"
+        }
+      },
+      "output": "account[]"
+    }
+  },
+  "options": {
+    "item": {
+      "capability": "item.list",
+      "label": "{{item.Name}}",
+      "value": "$.item.Id"
+    },
+    "account": {
+      "capability": "account.list",
+      "label": "{{item.Name}} ({{item.AccountType}})",
+      "value": "$.item.Id"
+    },
+    "customer": {
+      "capability": "customer.list",
+      "label": "{{item.DisplayName}}",
+      "value": "$.item.Id"
+    }
+  }
+}
