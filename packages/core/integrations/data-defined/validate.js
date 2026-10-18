@@ -349,6 +349,13 @@ function validate(def, manifests = {}) {
     }
 
     // ---------- lifecycle ----------
+    // What install creates, uninstall should undo: an install step whose result onUninstall never reads is probably a
+    // webhook nobody deletes. A warning, because some install steps create nothing that needs undoing.
+    const uninstallReads = JSON.stringify(def.lifecycle?.onUninstall || []);
+    for (const [i, st] of (def.lifecycle?.onInstall || []).entries()) {
+        if (!st?.id) warn(`lifecycle.onInstall[${i}]`, 'This install step has no id, so its result is not kept and uninstall cannot undo it');
+        else if (!uninstallReads.includes(`install.runtime.installed.${st.id}`)) warn(`lifecycle.onInstall[${i}]`, `onUninstall never reads $.install.runtime.installed.${st.id}, so what this step creates is never removed`);
+    }
     for (const hook of ['onInstall', 'onUninstall']) if (def.lifecycle?.[hook]) checkSteps(def.lifecycle[hook], `lifecycle.${hook}`, { ...newScope({}), installing: hook === 'onInstall' });
 
     return { valid: errors.length === 0, errors, warnings };

@@ -296,6 +296,16 @@ describe('lifecycle results and account values on $.install', () => {
         expect(JSON.stringify(out)).toMatch(/acme\.atlassian\.net/);
     });
 
+    it('warns when uninstall never undoes an install step, or an install step keeps no result', () => {
+        const x = example('pipedrive-quo');
+        x.lifecycle.onUninstall = x.lifecycle.onUninstall.filter((st) => st.use !== 'quo.webhook.delete');
+        x.lifecycle.onInstall.push({ use: 'quo.webhook.create', with: { url: '$.install.webhookUrl', events: ['call.completed'] } });
+        const w = d.validate(x, manifests).warnings.map((e) => `${e.path}: ${e.message}`).join('\n');
+        expect(w).toMatch(/onInstall\[0\]: onUninstall never reads \$\.install\.runtime\.installed\.quoHook/);
+        expect(w).toMatch(/onInstall\[3\]: This install step has no id/);
+        expect(d.validate(example('pipedrive-quo'), manifests).warnings).toEqual([]);
+    });
+
     it('refuses an undeclared account field, an unknown install step, and install steps reading their own results', () => {
         const x = example('zendesk-jira');
         x.workflows[0].steps.push({ use: 'set', with: { a: '$.install.accounts.zendesk.password', b: '$.install.runtime.installed.nope', c: '$.install.runtime.subscriptions' } });

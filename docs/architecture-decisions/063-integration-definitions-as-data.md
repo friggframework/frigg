@@ -125,7 +125,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 72 tests. It runs 16 example definitions (Quo ⇄ HubSpot is the
+`packages/core/integrations/data-defined/`, with 73 tests. It runs 16 example definitions (Quo ⇄ HubSpot is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
 references are relative to that directory.
@@ -298,6 +298,8 @@ Treat all three as the ceiling, not a first step.
   no step renders is a warning.
 - `$.install` paths exist: an integration setting, `accounts.<module key>.<field>` the manifest declares, or
   `runtime.installed.<onInstall step id>`, which install steps themselves cannot read.
+- Uninstall undoes install: an `onInstall` step with no `id`, or whose kept result `onUninstall` never reads, is a
+  warning (`--strict` makes it fail), because it is usually a webhook nobody deletes.
 - A webhook trigger's topic is in the manifest's `events`, and a cron has five fields.
 - A `userAction` with `from` names a real UI surface, and a `syncRecord` trigger names a real sync.
 - A UI placement is offered by the host, its query exists, components are in the fixed set, and every `Button`
