@@ -150,7 +150,11 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
                 ? await definitions.get(this.def.id, msg.definitionVersion) || this.def
                 : this.def;
             const installation = this.installation();
-            if (ref.kind === 'workflow') return this.recordRun(await runWorkflow({ def, installation, workflowId: ref.id, event: msg.body ?? msg, eventId: msg.eventId, record: msg.record, ports: this.ports, manifests }));
+            // A scheduled tick may be delivered twice; its scheduled time makes the dedupe id (an unfilled
+            // placeholder, from a host that cannot supply it, is not an id).
+            const scheduledFor = msg.tick?.scheduledFor && !String(msg.tick.scheduledFor).startsWith('{{') ? msg.tick.scheduledFor : null;
+            const eventId = msg.eventId || (scheduledFor ? `tick:${msg.scheduleKey}:${scheduledFor}` : undefined);
+            if (ref.kind === 'workflow') return this.recordRun(await runWorkflow({ def, installation, workflowId: ref.id, event: msg.body ?? msg, eventId, record: msg.record, ports: this.ports, manifests }));
             if (ref.kind === 'query') return runQuery({ def, installation, queryId: ref.id, record: msg.record, ports: this.ports });
             if (ref.kind === 'ui') return renderSurface({ def, installation, surfaceId: ref.id, record: payload.req?.body?.record || msg.record, ports: this.ports });
             if (ref.kind === 'sync') return this.runSync(ref, msg);
@@ -252,6 +256,17 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             return super.onDelete(params);
         }
 
+        /**
+         * The recurring schedules this installation should have: the definition's schedule-triggered workflows and
+         * polling syncs that are switched on, with the installation's timing where the definition allows it.
+         * Compiled from the current config every time, so the base class's onUpdate (which patches config, then
+         * reconciles) schedules what was just chosen. The base class's onCreate, onUpdate and onDelete keep the host
+         * in step (IntegrationBase.syncSchedules).
+         */
+        scheduleEntries() {
+            return this.def ? compile(this.def, this.config || {}).schedules : [];
+        }
+
         /** The configure form (GET /api/integrations/:id/config/options), generated from the definition. */
         async getConfigOptions() {
             return buildConfigForm(this.def, this.config || {}, (path, values, integrationSettings) => this.optionsFor(path, values, integrationSettings));
@@ -316,12 +331,14 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
                 await runLifecycle({ def: this.def, installation: this.installation(), hook: 'onUninstall', ports: this.ports });
                 const next = await definitions.get(plan.config.definition.id, plan.config.definition.version);
                 const out = await runLifecycle({ def: next, installation: { ...this.installation(), ...config }, hook: 'onInstall', ports: this.portsFor(next) });
-                config = { ...config, runtime: { installed: Object.fromEntries((next.lifecycle?.onInstall || []).filter((st) => st.id).map((st) => [st.id, out.steps?.[st.id] ?? null])) } };
+                config = { ...config, runtime: { ...(this.config?.runtime || {}), installed: Object.fromEntries((next.lifecycle?.onInstall || []).filter((st) => st.id).map((st) => [st.id, out.steps?.[st.id] ?? null])) } };
             }
             await this.patchConfig(config);
             this.config = { ...this.config, ...config };
             await this.loadDefinition();
-            return { ...plan, config, applied: true };
+            // The new version may add, drop or retime schedules.
+            const schedules = typeof this.syncSchedules === 'function' ? await this.syncSchedules() : null;
+            return { ...plan, config, applied: true, ...(schedules ? { schedules } : {}) };
         }
 
         async recordRun(run) {

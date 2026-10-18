@@ -40,6 +40,9 @@
           "mapping": {
             "type": "array",
             "description": "Full replacement mapping when the customer overrides the default."
+          },
+          "schedule": {
+            "$ref": "#/$defs/scheduleChoice"
           }
         }
       }
@@ -54,6 +57,9 @@
           },
           "settings": {
             "type": "object"
+          },
+          "schedule": {
+            "$ref": "#/$defs/scheduleChoice"
           }
         }
       }
@@ -71,13 +77,91 @@
     },
     "runtime": {
       "type": "object",
-      "description": "Owned by the runtime, not the customer. installed: each onInstall step's result by step id (webhook subscriptions), read by onUninstall as $.install.runtime.installed.<id>. Sync cursors join it with the sync engine.",
+      "description": "Owned by the runtime, not the customer. installed: each onInstall step's result by step id (webhook subscriptions), read by onUninstall as $.install.runtime.installed.<id>. schedules: the recurring schedules the host holds for this installation, by event (written by IntegrationBase.syncSchedules). Sync cursors join it with the sync engine.",
       "additionalProperties": false,
       "properties": {
         "installed": {
           "type": "object"
+        },
+        "schedules": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "jobId",
+              "recurrence",
+              "event"
+            ],
+            "properties": {
+              "jobId": {
+                "type": "string"
+              },
+              "recurrence": {
+                "type": "object"
+              },
+              "event": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "jobArn": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fingerprint": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
+    }
+  },
+  "$defs": {
+    "scheduleChoice": {
+      "description": "The installation's timing for a schedule the definition marks configurable: every, or cron with an optional time zone. Honoured only within the definition's minimum; otherwise the definition's schedule runs.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "every": {
+          "type": "string",
+          "pattern": "^\\d+\\s*(m|h|d)$"
+        },
+        "cron": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "every"
+          ],
+          "not": {
+            "required": [
+              "cron"
+            ]
+          }
+        },
+        {
+          "required": [
+            "cron"
+          ],
+          "not": {
+            "required": [
+              "every"
+            ]
+          }
+        }
+      ]
     }
   }
 }

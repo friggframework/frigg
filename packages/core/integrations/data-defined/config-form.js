@@ -38,6 +38,20 @@ async function settingsSchema(settings, pathPrefix, values, options, integration
     return { schema: { type: 'object', properties, ...(required.length ? { required } : {}) }, ui };
 }
 
+/**
+ * The timing field of a schedule the definition marks configurable: an interval when its default is an interval,
+ * a cron (with time zone) when its default is a cron. The floor is said in the help text and enforced on save.
+ */
+function scheduleField(recurrence, configurable) {
+    if (!configurable || !recurrence) return null;
+    const min = configurable.min ? ` No more often than every ${configurable.min}.` : '';
+    if (recurrence.every !== undefined) {
+        return { schema: { type: 'object', title: 'Schedule', properties: { every: { type: 'string', title: 'Runs every', pattern: '^\\d+\\s*(m|h|d)$', default: recurrence.every } } }, ui: { every: { 'ui:help': `Minutes, hours or days: 15m, 2h, 1d.${min}` } } };
+    }
+    return { schema: { type: 'object', title: 'Schedule', properties: { cron: { type: 'string', title: 'Cron', default: recurrence.cron }, timezone: { type: 'string', title: 'Time zone', default: recurrence.timezone || 'UTC' } } }, ui: { cron: { 'ui:help': `minute hour day-of-month month day-of-week.${min}` } } };
+}
+const configurableOf = (c) => (c ? (c === true ? {} : c) : false);
+
 const toggle = (title, description, enabledByDefault) => ({ type: 'boolean', title, ...(description ? { description } : {}), default: enabledByDefault });
 const isOn = (item, chosen) => (typeof chosen?.enabled === 'boolean' ? chosen.enabled : (item.default || 'on') === 'on');
 
@@ -63,6 +77,12 @@ async function buildConfigForm(def, config = {}, options = async () => []) {
         for (const s of def.syncs) {
             jsonSchema.properties.syncs.properties[s.id] = { type: 'object', title: s.label, properties: { enabled: toggle('On', s.description, (s.default || 'on') === 'on') } };
             data.syncs[s.id] = { enabled: isOn(s, config.syncs?.[s.id]) };
+            const field = s.ongoing?.mode === 'poll' && scheduleField({ every: s.ongoing.every || '15m' }, configurableOf(s.ongoing.configurable));
+            if (field) {
+                jsonSchema.properties.syncs.properties[s.id].properties.schedule = field.schema;
+                ((uiSchema.syncs ||= {})[s.id] ||= {}).schedule = field.ui;
+                if (config.syncs?.[s.id]?.schedule) data.syncs[s.id].schedule = { ...config.syncs[s.id].schedule };
+            }
         }
     }
 
@@ -80,6 +100,13 @@ async function buildConfigForm(def, config = {}, options = async () => []) {
                 uiSchema.workflows[w.id] = { settings: s.ui };
                 // Settings only matter while the workflow is on: required only then.
                 node.dependencies = { enabled: { oneOf: [{ properties: { enabled: { const: false } } }, { properties: { enabled: { const: true } }, required: ['settings'] }] } };
+            }
+            const t = w.trigger || {};
+            const field = t.type === 'schedule' && scheduleField(t.every !== undefined ? { every: t.every } : { cron: t.cron, timezone: t.timezone }, configurableOf(t.configurable));
+            if (field) {
+                node.properties.schedule = field.schema;
+                (uiSchema.workflows[w.id] ||= {}).schedule = field.ui;
+                if (chosen.schedule) data.workflows[w.id].schedule = { ...chosen.schedule };
             }
             jsonSchema.properties.workflows.properties[w.id] = node;
         }

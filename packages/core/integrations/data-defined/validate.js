@@ -13,6 +13,7 @@
 const { BUILTINS, isBuiltin, splitCapability } = require('./steps');
 const { parseCondition, referencedPaths, templateTags, FILTERS } = require('./expressions');
 const { TRANSFORMS: TRANSFORM_FNS } = require('./transforms');
+const { validateRecurrence } = require('../../infrastructure/scheduler/recurrence');
 
 const ID = /^[a-z][a-z0-9-]*$/;
 const SEMVER = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
@@ -26,6 +27,14 @@ function validate(def, manifests = {}) {
     const errors = [], warnings = [];
     const err = (path, message) => errors.push({ path, message });
     const warn = (path, message) => warnings.push({ path, message });
+    /** A schedule's own timing must be valid, and must itself respect the floor it sets for installations. */
+    const checkSchedule = (recurrence, configurable, path) => {
+        const where = recurrence.every !== undefined ? `${path}.every` : `${path}.cron`;
+        for (const m of validateRecurrence(recurrence)) err(where, m);
+        if (configurable && typeof configurable === 'object' && configurable.min !== undefined) {
+            for (const m of validateRecurrence(recurrence, { min: configurable.min })) if (!validateRecurrence(recurrence).includes(m)) err(`${path}.configurable.min`, `The default schedule breaks its own minimum: ${m}`);
+        }
+    };
 
     if (!def || typeof def !== 'object') return { valid: false, errors: [{ path: '', message: 'Definition must be an object' }], warnings };
     if (def.schemaVersion !== '0.1') err('schemaVersion', 'Must be "0.1"');
@@ -154,6 +163,8 @@ function validate(def, manifests = {}) {
             const hasEvents = (k, o) => Object.values(manifestOf[k]?.events || {}).some((e) => e.object === o);
             if (manifestOf[src.k] && !hasEvents(src.k, src.o)) warn(`${p}.ongoing`, `${s.source} declares no webhook events; ongoing sync will need polling`);
         }
+        if (s.ongoing?.mode === 'poll') checkSchedule({ every: s.ongoing.every || '15m' }, s.ongoing.configurable, `${p}.ongoing`);
+        else if (s.ongoing?.configurable) err(`${p}.ongoing.configurable`, 'Only a polling sync has an interval to configure');
         if (s.filter) checkCondition(s.filter, `${p}.filter`);
     });
 
@@ -273,7 +284,10 @@ function validate(def, manifests = {}) {
             if (!manifestOf[t.module]) err(`${p}.trigger.module`, `Unknown module key "${t.module}"`);
             else if (!manifestOf[t.module].events?.[t.topic]) err(`${p}.trigger.topic`, `Module "${t.module}" emits no event "${t.topic}"`);
         }
-        if (t.type === 'schedule' && String(t.cron || '').trim().split(/\s+/).length !== 5) err(`${p}.trigger.cron`, 'Five-field cron expression');
+        if (t.type === 'schedule') {
+            if ((t.cron === undefined) === (t.every === undefined)) err(`${p}.trigger`, 'Give exactly one of cron or every');
+            else checkSchedule(t.every !== undefined ? { every: t.every } : { cron: t.cron, ...(t.timezone ? { timezone: t.timezone } : {}) }, t.configurable, `${p}.trigger`);
+        }
         if (t.type === 'userAction' && t.from && !uis[t.from]) err(`${p}.trigger.from`, `Unknown UI surface "${t.from}"`);
         if (t.type === 'syncRecord' && !syncs[t.sync]) err(`${p}.trigger.sync`, `Unknown sync "${t.sync}"`);
         if (t.filter) checkCondition(t.filter, `${p}.trigger.filter`);

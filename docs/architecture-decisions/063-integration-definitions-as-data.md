@@ -125,7 +125,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 128 tests (the persistence suite runs against real PostgreSQL and
+`packages/core/integrations/data-defined/`, with 136 tests (the persistence suite runs against real PostgreSQL and
 MongoDB). It runs 16 example definitions (Quo ⇄ HubSpot is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
@@ -503,14 +503,55 @@ genuine (HubSpot signs its UI-extension requests) is the renderer's job, not Fri
 | Moment | What runs | Code |
 |---|---|---|
 | **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `quo.webhook.create` pointed at this installation's webhook URL. Every install step with an `id` has its result saved to `config.runtime.installed.<id>` with `patchConfig` | `onCreate` |
-| **Configure** | The customer toggles workflows, changes settings or overrides a mapping. `onUpdate` merges config, then recompiles: enabling a workflow adds its event, routes and schedule, and disabling removes them. No deploy, and no other installation is affected | `onUpdate` |
+| **Configure** | The customer toggles workflows, changes settings, overrides a mapping or, where the definition allows it, retimes a schedule. `onUpdate` merges config, then recompiles: enabling a workflow adds its event, routes and host schedule, and disabling removes them (§15a). No deploy, and no other installation is affected | `onUpdate` |
 | **Update** (new version) | Nothing happens to running installations. Each stays on its pin until it is moved, as in §17 | `planUpgrade` |
-| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`quo.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), then the framework removes the record | `onDelete` |
+| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`quo.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), deletes the installation's host schedules, then the framework removes the record | `onDelete` |
 
 `$.install` is built by one function, `installContext`, everywhere a definition runs: workflows, queries, UI
 surfaces, lifecycle steps and option lists. It holds the integration settings with their defaults, `webhookUrl`,
 `integrationId`, `accounts` and `runtime.installed`. The first cut built it four ways, and the query and UI versions
 had no `runtime`, so a query reading an install result silently got nothing.
+
+### 15a. Recurring schedules, one per installation
+
+Schedule-triggered workflows and polling syncs run on a host schedule of their own, one per installation. Recurring
+jobs are not specific to data-defined integrations, so the mechanism is in core and a hand-written integration uses
+the same one (Quo's crons, for example, which are set by hand per integration today):
+
+```js
+static Definition = {
+    name: 'housecallpro',
+    schedules: {
+        ONGOING_SYNC: { every: '1h', configurable: { min: '15m' } },             // a user may choose >= 15m
+        DAILY_DIGEST: { cron: '0 8 * * 1-5', timezone: 'America/New_York' },     // fixed
+    },
+};
+```
+
+A data-defined definition says the same thing on the trigger (`{ "type": "schedule", "cron" | "every", "timezone",
+"configurable" }`) or on a polling sync (`ongoing: { "mode": "poll", "every", "configurable" }`). The pieces:
+
+| Layer | What | File |
+|---|---|---|
+| Recurrence | Host-neutral: `{ every: '15m' }` or a five-field `{ cron, timezone }`. `validateRecurrence` refuses what no host can run: both day fields restricted, a cron that never fires, an unknown zone. `minGapMinutes` measures what an expression really does, so a floor of 15m refuses `0,5 * * * *` | `infrastructure/scheduler/recurrence.js` |
+| Port | `upsertRecurring({ scheduleName, recurrence, queueResourceId, payload, enabled })` beside the one-time methods. Each adapter translates the recurrence. The payload may carry `TICK.id` / `TICK.scheduledFor`, which the host fills per firing | `scheduler-service-interface.js` |
+| Adapters | EventBridge: `rate(...)` or a six-field `cron(... ? ...)` with weekdays written as names, because EventBridge numbers them 1-7 from Sunday. It updates first, creates when the schedule is missing, and updates again after losing a create race. The tick is filled from `<aws.scheduler.scheduled-time>`. Mock: in memory, with `_simulateTrigger(name, tick)` | `eventbridge-scheduler-adapter.js`, `mock-scheduler-adapter.js` |
+| Commands | `upsertRecurringJob` and `reconcileRecurringJobs({ desired, stored, queueUrl })`. A job is written only when its recurrence, event, payload or state changed, and deleted when it is no longer wanted. A write the host refuses leaves the stored entry as it was, so the next reconcile retries it | `application/commands/scheduler-commands.js` |
+| Desired set | The definition's entries plus the installation's choices. A choice is honoured only where the definition allows it and within its floor. An invalid choice keeps the default and adds a warning message to the integration, so a bad edit never stops a schedule | `integrations/schedules.js` |
+| Lifecycle | `IntegrationBase.syncSchedules()` runs from the default `onCreate`, `onUpdate` and `onDelete`. It records what the host holds at `config.runtime.schedules.<event>`. An integration with no schedules does nothing. The data-defined class supplies its entries by compiling the current config, and also calls it after an upgrade | `integration-base.js` |
+
+The installation's choice lives in its config: `config.schedules.<event>` for a hand-written integration, and
+`workflows.<id>.schedule` / `syncs.<id>.schedule` for a data-defined one, offered in the configure form only where
+the definition allows it. Host schedule names are `<integration>-<installation id>-<event>`, kept within
+EventBridge's 64 characters. Each firing sends `{ event, data: { integrationId, scheduleKey, tick } }` to the
+integration's queue, so the existing queue worker hydrates the installation and dispatches the event. A redelivered
+tick runs once, because `tick:<event>:<scheduledFor>` is the workflow's dedupe id. Taking configurability away is a
+major change. An upgrade keeps a choice only where the new version still allows it, and otherwise reports a
+`reschedule` action.
+
+Ticks for an installation that is not `ENABLED` are discarded by the queue worker, as one-time jobs already are.
+Pausing the host schedule when the status changes is not done yet. Changing status does not go through `onUpdate`,
+so it needs a hook of its own.
 
 ### 16. UI surfaces
 
@@ -596,7 +637,6 @@ work kept apart from bulk work.
 | **Sync engine**: backfill pages, ongoing deltas, two-way master and conflict rules | `SYNC_*` events compile, but `runSync` throws "not implemented in v0.1" | Reuse the existing `SYNC_PAGE` and `Process` patterns from `BaseCRMIntegration` |
 | `delay`, approvals, per-module rate limits | Common in workflows; each needs durable state between steps | With step checkpointing |
 | Rebuilding links after an identity change | `planUpgrade` reports `relink` / `reindex`; nothing performs it | With the sync engine, which owns backfill |
-| Registering `compiled.schedules` | Schedule-triggered workflows and polling syncs compile to `CRON` events, but nothing creates the recurring schedule. Frigg's scheduler commands schedule one-time jobs, so recurring per-installation schedules need either an EventBridge schedule group per installation or one app-level tick that fans out | A design decision of its own |
 | Host renderers (HubSpot card, Quo panel) | `renderSurface` returns trees that nothing draws yet | Per host |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |
 

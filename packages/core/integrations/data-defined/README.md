@@ -96,6 +96,20 @@ different document at the same version is refused. So is a version that is not n
 semver bump smaller than the changes. Publishing goes through a conditional write, so two concurrent publishes of one
 version cannot both win. With `memoryDefinitions()` (definitions bundled in the app) the admin routes answer 501.
 
+## Schedules
+
+A schedule-triggered workflow or a polling sync gets one recurring host schedule per installation, through the same
+core mechanism hand-written integrations use (`Definition.schedules`; ADR-063 §15a). Mark one `configurable` to let
+installations pick their own timing, optionally with a floor:
+
+```json
+"trigger": { "type": "schedule", "cron": "0 16 * * 1-5", "timezone": "America/New_York", "configurable": { "min": "1h" } }
+"ongoing": { "mode": "poll", "every": "15m", "configurable": true }
+```
+
+The choice goes in `workflows.<id>.schedule` / `syncs.<id>.schedule` (the configure form offers the field). Create,
+update, upgrade and delete keep the host in step. What it holds is recorded at `config.runtime.schedules`.
+
 ## Steps (v0.1)
 
 Built-ins: `links.find`, `links.upsert`, `map`, `merge`, `template`, `set`, `stop`, `foreach` (≤1000), `branch`, `code`.
@@ -164,6 +178,4 @@ CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's
   the existing `SYNC_PAGE` pattern. `runSync` throws until then.
 - `delay` / wait steps, approvals that pause a run, and per-tenant rate limits.
 - The host renderers (the HubSpot app extension and Quo panel that draw `renderSurface` output).
-- Registering `compiled.schedules` as recurring schedules (Frigg's scheduler commands are one-time jobs). They compile
-  today; nothing creates them yet.
 - Rebuilding `link:` / `idx:` rows after an identity change; `planUpgrade` reports it as `relink` / `reindex`.

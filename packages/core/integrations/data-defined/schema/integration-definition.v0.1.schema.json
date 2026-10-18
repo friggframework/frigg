@@ -217,7 +217,12 @@
                 ]
               },
               "every": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^\\d+\\s*(m|h|d)$",
+                "description": "Poll interval (default 15m)."
+              },
+              "configurable": {
+                "$ref": "#/$defs/scheduleConfigurable"
               }
             }
           },
@@ -662,8 +667,7 @@
         {
           "type": "object",
           "required": [
-            "type",
-            "cron"
+            "type"
           ],
           "additionalProperties": false,
           "properties": {
@@ -671,12 +675,44 @@
               "const": "schedule"
             },
             "cron": {
-              "type": "string"
+              "type": "string",
+              "description": "Five-field cron (minute hour day-of-month month day-of-week). Restrict day of month or day of week, not both."
             },
             "timezone": {
-              "type": "string"
+              "type": "string",
+              "description": "IANA time zone for cron (default UTC)."
+            },
+            "every": {
+              "type": "string",
+              "pattern": "^\\d+\\s*(m|h|d)$",
+              "description": "Fixed interval (15m, 2h, 1d). Give cron or every."
+            },
+            "configurable": {
+              "$ref": "#/$defs/scheduleConfigurable"
             }
-          }
+          },
+          "oneOf": [
+            {
+              "required": [
+                "cron"
+              ],
+              "not": {
+                "required": [
+                  "every"
+                ]
+              }
+            },
+            {
+              "required": [
+                "every"
+              ],
+              "not": {
+                "required": [
+                  "cron"
+                ]
+              }
+            }
+          ]
         },
         {
           "type": "object",
@@ -840,6 +876,24 @@
             "required": [
               "source"
             ]
+          }
+        }
+      ]
+    },
+    "scheduleConfigurable": {
+      "description": "Lets each installation choose its own timing. true: any valid timing. { min }: never more often than this (15m, 2h, 1d).",
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min": {
+              "type": "string",
+              "pattern": "^\\d+\\s*(m|h|d)$"
+            }
           }
         }
       ]

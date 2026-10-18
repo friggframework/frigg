@@ -22,6 +22,7 @@ const { getTelemetry } = require('../telemetry/telemetry-runtime');
 const { instrumentHandler } = require('../telemetry/instrument-handler');
 const { bindTelemetryContext } = require('../telemetry/bind-telemetry-context');
 const { getLogger } = require('../logs');
+const { desiredSchedules, entriesFromDefinition } = require('./schedules');
 
 const constantsToBeMigrated = {
     defaultEvents: {
@@ -500,6 +501,7 @@ class IntegrationBase {
     async onCreate() {
         const needsConfig = await this.validateConfig();
         await this.persistStatus(needsConfig ? 'NEEDS_CONFIG' : 'ENABLED');
+        await this.syncSchedules();
     }
 
     /**
@@ -522,9 +524,69 @@ class IntegrationBase {
         } else if (this.status === 'NEEDS_CONFIG') {
             await this.persistStatus('ENABLED');
         }
+        await this.syncSchedules();
     }
 
-    async onDelete(params) {}
+    async onDelete(params) {
+        await this.syncSchedules({ remove: true });
+    }
+
+    /**
+     * The recurring schedules this installation should have (integrations/schedules.js). The default reads
+     * `Definition.schedules` and the installation's choices at `config.schedules`; data-defined integrations
+     * override it with their compiled definition.
+     * @returns {Array} schedule entries
+     */
+    scheduleEntries() {
+        return entriesFromDefinition(this.constructor.Definition?.schedules, this.config || {});
+    }
+
+    /**
+     * Make the host's recurring schedules match `scheduleEntries()`, one per installation, and record what the host
+     * holds at `config.runtime.schedules`. Called by the default onCreate, onUpdate and onDelete; an override of
+     * those calls it itself. Does nothing for an integration that declares no schedules and has none recorded.
+     *
+     * Never throws: a schedule that could not be written is logged, reported in the result and left recorded as it
+     * was, and the next call retries it. A choice the definition does not allow keeps the default schedule and adds
+     * a warning message to the integration.
+     *
+     * @param {{ remove?: boolean }} [options] remove: delete every recorded schedule (uninstall)
+     * @returns {Promise<object|null>} the reconcile outcome, or null when there was nothing to do
+     */
+    async syncSchedules({ remove = false } = {}) {
+        const stored = this.config?.runtime?.schedules || {};
+        const entries = remove ? [] : this.scheduleEntries() || [];
+        if (!entries.length && !Object.keys(stored).length) return null;
+        if (this.id === undefined || this.id === null) return null;
+        const name = this.constructor.Definition?.name;
+        try {
+            const { desired, problems } = desiredSchedules({ integrationName: name, integrationId: this.id, entries });
+            for (const p of problems) {
+                await this.updateIntegrationMessages.execute(this.id, 'warnings', 'Schedule not changed', `${p.key}: ${p.problems.join('; ')}`, Date.now());
+            }
+            const commands = typeof this.schedulerCommands?.reconcileRecurringJobs === 'function'
+                ? this.schedulerCommands
+                : require('../application/commands/scheduler-commands').createSchedulerCommands({ integrationName: name });
+            const outcome = await commands.reconcileRecurringJobs({ desired, stored, queueUrl: this.scheduleQueueUrl() });
+            if (outcome.warning) return { ...outcome, problems };
+            if (JSON.stringify(outcome.stored) !== JSON.stringify(stored)) {
+                await this.patchConfig({ runtime: { ...(this.config?.runtime || {}), schedules: outcome.stored } });
+            }
+            if (outcome.failed.length) {
+                this.logger.error('Schedules not reconciled', { eventName: `${this.logger.name}.schedules_failed`, failed: outcome.failed });
+            }
+            return { ...outcome, problems };
+        } catch (error) {
+            this.logger.error('Schedules not reconciled', { eventName: `${this.logger.name}.schedules_failed`, error });
+            return { error: error.message };
+        }
+    }
+
+    /** The queue a schedule fires into: this integration's queue (`<NAME>_QUEUE_URL`). */
+    scheduleQueueUrl() {
+        if (typeof this.getQueueUrl === 'function') return this.getQueueUrl();
+        return process.env[`${this.constructor.Definition.name.toUpperCase().replace(/-/g, '_')}_QUEUE_URL`];
+    }
 
     async getConfigOptions() {
         const options = {

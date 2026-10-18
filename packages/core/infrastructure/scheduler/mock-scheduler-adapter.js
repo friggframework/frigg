@@ -7,7 +7,8 @@
  * This adapter implements SchedulerServiceInterface for local development and testing.
  */
 
-const { SchedulerServiceInterface } = require('./scheduler-service-interface');
+const { SchedulerServiceInterface, fillTick } = require('./scheduler-service-interface');
+const { validateRecurrence } = require('./recurrence');
 
 class MockSchedulerAdapter extends SchedulerServiceInterface {
     constructor(options = {}) {
@@ -62,6 +63,28 @@ class MockSchedulerAdapter extends SchedulerServiceInterface {
     }
 
     /**
+     * Create or update a recurring schedule (kept in memory; `_simulateTrigger` fires it).
+     */
+    async upsertRecurring({ scheduleName, recurrence, queueResourceId, payload, enabled = true }) {
+        if (!scheduleName) throw new Error('scheduleName is required');
+        if (!queueResourceId) throw new Error('queueResourceId is required');
+        const problems = validateRecurrence(recurrence);
+        if (problems.length) throw new Error(`Invalid recurrence: ${problems.join('; ')}`);
+        const created = !this.schedules.has(scheduleName);
+        this.schedules.set(scheduleName, {
+            scheduleName,
+            recurrence,
+            queueResourceId,
+            payload,
+            recurring: true,
+            createdAt: this.schedules.get(scheduleName)?.createdAt || new Date().toISOString(),
+            state: enabled ? 'ENABLED' : 'DISABLED',
+        });
+        if (this.verbose) console.log(`[MockScheduler] ${created ? 'Created' : 'Updated'} recurring schedule: ${scheduleName}`, recurrence);
+        return { scheduledJobId: `mock-job-${scheduleName}`, created };
+    }
+
+    /**
      * Delete a scheduled job
      *
      * @param {string} scheduleName - Name of the schedule to delete
@@ -99,6 +122,7 @@ class MockSchedulerAdapter extends SchedulerServiceInterface {
             exists: true,
             scheduledAt: schedule.scheduledAt,
             state: schedule.state,
+            ...(schedule.recurrence ? { recurrence: schedule.recurrence } : {}),
         };
     }
 
@@ -126,7 +150,7 @@ class MockSchedulerAdapter extends SchedulerServiceInterface {
      * @param {string} scheduleName - Name of the schedule to trigger
      * @returns {Object|null} The payload that would be sent, or null if not found
      */
-    _simulateTrigger(scheduleName) {
+    _simulateTrigger(scheduleName, tick = { id: `mock-${Date.now()}`, scheduledFor: new Date().toISOString() }) {
         const schedule = this.schedules.get(scheduleName);
         if (!schedule) {
             console.log(`[MockScheduler] Cannot trigger - schedule not found: ${scheduleName}`);
@@ -134,9 +158,10 @@ class MockSchedulerAdapter extends SchedulerServiceInterface {
         }
 
         console.log(`[MockScheduler] Simulating trigger for: ${scheduleName}`);
-        console.log(`[MockScheduler]   Payload:`, JSON.stringify(schedule.payload, null, 2));
+        const payload = schedule.recurring ? fillTick(schedule.payload, tick) : schedule.payload;
+        console.log(`[MockScheduler]   Payload:`, JSON.stringify(payload, null, 2));
 
-        return schedule.payload;
+        return payload;
     }
 }
 

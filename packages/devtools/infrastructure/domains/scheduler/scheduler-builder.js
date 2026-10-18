@@ -8,8 +8,9 @@
  * - Creating IAM Role for EventBridge Scheduler to send messages to SQS
  * - Adding necessary IAM statements for Lambda to create/delete schedules
  *
- * This builder enables integrations to schedule one-time jobs (e.g., webhook renewals)
- * using AWS EventBridge Scheduler.
+ * This builder enables integrations to schedule one-time jobs (e.g., webhook renewals) and
+ * recurring per-installation jobs (Definition.schedules, data-defined schedule triggers)
+ * using AWS EventBridge Scheduler. Recurring jobs are upserted, hence UpdateSchedule.
  */
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
@@ -173,6 +174,7 @@ class SchedulerBuilder extends InfrastructureBuilder {
                 Effect: 'Allow',
                 Action: [
                     'scheduler:CreateSchedule',
+                    'scheduler:UpdateSchedule',
                     'scheduler:DeleteSchedule',
                     'scheduler:GetSchedule',
                 ],

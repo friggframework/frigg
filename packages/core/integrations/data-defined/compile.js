@@ -17,7 +17,8 @@ function isOn(item, chosen) {
 function compile(def, installation = {}) {
     const events = {};
     const webhooks = {};      // moduleKey -> topic -> [eventName]
-    const schedules = [];     // { event, cron, timezone }
+    const schedules = [];     // { key, event, default: { every } | { cron, timezone }, configurable, choice } (integrations/schedules.js)
+    const configurableOf = (c) => (c ? (c === true ? {} : c) : false);
     const userActions = [];   // { event, label, from }
     const routes = [];        // { method, path, event }
     const add = (name, e) => { events[name] = e; return name; };
@@ -39,7 +40,7 @@ function compile(def, installation = {}) {
             }
         } else if (mode === 'poll') {
             const n = add(eventName('SYNC', s.id, 'ONGOING'), { type: 'CRON', ref: { kind: 'sync', id: s.id, phase: 'ongoing' } });
-            schedules.push({ event: n, every: s.ongoing.every || '15m' });
+            schedules.push({ key: n, event: n, default: { every: s.ongoing.every || '15m' }, configurable: configurableOf(s.ongoing.configurable), choice: installation.syncs?.[s.id]?.schedule });
         }
     }
 
@@ -49,7 +50,10 @@ function compile(def, installation = {}) {
         const type = { webhook: 'WEBHOOK', schedule: 'CRON', userAction: 'USER_ACTION', syncRecord: 'QUEUE' }[t.type];
         const n = add(eventName('WF', w.id), { type, ...(type === 'USER_ACTION' ? { userActionType: 'DATA_ACTION', title: t.label } : {}), ref: { kind: 'workflow', id: w.id } });
         if (t.type === 'webhook') route(t.module, t.topic, n);
-        if (t.type === 'schedule') schedules.push({ event: n, cron: t.cron, timezone: t.timezone || 'UTC' });
+        if (t.type === 'schedule') {
+            const recurrence = t.every !== undefined ? { every: t.every } : { cron: t.cron, ...(t.timezone ? { timezone: t.timezone } : {}) };
+            schedules.push({ key: n, event: n, default: recurrence, configurable: configurableOf(t.configurable), choice: installation.workflows?.[w.id]?.schedule });
+        }
         if (t.type === 'userAction') userActions.push({ event: n, label: t.label, from: t.from || null });
         if (t.type === 'syncRecord') route('$sync', `${t.sync}:${(t.on || []).join('|')}`, n);
     }
