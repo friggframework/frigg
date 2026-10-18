@@ -161,7 +161,8 @@ POST /api/v2/entities/7/proxy
   `default`. Allow rules (module or app level) match only their own `base`.
   A malformed `base` is `400 INVALID_PROXY_REQUEST`, an undeclared one
   `400 PROXY_UNKNOWN_BASE` (the message lists the module's names). Bad
-  `baseUrls`, or a rule naming an undeclared base, stop the app at load.
+  `baseUrls`, or a rule naming an undeclared base, stop the app at load
+  ([ADR-052 amendment 1](../architecture-decisions/052-amendment-1-named-proxy-bases.md)).
 - The call goes through the module's Requester, so token refresh applies.
   API-key and basic-auth modules work the same as OAuth2.
 - The response status follows the upstream status. Upstream 5xx is
