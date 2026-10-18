@@ -251,7 +251,7 @@ describe('lifecycle results and account values on $.install', () => {
         async getMapping() { return null; } async upsertMapping() {} async createMapping() {}
     }
     const make = (def, apis) => {
-        const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions([def]), manifests, modules: { pipedrive: {}, quo: {}, hubspot: {}, zendesk: {}, jira: {} }, IntegrationBase: FakeBase });
+        const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions([def]), manifests, modules: { pipedrive: {}, quo: {}, hubspot: {}, zendesk: {}, jira: {} }, IntegrationBase: FakeBase, runs: false });
         const inst = new Cls({ id: 'int_1', config: { definition: { id: def.id, version: def.version } } });
         Object.assign(inst, apis(inst));
         return inst;

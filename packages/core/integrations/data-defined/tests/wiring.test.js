@@ -31,7 +31,7 @@ class FakeBase {
 const res = () => { const r = { statusCode: null, headers: {}, body: undefined }; r.status = (c) => { r.statusCode = c; return r; }; r.set = (k, v) => { r.headers[k] = v; return r; }; r.json = (b) => { r.body = b; return r; }; r.send = (b) => { r.body = b; return r; }; return r; };
 
 function shared(defs, { lookup, apis = {} } = {}) {
-    const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions(defs), manifests, modules: { quo: {}, hubspot: {}, slack: {}, asana: {}, quickbooks: {}, pipedrive: {} }, IntegrationBase: FakeBase, lookup });
+    const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions(defs), manifests, modules: { quo: {}, hubspot: {}, slack: {}, asana: {}, quickbooks: {}, pipedrive: {} }, IntegrationBase: FakeBase, lookup, runs: false });
     return (config, id = 'int_1') => { const inst = new Cls({ id, config }); Object.assign(inst, apis); return inst; };
 }
 const pin = (def) => ({ definition: { id: def.id, version: def.version } });
@@ -280,7 +280,7 @@ describe('the default app-level lookup', () => {
             }),
         }));
         const dd = require('..');
-        const Cls = dd.defineSharedIntegrationClass({ definitions: dd.memoryDefinitions([example('hubspot-slack')]), manifests, modules: { hubspot: {}, slack: {} }, IntegrationBase: FakeBase });
+        const Cls = dd.defineSharedIntegrationClass({ definitions: dd.memoryDefinitions([example('hubspot-slack')]), manifests, modules: { hubspot: {}, slack: {} }, IntegrationBase: FakeBase, runs: false });
         const dry = new Cls();
         await dry.initialize();
         const out = await dry.onWebhook({ data: { body: [{ eventId: 1, subscriptionType: 'deal.creation', portalId: 1944396, objectId: '1' }], headers: {}, query: { module: 'hubspot' } } });

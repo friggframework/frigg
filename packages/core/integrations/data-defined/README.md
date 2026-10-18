@@ -29,6 +29,9 @@ installation (Integration.config)         ─┘                          │
 | `runtime.js` | Ports (Api calls, link store), `runWorkflow`, `runQuery`, `renderSurface`, `runLifecycle`, `resolveOptions`, `installContext` |
 | `versioning.js` | `diff`, `checkBump`, `planUpgrade` |
 | `data-defined-integration.js` | `defineIntegrationClass`: the IntegrationBase subclass that runs it all |
+| `use-cases/definition-use-cases.js` | Publish, deprecate, catalogue, history, upgrade plan; `createDefinitionCatalog()` (the store the runtime reads) |
+| `repositories/` | `IntegrationDefinitionVersion` and `WorkflowRun` rows (MongoDB, PostgreSQL, DocumentDB) |
+| `router.js` | The publish, catalogue, upgrade and run-history routes |
 
 ## The pieces of a definition
 
@@ -67,6 +70,32 @@ installation (Integration.config)         ─┘                          │
 `runtime.installed`, and `accounts.<module key>.<field>` — values about the connected account that the module's
 manifest declares under `account` (`$.install.accounts.quickbooks.realmId`). Nothing undeclared is exposed.
 
+## Publishing, installing, upgrading
+
+Definitions live in the `IntegrationDefinitionVersion` table (Prisma models in both schemas, PostgreSQL migration
+`20261018000000_add_data_defined_integrations`), and runs in `WorkflowRun`. Point the class at the store:
+
+```js
+const { defineSharedIntegrationClass, createDefinitionCatalog } = require('@friggframework/core/integrations/data-defined');
+// A database store is read asynchronously, so it goes with the shared class (one class, every definition).
+const DataDefined = defineSharedIntegrationClass({ definitions: createDefinitionCatalog(), manifests, modules });
+```
+
+| Route | Auth | |
+|---|---|---|
+| `POST /api/admin/data-defined/definitions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
+| `GET /api/admin/data-defined/definitions/:id` | admin key | Version history |
+| `POST /api/admin/data-defined/definitions/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
+| `GET /api/data-defined/definitions` | user | What can be installed |
+| `POST /api/integrations` with `config: { type, definition: { id } }` | user | Install; pins the latest published version and its checksum |
+| `GET` / `POST /api/integrations/:id/upgrade` `{ to? }` | user | Plan / apply an upgrade (409 with the plan while something is needed) |
+| `GET /api/integrations/:id/runs` | user | Run history, newest first |
+
+Published versions cannot change. Publishing a document that is identical to a published one returns that row. A
+different document at the same version is refused. So is a version that is not newer than the latest, and so is a
+semver bump smaller than the changes. Publishing goes through a conditional write, so two concurrent publishes of one
+version cannot both win. With `memoryDefinitions()` (definitions bundled in the app) the admin routes answer 501.
+
 ## Steps (v0.1)
 
 Built-ins: `links.find`, `links.upsert`, `map`, `merge`, `template`, `set`, `stop`, `foreach` (≤1000), `branch`, `code`.
@@ -99,6 +128,13 @@ they were routed under and finish on it.
 npx jest --config '{}' --rootDir packages/core/integrations/data-defined tests
 ```
 
+`tests/persistence.test.js` runs the repositories and the publish rules against real databases. Each leg runs only
+when its URL is set. Point them at a migrated PostgreSQL database and a MongoDB replica set with the schema pushed:
+
+```bash
+DATA_DEFINED_POSTGRES_URL=postgresql://… DATA_DEFINED_MONGO_URL=mongodb://… npx jest … tests
+```
+
 ## Validating
 
 Validation is two layers, and a document is valid only when both pass (`schema-check.js`):
@@ -127,7 +163,6 @@ CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's
 - The sync engine (backfill pages, ongoing deltas, two-way master rules) — specified by the schema, to be executed by
   the existing `SYNC_PAGE` pattern. `runSync` throws until then.
 - `delay` / wait steps, approvals that pause a run, and per-tenant rate limits.
-- Publishing endpoints and the `IntegrationDefinitionVersion` / `WorkflowRun` Prisma models (proposed in `schema/records.md`).
 - The host renderers (the HubSpot app extension and Quo panel that draw `renderSurface` output).
 - Registering `compiled.schedules` as recurring schedules (Frigg's scheduler commands are one-time jobs). They compile
   today; nothing creates them yet.

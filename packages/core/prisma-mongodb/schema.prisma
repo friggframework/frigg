@@ -181,6 +181,7 @@ model Integration {
   syncs        Sync[]
   mappings     IntegrationMapping[]
   processes    Process[]
+  workflowRuns WorkflowRun[]
 
   @@index([userId])
   @@index([status])
@@ -452,4 +453,59 @@ model UsageCounter {
   // Covers series() (metric + integrationType + window range).
   @@index([metric, integrationType, window])
   @@map("UsageCounter")
+}
+
+// Data-defined integrations (ADR-063): one immutable row per published definition version.
+enum DefinitionStatus {
+  DRAFT
+  PUBLISHED
+  DEPRECATED
+  RETIRED
+}
+
+model IntegrationDefinitionVersion {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  definitionId    String
+  version         String
+  schemaVersion   String
+  status          DefinitionStatus @default(DRAFT)
+  checksum        String
+  document        Json
+  changeLevel     String?
+  previousVersion String?
+  notes           String?
+  createdBy       String?
+  publishedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([definitionId, version])
+  @@index([definitionId, status])
+  @@map("IntegrationDefinitionVersion")
+}
+
+// One row per data-defined workflow run. trace holds step ids, statuses, timings and error messages, never request or
+// response bodies.
+model WorkflowRun {
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  integrationId     String      @db.ObjectId
+  integration       Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  definitionId      String
+  definitionVersion String
+  workflowId        String
+  triggerType       String
+  eventId           String?
+  status            String
+  reason            String?
+  error             String?
+  retryable         Boolean     @default(false)
+  trace             Json        @default("[]")
+  startedAt         DateTime
+  endedAt           DateTime?
+  createdAt         DateTime    @default(now())
+
+  @@index([integrationId, startedAt])
+  @@index([integrationId, workflowId, startedAt])
+  @@index([integrationId, status])
+  @@map("WorkflowRun")
 }

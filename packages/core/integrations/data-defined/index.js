@@ -15,6 +15,7 @@ const { TRANSFORMS, applyMapping } = require('./transforms');
 const { FILTERS } = require('./expressions');
 const { validateManifest } = require('./manifests');
 const { checkDefinition, checkManifest, checkInstallation } = require('./schema-check');
+const useCases = require('./use-cases/definition-use-cases');
 
 /** Load every capabilities/*.capabilities.json (bundled mocks; real modules ship their own). */
 function loadManifests(dir = path.join(__dirname, 'capabilities')) {
@@ -34,4 +35,5 @@ module.exports = {
     defineIntegrationClass, defineSharedIntegrationClass, memoryDefinitions,
     BUILTINS, TRANSFORMS, FILTERS, applyMapping, resolveOptions,
     loadManifests, loadExamples,
+    ...useCases,
 };

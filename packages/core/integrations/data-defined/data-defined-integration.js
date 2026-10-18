@@ -31,20 +31,20 @@ const { buildConfigForm, missingRequired } = require('./config-form');
  * version in config. A new integration is a row, not a deploy, and every installation shares one set of functions
  * and one queue. Right for The Integrator, where definitions accumulate without bound.
  */
-function defineIntegrationClass({ id, definitions, manifests, modules, runCode, IntegrationBase, lookup }) {
+function defineIntegrationClass({ id, definitions, manifests, modules, runCode, IntegrationBase, lookup, runs }) {
     const latest = definitions.latest(id);
     if (!latest || typeof latest.then === 'function') throw new Error(`defineIntegrationClass needs the definitions of "${id}" synchronously at registration (bundled files); a database store goes with defineSharedIntegrationClass`);
     return makeClass({
-        name: latest.id, defaultId: id, definitions, manifests, runCode, IntegrationBase, lookup,
+        name: latest.id, defaultId: id, definitions, manifests, runCode, IntegrationBase, lookup, runs,
         modules: Object.fromEntries(Object.keys(latest.modules).map((key) => [key, { definition: modules[key] }])),
         display: { label: latest.display.label, description: latest.display.description, category: latest.display.category },
         version: latest.version,
     });
 }
 
-function defineSharedIntegrationClass({ name = 'data-defined', definitions, manifests, modules, runCode, IntegrationBase, lookup }) {
+function defineSharedIntegrationClass({ name = 'data-defined', definitions, manifests, modules, runCode, IntegrationBase, lookup, runs }) {
     return makeClass({
-        name, defaultId: null, definitions, manifests, runCode, IntegrationBase, lookup,
+        name, defaultId: null, definitions, manifests, runCode, IntegrationBase, lookup, runs,
         modules: Object.fromEntries(Object.entries(modules).map(([key, definition]) => [key, { definition }])),
         display: { label: 'Data-defined integration', description: 'Runs any published integration definition.', category: 'Custom' },
         version: '0.1.0',
@@ -71,14 +71,21 @@ function friggLookup(typeName) {
     };
 }
 
-function makeClass({ name, defaultId, definitions, manifests, runCode, IntegrationBase, modules, display, version, lookup }) {
+function makeClass({ name, defaultId, definitions, manifests, runCode, IntegrationBase, modules, display, version, lookup, runs }) {
     const Base = IntegrationBase || require('../integration-base').IntegrationBase;
     const id = name;
     const findInstallations = lookup || friggLookup(name);
+    // Where workflow runs are kept: the WorkflowRun table by default (loaded lazily, so tests and tools without a
+    // database can pass their own store or `false` to keep none).
+    let runStore = runs;
+    const runRepository = () => (runStore === undefined ? (runStore = require('./repositories/workflow-run-repository').createWorkflowRunRepository()) : runStore);
     const publicBase = () => `${process.env.FRIGG_PUBLIC_URL || ''}/api/${id}-integration/webhooks`;
 
     class DataDefinedIntegration extends Base {
         static Definition = { name, version, modules, webhooks: { enabled: true }, display }; // version is display only; installations pin their own
+
+        /** How the routers find data-defined classes and the store and manifests they run on. */
+        static DataDefined = { definitions, manifests, shared: !defaultId, runs: () => runRepository() };
 
         /**
          * Frigg's use cases construct an integration from its record and call initialize() before anything else
@@ -92,13 +99,33 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
         }
 
         async loadDefinition() {
-            const pin = this.config?.definition || (defaultId ? { id: defaultId, version: (await definitions.latest(defaultId)).version } : null);
-            if (!pin?.id || !pin?.version) throw new Error('This installation does not name a definition (config.definition.id and .version)');
-            this.def = await definitions.get(pin.id, pin.version);
+            let pin = this.config?.definition || (defaultId ? { id: defaultId } : null);
+            if (!pin?.id) throw new Error('This installation does not name a definition (config.definition.id)');
+            if (!pin.version) {
+                // Installed by id alone: pin the latest published version now (onCreate persists the pin).
+                const latest = await definitions.latest(pin.id);
+                if (!latest) throw new Error(`No published version of "${pin.id}"`);
+                pin = { id: pin.id, version: latest.version, checksum: await definitions.checksumOf?.(pin.id, latest.version) || undefined };
+                if (this.config?.definition) this.config = { ...this.config, definition: pin };
+            }
+            this.def = await definitions.get(pin.id, pin.version, { checksum: pin.checksum });
             if (!this.def) throw new Error(`Definition ${pin.id}@${pin.version} is not published`);
             this.compiled = compile(this.def, this.config || {});
-            this.ports = makePorts({
-                def: this.def, manifests, runCode,
+            this.ports = this.portsFor(this.def);
+            // Replace, not merge: a workflow switched off since the last compile must lose its event.
+            for (const n of this.compiledEventNames || []) delete this.events[n];
+            this.compiledEventNames = Object.keys(this.compiled.events);
+            for (const [n, e] of Object.entries(this.compiled.events)) {
+                this.events[n] = { ...e, handler: (payload) => this.dispatch(e.ref, payload) };
+            }
+            this.registerEventHandlers();
+            return this.def;
+        }
+
+        /** Ports for a definition: Api calls through the manifest, and links/dedupe over IntegrationMapping. */
+        portsFor(def) {
+            return makePorts({
+                def, manifests, runCode,
                 // The shared class registers modules by module name; a definition may name them by its own keys.
                 callApi: (moduleKey, method, args) => this.moduleFor(moduleKey).api[method](args),
                 store: {
@@ -108,14 +135,6 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
                     release: (key) => this.deleteMapping(key),
                 },
             });
-            // Replace, not merge: a workflow switched off since the last compile must lose its event.
-            for (const n of this.compiledEventNames || []) delete this.events[n];
-            this.compiledEventNames = Object.keys(this.compiled.events);
-            for (const [n, e] of Object.entries(this.compiled.events)) {
-                this.events[n] = { ...e, handler: (payload) => this.dispatch(e.ref, payload) };
-            }
-            this.registerEventHandlers();
-            return this.def;
         }
 
         moduleFor(key) {
@@ -218,7 +237,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             // Every onInstall step with an id keeps its result, so onUninstall can undo exactly what install did
             // ($.install.runtime.installed.<step id>). Saved even when empty, so a re-install replaces stale ids.
             const installed = Object.fromEntries((this.def.lifecycle?.onInstall || []).filter((st) => st.id).map((st) => [st.id, out.steps?.[st.id] ?? null]));
-            await this.patchConfig({ runtime: { ...(this.config?.runtime || {}), installed } });
+            await this.patchConfig({ ...(this.config?.definition ? { definition: this.config.definition } : {}), runtime: { ...(this.config?.runtime || {}), installed } });
             return super.onCreate(params);
         }
 
@@ -282,8 +301,38 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             }));
         }
 
+        /**
+         * Move this installation to another published version (default: the latest). With apply false, only the plan:
+         * what a person must supply first and what will happen. Applying refuses while anything is needed, and when
+         * install steps changed, undoes the old ones before running the new ones (it never leaves the old webhooks).
+         */
+        async upgradeTo(toVersion, { apply = false } = {}) {
+            const { PlanInstallationUpgrade } = require('./use-cases/definition-use-cases');
+            const plan = await new PlanInstallationUpgrade({ catalog: definitions }).execute({ config: this.config, toVersion });
+            if (!apply || !plan.allowed) return { ...plan, applied: false };
+            const reinstall = plan.actions.some((a) => a.kind === 'reinstall');
+            let config = plan.config;
+            if (reinstall) {
+                await runLifecycle({ def: this.def, installation: this.installation(), hook: 'onUninstall', ports: this.ports });
+                const next = await definitions.get(plan.config.definition.id, plan.config.definition.version);
+                const out = await runLifecycle({ def: next, installation: { ...this.installation(), ...config }, hook: 'onInstall', ports: this.portsFor(next) });
+                config = { ...config, runtime: { installed: Object.fromEntries((next.lifecycle?.onInstall || []).filter((st) => st.id).map((st) => [st.id, out.steps?.[st.id] ?? null])) } };
+            }
+            await this.patchConfig(config);
+            this.config = { ...this.config, ...config };
+            await this.loadDefinition();
+            return { ...plan, config, applied: true };
+        }
+
         async recordRun(run) {
             this.telemetry?.count?.('workflow.run', 1, { workflow: run.workflowId, status: run.status });
+            // Run history must never decide the run's outcome: a failed write is logged and the run stands.
+            try {
+                const store = runRepository();
+                if (store) await store.createRun({ ...run, integrationId: this.id, definitionId: run.definition?.id, definitionVersion: run.definition?.version, triggerType: run.trigger?.type, eventId: run.trigger?.eventId });
+            } catch (e) {
+                try { require('../../logs').getLogger('frigg.data-defined').warn('Workflow run not recorded', { eventName: 'frigg.data-defined.run.not_recorded', integrationId: this.id, workflowId: run.workflowId, cause: e?.message }); } catch { /* ignore */ }
+            }
             if (run.status === 'failed') { const e = new Error(run.error); e.run = run; throw e; } // the queue retries
             return run;
         }
@@ -304,6 +353,12 @@ function memoryDefinitions(docs) {
     const cmp = (a, b) => a.split('.').map(Number).reduce((r, n, i) => r || n - Number(b.split('.')[i]), 0);
     return {
         get: async (defId, version) => byKey.get(`${defId}@${version}`) || null,
+        checksumOf: async (defId, version) => { const doc = byKey.get(`${defId}@${version}`); return doc ? require('./canonical').checksum(doc) : null; },
+        list: async () => {
+            const latestById = new Map();
+            for (const doc of docs) if (!latestById.has(doc.id) || cmp(doc.version, latestById.get(doc.id).version) > 0) latestById.set(doc.id, doc);
+            return [...latestById.values()].map((doc) => ({ id: doc.id, version: doc.version, checksum: require('./canonical').checksum(doc), display: doc.display, modules: Object.fromEntries(Object.entries(doc.modules || {}).map(([k, m]) => [k, m.module])), counts: { syncs: (doc.syncs || []).length, links: (doc.links || []).length, workflows: (doc.workflows || []).length, ui: (doc.ui || []).length } }));
+        },
         latest: (id) => docs.filter((d) => d.id === id).sort((a, b) => cmp(b.version, a.version))[0] || null,
     };
 }

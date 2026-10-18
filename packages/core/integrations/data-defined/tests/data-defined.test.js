@@ -200,7 +200,7 @@ describe('defineIntegrationClass', () => {
 
     it('loads the pinned version, builds this.events, and a dispatched webhook event writes to HubSpot', async () => {
         const v14 = base(); const v13 = { ...base(), version: '1.3.2' };
-        const Cls = d.defineIntegrationClass({ id: 'quo-hubspot', definitions: d.memoryDefinitions([v13, v14]), manifests, modules: { quo: {}, hubspot: {} }, IntegrationBase: FakeBase });
+        const Cls = d.defineIntegrationClass({ id: 'quo-hubspot', definitions: d.memoryDefinitions([v13, v14]), manifests, modules: { quo: {}, hubspot: {} }, IntegrationBase: FakeBase, runs: false });
         expect(Cls.Definition.name).toBe('quo-hubspot');
         const inst = new Cls({ id: 'int_1', config: { definition: { id: 'quo-hubspot', version: '1.3.2' } } });
         await inst.loadDefinition();
@@ -214,7 +214,7 @@ describe('defineIntegrationClass', () => {
 
     it('shared class: one registration runs installations of different definitions', async () => {
         const qh = base(); const other = { ...base(), id: 'quo-other', version: '0.1.0' };
-        const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions([qh, other]), manifests, modules: { quo: {}, hubspot: {} }, IntegrationBase: FakeBase });
+        const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions([qh, other]), manifests, modules: { quo: {}, hubspot: {} }, IntegrationBase: FakeBase, runs: false });
         expect(Cls.Definition.name).toBe('data-defined');
         expect(Object.keys(Cls.Definition.modules)).toEqual(['quo', 'hubspot']);
         const a = new Cls({ id: 'int_a', config: { definition: { id: 'quo-hubspot', version: '1.4.0' } } });
