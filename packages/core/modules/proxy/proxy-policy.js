@@ -53,6 +53,13 @@ const REMOVED_RESPONSE_HEADERS = [
 const invalid = (message, details) =>
     new ProxyRequestError('INVALID_PROXY_REQUEST', message, details);
 
+/**
+ * A query key ending in `[]` is sent as one `key=value` pair per array
+ * element; the requester applies the same rule (see
+ * `_rawRequest` in requester.js).
+ */
+const isRepeatedQueryKey = (key) => key.endsWith('[]');
+
 const isPlainObject = (value) =>
     value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -99,8 +106,13 @@ function validateProxyRequest(request, { maxRequestBytes }) {
                     field: `query.${key}`,
                 });
             }
-            // The requester sends one value per key; arrays go comma-separated.
-            query[key] = list ? value.join(',') : value;
+            // A key ending in `[]` (`fields[]`) is sent once per value, as
+            // Airtable and Fathom expect; every other array goes comma-separated.
+            if (list) {
+                query[key] = isRepeatedQueryKey(key) ? [...value] : value.join(',');
+            } else {
+                query[key] = value;
+            }
         }
     }
 

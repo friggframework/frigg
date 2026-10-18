@@ -63,6 +63,35 @@ describe('entity proxy policy (ADR-052 §5-§7)', () => {
             expect(query).toEqual({ a: 'b', n: 2, f: false, ids: '1,2' });
         });
 
+        it('keeps a []-suffixed key as a list so it is sent once per value', () => {
+            const input = ['name', 'email'];
+            const { query } = validateProxyRequest(
+                { method: 'GET', path: '/x', query: { 'fields[]': input, ids: ['1', '2'] } },
+                limits
+            );
+            expect(query).toEqual({ 'fields[]': ['name', 'email'], ids: '1,2' });
+            expect(query['fields[]']).not.toBe(input);
+        });
+
+        it('keeps a single-value and an empty []-suffixed list as lists', () => {
+            const { query } = validateProxyRequest(
+                { method: 'GET', path: '/x', query: { 'a[]': ['one'], 'b[]': [] } },
+                limits
+            );
+            expect(query).toEqual({ 'a[]': ['one'], 'b[]': [] });
+        });
+
+        it.each([[['a', 1]], [[{ b: 1 }]], [[null]]])(
+            'rejects a []-suffixed key whose list holds a non-string (%j)',
+            (value) => {
+                expect(
+                    codeOf(() =>
+                        validateProxyRequest({ method: 'GET', path: '/x', query: { 'fields[]': value } }, limits)
+                    )
+                ).toBe('INVALID_PROXY_REQUEST');
+            }
+        );
+
         it.each([
             [null],
             [[]],

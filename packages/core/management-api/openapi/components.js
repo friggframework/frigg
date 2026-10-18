@@ -305,7 +305,8 @@ const SCHEMAS = {
                         { type: 'array', items: { type: 'string' } },
                     ],
                 },
-                description: 'Array values are sent comma-separated',
+                description:
+                    'Array values are sent comma-separated (`ids: ["1","2"]` → `ids=1,2`), except under a key ending in `[]`, which is sent once per value (`"fields[]": ["a","b"]` → `fields%5B%5D=a&fields%5B%5D=b`; an empty array sends nothing).',
             },
             headers: {
                 type: 'object',

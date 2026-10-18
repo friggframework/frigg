@@ -570,4 +570,43 @@ describe('Requester', () => {
             }
         });
     });
+    describe('query string', () => {
+        const urlFor = async (query) => {
+            const fetchMock = okFetch();
+            const requester = new TestRequester({ fetch: fetchMock });
+            await requester._get({ url: 'https://api.example.com/v1/records', query });
+            return fetchMock.mock.calls[0][0];
+        };
+
+        it('repeats a []-suffixed key once per array value', async () => {
+            expect(await urlFor({ 'fields[]': ['name', 'email'] })).toBe(
+                'https://api.example.com/v1/records?fields%5B%5D=name&fields%5B%5D=email'
+            );
+        });
+
+        it('sends a single-value []-suffixed array as one pair', async () => {
+            expect(await urlFor({ 'fields[]': ['name'], limit: 5 })).toBe(
+                'https://api.example.com/v1/records?fields%5B%5D=name&limit=5'
+            );
+        });
+
+        it('sends nothing for an empty []-suffixed array', async () => {
+            expect(await urlFor({ 'fields[]': [], limit: 5 })).toBe(
+                'https://api.example.com/v1/records?limit=5'
+            );
+            expect(await urlFor({ 'fields[]': [] })).toBe('https://api.example.com/v1/records');
+        });
+
+        it('still comma-joins an array under a key without []', async () => {
+            expect(await urlFor({ ids: ['1', '2'], 'fields[]': ['a', 'b'] })).toBe(
+                'https://api.example.com/v1/records?ids=1%2C2&fields%5B%5D=a&fields%5B%5D=b'
+            );
+        });
+
+        it('encodes each repeated value', async () => {
+            expect(await urlFor({ 'q[]': ['a b', 'c&d'] })).toBe(
+                'https://api.example.com/v1/records?q%5B%5D=a%20b&q%5B%5D=c%26d'
+            );
+        });
+    });
 });

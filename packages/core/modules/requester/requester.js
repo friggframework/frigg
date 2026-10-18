@@ -219,9 +219,14 @@ class Requester extends Delegate {
         if (options.query) {
             let queryBuild = '?';
             for (const key in options.query) {
-                queryBuild += `${encodeURIComponent(key)}=${encodeURIComponent(
-                    options.query[key]
-                )}&`;
+                const value = options.query[key];
+                // `fields[]: ['a', 'b']` -> `fields%5B%5D=a&fields%5B%5D=b`.
+                // Any other array keeps String(value), i.e. comma-joined.
+                const values =
+                    Array.isArray(value) && key.endsWith('[]') ? value : [value];
+                for (const v of values) {
+                    queryBuild += `${encodeURIComponent(key)}=${encodeURIComponent(v)}&`;
+                }
             }
             encodedUrl += queryBuild.slice(0, -1);
         }

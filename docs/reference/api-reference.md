@@ -163,6 +163,11 @@ POST /api/v2/entities/7/proxy
   `400 PROXY_UNKNOWN_BASE` (the message lists the module's names). Bad
   `baseUrls`, or a rule naming an undeclared base, stop the app at load
   ([ADR-052 amendment 1](../architecture-decisions/052-amendment-1-named-proxy-bases.md)).
+- `query` values are strings, numbers, booleans or arrays of strings. An array
+  is sent comma-separated (`"ids": ["1", "2"]` → `ids=1,2`), except under a key
+  ending in `[]`, which is repeated once per value
+  (`"fields[]": ["a", "b"]` → `fields%5B%5D=a&fields%5B%5D=b`, as Airtable and
+  Fathom expect; an empty array sends nothing).
 - The call goes through the module's Requester, so token refresh applies.
   API-key and basic-auth modules work the same as OAuth2.
 - The response status follows the upstream status. Upstream 5xx is
