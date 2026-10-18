@@ -23,15 +23,25 @@ async function runSteps(steps, env, path = 'steps') {
         try {
             let out;
             if (step.use === 'foreach') {
-                const items = resolve(step.with?.over, ctx) || [];
-                if (!Array.isArray(items)) throw new Error('foreach: `over` is not an array');
+                const all = resolve(step.with?.over, ctx) ?? [];
+                if (!Array.isArray(all)) throw new Error('foreach: `over` is not an array');
                 const max = Math.min(step.with?.max || 100, FOREACH_HARD_CAP);
+                const saved = { item: ctx.item, index: ctx.index };
+                // `where` is checked per item, before the cap, so max bounds the work actually done.
+                const items = [];
+                for (const [n, item] of all.entries()) {
+                    ctx.item = item; ctx.index = n;
+                    if (!step.with?.where || evaluate(step.with.where, ctx)) items.push(item);
+                }
+                Object.assign(ctx, saved);
+                const collect = step.with && 'collect' in step.with;
                 out = [];
                 for (const [n, item] of items.slice(0, max).entries()) {
-                    const saved = { item: ctx.item, index: ctx.index };
                     ctx.item = item; ctx.index = n;
-                    await runSteps(step.do, env, `${at}.do#${n}`);
-                    out.push(Object.fromEntries((step.do || []).filter((s) => s.id).map((s) => [s.id, ctx.steps[s.id]])));
+                    await runSteps(step.do || [], env, `${at}.do#${n}`);
+                    out.push(collect
+                        ? resolve(step.with.collect, ctx)
+                        : Object.fromEntries((step.do || []).filter((s) => s.id).map((s) => [s.id, ctx.steps[s.id]])));
                     Object.assign(ctx, saved);
                 }
                 if (items.length > max) trace.push({ id, use: 'foreach', at, status: 'truncated', note: `${items.length - max} items over max ${max}` });

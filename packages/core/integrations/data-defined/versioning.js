@@ -16,12 +16,14 @@ const RANK = { none: 0, patch: 1, minor: 2, major: 3 };
 const max = (a, b) => (RANK[a] >= RANK[b] ? a : b);
 const byId = (xs) => Object.fromEntries((xs || []).map((x) => [x.id, x]));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const optionSource = (o) => (o && typeof o === 'object' ? o.source : o);
 
 function diffSettings(a = {}, b = {}, path, push) {
     for (const k of Object.keys(a)) if (!(k in b)) push('minor', `${path}.${k}`, 'Setting removed (saved values are dropped)');
     for (const [k, s] of Object.entries(b)) {
         if (!(k in a)) push(s.required && s.default === undefined ? 'major' : 'minor', `${path}.${k}`, s.required && s.default === undefined ? 'New required setting with no default' : 'New optional setting');
-        else if (a[k].type !== s.type || a[k].options !== s.options) push('major', `${path}.${k}`, 'Setting type changed');
+        else if (a[k].type !== s.type || optionSource(a[k].options) !== optionSource(s.options)) push('major', `${path}.${k}`, 'Setting type or option list changed');
+        else if (!same(a[k].options, s.options)) push('minor', `${path}.${k}`, 'Option list inputs changed');
         else if (!a[k].required && s.required && s.default === undefined) push('major', `${path}.${k}`, 'Setting became required');
         else if (!same(a[k], s)) push('patch', `${path}.${k}`, 'Setting label, help or default changed');
     }
@@ -50,6 +52,16 @@ function diff(from, to) {
         if (!same(o.identity, s.identity)) push('major', `syncs.${id}.identity`, 'Identity keys changed: existing links must be rebuilt');
         if (!same(o.mapping, s.mapping)) push('patch', `syncs.${id}.mapping`, 'Default mapping changed (installations with their own mapping keep it)');
         if (!same(o.ongoing, s.ongoing) || !same(o.backfill, s.backfill) || o.filter !== s.filter) push('minor', `syncs.${id}`, 'Sync schedule or filter changed');
+    }
+
+    const la = byId(from.links), lb = byId(to.links);
+    for (const id of Object.keys(la)) if (!lb[id]) push('major', `links.${id}`, 'Link set removed: workflows that read it lose their links');
+    for (const [id, l] of Object.entries(lb)) {
+        const o = la[id];
+        if (!o) { push('minor', `links.${id}`, 'New link set'); continue; }
+        if (!same(o.between, l.between)) push('major', `links.${id}.between`, 'Link set joins different objects');
+        if (!same(o.identity, l.identity)) push('major', `links.${id}.identity`, 'Identity keys changed: existing links must be rebuilt');
+        if (o.label !== l.label || o.description !== l.description) push('patch', `links.${id}`, 'Label or description changed');
     }
 
     const wa = byId(from.workflows), wb = byId(to.workflows);
@@ -135,6 +147,11 @@ function planUpgrade(installation, from, to) {
         if (sa[s.id] && !same(sa[s.id].identity, s.identity)) actions.push({ kind: 'relink', id: s.id, message: `Rebuild ${s.label} links with the new identity keys (runs a backfill)` });
         if (!sa[s.id]) actions.push({ kind: 'backfill', id: s.id, message: `New sync: ${s.label}` });
     }
+    // A link set has no backfill to rebuild from: its links by id still resolve, but its identity index was written
+    // with the old keys, so lookups by key miss until each pair is linked again. Said plainly rather than hidden.
+    const la = byId(from.links), lb = byId(to.links);
+    for (const l of to.links || []) if (la[l.id] && !same(la[l.id].identity, l.identity)) actions.push({ kind: 'reindex', id: l.id, message: `${l.label || l.id}: links by id still resolve; lookups by the new identity keys miss until each pair is linked again` });
+    for (const id of Object.keys(la)) if (!lb[id]) actions.push({ kind: 'drop-links', id, message: `Link set "${la[id].label || id}" is gone; its stored links are no longer read` });
     if (!same(from.lifecycle?.onInstall, to.lifecycle?.onInstall)) actions.push({ kind: 'reinstall', message: 'Re-run install steps (webhook subscriptions)' });
     actions.push({ kind: 'drain', message: `Messages already queued under ${from.version} finish on ${from.version}; new events run on ${to.version}` });
 

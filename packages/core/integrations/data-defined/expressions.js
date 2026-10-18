@@ -3,7 +3,9 @@
  *
  * Three forms, and no others (nothing is ever passed to eval):
  *   1. Reference   "$.event.contact.id"     A string that is exactly a path. Resolves to the value, keeping its type.
- *   2. Template    "Call with {{event.from}}" A string with {{path | filter}} parts. Always resolves to a string.
+ *   2. Template    "Call with {{event.from}}" A string with {{path | filter}} parts. Resolves to a string, except
+ *                  that a string which is exactly one tag ("{{record.amount | to_cents}}") keeps the value's type, so
+ *                  a filter can produce a number or a list for an API argument.
  *   3. Condition   "$.steps.contact == null && $.event.duration > 30"  Used by `when` and trigger filters.
  *
  * Paths are read from a context object: { event, steps, settings, install, vars, item, record, now }.
@@ -23,6 +25,20 @@ function getPath(ctx, path) {
     return cur;
 }
 
+const num = (v) => (v == null || v === '' ? null : Number(v));
+const arith = (f) => (v, arg) => { const a = num(v), b = num(arg); return a == null || b == null || Number.isNaN(a) || Number.isNaN(b) ? null : f(a, b); };
+
+/**
+ * Template filters. Each is a named, total function of (value, argument): no filter loops, calls out or throws on
+ * bad input (a non-number gives null, which renders as ''). Arithmetic is here, as named filters, instead of an
+ * expression language: {{item.amount | to_cents}}, {{record.created | from_unix}}.
+ */
+// ISO 4217 minor-unit exponents that are not 2 (Stripe's zero-decimal and three-decimal lists).
+const MINOR_EXPONENT = { BIF: 0, CLP: 0, DJF: 0, GNF: 0, JPY: 0, KMF: 0, KRW: 0, MGA: 0, PYG: 0, RWF: 0, UGX: 0, VND: 0, VUV: 0, XAF: 0, XOF: 0, XPF: 0, BHD: 3, JOD: 3, KWD: 3, OMR: 3, TND: 3 };
+const exponentOf = (currency) => MINOR_EXPONENT[String(currency || '').toUpperCase()] ?? 2;
+/** a * 10^e, rounded half-up in decimal (19.995 -> 1999.5 -> 2000; 19.995 * 100 is 1999.4999... in binary). */
+const shiftRound = (a, e) => Math.round(Number(`${a}e${e}`));
+
 const FILTERS = {
     upper: (v) => String(v ?? '').toUpperCase(),
     lower: (v) => String(v ?? '').toLowerCase(),
@@ -32,29 +48,74 @@ const FILTERS = {
     json: (v) => JSON.stringify(v),
     default: (v, arg) => (v == null || v === '' ? arg : v),
     truncate: (v, arg) => { const s = String(v ?? ''); const n = Number(arg) || 80; return s.length > n ? s.slice(0, n - 1) + '…' : s; },
+    // lists
+    join: (v, arg) => (Array.isArray(v) ? v.filter((x) => x != null && x !== '').join(arg ?? ', ') : v),
+    size: (v) => (Array.isArray(v) || typeof v === 'string' ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0),
+    first: (v) => (Array.isArray(v) ? v[0] : v),
+    // arithmetic
+    plus: arith((a, b) => a + b),
+    minus: arith((a, b) => a - b),
+    times: arith((a, b) => a * b),
+    divided_by: arith((a, b) => (b === 0 ? null : a / b)),
+    // Rounded in decimal-exponent form, so 1.005 | round: 2 is 1.01 (1.005 * 100 is 100.49999... in binary floating point).
+    round: (v, arg) => { const a = num(v); if (a == null || Number.isNaN(a)) return null; const d = Math.max(0, Math.min(10, Number(arg) || 0)); return Number(`${shiftRound(a, d)}e-${d}`); },
+    abs: (v) => { const a = num(v); return a == null || Number.isNaN(a) ? null : Math.abs(a); },
+    number: (v) => { const a = num(v); return a == null || Number.isNaN(a) ? null : a; },
+    // money in minor units, rounded so 19.99 -> 1999 (19.99 * 100 is 1998.9999999999998)
+    to_cents: (v) => { const a = num(v); return a == null || Number.isNaN(a) ? null : shiftRound(a, 2); },
+    from_cents: (v) => { const a = num(v); return a == null || Number.isNaN(a) ? null : Math.round(a) / 100; },
+    // the same for any currency: {{record.amount | from_minor_units: record.currency}} (JPY has no minor unit, KWD three)
+    to_minor_units: (v, cur) => { const a = num(v); if (a == null || Number.isNaN(a)) return null; return shiftRound(a, exponentOf(cur)); },
+    from_minor_units: (v, cur) => { const a = num(v); if (a == null || Number.isNaN(a)) return null; const e = exponentOf(cur); return Math.round(a) / 10 ** e; },
+    // unix seconds <-> ISO 8601
+    from_unix: (v) => { const a = num(v); return a == null || Number.isNaN(a) ? null : new Date(a * 1000).toISOString(); },
+    to_unix: (v) => { const t = v ? Date.parse(v) : NaN; return Number.isNaN(t) ? null : Math.floor(t / 1000); },
 };
 
 /** A filter argument is a quoted literal ('x'), a number, or a path read from the context (steps.full.owner). */
 function filterArg(raw, ctx) {
     if (raw == null) return undefined;
     const a = raw.trim();
-    if (/^'.*'$/.test(a)) return a.slice(1, -1);
+    if (/^'.*'$/.test(a)) return a.slice(1, -1).replace(/\\n/g, '\n').replace(/\\t/g, '\t');
     if (/^-?\d+(\.\d+)?$/.test(a)) return a;
     return getPath(ctx, '$.' + a.replace(/^\$\./, ''));
 }
 
+const TAG_RE = /\{\{\s*([^}]+?)\s*\}\}/g;
+const SINGLE_TAG_RE = /^\{\{\s*([^}]+?)\s*\}\}$/;
+
+/** Split one tag's expression into its path and filters: "item.amount | times: 100" -> { path, filters: [{ name, arg }] }. */
+function parseTag(expr) {
+    const [p, ...filters] = expr.split('|').map((x) => x.trim());
+    return { path: p.replace(/^\$\./, ''), filters: filters.map((f) => { const m = /^(\w+)(?::\s*(.*))?$/.exec(f); return m ? { name: m[1], arg: m[2] } : { name: f, arg: undefined, bad: true }; }) };
+}
+
+function evalTag(expr, ctx) {
+    const { path, filters } = parseTag(expr);
+    let v = getPath(ctx, '$.' + path);
+    for (const f of filters) {
+        const fn = !f.bad && FILTERS[f.name];
+        if (!fn) throw new Error(`Unknown template filter "${f.name}"`);
+        v = fn(v, filterArg(f.arg, ctx));
+    }
+    return v;
+}
+
 function renderTemplate(str, ctx) {
-    return str.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, expr) => {
-        const [p, ...filters] = expr.split('|').map((s) => s.trim());
-        let v = getPath(ctx, '$.' + p.replace(/^\$\./, ''));
-        for (const f of filters) {
-            const m = /^(\w+)(?::\s*(.*))?$/.exec(f);
-            const fn = m && FILTERS[m[1]];
-            if (!fn) throw new Error(`Unknown template filter "${f}"`);
-            v = fn(v, filterArg(m[2], ctx));
-        }
+    const single = SINGLE_TAG_RE.exec(str);
+    if (single) return evalTag(single[1], ctx) ?? '';
+    return str.replace(TAG_RE, (_, expr) => {
+        const v = evalTag(expr, ctx);
         return v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
     });
+}
+
+/** Every tag in a value (deep), for validation: [{ path, filters }]. */
+function templateTags(value, acc = []) {
+    if (typeof value === 'string') for (const m of value.matchAll(TAG_RE)) acc.push(parseTag(m[1]));
+    else if (Array.isArray(value)) value.forEach((v) => templateTags(v, acc));
+    else if (value && typeof value === 'object') Object.values(value).forEach((v) => templateTags(v, acc));
+    return acc;
 }
 
 /** Resolve every reference and template inside a value (deep). Non-string scalars pass through. */
@@ -161,4 +222,4 @@ function referencedPaths(value, acc = []) {
     return acc;
 }
 
-module.exports = { getPath, resolve, renderTemplate, evaluate, parseCondition, referencedPaths, FILTERS };
+module.exports = { getPath, resolve, renderTemplate, evaluate, parseCondition, referencedPaths, templateTags, FILTERS };

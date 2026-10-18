@@ -20,7 +20,7 @@
     "definition": {
       "id": "quo-hubspot",
       "version": "1.4.0",
-      "checksum": "sha256:108758e3ebd74b6003fa2250116443a564cca19bd1f6ccfd2ad7c254ccbbc163"
+      "checksum": "sha256:ce481654559ca25f86555c2e2dbe761c032e964567b1a0069d8ae48e60fc1b3d"
     },
     "settings": {
       "fromNumber": "+15125550100"
@@ -66,12 +66,17 @@
       }
     },
     "runtime": {
-      "subscriptions": {
-        "quo": "WHk2c9"
-      },
-      "cursors": {
-        "contacts": {
-          "hubspot": "2026-10-18T13:59:00Z"
+      "installed": {
+        "hook": {
+          "id": "WHk2c9",
+          "url": "https://api.example.com/api/quo-hubspot-integration/webhooks/int_7f3a9c",
+          "events": [
+            "call.completed",
+            "call.ringing",
+            "call.summary.completed",
+            "message.received",
+            "contact.updated"
+          ]
         }
       }
     }

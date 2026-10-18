@@ -4,7 +4,7 @@
   "id": "webflow-hubspot-slack",
   "version": "1.0.0",
   "display": {
-    "label": "Webflow forms → HubSpot + Slack",
+    "label": "Webflow forms \u2192 HubSpot + Slack",
     "description": "Website form submissions become HubSpot contacts and are routed to the right Slack channel by what the visitor asked about. Honeypot and link spam is dropped before anything is written.",
     "category": "Lead capture",
     "tags": [
@@ -39,7 +39,7 @@
   "workflows": [
     {
       "id": "contact-form",
-      "label": "Contact form → HubSpot contact + routed Slack alert",
+      "label": "Contact form \u2192 HubSpot contact + routed Slack alert",
       "purpose": "write",
       "default": "on",
       "settings": {
@@ -107,12 +107,8 @@
                 "transform": "to_e164_phone"
               },
               {
-                "source": "lifecycle",
                 "target": "properties.lifecyclestage",
-                "transform": "default",
-                "options": {
-                  "value": "lead"
-                }
+                "value": "lead"
               }
             ]
           }
@@ -223,12 +219,8 @@
                 "transform": "to_e164_phone"
               },
               {
-                "source": "lifecycle",
                 "target": "properties.lifecyclestage",
-                "transform": "default",
-                "options": {
-                  "value": "subscriber"
-                }
+                "value": "subscriber"
               }
             ]
           }
@@ -244,7 +236,7 @@
     }
   ],
   "templates": {
-    "lead-alert": "*New {{record.data.Interest | default: 'website'}} enquiry* from {{record.data.Name | default: 'someone'}} ({{record.data.Company | default: 'no company'}}) on {{record.publishedPath}}\n> {{record.data.Message | truncate: 280}}\n<https://app.hubspot.com/contacts/{{install.portalId}}/record/0-1/{{steps.contact.id}}|Open in HubSpot> · {{record.data.Email}}"
+    "lead-alert": "*New {{record.data.Interest | default: 'website'}} enquiry* from {{record.data.Name | default: 'someone'}} ({{record.data.Company | default: 'no company'}}) on {{record.publishedPath}}\n> {{record.data.Message | truncate: 280}}\n<https://app.hubspot.com/contacts/{{install.portalId}}/record/0-1/{{steps.contact.id}}|Open in HubSpot> \u00b7 {{record.data.Email}}"
   },
   "lifecycle": {
     "onInstall": [
@@ -262,7 +254,7 @@
       {
         "use": "webflow.webhook.delete",
         "with": {
-          "webhookId": "$.install.runtime.subscriptions.webflow"
+          "webhookId": "$.install.runtime.installed.hook.id"
         }
       }
     ]

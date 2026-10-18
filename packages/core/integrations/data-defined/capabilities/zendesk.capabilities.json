@@ -5,6 +5,16 @@
   "package": "@friggframework/api-module-zendesk",
   "version": "1.6.0",
   "auth": "oauth2",
+  "account": {
+    "description": "Values about the connected account, persisted by the module (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>.",
+    "fields": [
+      {
+        "name": "subdomain",
+        "type": "string",
+        "description": "Zendesk subdomain (acme in acme.zendesk.com)"
+      }
+    ]
+  },
   "objects": {
     "ticket": {
       "label": "Ticket",

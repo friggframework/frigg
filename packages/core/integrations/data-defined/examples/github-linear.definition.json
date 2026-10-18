@@ -4,7 +4,7 @@
   "id": "github-linear",
   "version": "0.9.0",
   "display": {
-    "label": "GitHub ↔ Linear",
+    "label": "GitHub \u2194 Linear",
     "description": "GitHub issues and Linear issues stay in sync with label and status mapping, merged PRs move the Linear issue named in the branch to Done, and stale in-progress issues are listed in Slack every morning.",
     "category": "Engineering",
     "tags": [
@@ -140,7 +140,12 @@
       "settings": {
         "doneState": {
           "type": "option",
-          "options": "linear.workflowState",
+          "options": {
+            "source": "linear.workflowState",
+            "with": {
+              "teamId": "$.install.team"
+            }
+          },
           "label": "Move issues to",
           "default": "Done"
         },
@@ -279,26 +284,13 @@
           }
         },
         {
-          "use": "set",
-          "with": {
-            "lines": ""
-          }
-        },
-        {
           "id": "build",
           "use": "foreach",
           "with": {
             "over": "$.steps.stale",
-            "max": 50
-          },
-          "do": [
-            {
-              "use": "set",
-              "with": {
-                "lines": "{{vars.lines}}• <{{item.url}}|{{item.identifier}}> {{item.title | truncate: 70}} ({{item.assignee.email | default: 'unassigned'}}, last update {{item.updatedAt | date}})\n"
-              }
-            }
-          ]
+            "max": 50,
+            "collect": "\u2022 <{{item.url}}|{{item.identifier}}> {{item.title | truncate: 70}} ({{item.assignee.email | default: 'unassigned'}}, last update {{item.updatedAt | date}})"
+          }
         },
         {
           "id": "text",
@@ -319,6 +311,6 @@
     }
   ],
   "templates": {
-    "stale-digest": ":hourglass_flowing_sand: *In progress with no update since {{settings.staleAfter}}* ({{steps.stale.length}} issues)\n{{vars.lines}}"
+    "stale-digest": ":hourglass_flowing_sand: *In progress with no update since {{settings.staleAfter}}* ({{steps.stale | size}} issues)\n{{steps.build | join: '\\n'}}"
   }
 }

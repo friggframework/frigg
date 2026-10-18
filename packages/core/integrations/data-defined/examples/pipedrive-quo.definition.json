@@ -4,7 +4,7 @@
   "id": "pipedrive-quo",
   "version": "0.3.1",
   "display": {
-    "label": "Quo ↔ Pipedrive",
+    "label": "Quo \u2194 Pipedrive",
     "description": "Two-way person sync, Quo calls logged as Pipedrive call activities, missed calls as call-back activities, and recent Quo activity on the person panel.",
     "category": "CRM",
     "tags": [
@@ -249,7 +249,7 @@
             "component": "List",
             "props": {
               "items": "$.data.calls",
-              "title": "{{item.direction}} call · {{item.duration | default: 0}}s",
+              "title": "{{item.direction}} call \u00b7 {{item.duration | default: 0}}s",
               "meta": "{{item.createdAt | date}}"
             }
           },
@@ -311,7 +311,7 @@
       {
         "use": "quo.webhook.delete",
         "with": {
-          "id": "$.install.runtime.subscriptions.quo"
+          "id": "$.install.runtime.installed.quoHook.id"
         },
         "onError": "continue"
       },
@@ -319,7 +319,10 @@
         "id": "unhook",
         "use": "foreach",
         "with": {
-          "over": "$.install.runtime.subscriptions.pipedrive",
+          "over": [
+            "$.install.runtime.installed.personCreated.id",
+            "$.install.runtime.installed.personChanged.id"
+          ],
           "max": 5
         },
         "do": [

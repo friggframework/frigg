@@ -4,7 +4,7 @@
   "id": "quo-hubspot",
   "version": "1.4.0",
   "display": {
-    "label": "Quo ↔ HubSpot",
+    "label": "Quo \u2194 HubSpot",
     "description": "Two-way contact sync, call and text logging, missed-call follow-up, closed-won thank-you texts, and Quo activity inside HubSpot.",
     "category": "CRM",
     "tags": [
@@ -516,7 +516,7 @@
             "component": "List",
             "props": {
               "items": "$.data.calls",
-              "title": "{{item.direction}} call · {{item.duration | default: 0}}s",
+              "title": "{{item.direction}} call \u00b7 {{item.duration | default: 0}}s",
               "meta": "{{item.createdAt | date}}"
             }
           },
@@ -606,7 +606,7 @@
     }
   ],
   "templates": {
-    "call-note": "Quo call with {{record.from}} · {{record.duration}}s ({{record.status}})"
+    "call-note": "Quo call with {{record.from}} \u00b7 {{record.duration}}s ({{record.status}})"
   },
   "lifecycle": {
     "onInstall": [
@@ -629,7 +629,7 @@
       {
         "use": "quo.webhook.delete",
         "with": {
-          "id": "$.install.runtime.subscriptions.quo"
+          "id": "$.install.runtime.installed.hook.id"
         }
       }
     ]

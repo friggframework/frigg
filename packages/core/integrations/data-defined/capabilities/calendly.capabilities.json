@@ -5,6 +5,21 @@
   "package": "@friggframework/api-module-calendly",
   "version": "1.0.4",
   "auth": "oauth2",
+  "account": {
+    "description": "Values about the connected account, persisted by the module (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>.",
+    "fields": [
+      {
+        "name": "organization",
+        "type": "string",
+        "description": "Organization URI of the connected Calendly user"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "description": "User URI of the connected Calendly user"
+      }
+    ]
+  },
   "objects": {
     "invitee": {
       "label": "Invitee",

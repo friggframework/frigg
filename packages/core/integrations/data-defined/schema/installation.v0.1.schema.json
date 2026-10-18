@@ -71,12 +71,10 @@
     },
     "runtime": {
       "type": "object",
-      "description": "Owned by the runtime, not the customer: webhook subscription ids, sync cursors.",
+      "description": "Owned by the runtime, not the customer. installed: each onInstall step's result by step id (webhook subscriptions), read by onUninstall as $.install.runtime.installed.<id>. Sync cursors join it with the sync engine.",
+      "additionalProperties": false,
       "properties": {
-        "subscriptions": {
-          "type": "object"
-        },
-        "cursors": {
+        "installed": {
           "type": "object"
         }
       }

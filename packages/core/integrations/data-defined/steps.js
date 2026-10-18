@@ -5,18 +5,18 @@
  * (e.g. "hubspot.task.create" -> HubSpot Api.createTask). Nothing else can run: there is no http, eval or script step.
  * The only way to run custom code is `code`, which calls a named, versioned function registered with the runtime.
  */
-const { applyMapping } = require('./transforms');
+const { applyMapping, deepMerge } = require('./transforms');
 const { resolve } = require('./expressions');
 
 const BUILTINS = {
     'links.find': {
-        summary: 'Find the records a sync has already linked. By one side\'s id, or by an identity key the sync indexes (email, phone).',
-        args: { sync: 'string (sync id)', from: 'module key, with id', id: 'that module\'s record id', key: '{ <identity field>: value }' },
+        summary: 'Find records already linked, by a sync or a link set (definition.links). By one side\'s id, or by an identity key it indexes (email, phone).',
+        args: { link: 'link set id (or sync: sync id)', from: 'module key, with id', id: 'that module\'s record id', key: '{ <identity field>: value }' },
         run: (a, { ports }) => ports.links.find(a),
     },
     'links.upsert': {
         summary: 'Record that records on two sides are the same thing, and index their identity keys.',
-        args: { sync: 'string', ids: '{ <module key>: id }', keys: '{ <identity field>: value }' },
+        args: { link: 'link set id (or sync: sync id)', ids: '{ <module key>: id }', keys: '{ <identity field>: value }' },
         run: (a, { ports }) => ports.links.upsert(a),
     },
     map: {
@@ -41,6 +41,11 @@ const BUILTINS = {
             return resolve(src, ctx);
         },
     },
+    merge: {
+        summary: 'Deep-merge objects into one; later objects win, lists are replaced.',
+        args: { objects: '[object, ...]' },
+        run: (a) => deepMerge(...(Array.isArray(a.objects) ? a.objects : [])),
+    },
     set: {
         summary: 'Store values in $.vars for later steps.',
         args: { '<name>': 'value' },
@@ -52,8 +57,8 @@ const BUILTINS = {
         run: (a) => ({ stop: true, reason: a.reason || 'stopped' }),
     },
     foreach: {
-        summary: 'Run nested steps once per item ($.item). Bounded by max (default 100, hard cap 1000).',
-        args: { over: 'array', max: 'number', do: 'steps' },
+        summary: 'Run nested steps once per item ($.item). Bounded by max (default 100, hard cap 1000). With `collect`, the step\'s result is the list of that value per item; `where` skips items.',
+        args: { over: 'array', max: 'number', where: 'condition on $.item', collect: 'value per item (may use $.item and this iteration\'s $.steps)', do: 'steps (optional when collect is set)' },
         nested: true,
     },
     branch: {

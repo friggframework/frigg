@@ -50,7 +50,7 @@ when no installation pins it and no queued message references it.
   "syncs":     { "contacts": { "enabled": true, "mapping": [ /* optional full override */ ] } },
   "workflows": { "missed-call-task": { "enabled": true, "settings": { "owner": "81273645" } } },
   "ui":        { "quo-card": { "enabled": true } },
-  "runtime":   { "subscriptions": { "quo": "WHk2c9" }, "cursors": { "contacts": { "hubspot": "…" } } }  // runtime-owned
+  "runtime":   { "installed": { "hook": { "id": "WHk2c9", "url": "…", "events": [ … ] } } }  // runtime-owned: onInstall results by step id
 }
 ```
 

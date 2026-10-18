@@ -185,7 +185,8 @@
       "method": "getProjects",
       "input": {
         "workspaceGid": {
-          "type": "string"
+          "type": "string",
+          "required": true
         },
         "archived": {
           "type": "boolean"
@@ -238,7 +239,13 @@
     "project": {
       "capability": "project.list",
       "label": "{{item.name}}",
-      "value": "$.item.gid"
+      "value": "$.item.gid",
+      "inputs": {
+        "workspaceGid": {
+          "type": "string",
+          "required": true
+        }
+      }
     }
   }
 }

@@ -284,7 +284,8 @@
       "method": "workflowStates",
       "input": {
         "teamId": {
-          "type": "string"
+          "type": "string",
+          "required": true
         }
       },
       "output": "workflowState[]"
@@ -299,7 +300,13 @@
     "workflowState": {
       "capability": "workflowState.list",
       "label": "{{item.name}}",
-      "value": "$.item.name"
+      "value": "$.item.name",
+      "inputs": {
+        "teamId": {
+          "type": "string",
+          "required": true
+        }
+      }
     }
   }
 }

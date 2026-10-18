@@ -4,7 +4,7 @@
   "id": "klaviyo-hubspot",
   "version": "0.3.1",
   "display": {
-    "label": "Klaviyo ↔ HubSpot",
+    "label": "Klaviyo \u2194 HubSpot",
     "description": "Keep Klaviyo profiles and HubSpot contacts in step, move contacts to a lifecycle stage when they join a Klaviyo list, and honour unsubscribes in both directions.",
     "category": "Marketing",
     "tags": [
@@ -331,7 +331,7 @@
       {
         "use": "klaviyo.webhook.delete",
         "with": {
-          "id": "$.install.runtime.subscriptions.klaviyo"
+          "id": "$.install.runtime.installed.hook.id"
         }
       }
     ]

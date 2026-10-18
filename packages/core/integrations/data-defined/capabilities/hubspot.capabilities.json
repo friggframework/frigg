@@ -5,6 +5,16 @@
   "package": "@friggframework/api-module-hubspot",
   "version": "1.4.0",
   "auth": "oauth2",
+  "account": {
+    "description": "Values about the connected account, persisted by the module (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>.",
+    "fields": [
+      {
+        "name": "portalId",
+        "type": "string",
+        "description": "HubSpot portal (hub) id"
+      }
+    ]
+  },
   "objects": {
     "contact": {
       "label": "Contact",
@@ -127,7 +137,8 @@
         {
           "name": "properties.dealstage",
           "type": "enum",
-          "tag": "deal.stage"
+          "tag": "deal.stage",
+          "values": "dealStage"
         },
         {
           "name": "properties.closedate",
@@ -658,7 +669,7 @@
   "options": {
     "owner": {
       "capability": "owner.list",
-      "label": "$.item.firstName {{item.lastName}}",
+      "label": "{{item.firstName}} {{item.lastName}}",
       "value": "$.item.id"
     },
     "dealStage": {

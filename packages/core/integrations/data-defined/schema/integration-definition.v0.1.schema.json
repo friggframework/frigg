@@ -139,7 +139,24 @@
                       "type": "string"
                     },
                     "transform": {
-                      "type": "string"
+                      "enum": [
+                        "none",
+                        "trim",
+                        "lowercase",
+                        "uppercase",
+                        "number",
+                        "boolean",
+                        "to_iso_date",
+                        "to_e164_phone",
+                        "split_full_name",
+                        "join",
+                        "map_values",
+                        "default",
+                        "units_to_cents",
+                        "cents_to_units",
+                        "from_unix_seconds",
+                        "to_unix_seconds"
+                      ]
                     },
                     "key": {
                       "type": "string",
@@ -162,55 +179,7 @@
           "mapping": {
             "type": "array",
             "items": {
-              "type": "object",
-              "required": [
-                "source",
-                "target"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "source": {
-                  "type": "string"
-                },
-                "target": {
-                  "type": "string"
-                },
-                "transform": {
-                  "enum": [
-                    "none",
-                    "trim",
-                    "lowercase",
-                    "uppercase",
-                    "number",
-                    "boolean",
-                    "to_iso_date",
-                    "to_e164_phone",
-                    "split_full_name",
-                    "join",
-                    "map_values",
-                    "default"
-                  ]
-                },
-                "options": {
-                  "type": "object"
-                },
-                "master": {
-                  "enum": [
-                    "source",
-                    "target",
-                    "newest"
-                  ],
-                  "default": "source"
-                },
-                "direction": {
-                  "enum": [
-                    "both",
-                    "to_target",
-                    "to_source"
-                  ],
-                  "default": "both"
-                }
-              }
+              "$ref": "#/$defs/mappingRow"
             }
           },
           "filter": {
@@ -258,6 +227,85 @@
               "off"
             ],
             "default": "on"
+          }
+        }
+      }
+    },
+    "links": {
+      "type": "array",
+      "description": "Link sets: records on two modules known to be the same thing, with no sync behind them. links.find / links.upsert take { link: <id> }.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "between"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "between": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-zA-Z]\\w*\\.[a-zA-Z]\\w*$"
+            },
+            "description": "Two <moduleKey>.<object> on different modules."
+          },
+          "identity": {
+            "type": "object",
+            "required": [
+              "match"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "match": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "key"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-zA-Z0-9]*$"
+                    },
+                    "transform": {
+                      "enum": [
+                        "none",
+                        "trim",
+                        "lowercase",
+                        "uppercase",
+                        "number",
+                        "boolean",
+                        "to_iso_date",
+                        "to_e164_phone",
+                        "split_full_name",
+                        "join",
+                        "map_values",
+                        "default",
+                        "units_to_cents",
+                        "cents_to_units",
+                        "from_unix_seconds",
+                        "to_unix_seconds"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -467,7 +515,7 @@
         },
         "use": {
           "type": "string",
-          "description": "A built-in (links.find, links.upsert, map, template, set, stop, foreach, branch, code) or <moduleKey>.<object>.<verb> declared by that module's capability manifest."
+          "description": "A built-in (links.find, links.upsert, map, merge, template, set, stop, foreach, branch, code) or <moduleKey>.<object>.<verb> declared by that module's capability manifest."
         },
         "with": {
           "type": "object",
@@ -557,8 +605,32 @@
           }
         },
         "options": {
-          "type": "string",
-          "description": "option: <moduleKey>.<optionsKey> from the module manifest (e.g. hubspot.owner)."
+          "description": "option settings: \"<moduleKey>.<list>\" from the module manifest, or { source, with } when the list takes inputs read from other settings ($.settings.workspace; a workflow setting may also read $.install.<integration setting>).",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-zA-Z]\\w*\\.[a-zA-Z]\\w*$"
+            },
+            {
+              "type": "object",
+              "required": [
+                "source"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z]\\w*\\.[a-zA-Z]\\w*$"
+                },
+                "with": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -692,6 +764,85 @@
           "type": "string"
         }
       }
+    },
+    "mappingRow": {
+      "type": "object",
+      "required": [
+        "target"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "transform": {
+          "enum": [
+            "none",
+            "trim",
+            "lowercase",
+            "uppercase",
+            "number",
+            "boolean",
+            "to_iso_date",
+            "to_e164_phone",
+            "split_full_name",
+            "join",
+            "map_values",
+            "default",
+            "units_to_cents",
+            "cents_to_units",
+            "from_unix_seconds",
+            "to_unix_seconds"
+          ]
+        },
+        "options": {
+          "type": "object"
+        },
+        "master": {
+          "enum": [
+            "source",
+            "target",
+            "newest"
+          ],
+          "default": "source"
+        },
+        "direction": {
+          "enum": [
+            "both",
+            "to_target",
+            "to_source"
+          ],
+          "default": "both"
+        },
+        "value": {
+          "description": "A fixed value written to target instead of reading source (QuickBooks Line[0].DetailType)."
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "source"
+          ],
+          "not": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "required": [
+            "value"
+          ],
+          "not": {
+            "required": [
+              "source"
+            ]
+          }
+        }
+      ]
     }
   }
 }

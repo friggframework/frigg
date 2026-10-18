@@ -26,6 +26,11 @@ const TRANSFORMS = {
     join: (v, o = {}, record = {}) => (o.fields || []).map((f) => readField(record, f)).filter((x) => x != null && x !== '').join(o.separator ?? ' ') || undefined,
     map_values: (v, o = {}) => (v == null ? undefined : (o.values || {})[v] ?? o.fallback),
     default: (v, o = {}) => (v == null || v === '' ? o.value : v),
+    // money and time, rounded and total (bad input -> undefined, which the mapping leaves out)
+    units_to_cents: (v) => { const n = v == null || v === '' ? NaN : Number(v); return Number.isNaN(n) ? undefined : Math.round(Number(`${n}e2`)); },
+    cents_to_units: (v) => { const n = v == null || v === '' ? NaN : Number(v); return Number.isNaN(n) ? undefined : Math.round(n) / 100; },
+    from_unix_seconds: (v) => { const n = v == null || v === '' ? NaN : Number(v); return Number.isNaN(n) ? undefined : new Date(n * 1000).toISOString(); },
+    to_unix_seconds: (v) => { const t = v ? Date.parse(v) : NaN; return Number.isNaN(t) ? undefined : Math.floor(t / 1000); },
 };
 
 function readField(record, path) {
@@ -54,18 +59,33 @@ function writeField(target, path, value) {
 
 /**
  * Apply a field mapping to a record. A blank result is left out, never written (a blank must not overwrite a value).
- * @param {Array<{source:string,target:string,transform?:string,options?:object}>} rows
+ * A row either reads `source` from the record or writes a fixed `value` (QuickBooks' Line[0].DetailType, a lifecycle
+ * stage): { target, value }. A fixed value still goes through the row's transform.
+ * @param {Array<{source?:string,value?:any,target:string,transform?:string,options?:object}>} rows
  */
 function applyMapping(rows, record) {
     const out = {};
     for (const r of rows || []) {
         const fn = TRANSFORMS[r.transform || 'none'];
         if (!fn) throw new Error(`Unknown transform "${r.transform}"`);
-        const v = fn(readField(record, r.source), r.options || {}, record);
+        const input = 'value' in r ? r.value : readField(record, r.source);
+        const v = fn(input, r.options || {}, record);
         if (v === undefined || v === null || v === '') continue;
         writeField(out, r.target, v);
     }
     return out;
 }
 
-module.exports = { TRANSFORMS, applyMapping, readField, writeField };
+/** Deep merge, later objects win; arrays and scalars are replaced, not merged. Inputs are not modified. */
+function deepMerge(...objects) {
+    const out = {};
+    for (const o of objects) {
+        if (!o || typeof o !== 'object' || Array.isArray(o)) continue;
+        for (const [k, v] of Object.entries(o)) {
+            out[k] = v && typeof v === 'object' && !Array.isArray(v) && out[k] && typeof out[k] === 'object' && !Array.isArray(out[k]) ? deepMerge(out[k], v) : v;
+        }
+    }
+    return out;
+}
+
+module.exports = { TRANSFORMS, applyMapping, readField, writeField, deepMerge };

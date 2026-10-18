@@ -106,7 +106,10 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
         async onCreate(params) {
             await this.loadDefinition();
             const out = await runLifecycle({ def: this.def, installation: this.installation(), hook: 'onInstall', ports: this.ports });
-            if (out.steps?.hook?.id) await this.patchConfig({ runtime: { ...(this.config.runtime || {}), subscriptions: { quo: out.steps.hook.id } } });
+            // Every onInstall step with an id keeps its result, so onUninstall can undo exactly what install did
+            // ($.install.runtime.installed.<step id>). Saved even when empty, so a re-install replaces stale ids.
+            const installed = Object.fromEntries((this.def.lifecycle?.onInstall || []).filter((st) => st.id).map((st) => [st.id, out.steps?.[st.id] ?? null]));
+            await this.patchConfig({ runtime: { ...(this.config?.runtime || {}), installed } });
             return super.onCreate(params);
         }
 
@@ -122,7 +125,17 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
         }
 
         installation() {
-            return { ...(this.config || {}), integrationId: this.id, webhookUrl: `${process.env.FRIGG_PUBLIC_URL || ''}/api/${id}-integration/webhooks/${this.id}` };
+            return { ...(this.config || {}), integrationId: this.id, accounts: this.accounts(), webhookUrl: `${process.env.FRIGG_PUBLIC_URL || ''}/api/${id}-integration/webhooks/${this.id}` };
+        }
+
+        /** $.install.accounts: per module key, the account fields its manifest declares, read from the module's Api
+         *  (where apiPropertiesToPersist land after auth). An undeclared property is never exposed. */
+        accounts() {
+            return Object.fromEntries(Object.entries(this.def?.modules || {}).map(([key, m]) => {
+                const fields = manifests[m.module]?.account?.fields || [];
+                const api = this[key]?.api || {};
+                return [key, Object.fromEntries(fields.map((f) => [f.name, api[f.name] ?? null]))];
+            }));
         }
 
         async recordRun(run) {

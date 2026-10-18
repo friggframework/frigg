@@ -4,7 +4,7 @@
   "id": "hubspot-slack",
   "version": "1.2.0",
   "display": {
-    "label": "HubSpot → Slack alerts",
+    "label": "HubSpot \u2192 Slack alerts",
     "description": "Deal-won and big-deal alerts, a Monday pipeline digest, and task reminders in DM that can be marked done from Slack.",
     "category": "Notifications",
     "tags": [
@@ -173,17 +173,12 @@
           }
         },
         {
-          "use": "set",
-          "with": {
-            "lines": ""
-          }
-        },
-        {
           "id": "build",
           "use": "foreach",
           "with": {
             "over": "$.steps.deals",
-            "max": 50
+            "max": 50,
+            "collect": "$.steps.line"
           },
           "do": [
             {
@@ -191,12 +186,6 @@
               "use": "template",
               "with": {
                 "id": "digest-line"
-              }
-            },
-            {
-              "use": "set",
-              "with": {
-                "lines": "{{vars.lines}}{{steps.line}}\n"
               }
             }
           ]
@@ -414,7 +403,7 @@
   "templates": {
     "deal-won": ":tada: *{{steps.deal.properties.dealname}}* closed won for ${{steps.deal.properties.amount | default: '?'}}. Nice work {{steps.owner.firstName | default: 'team'}}! <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{steps.deal.id}}|Open deal>",
     "high-value": ":moneybag: New deal over ${{settings.threshold}}: *{{steps.deal.properties.dealname}}* (${{steps.deal.properties.amount}}), closing {{steps.deal.properties.closedate | date}}. <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{steps.deal.id}}|Open deal>",
-    "digest-line": "• <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{item.id}}|{{item.properties.dealname}}>: ${{item.properties.amount | default: 0}}, closes {{item.properties.closedate | date}}",
-    "digest": ":calendar: *Closing in the next 7 days* ({{steps.deals.length | default: 'several'}} deals)\n{{vars.lines}}"
+    "digest-line": "\u2022 <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{item.id}}|{{item.properties.dealname}}>: ${{item.properties.amount | default: 0}}, closes {{item.properties.closedate | date}}",
+    "digest": ":calendar: *Closing in the next 7 days* ({{steps.deals | size}} deals)\n{{steps.build | join: '\\n'}}"
   }
 }

@@ -4,7 +4,7 @@
   "id": "docusign-salesforce",
   "version": "1.3.2",
   "display": {
-    "label": "DocuSign → Salesforce",
+    "label": "DocuSign \u2192 Salesforce",
     "description": "Completed envelopes move the opportunity forward and attach the signed PDF; declined envelopes create a task for the owner; the opportunity page shows every envelope and its status.",
     "category": "Contracts",
     "tags": [
@@ -297,7 +297,7 @@
       {
         "use": "docusign.connect.delete",
         "with": {
-          "connectId": "$.install.runtime.subscriptions.docusign"
+          "connectId": "$.install.runtime.installed.connect.connectId"
         }
       }
     ]

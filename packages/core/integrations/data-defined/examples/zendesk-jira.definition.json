@@ -4,7 +4,7 @@
   "id": "zendesk-jira",
   "version": "2.0.0",
   "display": {
-    "label": "Zendesk ↔ Jira escalation",
+    "label": "Zendesk \u2194 Jira escalation",
     "description": "Escalate a ticket to a Jira issue from the ticket sidebar or with a tag, keep priority in step, and post Jira status changes back to the ticket as internal notes.",
     "category": "Support",
     "tags": [
@@ -171,7 +171,7 @@
           "use": "jira.remoteLink.create",
           "with": {
             "issueIdOrKey": "$.steps.issue.key",
-            "url": "https://{{install.runtime.zendeskSubdomain}}.zendesk.com/agent/tickets/{{record.id}}",
+            "url": "https://{{install.accounts.zendesk.subdomain}}.zendesk.com/agent/tickets/{{record.id}}",
             "title": "Zendesk #{{record.id}}"
           }
         },
@@ -282,7 +282,7 @@
           "use": "jira.remoteLink.create",
           "with": {
             "issueIdOrKey": "$.steps.issue.key",
-            "url": "https://{{install.runtime.zendeskSubdomain}}.zendesk.com/agent/tickets/{{record.id}}",
+            "url": "https://{{install.accounts.zendesk.subdomain}}.zendesk.com/agent/tickets/{{record.id}}",
             "title": "Zendesk #{{record.id}}"
           }
         },
@@ -387,9 +387,18 @@
       },
       "steps": [
         {
+          "id": "jiraWebhookIds",
+          "use": "foreach",
+          "with": {
+            "over": "$.install.runtime.installed.jiraHook.webhookRegistrationResult",
+            "max": 10,
+            "collect": "$.item.createdWebhookId"
+          }
+        },
+        {
           "use": "jira.webhook.refresh",
           "with": {
-            "webhookIds": "$.install.runtime.subscriptions.jira"
+            "webhookIds": "$.steps.jiraWebhookIds"
           }
         }
       ]
@@ -433,7 +442,7 @@
       ],
       "returns": {
         "issue": "$.steps.issue",
-        "site": "$.install.runtime.jiraSite"
+        "site": "$.install.accounts.jira.site"
       }
     }
   ],
@@ -538,7 +547,7 @@
     }
   ],
   "templates": {
-    "issue-description": "Escalated from Zendesk ticket #{{record.id}} ({{record.priority}}, {{record.type | default: 'question'}}).\n\n{{record.description}}\n\nTicket: https://{{install.runtime.zendeskSubdomain}}.zendesk.com/agent/tickets/{{record.id}}",
+    "issue-description": "Escalated from Zendesk ticket #{{record.id}} ({{record.priority}}, {{record.type | default: 'question'}}).\n\n{{record.description}}\n\nTicket: https://{{install.accounts.zendesk.subdomain}}.zendesk.com/agent/tickets/{{record.id}}",
     "status-note": "Jira {{record.key}} moved from \"{{event.changelog.items[0].fromString}}\" to \"{{event.changelog.items[0].toString}}\" (by {{event.user.displayName | default: 'Jira'}})."
   },
   "lifecycle": {
@@ -571,14 +580,23 @@
       {
         "use": "zendesk.webhook.delete",
         "with": {
-          "id": "$.install.runtime.subscriptions.zendesk"
+          "id": "$.install.runtime.installed.zendeskHook.id"
         },
         "onError": "continue"
       },
       {
+        "id": "jiraWebhookIds",
+        "use": "foreach",
+        "with": {
+          "over": "$.install.runtime.installed.jiraHook.webhookRegistrationResult",
+          "max": 10,
+          "collect": "$.item.createdWebhookId"
+        }
+      },
+      {
         "use": "jira.webhook.delete",
         "with": {
-          "webhookIds": "$.install.runtime.subscriptions.jira"
+          "webhookIds": "$.steps.jiraWebhookIds"
         }
       }
     ]

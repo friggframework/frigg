@@ -4,7 +4,7 @@
   "id": "shopify-klaviyo",
   "version": "1.5.0",
   "display": {
-    "label": "Shopify → Klaviyo",
+    "label": "Shopify \u2192 Klaviyo",
     "description": "Customers become Klaviyo profiles, and orders, ordered products, abandoned checkouts and fulfillments become Klaviyo events for flows. The Shopify customer page shows the customer's Klaviyo lists.",
     "category": "Marketing",
     "tags": [
@@ -119,20 +119,6 @@
       },
       "steps": [
         {
-          "id": "amounts",
-          "use": "map",
-          "with": {
-            "record": "$.record",
-            "mapping": [
-              {
-                "source": "total_price",
-                "target": "value",
-                "transform": "number"
-              }
-            ]
-          }
-        },
-        {
           "use": "klaviyo.event.create",
           "with": {
             "metric": "Placed Order",
@@ -148,7 +134,7 @@
               "SourceName": "$.record.source_name",
               "ShippingCity": "$.record.shipping_address.city"
             },
-            "value": "$.steps.amounts.value",
+            "value": "{{record.total_price | number}}",
             "time": "$.record.created_at",
             "uniqueId": "order-{{record.id}}"
           }
@@ -213,20 +199,6 @@
       },
       "steps": [
         {
-          "id": "amounts",
-          "use": "map",
-          "with": {
-            "record": "$.record",
-            "mapping": [
-              {
-                "source": "total_price",
-                "target": "value",
-                "transform": "number"
-              }
-            ]
-          }
-        },
-        {
           "use": "klaviyo.event.create",
           "with": {
             "metric": "Started Checkout",
@@ -239,7 +211,7 @@
               "Items": "$.record.line_items",
               "Currency": "$.record.currency"
             },
-            "value": "$.steps.amounts.value",
+            "value": "{{record.total_price | number}}",
             "time": "$.record.created_at",
             "uniqueId": "checkout-{{record.token}}"
           }
@@ -457,7 +429,8 @@
           "topic": "orders/create",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-orders-create"
       },
       {
         "use": "shopify.webhook.create",
@@ -465,7 +438,8 @@
           "topic": "fulfillments/create",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-fulfillments-create"
       },
       {
         "use": "shopify.webhook.create",
@@ -473,7 +447,8 @@
           "topic": "customers/create",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-customers-create"
       },
       {
         "use": "shopify.webhook.create",
@@ -481,7 +456,8 @@
           "topic": "customers/update",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-customers-update"
       }
     ],
     "onUninstall": [
@@ -489,7 +465,12 @@
         "id": "unhook",
         "use": "foreach",
         "with": {
-          "over": "$.install.runtime.subscriptions.shopify",
+          "over": [
+            "$.install.runtime.installed.hook-orders-create.id",
+            "$.install.runtime.installed.hook-fulfillments-create.id",
+            "$.install.runtime.installed.hook-customers-create.id",
+            "$.install.runtime.installed.hook-customers-update.id"
+          ],
           "max": 20
         },
         "do": [

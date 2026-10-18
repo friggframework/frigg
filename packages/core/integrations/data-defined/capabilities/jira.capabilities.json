@@ -5,6 +5,21 @@
   "package": "@friggframework/api-module-jira",
   "version": "2.2.0",
   "auth": "oauth2",
+  "account": {
+    "description": "Values about the connected account, persisted by the module (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>.",
+    "fields": [
+      {
+        "name": "site",
+        "type": "string",
+        "description": "Atlassian site host (acme.atlassian.net)"
+      },
+      {
+        "name": "cloudId",
+        "type": "string",
+        "description": "Atlassian cloud id used in API URLs"
+      }
+    ]
+  },
   "objects": {
     "issue": {
       "label": "Issue",

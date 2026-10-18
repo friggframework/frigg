@@ -4,7 +4,7 @@
   "id": "stripe-quickbooks",
   "version": "1.0.0",
   "display": {
-    "label": "Stripe → QuickBooks Online",
+    "label": "Stripe \u2192 QuickBooks Online",
     "description": "Book every Stripe payment as a QuickBooks sales receipt, refunds as refund receipts, keep customers matched, and reconcile each night's payouts into deposits net of Stripe fees.",
     "category": "Accounting",
     "tags": [
@@ -235,25 +235,13 @@
           }
         },
         {
-          "id": "money",
-          "use": "code",
-          "with": {
-            "ref": "@lefthook/finance-steps#fromMinorUnits@1.0.0",
-            "with": {
-              "amount": "$.record.amount_received",
-              "currency": "$.record.currency",
-              "timestamp": "$.record.created"
-            }
-          }
-        },
-        {
           "id": "receipt",
           "use": "map",
           "with": {
             "record": {
               "paymentId": "$.record.id",
-              "amount": "$.steps.money.amount",
-              "date": "$.steps.money.date",
+              "amount": "{{record.amount_received | from_minor_units: record.currency}}",
+              "date": "{{record.created | from_unix | date}}",
               "currency": "$.record.currency",
               "description": "$.record.description",
               "email": "$.record.receipt_email",
@@ -297,12 +285,8 @@
                 }
               },
               {
-                "source": "detailType",
                 "target": "Line[0].DetailType",
-                "transform": "default",
-                "options": {
-                  "value": "SalesItemLineDetail"
-                }
+                "value": "SalesItemLineDetail"
               },
               {
                 "source": "amount",
@@ -361,18 +345,6 @@
           }
         },
         {
-          "id": "money",
-          "use": "code",
-          "with": {
-            "ref": "@lefthook/finance-steps#fromMinorUnits@1.0.0",
-            "with": {
-              "amount": "$.record.amount",
-              "currency": "$.record.currency",
-              "timestamp": "$.record.created"
-            }
-          }
-        },
-        {
           "id": "note",
           "use": "template",
           "with": {
@@ -386,7 +358,7 @@
               "CustomerRef": {
                 "value": "{{steps.customer.quickbooks | default: install.guestCustomer}}"
               },
-              "TxnDate": "$.steps.money.date",
+              "TxnDate": "{{record.created | from_unix | date}}",
               "DepositToAccountRef": {
                 "value": "$.install.clearingAccount"
               },
@@ -394,7 +366,7 @@
               "PrivateNote": "$.steps.note",
               "Line": [
                 {
-                  "Amount": "$.steps.money.amount",
+                  "Amount": "{{record.amount | from_minor_units: record.currency}}",
                   "DetailType": "SalesItemLineDetail",
                   "SalesItemLineDetail": {
                     "ItemRef": {

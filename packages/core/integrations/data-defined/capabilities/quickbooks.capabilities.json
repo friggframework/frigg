@@ -5,6 +5,16 @@
   "package": "@friggframework/api-module-quickbooks",
   "version": "2.0.1",
   "auth": "oauth2",
+  "account": {
+    "description": "Values about the connected account, persisted by the module (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>.",
+    "fields": [
+      {
+        "name": "realmId",
+        "type": "string",
+        "description": "QuickBooks company id the connection was authorized for"
+      }
+    ]
+  },
   "objects": {
     "customer": {
       "label": "Customer",

@@ -7,11 +7,13 @@ const path = require('path');
 const { validate } = require('./validate');
 const { compile, routeWebhook, eventName } = require('./compile');
 const { execute } = require('./interpreter');
-const { makePorts, runWorkflow, runQuery, renderSurface, resolveView, runLifecycle } = require('./runtime');
+const { makePorts, runWorkflow, runQuery, renderSurface, resolveView, runLifecycle, resolveOptions } = require('./runtime');
 const { diff, checkBump, planUpgrade } = require('./versioning');
 const { defineIntegrationClass, defineSharedIntegrationClass, memoryDefinitions } = require('./data-defined-integration');
 const { BUILTINS } = require('./steps');
 const { TRANSFORMS, applyMapping } = require('./transforms');
+const { FILTERS } = require('./expressions');
+const { validateManifest } = require('./manifests');
 
 /** Load every capabilities/*.capabilities.json (bundled mocks; real modules ship their own). */
 function loadManifests(dir = path.join(__dirname, 'capabilities')) {
@@ -25,10 +27,10 @@ function loadExamples(dir = path.join(__dirname, 'examples')) {
 
 module.exports = {
     SCHEMA_VERSION: '0.1',
-    validate, compile, routeWebhook, eventName, execute,
+    validate, validateManifest, compile, routeWebhook, eventName, execute,
     makePorts, runWorkflow, runQuery, renderSurface, resolveView, runLifecycle,
     diff, checkBump, planUpgrade,
     defineIntegrationClass, defineSharedIntegrationClass, memoryDefinitions,
-    BUILTINS, TRANSFORMS, applyMapping,
+    BUILTINS, TRANSFORMS, FILTERS, applyMapping, resolveOptions,
     loadManifests, loadExamples,
 };

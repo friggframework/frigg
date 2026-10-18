@@ -34,6 +34,41 @@
         "basic"
       ]
     },
+    "account": {
+      "type": "object",
+      "description": "Values about the connected account the module persists (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>; nothing undeclared is exposed.",
+      "required": [
+        "fields"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z_]\\w*$"
+              },
+              "type": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
     "objects": {
       "type": "object",
       "additionalProperties": {
@@ -67,7 +102,15 @@
                   "type": "boolean"
                 },
                 "values": {
-                  "type": "array"
+                  "description": "enum: the values, or the name of one of this module's option lists when they differ per account.",
+                  "oneOf": [
+                    {
+                      "type": "array"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
                 }
               }
             }
@@ -164,10 +207,29 @@
             "type": "string"
           },
           "label": {
-            "type": "string"
+            "type": "string",
+            "description": "One reference ($.item.name) or a template ({{item.firstName}} {{item.lastName}}); never a $. reference mixed into text."
           },
           "value": {
             "type": "string"
+          },
+          "inputs": {
+            "type": "object",
+            "description": "Arguments the list capability needs, filled from a setting's options.with.",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              }
+            }
           }
         }
       }

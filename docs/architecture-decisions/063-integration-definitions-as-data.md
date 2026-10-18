@@ -125,9 +125,13 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 32 tests. It runs a real definition (Quo ⇄ HubSpot, seven workflows,
-one two-way sync, two UI surfaces) end to end against fake API modules. This section records how it works, where it
-changed the sketch above, and what it does not do yet. File references are relative to that directory.
+`packages/core/integrations/data-defined/`, with 66 tests. It runs 16 example definitions (Quo ⇄ HubSpot is the
+reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
+manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
+references are relative to that directory.
+
+v0.1 is the version to iterate on for about a month before anything becomes v0.2. The gaps the examples exposed were
+therefore closed inside v0.1 rather than deferred (§20).
 
 ### 7. Three layers, stored separately
 
@@ -157,14 +161,15 @@ are in `examples/records/`.
     "syncs":     { "contacts": { "enabled": true, "mapping": [ /* optional full override */ ] } },
     "workflows": { "missed-call-task": { "enabled": true, "settings": { "owner": "81273645" } } },
     "ui":        { "quo-card": { "enabled": true } },
-    "runtime":   { "subscriptions": { "quo": "WHk2c9" }, "cursors": {} }               // written by the runtime only
+    "runtime":   { "installed": { "hook": { "id": "WHk2c9" } } }                        // written by the runtime only
   }
   ```
   An absent `enabled` means "use the definition's `default`". The existing `Integration.version` column mirrors the
-  pin so it can be indexed.
+  pin so it can be indexed. `runtime.installed` holds each `onInstall` step's result by step id (§15).
 - **`IntegrationMapping`** holds three kinds of row, distinguished by key prefix:
-  - `link:<sync>:<module>:<id>`: "this record on this side is linked to these ids on the other side".
-  - `idx:<sync>:<key>:<normalised value>`: the identity index, for example `idx:contacts:phone:+15125550142`.
+  - `link:<set>:<module>:<id>`: "this record on this side is linked to these ids on the other side". `<set>` is a
+    sync id or a link set id (§8).
+  - `idx:<set>:<key>:<normalised value>`: the identity index, for example `idx:contacts:phone:+15125550142`.
   - `evt:<definition>:<workflow>:<eventId>`: the dedupe claim, written insert-only.
 
   The mapping repository already exists, so no new table is needed for state.
@@ -180,8 +185,9 @@ JSON Schema: `schema/integration-definition.v0.1.schema.json`. Top-level keys:
 |---|---|
 | `id`, `version`, `schemaVersion`, `display` | Identity |
 | `modules` | `{ <key>: { module: "hubspot", version: "^3" } }`. The key is how steps refer to the module |
-| `settings` | Integration-level settings: `type`, `label`, `required`, `default`, `options` (a literal list, or a module's options source such as `hubspot.owners`) |
-| `syncs[]` | `id`, `source`/`target` (`module.object`), `direction` (`one_way | two_way`), `identity.match[]` (`{key, source, target, transform}`), `mapping[]`, `backfill`, `ongoing` (`webhook | poll | none`), `default` |
+| `settings` | Integration-level settings: `type`, `label`, `required`, `default`, `options`. An option setting names a module's option list (`hubspot.owner`), or `{ source, with }` when the list takes inputs read from earlier choices: `{ "source": "asana.project", "with": { "workspaceGid": "$.settings.workspace" } }` |
+| `syncs[]` | `id`, `source`/`target` (`module.object`), `direction` (`one_way | two_way`), `identity.match[]` (`{key, source, target, transform}`), `mapping[]` (rows read a `source` or write a fixed `value`), `backfill`, `ongoing` (`webhook | poll | none`), `default`. A definition may be syncs only, with no workflows |
+| `links[]` | Link sets: `id`, `between` (two `module.object` on different modules), `identity.match[]` (`{key, transform}`). Records known to be the same thing with no sync behind them, such as a Calendly invitee and the Salesforce Lead it booked as |
 | `workflows[]` | `id`, `label`, `description`, `default` (`on | off`), `trigger`, per-workflow `settings`, `steps[]` |
 | `queries[]` | Named read-only step lists that feed UI surfaces |
 | `ui[]` | `id`, `host` (module key), `placement`, `query`, `view` (a component tree), `default` |
@@ -202,11 +208,23 @@ code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo i
 - **`capabilities`**: `<object>.<verb>` → `{ kind: read | write, method, input }`. `method` names a method on the
   module's existing `Api` class. A step `hubspot.task.create` therefore resolves to `HubSpotApi.createTask(args)`, and
   nothing else is reachable.
-- **`options`**: the lists a settings dropdown can draw from, such as owners or phone numbers.
+- **`options`**: the lists a settings dropdown can draw from, such as owners or phone numbers: a read capability,
+  `label` and `value` expressions over `$.item`, and `inputs` when the capability needs arguments (Asana projects need
+  a workspace).
+- **`account`**: values about the connected account that the module persists after auth (`apiPropertiesToPersist`),
+  such as QuickBooks' `realmId` or a Zendesk subdomain. Definitions read them as `$.install.accounts.<key>.<field>`;
+  nothing undeclared is exposed.
 - **`ui`**: the placements this host offers, such as HubSpot's `crm.record.sidebar` and Quo's `conversation.sidebar`.
 
 The manifest is the module author's promise of what is safe to call. Adding a capability is a module release, which
 is code that gets reviewed. Using it from a definition is a publish. This is the line between the two authoring forms.
+
+Because definitions are checked against manifests, a broken manifest would let a broken definition through, so
+manifests are validated too (`manifests.js` `validateManifest`): capability kinds, option lists that call a read
+capability and declare its required arguments as inputs, option labels that are one reference or a template, enum
+fields with values, and event `record` paths that exist in the example payload. Writing it found three real faults
+in the mocks: HubSpot's owner label rendered `$.item.firstName` literally, a Shopify capability had a kind the schema
+does not allow, and a HubSpot enum listed no values.
 
 ### 10. Steps and expressions (as built)
 
@@ -215,12 +233,13 @@ A step is `{ id?, use, with?, when?, onError? }` (`steps.js`). `use` is either a
 
 | Built-in | Does |
 |---|---|
-| `links.find` / `links.upsert` | Read and write the link and identity rows above, normalising keys with the sync's identity transform |
-| `map` | Apply a sync's mapping, or the installation's override of it, or inline rows (`transforms.js`: `trim`, `lowercase`, `to_e164_phone`, `split_full_name`, `to_iso_date`, `map_values`, …) |
+| `links.find` / `links.upsert` | Read and write the link and identity rows above, by `sync` or by `link` (a link set), normalising keys with that set's identity transform |
+| `map` | Apply a sync's mapping, or the installation's override of it, or inline rows (`transforms.js`: `trim`, `lowercase`, `to_e164_phone`, `split_full_name`, `to_iso_date`, `map_values`, `units_to_cents`, `from_unix_seconds`, …). A row reads `source` or writes a fixed `value` |
+| `merge` | Deep-merge objects into one: later wins, lists are replaced, inputs are untouched |
 | `template` | Render a named or inline template |
 | `set` | Write into `$.vars` |
 | `stop` | End the run as `stopped`, a normal outcome and not an error |
-| `foreach` | Nested steps per item, `max` defaults to 100, hard cap `FOREACH_HARD_CAP` = 1000 |
+| `foreach` | Nested steps per item, `max` defaults to 100, hard cap `FOREACH_HARD_CAP` = 1000. `where` skips items (checked before the cap, so `max` bounds the work done); `collect` makes the step's result a list of one value per item, which may read that iteration's steps |
 | `branch` | First case whose `when` holds, else `else` |
 | `code` | Call a registered, versioned code step: `"pkg#fn@1.2.0"`. This is the only way custom code runs |
 
@@ -228,8 +247,16 @@ A step is `{ id?, use, with?, when?, onError? }` (`steps.js`). `use` is either a
 
 **Expressions** (`expressions.js`) take three forms:
 - a reference, `$.event.data.object.from`, which keeps its type;
-- a template, `"Quo call · {{record.duration | minutes}}m"`, with filters `upper`, `lower`, `minutes`, `seconds`,
-  `date`, `json`, `default`, `truncate`; a filter argument may itself be a path;
+- a template, `"Quo call · {{record.duration | minutes}}m"`. A filter argument may itself be a path. A string that is
+  exactly one tag keeps the value's type, so `"{{item.Amount | to_cents}}"` is a number and `"{{steps.ids}}"` a list.
+  Filters are named, total functions (bad input gives blank, never a throw):
+  - text and dates: `upper`, `lower`, `truncate`, `default`, `date`, `json`, `minutes`, `seconds`;
+  - lists: `join`, `size`, `first`;
+  - arithmetic: `plus`, `minus`, `times`, `divided_by` (by zero is blank), `round`, `abs`, `number`;
+  - money: `to_cents` / `from_cents`, and `to_minor_units` / `from_minor_units` with a currency argument, because JPY
+    has no minor unit and KWD has three. Rounding is half-up in decimal, so 19.995 is 2000 cents, not the 1999 that
+    `19.995 * 100` gives in binary floating point;
+  - time: `from_unix` / `to_unix`.
 - a condition, `"$.steps.contact == null && $.record.direction in ['incoming']"`.
 
 Conditions are tokenised and parsed by a small recursive-descent parser. Nothing is passed to `eval` or `Function`.
@@ -242,28 +269,47 @@ The roots a path may start from are fixed: `event`, `record`, `steps`, `settings
   property holds in practice.
 - The condition language is slightly richer than `eq/in/exists/and/or/not`: it also has comparisons, `contains` and
   `!`. It has no arithmetic and no calls.
+- Arithmetic exists, but only as named filters. Converting cents or unix time is the most common reason the examples
+  reached for a `code` step, and a code step for `amount / 100` costs a reviewed release. A filter is total and
+  side-effect free, which keeps §1's property; an expression language would not.
 
-Treat both as the ceiling, not a first step.
+Treat all three as the ceiling, not a first step.
 
 ### 11. Validation is the compile step
 
 `validate(def, manifests)` (`validate.js`) returns `{ valid, errors[], warnings[] }`, and every error carries a
 `path`. Beyond JSON Schema, it resolves every reference a schema cannot see:
 
-- Ids are unique across all kinds.
+- Ids are unique across all kinds, link sets included.
 - Every module key has a manifest.
-- A setting's `options` source exists.
-- Sync fields exist on both objects, identity keys are declared, and a write never targets a read-only field.
+- A setting's `options` source exists, its required inputs are supplied, it reads no undeclared input, and inputs
+  read only `$.settings` at the same level (a workflow setting may also read `$.install`), never the setting itself
+  and never in a loop.
+- Sync fields exist on both objects, identity keys are declared, and a write never targets a read-only field. Every
+  mapping row has a source or a fixed value, never both.
+- A link set joins two existing objects on different modules.
 - Every capability step exists, required arguments are present and undeclared ones are refused.
 - `$.steps.x` only refers to an *earlier* step, `$.settings.y` to a declared setting, and `$.item` appears only
   inside `foreach`.
-- `links.*` keys are identity keys of that sync, templates exist, and `code` refs are well formed.
+- `links.*` names exactly one sync or link set; its keys are identity keys of that set, and `from` / `ids` name
+  modules the set joins. Templates exist, and `code` refs are well formed. `foreach` has `do`, `collect` or both, and
+  `max` is 1 to 1000.
+- Every template tag, anywhere (step arguments, named templates, views), uses a known filter. A named template that
+  no step renders is a warning.
+- `$.install` paths exist: an integration setting, `accounts.<module key>.<field>` the manifest declares, or
+  `runtime.installed.<onInstall step id>`, which install steps themselves cannot read.
 - A webhook trigger's topic is in the manifest's `events`, and a cron has five fields.
 - A `userAction` with `from` names a real UI surface, and a `syncRecord` trigger names a real sync.
 - A UI placement is offered by the host, its query exists, components are in the fixed set, and every `Button`
-  targets a `userAction` workflow.
+  targets a `userAction` workflow. A view reads only `$.data` (and only keys its query returns), `$.record` and
+  `$.install`; `$.item` only inside a `List` row and `$.row` only inside a `Table` column. A typo there would render
+  blank, so it is an error here instead.
 
 An invalid definition cannot be published. This is the "checks still compile" property from Context, made literal.
+
+The JSON Schemas are the published contract and `validate` is what the runtime enforces; `tests/schemas.test.js`
+runs every example and manifest through both with `ajv` (already a dependency of `@friggframework/schemas`), and
+pins the schema's transform list to the runtime's, so the two cannot drift.
 
 ### 12. Compiling an installation into ordinary Frigg events
 
@@ -352,7 +398,7 @@ others that listened for the same event.
   claim behind so every retry read as "duplicate". It is now pinned by a test.
 - Within a retried run, steps are **at-least-once**. If step 3 wrote to HubSpot and step 4 failed, the retry writes
   step 3 again. Idempotent capabilities (upserts, `links.find` before create) are the v0.1 answer.
-- Per-step checkpointing is v0.2.
+- Per-step checkpointing comes after v0.1.
 
 **A schedule fires.** `CRON` → `WF_STALE_CONTACTS`, with no event id, so there is no claim. Steps such as
 `hubspot.contact.search` followed by `foreach` run in the same interpreter.
@@ -364,10 +410,15 @@ others that listened for the same event.
 
 | Moment | What runs | Code |
 |---|---|---|
-| **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `quo.webhook.create` pointed at this installation's webhook URL. The returned subscription id is saved to `config.runtime.subscriptions` with `patchConfig` | `onCreate` |
+| **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `quo.webhook.create` pointed at this installation's webhook URL. Every install step with an `id` has its result saved to `config.runtime.installed.<id>` with `patchConfig` | `onCreate` |
 | **Configure** | The customer toggles workflows, changes settings or overrides a mapping. `onUpdate` merges config, then recompiles: enabling a workflow adds its event, routes and schedule, and disabling removes them. No deploy, and no other installation is affected | `onUpdate` |
 | **Update** (new version) | Nothing happens to running installations. Each stays on its pin until it is moved, as in §17 | `planUpgrade` |
-| **Uninstall** | `onDelete` runs `lifecycle.onUninstall` (for example `quo.webhook.delete` with the saved subscription id), then the framework removes the record | `onDelete` |
+| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`quo.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), then the framework removes the record | `onDelete` |
+
+`$.install` is built by one function, `installContext`, everywhere a definition runs: workflows, queries, UI
+surfaces, lifecycle steps and option lists. It holds the integration settings with their defaults, `webhookUrl`,
+`integrationId`, `accounts` and `runtime.installed`. The first cut built it four ways, and the query and UI versions
+had no `runtime`, so a query reading an install result silently got nothing.
 
 ### 16. UI surfaces
 
@@ -391,15 +442,17 @@ The renderers themselves are not in v0.1.
 | Level | Changes |
 |---|---|
 | **patch** | Steps, templates, view and query bodies, default mapping rows, labels and help text, a setting's default |
-| **minor** | Additive: a new workflow (with its `default`), a new optional setting, a new sync, a new or moved UI surface, a changed trigger topic, filter or schedule, a removed setting, changed lifecycle steps |
-| **major** | Anything an installation may rely on goes away or changes meaning: a removed workflow or sync, a new module, a replaced module, a new required setting with no default, a setting whose type changed or that became required, changed identity keys, a changed sync direction, a changed trigger source |
+| **minor** | Additive: a new workflow (with its `default`), a new optional setting, a new sync or link set, a new or moved UI surface, a changed trigger topic, filter or schedule, a removed setting, changed lifecycle steps, changed option-list inputs |
+| **major** | Anything an installation may rely on goes away or changes meaning: a removed workflow, sync or link set, a new module, a replaced module, a new required setting with no default, a setting whose type or option list changed or that became required, changed identity keys (sync or link set), a link set joining different objects, a changed sync direction, a changed trigger source |
 
 - **`checkBump(from, to)`** refuses a publish whose declared semver bump is smaller than the computed level. Shipping
   an identity change as 1.5.0 is an error, not a review comment.
 - **`planUpgrade(installation, from, to)`** returns three things for one installation:
   - `needs`: what a human must supply, such as a value for the new required setting or a connection to the new module;
   - `actions`: what the runtime will do, such as re-running `onInstall` because lifecycle changed, or rebuilding
-    links because identity changed;
+    links because identity changed. A link set has no backfill to rebuild from, so a changed link-set identity is a
+    `reindex` action that says plainly that links by id still resolve and lookups by the new keys miss until each
+    pair is linked again;
   - the new `config`.
 
   An upgrade with unmet `needs` cannot be applied. Patches and minors with no needs can be applied in bulk.
@@ -411,6 +464,26 @@ The renderers themselves are not in v0.1.
   reverse direction too.
 
 This is ADR-030's Path D, "version as a routing dimension outside the class", for the cost of one column.
+
+**ADR-030's serverless concerns, answered for data-defined integrations.** ADR-030 itself stays undecided for
+code-defined classes; this is the answer only where the class is the shared interpreter.
+
+| ADR-030 concern | Data-defined answer (v0.1) |
+|---|---|
+| Lambda module-scope caching | Nothing version-specific is read at module scope. The definition is fetched when an installation is hydrated for an event and cached by `id@version`, so one warm Lambda serves several versions at once and a publish needs no deploy |
+| In-flight SQS jobs | Every message carries `definitionVersion`, and `dispatch` runs it on that version: ADR-030's "dispatch by the payload's declared version" |
+| EventBridge Scheduler entries | The rule: a scheduled run carries no version and runs on the installation's current pin, because a schedule belongs to the installation, not to the version that created it. `compile` produces each installation's `schedules`, so an upgrade that changes a cron yields a different list. **Registering that list is not built in v0.1** (§19), so this row is the contract for when it is |
+| Signed webhook URLs | URLs are per installation, not per version, so an upgrade re-registers nothing. Only a change to `lifecycle.onInstall` re-runs install, and `planUpgrade` lists that as a `reinstall` action |
+| Rollback | Moving the pin back is a config write (ADR-030's Path C behaviour). An identity change still needs links rebuilt in both directions, and `planUpgrade` says so |
+| Global routing / edge | Unchanged: routing is by installation id, and the version is resolved at the origin from the record |
+| Encryption schema | Unchanged: credentials stay in the module's entity and credential rows. A definition never holds a secret, and `$.install.accounts` exposes only fields a manifest declares |
+
+**Relation to [ADR-013](./013-integration-version-migrations.md).** ADR-013 transforms persisted records between
+versions; it explicitly deferred the version model to ADR-030. For data-defined integrations the version model is
+the above, and the record migrations ADR-013 describes reduce to two things: `planUpgrade` rewrites
+`Integration.config` (settings dropped or added, workflows enabled or offered, the pin moved), and an identity change
+rebuilds `link:` / `idx:` rows. v0.1 performs the first and reports the second as `relink` / `reindex` actions; it
+does not rebuild the rows itself.
 
 ### 18. Hosting
 
@@ -428,18 +501,53 @@ work kept apart from bulk work.
 
 | Missing | Why it matters | Plan |
 |---|---|---|
-| **Sync engine**: backfill pages, ongoing deltas, two-way master and conflict rules | `SYNC_*` events compile, but `runSync` throws "not implemented in v0.1" | v0.2, reusing the existing `SYNC_PAGE` and `Process` patterns from `BaseCRMIntegration` |
-| `delay`, approvals, per-module rate limits | Common in workflows; each needs durable state between steps | v0.2 with step checkpointing |
+| **Sync engine**: backfill pages, ongoing deltas, two-way master and conflict rules | `SYNC_*` events compile, but `runSync` throws "not implemented in v0.1" | Reuse the existing `SYNC_PAGE` and `Process` patterns from `BaseCRMIntegration` |
+| `delay`, approvals, per-module rate limits | Common in workflows; each needs durable state between steps | With step checkpointing |
+| Rebuilding links after an identity change | `planUpgrade` reports `relink` / `reindex`; nothing performs it | With the sync engine, which owns backfill |
+| Registering `compiled.schedules` | Schedule-triggered workflows and polling syncs compile to `CRON` events, but nothing creates the recurring schedule. Frigg's scheduler commands schedule one-time jobs, so recurring per-installation schedules need either an EventBridge schedule group per installation or one app-level tick that fans out | A design decision of its own |
+| Mounting `compiled.routes` (`GET /ui/<surface>`) | The `UI_*` events exist in `this.events`, but no router serves them yet, so `renderSurface` is reachable only in-process | With the first host renderer |
 | Publish and upgrade endpoints; Prisma models and migrations | The store is `memoryDefinitions()` today | Next |
 | Host renderers (HubSpot card, Quo panel) | `renderSurface` returns trees that nothing draws yet | Per host |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |
-| A JSON Schema validator in the loop | `validate` covers reference checks; the `.schema.json` files are not yet run by AJV in tests | With `@friggframework/schemas` |
+
+Their order is decided by a month of iteration on v0.1, not fixed here.
+
+### 20. Gaps the examples exposed, closed in v0.1
+
+Writing 14 more examples against the first cut found seven places the format was thin. Each was closed inside v0.1:
+
+| Gap | Was | Now |
+|---|---|---|
+| Links needed a sync | Two Calendly syncs that never run existed only to store links | `links[]` link sets (§8); `links.*` take `{ link }` |
+| No fixed values, no merge | A `default` transform on a field that does not exist | Mapping rows with `value`; a `merge` step |
+| `foreach` could not collect | Digests grew a string with `set` on every item | `collect` and `where`; `join` and `size` filters |
+| Templates and views unchecked | A wrong filter or `$.data` key rendered blank at runtime | Validated statically (§11), plus unused-template warnings |
+| Option lists took no inputs | Asana projects and Linear states made a required argument optional | `options: { source, with }`; `resolveOptions`; manifest `inputs` |
+| No arithmetic | Code steps for cents and unix time | Named, total filters (§10); currency-aware minor units |
+| No sync-only example | Every example had workflows | `pipedrive-hubspot`: one two-way sync, no workflows |
+
+Closing them found more, each fixed and pinned by a test:
+- **Install results.** `onCreate` saved only `steps.hook.id`, under a hard-coded `subscriptions.quo`. Every other
+  install step's result was lost, so pipedrive-quo, both Shopify examples and zendesk-jira would have uninstalled
+  against ids nobody stored. Now `runtime.installed.<step id>` (§15).
+- **Account values.** Four examples read `$.install.runtime.realmId`-style values nothing wrote. They come from the
+  connected account, so manifests declare `account` fields (§9).
+- **`$.install` differed by entry point** (§15).
+- **Rounding.** `round: 2` turned 1.005 into 1, and `to_cents` turned 19.995 into 1999, both from binary floating
+  point. Rounding is now in decimal.
+- **Manifests**: three faults found by `validateManifest` (§9), and drifted JSON Schemas (transform list, required
+  `source`, string-only `options`) caught by running them (§11).
+
+Each new check was mutation-tested: 24 mutations, one per rule (a link set read as a sync, `collect` or `where`
+ignored, a check switched off, currency ignored, binary rounding, install results not saved, accounts exposing every
+Api property, a failed run keeping its claim, …), and every one makes the suite fail.
 
 **Code map.** `expressions.js`, `transforms.js` and `steps.js` define the vocabulary. `interpreter.js` runs a step
-list and produces the trace. `validate.js` and `compile.js` are the compile side. `runtime.js` holds the ports,
-`runWorkflow`, `runQuery`, `renderSurface` and `runLifecycle`. `versioning.js` and `canonical.js` handle publishing.
-`data-defined-integration.js` is the bridge to `IntegrationBase`. The schemas are in `schema/` and the tests in
-`tests/data-defined.test.js`. Run the tests from that directory with `jest --config '{}' --rootDir . tests`.
+list and produces the trace. `validate.js`, `manifests.js` and `compile.js` are the compile side. `runtime.js` holds
+the ports, `runWorkflow`, `runQuery`, `renderSurface`, `runLifecycle`, `resolveOptions` and `installContext`.
+`versioning.js` and `canonical.js` handle publishing. `data-defined-integration.js` is the bridge to
+`IntegrationBase`. The schemas are in `schema/` and the tests in `tests/`. Run the tests from that directory with
+`jest --config '{}' --rootDir . tests`.
 
 ## Where this leads: Frigg in other runtimes
 
@@ -524,7 +632,8 @@ So "Frigg in Rust" splits into options with very different costs:
 - [ADR-020](./020-capabilities.md): capabilities declared by definitions
 - [ADR-021](./021-ontology.md): agent context for authoring definitions (not a field vocabulary)
 - [ADR-027](./027-ssm-parameter-offload-and-env-scoping.md): per-function environment, relevant once many integrations share functions
-- [ADR-030](./030-integration-versioning.md): versioning, which the definition store makes concrete
+- [ADR-013](./013-integration-version-migrations.md): record migrations between versions; §17 says what they reduce to here
+- [ADR-030](./030-integration-versioning.md): versioning, which the definition store makes concrete (§17 answers its serverless concerns for data-defined integrations)
 - [ADR-057](./057-canonical-schema.md) (PR #676): data-only mappings this format reuses
 - ADR-062 (proposed, not yet written): per-app module instances, referenced by `modules.*.instance`
 - Follow-up: an ADR on runtime targets and the queue port

@@ -243,7 +243,7 @@
             },
             "icon": {
               "type": "emoji",
-              "emoji": "📞"
+              "emoji": "\ud83d\udcde"
             },
             "properties": {
               "Name": {
@@ -508,7 +508,7 @@
                 },
                 {
                   "label": "Next step",
-                  "value": "{{data.proposal.nextStep | default: '—'}}"
+                  "value": "{{data.proposal.nextStep | default: '\u2014'}}"
                 }
               ]
             }
@@ -544,7 +544,7 @@
   ],
   "templates": {
     "summary-note": "<b>{{record.title}}</b> ({{record.recording_start_time | date}})<br/>{{record.default_summary.markdown_formatted}}<br/><a href=\"{{record.share_url}}\">Watch the recording</a>",
-    "approval-request": ":telephone_receiver: After \"{{record.title}}\", Fathom suggests moving *{{steps.deals[0].properties.dealname}}* from `{{steps.deals[0].properties.dealstage}}` to `{{steps.proposal.stage}}`.\nNext step: {{steps.proposal.nextStep | default: 'none captured'}}\nUse the message menu → *Deal stage proposal* to approve."
+    "approval-request": ":telephone_receiver: After \"{{record.title}}\", Fathom suggests moving *{{steps.deals[0].properties.dealname}}* from `{{steps.deals[0].properties.dealstage}}` to `{{steps.proposal.stage}}`.\nNext step: {{steps.proposal.nextStep | default: 'none captured'}}\nUse the message menu \u2192 *Deal stage proposal* to approve."
   },
   "lifecycle": {
     "onInstall": [
@@ -567,7 +567,7 @@
       {
         "use": "fathom.webhook.delete",
         "with": {
-          "id": "$.install.runtime.subscriptions.fathom"
+          "id": "$.install.runtime.installed.hook.id"
         }
       }
     ]

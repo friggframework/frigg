@@ -4,7 +4,7 @@
   "id": "asana-slack",
   "version": "0.2.0",
   "display": {
-    "label": "Asana → Slack nudges",
+    "label": "Asana \u2192 Slack nudges",
     "description": "Each afternoon, everyone gets a DM listing their Asana tasks due tomorrow; completed tasks in a project are announced in its channel.",
     "category": "Notifications",
     "tags": [
@@ -32,7 +32,12 @@
     },
     "project": {
       "type": "option",
-      "options": "asana.project",
+      "options": {
+        "source": "asana.project",
+        "with": {
+          "workspaceGid": "$.settings.workspace"
+        }
+      },
       "label": "Project to announce completed tasks from",
       "required": true
     }
@@ -207,7 +212,7 @@
       {
         "use": "asana.webhook.delete",
         "with": {
-          "webhookGid": "$.install.runtime.subscriptions.asana"
+          "webhookGid": "$.install.runtime.installed.hook.gid"
         }
       }
     ]

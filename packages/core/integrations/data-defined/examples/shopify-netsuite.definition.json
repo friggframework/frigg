@@ -4,7 +4,7 @@
   "id": "shopify-netsuite",
   "version": "2.2.0",
   "display": {
-    "label": "Shopify → NetSuite",
+    "label": "Shopify \u2192 NetSuite",
     "description": "Paid Shopify orders become NetSuite sales orders, customers follow them, NetSuite fulfillments write tracking back to Shopify, refunds become credit memos, and low stock is announced in Slack.",
     "category": "ERP",
     "tags": [
@@ -543,7 +543,8 @@
           "topic": "orders/create",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-orders-create"
       },
       {
         "use": "shopify.webhook.create",
@@ -551,7 +552,8 @@
           "topic": "orders/paid",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-orders-paid"
       },
       {
         "use": "shopify.webhook.create",
@@ -559,7 +561,8 @@
           "topic": "customers/create",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-customers-create"
       },
       {
         "use": "shopify.webhook.create",
@@ -567,7 +570,8 @@
           "topic": "customers/update",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-customers-update"
       },
       {
         "use": "shopify.webhook.create",
@@ -575,7 +579,8 @@
           "topic": "refunds/create",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-refunds-create"
       },
       {
         "use": "shopify.webhook.create",
@@ -583,7 +588,8 @@
           "topic": "inventory_levels/update",
           "address": "$.install.webhookUrl",
           "format": "json"
-        }
+        },
+        "id": "hook-inventory-levels-update"
       }
     ],
     "onUninstall": [
@@ -591,7 +597,14 @@
         "id": "unhook",
         "use": "foreach",
         "with": {
-          "over": "$.install.runtime.subscriptions.shopify",
+          "over": [
+            "$.install.runtime.installed.hook-orders-create.id",
+            "$.install.runtime.installed.hook-orders-paid.id",
+            "$.install.runtime.installed.hook-customers-create.id",
+            "$.install.runtime.installed.hook-customers-update.id",
+            "$.install.runtime.installed.hook-refunds-create.id",
+            "$.install.runtime.installed.hook-inventory-levels-update.id"
+          ],
           "max": 20
         },
         "do": [

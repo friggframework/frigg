@@ -4,7 +4,7 @@
   "id": "tidewater-quickbooks",
   "version": "1.3.0",
   "display": {
-    "label": "Tidewater ↔ QuickBooks Online",
+    "label": "Tidewater \u2194 QuickBooks Online",
     "description": "Finished jobs become QuickBooks invoices with every line item, customers stay matched both ways, and payments recorded in QuickBooks mark the job paid in Tidewater.",
     "category": "Accounting",
     "tags": [
@@ -272,23 +272,11 @@
               }
             },
             {
-              "id": "cents",
-              "use": "code",
-              "when": "$.steps.jobs[0] exists",
-              "with": {
-                "ref": "@lefthook/finance-steps#toMinorUnits@1.0.0",
-                "with": {
-                  "amount": "$.item.Amount",
-                  "currency": "USD"
-                }
-              }
-            },
-            {
               "use": "tidewater.job.markPaid",
               "when": "$.steps.jobs[0] exists",
               "with": {
                 "id": "$.steps.jobs[0].id",
-                "amount": "$.steps.cents.amount",
+                "amount": "{{item.Amount | to_cents}}",
                 "paid_at": "$.steps.payment.TxnDate",
                 "method": "quickbooks",
                 "reference": "QBO payment {{steps.payment.Id}}"
@@ -361,7 +349,7 @@
       ],
       "returns": {
         "invoice": "$.steps.invoice",
-        "realmId": "$.install.runtime.realmId"
+        "realmId": "$.install.accounts.quickbooks.realmId"
       }
     }
   ],
@@ -471,7 +459,7 @@
       {
         "use": "tidewater.webhook.delete",
         "with": {
-          "id": "$.install.runtime.subscriptions.tidewater"
+          "id": "$.install.runtime.installed.hook.id"
         }
       }
     ]
