@@ -557,7 +557,7 @@
         "use": "zendesk.webhook.create",
         "with": {
           "name": "Frigg: Jira escalation",
-          "endpoint": "$.install.webhookUrl",
+          "endpoint": "$.install.webhookUrls.zendesk",
           "subscriptions": [
             "zen:event-type:ticket.tags_changed",
             "zen:event-type:ticket.priority_changed"
@@ -568,7 +568,7 @@
         "id": "jiraHook",
         "use": "jira.webhook.register",
         "with": {
-          "url": "$.install.webhookUrl",
+          "url": "$.install.webhookUrls.jira",
           "events": [
             "jira:issue_updated"
           ],

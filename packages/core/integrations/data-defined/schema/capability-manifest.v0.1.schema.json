@@ -139,8 +139,11 @@
             "type": "string"
           },
           "payload": {
-            "type": "object",
-            "description": "Example payload; the shape $.event has."
+            "type": [
+              "object",
+              "array"
+            ],
+            "description": "Example delivery body, exactly as the provider sends it (HubSpot sends an array). With the manifest's webhook block it must route to this event; $.event is the event item."
           },
           "subscribe": {
             "type": "string",
@@ -154,7 +157,128 @@
             "type": "string",
             "default": "id",
             "description": "Path to the provider's event id, used to run each event once."
+          },
+          "match": {
+            "type": "string",
+            "description": "The provider's topic for this event (default: the event key)."
+          },
+          "when": {
+            "type": "string",
+            "description": "Condition on $.record / $.event: Quo reports a missed call as call.completed with status missed."
+          },
+          "headers": {
+            "type": "object",
+            "description": "Headers of the example delivery, when the topic is in a header."
           }
+        }
+      }
+    },
+    "webhook": {
+      "type": "object",
+      "description": "How a POST from this provider becomes module events (webhooks.js). Templates read body, headers (lower-case), query, item (one event of a batch) and parent (the outer item of a two-level batch).",
+      "required": [
+        "scope",
+        "topic",
+        "eventId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "enum": [
+            "installation",
+            "app"
+          ],
+          "description": "installation: a URL per installation. app: one URL for every account, routed by account."
+        },
+        "topic": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          ],
+          "description": "The provider's event type. A list tries each template until one renders non-empty."
+        },
+        "eventId": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          ],
+          "description": "The id that makes a redelivery a no-op."
+        },
+        "account": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          ],
+          "description": "The connected account (entity externalId) an event is about. Required for app scope."
+        },
+        "batch": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 2
+            }
+          ],
+          "description": "Path to the array of events; [outer, inner] for two levels."
+        },
+        "verify": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][\\w$]*$",
+          "description": "Api method that checks the signature: ({ headers, body, query }) -> true."
+        },
+        "unwrap": {
+          "type": "string",
+          "description": "A form field holding the JSON body (Slack interactivity)."
+        },
+        "handshake": {
+          "type": "object",
+          "required": [
+            "when"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "when": {
+              "type": "string"
+            },
+            "status": {
+              "type": "integer"
+            },
+            "headers": {
+              "type": "object"
+            },
+            "body": {}
+          },
+          "description": "Answered at receipt, before anything is queued (Slack url_verification, Asana X-Hook-Secret)."
         }
       }
     },

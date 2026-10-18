@@ -374,7 +374,7 @@
           }
         ]
       },
-      "record": "eventNotifications[0].dataChangeEvent.entities[0]"
+      "match": "Payment.Create"
     },
     "customer.updated": {
       "delivery": "webhook",
@@ -396,7 +396,7 @@
           }
         ]
       },
-      "record": "eventNotifications[0].dataChangeEvent.entities[0]"
+      "match": "Customer.Update"
     },
     "customer.created": {
       "delivery": "webhook",
@@ -418,8 +418,19 @@
           }
         ]
       },
-      "record": "eventNotifications[0].dataChangeEvent.entities[0]"
+      "match": "Customer.Create"
     }
+  },
+  "webhook": {
+    "scope": "app",
+    "batch": [
+      "body.eventNotifications",
+      "dataChangeEvent.entities"
+    ],
+    "topic": "{{item.name}}.{{item.operation}}",
+    "eventId": "{{parent.realmId}}:{{item.name}}:{{item.id}}:{{item.lastUpdated}}",
+    "account": "{{parent.realmId}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "customer.get": {

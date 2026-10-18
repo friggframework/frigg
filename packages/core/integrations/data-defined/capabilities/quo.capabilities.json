@@ -188,7 +188,7 @@
       "subscribe": "webhook.create",
       "payload": {
         "id": "EVc0a2",
-        "type": "call.ringing",
+        "type": "call.completed",
         "data": {
           "object": {
             "id": "AC9y",
@@ -203,7 +203,10 @@
           }
         }
       },
-      "record": "data.object"
+      "record": "data.object",
+      "match": "call.completed",
+      "when": "$.record.status == 'missed' || $.record.status == 'voicemail'",
+      "description": "Quo reports a missed call as call.completed with status missed (or voicemail); this event is that subset."
     },
     "call.summary.completed": {
       "delivery": "webhook",
@@ -272,6 +275,12 @@
       },
       "record": "data.object"
     }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.type}}",
+    "eventId": "{{body.id}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "contact.get": {

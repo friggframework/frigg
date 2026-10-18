@@ -313,8 +313,15 @@
           "StageName": "Negotiation/Review"
         }
       },
-      "record": "payload"
+      "record": "payload",
+      "match": "Opportunity.UPDATE"
     }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.payload.ChangeEventHeader.entityName}}.{{body.payload.ChangeEventHeader.changeType}}",
+    "eventId": "{{body.id}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "lead.get": {

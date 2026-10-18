@@ -273,6 +273,12 @@
       "idPath": "payload.uri"
     }
   },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.event}}",
+    "eventId": "{{body.payload.uri}}:{{body.event}}",
+    "verify": "verifyWebhookSignature"
+  },
   "capabilities": {
     "invitee.get": {
       "kind": "read",

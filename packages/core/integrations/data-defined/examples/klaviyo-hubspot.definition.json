@@ -319,7 +319,7 @@
         "use": "klaviyo.webhook.create",
         "with": {
           "name": "Frigg: HubSpot sync",
-          "endpointUrl": "$.install.webhookUrl",
+          "endpointUrl": "$.install.webhookUrls.klaviyo",
           "topics": [
             "event:klaviyo.subscribed_to_list",
             "event:klaviyo.unsubscribed"

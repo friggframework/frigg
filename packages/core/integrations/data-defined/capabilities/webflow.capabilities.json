@@ -101,14 +101,21 @@
             "Phone": "512 555 0177",
             "Company": "Acme Corp",
             "Interest": "Sales",
-            "Message": "We need a Salesforce ↔ NetSuite integration by Q1.",
+            "Message": "We need a Salesforce \u2194 NetSuite integration by Q1.",
             "Website": ""
           }
         }
       },
       "record": "payload",
-      "idPath": "payload.id"
+      "idPath": "payload.id",
+      "match": "form_submission"
     }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.triggerType}}",
+    "eventId": "{{body.payload.id}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "site.list": {

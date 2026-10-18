@@ -119,7 +119,8 @@
           }
         }
       },
-      "record": "data.envelopeSummary"
+      "record": "data.envelopeSummary",
+      "match": "envelope-completed"
     },
     "envelope.declined": {
       "delivery": "webhook",
@@ -170,7 +171,8 @@
           }
         }
       },
-      "record": "data.envelopeSummary"
+      "record": "data.envelopeSummary",
+      "match": "envelope-declined"
     },
     "envelope.sent": {
       "delivery": "webhook",
@@ -220,8 +222,15 @@
           }
         }
       },
-      "record": "data.envelopeSummary"
+      "record": "data.envelopeSummary",
+      "match": "envelope-sent"
     }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.event}}",
+    "eventId": "{{body.data.envelopeId}}:{{body.event}}:{{body.generatedDateTime}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "envelope.get": {

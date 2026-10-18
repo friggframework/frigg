@@ -125,7 +125,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 73 tests. It runs 16 example definitions (Quo ⇄ HubSpot is the
+`packages/core/integrations/data-defined/`, with 95 tests. It runs 16 example definitions (Quo ⇄ HubSpot is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
 references are relative to that directory.
@@ -215,6 +215,21 @@ code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo i
   such as QuickBooks' `realmId` or a Zendesk subdomain. Definitions read them as `$.install.accounts.<key>.<field>`;
   nothing undeclared is exposed.
 - **`ui`**: the placements this host offers, such as HubSpot's `crm.record.sidebar` and Quo's `conversation.sidebar`.
+- **`webhook`**: how a POST from this provider becomes module events (`webhooks.js`), written with the same template
+  expressions definitions use, over `body`, `headers` (lower-case), `query`, `item` and `parent`:
+  ```jsonc
+  "webhook": { "scope": "app",                          // or "installation": a URL per installation
+               "batch": "body",                         // the array of events; [outer, inner] for two levels (QuickBooks)
+               "topic": "{{item.subscriptionType}}",    // a list tries each until one is non-empty (Slack)
+               "eventId": "{{item.eventId}}", "account": "{{item.portalId}}",
+               "verify": "verifyWebhookSignature",      // the module's Api method; required to return true
+               "handshake": { "when": "…", "body": { "challenge": "$.body.challenge" } },
+               "unwrap": "payload" }                    // a form field holding the JSON body (Slack interactivity)
+  ```
+  Each event names the provider's topic (`"match": "orders/create"`, default: the event key) and may add a condition
+  (`"when"`): Quo reports a missed call as `call.completed` with status `missed`, so `call.missed` is that subset. An
+  event's example `payload` (with `headers` when the topic is in one) is an exact delivery, and validation requires it
+  to route to its own event through the same code a live webhook uses.
 
 The manifest is the module author's promise of what is safe to call. Adding a capability is a module release, which
 is code that gets reviewed. Using it from a definition is a publish. This is the line between the two authoring forms.
@@ -336,7 +351,7 @@ tables the runtime needs:
 | sync ongoing (webhook or poll) | `SYNC_CONTACTS_ONGOING` | `WEBHOOK` or `CRON` |
 | workflow `log-call` | `WF_LOG_CALL` | `WEBHOOK`, `CRON`, `USER_ACTION` or `QUEUE`, from its trigger |
 | query `recent-activity` | `Q_RECENT_ACTIVITY` | `ROUTE` |
-| UI surface `quo-card` | `UI_QUO_CARD`, served at `GET /ui/quo-card` | `ROUTE` |
+| UI surface `quo-card` | `UI_QUO_CARD`, rendered by `POST /api/integrations/:id/actions/UI_QUO_CARD` | `ROUTE` |
 
 The other outputs are `webhooks` (module → topic → event names; a pattern may end in `.*`), `schedules` and
 `userActions`.
@@ -365,7 +380,10 @@ id, just not per version.
 **Cold start (unchanged).** `loadAppDefinition()` registers the generated classes like any others. No definition is
 read at cold start.
 
-**Hydrating an installation.** When Frigg loads an integration record (HTTP route, queue message or scheduled job),
+**Hydrating an installation.** Every Frigg use case that touches an integration (create, update, delete, the queue
+worker, user actions, config options) constructs the class from its record and calls `initialize()` first. The
+data-defined class loads its definition there, so every real entry point hydrates through the same path. A dry
+instance with no record (an app-level webhook before its installation is known) has no pin and loads nothing.
 `loadDefinition()` does five things:
 1. Reads the pin from `config.definition`. With no pin, it fails loudly: "This installation does not name a
    definition".
@@ -373,29 +391,37 @@ read at cold start.
    `id@version` (or by checksum) for the life of the process.
 3. Runs `compile(def, config)`.
 4. Builds the **ports** (`runtime.js` `makePorts`):
-   - `call(moduleKey, capability, args)` looks the capability up in the manifest and calls `this[moduleKey].api[method](args)`, so credentials, token refresh and encryption stay exactly where they are today.
+   - `call(moduleKey, capability, args)` looks the capability up in the manifest and calls the connected module's `api[method](args)`, so credentials, token refresh and encryption stay exactly where they are today. The shared class registers modules by module name, so a definition key that differs (`crm: { module: 'hubspot' }`) is mapped to it.
    - `links.find` and `links.upsert` sit over `getMapping` and `upsertMapping`.
    - `dedupe.claim` sits over `createMapping`, which is insert-only and throws `MappingAlreadyExistsError` when the row exists; `dedupe.release` sits over `deleteMapping`.
    - `runCode` calls registered code steps.
-5. Fills `this.events` from the compiled map, every handler being `dispatch(ref, payload)`, then calls
-   `registerEventHandlers()`.
+5. Replaces the previously compiled events in `this.events` with the compiled map, every handler being
+   `dispatch(ref, payload)`, then calls `registerEventHandlers()`. Replace, not merge: a workflow switched off since
+   the last compile loses its event immediately.
 
 From there, the existing dispatcher, queue worker, scheduler and mapping repository do what they already do.
 
-**A webhook arrives**, for example Quo `call.completed`:
+**A webhook arrives.** A provider's POST carries no Frigg vocabulary: nothing says which module sent it or which
+event it is. Install steps register a per-module URL, `$.install.webhookUrls.<key>`, which names the module, and the
+module's manifest says how to read the rest (§9, `webhook` block). For example Quo `call.completed`:
 
 ```
-POST /api/<name>-integration/webhooks/<integrationId>
-  → webhook function: validate signature (module's validator), enqueue  ── unchanged Frigg path
-  → queue worker: hydrate record → loadDefinition()
-  → onWebhook({ data: { module: 'quo', topic: 'call.completed', body } })
-      routeWebhook(compiled, 'quo', 'call.completed') → ['WF_LOG_CALL', 'WF_CALL_SUMMARY', 'WF_MISSED_CALL_TASK']
-      for each: queueWebhook({ event, module, topic, body, definitionVersion: '1.4.0' })   ← one message per workflow
+POST /api/data-defined-integration/webhooks/<integrationId>?module=quo
+  → webhook function (no database): a handshake (Slack url_verification, Asana X-Hook-Secret) is answered here;
+    anything else is queued as { integrationId, body, headers, query }       ── the unchanged Frigg path
+  → queue worker: hydrate the record → initialize() → loadDefinition()
+  → onWebhook({ data })
+      module   = ?module, else the one manifest that recognises the body
+      verify   = manifest.webhook.verify → the module's Api method; anything but true drops the delivery (fail closed)
+      events   = eventsIn(manifest, delivery): split a batch, read each event's topic, id and account, keep the
+                 manifest events whose `match` (and `when`) fit → [{ topic: 'call.completed', eventId: 'EVc0a1', … }]
+      for each event, each enabled workflow listening for it:
+        queueWebhook({ event: 'WF_LOG_CALL', body: event, eventId, definitionVersion: '1.4.0' })   ← one message per workflow
   → queue worker, per message: dispatch(ref, msg)
       runWorkflow():
         record   = manifest.events['call.completed'].record  → body.data.object
         filter   = trigger.filter evaluated → 'filtered' (nothing claimed, nothing written)
-        claim    = createMapping('evt:quo-hubspot:log-call:<eventId>') → false ⇒ 'duplicate'
+        claim    = createMapping('evt:quo-hubspot:log-call:<provider event id>') → false ⇒ 'duplicate'
         steps    = links.find(phone) → template('call-note') → hubspot.engagement.createCall
         result   = WorkflowRun { status, trace[{id, use, at, status, ms, error?}] }
         failed   → release the claim, throw → the queue retries (the DLQ after max receives)
@@ -403,6 +429,14 @@ POST /api/<name>-integration/webhooks/<integrationId>
 
 Fanning out one message per workflow is deliberate. One workflow's failure or retry cannot re-run, or block, the
 others that listened for the same event.
+
+**An app-level webhook** (one URL for every account: HubSpot, Stripe Connect, GitHub Apps, QuickBooks, Slack, Linear,
+Notion) is registered once on the provider's app as `…/webhooks?module=hubspot`, with no integration id. The worker
+runs it on a dry instance, reads each event's account (`webhook.account`, e.g. HubSpot's `portalId`), finds the
+installations of this class connected to that account (`listIntegrationsByEntityExternalId`, then each record's
+type, because one portal can also be used by integrations of other types and the worker would hydrate those as
+their own class), and queues the delivery once per installation. Each installation then keeps only the events
+whose account is its own.
 
 **Delivery guarantees, stated plainly:**
 - An event runs **at most once per workflow when it succeeds**, because of the claim.
@@ -417,6 +451,19 @@ others that listened for the same event.
 
 **A user clicks a button** in a UI surface. `USER_ACTION` → `WF_TEXT_FROM_CARD`, with the surface's record as
 `$.record`.
+
+**The routes are Frigg's existing, authenticated ones.** No new route was needed, and none is unauthenticated:
+
+| Route (all authenticated, all hydrate via `GetIntegrationInstance`) | Event | Data-defined handling |
+|---|---|---|
+| `GET /api/integrations/:id/config/options` | `GET_CONFIG_OPTIONS` | The configure form, generated from the definition (`config-form.js`); its data is the `Integration.config` shape, so what the UI PATCHes back is the config |
+| `POST …/config/options/refresh` | `REFRESH_CONFIG_OPTIONS` | The same form re-filled from the values chosen so far: dependent dropdowns (`resolveOptions`) |
+| `PATCH /api/integrations/:id` | `onUpdate` → `validateConfig` | NEEDS_CONFIG from the definition's required settings, checked without calling any API |
+| `GET …/actions`, `POST …/actions/:id/options` | `GET_USER_ACTIONS`, `GET_USER_ACTION_OPTIONS` | Button workflows and backfills; a button's inputs are its options form |
+| `POST …/actions/:id` | any registered event | Runs a button workflow (`WF_*`), a backfill (`SYNC_*_BACKFILL`) or renders a UI surface (`UI_*`, body `{ record }`) |
+
+A host renderer (the HubSpot card) therefore calls Frigg through an authenticated path. Proving the host request is
+genuine (HubSpot signs its UI-extension requests) is the renderer's job, not Frigg core's.
 
 ### 15. Lifecycle
 
@@ -440,7 +487,7 @@ A UI extension is a `query` plus a `view`. The view is a tree of a **fixed compo
 - `renderSurface` (`runtime.js`) runs the query and then `resolveView`, which substitutes expressions and expands
   lists. It returns a **resolved tree**: plain JSON with data already in it.
 - Each host gets **one generic renderer, deployed once**. For example, there is one HubSpot UI-extension card that
-  calls `GET /ui/<surface>` for whatever installation it sits in and draws the tree. New surfaces and new
+  calls `POST /api/integrations/:id/actions/UI_<SURFACE>` (authenticated) for whatever installation it sits in and draws the tree. New surfaces and new
   integrations need no new host deployment.
 - A `Button` can only point at a `userAction` workflow (checked by `validate`). A surface can therefore read data
   and trigger declared workflows, and nothing else.
@@ -517,7 +564,6 @@ work kept apart from bulk work.
 | `delay`, approvals, per-module rate limits | Common in workflows; each needs durable state between steps | With step checkpointing |
 | Rebuilding links after an identity change | `planUpgrade` reports `relink` / `reindex`; nothing performs it | With the sync engine, which owns backfill |
 | Registering `compiled.schedules` | Schedule-triggered workflows and polling syncs compile to `CRON` events, but nothing creates the recurring schedule. Frigg's scheduler commands schedule one-time jobs, so recurring per-installation schedules need either an EventBridge schedule group per installation or one app-level tick that fans out | A design decision of its own |
-| Mounting `compiled.routes` (`GET /ui/<surface>`) | The `UI_*` events exist in `this.events`, but no router serves them yet, so `renderSurface` is reachable only in-process | With the first host renderer |
 | Publish and upgrade endpoints; Prisma models and migrations | The store is `memoryDefinitions()` today | Next |
 | Host renderers (HubSpot card, Quo panel) | `renderSurface` returns trees that nothing draws yet | Per host |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |

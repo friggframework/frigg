@@ -194,7 +194,12 @@
           "login": "dana-r"
         }
       },
-      "record": "issue"
+      "record": "issue",
+      "match": "issues.opened",
+      "headers": {
+        "x-github-event": "issues",
+        "x-github-delivery": "72d3162e-issue.opened"
+      }
     },
     "issue.edited": {
       "delivery": "webhook",
@@ -246,7 +251,12 @@
           "id": 51234567
         }
       },
-      "record": "issue"
+      "record": "issue",
+      "match": "issues.edited",
+      "headers": {
+        "x-github-event": "issues",
+        "x-github-delivery": "72d3162e-issue.edited"
+      }
     },
     "issue.closed": {
       "delivery": "webhook",
@@ -293,7 +303,12 @@
           "id": 51234567
         }
       },
-      "record": "issue"
+      "record": "issue",
+      "match": "issues.closed",
+      "headers": {
+        "x-github-event": "issues",
+        "x-github-delivery": "72d3162e-issue.closed"
+      }
     },
     "issue.labeled": {
       "delivery": "webhook",
@@ -343,7 +358,12 @@
           "id": 51234567
         }
       },
-      "record": "issue"
+      "record": "issue",
+      "match": "issues.labeled",
+      "headers": {
+        "x-github-event": "issues",
+        "x-github-delivery": "72d3162e-issue.labeled"
+      }
     },
     "pullRequest.closed": {
       "delivery": "webhook",
@@ -379,8 +399,20 @@
           "id": 51234567
         }
       },
-      "record": "pull_request"
+      "record": "pull_request",
+      "match": "pull_request.closed",
+      "headers": {
+        "x-github-event": "pull_request",
+        "x-github-delivery": "72d3162e-pullRequest.closed"
+      }
     }
+  },
+  "webhook": {
+    "scope": "app",
+    "topic": "{{headers.x-github-event}}.{{body.action}}",
+    "eventId": "{{headers.x-github-delivery}}",
+    "account": "{{body.installation.id}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "issue.get": {

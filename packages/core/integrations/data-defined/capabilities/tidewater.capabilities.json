@@ -403,6 +403,12 @@
       "idPath": "event_id"
     }
   },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.event}}",
+    "eventId": "{{body.event_id}}",
+    "verify": "verifyWebhookSignature"
+  },
   "capabilities": {
     "customer.get": {
       "kind": "read",

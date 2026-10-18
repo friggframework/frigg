@@ -488,6 +488,12 @@
           "country_code": "US",
           "phone": "+15125550142"
         }
+      },
+      "match": "orders/create",
+      "headers": {
+        "x-shopify-topic": "orders/create",
+        "x-shopify-webhook-id": "b54557e4-order-created",
+        "x-shopify-shop-domain": "acme.myshopify.com"
       }
     },
     "order.paid": {
@@ -565,6 +571,12 @@
           "country_code": "US",
           "phone": "+15125550142"
         }
+      },
+      "match": "orders/paid",
+      "headers": {
+        "x-shopify-topic": "orders/paid",
+        "x-shopify-webhook-id": "b54557e4-order-paid",
+        "x-shopify-shop-domain": "acme.myshopify.com"
       }
     },
     "order.updated": {
@@ -642,6 +654,12 @@
           "country_code": "US",
           "phone": "+15125550142"
         }
+      },
+      "match": "orders/updated",
+      "headers": {
+        "x-shopify-topic": "orders/updated",
+        "x-shopify-webhook-id": "b54557e4-order-updated",
+        "x-shopify-shop-domain": "acme.myshopify.com"
       }
     },
     "customer.created": {
@@ -674,6 +692,12 @@
           "zip": "78701",
           "country_code": "US"
         }
+      },
+      "match": "customers/create",
+      "headers": {
+        "x-shopify-topic": "customers/create",
+        "x-shopify-webhook-id": "b54557e4-customer-created",
+        "x-shopify-shop-domain": "acme.myshopify.com"
       }
     },
     "customer.updated": {
@@ -706,6 +730,12 @@
           "zip": "78701",
           "country_code": "US"
         }
+      },
+      "match": "customers/update",
+      "headers": {
+        "x-shopify-topic": "customers/update",
+        "x-shopify-webhook-id": "b54557e4-customer-updated",
+        "x-shopify-shop-domain": "acme.myshopify.com"
       }
     },
     "fulfillment.created": {
@@ -727,6 +757,12 @@
             "quantity": 2
           }
         ]
+      },
+      "match": "fulfillments/create",
+      "headers": {
+        "x-shopify-topic": "fulfillments/create",
+        "x-shopify-webhook-id": "b54557e4-fulfillment-created",
+        "x-shopify-shop-domain": "acme.myshopify.com"
       }
     },
     "refund.created": {
@@ -763,6 +799,12 @@
             "currency": "USD"
           }
         ]
+      },
+      "match": "refunds/create",
+      "headers": {
+        "x-shopify-topic": "refunds/create",
+        "x-shopify-webhook-id": "b54557e4-refund-created",
+        "x-shopify-shop-domain": "acme.myshopify.com"
       }
     },
     "inventory.updated": {
@@ -776,6 +818,12 @@
         "available": 3,
         "updated_at": "2026-10-18T09:14:23-05:00",
         "admin_graphql_api_id": "gid://shopify/InventoryLevel/61234567890?inventory_item_id=46012345678"
+      },
+      "match": "inventory_levels/update",
+      "headers": {
+        "x-shopify-topic": "inventory_levels/update",
+        "x-shopify-webhook-id": "b54557e4-inventory-updated",
+        "x-shopify-shop-domain": "acme.myshopify.com"
       }
     },
     "checkout.abandoned": {
@@ -805,6 +853,12 @@
         "completed_at": null
       }
     }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{headers.x-shopify-topic}}",
+    "eventId": "{{headers.x-shopify-webhook-id}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "order.get": {

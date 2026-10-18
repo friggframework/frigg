@@ -97,6 +97,13 @@
       "record": "entity"
     }
   },
+  "webhook": {
+    "scope": "app",
+    "topic": "{{body.type}}",
+    "eventId": "{{body.id}}",
+    "account": "{{body.workspace_id}}",
+    "verify": "verifyWebhookSignature"
+  },
   "capabilities": {
     "page.create": {
       "kind": "write",

@@ -443,6 +443,13 @@
       "record": "data.object"
     }
   },
+  "webhook": {
+    "scope": "app",
+    "topic": "{{body.type}}",
+    "eventId": "{{body.id}}",
+    "account": "{{body.account}}",
+    "verify": "verifyWebhookSignature"
+  },
   "capabilities": {
     "customer.get": {
       "kind": "read",

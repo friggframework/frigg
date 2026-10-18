@@ -427,7 +427,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "orders/create",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-orders-create"
@@ -436,7 +436,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "fulfillments/create",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-fulfillments-create"
@@ -445,7 +445,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "customers/create",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-customers-create"
@@ -454,7 +454,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "customers/update",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-customers-update"

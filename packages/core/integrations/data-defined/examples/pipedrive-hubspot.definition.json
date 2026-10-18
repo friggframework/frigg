@@ -93,7 +93,7 @@
         "id": "personCreated",
         "use": "pipedrive.webhook.create",
         "with": {
-          "subscription_url": "$.install.webhookUrl",
+          "subscription_url": "$.install.webhookUrls.pipedrive",
           "event_action": "create",
           "event_object": "person",
           "version": "2.0"
@@ -103,7 +103,7 @@
         "id": "personChanged",
         "use": "pipedrive.webhook.create",
         "with": {
-          "subscription_url": "$.install.webhookUrl",
+          "subscription_url": "$.install.webhookUrls.pipedrive",
           "event_action": "change",
           "event_object": "person",
           "version": "2.0"

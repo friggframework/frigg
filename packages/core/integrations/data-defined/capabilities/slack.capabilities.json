@@ -184,6 +184,30 @@
       "idPath": "event_id"
     }
   },
+  "webhook": {
+    "scope": "app",
+    "unwrap": "payload",
+    "topic": [
+      "{{body.event.type}}",
+      "interaction.{{body.type}}"
+    ],
+    "eventId": [
+      "{{body.event_id}}",
+      "{{body.trigger_id}}"
+    ],
+    "account": [
+      "{{body.team_id}}",
+      "{{body.team.id}}"
+    ],
+    "verify": "verifyWebhookSignature",
+    "handshake": {
+      "when": "$.body.type == 'url_verification'",
+      "status": 200,
+      "body": {
+        "challenge": "$.body.challenge"
+      }
+    }
+  },
   "capabilities": {
     "message.post": {
       "kind": "write",

@@ -297,48 +297,69 @@
       "delivery": "webhook",
       "object": "contact",
       "description": "App-level subscription; Frigg routes it to the installation by portalId.",
-      "payload": {
-        "id": "evt_9001",
-        "portalId": 1944396,
-        "objectId": "51",
-        "subscriptionType": "contact.creation",
-        "occurredAt": 1760800000000
-      }
+      "payload": [
+        {
+          "portalId": 1944396,
+          "objectId": "51",
+          "subscriptionType": "contact.creation",
+          "occurredAt": 1760800000000,
+          "eventId": 9001
+        }
+      ],
+      "match": "contact.creation"
     },
     "contact.propertyChange": {
       "delivery": "webhook",
       "object": "contact",
-      "payload": {
-        "id": "evt_9002",
-        "portalId": 1944396,
-        "objectId": "51",
-        "propertyName": "phone",
-        "propertyValue": "+15125550142",
-        "occurredAt": 1760800000000
-      }
+      "payload": [
+        {
+          "portalId": 1944396,
+          "objectId": "51",
+          "propertyName": "phone",
+          "propertyValue": "+15125550142",
+          "occurredAt": 1760800000000,
+          "eventId": 9002,
+          "subscriptionType": "contact.propertyChange"
+        }
+      ]
     },
     "deal.propertyChange": {
       "delivery": "webhook",
       "object": "deal",
-      "payload": {
-        "id": "evt_9003",
-        "portalId": 1944396,
-        "objectId": "880",
-        "propertyName": "dealstage",
-        "propertyValue": "closedwon",
-        "occurredAt": 1760800000000
-      }
+      "payload": [
+        {
+          "portalId": 1944396,
+          "objectId": "880",
+          "propertyName": "dealstage",
+          "propertyValue": "closedwon",
+          "occurredAt": 1760800000000,
+          "eventId": 9003,
+          "subscriptionType": "deal.propertyChange"
+        }
+      ]
     },
     "deal.created": {
       "delivery": "webhook",
       "object": "deal",
-      "payload": {
-        "id": "evt_9004",
-        "portalId": 1944396,
-        "objectId": "881",
-        "occurredAt": 1760800000000
-      }
+      "payload": [
+        {
+          "portalId": 1944396,
+          "objectId": "881",
+          "occurredAt": 1760800000000,
+          "eventId": 9004,
+          "subscriptionType": "deal.creation"
+        }
+      ],
+      "match": "deal.creation"
     }
+  },
+  "webhook": {
+    "scope": "app",
+    "batch": "body",
+    "topic": "{{item.subscriptionType}}",
+    "eventId": "{{item.eventId}}",
+    "account": "{{item.portalId}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "contact.get": {

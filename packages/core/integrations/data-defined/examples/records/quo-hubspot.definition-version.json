@@ -5,7 +5,7 @@
   "version": "1.4.0",
   "schemaVersion": "0.1",
   "status": "published",
-  "checksum": "sha256:ce481654559ca25f86555c2e2dbe761c032e964567b1a0069d8ae48e60fc1b3d",
+  "checksum": "sha256:386c69e18a51a7cf061634309eca3e8267c1a59629a388498eddaad9eb44be59",
   "changeLevel": "minor",
   "previousVersion": "1.3.2",
   "notes": "Adds the closed-won thank-you text (off by default) and the Quo deals panel.",
@@ -628,7 +628,7 @@
           "id": "hook",
           "use": "quo.webhook.create",
           "with": {
-            "url": "$.install.webhookUrl",
+            "url": "$.install.webhookUrls.quo",
             "events": [
               "call.completed",
               "call.ringing",

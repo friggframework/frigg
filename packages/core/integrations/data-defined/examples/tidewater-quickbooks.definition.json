@@ -445,7 +445,7 @@
         "id": "hook",
         "use": "tidewater.webhook.create",
         "with": {
-          "url": "$.install.webhookUrl",
+          "url": "$.install.webhookUrls.tidewater",
           "events": [
             "job.finished",
             "job.scheduled",

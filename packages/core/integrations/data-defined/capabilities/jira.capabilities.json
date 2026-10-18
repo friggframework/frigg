@@ -165,7 +165,8 @@
           ]
         }
       },
-      "record": "issue"
+      "record": "issue",
+      "match": "jira:issue_updated"
     },
     "issue.created": {
       "delivery": "webhook",
@@ -185,8 +186,15 @@
           }
         }
       },
-      "record": "issue"
+      "record": "issue",
+      "match": "jira:issue_created"
     }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.webhookEvent}}",
+    "eventId": "{{body.issue.id}}:{{body.timestamp}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "issue.create": {

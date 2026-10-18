@@ -20,7 +20,7 @@
     "definition": {
       "id": "quo-hubspot",
       "version": "1.4.0",
-      "checksum": "sha256:ce481654559ca25f86555c2e2dbe761c032e964567b1a0069d8ae48e60fc1b3d"
+      "checksum": "sha256:386c69e18a51a7cf061634309eca3e8267c1a59629a388498eddaad9eb44be59"
     },
     "settings": {
       "fromNumber": "+15125550100"
@@ -69,7 +69,7 @@
       "installed": {
         "hook": {
           "id": "WHk2c9",
-          "url": "https://api.example.com/api/quo-hubspot-integration/webhooks/int_7f3a9c",
+          "url": "https://api.example.com/api/data-defined-integration/webhooks/int_7f3a9c?module=quo",
           "events": [
             "call.completed",
             "call.ringing",

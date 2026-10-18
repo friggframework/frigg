@@ -136,7 +136,21 @@
           }
         ]
       },
-      "record": "events[0].resource"
+      "record": "resource"
+    }
+  },
+  "webhook": {
+    "scope": "installation",
+    "batch": "body.events",
+    "topic": "{{item.resource.resource_type}}.{{item.action}}",
+    "eventId": "{{item.resource.gid}}:{{item.action}}:{{item.created_at}}",
+    "verify": "verifyWebhookSignature",
+    "handshake": {
+      "when": "$.headers.x-hook-secret exists",
+      "status": 200,
+      "headers": {
+        "X-Hook-Secret": "$.headers.x-hook-secret"
+      }
     }
   },
   "capabilities": {

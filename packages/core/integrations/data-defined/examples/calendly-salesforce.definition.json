@@ -437,7 +437,7 @@
         "id": "hook",
         "use": "calendly.webhook.create",
         "with": {
-          "url": "$.install.webhookUrl",
+          "url": "$.install.webhookUrls.calendly",
           "events": [
             "invitee.created",
             "invitee.canceled"

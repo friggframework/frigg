@@ -195,7 +195,7 @@
         "use": "asana.webhook.create",
         "with": {
           "resource": "$.install.project",
-          "target": "$.install.webhookUrl",
+          "target": "$.install.webhookUrls.asana",
           "filters": [
             {
               "resource_type": "task",

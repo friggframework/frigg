@@ -284,7 +284,7 @@
         "use": "docusign.connect.create",
         "with": {
           "name": "Frigg: Salesforce",
-          "urlToPublishTo": "$.install.webhookUrl",
+          "urlToPublishTo": "$.install.webhookUrls.docusign",
           "events": [
             "envelope-sent",
             "envelope-completed",

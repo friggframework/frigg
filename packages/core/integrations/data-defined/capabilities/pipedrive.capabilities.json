@@ -159,7 +159,8 @@
         "previous": null
       },
       "record": "data",
-      "idPath": "meta.id"
+      "idPath": "meta.id",
+      "match": "person.create"
     },
     "person.updated": {
       "delivery": "webhook",
@@ -204,8 +205,18 @@
         "previous": null
       },
       "record": "data",
-      "idPath": "meta.id"
+      "idPath": "meta.id",
+      "match": "person.change"
     }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.meta.entity}}.{{body.meta.action}}",
+    "eventId": [
+      "{{body.meta.id}}",
+      "{{body.meta.entity}}:{{body.data.id}}:{{body.meta.timestamp}}"
+    ],
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "person.get": {

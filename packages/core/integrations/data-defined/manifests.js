@@ -6,7 +6,8 @@
  * @param {object} m  capabilities/<module>.capabilities.json
  * @returns {{ valid: boolean, errors: Array<{path:string,message:string}> }}
  */
-const { templateTags, FILTERS } = require('./expressions');
+const { templateTags, parseCondition, FILTERS } = require('./expressions');
+const { eventsIn } = require('./webhooks');
 
 const PATH_RE = /^\$\.[A-Za-z_][\w-]*(\.[\w-]+|\[\d+\])*$/;
 const KINDS = new Set(['read', 'search', 'write', 'delete', 'subscribe']); // schema/capability-manifest.v0.1.schema.json
@@ -44,7 +45,13 @@ function validateManifest(m) {
     for (const [topic, e] of Object.entries(m.events || {})) {
         const p = `events.${topic}`;
         if (e.object && !objects[e.object]) err(`${p}.object`, `"${e.object}" is not an object of this module`);
-        if (e.record && e.payload) {
+        if (e.payload && (e.delivery || 'webhook') === 'webhook' && m.webhook) {
+            // The example is a real delivery (body, plus headers when the topic is in one): it must route to this event
+            // through the same code a live webhook goes through, and its record path must find something.
+            const found = eventsIn(m, { body: e.payload, headers: e.headers }).find((x) => x.topic === topic);
+            if (!found) err(`${p}.payload`, `The example delivery does not route to "${topic}" (check webhook.topic and this event's match)`);
+            else if (e.record && found.record === undefined) err(`${p}.record`, `"${e.record}" finds nothing in the example event`);
+        } else if (e.record && e.payload) {
             let cur = e.payload;
             for (const seg of e.record.split(/\.|(?=\[)/)) { const i = /^\[(\d+)\]$/.exec(seg); cur = cur == null ? undefined : i ? cur[Number(i[1])] : cur[seg]; }
             if (cur === undefined) err(`${p}.record`, `"${e.record}" is not a path in the example payload`);
@@ -74,6 +81,41 @@ function validateManifest(m) {
             if (!spec?.type) err(`${p}.inputs.${input}`, 'Input needs a type');
         }
         if (c) for (const [arg, spec] of Object.entries(c.input || {})) if (spec.required && !(arg in (o.inputs || {}))) err(`${p}.inputs`, `${o.capability} requires "${arg}", so the option list must declare it as an input`);
+    }
+
+    // Webhook delivery: how a POST from this provider becomes module events (webhooks.js). Templates may read body,
+    // headers (lower-case), query, item (one event of a batch) and parent (the outer item of a two-level batch).
+    const w = m.webhook;
+    const webhookEvents = Object.entries(m.events || {}).filter(([, e]) => (e.delivery || 'webhook') === 'webhook');
+    if (webhookEvents.length && !w) err('webhook', 'This module has webhook events, so it needs a webhook block saying where the topic is');
+    if (w) {
+        if (!['installation', 'app'].includes(w.scope)) err('webhook.scope', 'installation (a URL per installation) or app (one URL for every account)');
+        const tpl = (v, p, roots = ['body', 'headers', 'query', 'item', 'parent']) => {
+            for (const t of (Array.isArray(v) ? v : [v])) {
+                if (typeof t !== 'string') { err(p, 'A template string, or a list of them'); continue; }
+                for (const tag of templateTags(t)) {
+                    if (!roots.includes(tag.path.split(/\.|\[/)[0])) err(p, `{{${tag.path}}}: a webhook template can read ${roots.join(', ')}`);
+                    for (const f of tag.filters) if (!FILTERS[f.name]) err(p, `Unknown template filter "${f.name}"`);
+                }
+            }
+        };
+        if (!w.topic) err('webhook.topic', 'Required: where the provider puts the event type');
+        else tpl(w.topic, 'webhook.topic');
+        if (w.eventId) tpl(w.eventId, 'webhook.eventId'); else err('webhook.eventId', 'Required: the id that makes a redelivery a no-op');
+        if (w.scope === 'app' && !w.account) err('webhook.account', 'An app-level webhook needs account: which connected account an event is about');
+        if (w.account) tpl(w.account, 'webhook.account');
+        const batch = w.batch == null ? [] : Array.isArray(w.batch) ? w.batch : [w.batch];
+        if (batch.length > 2 || batch.some((b) => typeof b !== 'string')) err('webhook.batch', 'A path to the array of events, or [outer, inner] for two levels');
+        if (w.verify != null && !/^[A-Za-z_$][\w$]*$/.test(w.verify)) err('webhook.verify', 'Name of an Api method that checks the signature');
+        if (w.handshake) {
+            try { parseCondition(w.handshake.when); } catch (e) { err('webhook.handshake.when', e.message); }
+            if (w.handshake.status != null && !Number.isInteger(w.handshake.status)) err('webhook.handshake.status', 'An HTTP status code');
+        }
+        if (w.unwrap != null && typeof w.unwrap !== 'string') err('webhook.unwrap', 'The name of a form field holding the JSON body');
+    }
+    for (const [topic, e] of webhookEvents) {
+        if (e.match != null && typeof e.match !== 'string') err(`events.${topic}.match`, 'The provider\'s topic string for this event');
+        if (e.when) { try { parseCondition(e.when); } catch (x) { err(`events.${topic}.when`, x.message); } }
     }
 
     for (const pl of m.ui?.placements || []) if (typeof pl !== 'string') err('ui.placements', 'Placements are strings');

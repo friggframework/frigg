@@ -541,7 +541,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "orders/create",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-orders-create"
@@ -550,7 +550,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "orders/paid",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-orders-paid"
@@ -559,7 +559,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "customers/create",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-customers-create"
@@ -568,7 +568,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "customers/update",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-customers-update"
@@ -577,7 +577,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "refunds/create",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-refunds-create"
@@ -586,7 +586,7 @@
         "use": "shopify.webhook.create",
         "with": {
           "topic": "inventory_levels/update",
-          "address": "$.install.webhookUrl",
+          "address": "$.install.webhookUrls.shopify",
           "format": "json"
         },
         "id": "hook-inventory-levels-update"

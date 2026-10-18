@@ -246,7 +246,7 @@
         "with": {
           "siteId": "$.install.site",
           "triggerType": "form_submission",
-          "url": "$.install.webhookUrl"
+          "url": "$.install.webhookUrls.webflow"
         }
       }
     ],

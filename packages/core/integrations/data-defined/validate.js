@@ -20,7 +20,7 @@ const ROOTS = new Set(['event', 'record', 'steps', 'settings', 'install', 'vars'
 const COMPONENTS = new Set(['Stack', 'Heading', 'Text', 'KeyValue', 'List', 'Table', 'Badge', 'Button', 'Empty', 'Divider']);
 const TRIGGERS = new Set(['webhook', 'schedule', 'userAction', 'syncRecord']);
 const TRANSFORMS = new Set(Object.keys(TRANSFORM_FNS));
-const INSTALL_KEYS = new Set(['webhookUrl', 'portalId', 'runtime', 'integrationId', 'accounts']);
+const INSTALL_KEYS = new Set(['webhookUrl', 'webhookUrls', 'portalId', 'runtime', 'integrationId', 'accounts']);
 
 function validate(def, manifests = {}) {
     const errors = [], warnings = [];
@@ -53,6 +53,7 @@ function validate(def, manifests = {}) {
         });
     }
     const installKeys = new Set([...Object.keys(def.settings || {}), ...INSTALL_KEYS]);
+    let warnedWebhookUrl = false;
     const installStepIds = new Set((def.lifecycle?.onInstall || []).map((st) => st?.id).filter(Boolean));
     const syncs = Object.fromEntries((def.syncs || []).map((s) => [s.id, s]));
     const linkSets = Object.fromEntries((def.links || []).map((l) => [l.id, l]));
@@ -186,6 +187,11 @@ function validate(def, manifests = {}) {
         if (key === 'accounts' && a) {
             if (!manifestOf[a]) err(path, `$.install.accounts.${a}: "${a}" is not a module key`);
             else if (b && !(manifestOf[a].account?.fields || []).some((f) => f.name === b)) err(path, `$.install.accounts.${a}.${b}: ${manifestOf[a].module} declares no account field "${b}" (${(manifestOf[a].account?.fields || []).map((f) => f.name).join(', ') || 'none'})`);
+        }
+        if (key === 'webhookUrls' && a && !manifestOf[a]) err(path, `$.install.webhookUrls.${a}: "${a}" is not a module key`);
+        if (key === 'webhookUrl' && Object.keys(mods).length > 1 && !warnedWebhookUrl) {
+            warnedWebhookUrl = true;
+            warn(path, 'Use $.install.webhookUrls.<module key>: with more than one module, the URL should say which module a delivery comes from');
         }
         if (key === 'runtime' && a) {
             if (a !== 'installed') err(path, `$.install.runtime.${a}: runtime only holds "installed" (the results of onInstall steps)`);

@@ -552,7 +552,7 @@
         "id": "hook",
         "use": "fathom.webhook.create",
         "with": {
-          "destination_url": "$.install.webhookUrl",
+          "destination_url": "$.install.webhookUrls.fathom",
           "triggered_for": [
             "my_recordings",
             "shared_external_recordings"

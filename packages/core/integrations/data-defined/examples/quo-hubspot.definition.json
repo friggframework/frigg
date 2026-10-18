@@ -614,7 +614,7 @@
         "id": "hook",
         "use": "quo.webhook.create",
         "with": {
-          "url": "$.install.webhookUrl",
+          "url": "$.install.webhookUrls.quo",
           "events": [
             "call.completed",
             "call.ringing",

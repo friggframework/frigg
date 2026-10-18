@@ -80,7 +80,7 @@ function recordOf(manifests, def, moduleKey, topic, payload) {
  * Run one workflow for one event.
  * @returns {Promise<object>} a WorkflowRun record (see schema/records.md)
  */
-async function runWorkflow({ def, installation, workflowId, event = {}, record, ports, manifests, now = () => new Date(), runId }) {
+async function runWorkflow({ def, installation, workflowId, event = {}, eventId, record, ports, manifests, now = () => new Date(), runId }) {
     const w = (def.workflows || []).find((x) => x.id === workflowId);
     if (!w) throw new Error(`Unknown workflow "${workflowId}"`);
     const t = w.trigger;
@@ -88,7 +88,7 @@ async function runWorkflow({ def, installation, workflowId, event = {}, record, 
     const startedAt = now();
     const base = {
         id: runId || `run_${startedAt.getTime().toString(36)}`, integrationId: installation.integrationId || null,
-        definition: { id: def.id, version: def.version }, workflowId, trigger: { type: t.type, eventId: event.id || null },
+        definition: { id: def.id, version: def.version }, workflowId, trigger: { type: t.type, eventId: eventId ?? event.id ?? null },
         startedAt: startedAt.toISOString(),
     };
     const settings = { ...defaultsOf(w.settings), ...(installation.workflows?.[w.id]?.settings || {}) };
@@ -96,7 +96,9 @@ async function runWorkflow({ def, installation, workflowId, event = {}, record, 
     const ctx = { event, record, settings, install, now: startedAt.toISOString() };
 
     if (t.filter && !evaluate(t.filter, ctx)) return { ...base, status: 'filtered', endedAt: now().toISOString(), trace: [] };
-    const claimKey = event.id && ports.dedupe ? `evt:${def.id}:${w.id}:${event.id}` : null;
+    // The provider's event id (from the manifest's webhook.eventId, else event.id) makes a redelivery a no-op.
+    const dedupeId = eventId ?? event.id;
+    const claimKey = dedupeId && ports.dedupe ? `evt:${def.id}:${w.id}:${dedupeId}` : null;
     if (claimKey) {
         const fresh = await ports.dedupe.claim(claimKey);
         if (!fresh) return { ...base, status: 'duplicate', endedAt: now().toISOString(), trace: [] };
@@ -140,7 +142,7 @@ function resolveView(node, ctx) {
     return { component: node.component, props, ...(children.length ? { children } : {}) };
 }
 
-/** GET /ui/<surface> -> { surface, view } — what the host app's generic renderer receives. */
+/** UI_<SURFACE> (POST /api/integrations/:id/actions/UI_<SURFACE>) -> { surface, view }: what a host renderer draws. */
 async function renderSurface({ def, installation, surfaceId, record, ports }) {
     const u = (def.ui || []).find((x) => x.id === surfaceId);
     if (!u) throw new Error(`Unknown UI surface "${surfaceId}"`);

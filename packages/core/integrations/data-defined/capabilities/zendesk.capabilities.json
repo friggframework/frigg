@@ -196,7 +196,8 @@
         "type": "zen:event-type:ticket.tags_changed",
         "zendesk_event_version": "2022-11-06"
       },
-      "record": "detail"
+      "record": "detail",
+      "match": "zen:event-type:ticket.tags_changed"
     },
     "ticket.priorityChanged": {
       "delivery": "webhook",
@@ -235,7 +236,8 @@
         "type": "zen:event-type:ticket.priority_changed",
         "zendesk_event_version": "2022-11-06"
       },
-      "record": "detail"
+      "record": "detail",
+      "match": "zen:event-type:ticket.priority_changed"
     },
     "ticket.statusChanged": {
       "delivery": "webhook",
@@ -274,8 +276,15 @@
         "type": "zen:event-type:ticket.status_changed",
         "zendesk_event_version": "2022-11-06"
       },
-      "record": "detail"
+      "record": "detail",
+      "match": "zen:event-type:ticket.status_changed"
     }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.type}}",
+    "eventId": "{{body.id}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "ticket.get": {

@@ -128,7 +128,8 @@
           }
         }
       },
-      "record": "data"
+      "record": "data",
+      "match": "Issue.create"
     },
     "issue.updated": {
       "delivery": "webhook",
@@ -153,8 +154,19 @@
           "stateId": "1d2c3b4a-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
         }
       },
-      "record": "data"
+      "record": "data",
+      "match": "Issue.update"
     }
+  },
+  "webhook": {
+    "scope": "app",
+    "topic": "{{body.type}}.{{body.action}}",
+    "eventId": [
+      "{{headers.linear-delivery}}",
+      "{{body.webhookId}}:{{body.webhookTimestamp}}"
+    ],
+    "account": "{{body.organizationId}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "issue.get": {

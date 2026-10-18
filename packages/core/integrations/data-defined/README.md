@@ -51,6 +51,18 @@ installation (Integration.config)         ─┘                          │
   `onInstall` step with an `id` keeps its result as `$.install.runtime.installed.<id>`, which is how `onUninstall`
   deletes exactly what install created.
 
+## How it plugs into Frigg
+
+- **Hydration**: Frigg's use cases call `initialize()` on every hydrated integration; the class loads its pinned
+  definition there.
+- **Webhooks**: install steps register `$.install.webhookUrls.<key>` (the URL names the module). The manifest's
+  `webhook` block (`webhooks.js`) splits batches and reads each event's topic, id and account; `verify` must return
+  true; handshakes are answered at receipt. App-level webhooks (`webhook.scope: "app"`, one URL per provider app)
+  are fanned out to the installations connected to each account.
+- **Routes**: Frigg's existing authenticated ones. `GET/POST /api/integrations/:id/config/options[/refresh]` is the
+  generated configure form (dependent dropdowns on refresh); `POST /api/integrations/:id/actions/:event` runs a
+  button workflow (`WF_*`), a backfill, or renders a UI surface (`UI_*`, body `{ record }`).
+
 `$.install` is the same everywhere a definition runs: integration settings, `webhookUrl`, `integrationId`,
 `runtime.installed`, and `accounts.<module key>.<field>` — values about the connected account that the module's
 manifest declares under `account` (`$.install.accounts.quickbooks.realmId`). Nothing undeclared is exposed.
@@ -117,6 +129,6 @@ CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's
 - `delay` / wait steps, approvals that pause a run, and per-tenant rate limits.
 - Publishing endpoints and the `IntegrationDefinitionVersion` / `WorkflowRun` Prisma models (proposed in `schema/records.md`).
 - The host renderers (the HubSpot app extension and Quo panel that draw `renderSurface` output).
-- Registering `compiled.schedules` as recurring schedules (Frigg's scheduler commands are one-time jobs), and mounting
-  `compiled.routes` (`GET /ui/<surface>`). Both compile today; nothing serves them yet.
+- Registering `compiled.schedules` as recurring schedules (Frigg's scheduler commands are one-time jobs). They compile
+  today; nothing creates them yet.
 - Rebuilding `link:` / `idx:` rows after an identity change; `planUpgrade` reports it as `relink` / `reindex`.

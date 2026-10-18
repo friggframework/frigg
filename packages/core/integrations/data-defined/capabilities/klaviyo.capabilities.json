@@ -194,7 +194,8 @@
           }
         }
       },
-      "record": "data.profile"
+      "record": "data.profile",
+      "match": "event:klaviyo.subscribed_to_list"
     },
     "profile.unsubscribed": {
       "delivery": "webhook",
@@ -228,7 +229,8 @@
           }
         }
       },
-      "record": "data.profile"
+      "record": "data.profile",
+      "match": "event:klaviyo.unsubscribed"
     },
     "profile.updated": {
       "delivery": "poll",
@@ -245,6 +247,12 @@
         }
       }
     }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.topic}}",
+    "eventId": "{{body.id}}",
+    "verify": "verifyWebhookSignature"
   },
   "capabilities": {
     "profile.get": {

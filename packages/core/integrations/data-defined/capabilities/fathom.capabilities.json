@@ -138,6 +138,12 @@
       "idPath": "recording_id"
     }
   },
+  "webhook": {
+    "scope": "installation",
+    "topic": "meeting.ready",
+    "eventId": "{{body.recording_id}}",
+    "verify": "verifyWebhookSignature"
+  },
   "capabilities": {
     "meeting.list": {
       "kind": "read",
