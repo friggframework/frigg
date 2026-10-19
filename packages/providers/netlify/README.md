@@ -27,8 +27,11 @@ therefore runs a message only when it can prove Frigg sent it:
   refuses a timestamp more than 5 minutes from its clock.
 - **QStash deliveries** (`queue.provider: 'qstash'`): the `Upstash-Signature`
   JWT is verified with `QSTASH_CURRENT_SIGNING_KEY`, then
-  `QSTASH_NEXT_SIGNING_KEY` (HS256, issuer `Upstash`, `exp` required, `body`
-  claim = base64url SHA-256 of the raw body). Frigg-signed messages are still
+  `QSTASH_NEXT_SIGNING_KEY` (HS256, issuer `Upstash`; `exp`, `nbf`, `sub` and
+  `body` required and checked: inside its `nbf`/`exp` window, `sub` equal to the
+  URL the request arrived on (Netlify's `rawUrl`), `body` = base64url SHA-256
+  of the raw body). A delivery published to another URL is refused, so the
+  QStash destination must be the worker's public URL exactly. Frigg-signed messages are still
   accepted, because `scheduled-sync` always posts through the Netlify provider.
 
 An unverified message is not parsed, connects no database and dispatches

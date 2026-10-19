@@ -22,10 +22,14 @@
  * header, a JWT signed HS256 with the current signing key (the next key
  * during rotation). Its claims are iss "Upstash", sub the destination URL,
  * exp / nbf / iat, and body = base64url(SHA-256(raw body)). A delivery is
- * accepted when the JWT verifies with either key, has not expired, and its
- * body claim matches the body received (trailing '=' padding ignored, as the
- * Receiver does). With neither key configured it is refused, except outside
- * production with FRIGG_QUEUE_ALLOW_UNSIGNED=true.
+ * accepted when the JWT verifies with either key, carries exp, nbf, sub and
+ * body, is inside its exp / nbf window, names this request's URL as its sub
+ * (the configured destinationUrl, else the event's rawUrl: a delivery
+ * published to another endpoint cannot be replayed here), and its body claim
+ * matches the body received (trailing '=' padding ignored, as the Receiver
+ * does). A request whose URL cannot be determined is refused. With neither
+ * key configured it is refused, except outside production with
+ * FRIGG_QUEUE_ALLOW_UNSIGNED=true.
  */
 const crypto = require('crypto');
 const { QueueProvider } = require('../queue-provider');
@@ -37,6 +41,19 @@ const {
 
 const QSTASH_API_BASE = 'https://qstash.upstash.io/v2';
 
+/**
+ * @param {*} value
+ * @returns {string|null} the URL in canonical form, or null when it is not one
+ */
+function normalizeUrl(value) {
+    if (typeof value !== 'string' || value.length === 0) return null;
+    try {
+        return new URL(value).href;
+    } catch (_) {
+        return null;
+    }
+}
+
 class QStashQueueProvider extends QueueProvider {
     constructor(options = {}) {
         super();
@@ -46,7 +63,8 @@ class QStashQueueProvider extends QueueProvider {
             options.retries !== undefined ? options.retries : 3;
         this.currentSigningKey = options.currentSigningKey;
         this.nextSigningKey = options.nextSigningKey;
-        // Optional: when set, the JWT's sub must equal this destination URL.
+        // The URL QStash delivers to. When unset, the JWT's sub is compared
+        // with the request's own URL (event.rawUrl, set by Netlify).
         this.destinationUrl = options.destinationUrl;
         this.env = options.env || process.env;
         this.clockToleranceSeconds = options.clockToleranceSeconds || 0;
@@ -87,7 +105,7 @@ class QStashQueueProvider extends QueueProvider {
                 ({ payload } = await jose.jwtVerify(token, new TextEncoder().encode(key), {
                     issuer: 'Upstash',
                     algorithms: ['HS256'],
-                    requiredClaims: ['exp', 'body'],
+                    requiredClaims: ['exp', 'nbf', 'sub', 'body'],
                     clockTolerance: this.clockToleranceSeconds,
                 }));
                 break;
@@ -97,7 +115,9 @@ class QStashQueueProvider extends QueueProvider {
         }
         if (!payload) return { ok: false, reason: 'invalid_signature' };
 
-        if (this.destinationUrl !== undefined && payload.sub !== this.destinationUrl) {
+        const requestUrl = normalizeUrl(this.destinationUrl || event?.rawUrl);
+        if (!requestUrl) return { ok: false, reason: 'missing_request_url' };
+        if (normalizeUrl(payload.sub) !== requestUrl) {
             return { ok: false, reason: 'invalid_subject' };
         }
         const bodyHash = crypto.createHash('sha256').update(body, 'utf8').digest('base64url');

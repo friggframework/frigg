@@ -32,8 +32,9 @@ async function upstashSignature(body, key, overrides = {}) {
     return jwt.sign(new TextEncoder().encode(key));
 }
 
-const event = (body, signature) => ({
+const event = (body, signature, rawUrl = DEST) => ({
     httpMethod: 'POST',
+    rawUrl,
     headers: signature ? { 'upstash-signature': signature } : {},
     body,
     isBase64Encoded: false,
@@ -130,15 +131,57 @@ describe('QStashQueueProvider.verifyEvent', () => {
         });
     });
 
-    it('checks the subject when a destination URL is configured', async () => {
+    it('checks the subject against a configured destination URL', async () => {
         const sig = await upstashSignature(BODY, CURRENT, { sub: 'https://elsewhere/x' });
         await expect(
-            provider({ destinationUrl: DEST }).verifyEvent(event(BODY, sig))
+            provider({ destinationUrl: DEST }).verifyEvent(event(BODY, sig, null))
         ).resolves.toEqual({ ok: false, reason: 'invalid_subject' });
         const good = await upstashSignature(BODY, CURRENT);
         await expect(
-            provider({ destinationUrl: DEST }).verifyEvent(event(BODY, good))
+            provider({ destinationUrl: DEST }).verifyEvent(event(BODY, good, null))
         ).resolves.toEqual({ ok: true });
+    });
+
+    it('checks the subject against the request URL when no destination is configured', async () => {
+        // A valid delivery published to another endpoint, replayed here.
+        const sig = await upstashSignature(BODY, CURRENT, { sub: 'https://site.example/other' });
+        await expect(provider().verifyEvent(event(BODY, sig))).resolves.toEqual({
+            ok: false,
+            reason: 'invalid_subject',
+        });
+    });
+
+    it('refuses when the request URL cannot be determined', async () => {
+        const sig = await upstashSignature(BODY, CURRENT);
+        await expect(provider().verifyEvent(event(BODY, sig, null))).resolves.toEqual({
+            ok: false,
+            reason: 'missing_request_url',
+        });
+    });
+
+    it('rejects a signature with no sub', async () => {
+        const sig = await upstashSignature(BODY, CURRENT, { sub: undefined });
+        await expect(provider().verifyEvent(event(BODY, sig))).resolves.toEqual({
+            ok: false,
+            reason: 'invalid_signature',
+        });
+    });
+
+    it('rejects a signature with no nbf', async () => {
+        const sig = await upstashSignature(BODY, CURRENT, { nbf: undefined });
+        await expect(provider().verifyEvent(event(BODY, sig))).resolves.toEqual({
+            ok: false,
+            reason: 'invalid_signature',
+        });
+    });
+
+    it('rejects a signature that is not valid yet (nbf in the future)', async () => {
+        const later = Math.floor(Date.now() / 1000) + 600;
+        const sig = await upstashSignature(BODY, CURRENT, { nbf: later, exp: later + 300 });
+        await expect(provider().verifyEvent(event(BODY, sig))).resolves.toEqual({
+            ok: false,
+            reason: 'invalid_signature',
+        });
     });
 
     it('in production with no signing keys: refuses, even with the unsigned opt-in', async () => {
