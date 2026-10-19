@@ -129,7 +129,7 @@ A code-defined app can also ship data definitions **in the bundle** (as files lo
 
 Because a definition can only compose allow-listed, versioned code, a workspace-specific definition is configuration, not user code. It can run in the shared runtime without the process isolation that arbitrary customer code would require. It cannot reach a module the app didn't register, call a transform that doesn't exist, or loop. Credentials, encryption and module auth are untouched: they stay in the API module and the framework.
 
-**"Workspace" is not yet an ADR-056 concept.** The ownership model for workspace-specific definitions is a follow-up, and this ADR does not design it. The intent is to build on [ADR-056](https://github.com/friggframework/frigg/blob/adr/056-app-profiles/docs/architecture-decisions/056-app-profiles-tenancy-entity-scopes.md) rather than invent a second tenancy model:
+**"Workspace" is not yet an ADR-056 concept.** The ownership model for workspace-specific definitions is a follow-up, and this ADR does not design it. The intent is to build on [ADR-056](./056-app-profiles-tenancy-entity-scopes.md) rather than invent a second tenancy model:
 - *Owner.* A definition is owned the way an entity is: by its owner `userId` plus the owning `organizationId` (ADR-056 Decision §3), not by a free-standing workspace id. Until then, an implementation may treat the authenticated user as the workspace.
 - *Who sees it.* Visibility uses ADR-056's `Definition.visible(context)` (Decision §4), applied where integration options are listed, and it is not authorisation.
 - *Which entities a binding may use.* A definition's module binding takes ADR-056's binding scope (`organization` or `global`, Decision §3) like a code integration's.
@@ -167,7 +167,7 @@ A **packaged** runtime is one long-lived process (or a few) running the same exp
 | AWS Lambda (today) | Everything | Resource ceiling (solved above), cold starts |
 | Container (ECS, Fly, Kubernetes) | Packaged runtime as-is | Needs the queue port |
 | Edge (Cloudflare Workers, Lambda@Edge) | **Webhook ingress, signature validation, light single-call steps** | CPU-time limits, no long jobs, database access over HTTP or driver adapters, partial Node API support. Edge should *receive and route*, not backfill: hand heavy work to a regional queue |
-| Local / home server / Raspberry Pi | Packaged runtime, SQLite or Postgres, in-process queue | OAuth redirects and inbound webhooks need public HTTPS, so a tunnel or a relay (a natural Frigg Cloud service). SQLite would be a third Prisma target. Small memory favours a lean runtime |
+| Local / home server / Raspberry Pi | Packaged runtime, SQLite or Postgres, in-process queue | OAuth redirects and inbound webhooks need public HTTPS, so a tunnel or a relay (a natural hosted service). SQLite would be a third Prisma target. Small memory favours a lean runtime |
 
 The pattern is **one definition, several placements**. A webhook can be validated at the edge and fanned into a regional queue, then processed by a Lambda worker in the cloud or by a Pi in a closet, and the definition does not change.
 
