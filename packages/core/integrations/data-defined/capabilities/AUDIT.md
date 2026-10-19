@@ -157,7 +157,7 @@ Checked against `~/api-module-library/packages/v1-ready/hubspot` (@friggframewor
 | `owner.list` | `listOwners` | unimplemented | none | Api has getOwnerById only. |
 | `pipeline.stages` | `listDealStages` | unimplemented | none | Api.getPipelineDetails(objType) returns every pipeline for an object type, not the stages of one pipeline. |
 | `contact.upsertByEmail` | `upsertContactByEmail` | unimplemented | none | Api has no upsert and no contact search to build one from. |
-| `deal.update` | `updateDeal` | unimplemented (a method of that name exists, unusable as the capability is shaped) | `updateDeal(params)` | Api.updateDeal({ dealId, properties }) reads this.URLs.getDealById, which is not defined (the table has dealById), so it throws before sending. |
+| `deal.update` | `updateDeal` | unimplemented (a method of that name exists, unusable as the capability is shaped) | `updateDeal(params)` | Api.updateDeal({ dealId, properties }) reads this.URLs.getDealById, which is not defined (the table has dealById), so it throws before sending. Fixed in api-module-library (claude/shared-conversation-8hgmbr, 5961c9a); stays unimplemented here until a release carries it. |
 | `deal.search` | `searchDeals` | unimplemented (a method of that name exists, unusable as the capability is shaped) | `searchDeals(params)` | Api.searchDeals takes HubSpot filterGroups, sorts, props, limit and after, not open/closeDate/amount filters. |
 | `task.get` | `getTaskById` | unimplemented | none | Api has no engagement or task methods. |
 | `task.update` | `updateTask` | unimplemented | none | Api has no engagement or task methods. |

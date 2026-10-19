@@ -626,7 +626,7 @@
       },
       "output": "deal",
       "status": "unimplemented",
-      "note": "Api.updateDeal({ dealId, properties }) reads this.URLs.getDealById, which is not defined (the table has dealById), so it throws before sending."
+      "note": "Api.updateDeal({ dealId, properties }) reads this.URLs.getDealById, which is not defined (the table has dealById), so it throws before sending. Fixed upstream (api-module-library 5961c9a); unimplemented here until a release carries it."
     },
     "deal.search": {
       "kind": "search",
