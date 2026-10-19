@@ -55,7 +55,7 @@ describe('Route Mounter', () => {
                 {
                     name: 'test-ext',
                     routes: {
-                        path: '/api/admin/test',
+                        path: '/admin/test',
                         handler: handlerFactory,
                     },
                 },
@@ -121,7 +121,7 @@ describe('Route Mounter', () => {
             {
                 name: 'direct-router-ext',
                 routes: {
-                    path: '/api/admin/items',
+                    path: '/admin/items',
                     handler: { router },
                 },
             },

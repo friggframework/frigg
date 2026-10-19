@@ -10,7 +10,7 @@ describe('Extension Loader', () => {
                     MyModel: { fields: ['secretField'] },
                 },
                 routes: {
-                    path: '/api/admin/test',
+                    path: '/admin/test',
                     handler: () => {},
                 },
                 bootstrap: () => {},
@@ -75,12 +75,38 @@ describe('Extension Loader', () => {
             const { valid, errors } = validateExtension(
                 {
                     name: 'test',
-                    routes: { path: '/api/test' },
+                    routes: { path: '/admin/test' },
                 },
                 0
             );
             expect(valid).toBe(false);
             expect(errors[0]).toContain('handler');
+        });
+
+        it.each([
+            ['/api/admin/oauth-credentials', 'must start with /admin/'],
+            ['/oauth-credentials', 'must start with /admin/'],
+            ['/admin/', 'must be /admin/<segment>'],
+            ['/admin/x/../y', 'must be /admin/<segment>'],
+            ['/admin/scripts', 'reserved'],
+            ['/admin/db-migrate/x', 'reserved'],
+            ['/admin/queue', 'reserved'],
+        ])('should reject routes.path %s (admin routes live under /admin, not /api)', (path, message) => {
+            const { valid, errors } = validateExtension(
+                { name: 'test', routes: { path, handler: () => {} } },
+                0
+            );
+            expect(valid).toBe(false);
+            expect(errors[0]).toContain('routes.path');
+            expect(errors[0]).toContain(message);
+        });
+
+        it('should accept a nested /admin path', () => {
+            const { valid } = validateExtension(
+                { name: 'test', routes: { path: '/admin/oauth/credentials', handler: () => {} } },
+                0
+            );
+            expect(valid).toBe(true);
         });
 
         it('should reject bootstrap that is not a function or string', () => {
@@ -129,7 +155,7 @@ describe('Extension Loader', () => {
                             },
                         },
                         routes: {
-                            path: '/api/admin/oauth-credentials',
+                            path: '/admin/oauth-credentials',
                             handler: handlerFn,
                         },
                         bootstrap: bootstrapFn,
@@ -144,7 +170,7 @@ describe('Extension Loader', () => {
                 OAuthAppCredential: { fields: ['clientSecret'] },
             });
             expect(result[0].routes.path).toBe(
-                '/api/admin/oauth-credentials'
+                '/admin/oauth-credentials'
             );
             expect(result[0].routes.handler).toBe(handlerFn);
             expect(result[0].bootstrap).toBe(bootstrapFn);

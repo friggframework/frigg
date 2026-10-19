@@ -19,7 +19,7 @@
  * or appDefinition.queue.provider ('qstash') select another HTTP queue.
  *
  * Security: this function is reachable over HTTP by anyone who knows its
- * path (and /api/queue if the netlify.toml redirect is kept), and Netlify
+ * path (and /admin/queue, its netlify.toml redirect), and Netlify
  * does not authenticate the caller. So every event must carry a signature:
  * Frigg's own HMAC (FRIGG_QUEUE_SIGNING_SECRET, sent by
  * NetlifyBackgroundProvider) or, with the qstash provider, a valid

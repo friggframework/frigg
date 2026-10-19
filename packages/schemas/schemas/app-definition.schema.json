@@ -978,9 +978,10 @@
             "properties": {
               "path": {
                 "type": "string",
-                "description": "Base URL path for the extension routes",
-                "pattern": "^/",
-                "examples": ["/api/admin/oauth-credentials"]
+                "description": "Base URL path for the extension routes. Admin routes live under /admin (never /api): /admin/<segment>[/<segment>...]. /admin/scripts, /admin/db-migrate and /admin/queue are reserved. Core's route registry turns the path into the API Gateway routes and netlify.toml redirects (auth function).",
+                "pattern": "^/admin(/[A-Za-z0-9_-]+)+$",
+                "not": { "pattern": "^/admin/(scripts|db-migrate|queue)(/|$)" },
+                "examples": ["/admin/oauth-credentials"]
               }
             },
             "additionalProperties": true

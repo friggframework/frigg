@@ -27,6 +27,7 @@ const {
 
 const {
     createManagementApiMetaRouter,
+    createDocsRedirectRouter,
 } = require('../../management-api/meta-router');
 
 const router = Router();
@@ -88,9 +89,10 @@ const validateApiKey = (req, res, next) => {
     next();
 };
 
-// Management API discovery (ADR-053 §4) is public and DB-free, so it is
-// mounted ahead of the health API key check.
+// Management API discovery (ADR-053 §4) and the /api/docs redirect to it are
+// public and DB-free, so they are mounted ahead of the health API key check.
 router.use(createManagementApiMetaRouter({ appDefinition }));
+router.use(createDocsRedirectRouter());
 
 router.use(validateApiKey);
 

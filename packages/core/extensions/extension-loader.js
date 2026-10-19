@@ -11,6 +11,9 @@
  */
 
 const path = require('path');
+const {
+    coreExtensionRoutePathError,
+} = require('../management-api/route-registry');
 
 /**
  * Validates a single extension definition.
@@ -62,6 +65,11 @@ function validateExtension(ext, index) {
         } else {
             if (!ext.routes.path || typeof ext.routes.path !== 'string') {
                 errors.push(`${prefix}.routes.path: required string`);
+            } else {
+                const pathError = coreExtensionRoutePathError(ext.routes.path);
+                if (pathError) {
+                    errors.push(`${prefix}.routes.path: ${pathError}`);
+                }
             }
             if (!ext.routes.handler) {
                 errors.push(`${prefix}.routes.handler: required (function or module path)`);

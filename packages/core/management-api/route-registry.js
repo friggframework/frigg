@@ -50,8 +50,16 @@ const RESERVED_V2_SEGMENTS = Object.freeze(['reports']);
 const V1_MIGRATION_DOCS_URL =
     'https://docs.friggframework.org/api/migrate-v1-v2';
 
-/** Lambda functions (devtools names) that serve Management API routes. */
-const FUNCTIONS = Object.freeze({ AUTH: 'auth', HEALTH: 'health' });
+/**
+ * Functions (devtools names) that serve registered routes. `queueWorker` is
+ * the HTTP queue worker of hosts that deliver queue messages over HTTP
+ * (provider-netlify's worker-background); AWS delivers through SQS.
+ */
+const FUNCTIONS = Object.freeze({
+    AUTH: 'auth',
+    HEALTH: 'health',
+    QUEUE_WORKER: 'queueWorker',
+});
 
 const route = (version, fn) => (definition) =>
     Object.freeze({ version, function: fn, ...definition });
@@ -181,6 +189,91 @@ const AUTH_EXTRA_ROUTES = Object.freeze(
 );
 
 /**
+ * Unversioned routes the DB-free health Lambda serves next to /api/meta.
+ * GET /api/docs redirects to the current OpenAPI document; the docs
+ * themselves live under /api/meta (ADR-053).
+ */
+const DOCS_ROUTES = Object.freeze(
+    [
+        {
+            operationId: 'redirectToOpenApi',
+            method: 'GET',
+            path: '/api/docs',
+        },
+    ].map(route(null, FUNCTIONS.HEALTH))
+);
+
+/**
+ * Admin routes live under /admin (as core's /admin/db-migrate and the
+ * admin-scripts /admin/scripts do), never under the public /api prefix. A
+ * core extension (appDefinition.extensions[].routes.path) mounts its admin
+ * API at /admin/<name>, served by the auth function behind the admin API key;
+ * these segments belong to other functions and cannot be taken.
+ */
+const ADMIN_ROUTE_PREFIX = '/admin/';
+const RESERVED_ADMIN_SEGMENTS = Object.freeze(['scripts', 'db-migrate', 'queue']);
+
+/**
+ * The queue delivery endpoint of hosts that deliver queue messages over HTTP
+ * (QStash posts here on Netlify). Every message must be signed: the worker
+ * verifies it before parsing anything. Not part of the public /api surface.
+ */
+const HTTP_QUEUE_ROUTES = Object.freeze(
+    [
+        {
+            operationId: 'deliverQueueMessage',
+            method: 'POST',
+            path: '/admin/queue',
+        },
+    ].map(route(null, FUNCTIONS.QUEUE_WORKER))
+);
+
+/**
+ * Why a core extension route path is not acceptable, or null when it is:
+ * `/admin/<segment>` (letters, digits, `-` and `_`, one or more segments), not
+ * a reserved segment.
+ *
+ * @param {*} path
+ * @returns {string|null}
+ */
+function coreExtensionRoutePathError(path) {
+    if (typeof path !== 'string' || !path.startsWith(ADMIN_ROUTE_PREFIX)) {
+        return `must start with ${ADMIN_ROUTE_PREFIX} (admin routes are not served under /api)`;
+    }
+    if (!/^\/admin(\/[A-Za-z0-9_-]+)+$/.test(path)) {
+        return 'must be /admin/<segment>[/<segment>...] using letters, digits, - and _';
+    }
+    const segment = path.split('/')[2];
+    if (RESERVED_ADMIN_SEGMENTS.includes(segment)) {
+        return `/admin/${segment} is reserved (${RESERVED_ADMIN_SEGMENTS.map((s) => `/admin/${s}`).join(', ')})`;
+    }
+    return null;
+}
+
+/**
+ * Route records for the core extensions' admin routes: each path and
+ * everything under it, on the auth function (core's auth router mounts the
+ * extension routes behind the admin API key).
+ *
+ * @param {Array<Object>} [extensions] - appDefinition.extensions (plain data;
+ *   only `routes.path` is read)
+ * @returns {Array<Object>}
+ */
+function listCoreExtensionRoutes(extensions = []) {
+    if (!Array.isArray(extensions)) return [];
+    const out = [];
+    for (const ext of extensions) {
+        const path = ext?.routes?.path;
+        if (typeof path !== 'string' || coreExtensionRoutePathError(path)) continue;
+        out.push(
+            Object.freeze({ version: null, function: FUNCTIONS.AUTH, method: 'ANY', path, extension: ext.name }),
+            Object.freeze({ version: null, function: FUNCTIONS.AUTH, method: 'ANY', path: `${path}/{proxy+}`, extension: ext.name })
+        );
+    }
+    return out;
+}
+
+/**
  * The v2 routes an app serves. Routes tied to an opt-in capability (the entity
  * proxy, ADR-052) are left out unless the app enables it.
  *
@@ -206,6 +299,7 @@ function listRoutes({ v1 = true, proxy = false } = {}) {
         ...listV2Routes({ proxy }),
         ...META_ROUTES,
         ...AUTH_EXTRA_ROUTES,
+        ...DOCS_ROUTES,
     ];
 }
 
@@ -225,18 +319,25 @@ function resourceRoot(record) {
 }
 
 /**
- * API Gateway HTTP API routes for the Management API, derived from the
- * registry. Each resource root gets an exact route when the root itself is
+ * Gateway routes derived from the registry: the Management API, its
+ * discovery and docs routes, the core extensions' admin routes and, for
+ * hosts that deliver queue messages over HTTP, the queue endpoint. Each
+ * Management API resource root gets an exact route when the root itself is
  * registered and a greedy `{proxy+}` route when deeper paths are. The auth
  * function uses `ANY` (as it always has, so CORS preflights reach Express);
  * the health function only serves GET.
  *
+ * devtools turns these into API Gateway HTTP API events; provider-netlify
+ * into netlify.toml redirects.
+ *
  * @param {Object} [options]
  * @param {boolean} [options.v1=true]
  * @param {boolean} [options.proxy=false]
+ * @param {Array<Object>} [options.extensions=[]] - appDefinition.extensions
+ * @param {boolean} [options.httpQueue=false] - include the HTTP queue route
  * @returns {Array<{function: string, method: string, path: string}>}
  */
-function getGatewayRoutes({ v1 = true, proxy = false } = {}) {
+function getGatewayRoutes({ v1 = true, proxy = false, extensions = [], httpQueue = false } = {}) {
     const out = [];
     const seen = new Set();
     const add = (fn, method, path) => {
@@ -265,12 +366,22 @@ function getGatewayRoutes({ v1 = true, proxy = false } = {}) {
 
     // Extra routes get an exact route unless a greedy route on the same
     // function already covers them.
-    for (const record of AUTH_EXTRA_ROUTES) {
+    for (const record of [...AUTH_EXTRA_ROUTES, ...DOCS_ROUTES]) {
         const covered = greedyRoots.has(
             `${record.function} ${resourceRoot(record)}`
         );
         if (!covered) {
             add(record.function, record.method, toGatewayPath(record.path));
+        }
+    }
+
+    for (const record of listCoreExtensionRoutes(extensions)) {
+        add(record.function, record.method, record.path);
+    }
+
+    if (httpQueue) {
+        for (const record of HTTP_QUEUE_ROUTES) {
+            add(record.function, record.method, record.path);
         }
     }
 
@@ -287,6 +398,12 @@ module.exports = {
     V2_ROUTES,
     META_ROUTES,
     AUTH_EXTRA_ROUTES,
+    DOCS_ROUTES,
+    HTTP_QUEUE_ROUTES,
+    ADMIN_ROUTE_PREFIX,
+    RESERVED_ADMIN_SEGMENTS,
+    coreExtensionRoutePathError,
+    listCoreExtensionRoutes,
     listRoutes,
     listV2Routes,
     getGatewayRoutes,

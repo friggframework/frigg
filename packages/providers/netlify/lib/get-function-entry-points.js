@@ -20,8 +20,6 @@ const STANDARD_FUNCTIONS = [
     'auth.js',
     'user.js',
     'health.js',
-    'admin.js',
-    'docs.js',
     'integration-routes.js',
     'webhooks.js',
     'worker-background.js',

@@ -142,7 +142,31 @@ describe('Base Definition Factory', () => {
                 'GET /health/{proxy+}',
                 'GET /api/meta',
                 'GET /api/meta/{proxy+}',
+                // Redirects to /api/meta/openapi/v2.json (ADR-053 docs path)
+                'GET /api/docs',
             ]);
+        });
+
+        it('routes each core extension admin path (and below) to the auth function', () => {
+            const result = createBaseDefinition(
+                {
+                    extensions: [
+                        { name: 'db-credentials', routes: { path: '/admin/oauth-credentials' } },
+                        { name: 'no-routes' },
+                    ],
+                },
+                {},
+                {}
+            );
+            const routes = result.functions.auth.events.map(
+                (e) => `${e.httpApi.method} ${e.httpApi.path}`
+            );
+            expect(routes).toContain('ANY /admin/oauth-credentials');
+            expect(routes).toContain('ANY /admin/oauth-credentials/{proxy+}');
+            // Never a catch-all that would shadow /admin/scripts or /admin/db-migrate.
+            expect(routes).not.toContain('ANY /admin/{proxy+}');
+            // The HTTP queue route is for hosts without SQS, never AWS.
+            expect(JSON.stringify(result.functions)).not.toContain('/admin/queue');
         });
 
         it('drops the v1 routes when managementApi.v1 is false, keeping the OAuth redirect', () => {

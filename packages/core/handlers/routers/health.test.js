@@ -120,6 +120,19 @@ describe('Health Check Endpoints', () => {
             expect(res.body.api.preferred).toBe('2');
         });
 
+        it('redirects GET /api/docs to the v2 OpenAPI document without the health API key', async () => {
+            const express = require('express');
+            const { request } = require('../../management-api/test-support/http-client');
+            const app = express().use(router);
+
+            // fetch follows the 302, so the answer is the v2 document itself.
+            const res = await request(app, { path: '/api/docs' });
+
+            expect(res.status).toBe(200);
+            expect(res.body['x-frigg-api-version']).toBe('2');
+            expect(res.body.openapi).toMatch(/^3\./);
+        });
+
         it('still requires the health API key for /health/detailed', async () => {
             const express = require('express');
             const { request } = require('../../management-api/test-support/http-client');

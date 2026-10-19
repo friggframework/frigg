@@ -1,7 +1,7 @@
 # @friggframework/provider-netlify
 
 Netlify provider plugin for the Frigg Framework: split-per-concern Netlify
-Functions (auth, user, health, admin, docs, integration routes, webhooks, the
+Functions (auth, user, health, integration routes, webhooks, the
 `worker-background` queue worker and the `scheduled-sync` cron), the
 `netlify.toml` generator and deploy helpers.
 
@@ -10,9 +10,26 @@ const { generateNetlifyToml, generateNetlifyEnvTemplate } = require('@friggframe
 fs.writeFileSync('netlify.toml', generateNetlifyToml(appDefinition));
 ```
 
+## Routes
+
+`generateNetlifyToml()` takes its redirects from core's route registry
+(`@friggframework/core/management-api/route-registry`, `getGatewayRoutes`), the
+same source devtools builds the AWS API Gateway routes from:
+
+| Path | Function |
+|---|---|
+| Management API v1 (`/api/integrations`, …) and v2 (`/api/v2/…`) | `auth` |
+| `/api/meta`, `/api/meta/openapi/v{n}.json`, and `/api/docs` (302 to the v2 document) | `health` |
+| Core extension admin routes, `/admin/<name>` and below (e.g. db-credentials' `/admin/oauth-credentials`), behind the admin API key | `auth` |
+| `/admin/queue` (signed queue deliveries, the QStash destination) | `worker-background` |
+
+A core extension's `routes.path` must be `/admin/<segment>…`; `/admin/scripts`,
+`/admin/db-migrate` and `/admin/queue` are reserved. Admin routes are never served
+under `/api`.
+
 ## Queue worker authentication
 
-`worker-background` (and the `/api/queue` redirect to it) is a public URL, and
+`worker-background` (and the `/admin/queue` redirect to it) is a public URL, and
 Netlify does not authenticate the caller of a Background Function. The worker
 therefore runs a message only when it can prove Frigg sent it:
 

@@ -7,7 +7,7 @@ describe('@friggframework/extension-db-credentials', () => {
         expect(dbCredentials.schema).toMatch(/\.prisma$/);
         expect(dbCredentials.encryption).toBeDefined();
         expect(dbCredentials.encryption.OAuthAppCredential.fields).toContain('clientSecret');
-        expect(dbCredentials.routes.path).toBe('/api/admin/oauth-credentials');
+        expect(dbCredentials.routes.path).toBe('/admin/oauth-credentials');
         expect(typeof dbCredentials.routes.handler).toBe('function');
         expect(typeof dbCredentials.bootstrap).toBe('function');
     });

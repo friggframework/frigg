@@ -15,15 +15,17 @@ const {
 } = require('@friggframework/core/management-api/route-registry');
 
 /**
- * HTTP API events for one function, from core's Management API route
- * registry (ADR-053): the same registry mounts the Express routers and
- * builds the OpenAPI documents, so the three cannot drift.
+ * HTTP API events for one function, from core's route registry (ADR-053):
+ * the same registry mounts the Express routers and builds the OpenAPI
+ * documents, so the three cannot drift. It also lists /api/docs and the core
+ * extensions' admin routes (/admin/<name>, served by the auth Lambda).
  */
 function managementApiEvents(AppDefinition, functionName) {
     const managementApi = AppDefinition.managementApi || {};
     return getGatewayRoutes({
         v1: managementApi.v1 !== false,
         proxy: managementApi.proxy?.enable === true,
+        extensions: AppDefinition.extensions,
     })
         .filter((route) => route.function === functionName)
         .map(({ method, path }) => ({ httpApi: { path, method } }));

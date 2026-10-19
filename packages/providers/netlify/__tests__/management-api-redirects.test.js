@@ -27,6 +27,36 @@ describe('Management API redirects', () => {
         }
     });
 
+    it('route /api/docs to the health function (it redirects to /api/meta/openapi/v2.json)', () => {
+        const redirects = redirectsOf(generateNetlifyToml({ integrations: [] }));
+        expect(redirects).toContainEqual({ from: '/api/docs', fn: 'health' });
+        expect(redirects.map((r) => r.fn)).not.toContain('docs');
+    });
+
+    it('route each core extension admin path, from the registry, to the auth function', () => {
+        const appDefinition = {
+            integrations: [],
+            extensions: [{ name: 'db-credentials', routes: { path: '/admin/oauth-credentials' } }],
+        };
+        const redirects = redirectsOf(generateNetlifyToml(appDefinition));
+        for (const route of getGatewayRoutes({ extensions: appDefinition.extensions })) {
+            const from = route.path.replace(/\{proxy\+\}$/, '*');
+            expect(redirects).toContainEqual({ from, fn: route.function });
+        }
+        expect(redirects).toContainEqual({ from: '/admin/oauth-credentials', fn: 'auth' });
+        expect(redirects).toContainEqual({ from: '/admin/oauth-credentials/*', fn: 'auth' });
+        // Nothing is served under /api/admin any more, and there is no admin function.
+        expect(redirects.map((r) => r.from).filter((f) => f.startsWith('/api/admin'))).toEqual([]);
+        expect(redirects.map((r) => r.fn)).not.toContain('admin');
+    });
+
+    it('route the registry\'s HTTP queue endpoint, /admin/queue, to worker-background', () => {
+        const redirects = redirectsOf(generateNetlifyToml({ integrations: [] }));
+        const queue = getGatewayRoutes({ httpQueue: true }).filter((r) => r.function === 'queueWorker');
+        expect(queue.map((r) => r.path)).toEqual(['/admin/queue']);
+        expect(redirects).toContainEqual({ from: '/admin/queue', fn: 'worker-background' });
+    });
+
     it('include the v1 /api/entity paths #545 left out', () => {
         const redirects = redirectsOf(generateNetlifyToml({ integrations: [] }));
         expect(redirects).toContainEqual({ from: '/api/entity', fn: 'auth' });
