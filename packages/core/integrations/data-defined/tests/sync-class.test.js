@@ -38,7 +38,7 @@ function setup(defs = [defWithSyncWorkflow()]) {
     const hubspot = hubspotApi(), quo = quoApi();
     hubspot.verifyWebhookSignature = async () => true;
     quo.verifyWebhookSignature = async () => true;
-    quo.createWebhook = async () => ({ id: 'WH1' });
+    quo.createUnifiedWebhook = async () => ({ id: 'WH1' });
     quo.deleteWebhook = async () => ({});
     const inst = new Cls({ id: 'int1', config: { type: 'data-defined', definition: { id: defs[0].id, version: defs[0].version }, settings: { fromNumber: '+15125550100' } } });
     inst.hubspot = { api: hubspot, entity: { externalId: '1944396' } };

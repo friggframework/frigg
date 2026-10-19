@@ -305,7 +305,9 @@
     "scope": "installation",
     "topic": "{{body.type}}",
     "eventId": "{{body.id}}",
-    "verify": "verifyWebhookSignature"
+    "verify": "verifyWebhookSignature",
+    "status": "unimplemented",
+    "note": "The quo Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
   },
   "capabilities": {
     "contact.get": {
@@ -317,7 +319,10 @@
           "required": true
         }
       },
-      "output": "contact"
+      "output": "contact",
+      "args": [
+        "id"
+      ]
     },
     "contact.search": {
       "kind": "search",
@@ -330,7 +335,9 @@
           "type": "string"
         }
       },
-      "output": "contact[]"
+      "output": "contact[]",
+      "status": "unimplemented",
+      "note": "Api has no contact search; listContacts filters by externalIds and sources only."
     },
     "contact.list": {
       "kind": "read",
@@ -374,7 +381,11 @@
           "type": "object"
         }
       },
-      "output": "contact"
+      "output": "contact",
+      "args": [
+        "id",
+        "$rest"
+      ]
     },
     "call.list": {
       "kind": "read",
@@ -399,7 +410,10 @@
           "required": true
         }
       },
-      "output": "recording[]"
+      "output": "recording[]",
+      "args": [
+        "callId"
+      ]
     },
     "message.send": {
       "kind": "write",
@@ -448,7 +462,7 @@
     },
     "webhook.create": {
       "kind": "subscribe",
-      "method": "createWebhook",
+      "method": "createUnifiedWebhook",
       "input": {
         "url": {
           "type": "string",
@@ -470,7 +484,10 @@
           "required": true
         }
       },
-      "output": "void"
+      "output": "void",
+      "args": [
+        "id"
+      ]
     }
   },
   "options": {

@@ -321,30 +321,44 @@
     "scope": "installation",
     "topic": "{{body.payload.ChangeEventHeader.entityName}}.{{body.payload.ChangeEventHeader.changeType}}",
     "eventId": "{{body.id}}",
-    "verify": "verifyWebhookSignature"
+    "verify": "verifyWebhookSignature",
+    "status": "unimplemented",
+    "note": "The salesforce Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
   },
   "capabilities": {
     "lead.get": {
       "kind": "read",
-      "method": "getLead",
+      "method": "get",
       "input": {
         "id": {
           "type": "string",
           "required": true
         }
       },
-      "output": "lead"
+      "output": "lead",
+      "args": [
+        {
+          "value": "Lead"
+        },
+        "id"
+      ]
     },
     "lead.create": {
       "kind": "write",
-      "method": "createLead",
+      "method": "create",
       "input": {
         "fields": {
           "type": "object",
           "required": true
         }
       },
-      "output": "lead"
+      "output": "lead",
+      "args": [
+        {
+          "value": "Lead"
+        },
+        "fields"
+      ]
     },
     "lead.update": {
       "kind": "write",
@@ -359,7 +373,9 @@
           "required": true
         }
       },
-      "output": "void"
+      "output": "void",
+      "status": "unimplemented",
+      "note": "Api.update(object, data) needs the record id inside data (data.Id); the capability passes the id separately, so there is no way to call it."
     },
     "person.searchByEmail": {
       "kind": "search",
@@ -371,18 +387,26 @@
           "required": true
         }
       },
-      "output": "{ leads: lead[], contacts: contact[] }"
+      "output": "{ leads: lead[], contacts: contact[] }",
+      "status": "unimplemented",
+      "note": "Api.find(object, filter) searches one sObject at a time; searching Lead and Contact together would need two calls."
     },
     "event.create": {
       "kind": "write",
-      "method": "createEvent",
+      "method": "create",
       "input": {
         "fields": {
           "type": "object",
           "required": true
         }
       },
-      "output": "event"
+      "output": "event",
+      "args": [
+        {
+          "value": "Event"
+        },
+        "fields"
+      ]
     },
     "event.update": {
       "kind": "write",
@@ -397,18 +421,26 @@
           "required": true
         }
       },
-      "output": "void"
+      "output": "void",
+      "status": "unimplemented",
+      "note": "Api.update(object, data) needs the record id inside data (data.Id); the capability passes the id separately, so there is no way to call it."
     },
     "opportunity.get": {
       "kind": "read",
-      "method": "getOpportunity",
+      "method": "get",
       "input": {
         "id": {
           "type": "string",
           "required": true
         }
       },
-      "output": "opportunity"
+      "output": "opportunity",
+      "args": [
+        {
+          "value": "Opportunity"
+        },
+        "id"
+      ]
     },
     "opportunity.update": {
       "kind": "write",
@@ -423,18 +455,26 @@
           "required": true
         }
       },
-      "output": "void"
+      "output": "void",
+      "status": "unimplemented",
+      "note": "Api.update(object, data) needs the record id inside data (data.Id); the capability passes the id separately, so there is no way to call it."
     },
     "task.create": {
       "kind": "write",
-      "method": "createTask",
+      "method": "create",
       "input": {
         "fields": {
           "type": "object",
           "required": true
         }
       },
-      "output": "task"
+      "output": "task",
+      "args": [
+        {
+          "value": "Task"
+        },
+        "fields"
+      ]
     },
     "file.attach": {
       "kind": "write",
@@ -457,7 +497,9 @@
           "required": true
         }
       },
-      "output": "contentVersion"
+      "output": "contentVersion",
+      "status": "unimplemented",
+      "note": "Api has the generic create(object, data) only; ContentVersion field names differ from this capability's inputs."
     },
     "note.create": {
       "kind": "write",
@@ -476,7 +518,9 @@
           "required": true
         }
       },
-      "output": "contentNote"
+      "output": "contentNote",
+      "status": "unimplemented",
+      "note": "Api has the generic create(object, data) only; ContentNote field names differ from this capability's inputs."
     },
     "user.list": {
       "kind": "read",
@@ -486,7 +530,9 @@
           "type": "boolean"
         }
       },
-      "output": "user[]"
+      "output": "user[]",
+      "status": "unimplemented",
+      "note": "Api has find(object, filter) but no user listing with an activeOnly filter."
     }
   },
   "options": {

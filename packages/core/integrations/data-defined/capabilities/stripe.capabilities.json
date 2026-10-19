@@ -471,7 +471,9 @@
     "topic": "{{body.type}}",
     "eventId": "{{body.id}}",
     "account": "{{body.account}}",
-    "verify": "verifyWebhookSignature"
+    "verify": "verifyWebhookSignature",
+    "status": "unimplemented",
+    "note": "The stripe Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
   },
   "capabilities": {
     "customer.get": {
@@ -483,7 +485,9 @@
           "required": true
         }
       },
-      "output": "customer"
+      "output": "customer",
+      "status": "unimplemented",
+      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
     },
     "customer.list": {
       "kind": "read",
@@ -499,7 +503,9 @@
           "type": "string"
         }
       },
-      "output": "page<customer>"
+      "output": "page<customer>",
+      "status": "unimplemented",
+      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
     },
     "customer.search": {
       "kind": "search",
@@ -510,7 +516,9 @@
           "required": true
         }
       },
-      "output": "customer[]"
+      "output": "customer[]",
+      "status": "unimplemented",
+      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
     },
     "customer.create": {
       "kind": "write",
@@ -521,7 +529,9 @@
           "required": true
         }
       },
-      "output": "customer"
+      "output": "customer",
+      "status": "unimplemented",
+      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
     },
     "customer.update": {
       "kind": "write",
@@ -536,7 +546,9 @@
           "required": true
         }
       },
-      "output": "customer"
+      "output": "customer",
+      "status": "unimplemented",
+      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
     },
     "paymentIntent.get": {
       "kind": "read",
@@ -550,7 +562,9 @@
           "type": "array"
         }
       },
-      "output": "paymentIntent"
+      "output": "paymentIntent",
+      "status": "unimplemented",
+      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
     },
     "refund.get": {
       "kind": "read",
@@ -561,7 +575,9 @@
           "required": true
         }
       },
-      "output": "refund"
+      "output": "refund",
+      "status": "unimplemented",
+      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
     },
     "payout.list": {
       "kind": "read",
@@ -580,11 +596,13 @@
           "type": "number"
         }
       },
-      "output": "payout[]"
+      "output": "payout[]",
+      "status": "unimplemented",
+      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
     },
     "balanceTransaction.list": {
       "kind": "read",
-      "method": "listBalanceTransactions",
+      "method": "getBalanceTransactions",
       "input": {
         "payout": {
           "type": "string",

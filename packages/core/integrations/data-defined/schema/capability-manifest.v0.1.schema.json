@@ -411,6 +411,15 @@
             "body": {}
           },
           "description": "Answered at receipt, before anything is queued (Slack url_verification, Asana X-Hook-Secret)."
+        },
+        "status": {
+          "enum": [
+            "unimplemented"
+          ],
+          "description": "The module's Api has no `verify` method (or none that checks a signature). Every delivery fails verification until it does, so definitions that trigger on this module's events validate with a warning."
+        },
+        "note": {
+          "type": "string"
         }
       }
     },
@@ -445,6 +454,37 @@
           },
           "output": {
             "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "description": "How the Api method takes its arguments, when it is not one object holding every input. Each entry is an input name (passed positionally), \"$rest\" (an object of every input not named elsewhere in the list) or {\"value\": x} (a constant, such as the sObject name of a generic Api). Omitted: the method is called with one object of all inputs.",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "value"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "value": {}
+                  }
+                }
+              ]
+            }
+          },
+          "status": {
+            "enum": [
+              "unimplemented"
+            ],
+            "description": "The module's real Api class has no method that does this (or none shaped so the call can be made). Definitions that use it validate with a warning, never an error."
+          },
+          "note": {
+            "type": "string",
+            "description": "What the real method does differently, or what is missing upstream."
           }
         }
       }

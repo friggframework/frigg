@@ -83,7 +83,7 @@ describe('installing by type', () => {
         const Host = host(docs);
         const Cls = await resolveIntegrationClass([Host], 'quo-hubspot');
         const inst = new Cls({ id: 'int9', config: { type: 'quo-hubspot', settings: { fromNumber: '+15125550100' } } });
-        inst.quo = { api: { createWebhook: async () => ({ id: 'W1' }) } };
+        inst.quo = { api: { createUnifiedWebhook: async () => ({ id: 'W1' }) } };
         inst.hubspot = { api: {}, entity: { externalId: '1' } };
         await inst.initialize();
         await inst.onCreate({});

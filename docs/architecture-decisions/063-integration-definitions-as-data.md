@@ -250,6 +250,13 @@ code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo i
   event's example `payload` (with `headers` when the topic is in one) is an exact delivery, and validation requires it
   to route to its own event through the same code a live webhook uses.
 
+A manifest names Api methods, so it can be checked against the module: `scripts/check-manifests.js` loads the Api class
+and verifies each `method` (and `webhook.verify`) exists with the arguments it takes. A capability carries `args` when
+the method takes positional arguments (most do) and `status: "unimplemented"` plus a `note` when the module has no such
+method; a definition using one validates with a warning. The first audit (`capabilities/AUDIT.md`) found 79 of 95
+capabilities in the nine modules with source were missing or shaped wrong, and no module implements
+`verifyWebhookSignature`.
+
 The manifest is the module author's promise of what is safe to call. Adding a capability is a module release, which
 is code that gets reviewed. Using it from a definition is a publish. This is the line between the two authoring forms.
 
