@@ -30,7 +30,7 @@ What remains code is the *orchestration*: the event handler that reads from one 
 
 ### Why this matters now
 
-- **The Integrator.** One product will carry many pair integrations (Klaviyo ⇄ HubSpot, Shopify → NetSuite, …). Each must appear in **both** sides' marketplace storefronts, so the runtime cannot be split per storefront. A code-per-integration runtime grows its stack with every listing.
+- **A multi-tenant integration product.** One product will carry many pair integrations (Klaviyo ⇄ HubSpot, Shopify → NetSuite, …). Each must appear in **both** sides' marketplace storefronts, so the runtime cannot be split per storefront. A code-per-integration runtime grows its stack with every listing.
 - **Per-workspace custom integrations.** A customer-specific variant is today either a fork of a class or arbitrary user code. Arbitrary user code needs process isolation to be safe.
 - **Agent authoring.** A document that validates against a JSON Schema is far easier for an agent to produce, diff and check than a class. "Checks still compile" becomes literal: schema validation, reference resolution and a Test Bench run.
 - **Reasoning.** Integration-as-code is easier for a person to reason about: you can read it, step through it and grep it. Any data form has to keep that property, or it loses.
@@ -97,7 +97,7 @@ Code is the escape hatch and data is the composition. A data definition never co
 
 Data does not mean "edited in a database admin screen". The lifecycle mirrors code:
 
-1. **Authored as files** in git, or produced by an agent or The Integrator's canvas and committed. That keeps them diffable, reviewable and blameable, and keeps integration-as-code's main reasoning property.
+1. **Authored as files** in git, or produced by an agent or a visual canvas and committed. That keeps them diffable, reviewable and blameable, and keeps integration-as-code's main reasoning property.
 2. **Compiled** by a `frigg integration check` step: JSON Schema validation (`@friggframework/schemas`, one `integration-definition.schema.json` and a `validateIntegrationDefinition()` helper, following the existing conventions), reference resolution against the app's registered modules / step types / transforms, mapping validation (ADR-057's `validateCanonicalMapping`), and a Test Bench run against recorded fixtures. A definition that fails any check is not publishable.
 3. **Published** to a definition store as an **immutable** `(name, version, contentHash)` row. Publishing is the only write. A version is never edited in place.
 4. **Pinned.** Every integration record stores the `definitionVersion` it was created with. Upgrading a running integration is an explicit migration, the same problem ADR-030 already frames. Data makes Path D of that ADR ("version as a routing dimension outside the class") almost free, because the version is just a key into the store.
@@ -108,7 +108,7 @@ A code-defined app can also ship data definitions **in the bundle** (as files lo
 
 - **One class, many types.** `DataDefinedIntegration` resolves `(name, definitionVersion)` from the integration record (or from the route) and caches the parsed definition by content hash for the life of the process.
 - **Routes keep their paths.** The existing `/api/${name}-integration/*` contract is preserved. A generic router resolves `name` from the path segment at request time instead of mounting one router per class at cold start.
-- **Constant infrastructure.** Data-defined integrations share one HTTP function, one webhook function and a small, fixed set of worker queues. Messages carry `{ integrationType, definitionVersion, event }`. The stack's resource count stops growing with the number of integrations, which removes the CloudFormation ceiling for The Integrator without nested stacks or sharding.
+- **Constant infrastructure.** Data-defined integrations share one HTTP function, one webhook function and a small, fixed set of worker queues. Messages carry `{ integrationType, definitionVersion, event }`. The stack's resource count stops growing with the number of integrations, which removes the CloudFormation ceiling for a multi-tenant product without nested stacks or sharding.
 - **Noisy neighbours are the price of sharing.** One integration's backfill must not starve another's webhooks. The runtime therefore needs per-type concurrency keys or hashing onto N queues, with separate queues for interactive and bulk work. This is the main *new* operational problem this ADR creates.
 
 ### 5. Why this is safe for per-workspace customization
@@ -120,7 +120,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 - The step-type vocabulary beyond the sketch, and how it relates to `BaseCRMIntegration`-style sync helpers.
 - The definition store's storage (Prisma model in the existing database vs a separate registry service).
 - Whether code integrations can be lowered to data. Probably not in general; possibly for the subset that only uses object routes plus mapping.
-- How a visual editor (The Integrator canvas) round-trips with hand-edited files.
+- How a visual editor (a visual canvas) round-trips with hand-edited files.
 
 ## Implementation (v0.1)
 
@@ -348,7 +348,7 @@ places:
   calls before writing an `IntegrationDefinitionVersion` row.
 - `tests/schemas.test.js`, in CI on every change: every bundled example and manifest, plus the CLI driven as a child
   process, and the schema's transform list pinned to the runtime's so the two cannot drift.
-- Anything that copies definitions elsewhere refuses to write invalid output; the Integrator's definitions page
+- Anything that copies definitions elsewhere refuses to write invalid output; the product's definitions page
   sync is one.
 
 `ajv` is already a dependency of `@friggframework/schemas`; core's runtime stays dependency-free and loads it only
@@ -386,7 +386,7 @@ does not exist at runtime, so "disabled but still firing" cannot happen.
 | Which definition an installation runs | The id is fixed; the version comes from the pin | `config.definition.{id, version}` |
 | New version | Publish only, no deploy | Publish only, no deploy |
 | New integration | A new class, so a deploy and three more functions plus a queue | A row, no deploy |
-| Fits | A product team with a handful of integrations | The Integrator, where definitions accumulate without bound |
+| Fits | A product team with a handful of integrations | A multi-tenant product, where definitions accumulate without bound |
 
 Shape B is what actually makes §4's "constant infrastructure" true. Shape A still grows the stack per definition
 id, just not per version.
@@ -579,7 +579,7 @@ does not rebuild the rows itself.
 
 ### 18. Hosting
 
-The Integrator's Frigg instance runs on **Frigg Cloud**: AWS, one sub-account per tenant, using **Shape B**. Each
+A multi-tenant product's Frigg instance runs on **Frigg Cloud**: AWS, one sub-account per tenant, using **Shape B**. Each
 tenant's stack is constant-size: one HTTP function, one webhook function, one queue worker and one queue for every
 data-defined integration. Netlify was considered for the HTTP side and rejected as the primary host:
 - function time and size limits;
@@ -688,7 +688,7 @@ So "Frigg in Rust" splits into options with very different costs:
 
 ### Positive
 
-- **Infrastructure stops scaling with integration count** for data-defined integrations; The Integrator fits in one stack.
+- **Infrastructure stops scaling with integration count** for data-defined integrations; a multi-tenant product fits in one stack.
 - **Adding or changing an integration is a publish, not a deploy**, with the same review and checks a code change gets.
 - **Agents and the canvas author something they can validate**, and a failing check is a schema error, not a runtime surprise.
 - **Per-workspace custom integrations are safe** without per-tenant process isolation.

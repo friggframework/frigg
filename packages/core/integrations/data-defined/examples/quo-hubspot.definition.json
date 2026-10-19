@@ -162,7 +162,7 @@
           "id": "calls",
           "use": "code",
           "with": {
-            "ref": "@lefthook/quo-steps#participantsForCall@1.0.0",
+            "ref": "@acme/quo-steps#participantsForCall@1.0.0",
             "with": {
               "callId": "$.record.callId"
             }

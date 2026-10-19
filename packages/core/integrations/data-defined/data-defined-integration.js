@@ -29,7 +29,7 @@ const { buildConfigForm, missingRequired } = require('./config-form');
  * Shape B — one class for every definition (defineSharedIntegrationClass): registered once as "data-defined", its
  * static modules are every API module the app has installed, and each installation names its definition id and
  * version in config. A new integration is a row, not a deploy, and every installation shares one set of functions
- * and one queue. Right for The Integrator, where definitions accumulate without bound.
+ * and one queue. Right for a multi-tenant product, where definitions accumulate without bound.
  */
 function defineIntegrationClass({ id, definitions, manifests, modules, runCode, IntegrationBase, lookup, runs }) {
     const latest = definitions.latest(id);

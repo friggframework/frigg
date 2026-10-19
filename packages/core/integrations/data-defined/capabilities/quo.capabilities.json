@@ -2,7 +2,7 @@
   "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
   "module": "quo",
   "label": "Quo",
-  "package": "@lefthook/api-module-quo",
+  "package": "@friggframework/api-module-quo",
   "version": "2.1.0",
   "auth": "api_key",
   "objects": {
