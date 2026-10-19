@@ -17,7 +17,7 @@
  *             runCode(ref, args) -> registered code steps (optional)
  */
 const { compile, routeWebhook, eventName } = require('./compile');
-const { makePorts, runWorkflow, runQuery, renderSurface, runLifecycle, resolveOptions, installContext } = require('./runtime');
+const { makePorts, runWorkflow, resumeWorkflow, runQuery, renderSurface, runLifecycle, resolveOptions, installContext } = require('./runtime');
 const { createSyncEngine } = require('./sync-engine');
 const { eventsIn, handshakeFor, modulesFor } = require('./webhooks');
 const { buildConfigForm, missingRequired } = require('./config-form');
@@ -151,6 +151,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
 
         async dispatch(ref, payload = {}) {
             const msg = payload.data || payload;
+            if (msg.resume) return this.resumeRun(msg.resume, msg);   // a paused run carries on (its own version)
             // A message queued under an older version runs on that version (an upgrade drains, it never re-interprets).
             const def = msg.definitionVersion && msg.definitionVersion !== this.def.version
                 ? await definitions.get(this.def.id, msg.definitionVersion) || this.def
@@ -355,17 +356,101 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             return { ...plan, config, applied: true, ...(schedules ? { schedules } : {}) };
         }
 
-        async recordRun(run) {
+        /**
+         * Keep the run's history, and act on its outcome: a failed run throws (the queue retries), a paused run saves
+         * its checkpoint and books its resume. A paused run is one row from first step to last: `rowId` updates it.
+         */
+        async recordRun(run, { rowId } = {}) {
             this.telemetry?.count?.('workflow.run', 1, { workflow: run.workflowId, status: run.status });
+            if (run.status === 'waiting') await this.pauseRun(run, rowId);   // before the history write: a pause must not be lost
             // Run history must never decide the run's outcome: a failed write is logged and the run stands.
+            let row = null;
             try {
                 const store = runRepository();
-                if (store) await store.createRun({ ...run, integrationId: this.id, definitionId: run.definition?.id, definitionVersion: run.definition?.version, triggerType: run.trigger?.type, eventId: run.trigger?.eventId });
+                const { checkpoint, ...stored } = run;
+                if (store && rowId && store.updateRun) row = await store.updateRun(rowId, { status: run.status, reason: run.reason, error: run.error, retryable: Boolean(run.retryable), trace: run.trace, waitingFor: run.waitingFor ?? null, resumeAt: run.resumeAt ?? null, endedAt: run.endedAt ?? null });
+                else if (store) row = await store.createRun({ ...stored, runKey: run.id, integrationId: this.id, definitionId: run.definition?.id, definitionVersion: run.definition?.version, triggerType: run.trigger?.type, eventId: run.trigger?.eventId });
             } catch (e) {
                 try { require('../../logs').getLogger('frigg.data-defined').warn('Workflow run not recorded', { eventName: 'frigg.data-defined.run.not_recorded', integrationId: this.id, workflowId: run.workflowId, cause: e?.message }); } catch { /* ignore */ }
             }
+            if (run.status === 'waiting' && row?.id && !rowId) await this.mappingStore().put(`wait:${run.id}`, { ...(await this.mappingStore().get(`wait:${run.id}`)), rowId: row.id });
             if (run.status === 'failed') { const e = new Error(run.error); e.run = run; throw e; } // the queue retries
-            return run;
+            const { checkpoint, ...out } = run;
+            return out;
+        }
+
+        /**
+         * Save a paused run's checkpoint (IntegrationMapping, encrypted at rest: it holds step results) and book its
+         * resume: the delay's end, or an approval's timeout. If the checkpoint cannot be saved, the event's dedupe
+         * claim is given back and the error thrown, so the queue runs the event again rather than losing it.
+         */
+        async pauseRun(run, rowId) {
+            const cp = run.checkpoint;
+            const store = this.mappingStore();
+            try {
+                await store.put(`wait:${run.id}`, { ...cp, runId: run.id, definitionVersion: run.definition.version, rowId: rowId ?? null });
+            } catch (e) {
+                if (cp.eventId != null) await this.ports.dedupe.release?.(`evt:${run.definition.id}:${cp.workflowId}:${cp.eventId}`);
+                throw e;
+            }
+            if (!cp.wait.until) return;
+            const name = this.constructor.Definition.name;
+            const commands = typeof this.schedulerCommands?.scheduleJob === 'function' ? this.schedulerCommands : require('../../application/commands/scheduler-commands').createSchedulerCommands({ integrationName: name });
+            const booked = await commands.scheduleJob({
+                jobId: `${name}-${this.id}-${run.id}-${cp.index}`.replace(/[^0-9A-Za-z_.-]/g, '-').slice(0, 64),
+                scheduledAt: new Date(cp.wait.until),
+                event: eventName('WF', cp.workflowId),
+                payload: { integrationId: this.id, resume: run.id, reason: cp.wait.kind === 'delay' ? 'delay' : 'timeout', index: cp.index },
+                queueUrl: typeof this.scheduleQueueUrl === 'function' ? this.scheduleQueueUrl() : process.env[`${name.toUpperCase().replace(/-/g, '_')}_QUEUE_URL`],
+            });
+            if (booked?.error || booked?.warning) {
+                try { require('../../logs').getLogger('frigg.data-defined').error('Run resume not booked', { eventName: 'frigg.data-defined.run.resume_not_booked', integrationId: this.id, runId: run.id, kind: cp.wait.kind, reason: booked.reason || booked.warning }); } catch { /* ignore */ }
+            }
+        }
+
+        /**
+         * Carry on a paused run: its delay ended, its approval timed out, or someone decided. The first of those to
+         * claim the pause wins; the others are no-ops. The run continues on the definition version it started on.
+         */
+        async resumeRun(runId, { reason, decision, by, note, index } = {}) {
+            const store = this.mappingStore();
+            const cp = await store.get(`wait:${runId}`);
+            if (!cp) return { status: 'gone', runId };
+            if (index !== undefined && Number(index) !== cp.index) return { status: 'ignored', runId, reason: 'a resume for an earlier pause' };
+            if (cp.wait.kind === 'delay' && reason !== 'delay') return { status: 'ignored', runId, reason: 'a delay resumes only when it ends' };
+            if (cp.wait.kind === 'approval' && !['decision', 'timeout'].includes(reason)) return { status: 'ignored', runId };
+            const claimKey = `resume:${runId}:${cp.index}`;
+            if (!(await store.claim(claimKey, { at: new Date().toISOString(), reason }))) return { status: 'duplicate', runId };
+
+            const at = new Date().toISOString();
+            let result, stop;
+            if (cp.wait.kind === 'delay') result = { resumedAt: at, until: cp.wait.until, waited: true };
+            else if (reason === 'decision') result = { decision, by: by ?? null, note: note ?? null, at };
+            else if (cp.wait.onTimeout === 'stop') stop = 'approval timed out';
+            else result = { decision: cp.wait.onTimeout === 'approve' ? 'approved' : 'rejected', by: 'timeout', note: null, at };
+
+            const def = cp.definitionVersion !== this.def.version ? (await definitions.get(this.def.id, cp.definitionVersion)) || this.def : this.def;
+            const run = await resumeWorkflow({ def, installation: this.installation(), checkpoint: cp, result, stop, ports: def === this.def ? this.ports : this.portsFor(def), runId });
+            if (run.status === 'failed') await store.release(claimKey);          // the queue's retry may resume again
+            else if (run.status !== 'waiting') await store.release(`wait:${runId}`);
+            return this.recordRun(run, { rowId: cp.rowId });
+        }
+
+        /**
+         * An approval decision (POST /api/integrations/:id/runs/:runId/decision). Checked here, carried out through
+         * the queue (the steps after an approval may take longer than an HTTP request should).
+         */
+        async decide(runId, { decision, userId, note } = {}) {
+            const { DefinitionError } = require('./use-cases/definition-use-cases');
+            if (!['approve', 'reject'].includes(decision)) throw new DefinitionError('decision is approve or reject', { status: 400, code: 'BAD_DECISION' });
+            const store = this.mappingStore();
+            const cp = await store.get(`wait:${runId}`);
+            if (!cp) throw new DefinitionError(`Run ${runId} is not waiting`, { status: 404, code: 'NOT_WAITING' });
+            if (cp.wait.kind !== 'approval') throw new DefinitionError(`Run ${runId} is waiting on a ${cp.wait.kind}, not an approval`, { status: 409, code: 'NOT_AN_APPROVAL' });
+            if (cp.wait.approvers?.length && !cp.wait.approvers.includes(String(userId))) throw new DefinitionError('You are not an approver of this run', { status: 403, code: 'NOT_AN_APPROVER' });
+            if (await store.get(`resume:${runId}:${cp.index}`)) throw new DefinitionError(`Run ${runId} has already been decided`, { status: 409, code: 'ALREADY_DECIDED' });
+            await this.queueWebhook({ event: eventName('WF', cp.workflowId), integrationId: this.id, resume: runId, reason: 'decision', index: cp.index, decision: decision === 'approve' ? 'approved' : 'rejected', by: String(userId), note: note ?? null });
+            return { accepted: true, runId, decision };
         }
 
         /** The sync engine over this installation's ports and mapping store (sync-engine.js). */

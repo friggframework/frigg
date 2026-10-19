@@ -480,10 +480,16 @@ model WorkflowRun {
   error             String?
   retryable         Boolean     @default(false)
   trace             Json        @default("[]")
+  /// The runtime's run id (run_...): how routes and resume jobs address a run
+  runKey            String?
+  /// A paused run (status waiting): which step, and what it waits for. Never request or response bodies.
+  waitingFor        Json?
+  resumeAt          DateTime?
   startedAt         DateTime
   endedAt           DateTime?
   createdAt         DateTime    @default(now())
 
+  @@index([integrationId, runKey])
   @@index([integrationId, startedAt])
   @@index([integrationId, workflowId, startedAt])
   @@index([integrationId, status])

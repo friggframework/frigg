@@ -125,7 +125,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 156 tests (the persistence suite runs against real PostgreSQL and
+`packages/core/integrations/data-defined/`, with 173 tests (the persistence suite runs against real PostgreSQL and
 MongoDB). It runs 16 example definitions (Quo ⇄ HubSpot is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
@@ -610,6 +610,39 @@ the new identity keys and creates nothing that already links.
 **syncRecord workflows** run per synced record whose outcome (`created`, `updated`, `linked`) they listen for. A
 create or link is once per record, so its run carries a dedupe id; updates do not.
 
+### 15c. Paused runs: delay and approval
+
+Two built-in steps end a run for now and carry it on later:
+
+```json
+{ "id": "cool-off", "use": "delay", "with": { "for": "2h" } }
+{ "id": "ok", "use": "approval", "with": { "prompt": "Refund {{event.amount | from_cents}}?", "approvers": ["user-42"], "timeout": "2d", "onTimeout": "reject" } }
+```
+
+A pause is a checkpoint at a step index. That is why a pausing step must be at the top level of a workflow, never
+inside `foreach` or `branch`, a query or a lifecycle hook. Validation refuses it there, and so does the interpreter.
+
+- **Pausing.** The run's status becomes `waiting`. The `WorkflowRun` row gets `runKey`, `waitingFor` (step id, kind,
+  until, and an approval's prompt, approvers and onTimeout) and `resumeAt`. It never holds data from the event. The
+  checkpoint (step index, `$.steps`, `$.vars`, the event and the trace so far) is an `IntegrationMapping` row
+  `wait:<runKey>`, which is encrypted at rest. It is saved before anything else. If it cannot be saved, the event's
+  dedupe claim is given back and the error thrown, so the queue runs the event again rather than losing it. A
+  one-time scheduler job books the resume for the delay's end or the approval's timeout.
+- **Resuming.** There are three triggers: the delay ends, the approval times out, or someone decides (`POST
+  /api/integrations/:id/runs/:runId/decision`, `{ decision: approve|reject, note? }`, answered 202 and carried out
+  through the queue). The first to claim `resume:<runKey>:<index>` resumes the run, and the rest are no-ops. A
+  message for an earlier pause, or the wrong kind of trigger, is ignored. The run continues on the definition version
+  it started on, from the next step, with the pausing step's result in `$.steps.<id>`. A delay gives `{ resumedAt,
+  until }`. An approval gives `{ decision: approved|rejected, by, note, at }`, where `by` is `timeout` when the
+  timeout decided. `onTimeout: stop` ends the run there instead. A step that fails after a resume gives the claim back
+  so the queue's retry resumes again.
+- **One row.** A run that pauses more than once is still one `WorkflowRun` row, updated at every pause and at the end,
+  and its trace lists every step. `GET /api/integrations/:id/runs?status=waiting` is the list of pending approvals.
+
+Default approvers are whoever can open the installation (the route is scoped to its owner). A named list restricts it.
+Without a configured scheduler (local stages without the mock), nothing books the resume. An approval can still be
+decided, but a delay waits until its job is run by hand.
+
 ### 16. UI surfaces
 
 A UI extension is a `query` plus a `view`. The view is a tree of a **fixed component set**: `Stack`, `Heading`,
@@ -691,7 +724,7 @@ work kept apart from bulk work.
 
 | Missing | Why it matters | Plan |
 |---|---|---|
-| `delay`, approvals, per-module rate limits | Common in workflows; each needs durable state between steps | With step checkpointing |
+| Per-module rate limits | Bursts (a backfill, a webhook storm) hit provider limits; today a 429 fails the step and the queue retries | A token bucket per module and installation, in the ports |
 | Host renderers (HubSpot card, Quo panel) | `renderSurface` returns trees that nothing draws yet | Per host |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |
 

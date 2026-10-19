@@ -10,10 +10,10 @@
  * @param {Record<string, object>} manifests  manifest name -> manifest (capabilities/*.capabilities.json)
  * @returns {{ valid: boolean, errors: Array<{path:string,message:string}>, warnings: Array<{path:string,message:string}> }}
  */
-const { BUILTINS, isBuiltin, splitCapability } = require('./steps');
+const { BUILTINS, PAUSING, isBuiltin, splitCapability } = require('./steps');
 const { parseCondition, referencedPaths, templateTags, FILTERS } = require('./expressions');
 const { TRANSFORMS: TRANSFORM_FNS } = require('./transforms');
-const { validateRecurrence } = require('../../infrastructure/scheduler/recurrence');
+const { validateRecurrence, parseEvery } = require('../../infrastructure/scheduler/recurrence');
 
 const ID = /^[a-z][a-z0-9-]*$/;
 const SEMVER = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
@@ -244,17 +244,31 @@ function validate(def, manifests = {}) {
             const args = st.with || {};
             if (st.use === 'foreach') {
                 checkRefs(args.over, `${p}.with.over`, scope);
-                const inner = { ...scope, steps: new Set(scope.steps), declared: new Set(), inLoop: true };
+                const inner = { ...scope, steps: new Set(scope.steps), declared: new Set(), inLoop: true, canPause: false };
                 if (args.where) { checkCondition(args.where, `${p}.with.where`); checkRefs(args.where, `${p}.with.where`, inner); }
                 if (!st.do && !('collect' in args)) err(p, 'foreach needs do steps, collect, or both');
                 if (st.do) checkSteps(st.do, `${p}.do`, inner);
                 if ('collect' in args) checkRefs(args.collect, `${p}.with.collect`, inner);
                 if (args.max != null && !(Number.isInteger(args.max) && args.max > 0 && args.max <= 1000)) err(`${p}.with.max`, 'A whole number from 1 to 1000');
             } else if (st.use === 'branch') {
-                (st.cases || []).forEach((c, j) => { checkCondition(c.when, `${p}.cases[${j}].when`); checkRefs(c.when, `${p}.cases[${j}].when`, scope); checkSteps(c.do, `${p}.cases[${j}].do`, { ...scope, steps: new Set(scope.steps) }); });
-                if (st.else) checkSteps(st.else, `${p}.else`, { ...scope, steps: new Set(scope.steps) });
+                (st.cases || []).forEach((c, j) => { checkCondition(c.when, `${p}.cases[${j}].when`); checkRefs(c.when, `${p}.cases[${j}].when`, scope); checkSteps(c.do, `${p}.cases[${j}].do`, { ...scope, steps: new Set(scope.steps), canPause: false }); });
+                if (st.else) checkSteps(st.else, `${p}.else`, { ...scope, steps: new Set(scope.steps), canPause: false });
             } else if (isBuiltin(st.use)) {
                 checkRefs(args, `${p}.with`, scope);
+                if (PAUSING.has(st.use)) {
+                    // A pause is a checkpoint at a step index, so it lives at the top level of a workflow only.
+                    if (!scope.canPause) err(p, `${st.use} can only be a top-level step of a workflow (not inside foreach or branch, a query or a lifecycle hook)`);
+                    if (!st.id) err(p, `${st.use} needs an id: later steps read its result as $.steps.<id>`);
+                    const literalDuration = (v, q) => { if (typeof v === 'string' && !v.includes('$.') && !v.includes('{{') && parseEvery(v) === null) err(q, `"${v}" is not a duration (15m, 2h, 3d)`); };
+                    if (st.use === 'delay') {
+                        if (('for' in args) === ('until' in args)) err(`${p}.with`, 'delay takes for (a duration) or until (a time), exactly one');
+                        literalDuration(args.for, `${p}.with.for`);
+                    } else {
+                        literalDuration(args.timeout, `${p}.with.timeout`);
+                        if (args.onTimeout !== undefined && !['reject', 'approve', 'stop'].includes(args.onTimeout)) err(`${p}.with.onTimeout`, 'reject, approve or stop');
+                        if (!args.prompt) err(`${p}.with.prompt`, 'Say what is being approved');
+                    }
+                }
                 if (st.use.startsWith('links.')) {
                     const isLink = 'link' in args;
                     if (isLink === ('sync' in args)) err(`${p}.with`, `${st.use} names a link set (link) or a sync (sync), exactly one`);
@@ -316,7 +330,7 @@ function validate(def, manifests = {}) {
         if (t.type === 'syncRecord' && !syncs[t.sync]) err(`${p}.trigger.sync`, `Unknown sync "${t.sync}"`);
         if (t.filter) checkCondition(t.filter, `${p}.trigger.filter`);
         if (!w.steps?.length) err(`${p}.steps`, 'At least one step');
-        checkSteps(w.steps, `${p}.steps`, newScope(w.settings));
+        checkSteps(w.steps, `${p}.steps`, { ...newScope(w.settings), canPause: true });
     });
 
     // ---------- queries ----------

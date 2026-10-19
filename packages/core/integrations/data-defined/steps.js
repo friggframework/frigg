@@ -66,6 +66,38 @@ const BUILTINS = {
         args: { cases: '[{ when, do }]', else: 'steps' },
         nested: true,
     },
+    delay: {
+        summary: 'Pause the run, then carry on after a duration or at a time. Only at the top level of a workflow. $.steps.<id> is { resumedAt, until }.',
+        args: { for: 'duration (15m, 2h, 3d; at most 365d)', until: 'ISO time (in the past: no pause)' },
+        run: (a, { now }) => {
+            const { parseEvery } = require('../../infrastructure/scheduler/recurrence');
+            const base = now ? new Date(now) : new Date();
+            let until = null;
+            if (a.for !== undefined) {
+                const minutes = parseEvery(a.for);
+                if (minutes === null || minutes > 365 * 1440) throw new Error(`delay: "${a.for}" is not a duration up to 365d`);
+                until = new Date(base.getTime() + minutes * 60000);
+            } else if (a.until !== undefined) {
+                until = new Date(a.until);
+                if (Number.isNaN(until.getTime())) throw new Error(`delay: "${a.until}" is not a time`);
+            } else throw new Error('delay: give for or until');
+            if (until <= base) return { resumedAt: base.toISOString(), until: until.toISOString(), waited: false };
+            return { wait: { kind: 'delay', until: until.toISOString() } };
+        },
+    },
+    approval: {
+        summary: 'Pause the run until someone approves or rejects it (POST /api/integrations/:id/runs/:runId/decision), or the timeout passes. Only at the top level of a workflow. $.steps.<id> is { decision: approved|rejected, by, note, at }.',
+        args: { prompt: 'what is being approved', approvers: 'user ids allowed to decide (default: the installation\'s owner)', timeout: 'duration (default 7d)', onTimeout: 'reject (default) | approve | stop' },
+        run: (a, { now }) => {
+            const { parseEvery } = require('../../infrastructure/scheduler/recurrence');
+            const minutes = parseEvery(a.timeout ?? '7d');
+            if (minutes === null || minutes > 365 * 1440) throw new Error(`approval: timeout "${a.timeout}" is not a duration up to 365d`);
+            const onTimeout = a.onTimeout ?? 'reject';
+            if (!['reject', 'approve', 'stop'].includes(onTimeout)) throw new Error('approval: onTimeout is reject, approve or stop');
+            const base = now ? new Date(now) : new Date();
+            return { wait: { kind: 'approval', prompt: String(a.prompt ?? ''), approvers: Array.isArray(a.approvers) ? a.approvers.map(String) : null, until: new Date(base.getTime() + minutes * 60000).toISOString(), onTimeout } };
+        },
+    },
     code: {
         summary: 'Call a registered code step: a named, versioned function shipped in reviewed code ("pkg#fn@1.2.0").',
         args: { ref: 'string', with: 'object' },
@@ -77,6 +109,8 @@ const BUILTINS = {
 };
 
 const FOREACH_HARD_CAP = 1000;
+/** Steps that pause a run. They may appear only at the top level of a workflow's steps. */
+const PAUSING = new Set(['delay', 'approval']);
 
 function isBuiltin(use) { return Object.prototype.hasOwnProperty.call(BUILTINS, use); }
 
@@ -86,4 +120,4 @@ function splitCapability(use) {
     return i < 0 ? null : { module: use.slice(0, i), capability: use.slice(i + 1) };
 }
 
-module.exports = { BUILTINS, FOREACH_HARD_CAP, isBuiltin, splitCapability };
+module.exports = { BUILTINS, FOREACH_HARD_CAP, PAUSING, isBuiltin, splitCapability };

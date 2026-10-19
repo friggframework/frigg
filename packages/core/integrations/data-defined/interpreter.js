@@ -6,15 +6,20 @@
  *
  * Every step leaves a trace entry: { id, use, status, ms, error? }. A step's result is stored at $.steps.<id>.
  * onError per step: 'fail' (default: throw, so the queue retries the whole run), 'continue' (result null), 'stop'.
+ *
+ * A pausing step (delay, approval) ends the run for now with status 'waiting': the caller saves a checkpoint (the
+ * step's index, $.steps and $.vars) and later calls execute again with startAt = index + 1 and the wait step's
+ * result in ctx.steps. Pausing steps run only at the top level, so an index is the whole position.
  */
 const { resolve, evaluate } = require('./expressions');
-const { BUILTINS, FOREACH_HARD_CAP, isBuiltin, splitCapability } = require('./steps');
+const { BUILTINS, FOREACH_HARD_CAP, PAUSING, isBuiltin, splitCapability } = require('./steps');
 
 class StopRun extends Error { constructor(reason) { super(reason); this.name = 'StopRun'; this.reason = reason; } }
+class WaitRun extends Error { constructor(index, id, wait) { super(`waiting at ${id}`); this.name = 'WaitRun'; Object.assign(this, { index, id, wait }); } }
 
-async function runSteps(steps, env, path = 'steps') {
+async function runSteps(steps, env, path = 'steps', startAt = 0) {
     const { ctx, trace } = env;
-    for (let i = 0; i < (steps || []).length; i++) {
+    for (let i = startAt; i < (steps || []).length; i++) {
         const step = steps[i];
         const id = step.id || `${step.use}#${i}`;
         const at = `${path}[${i}]`;
@@ -50,7 +55,13 @@ async function runSteps(steps, env, path = 'steps') {
                 await runSteps(hit ? hit.do : step.else || [], env, `${at}.${hit ? 'case' : 'else'}`);
                 out = { matched: hit ? hit.when : null };
             } else if (isBuiltin(step.use)) {
-                out = await BUILTINS[step.use].run(resolve(step.with || {}, ctx), env);
+                if (PAUSING.has(step.use) && path !== 'steps') throw new Error(`${step.use} can only be a top-level workflow step`);
+                out = await BUILTINS[step.use].run(resolve(step.with || {}, ctx), { ...env, now: ctx.now });
+                if (out && out.wait) {
+                    if (!env.canWait) throw new Error(`${step.use} can only be a top-level workflow step`);
+                    trace.push({ id, use: step.use, at, status: 'waiting', ms: Date.now() - t0, until: out.wait.until });
+                    throw new WaitRun(i, id, out.wait);
+                }
                 if (out && out.stop) { ctx.steps[id] = out; trace.push({ id, use: step.use, at, status: 'stopped', ms: Date.now() - t0, reason: out.reason }); throw new StopRun(out.reason); }
             } else {
                 const cap = splitCapability(step.use);
@@ -60,7 +71,7 @@ async function runSteps(steps, env, path = 'steps') {
             ctx.steps[id] = out === undefined ? null : out;
             trace.push({ id, use: step.use, at, status: 'ok', ms: Date.now() - t0 });
         } catch (e) {
-            if (e instanceof StopRun) throw e;
+            if (e instanceof StopRun || e instanceof WaitRun) throw e;
             const policy = step.onError || 'fail';
             trace.push({ id, use: step.use, at, status: 'error', ms: Date.now() - t0, error: String(e && e.message || e), policy });
             if (policy === 'continue') { ctx.steps[id] = null; continue; }
@@ -71,19 +82,23 @@ async function runSteps(steps, env, path = 'steps') {
 }
 
 /**
- * Run steps and report the outcome instead of throwing for a normal stop.
- * @returns {Promise<{status:'completed'|'stopped', reason?:string, steps:object, trace:Array}>}
+ * Run steps and report the outcome instead of throwing for a normal stop or pause.
+ * @param {object} p
+ * @param {boolean} [p.canWait]  a workflow run (pausing steps allowed); queries and lifecycle steps cannot pause
+ * @param {number} [p.startAt]   resume: the index of the first step to run (ctx.steps/ctx.vars carry the earlier ones)
+ * @returns {Promise<{status:'completed'|'stopped'|'waiting', reason?, steps, vars, trace, wait?: {index, id, ...}}>}
  */
-async function execute(steps, { def, installation, ctx, ports }) {
-    const env = { def, installation, ports, trace: [], ctx: { steps: {}, vars: {}, ...ctx } };
+async function execute(steps, { def, installation, ctx, ports, canWait = false, startAt = 0 }) {
+    const env = { def, installation, ports, canWait, trace: [], ctx: { steps: {}, vars: {}, ...ctx } };
     try {
-        await runSteps(steps, env);
-        return { status: 'completed', steps: env.ctx.steps, trace: env.trace };
+        await runSteps(steps, env, 'steps', startAt);
+        return { status: 'completed', steps: env.ctx.steps, vars: env.ctx.vars, trace: env.trace };
     } catch (e) {
-        if (e instanceof StopRun) return { status: 'stopped', reason: e.reason, steps: env.ctx.steps, trace: env.trace };
+        if (e instanceof StopRun) return { status: 'stopped', reason: e.reason, steps: env.ctx.steps, vars: env.ctx.vars, trace: env.trace };
+        if (e instanceof WaitRun) return { status: 'waiting', wait: { index: e.index, id: e.id, ...e.wait }, steps: env.ctx.steps, vars: env.ctx.vars, trace: env.trace };
         e.trace = env.trace;
         throw e;
     }
 }
 
-module.exports = { execute, runSteps, StopRun };
+module.exports = { execute, runSteps, StopRun, WaitRun };

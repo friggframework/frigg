@@ -8,6 +8,7 @@
  *   POST /api/integrations/:integrationId/upgrade        { to? } apply it (refused while anything is needed)
  *   GET  /api/integrations/:integrationId/runs           workflow run history, newest first (?workflowId&status&before&limit)
  *   GET  /api/integrations/:integrationId/syncs          each sync's backfill progress and poll marks
+ *   POST /api/integrations/:integrationId/runs/:runId/decision   { decision: approve|reject, note? } on a paused approval
  *
  * App admins (x-frigg-admin-api-key):
  *   POST /api/admin/data-defined/definitions             { document, notes?, publish? = true, strict? } validate + publish
@@ -69,6 +70,14 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
         if (!store) return res.json({ runs: [] });
         const { workflowId, status, before, limit } = req.query;
         res.json({ runs: await store.listRuns(integration.id, { workflowId, status, before, limit: limit ? Number(limit) : undefined }) });
+    }));
+
+    router.route('/api/integrations/:integrationId/runs/:runId/decision').post(guard(async (req, res) => {
+        const user = await authenticateUser.execute(req);
+        const integration = await getIntegrationInstance.execute(req.params.integrationId, user.getId());
+        if (!integration?.constructor?.DataDefined) throw new DefinitionError('This integration is not data-defined', { status: 404, code: 'NOT_DATA_DEFINED' });
+        const out = await integration.decide(req.params.runId, { decision: req.body?.decision, note: req.body?.note, userId: user.getId() });
+        res.status(202).json(out);
     }));
 
     router.route('/api/integrations/:integrationId/syncs').get(guard(async (req, res) => {

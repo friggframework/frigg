@@ -88,7 +88,7 @@ async function runWorkflow({ def, installation, workflowId, event = {}, eventId,
     if (record === undefined && t.type === 'webhook') record = recordOf(manifests, def, t.module, t.topic, event);
     const startedAt = now();
     const base = {
-        id: runId || `run_${startedAt.getTime().toString(36)}`, integrationId: installation.integrationId || null,
+        id: runId || `run_${startedAt.getTime().toString(36)}${require('crypto').randomBytes(4).toString('hex')}`, integrationId: installation.integrationId || null,
         definition: { id: def.id, version: def.version }, workflowId, trigger: { type: t.type, eventId: eventId ?? event.id ?? null },
         startedAt: startedAt.toISOString(),
     };
@@ -105,11 +105,55 @@ async function runWorkflow({ def, installation, workflowId, event = {}, eventId,
         if (!fresh) return { ...base, status: 'duplicate', endedAt: now().toISOString(), trace: [] };
     }
     try {
-        const out = await execute(w.steps, { def, installation, ctx, ports });
+        const out = await execute(w.steps, { def, installation, ctx, ports, canWait: true });
+        if (out.status === 'waiting') return paused(base, out, { workflowId, event, record, eventId: base.trigger.eventId, settings, now: ctx.now });
         return { ...base, status: out.status, reason: out.reason, endedAt: now().toISOString(), trace: out.trace };
     } catch (e) {
         if (claimKey) await ports.dedupe.release?.(claimKey);
         return { ...base, status: 'failed', error: String(e.message || e), endedAt: now().toISOString(), trace: e.trace || [], retryable: true };
+    }
+}
+
+/**
+ * A run that reached a pausing step. `waitingFor` is safe to store on the run row (no data from the event);
+ * `checkpoint` is everything needed to carry on and belongs in encrypted storage (it holds step results).
+ */
+function paused(base, out, { workflowId, event, record, eventId, settings, now }) {
+    const { index, id, ...wait } = out.wait;
+    return {
+        ...base, status: 'waiting', trace: out.trace, resumeAt: wait.until || null,
+        waitingFor: { stepId: id, kind: wait.kind, until: wait.until || null, ...(wait.kind === 'approval' ? { prompt: wait.prompt, approvers: wait.approvers, onTimeout: wait.onTimeout } : {}) },
+        // The trace so far (without the waiting entry) travels with the checkpoint, so the finished run has every step.
+        checkpoint: { workflowId, index, stepId: id, wait, steps: out.steps, vars: out.vars, event, record, eventId, settings, startedAt: base.startedAt, firstRunAt: now, trace: out.trace.filter((t) => !(t.status === 'waiting' && t.id === id)) },
+    };
+}
+
+/**
+ * Carry on a paused run. `result` is what the pausing step evaluates to now ({ resumedAt } for a delay, the decision
+ * for an approval); `stop` ends the run there instead (an approval timing out with onTimeout: stop).
+ * @returns {Promise<object>} the same run, completed, stopped, failed or waiting again at a later step
+ */
+async function resumeWorkflow({ def, installation, checkpoint, result, stop, ports, now = () => new Date(), runId }) {
+    const w = (def.workflows || []).find((x) => x.id === checkpoint.workflowId);
+    if (!w) throw new Error(`Unknown workflow "${checkpoint.workflowId}"`);
+    const resumedAt = now();
+    const base = {
+        id: runId, integrationId: installation.integrationId || null, definition: { id: def.id, version: def.version },
+        workflowId: w.id, trigger: { type: w.trigger.type, eventId: checkpoint.eventId ?? null }, startedAt: checkpoint.startedAt,
+    };
+    const step = { id: checkpoint.stepId, use: w.steps[checkpoint.index]?.use, at: `steps[${checkpoint.index}]` };
+    if (stop) return { ...base, status: 'stopped', reason: stop, endedAt: resumedAt.toISOString(), trace: [...(checkpoint.trace || []), { ...step, status: 'stopped', reason: stop }] };
+    const ctx = {
+        event: checkpoint.event, record: checkpoint.record, settings: checkpoint.settings, install: installContext(def, installation),
+        now: resumedAt.toISOString(), steps: { ...checkpoint.steps, [checkpoint.stepId]: result }, vars: { ...checkpoint.vars },
+    };
+    const head = [...(checkpoint.trace || []), { ...step, status: 'ok', resumedAt: resumedAt.toISOString() }];
+    try {
+        const out = await execute(w.steps, { def, installation, ctx, ports, canWait: true, startAt: checkpoint.index + 1 });
+        if (out.status === 'waiting') return paused(base, { ...out, trace: head.concat(out.trace) }, { workflowId: w.id, event: checkpoint.event, record: checkpoint.record, eventId: checkpoint.eventId, settings: checkpoint.settings, now: ctx.now });
+        return { ...base, status: out.status, reason: out.reason, endedAt: now().toISOString(), trace: head.concat(out.trace) };
+    } catch (e) {
+        return { ...base, status: 'failed', error: String(e.message || e), endedAt: now().toISOString(), trace: head.concat(e.trace || []), retryable: true };
     }
 }
 
@@ -206,4 +250,4 @@ function defaultsOf(settings) {
     return Object.fromEntries(Object.entries(settings || {}).filter(([, s]) => s.default !== undefined).map(([k, s]) => [k, s.default]));
 }
 
-module.exports = { makePorts, runWorkflow, runQuery, renderSurface, resolveView, runLifecycle, resolveOptions, installContext, recordOf, defaultsOf };
+module.exports = { makePorts, runWorkflow, resumeWorkflow, runQuery, renderSurface, resolveView, runLifecycle, resolveOptions, installContext, recordOf, defaultsOf };

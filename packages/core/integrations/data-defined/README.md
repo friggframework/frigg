@@ -124,7 +124,12 @@ update, upgrade and delete keep the host in step. What it holds is recorded at `
 
 ## Steps (v0.1)
 
-Built-ins: `links.find`, `links.upsert`, `map`, `merge`, `template`, `set`, `stop`, `foreach` (≤1000), `branch`, `code`.
+Built-ins: `links.find`, `links.upsert`, `map`, `merge`, `template`, `set`, `stop`, `foreach` (≤1000), `branch`, `code`,
+and the pausing steps `delay` and `approval`.
+
+- `delay` (`for: '2h'` or `until`) and `approval` (`prompt`, `approvers`, `timeout`, `onTimeout`) end the run for now with
+  status `waiting` and carry it on later from the next step (ADR-063 §15c). Top level of a workflow only. Decide with
+  `POST /api/integrations/:id/runs/:runId/decision`; pending ones are `GET …/runs?status=waiting`.
 
 - `map` rows read a `source` field or write a fixed `value` (`{ "target": "Line[0].DetailType", "value": "SalesItemLineDetail" }`).
 - `merge` deep-merges objects (later wins, lists replaced).
@@ -186,7 +191,7 @@ CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's
 
 ## Not in v0.1
 
-- `delay` / wait steps, approvals that pause a run, and per-tenant rate limits.
+- Per-module rate limits.
 - The host renderers (the HubSpot app extension and Quo panel that draw `renderSurface` output).
 - Rebuilding a link set's (`links`, not a sync's) identity index after its keys change: it has no backfill to
   rebuild from, so `planUpgrade` reports `reindex`. A sync's `relink` is done by a backfill.

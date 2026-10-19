@@ -131,6 +131,16 @@ describeLegs('data-defined persistence on %s', (_, url, loadClient, DefRepo, Run
         expect((await runs.listRuns(integrationId)).length).toBe(2);
     });
 
+    it('a paused run is found by its run key and updated in place when it resumes', async () => {
+        const row = await runs.createRun({ integrationId, definitionId: 'quo-hubspot', definitionVersion: '1.4.0', workflowId: 'gate', triggerType: 'userAction', status: 'waiting', runKey: 'run_abc', waitingFor: { stepId: 'ok', kind: 'approval', prompt: 'Go?' }, resumeAt: '2026-10-20T10:00:00Z', trace: [{ id: 'ok', status: 'waiting' }], startedAt: '2026-10-19T10:00:00Z' });
+        expect(await runs.findRun(integrationId, 'run_abc')).toMatchObject({ id: row.id, status: 'waiting', waitingFor: { kind: 'approval', prompt: 'Go?' } });
+        expect((await runs.listRuns(integrationId, { status: 'waiting' })).map((r) => r.runKey)).toEqual(['run_abc']);
+        const done = await runs.updateRun(row.id, { status: 'completed', waitingFor: null, resumeAt: null, endedAt: '2026-10-19T11:00:00Z', trace: [{ id: 'ok', status: 'ok' }, { id: 'create', status: 'ok' }] });
+        expect(done).toMatchObject({ id: row.id, status: 'completed', waitingFor: null, resumeAt: null, workflowId: 'gate' });
+        expect((await runs.findRun(integrationId, 'run_abc')).trace).toHaveLength(2);
+        expect(await runs.findRun(integrationId, 'run_nope')).toBeNull();
+    });
+
     it('deleting an installation deletes its run history', async () => {
         const other = String((await client.integration.create({ data: { config: { type: 'data-defined' } } })).id);
         await runs.createRun({ integrationId: other, definitionId: 'x', definitionVersion: '1.0.0', workflowId: 'w', triggerType: 'schedule', status: 'completed', startedAt: '2026-10-18T10:00:00Z' });
