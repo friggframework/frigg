@@ -1,0 +1,475 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "klaviyo",
+  "label": "Klaviyo",
+  "package": "@friggframework/api-module-klaviyo",
+  "version": "1.1.0",
+  "auth": "oauth2",
+  "objects": {
+    "profile": {
+      "label": "Profile",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "attributes.email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "attributes.phone_number",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "attributes.first_name",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "attributes.last_name",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "attributes.organization",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "attributes.title",
+          "type": "string",
+          "tag": "person.jobTitle"
+        },
+        {
+          "name": "attributes.external_id",
+          "type": "string",
+          "tag": "record.externalId"
+        },
+        {
+          "name": "attributes.location.city",
+          "type": "string",
+          "tag": "address.locality"
+        },
+        {
+          "name": "attributes.location.region",
+          "type": "string",
+          "tag": "address.region"
+        },
+        {
+          "name": "attributes.location.country",
+          "type": "string",
+          "tag": "address.country"
+        },
+        {
+          "name": "attributes.location.zip",
+          "type": "string",
+          "tag": "address.postalCode"
+        },
+        {
+          "name": "attributes.subscriptions.email.marketing.consent",
+          "type": "enum",
+          "tag": "contact.emailConsent",
+          "values": [
+            "SUBSCRIBED",
+            "UNSUBSCRIBED",
+            "NEVER_SUBSCRIBED"
+          ],
+          "readOnly": true
+        },
+        {
+          "name": "attributes.properties.lifetime_value",
+          "type": "number",
+          "tag": "customer.lifetimeValue"
+        },
+        {
+          "name": "attributes.properties.shopify_tags",
+          "type": "string",
+          "tag": "record.tags"
+        },
+        {
+          "name": "attributes.properties.hubspot_lifecycle_stage",
+          "type": "string",
+          "tag": "contact.lifecycleStage"
+        },
+        {
+          "name": "attributes.created",
+          "type": "datetime",
+          "tag": "record.createdAt",
+          "readOnly": true
+        },
+        {
+          "name": "attributes.updated",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "list": {
+      "label": "List",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "attributes.name",
+          "type": "string",
+          "tag": "list.name"
+        },
+        {
+          "name": "attributes.created",
+          "type": "datetime",
+          "readOnly": true
+        }
+      ]
+    },
+    "event": {
+      "label": "Event",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "attributes.metric_name",
+          "type": "string"
+        },
+        {
+          "name": "attributes.properties",
+          "type": "json"
+        },
+        {
+          "name": "attributes.value",
+          "type": "number"
+        },
+        {
+          "name": "attributes.time",
+          "type": "datetime"
+        },
+        {
+          "name": "attributes.unique_id",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "events": {
+    "list.subscribed": {
+      "delivery": "webhook",
+      "object": "profile",
+      "subscribe": "webhook.create",
+      "description": "Webhook topic event:klaviyo.subscribed_to_list. $.record is the profile; the list is in data.attributes.event_properties.",
+      "payload": {
+        "id": "01JAEXAMPLE7Q9VK3D6M2N8P4R",
+        "topic": "event:klaviyo.subscribed_to_list",
+        "created_at": "2026-10-18T16:02:11Z",
+        "data": {
+          "type": "event",
+          "id": "4vRpBT",
+          "attributes": {
+            "metric_name": "Subscribed to List",
+            "datetime": "2026-10-18T16:02:10Z",
+            "event_properties": {
+              "list_id": "Y6nRLr",
+              "List": "VIP Customers",
+              "method": "Shopify"
+            }
+          },
+          "profile": {
+            "type": "profile",
+            "id": "01HV6N2Y4K9JQ3ZB8XWQ7T5R2M",
+            "email": "dana.reyes@example.com",
+            "phone_number": "+15125550142",
+            "first_name": "Dana",
+            "last_name": "Reyes",
+            "organization": "Reyes Coffee Co",
+            "external_id": "7012345678901"
+          }
+        }
+      },
+      "record": "data.profile",
+      "match": "event:klaviyo.subscribed_to_list"
+    },
+    "profile.unsubscribed": {
+      "delivery": "webhook",
+      "object": "profile",
+      "subscribe": "webhook.create",
+      "description": "Webhook topic event:klaviyo.unsubscribed (email marketing). Global unsubscribe, not one list.",
+      "payload": {
+        "id": "01JAEXAMPLE7Q9VK3D6M2N8P4R",
+        "topic": "event:klaviyo.unsubscribed",
+        "created_at": "2026-10-18T16:02:11Z",
+        "data": {
+          "type": "event",
+          "id": "4vRpBT",
+          "attributes": {
+            "metric_name": "Unsubscribed",
+            "datetime": "2026-10-18T16:02:10Z",
+            "event_properties": {
+              "channel": "email",
+              "method": "Unsubscribe link"
+            }
+          },
+          "profile": {
+            "type": "profile",
+            "id": "01HV6N2Y4K9JQ3ZB8XWQ7T5R2M",
+            "email": "dana.reyes@example.com",
+            "phone_number": "+15125550142",
+            "first_name": "Dana",
+            "last_name": "Reyes",
+            "organization": "Reyes Coffee Co",
+            "external_id": "7012345678901"
+          }
+        }
+      },
+      "record": "data.profile",
+      "match": "event:klaviyo.unsubscribed"
+    },
+    "profile.updated": {
+      "delivery": "poll",
+      "object": "profile",
+      "description": "Polled from GET /api/profiles?filter=greater-than(updated,<cursor>).",
+      "payload": {
+        "type": "profile",
+        "id": "01HV6N2Y4K9JQ3ZB8XWQ7T5R2M",
+        "attributes": {
+          "email": "dana.reyes@example.com",
+          "first_name": "Dana",
+          "last_name": "Reyes",
+          "updated": "2026-10-18T17:00:00Z"
+        }
+      }
+    }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.topic}}",
+    "eventId": "{{body.id}}",
+    "verify": "verifyWebhookSignature"
+  },
+  "capabilities": {
+    "profile.get": {
+      "kind": "read",
+      "method": "getProfile",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "additionalFields": {
+          "type": "array"
+        }
+      },
+      "output": "profile"
+    },
+    "profile.search": {
+      "kind": "search",
+      "method": "getProfiles",
+      "input": {
+        "email": {
+          "type": "string"
+        },
+        "phone_number": {
+          "type": "string"
+        },
+        "external_id": {
+          "type": "string"
+        }
+      },
+      "output": "profile[]"
+    },
+    "profile.list": {
+      "kind": "read",
+      "method": "listProfiles",
+      "input": {
+        "updatedSince": {
+          "type": "string"
+        },
+        "pageCursor": {
+          "type": "string"
+        },
+        "pageSize": {
+          "type": "number"
+        }
+      },
+      "output": "page<profile>"
+    },
+    "profile.create": {
+      "kind": "write",
+      "method": "createProfile",
+      "input": {
+        "attributes": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "profile"
+    },
+    "profile.update": {
+      "kind": "write",
+      "method": "updateProfile",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "attributes": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "profile"
+    },
+    "profile.upsert": {
+      "kind": "write",
+      "method": "createOrUpdateProfile",
+      "input": {
+        "attributes": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "profile"
+    },
+    "profile.lists": {
+      "kind": "read",
+      "method": "getProfileLists",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "list[]"
+    },
+    "profile.subscribe": {
+      "kind": "write",
+      "method": "subscribeProfiles",
+      "input": {
+        "listId": {
+          "type": "string",
+          "required": true
+        },
+        "email": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "channels": {
+          "type": "array"
+        }
+      },
+      "output": "void"
+    },
+    "profile.unsubscribe": {
+      "kind": "write",
+      "method": "unsubscribeProfiles",
+      "input": {
+        "email": {
+          "type": "string",
+          "required": true
+        },
+        "listId": {
+          "type": "string"
+        }
+      },
+      "output": "void"
+    },
+    "list.list": {
+      "kind": "read",
+      "method": "getLists",
+      "input": {},
+      "output": "list[]"
+    },
+    "list.addProfiles": {
+      "kind": "write",
+      "method": "addProfilesToList",
+      "input": {
+        "listId": {
+          "type": "string",
+          "required": true
+        },
+        "profileIds": {
+          "type": "array",
+          "required": true
+        }
+      },
+      "output": "void"
+    },
+    "event.create": {
+      "kind": "write",
+      "method": "createEvent",
+      "input": {
+        "metric": {
+          "type": "string",
+          "required": true
+        },
+        "profile": {
+          "type": "object",
+          "required": true
+        },
+        "properties": {
+          "type": "object"
+        },
+        "value": {
+          "type": "number"
+        },
+        "time": {
+          "type": "string"
+        },
+        "uniqueId": {
+          "type": "string"
+        }
+      },
+      "output": "void"
+    },
+    "webhook.create": {
+      "kind": "subscribe",
+      "method": "createWebhook",
+      "input": {
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "endpointUrl": {
+          "type": "string",
+          "required": true
+        },
+        "topics": {
+          "type": "array",
+          "required": true
+        },
+        "secretKey": {
+          "type": "string"
+        }
+      },
+      "output": "webhook"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhook",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  },
+  "options": {
+    "list": {
+      "capability": "list.list",
+      "label": "{{item.attributes.name}}",
+      "value": "$.item.id"
+    }
+  }
+}

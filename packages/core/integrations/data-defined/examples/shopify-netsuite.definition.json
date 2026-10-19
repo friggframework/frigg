@@ -1,0 +1,622 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "shopify-netsuite",
+  "version": "2.2.0",
+  "display": {
+    "label": "Shopify \u2192 NetSuite",
+    "description": "Paid Shopify orders become NetSuite sales orders, customers follow them, NetSuite fulfillments write tracking back to Shopify, refunds become credit memos, and low stock is announced in Slack.",
+    "category": "ERP",
+    "tags": [
+      "ecommerce",
+      "erp",
+      "order-to-cash",
+      "inventory"
+    ]
+  },
+  "modules": {
+    "shopify": {
+      "module": "shopify",
+      "version": "^3.1"
+    },
+    "netsuite": {
+      "module": "netsuite",
+      "version": "^1.2"
+    },
+    "slack": {
+      "module": "slack",
+      "version": "^2.0"
+    }
+  },
+  "settings": {
+    "subsidiary": {
+      "type": "option",
+      "options": "netsuite.subsidiary",
+      "label": "NetSuite subsidiary for new customers and orders",
+      "required": true
+    },
+    "location": {
+      "type": "option",
+      "options": "netsuite.location",
+      "label": "Fulfil Shopify orders from",
+      "required": true
+    }
+  },
+  "syncs": [
+    {
+      "id": "customers",
+      "label": "Customers",
+      "description": "Every Shopify customer exists in NetSuite as an individual customer, matched by email.",
+      "source": "shopify.customer",
+      "target": "netsuite.customer",
+      "direction": "one_way",
+      "identity": {
+        "match": [
+          {
+            "source": "email",
+            "target": "email",
+            "transform": "lowercase",
+            "key": "email"
+          }
+        ],
+        "onAmbiguous": "first"
+      },
+      "mapping": [
+        {
+          "source": "first_name",
+          "target": "firstName"
+        },
+        {
+          "source": "last_name",
+          "target": "lastName"
+        },
+        {
+          "source": "email",
+          "target": "email",
+          "transform": "lowercase"
+        },
+        {
+          "source": "phone",
+          "target": "phone",
+          "transform": "to_e164_phone"
+        },
+        {
+          "source": "default_address.company",
+          "target": "companyName"
+        },
+        {
+          "source": "id",
+          "target": "externalId",
+          "transform": "none"
+        }
+      ],
+      "filter": "$.record.email exists",
+      "backfill": {
+        "trigger": "userAction",
+        "pageSize": 250
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    },
+    {
+      "id": "orders",
+      "label": "Orders",
+      "description": "Paid orders become sales orders. The header is mapped here; lines and the customer are filled in by the \"Sales order lines\" workflow.",
+      "source": "shopify.order",
+      "target": "netsuite.salesOrder",
+      "direction": "one_way",
+      "identity": {
+        "match": [
+          {
+            "source": "name",
+            "target": "otherRefNum",
+            "key": "orderNumber"
+          }
+        ],
+        "onAmbiguous": "skip"
+      },
+      "mapping": [
+        {
+          "source": "name",
+          "target": "otherRefNum"
+        },
+        {
+          "source": "id",
+          "target": "externalId"
+        },
+        {
+          "source": "created_at",
+          "target": "tranDate",
+          "transform": "to_iso_date"
+        },
+        {
+          "source": "email",
+          "target": "email",
+          "transform": "lowercase"
+        },
+        {
+          "source": "currency",
+          "target": "currency.refName",
+          "transform": "uppercase"
+        },
+        {
+          "source": "note",
+          "target": "memo",
+          "transform": "default",
+          "options": {
+            "value": "Shopify order"
+          }
+        }
+      ],
+      "filter": "$.record.financial_status == 'paid' || $.record.financial_status == 'partially_refunded'",
+      "backfill": {
+        "trigger": "userAction",
+        "pageSize": 50
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "order-lines",
+      "label": "Sales order lines and customer",
+      "description": "After a sales order is created from a Shopify order, attach the NetSuite customer and turn Shopify line items, shipping and discounts into NetSuite item lines.",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "syncRecord",
+        "sync": "orders",
+        "on": [
+          "created"
+        ]
+      },
+      "steps": [
+        {
+          "id": "order",
+          "use": "links.find",
+          "with": {
+            "sync": "orders",
+            "from": "shopify",
+            "id": "$.record.id"
+          }
+        },
+        {
+          "id": "customer",
+          "use": "links.find",
+          "with": {
+            "sync": "customers",
+            "key": {
+              "email": "$.record.email"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.order == null || $.steps.customer == null",
+          "with": {
+            "reason": "Order or customer is not linked yet; the queue will retry"
+          }
+        },
+        {
+          "id": "lines",
+          "use": "code",
+          "with": {
+            "ref": "@acme/commerce-steps#netsuiteItemLines@1.2.0",
+            "with": {
+              "lineItems": "$.record.line_items",
+              "shipping": "$.record.total_shipping_price_set.shop_money.amount",
+              "discountCodes": "$.record.discount_codes",
+              "locationId": "$.install.location"
+            }
+          }
+        },
+        {
+          "use": "netsuite.salesOrder.update",
+          "with": {
+            "id": "$.steps.order.netsuite",
+            "record": {
+              "entity": {
+                "id": "$.steps.customer.netsuite"
+              },
+              "subsidiary": {
+                "id": "$.install.subsidiary"
+              },
+              "location": {
+                "id": "$.install.location"
+              },
+              "item": {
+                "items": "$.steps.lines.items"
+              }
+            }
+          }
+        }
+      ],
+      "retry": {
+        "max": 5,
+        "backoff": "exponential"
+      }
+    },
+    {
+      "id": "fulfillment-to-shopify",
+      "label": "Write NetSuite fulfillments back to Shopify",
+      "description": "When NetSuite ships an item fulfillment, fulfil the matching Shopify fulfillment orders with the tracking number.",
+      "purpose": "write",
+      "default": "on",
+      "settings": {
+        "carrier": {
+          "type": "enum",
+          "label": "Carrier shown to customers",
+          "enum": [
+            "UPS",
+            "USPS",
+            "FedEx",
+            "DHL Express",
+            "Other"
+          ],
+          "default": "UPS"
+        },
+        "notifyCustomer": {
+          "type": "boolean",
+          "label": "Send Shopify's shipping confirmation email",
+          "default": true
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "netsuite",
+        "topic": "itemFulfillment.created",
+        "filter": "$.record.shipStatus == '_shipped'"
+      },
+      "steps": [
+        {
+          "id": "order",
+          "use": "links.find",
+          "with": {
+            "sync": "orders",
+            "from": "netsuite",
+            "id": "$.record.createdFrom.id"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.order == null",
+          "with": {
+            "reason": "Fulfillment is for a sales order that did not come from Shopify"
+          }
+        },
+        {
+          "id": "fulfillmentOrders",
+          "use": "shopify.order.fulfillmentOrders",
+          "with": {
+            "orderId": "$.steps.order.shopify"
+          }
+        },
+        {
+          "id": "fulfil",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.fulfillmentOrders",
+            "max": 10
+          },
+          "do": [
+            {
+              "use": "shopify.fulfillment.create",
+              "when": "$.item.status == 'open' || $.item.status == 'in_progress'",
+              "with": {
+                "fulfillmentOrderId": "$.item.id",
+                "trackingInfo": {
+                  "number": "$.record.package.packages[0].packageTrackingNumber",
+                  "company": "$.settings.carrier"
+                },
+                "notifyCustomer": "$.settings.notifyCustomer"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "low-stock-alert",
+      "label": "Low-stock alert in Slack",
+      "purpose": "notify",
+      "default": "off",
+      "settings": {
+        "threshold": {
+          "type": "number",
+          "label": "Alert when available stock falls to",
+          "default": 5
+        },
+        "channel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Post alerts to",
+          "required": true
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "shopify",
+        "topic": "inventory.updated",
+        "filter": "$.record.available <= $.settings.threshold"
+      },
+      "steps": [
+        {
+          "id": "variant",
+          "use": "shopify.variant.byInventoryItem",
+          "with": {
+            "inventoryItemId": "$.record.inventory_item_id"
+          }
+        },
+        {
+          "id": "text",
+          "use": "template",
+          "with": {
+            "id": "low-stock"
+          }
+        },
+        {
+          "use": "slack.message.post",
+          "with": {
+            "channel": "$.settings.channel",
+            "text": "$.steps.text",
+            "unfurl_links": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "refund-credit-memo",
+      "label": "Refunds become credit memos",
+      "description": "A Shopify refund creates a NetSuite credit memo against the original sales order, for the refunded lines only.",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "shopify",
+        "topic": "refund.created"
+      },
+      "steps": [
+        {
+          "id": "order",
+          "use": "links.find",
+          "with": {
+            "sync": "orders",
+            "from": "shopify",
+            "id": "$.record.order_id"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.order == null",
+          "with": {
+            "reason": "Refunded order was never synced to NetSuite"
+          }
+        },
+        {
+          "id": "salesOrder",
+          "use": "netsuite.salesOrder.get",
+          "with": {
+            "id": "$.steps.order.netsuite"
+          }
+        },
+        {
+          "id": "lines",
+          "use": "code",
+          "with": {
+            "ref": "@acme/commerce-steps#netsuiteRefundLines@1.2.0",
+            "with": {
+              "refundLineItems": "$.record.refund_line_items",
+              "transactions": "$.record.transactions",
+              "salesOrderLines": "$.steps.salesOrder.item.items"
+            }
+          }
+        },
+        {
+          "id": "memo",
+          "use": "template",
+          "with": {
+            "id": "credit-memo"
+          }
+        },
+        {
+          "use": "netsuite.creditMemo.create",
+          "with": {
+            "record": {
+              "externalId": "shopify-refund-{{record.id}}",
+              "entity": {
+                "id": "$.steps.salesOrder.entity.id"
+              },
+              "createdFrom": {
+                "id": "$.steps.order.netsuite"
+              },
+              "tranDate": "$.record.created_at",
+              "memo": "$.steps.memo",
+              "item": {
+                "items": "$.steps.lines.items"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "netsuite-order",
+      "description": "The NetSuite sales order behind this Shopify order.",
+      "steps": [
+        {
+          "id": "order",
+          "use": "links.find",
+          "with": {
+            "sync": "orders",
+            "from": "shopify",
+            "id": "$.record.id"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.order == null",
+          "with": {
+            "reason": "Not synced"
+          }
+        },
+        {
+          "id": "salesOrder",
+          "use": "netsuite.salesOrder.get",
+          "with": {
+            "id": "$.steps.order.netsuite"
+          }
+        }
+      ],
+      "returns": {
+        "salesOrder": "$.steps.salesOrder"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "netsuite-status",
+      "label": "NetSuite",
+      "host": "shopify",
+      "placement": "admin.order-details.block",
+      "objects": [
+        "order"
+      ],
+      "data": {
+        "query": "netsuite-order"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "NetSuite sales order"
+            }
+          },
+          {
+            "component": "Empty",
+            "when": "!($.data.salesOrder exists)",
+            "props": {
+              "text": "This order has not reached NetSuite yet. Only paid orders are synced."
+            }
+          },
+          {
+            "component": "KeyValue",
+            "when": "$.data.salesOrder exists",
+            "props": {
+              "items": [
+                {
+                  "label": "Document",
+                  "value": "{{data.salesOrder.tranId}}"
+                },
+                {
+                  "label": "Status",
+                  "value": "{{data.salesOrder.orderStatus}}"
+                },
+                {
+                  "label": "Total",
+                  "value": "{{data.salesOrder.total}} {{data.salesOrder.currency.refName}}"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "templates": {
+    "low-stock": ":warning: Low stock: *{{steps.variant.product_title}}* ({{steps.variant.sku}}) has {{record.available}} left at location {{record.location_id}}.",
+    "credit-memo": "Shopify refund {{record.id}} on order {{steps.salesOrder.otherRefNum}}. {{record.note | default: 'No reason given.'}}"
+  },
+  "lifecycle": {
+    "onInstall": [
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "orders/create",
+          "address": "$.install.webhookUrls.shopify",
+          "format": "json"
+        },
+        "id": "hook-orders-create"
+      },
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "orders/paid",
+          "address": "$.install.webhookUrls.shopify",
+          "format": "json"
+        },
+        "id": "hook-orders-paid"
+      },
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "customers/create",
+          "address": "$.install.webhookUrls.shopify",
+          "format": "json"
+        },
+        "id": "hook-customers-create"
+      },
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "customers/update",
+          "address": "$.install.webhookUrls.shopify",
+          "format": "json"
+        },
+        "id": "hook-customers-update"
+      },
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "refunds/create",
+          "address": "$.install.webhookUrls.shopify",
+          "format": "json"
+        },
+        "id": "hook-refunds-create"
+      },
+      {
+        "use": "shopify.webhook.create",
+        "with": {
+          "topic": "inventory_levels/update",
+          "address": "$.install.webhookUrls.shopify",
+          "format": "json"
+        },
+        "id": "hook-inventory-levels-update"
+      }
+    ],
+    "onUninstall": [
+      {
+        "id": "unhook",
+        "use": "foreach",
+        "with": {
+          "over": [
+            "$.install.runtime.installed.hook-orders-create.id",
+            "$.install.runtime.installed.hook-orders-paid.id",
+            "$.install.runtime.installed.hook-customers-create.id",
+            "$.install.runtime.installed.hook-customers-update.id",
+            "$.install.runtime.installed.hook-refunds-create.id",
+            "$.install.runtime.installed.hook-inventory-levels-update.id"
+          ],
+          "max": 20
+        },
+        "do": [
+          {
+            "use": "shopify.webhook.delete",
+            "with": {
+              "id": "$.item"
+            },
+            "onError": "continue"
+          }
+        ]
+      }
+    ]
+  }
+}

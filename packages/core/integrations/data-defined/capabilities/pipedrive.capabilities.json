@@ -1,0 +1,388 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "pipedrive",
+  "label": "Pipedrive",
+  "package": "@friggframework/api-module-pipedrive",
+  "version": "2.1.0",
+  "auth": "oauth2",
+  "objects": {
+    "person": {
+      "label": "Person",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "person.fullName"
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "emails[0].value",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "phones[0].value",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "org_id",
+          "type": "string"
+        },
+        {
+          "name": "owner_id",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "add_time",
+          "type": "datetime",
+          "tag": "record.createdAt",
+          "readOnly": true
+        },
+        {
+          "name": "update_time",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "activity": {
+      "label": "Activity",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "subject",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "done",
+          "type": "boolean"
+        },
+        {
+          "name": "due_date",
+          "type": "date"
+        },
+        {
+          "name": "due_time",
+          "type": "string"
+        },
+        {
+          "name": "duration",
+          "type": "string"
+        },
+        {
+          "name": "person_id",
+          "type": "string"
+        },
+        {
+          "name": "deal_id",
+          "type": "string"
+        },
+        {
+          "name": "owner_id",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "note",
+          "type": "text"
+        }
+      ]
+    }
+  },
+  "events": {
+    "person.created": {
+      "delivery": "webhook",
+      "object": "person",
+      "subscribe": "webhook.create",
+      "payload": {
+        "meta": {
+          "action": "create",
+          "entity": "person",
+          "entity_id": "1842",
+          "id": "9a5e6a4f-0a1b-4c55-9d1b-6f4b2a1e8c33",
+          "company_id": "7521439",
+          "user_id": "13293848",
+          "timestamp": "2026-10-18T16:01:00.412Z",
+          "type": "general",
+          "version": "2.0"
+        },
+        "data": {
+          "id": 1842,
+          "name": "Dana Reyes",
+          "first_name": "Dana",
+          "last_name": "Reyes",
+          "emails": [
+            {
+              "value": "dana.reyes@example.com",
+              "primary": true,
+              "label": "work"
+            }
+          ],
+          "phones": [
+            {
+              "value": "+15125550142",
+              "primary": true,
+              "label": "mobile"
+            }
+          ],
+          "org_id": 311,
+          "owner_id": 13293848,
+          "add_time": "2026-08-02T15:10:00Z",
+          "update_time": "2026-10-18T16:01:00Z"
+        },
+        "previous": null
+      },
+      "record": "data",
+      "idPath": "meta.id",
+      "match": "person.create"
+    },
+    "person.updated": {
+      "delivery": "webhook",
+      "object": "person",
+      "subscribe": "webhook.create",
+      "payload": {
+        "meta": {
+          "action": "change",
+          "entity": "person",
+          "entity_id": "1842",
+          "id": "9a5e6a4f-0a1b-4c55-9d1b-6f4b2a1e8c33",
+          "company_id": "7521439",
+          "user_id": "13293848",
+          "timestamp": "2026-10-18T16:01:00.412Z",
+          "type": "general",
+          "version": "2.0"
+        },
+        "data": {
+          "id": 1842,
+          "name": "Dana Reyes",
+          "first_name": "Dana",
+          "last_name": "Reyes",
+          "emails": [
+            {
+              "value": "dana.reyes@example.com",
+              "primary": true,
+              "label": "work"
+            }
+          ],
+          "phones": [
+            {
+              "value": "+15125550199",
+              "primary": true,
+              "label": "mobile"
+            }
+          ],
+          "org_id": 311,
+          "owner_id": 13293848,
+          "add_time": "2026-08-02T15:10:00Z",
+          "update_time": "2026-10-18T16:01:00Z"
+        },
+        "previous": null
+      },
+      "record": "data",
+      "idPath": "meta.id",
+      "match": "person.change"
+    }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.meta.entity}}.{{body.meta.action}}",
+    "eventId": [
+      "{{body.meta.id}}",
+      "{{body.meta.entity}}:{{body.data.id}}:{{body.meta.timestamp}}"
+    ],
+    "verify": "verifyWebhookSignature"
+  },
+  "capabilities": {
+    "person.get": {
+      "kind": "read",
+      "method": "getPerson",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "person"
+    },
+    "person.search": {
+      "kind": "search",
+      "method": "searchPersons",
+      "input": {
+        "term": {
+          "type": "string",
+          "required": true
+        },
+        "fields": {
+          "type": "string"
+        },
+        "exact_match": {
+          "type": "boolean"
+        }
+      },
+      "output": "person[]"
+    },
+    "person.list": {
+      "kind": "read",
+      "method": "listPersons",
+      "input": {
+        "cursor": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "updated_since": {
+          "type": "string"
+        }
+      },
+      "output": "page<person>"
+    },
+    "person.create": {
+      "kind": "write",
+      "method": "addPerson",
+      "input": {
+        "person": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "person"
+    },
+    "person.update": {
+      "kind": "write",
+      "method": "updatePerson",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "person": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "person"
+    },
+    "activity.create": {
+      "kind": "write",
+      "method": "addActivity",
+      "input": {
+        "activity": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "activity"
+    },
+    "activity.list": {
+      "kind": "read",
+      "method": "listActivities",
+      "input": {
+        "person_id": {
+          "type": "string"
+        },
+        "done": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "activity[]"
+    },
+    "deal.listForPerson": {
+      "kind": "read",
+      "method": "listPersonDeals",
+      "input": {
+        "personId": {
+          "type": "string",
+          "required": true
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "output": "deal[]"
+    },
+    "user.list": {
+      "kind": "read",
+      "method": "getUsers",
+      "input": {},
+      "output": "user[]"
+    },
+    "webhook.create": {
+      "kind": "subscribe",
+      "method": "addWebhook",
+      "input": {
+        "subscription_url": {
+          "type": "string",
+          "required": true
+        },
+        "event_action": {
+          "type": "string",
+          "required": true
+        },
+        "event_object": {
+          "type": "string",
+          "required": true
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "output": "webhook"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhook",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  },
+  "options": {
+    "user": {
+      "capability": "user.list",
+      "label": "{{item.name}}",
+      "value": "$.item.id"
+    }
+  },
+  "ui": {
+    "placements": [
+      "person.details.panel",
+      "deal.details.panel",
+      "organization.details.panel"
+    ],
+    "renderer": "frigg-pipedrive-app-extension"
+  }
+}

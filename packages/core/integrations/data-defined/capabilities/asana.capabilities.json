@@ -1,0 +1,265 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "asana",
+  "label": "Asana",
+  "package": "@friggframework/api-module-asana",
+  "version": "1.5.1",
+  "auth": "oauth2",
+  "objects": {
+    "task": {
+      "label": "Task",
+      "fields": [
+        {
+          "name": "gid",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "task.title"
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "tag": "task.description"
+        },
+        {
+          "name": "completed",
+          "type": "boolean",
+          "tag": "task.completed"
+        },
+        {
+          "name": "completed_at",
+          "type": "datetime",
+          "tag": "task.completedAt",
+          "readOnly": true
+        },
+        {
+          "name": "due_on",
+          "type": "date",
+          "tag": "task.dueDate"
+        },
+        {
+          "name": "due_at",
+          "type": "datetime"
+        },
+        {
+          "name": "assignee.gid",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "assignee.name",
+          "type": "string",
+          "readOnly": true
+        },
+        {
+          "name": "assignee.email",
+          "type": "email",
+          "readOnly": true
+        },
+        {
+          "name": "completed_by.name",
+          "type": "string",
+          "readOnly": true
+        },
+        {
+          "name": "projects",
+          "type": "json"
+        },
+        {
+          "name": "permalink_url",
+          "type": "string",
+          "tag": "record.url",
+          "readOnly": true
+        },
+        {
+          "name": "modified_at",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "project": {
+      "label": "Project",
+      "fields": [
+        {
+          "name": "gid",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "project.name"
+        },
+        {
+          "name": "archived",
+          "type": "boolean"
+        },
+        {
+          "name": "permalink_url",
+          "type": "string",
+          "readOnly": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "task.changed": {
+      "delivery": "webhook",
+      "object": "task",
+      "subscribe": "webhook.create",
+      "description": "A webhook on a project (X-Hook-Secret handshake). Events are compact: fetch the task to read it. Filtered to the completed field at registration.",
+      "payload": {
+        "events": [
+          {
+            "user": {
+              "gid": "1203511920193211",
+              "resource_type": "user"
+            },
+            "created_at": "2026-10-20T18:30:12.400Z",
+            "action": "changed",
+            "resource": {
+              "gid": "1208123456789012",
+              "resource_type": "task",
+              "resource_subtype": "default_task"
+            },
+            "parent": null,
+            "change": {
+              "field": "completed",
+              "action": "changed",
+              "new_value": true
+            }
+          }
+        ]
+      },
+      "record": "resource"
+    }
+  },
+  "webhook": {
+    "scope": "installation",
+    "batch": "body.events",
+    "topic": "{{item.resource.resource_type}}.{{item.action}}",
+    "eventId": "{{item.resource.gid}}:{{item.action}}:{{item.created_at}}",
+    "verify": "verifyWebhookSignature",
+    "handshake": {
+      "when": "$.headers.x-hook-secret exists",
+      "status": 200,
+      "headers": {
+        "X-Hook-Secret": "$.headers.x-hook-secret"
+      }
+    }
+  },
+  "capabilities": {
+    "task.get": {
+      "kind": "read",
+      "method": "getTask",
+      "input": {
+        "taskGid": {
+          "type": "string",
+          "required": true
+        },
+        "opt_fields": {
+          "type": "string"
+        }
+      },
+      "output": "task"
+    },
+    "task.search": {
+      "kind": "search",
+      "method": "searchTasksInWorkspace",
+      "input": {
+        "workspaceGid": {
+          "type": "string",
+          "required": true
+        },
+        "due_on": {
+          "type": "string"
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "projects_any": {
+          "type": "string"
+        },
+        "assignee_any": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "task[]"
+    },
+    "project.list": {
+      "kind": "read",
+      "method": "getProjects",
+      "input": {
+        "workspaceGid": {
+          "type": "string",
+          "required": true
+        },
+        "archived": {
+          "type": "boolean"
+        }
+      },
+      "output": "project[]"
+    },
+    "workspace.list": {
+      "kind": "read",
+      "method": "getWorkspaces",
+      "input": {},
+      "output": "workspace[]"
+    },
+    "webhook.create": {
+      "kind": "subscribe",
+      "method": "createWebhook",
+      "input": {
+        "resource": {
+          "type": "string",
+          "required": true
+        },
+        "target": {
+          "type": "string",
+          "required": true
+        },
+        "filters": {
+          "type": "array"
+        }
+      },
+      "output": "webhook"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhook",
+      "input": {
+        "webhookGid": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  },
+  "options": {
+    "workspace": {
+      "capability": "workspace.list",
+      "label": "{{item.name}}",
+      "value": "$.item.gid"
+    },
+    "project": {
+      "capability": "project.list",
+      "label": "{{item.name}}",
+      "value": "$.item.gid",
+      "inputs": {
+        "workspaceGid": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  }
+}

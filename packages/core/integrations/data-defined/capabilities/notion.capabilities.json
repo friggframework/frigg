@@ -1,0 +1,208 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "notion",
+  "label": "Notion",
+  "package": "@friggframework/api-module-notion",
+  "version": "1.3.0",
+  "auth": "oauth2",
+  "objects": {
+    "page": {
+      "label": "Page",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "parent.database_id",
+          "type": "string"
+        },
+        {
+          "name": "properties",
+          "type": "json"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "tag": "record.url",
+          "readOnly": true
+        },
+        {
+          "name": "created_time",
+          "type": "datetime",
+          "tag": "record.createdAt",
+          "readOnly": true
+        },
+        {
+          "name": "last_edited_time",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        },
+        {
+          "name": "archived",
+          "type": "boolean"
+        }
+      ]
+    },
+    "database": {
+      "label": "Database",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "title",
+          "type": "richText"
+        },
+        {
+          "name": "properties",
+          "type": "json",
+          "readOnly": true
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "readOnly": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "page.created": {
+      "delivery": "webhook",
+      "object": "page",
+      "description": "Integration webhook (configured once on the public integration); routed by workspace_id.",
+      "payload": {
+        "id": "7f2c3b8a-91c5-4b1d-8e0f-2a6f1d3c9e41",
+        "timestamp": "2026-10-20T15:50:02.000Z",
+        "workspace_id": "13950b26-c203-4f3b-b97d-93ec06319565",
+        "subscription_id": "29d75c0d-5546-4414-8459-7b7a92f1fc4b",
+        "integration_id": "0ef104cd-477e-4c15-a1e4-5c1bd3dbd0a0",
+        "type": "page.created",
+        "entity": {
+          "id": "153104cd-477e-809d-8dc4-ff2d96ae3090",
+          "type": "page"
+        },
+        "data": {
+          "parent": {
+            "id": "13950b26-c203-4f3b-b97d-93ec06319565",
+            "type": "database"
+          }
+        }
+      },
+      "record": "entity"
+    }
+  },
+  "webhook": {
+    "scope": "app",
+    "topic": "{{body.type}}",
+    "eventId": "{{body.id}}",
+    "account": "{{body.workspace_id}}",
+    "verify": "verifyWebhookSignature"
+  },
+  "capabilities": {
+    "page.create": {
+      "kind": "write",
+      "method": "createPage",
+      "input": {
+        "parent": {
+          "type": "object",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        },
+        "children": {
+          "type": "array"
+        },
+        "icon": {
+          "type": "object"
+        }
+      },
+      "output": "page"
+    },
+    "page.get": {
+      "kind": "read",
+      "method": "retrievePage",
+      "input": {
+        "pageId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "page"
+    },
+    "page.update": {
+      "kind": "write",
+      "method": "updatePage",
+      "input": {
+        "pageId": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "page"
+    },
+    "block.append": {
+      "kind": "write",
+      "method": "appendBlockChildren",
+      "input": {
+        "blockId": {
+          "type": "string",
+          "required": true
+        },
+        "children": {
+          "type": "array",
+          "required": true
+        }
+      },
+      "output": "block[]"
+    },
+    "database.query": {
+      "kind": "search",
+      "method": "queryDatabase",
+      "input": {
+        "databaseId": {
+          "type": "string",
+          "required": true
+        },
+        "filter": {
+          "type": "object"
+        },
+        "sorts": {
+          "type": "array"
+        },
+        "pageSize": {
+          "type": "number"
+        }
+      },
+      "output": "page[]"
+    },
+    "database.list": {
+      "kind": "read",
+      "method": "searchDatabases",
+      "input": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "output": "database[]"
+    }
+  },
+  "options": {
+    "database": {
+      "capability": "database.list",
+      "label": "{{item.title[0].plain_text}}",
+      "value": "$.item.id"
+    }
+  }
+}

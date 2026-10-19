@@ -1,0 +1,409 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "hubspot-slack",
+  "version": "1.2.0",
+  "display": {
+    "label": "HubSpot \u2192 Slack alerts",
+    "description": "Deal-won and big-deal alerts, a Monday pipeline digest, and task reminders in DM that can be marked done from Slack.",
+    "category": "Notifications",
+    "tags": [
+      "slack",
+      "crm",
+      "alerts",
+      "sales"
+    ]
+  },
+  "modules": {
+    "hubspot": {
+      "module": "hubspot",
+      "version": "^1.4"
+    },
+    "slack": {
+      "module": "slack",
+      "version": "^2.0"
+    }
+  },
+  "workflows": [
+    {
+      "id": "deal-won",
+      "label": "Celebrate closed-won deals",
+      "purpose": "notify",
+      "default": "on",
+      "settings": {
+        "channel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Post to",
+          "required": true
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "hubspot",
+        "topic": "deal.propertyChange",
+        "filter": "$.record.propertyName == 'dealstage' && $.record.propertyValue == 'closedwon'"
+      },
+      "steps": [
+        {
+          "id": "deal",
+          "use": "hubspot.deal.get",
+          "with": {
+            "id": "$.record.objectId"
+          }
+        },
+        {
+          "id": "owner",
+          "use": "hubspot.owner.get",
+          "with": {
+            "id": "$.steps.deal.properties.hubspot_owner_id"
+          },
+          "onError": "continue"
+        },
+        {
+          "id": "text",
+          "use": "template",
+          "with": {
+            "id": "deal-won"
+          }
+        },
+        {
+          "use": "slack.message.post",
+          "with": {
+            "channel": "$.settings.channel",
+            "text": "$.steps.text"
+          }
+        }
+      ]
+    },
+    {
+      "id": "high-value-deal",
+      "label": "Flag new high-value deals",
+      "purpose": "notify",
+      "default": "on",
+      "settings": {
+        "threshold": {
+          "type": "number",
+          "label": "Minimum amount",
+          "default": 25000
+        },
+        "channel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Post to",
+          "required": true
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "hubspot",
+        "topic": "deal.created"
+      },
+      "steps": [
+        {
+          "id": "deal",
+          "use": "hubspot.deal.get",
+          "with": {
+            "id": "$.record.objectId"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "!($.steps.deal.properties.amount exists) || $.steps.deal.properties.amount < $.settings.threshold",
+          "with": {
+            "reason": "Below the threshold"
+          }
+        },
+        {
+          "id": "text",
+          "use": "template",
+          "with": {
+            "id": "high-value"
+          }
+        },
+        {
+          "use": "slack.message.post",
+          "with": {
+            "channel": "$.settings.channel",
+            "text": "$.steps.text"
+          }
+        }
+      ]
+    },
+    {
+      "id": "weekly-digest",
+      "label": "Monday pipeline digest",
+      "description": "Every open deal closing in the next 7 days, one line each, in a single message.",
+      "purpose": "notify",
+      "default": "off",
+      "settings": {
+        "channel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Post to",
+          "required": true
+        },
+        "minAmount": {
+          "type": "number",
+          "label": "Only deals of at least",
+          "default": 0
+        }
+      },
+      "trigger": {
+        "type": "schedule",
+        "cron": "45 7 * * 1",
+        "timezone": "America/New_York"
+      },
+      "steps": [
+        {
+          "id": "deals",
+          "use": "hubspot.deal.search",
+          "with": {
+            "open": true,
+            "closeDateBefore": "+7d",
+            "minAmount": "$.settings.minAmount",
+            "limit": 50
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.deals[0] == null",
+          "with": {
+            "reason": "Nothing closes this week"
+          }
+        },
+        {
+          "id": "build",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.deals",
+            "max": 50,
+            "collect": "$.steps.line"
+          },
+          "do": [
+            {
+              "id": "line",
+              "use": "template",
+              "with": {
+                "id": "digest-line"
+              }
+            }
+          ]
+        },
+        {
+          "id": "text",
+          "use": "template",
+          "with": {
+            "id": "digest"
+          }
+        },
+        {
+          "use": "slack.message.post",
+          "with": {
+            "channel": "$.settings.channel",
+            "text": "$.steps.text",
+            "unfurl_links": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "task-reminders",
+      "label": "DM owners their tasks due today",
+      "purpose": "notify",
+      "default": "on",
+      "trigger": {
+        "type": "schedule",
+        "cron": "55 8 * * 1-5",
+        "timezone": "America/New_York"
+      },
+      "steps": [
+        {
+          "id": "tasks",
+          "use": "hubspot.task.search",
+          "with": {
+            "dueBefore": "+1d",
+            "status": "NOT_STARTED",
+            "limit": 100
+          }
+        },
+        {
+          "id": "remind",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.tasks",
+            "max": 100
+          },
+          "do": [
+            {
+              "id": "owner",
+              "use": "hubspot.owner.get",
+              "when": "$.item.properties.hubspot_owner_id exists",
+              "with": {
+                "id": "$.item.properties.hubspot_owner_id"
+              },
+              "onError": "continue"
+            },
+            {
+              "id": "slackUser",
+              "use": "slack.user.lookupByEmail",
+              "when": "$.steps.owner.email exists",
+              "with": {
+                "email": "$.steps.owner.email"
+              },
+              "onError": "continue"
+            },
+            {
+              "use": "slack.message.post",
+              "when": "$.steps.slackUser.id exists",
+              "with": {
+                "channel": "$.steps.slackUser.id",
+                "text": "Due today: {{item.properties.hs_task_subject}}",
+                "metadata": {
+                  "event_type": "hubspot_task",
+                  "event_payload": {
+                    "taskId": "$.item.id"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mark-task-done",
+      "label": "Mark a HubSpot task done from Slack",
+      "purpose": "respond",
+      "default": "on",
+      "trigger": {
+        "type": "userAction",
+        "label": "Mark done",
+        "from": "task-actions"
+      },
+      "steps": [
+        {
+          "use": "hubspot.task.update",
+          "with": {
+            "id": "$.record.metadata.event_payload.taskId",
+            "properties": {
+              "hs_task_status": "COMPLETED"
+            }
+          }
+        },
+        {
+          "use": "slack.message.update",
+          "with": {
+            "channel": "$.record.channel",
+            "ts": "$.record.ts",
+            "text": ":white_check_mark: Done: {{record.text}}"
+          }
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "task-detail",
+      "description": "The HubSpot task a reminder message points at (via its Slack message metadata).",
+      "steps": [
+        {
+          "use": "stop",
+          "when": "$.record.metadata.event_type != 'hubspot_task'",
+          "with": {
+            "reason": "Not a task reminder"
+          }
+        },
+        {
+          "id": "task",
+          "use": "hubspot.task.get",
+          "with": {
+            "id": "$.record.metadata.event_payload.taskId",
+            "properties": [
+              "hs_task_subject",
+              "hs_task_status",
+              "hs_task_priority",
+              "hs_timestamp"
+            ]
+          }
+        }
+      ],
+      "returns": {
+        "task": "$.steps.task",
+        "portalId": "$.install.portalId"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "task-actions",
+      "label": "HubSpot task",
+      "host": "slack",
+      "placement": "message.actions",
+      "data": {
+        "query": "task-detail"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "{{data.task.properties.hs_task_subject}}"
+            }
+          },
+          {
+            "component": "KeyValue",
+            "props": {
+              "items": [
+                {
+                  "label": "Priority",
+                  "value": "{{data.task.properties.hs_task_priority | default: 'NONE'}}"
+                },
+                {
+                  "label": "Due",
+                  "value": "{{data.task.properties.hs_timestamp | date}}"
+                }
+              ]
+            }
+          },
+          {
+            "component": "Badge",
+            "props": {
+              "text": "{{data.task.properties.hs_task_status}}",
+              "tone": "neutral"
+            }
+          },
+          {
+            "component": "Button",
+            "when": "$.data.task.properties.hs_task_status != 'COMPLETED'",
+            "props": {
+              "label": "Mark done",
+              "style": "primary",
+              "action": {
+                "type": "userAction",
+                "workflow": "mark-task-done"
+              }
+            }
+          },
+          {
+            "component": "Button",
+            "props": {
+              "label": "Open in HubSpot",
+              "action": {
+                "type": "open_url",
+                "url": "https://app.hubspot.com/tasks/{{data.portalId}}/view/all/task/{{data.task.id}}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "templates": {
+    "deal-won": ":tada: *{{steps.deal.properties.dealname}}* closed won for ${{steps.deal.properties.amount | default: '?'}}. Nice work {{steps.owner.firstName | default: 'team'}}! <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{steps.deal.id}}|Open deal>",
+    "high-value": ":moneybag: New deal over ${{settings.threshold}}: *{{steps.deal.properties.dealname}}* (${{steps.deal.properties.amount}}), closing {{steps.deal.properties.closedate | date}}. <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{steps.deal.id}}|Open deal>",
+    "digest-line": "\u2022 <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{item.id}}|{{item.properties.dealname}}>: ${{item.properties.amount | default: 0}}, closes {{item.properties.closedate | date}}",
+    "digest": ":calendar: *Closing in the next 7 days* ({{steps.deals | size}} deals)\n{{steps.build | join: '\\n'}}"
+  }
+}

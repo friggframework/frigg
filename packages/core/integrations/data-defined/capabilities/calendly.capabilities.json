@@ -1,0 +1,385 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "calendly",
+  "label": "Calendly",
+  "package": "@friggframework/api-module-calendly",
+  "version": "1.0.4",
+  "auth": "oauth2",
+  "account": {
+    "description": "Values about the connected account, persisted by the module (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>.",
+    "fields": [
+      {
+        "name": "organization",
+        "type": "string",
+        "description": "Organization URI of the connected Calendly user"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "description": "User URI of the connected Calendly user"
+      }
+    ]
+  },
+  "objects": {
+    "invitee": {
+      "label": "Invitee",
+      "fields": [
+        {
+          "name": "uri",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "person.fullName"
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "text_reminder_number",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "timezone",
+          "type": "string",
+          "tag": "person.timezone"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "active",
+            "canceled"
+          ],
+          "readOnly": true
+        },
+        {
+          "name": "questions_and_answers",
+          "type": "json"
+        },
+        {
+          "name": "tracking.utm_source",
+          "type": "string",
+          "tag": "marketing.source"
+        },
+        {
+          "name": "tracking.utm_campaign",
+          "type": "string",
+          "tag": "marketing.campaign"
+        },
+        {
+          "name": "cancellation.reason",
+          "type": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime",
+          "tag": "record.createdAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "scheduledEvent": {
+      "label": "Scheduled event",
+      "fields": [
+        {
+          "name": "uri",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "meeting.title"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "active",
+            "canceled"
+          ]
+        },
+        {
+          "name": "start_time",
+          "type": "datetime",
+          "tag": "meeting.start"
+        },
+        {
+          "name": "end_time",
+          "type": "datetime",
+          "tag": "meeting.end"
+        },
+        {
+          "name": "location.join_url",
+          "type": "string",
+          "tag": "meeting.joinUrl"
+        },
+        {
+          "name": "event_type",
+          "type": "string"
+        },
+        {
+          "name": "event_memberships",
+          "type": "json",
+          "tag": "record.owner"
+        }
+      ]
+    }
+  },
+  "events": {
+    "invitee.created": {
+      "delivery": "webhook",
+      "object": "invitee",
+      "subscribe": "webhook.create",
+      "payload": {
+        "event": "invitee.created",
+        "created_at": "2026-10-18T14:30:01.000000Z",
+        "created_by": "https://api.calendly.com/users/AAAA",
+        "payload": {
+          "uri": "https://api.calendly.com/scheduled_events/GBGBDCAADAEDCRZ2/invitees/AAAAAAAAAAAAAAAA",
+          "email": "priya@acme.example",
+          "name": "Priya Natarajan",
+          "first_name": "Priya",
+          "last_name": "Natarajan",
+          "status": "active",
+          "timezone": "America/Chicago",
+          "text_reminder_number": "+15125550177",
+          "rescheduled": false,
+          "created_at": "2026-10-18T14:30:00.000000Z",
+          "cancel_url": "https://calendly.com/cancellations/AAAAAAAAAAAAAAAA",
+          "reschedule_url": "https://calendly.com/reschedulings/AAAAAAAAAAAAAAAA",
+          "questions_and_answers": [
+            {
+              "question": "Company",
+              "answer": "Acme Corp",
+              "position": 0
+            },
+            {
+              "question": "What would you like to discuss?",
+              "answer": "Migrating our Salesforce integration",
+              "position": 1
+            }
+          ],
+          "tracking": {
+            "utm_source": "google",
+            "utm_medium": "cpc",
+            "utm_campaign": "salesforce-integration"
+          },
+          "scheduled_event": {
+            "uri": "https://api.calendly.com/scheduled_events/GBGBDCAADAEDCRZ2",
+            "name": "Discovery call (30 min)",
+            "status": "active",
+            "start_time": "2026-10-22T19:00:00.000000Z",
+            "end_time": "2026-10-22T19:30:00.000000Z",
+            "event_type": "https://api.calendly.com/event_types/GBGBDCAADAEDCRZ2",
+            "location": {
+              "type": "google_conference",
+              "join_url": "https://meet.google.com/abc-defg-hij"
+            },
+            "event_memberships": [
+              {
+                "user": "https://api.calendly.com/users/AAAA",
+                "user_email": "alex@acme.example",
+                "user_name": "Alex Morgan"
+              }
+            ]
+          }
+        }
+      },
+      "record": "payload",
+      "idPath": "payload.uri"
+    },
+    "invitee.canceled": {
+      "delivery": "webhook",
+      "object": "invitee",
+      "subscribe": "webhook.create",
+      "payload": {
+        "event": "invitee.canceled",
+        "created_at": "2026-10-21T09:00:00.000000Z",
+        "created_by": "https://api.calendly.com/users/AAAA",
+        "payload": {
+          "uri": "https://api.calendly.com/scheduled_events/GBGBDCAADAEDCRZ2/invitees/AAAAAAAAAAAAAAAA",
+          "email": "priya@acme.example",
+          "name": "Priya Natarajan",
+          "first_name": "Priya",
+          "last_name": "Natarajan",
+          "status": "canceled",
+          "timezone": "America/Chicago",
+          "text_reminder_number": "+15125550177",
+          "rescheduled": false,
+          "created_at": "2026-10-18T14:30:00.000000Z",
+          "cancel_url": "https://calendly.com/cancellations/AAAAAAAAAAAAAAAA",
+          "reschedule_url": "https://calendly.com/reschedulings/AAAAAAAAAAAAAAAA",
+          "questions_and_answers": [
+            {
+              "question": "Company",
+              "answer": "Acme Corp",
+              "position": 0
+            },
+            {
+              "question": "What would you like to discuss?",
+              "answer": "Migrating our Salesforce integration",
+              "position": 1
+            }
+          ],
+          "tracking": {
+            "utm_source": "google",
+            "utm_medium": "cpc",
+            "utm_campaign": "salesforce-integration"
+          },
+          "scheduled_event": {
+            "uri": "https://api.calendly.com/scheduled_events/GBGBDCAADAEDCRZ2",
+            "name": "Discovery call (30 min)",
+            "status": "active",
+            "start_time": "2026-10-22T19:00:00.000000Z",
+            "end_time": "2026-10-22T19:30:00.000000Z",
+            "event_type": "https://api.calendly.com/event_types/GBGBDCAADAEDCRZ2",
+            "location": {
+              "type": "google_conference",
+              "join_url": "https://meet.google.com/abc-defg-hij"
+            },
+            "event_memberships": [
+              {
+                "user": "https://api.calendly.com/users/AAAA",
+                "user_email": "alex@acme.example",
+                "user_name": "Alex Morgan"
+              }
+            ]
+          },
+          "cancellation": {
+            "canceled_by": "Priya Natarajan",
+            "reason": "Need to push to next week",
+            "canceler_type": "invitee"
+          }
+        }
+      },
+      "record": "payload",
+      "idPath": "payload.uri"
+    }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.event}}",
+    "eventId": "{{body.payload.uri}}:{{body.event}}",
+    "verify": "verifyWebhookSignature"
+  },
+  "capabilities": {
+    "invitee.get": {
+      "kind": "read",
+      "method": "getInvitee",
+      "input": {
+        "uri": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "invitee"
+    },
+    "event.get": {
+      "kind": "read",
+      "method": "getScheduledEvent",
+      "input": {
+        "uri": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "scheduledEvent"
+    },
+    "event.list": {
+      "kind": "read",
+      "method": "listScheduledEvents",
+      "input": {
+        "organization": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "invitee_email": {
+          "type": "string"
+        },
+        "min_start_time": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "count": {
+          "type": "number"
+        }
+      },
+      "output": "scheduledEvent[]"
+    },
+    "eventType.list": {
+      "kind": "read",
+      "method": "listEventTypes",
+      "input": {
+        "organization": {
+          "type": "string"
+        }
+      },
+      "output": "eventType[]"
+    },
+    "webhook.create": {
+      "kind": "subscribe",
+      "method": "createWebhookSubscription",
+      "input": {
+        "url": {
+          "type": "string",
+          "required": true
+        },
+        "events": {
+          "type": "array",
+          "required": true
+        },
+        "organization": {
+          "type": "string",
+          "required": true
+        },
+        "scope": {
+          "type": "string",
+          "required": true
+        },
+        "signing_key": {
+          "type": "string"
+        }
+      },
+      "output": "webhookSubscription"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhookSubscription",
+      "input": {
+        "uri": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  },
+  "options": {
+    "eventType": {
+      "capability": "eventType.list",
+      "label": "{{item.name}}",
+      "value": "$.item.uri"
+    }
+  }
+}

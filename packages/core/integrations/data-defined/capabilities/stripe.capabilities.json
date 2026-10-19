@@ -1,0 +1,580 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "stripe",
+  "label": "Stripe",
+  "package": "@friggframework/api-module-stripe",
+  "version": "2.3.0",
+  "auth": "oauth2",
+  "objects": {
+    "customer": {
+      "label": "Customer",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "person.fullName"
+        },
+        {
+          "name": "phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "description",
+          "type": "text"
+        },
+        {
+          "name": "address.line1",
+          "type": "string",
+          "tag": "address.line1"
+        },
+        {
+          "name": "address.city",
+          "type": "string",
+          "tag": "address.locality"
+        },
+        {
+          "name": "address.state",
+          "type": "string",
+          "tag": "address.region"
+        },
+        {
+          "name": "address.postal_code",
+          "type": "string",
+          "tag": "address.postalCode"
+        },
+        {
+          "name": "address.country",
+          "type": "string",
+          "tag": "address.country"
+        },
+        {
+          "name": "currency",
+          "type": "string"
+        },
+        {
+          "name": "metadata.quickbooks_id",
+          "type": "string",
+          "tag": "record.externalId"
+        },
+        {
+          "name": "created",
+          "type": "timestamp",
+          "tag": "record.createdAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "paymentIntent": {
+      "label": "Payment intent",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "amount",
+          "type": "integer",
+          "tag": "payment.amountMinor"
+        },
+        {
+          "name": "amount_received",
+          "type": "integer",
+          "readOnly": true
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "tag": "payment.currency"
+        },
+        {
+          "name": "customer",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "text"
+        },
+        {
+          "name": "receipt_email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "tag": "payment.status",
+          "values": [
+            "requires_payment_method",
+            "requires_confirmation",
+            "requires_action",
+            "processing",
+            "requires_capture",
+            "canceled",
+            "succeeded"
+          ],
+          "readOnly": true
+        },
+        {
+          "name": "latest_charge",
+          "type": "string",
+          "readOnly": true
+        },
+        {
+          "name": "metadata",
+          "type": "json"
+        },
+        {
+          "name": "created",
+          "type": "timestamp",
+          "tag": "record.createdAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "refund": {
+      "label": "Refund",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "amount",
+          "type": "integer",
+          "tag": "payment.amountMinor"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "tag": "payment.currency"
+        },
+        {
+          "name": "charge",
+          "type": "string"
+        },
+        {
+          "name": "payment_intent",
+          "type": "string"
+        },
+        {
+          "name": "reason",
+          "type": "enum",
+          "values": [
+            "duplicate",
+            "fraudulent",
+            "requested_by_customer",
+            "expired_uncaptured_charge"
+          ]
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "pending",
+            "requires_action",
+            "succeeded",
+            "failed",
+            "canceled"
+          ],
+          "readOnly": true
+        },
+        {
+          "name": "created",
+          "type": "timestamp",
+          "tag": "record.createdAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "payout": {
+      "label": "Payout",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "amount",
+          "type": "integer",
+          "tag": "payment.amountMinor"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "tag": "payment.currency"
+        },
+        {
+          "name": "arrival_date",
+          "type": "timestamp"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "paid",
+            "pending",
+            "in_transit",
+            "canceled",
+            "failed"
+          ],
+          "readOnly": true
+        },
+        {
+          "name": "automatic",
+          "type": "boolean"
+        },
+        {
+          "name": "balance_transaction",
+          "type": "string"
+        },
+        {
+          "name": "statement_descriptor",
+          "type": "string"
+        }
+      ]
+    },
+    "balanceTransaction": {
+      "label": "Balance transaction",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "amount",
+          "type": "integer"
+        },
+        {
+          "name": "fee",
+          "type": "integer"
+        },
+        {
+          "name": "net",
+          "type": "integer"
+        },
+        {
+          "name": "currency",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "enum",
+          "values": [
+            "charge",
+            "payment",
+            "refund",
+            "adjustment",
+            "stripe_fee",
+            "payout",
+            "application_fee"
+          ]
+        },
+        {
+          "name": "reporting_category",
+          "type": "string"
+        },
+        {
+          "name": "source",
+          "type": "string"
+        },
+        {
+          "name": "created",
+          "type": "timestamp",
+          "readOnly": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "payment_intent.succeeded": {
+      "delivery": "webhook",
+      "object": "paymentIntent",
+      "description": "Connect webhook: one app-level endpoint receives events for every connected account; Frigg routes by `account`. No per-install subscription.",
+      "payload": {
+        "id": "evt_1QBz8kLkdIwHu7ix3XyZ9aQe",
+        "object": "event",
+        "account": "acct_1Nv0FGQ9RKHgCVdK",
+        "api_version": "2024-06-20",
+        "created": 1760800000,
+        "livemode": true,
+        "type": "payment_intent.succeeded",
+        "data": {
+          "object": {
+            "id": "pi_3QBz8jLkdIwHu7ix1Zt0nXyQ",
+            "object": "payment_intent",
+            "amount": 13970,
+            "amount_received": 13970,
+            "currency": "usd",
+            "customer": "cus_QzX1fL0aB2cD3e",
+            "description": "Invoice INV-2026-0142",
+            "receipt_email": "dana.reyes@example.com",
+            "status": "succeeded",
+            "latest_charge": "ch_3QBz8jLkdIwHu7ix1Kk4mPqR",
+            "metadata": {
+              "order_id": "1042"
+            },
+            "created": 1760799990
+          }
+        }
+      },
+      "record": "data.object"
+    },
+    "refund.created": {
+      "delivery": "webhook",
+      "object": "refund",
+      "payload": {
+        "id": "evt_1QBz8kLkdIwHu7ix3XyZ9aQe",
+        "object": "event",
+        "account": "acct_1Nv0FGQ9RKHgCVdK",
+        "api_version": "2024-06-20",
+        "created": 1760800000,
+        "livemode": true,
+        "type": "refund.created",
+        "data": {
+          "object": {
+            "id": "re_3QBz8jLkdIwHu7ix1aBcDeFg",
+            "object": "refund",
+            "amount": 3118,
+            "currency": "usd",
+            "charge": "ch_3QBz8jLkdIwHu7ix1Kk4mPqR",
+            "payment_intent": "pi_3QBz8jLkdIwHu7ix1Zt0nXyQ",
+            "reason": "requested_by_customer",
+            "status": "succeeded",
+            "created": 1760990000
+          }
+        }
+      },
+      "record": "data.object"
+    },
+    "customer.created": {
+      "delivery": "webhook",
+      "object": "customer",
+      "payload": {
+        "id": "evt_1QBz8kLkdIwHu7ix3XyZ9aQe",
+        "object": "event",
+        "account": "acct_1Nv0FGQ9RKHgCVdK",
+        "api_version": "2024-06-20",
+        "created": 1760800000,
+        "livemode": true,
+        "type": "customer.created",
+        "data": {
+          "object": {
+            "id": "cus_QzX1fL0aB2cD3e",
+            "object": "customer",
+            "email": "dana.reyes@example.com",
+            "name": "Dana Reyes",
+            "phone": "+15125550142",
+            "address": {
+              "line1": "501 Congress Ave",
+              "city": "Austin",
+              "state": "TX",
+              "postal_code": "78701",
+              "country": "US"
+            },
+            "metadata": {},
+            "created": 1760700000
+          }
+        }
+      },
+      "record": "data.object"
+    },
+    "customer.updated": {
+      "delivery": "webhook",
+      "object": "customer",
+      "payload": {
+        "id": "evt_1QBz8kLkdIwHu7ix3XyZ9aQe",
+        "object": "event",
+        "account": "acct_1Nv0FGQ9RKHgCVdK",
+        "api_version": "2024-06-20",
+        "created": 1760800000,
+        "livemode": true,
+        "type": "customer.updated",
+        "data": {
+          "object": {
+            "id": "cus_QzX1fL0aB2cD3e",
+            "object": "customer",
+            "email": "dana@reyescoffee.com",
+            "name": "Dana Reyes",
+            "metadata": {}
+          }
+        }
+      },
+      "record": "data.object"
+    },
+    "payout.paid": {
+      "delivery": "webhook",
+      "object": "payout",
+      "payload": {
+        "id": "evt_1QBz8kLkdIwHu7ix3XyZ9aQe",
+        "object": "event",
+        "account": "acct_1Nv0FGQ9RKHgCVdK",
+        "api_version": "2024-06-20",
+        "created": 1760800000,
+        "livemode": true,
+        "type": "payout.paid",
+        "data": {
+          "object": {
+            "id": "po_1QC1aBLkdIwHu7ixq2W3e4R5",
+            "object": "payout",
+            "amount": 482211,
+            "currency": "usd",
+            "arrival_date": 1760918400,
+            "status": "paid",
+            "automatic": true,
+            "balance_transaction": "txn_1QC1aBLkdIwHu7ixAbCdEfGh"
+          }
+        }
+      },
+      "record": "data.object"
+    }
+  },
+  "webhook": {
+    "scope": "app",
+    "topic": "{{body.type}}",
+    "eventId": "{{body.id}}",
+    "account": "{{body.account}}",
+    "verify": "verifyWebhookSignature"
+  },
+  "capabilities": {
+    "customer.get": {
+      "kind": "read",
+      "method": "retrieveCustomer",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.list": {
+      "kind": "read",
+      "method": "listCustomers",
+      "input": {
+        "created_gte": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "starting_after": {
+          "type": "string"
+        }
+      },
+      "output": "page<customer>"
+    },
+    "customer.search": {
+      "kind": "search",
+      "method": "searchCustomers",
+      "input": {
+        "query": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "customer[]"
+    },
+    "customer.create": {
+      "kind": "write",
+      "method": "createCustomer",
+      "input": {
+        "params": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.update": {
+      "kind": "write",
+      "method": "updateCustomer",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "params": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "paymentIntent.get": {
+      "kind": "read",
+      "method": "retrievePaymentIntent",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "expand": {
+          "type": "array"
+        }
+      },
+      "output": "paymentIntent"
+    },
+    "refund.get": {
+      "kind": "read",
+      "method": "retrieveRefund",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "refund"
+    },
+    "payout.list": {
+      "kind": "read",
+      "method": "listPayouts",
+      "input": {
+        "status": {
+          "type": "string"
+        },
+        "arrivedAfter": {
+          "type": "string"
+        },
+        "arrivedBefore": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "payout[]"
+    },
+    "balanceTransaction.list": {
+      "kind": "read",
+      "method": "listBalanceTransactions",
+      "input": {
+        "payout": {
+          "type": "string",
+          "required": true
+        },
+        "type": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "balanceTransaction[]"
+    }
+  }
+}

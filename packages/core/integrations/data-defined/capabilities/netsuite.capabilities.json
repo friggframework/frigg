@@ -1,0 +1,491 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "netsuite",
+  "label": "NetSuite",
+  "package": "@friggframework/api-module-netsuite",
+  "version": "1.2.0",
+  "auth": "oauth2",
+  "objects": {
+    "customer": {
+      "label": "Customer",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "entityId",
+          "type": "string",
+          "tag": "record.displayId",
+          "readOnly": true
+        },
+        {
+          "name": "externalId",
+          "type": "string",
+          "tag": "record.externalId"
+        },
+        {
+          "name": "isPerson",
+          "type": "boolean"
+        },
+        {
+          "name": "firstName",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "lastName",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "companyName",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "subsidiary.id",
+          "type": "string"
+        },
+        {
+          "name": "dateCreated",
+          "type": "datetime",
+          "tag": "record.createdAt",
+          "readOnly": true
+        },
+        {
+          "name": "lastModifiedDate",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "salesOrder": {
+      "label": "Sales order",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "tranId",
+          "type": "string",
+          "tag": "record.displayId",
+          "readOnly": true
+        },
+        {
+          "name": "externalId",
+          "type": "string",
+          "tag": "record.externalId"
+        },
+        {
+          "name": "otherRefNum",
+          "type": "string",
+          "tag": "order.number"
+        },
+        {
+          "name": "entity.id",
+          "type": "string"
+        },
+        {
+          "name": "subsidiary.id",
+          "type": "string"
+        },
+        {
+          "name": "location.id",
+          "type": "string"
+        },
+        {
+          "name": "tranDate",
+          "type": "date",
+          "tag": "order.createdAt"
+        },
+        {
+          "name": "memo",
+          "type": "text"
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "currency.refName",
+          "type": "string",
+          "tag": "order.currency"
+        },
+        {
+          "name": "subtotal",
+          "type": "number",
+          "tag": "order.subtotal",
+          "readOnly": true
+        },
+        {
+          "name": "taxTotal",
+          "type": "number",
+          "tag": "order.tax",
+          "readOnly": true
+        },
+        {
+          "name": "total",
+          "type": "number",
+          "tag": "order.total",
+          "readOnly": true
+        },
+        {
+          "name": "orderStatus",
+          "type": "enum",
+          "tag": "order.status",
+          "values": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H"
+          ]
+        },
+        {
+          "name": "item.items",
+          "type": "lineItem[]",
+          "tag": "order.lineItems"
+        }
+      ]
+    },
+    "itemFulfillment": {
+      "label": "Item fulfillment",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "tranId",
+          "type": "string",
+          "tag": "record.displayId",
+          "readOnly": true
+        },
+        {
+          "name": "createdFrom.id",
+          "type": "string"
+        },
+        {
+          "name": "tranDate",
+          "type": "date"
+        },
+        {
+          "name": "shipStatus",
+          "type": "enum",
+          "values": [
+            "_picked",
+            "_packed",
+            "_shipped"
+          ]
+        },
+        {
+          "name": "package.packages",
+          "type": "json",
+          "tag": "shipment.packages"
+        },
+        {
+          "name": "memo",
+          "type": "text"
+        }
+      ]
+    },
+    "creditMemo": {
+      "label": "Credit memo",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "tranId",
+          "type": "string",
+          "tag": "record.displayId",
+          "readOnly": true
+        },
+        {
+          "name": "externalId",
+          "type": "string",
+          "tag": "record.externalId"
+        },
+        {
+          "name": "entity.id",
+          "type": "string"
+        },
+        {
+          "name": "createdFrom.id",
+          "type": "string"
+        },
+        {
+          "name": "tranDate",
+          "type": "date"
+        },
+        {
+          "name": "memo",
+          "type": "text"
+        },
+        {
+          "name": "total",
+          "type": "number",
+          "readOnly": true
+        },
+        {
+          "name": "item.items",
+          "type": "lineItem[]"
+        }
+      ]
+    }
+  },
+  "events": {
+    "itemFulfillment.created": {
+      "delivery": "poll",
+      "object": "itemFulfillment",
+      "description": "Polled with SuiteQL on transaction.lastModifiedDate. NetSuite has no outbound webhooks without a deployed SuiteScript.",
+      "payload": {
+        "id": "88120",
+        "tranId": "IF-10391",
+        "createdFrom": {
+          "id": "87904",
+          "refName": "Sales Order #SO-20455"
+        },
+        "tranDate": "2026-10-19",
+        "shipStatus": "_shipped",
+        "package": {
+          "packages": [
+            {
+              "packageTrackingNumber": "1Z999AA10123456784",
+              "packageWeight": 2.1,
+              "packageDescr": "Box 1 of 1"
+            }
+          ]
+        },
+        "lastModifiedDate": "2026-10-19T19:02:11Z"
+      }
+    },
+    "customer.updated": {
+      "delivery": "poll",
+      "object": "customer",
+      "description": "Polled with SuiteQL on customer.lastModifiedDate.",
+      "payload": {
+        "id": "40211",
+        "entityId": "CUST-40211",
+        "email": "dana.reyes@example.com",
+        "firstName": "Dana",
+        "lastName": "Reyes",
+        "companyName": "Reyes Coffee Co",
+        "lastModifiedDate": "2026-10-18T15:00:00Z"
+      }
+    }
+  },
+  "capabilities": {
+    "customer.get": {
+      "kind": "read",
+      "method": "getCustomer",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.search": {
+      "kind": "search",
+      "method": "searchCustomers",
+      "input": {
+        "email": {
+          "type": "string"
+        },
+        "externalId": {
+          "type": "string"
+        }
+      },
+      "output": "customer[]"
+    },
+    "customer.list": {
+      "kind": "read",
+      "method": "listCustomers",
+      "input": {
+        "lastModifiedAfter": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "number"
+        }
+      },
+      "output": "page<customer>"
+    },
+    "customer.create": {
+      "kind": "write",
+      "method": "createCustomer",
+      "input": {
+        "record": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.update": {
+      "kind": "write",
+      "method": "updateCustomer",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "record": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "salesOrder.create": {
+      "kind": "write",
+      "method": "createSalesOrder",
+      "input": {
+        "record": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "salesOrder"
+    },
+    "salesOrder.get": {
+      "kind": "read",
+      "method": "getSalesOrder",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "expandSubResources": {
+          "type": "boolean"
+        }
+      },
+      "output": "salesOrder"
+    },
+    "salesOrder.update": {
+      "kind": "write",
+      "method": "updateSalesOrder",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "record": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "salesOrder"
+    },
+    "salesOrder.search": {
+      "kind": "search",
+      "method": "searchSalesOrders",
+      "input": {
+        "otherRefNum": {
+          "type": "string"
+        },
+        "externalId": {
+          "type": "string"
+        }
+      },
+      "output": "salesOrder[]"
+    },
+    "creditMemo.create": {
+      "kind": "write",
+      "method": "createCreditMemo",
+      "input": {
+        "record": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "creditMemo"
+    },
+    "itemFulfillment.get": {
+      "kind": "read",
+      "method": "getItemFulfillment",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "itemFulfillment"
+    },
+    "itemFulfillment.list": {
+      "kind": "read",
+      "method": "listItemFulfillments",
+      "input": {
+        "modifiedAfter": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "itemFulfillment[]"
+    },
+    "item.search": {
+      "kind": "search",
+      "method": "searchItems",
+      "input": {
+        "sku": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "item[]"
+    },
+    "subsidiary.list": {
+      "kind": "read",
+      "method": "listSubsidiaries",
+      "input": {},
+      "output": "subsidiary[]"
+    },
+    "location.list": {
+      "kind": "read",
+      "method": "listLocations",
+      "input": {},
+      "output": "location[]"
+    }
+  },
+  "options": {
+    "subsidiary": {
+      "capability": "subsidiary.list",
+      "label": "{{item.name}}",
+      "value": "$.item.id"
+    },
+    "location": {
+      "capability": "location.list",
+      "label": "{{item.name}}",
+      "value": "$.item.id"
+    }
+  }
+}

@@ -1,0 +1,316 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "github-linear",
+  "version": "0.9.0",
+  "display": {
+    "label": "GitHub \u2194 Linear",
+    "description": "GitHub issues and Linear issues stay in sync with label and status mapping, merged PRs move the Linear issue named in the branch to Done, and stale in-progress issues are listed in Slack every morning.",
+    "category": "Engineering",
+    "tags": [
+      "issues",
+      "developer-tools",
+      "slack"
+    ]
+  },
+  "modules": {
+    "github": {
+      "module": "github",
+      "version": "^1.8"
+    },
+    "linear": {
+      "module": "linear",
+      "version": "^1.1"
+    },
+    "slack": {
+      "module": "slack",
+      "version": "^2.0"
+    }
+  },
+  "settings": {
+    "repo": {
+      "type": "option",
+      "options": "github.repo",
+      "label": "GitHub repository",
+      "required": true
+    },
+    "team": {
+      "type": "option",
+      "options": "linear.team",
+      "label": "Linear team",
+      "required": true
+    }
+  },
+  "syncs": [
+    {
+      "id": "issues",
+      "label": "Issues",
+      "description": "Each GitHub issue is one Linear issue; the Linear issue carries the GitHub URL as an attachment. Pull requests are not synced.",
+      "source": "github.issue",
+      "target": "linear.issue",
+      "direction": "two_way",
+      "identity": {
+        "match": [
+          {
+            "source": "html_url",
+            "target": "attachments[0].url",
+            "key": "issueUrl"
+          }
+        ],
+        "onAmbiguous": "skip"
+      },
+      "mapping": [
+        {
+          "source": "title",
+          "target": "title",
+          "master": "newest"
+        },
+        {
+          "source": "body",
+          "target": "description",
+          "master": "newest"
+        },
+        {
+          "source": "state",
+          "target": "state.name",
+          "transform": "map_values",
+          "options": {
+            "values": {
+              "open": "Todo",
+              "closed": "Done"
+            }
+          },
+          "direction": "to_target"
+        },
+        {
+          "source": "state",
+          "target": "state.type",
+          "transform": "map_values",
+          "options": {
+            "values": {
+              "triage": "open",
+              "backlog": "open",
+              "unstarted": "open",
+              "started": "open",
+              "completed": "closed",
+              "canceled": "closed"
+            }
+          },
+          "direction": "to_source"
+        },
+        {
+          "source": "labels[0].name",
+          "target": "priority",
+          "transform": "map_values",
+          "options": {
+            "values": {
+              "P0": 1,
+              "P1": 2,
+              "P2": 3,
+              "P3": 4
+            },
+            "fallback": 0
+          },
+          "direction": "to_target"
+        },
+        {
+          "source": "html_url",
+          "target": "attachments[0].url",
+          "direction": "to_target"
+        }
+      ],
+      "filter": "!($.record.pull_request exists)",
+      "backfill": {
+        "trigger": "userAction",
+        "pageSize": 100
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "pr-merged-done",
+      "label": "Merged PRs complete the Linear issue in the branch name",
+      "description": "A branch like dana/eng-142-dedupe moves ENG-142 to the done state when its PR merges.",
+      "purpose": "write",
+      "default": "on",
+      "settings": {
+        "doneState": {
+          "type": "option",
+          "options": {
+            "source": "linear.workflowState",
+            "with": {
+              "teamId": "$.install.team"
+            }
+          },
+          "label": "Move issues to",
+          "default": "Done"
+        },
+        "commentWhenUnlinked": {
+          "type": "boolean",
+          "label": "Comment on PRs whose branch names no Linear issue",
+          "default": false
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "github",
+        "topic": "pullRequest.closed",
+        "filter": "$.record.merged == true"
+      },
+      "steps": [
+        {
+          "id": "ids",
+          "use": "code",
+          "with": {
+            "ref": "@acme/github-steps#linearIdentifiers@1.0.0",
+            "with": {
+              "branch": "$.record.head.ref",
+              "title": "$.record.title",
+              "body": "$.record.body"
+            }
+          }
+        },
+        {
+          "id": "route",
+          "use": "branch",
+          "cases": [
+            {
+              "when": "$.steps.ids.identifiers[0] exists",
+              "do": [
+                {
+                  "id": "complete",
+                  "use": "foreach",
+                  "with": {
+                    "over": "$.steps.ids.identifiers",
+                    "max": 10
+                  },
+                  "do": [
+                    {
+                      "id": "issue",
+                      "use": "linear.issue.byIdentifier",
+                      "with": {
+                        "identifier": "$.item"
+                      },
+                      "onError": "continue"
+                    },
+                    {
+                      "use": "linear.issue.update",
+                      "when": "$.steps.issue != null && $.steps.issue.state.type != 'completed' && $.steps.issue.state.type != 'canceled'",
+                      "with": {
+                        "id": "$.steps.issue.id",
+                        "input": {
+                          "stateName": "$.settings.doneState"
+                        }
+                      }
+                    },
+                    {
+                      "use": "linear.comment.create",
+                      "when": "$.steps.issue != null",
+                      "with": {
+                        "issueId": "$.steps.issue.id",
+                        "body": "Completed by merged PR [#{{record.number}}]({{record.html_url}})."
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "when": "$.settings.commentWhenUnlinked == true",
+              "do": [
+                {
+                  "use": "github.issue.comment",
+                  "with": {
+                    "owner": "$.event.repository.owner.login",
+                    "repo": "$.event.repository.name",
+                    "issue_number": "$.record.number",
+                    "body": "No Linear issue found in branch `{{record.head.ref}}`. Name branches like `eng-123-short-title` to link them."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stale-digest",
+      "label": "Daily stale-issue digest in Slack",
+      "purpose": "notify",
+      "default": "off",
+      "settings": {
+        "channel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Post to",
+          "required": true
+        },
+        "staleAfter": {
+          "type": "enum",
+          "label": "Stale after no update for",
+          "enum": [
+            "-7d",
+            "-14d",
+            "-30d"
+          ],
+          "default": "-14d"
+        }
+      },
+      "trigger": {
+        "type": "schedule",
+        "cron": "30 9 * * 1-5",
+        "timezone": "Europe/London"
+      },
+      "steps": [
+        {
+          "id": "stale",
+          "use": "linear.issue.search",
+          "with": {
+            "teamId": "$.install.team",
+            "stateType": "started",
+            "updatedBefore": "$.settings.staleAfter",
+            "first": 50
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.stale[0] == null",
+          "with": {
+            "reason": "Nothing is stale"
+          }
+        },
+        {
+          "id": "build",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.stale",
+            "max": 50,
+            "collect": "\u2022 <{{item.url}}|{{item.identifier}}> {{item.title | truncate: 70}} ({{item.assignee.email | default: 'unassigned'}}, last update {{item.updatedAt | date}})"
+          }
+        },
+        {
+          "id": "text",
+          "use": "template",
+          "with": {
+            "id": "stale-digest"
+          }
+        },
+        {
+          "use": "slack.message.post",
+          "with": {
+            "channel": "$.settings.channel",
+            "text": "$.steps.text",
+            "unfurl_links": false
+          }
+        }
+      ]
+    }
+  ],
+  "templates": {
+    "stale-digest": ":hourglass_flowing_sand: *In progress with no update since {{settings.staleAfter}}* ({{steps.stale | size}} issues)\n{{steps.build | join: '\\n'}}"
+  }
+}

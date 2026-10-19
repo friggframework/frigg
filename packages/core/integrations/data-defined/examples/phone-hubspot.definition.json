@@ -1,0 +1,637 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "phone-hubspot",
+  "version": "1.4.0",
+  "display": {
+    "label": "Phone \u2194 HubSpot",
+    "description": "Two-way contact sync, call and text logging, missed-call follow-up, closed-won thank-you texts, and Phone activity inside HubSpot.",
+    "category": "CRM",
+    "tags": [
+      "calls",
+      "sms",
+      "crm"
+    ]
+  },
+  "modules": {
+    "phone": {
+      "module": "phone",
+      "version": "^2.1"
+    },
+    "hubspot": {
+      "module": "hubspot",
+      "version": "^1.4"
+    }
+  },
+  "settings": {
+    "fromNumber": {
+      "type": "option",
+      "options": "phone.phoneNumber",
+      "label": "Phone number to send texts from",
+      "required": true
+    }
+  },
+  "syncs": [
+    {
+      "id": "contacts",
+      "label": "Contacts",
+      "description": "HubSpot contacts and Phone contacts stay the same person on both sides.",
+      "source": "hubspot.contact",
+      "target": "phone.contact",
+      "direction": "two_way",
+      "identity": {
+        "match": [
+          {
+            "source": "properties.email",
+            "target": "defaultFields.emails[0].value",
+            "transform": "lowercase",
+            "key": "email"
+          },
+          {
+            "source": "properties.phone",
+            "target": "defaultFields.phoneNumbers[0].value",
+            "transform": "to_e164_phone",
+            "key": "phone"
+          }
+        ],
+        "onAmbiguous": "skip"
+      },
+      "mapping": [
+        {
+          "source": "properties.firstname",
+          "target": "defaultFields.firstName"
+        },
+        {
+          "source": "properties.lastname",
+          "target": "defaultFields.lastName"
+        },
+        {
+          "source": "properties.company",
+          "target": "defaultFields.company"
+        },
+        {
+          "source": "properties.email",
+          "target": "defaultFields.emails[0].value",
+          "transform": "lowercase"
+        },
+        {
+          "source": "properties.phone",
+          "target": "defaultFields.phoneNumbers[0].value",
+          "transform": "to_e164_phone"
+        },
+        {
+          "source": "id",
+          "target": "externalId",
+          "direction": "to_target"
+        }
+      ],
+      "backfill": {
+        "trigger": "userAction",
+        "pageSize": 100
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "log-call",
+      "label": "Log calls on the contact",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "phone",
+        "topic": "call.completed"
+      },
+      "steps": [
+        {
+          "id": "contact",
+          "use": "links.find",
+          "with": {
+            "sync": "contacts",
+            "key": {
+              "phone": "$.record.participants[0]"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.contact == null",
+          "with": {
+            "reason": "No linked HubSpot contact for this number"
+          }
+        },
+        {
+          "id": "body",
+          "use": "template",
+          "with": {
+            "id": "call-note"
+          }
+        },
+        {
+          "id": "engagement",
+          "use": "hubspot.call.create",
+          "with": {
+            "contactId": "$.steps.contact.hubspot",
+            "properties": {
+              "hs_call_title": "Phone call ({{record.direction}})",
+              "hs_call_body": "$.steps.body",
+              "hs_call_duration": "$.record.duration",
+              "hs_call_direction": "{{record.direction | upper}}",
+              "hs_timestamp": "$.record.completedAt"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "call-summary",
+      "label": "Add Phone AI call summaries as notes",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "phone",
+        "topic": "call.summary.completed"
+      },
+      "steps": [
+        {
+          "id": "calls",
+          "use": "code",
+          "with": {
+            "ref": "@acme/phone-steps#participantsForCall@1.0.0",
+            "with": {
+              "callId": "$.record.callId"
+            }
+          }
+        },
+        {
+          "id": "contact",
+          "use": "links.find",
+          "with": {
+            "sync": "contacts",
+            "key": {
+              "phone": "$.steps.calls.participants[0]"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.contact == null",
+          "with": {
+            "reason": "No linked contact"
+          }
+        },
+        {
+          "use": "hubspot.note.create",
+          "with": {
+            "contactId": "$.steps.contact.hubspot",
+            "properties": {
+              "hs_note_body": "{{record.summary}}\n\nNext steps: {{record.nextSteps}}",
+              "hs_timestamp": "$.now"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "missed-call-task",
+      "label": "Follow-up task for missed calls",
+      "purpose": "write",
+      "default": "off",
+      "settings": {
+        "owner": {
+          "type": "option",
+          "options": "hubspot.owner",
+          "label": "Assign tasks to",
+          "help": "Leave empty to use the contact owner."
+        },
+        "dueIn": {
+          "type": "duration",
+          "label": "Due in",
+          "default": "4h"
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "phone",
+        "topic": "call.missed",
+        "filter": "$.record.direction == 'incoming'"
+      },
+      "steps": [
+        {
+          "id": "contact",
+          "use": "links.find",
+          "with": {
+            "sync": "contacts",
+            "key": {
+              "phone": "$.record.from"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.contact == null",
+          "with": {
+            "reason": "Caller is not a known contact"
+          }
+        },
+        {
+          "id": "full",
+          "use": "hubspot.contact.get",
+          "with": {
+            "id": "$.steps.contact.hubspot",
+            "properties": [
+              "hubspot_owner_id",
+              "firstname"
+            ]
+          }
+        },
+        {
+          "use": "hubspot.task.create",
+          "with": {
+            "contactId": "$.steps.contact.hubspot",
+            "properties": {
+              "hs_task_subject": "Call back {{steps.full.properties.firstname | default: 'caller'}} (missed Phone call)",
+              "hs_task_body": "Missed call from {{record.from}} at {{record.createdAt}}.",
+              "hs_timestamp": "$.record.createdAt",
+              "hubspot_owner_id": "{{settings.owner | default: steps.full.properties.hubspot_owner_id}}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "texts-timeline",
+      "label": "Texts on the contact timeline",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "phone",
+        "topic": "message.received"
+      },
+      "steps": [
+        {
+          "id": "contact",
+          "use": "links.find",
+          "with": {
+            "sync": "contacts",
+            "key": {
+              "phone": "$.record.from"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.contact == null",
+          "with": {
+            "reason": "Sender is not a known contact"
+          }
+        },
+        {
+          "use": "hubspot.note.create",
+          "with": {
+            "contactId": "$.steps.contact.hubspot",
+            "properties": {
+              "hs_note_body": "Text from {{record.from}}: {{record.text}}",
+              "hs_timestamp": "$.record.createdAt"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "won-thank-you",
+      "label": "Thank-you text on closed won",
+      "purpose": "notify",
+      "default": "off",
+      "settings": {
+        "message": {
+          "type": "text",
+          "label": "Message",
+          "default": "Thanks for choosing us, {{vars.contact.properties.firstname}}! Text this number any time."
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "hubspot",
+        "topic": "deal.propertyChange",
+        "filter": "$.record.propertyName == 'dealstage' && $.record.propertyValue == 'closedwon'"
+      },
+      "steps": [
+        {
+          "id": "contacts",
+          "use": "hubspot.deal.contacts",
+          "with": {
+            "dealId": "$.record.objectId"
+          }
+        },
+        {
+          "use": "set",
+          "with": {
+            "contact": "$.steps.contacts[0]"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "!($.vars.contact.properties.phone exists)",
+          "with": {
+            "reason": "Deal has no contact with a phone number"
+          }
+        },
+        {
+          "id": "text",
+          "use": "template",
+          "with": {
+            "text": "$.settings.message"
+          }
+        },
+        {
+          "use": "phone.message.send",
+          "with": {
+            "from": "$.install.fromNumber",
+            "to": [
+              "$.vars.contact.properties.phone"
+            ],
+            "content": "$.steps.text"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stale-contacts",
+      "label": "Flag contacts with no calls in 30 days",
+      "purpose": "maintain",
+      "default": "off",
+      "trigger": {
+        "type": "schedule",
+        "cron": "0 6 * * *",
+        "timezone": "America/New_York"
+      },
+      "steps": [
+        {
+          "id": "stale",
+          "use": "hubspot.contact.search",
+          "with": {
+            "lastContactedBefore": "-30d",
+            "limit": 100
+          }
+        },
+        {
+          "id": "each",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.stale",
+            "max": 100
+          },
+          "do": [
+            {
+              "use": "hubspot.contact.update",
+              "with": {
+                "id": "$.item.id",
+                "properties": {
+                  "phone_last_call": "$.item.properties.notes_last_contacted"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "text-from-card",
+      "label": "Text the contact from HubSpot",
+      "purpose": "respond",
+      "default": "on",
+      "trigger": {
+        "type": "userAction",
+        "label": "Send text",
+        "from": "phone-card"
+      },
+      "steps": [
+        {
+          "use": "phone.message.send",
+          "with": {
+            "from": "$.install.fromNumber",
+            "to": [
+              "$.record.properties.phone"
+            ],
+            "content": "$.event.input.message"
+          }
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "recent-activity",
+      "description": "The last five calls and texts with this contact's number.",
+      "steps": [
+        {
+          "id": "calls",
+          "use": "phone.call.list",
+          "with": {
+            "participant": "$.record.properties.phone",
+            "maxResults": 5
+          }
+        },
+        {
+          "id": "texts",
+          "use": "phone.message.list",
+          "with": {
+            "participants": [
+              "$.record.properties.phone"
+            ],
+            "maxResults": 5
+          }
+        }
+      ],
+      "returns": {
+        "calls": "$.steps.calls",
+        "texts": "$.steps.texts"
+      }
+    },
+    {
+      "id": "open-deals",
+      "description": "Open HubSpot deals for the contact in the current Phone conversation.",
+      "steps": [
+        {
+          "id": "contact",
+          "use": "links.find",
+          "with": {
+            "sync": "contacts",
+            "key": {
+              "phone": "$.record.phoneNumber"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.contact == null",
+          "with": {
+            "reason": "Not linked"
+          }
+        },
+        {
+          "id": "deals",
+          "use": "hubspot.deal.listForContact",
+          "with": {
+            "contactId": "$.steps.contact.hubspot",
+            "open": true
+          }
+        }
+      ],
+      "returns": {
+        "contactId": "$.steps.contact.hubspot",
+        "deals": "$.steps.deals"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "phone-card",
+      "label": "Phone activity",
+      "host": "hubspot",
+      "placement": "crm.record.sidebar",
+      "objects": [
+        "contact"
+      ],
+      "data": {
+        "query": "recent-activity"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "Phone activity"
+            }
+          },
+          {
+            "component": "List",
+            "props": {
+              "items": "$.data.calls",
+              "title": "{{item.direction}} call \u00b7 {{item.duration | default: 0}}s",
+              "meta": "{{item.createdAt | date}}"
+            }
+          },
+          {
+            "component": "List",
+            "props": {
+              "items": "$.data.texts",
+              "title": "{{item.text | truncate: 60}}",
+              "meta": "{{item.createdAt | date}}"
+            }
+          },
+          {
+            "component": "Empty",
+            "when": "$.data.calls == null",
+            "props": {
+              "text": "No Phone activity with this number yet."
+            }
+          },
+          {
+            "component": "Button",
+            "props": {
+              "label": "Send text",
+              "action": {
+                "type": "userAction",
+                "workflow": "text-from-card",
+                "input": {
+                  "message": {
+                    "type": "text",
+                    "label": "Message"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "deals-panel",
+      "label": "HubSpot deals",
+      "host": "phone",
+      "placement": "conversation.sidebar",
+      "data": {
+        "query": "open-deals"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "Open deals"
+            }
+          },
+          {
+            "component": "Table",
+            "props": {
+              "rows": "$.data.deals",
+              "columns": [
+                {
+                  "label": "Deal",
+                  "value": "{{row.properties.dealname}}"
+                },
+                {
+                  "label": "Amount",
+                  "value": "{{row.properties.amount}}"
+                },
+                {
+                  "label": "Stage",
+                  "value": "{{row.properties.dealstage}}"
+                }
+              ]
+            }
+          },
+          {
+            "component": "Button",
+            "props": {
+              "label": "Open in HubSpot",
+              "action": {
+                "type": "open_url",
+                "url": "https://app.hubspot.com/contacts/{{install.portalId}}/record/0-1/{{data.contactId}}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "templates": {
+    "call-note": "Phone call with {{record.from}} \u00b7 {{record.duration}}s ({{record.status}})"
+  },
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "hook",
+        "use": "phone.webhook.create",
+        "with": {
+          "url": "$.install.webhookUrls.phone",
+          "events": [
+            "call.completed",
+            "call.ringing",
+            "call.summary.completed",
+            "message.received",
+            "contact.updated"
+          ]
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "phone.webhook.delete",
+        "with": {
+          "id": "$.install.runtime.installed.hook.id"
+        }
+      }
+    ]
+  }
+}

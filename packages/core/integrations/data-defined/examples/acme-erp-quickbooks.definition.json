@@ -1,0 +1,467 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "acme-erp-quickbooks",
+  "version": "1.3.0",
+  "display": {
+    "label": "Acme ERP \u2194 QuickBooks Online",
+    "description": "Finished jobs become QuickBooks invoices with every line item, customers stay matched both ways, and payments recorded in QuickBooks mark the job paid in Acme ERP.",
+    "category": "Accounting",
+    "tags": [
+      "field-service",
+      "invoicing",
+      "accounting"
+    ]
+  },
+  "modules": {
+    "acmeerp": {
+      "module": "acmeerp",
+      "version": "^0.9"
+    },
+    "quickbooks": {
+      "module": "quickbooks",
+      "version": "^2.0"
+    }
+  },
+  "settings": {
+    "fallbackItem": {
+      "type": "option",
+      "options": "quickbooks.item",
+      "label": "Product/service for line items with no matching QuickBooks item",
+      "required": true
+    },
+    "terms": {
+      "type": "enum",
+      "label": "Invoice terms",
+      "enum": [
+        "Due on receipt",
+        "Net 15",
+        "Net 30"
+      ],
+      "default": "Due on receipt"
+    }
+  },
+  "syncs": [
+    {
+      "id": "customers",
+      "label": "Customers",
+      "description": "One customer in both systems. Contact details follow whichever side changed last; QuickBooks owns the billing name.",
+      "source": "acmeerp.customer",
+      "target": "quickbooks.customer",
+      "direction": "two_way",
+      "identity": {
+        "match": [
+          {
+            "source": "email",
+            "target": "PrimaryEmailAddr.Address",
+            "transform": "lowercase",
+            "key": "email"
+          },
+          {
+            "source": "mobile_number",
+            "target": "Mobile.FreeFormNumber",
+            "transform": "to_e164_phone",
+            "key": "phone"
+          }
+        ],
+        "onAmbiguous": "skip"
+      },
+      "mapping": [
+        {
+          "source": "display_name",
+          "target": "DisplayName",
+          "master": "target"
+        },
+        {
+          "source": "first_name",
+          "target": "GivenName",
+          "master": "newest"
+        },
+        {
+          "source": "last_name",
+          "target": "FamilyName",
+          "master": "newest"
+        },
+        {
+          "source": "company_name",
+          "target": "CompanyName",
+          "master": "newest"
+        },
+        {
+          "source": "email",
+          "target": "PrimaryEmailAddr.Address",
+          "transform": "lowercase",
+          "master": "newest"
+        },
+        {
+          "source": "mobile_number",
+          "target": "Mobile.FreeFormNumber",
+          "transform": "to_e164_phone",
+          "master": "newest"
+        },
+        {
+          "source": "address.street",
+          "target": "BillAddr.Line1",
+          "master": "source"
+        },
+        {
+          "source": "address.city",
+          "target": "BillAddr.City",
+          "master": "source"
+        },
+        {
+          "source": "address.state",
+          "target": "BillAddr.CountrySubDivisionCode",
+          "master": "source"
+        },
+        {
+          "source": "address.zip",
+          "target": "BillAddr.PostalCode",
+          "master": "source"
+        }
+      ],
+      "backfill": {
+        "trigger": "userAction",
+        "pageSize": 100
+      },
+      "ongoing": {
+        "mode": "webhook"
+      },
+      "default": "on"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "job-invoice",
+      "label": "Invoice finished jobs",
+      "purpose": "write",
+      "default": "on",
+      "settings": {
+        "emailInvoice": {
+          "type": "boolean",
+          "label": "Email the invoice from QuickBooks",
+          "default": false
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "acmeerp",
+        "topic": "job.finished",
+        "filter": "$.record.total_amount > 0 && $.record.external_invoice_id == null"
+      },
+      "steps": [
+        {
+          "id": "customer",
+          "use": "links.find",
+          "with": {
+            "sync": "customers",
+            "from": "acmeerp",
+            "id": "$.record.customer_id"
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.customer == null",
+          "with": {
+            "reason": "Customer is not in QuickBooks yet; the queue will retry after the customer sync"
+          }
+        },
+        {
+          "id": "lineItems",
+          "use": "acmeerp.job.lineItems",
+          "with": {
+            "jobId": "$.record.id"
+          }
+        },
+        {
+          "id": "lines",
+          "use": "code",
+          "with": {
+            "ref": "@acme/frigg-steps#quickbooksInvoiceLines@1.0.0",
+            "with": {
+              "lineItems": "$.steps.lineItems",
+              "fallbackItemId": "$.install.fallbackItem",
+              "taxAmount": "$.record.tax_amount"
+            }
+          }
+        },
+        {
+          "id": "memo",
+          "use": "template",
+          "with": {
+            "id": "invoice-memo"
+          }
+        },
+        {
+          "id": "invoice",
+          "use": "quickbooks.invoice.create",
+          "with": {
+            "invoice": {
+              "CustomerRef": {
+                "value": "$.steps.customer.quickbooks"
+              },
+              "DocNumber": "TW-{{record.job_number}}",
+              "TxnDate": "$.record.finished_at",
+              "SalesTermRef": {
+                "name": "$.install.terms"
+              },
+              "CustomerMemo": {
+                "value": "$.steps.memo"
+              },
+              "PrivateNote": "Acme ERP job {{record.id}}",
+              "Line": "$.steps.lines.lines"
+            }
+          }
+        },
+        {
+          "use": "acmeerp.job.update",
+          "with": {
+            "id": "$.record.id",
+            "job": {
+              "status": "invoiced",
+              "external_invoice_id": "$.steps.invoice.Id"
+            }
+          }
+        },
+        {
+          "use": "quickbooks.invoice.send",
+          "when": "$.settings.emailInvoice == true",
+          "with": {
+            "id": "$.steps.invoice.Id"
+          },
+          "onError": "continue"
+        }
+      ],
+      "retry": {
+        "max": 5,
+        "backoff": "exponential"
+      }
+    },
+    {
+      "id": "invoice-paid",
+      "label": "Mark jobs paid when QuickBooks records a payment",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "quickbooks",
+        "topic": "payment.created"
+      },
+      "steps": [
+        {
+          "id": "payment",
+          "use": "quickbooks.payment.get",
+          "with": {
+            "id": "$.record.id"
+          }
+        },
+        {
+          "id": "apply",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.payment.Line",
+            "max": 20
+          },
+          "do": [
+            {
+              "id": "jobs",
+              "use": "acmeerp.job.search",
+              "when": "$.item.LinkedTxn[0].TxnType == 'Invoice'",
+              "with": {
+                "external_invoice_id": "$.item.LinkedTxn[0].TxnId"
+              }
+            },
+            {
+              "use": "acmeerp.job.markPaid",
+              "when": "$.steps.jobs[0] exists",
+              "with": {
+                "id": "$.steps.jobs[0].id",
+                "amount": "{{item.Amount | to_cents}}",
+                "paid_at": "$.steps.payment.TxnDate",
+                "method": "quickbooks",
+                "reference": "QBO payment {{steps.payment.Id}}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "invoice-note",
+      "label": "Note the invoice on the job",
+      "purpose": "write",
+      "default": "off",
+      "trigger": {
+        "type": "syncRecord",
+        "sync": "customers",
+        "on": [
+          "linked"
+        ]
+      },
+      "steps": [
+        {
+          "id": "open",
+          "use": "acmeerp.job.search",
+          "with": {
+            "customer_id": "$.record.id"
+          }
+        },
+        {
+          "id": "notes",
+          "use": "foreach",
+          "with": {
+            "over": "$.steps.open",
+            "max": 25
+          },
+          "do": [
+            {
+              "use": "acmeerp.job.addNote",
+              "when": "$.item.status == 'finished'",
+              "with": {
+                "jobId": "$.item.id",
+                "body": "Customer is now linked to QuickBooks; finished jobs will be invoiced automatically."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "job-invoice-status",
+      "description": "The QuickBooks invoice for this job.",
+      "steps": [
+        {
+          "use": "stop",
+          "when": "$.record.external_invoice_id == null",
+          "with": {
+            "reason": "Not invoiced"
+          }
+        },
+        {
+          "id": "invoice",
+          "use": "quickbooks.invoice.get",
+          "with": {
+            "id": "$.record.external_invoice_id"
+          }
+        }
+      ],
+      "returns": {
+        "invoice": "$.steps.invoice",
+        "realmId": "$.install.accounts.quickbooks.realmId"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "invoice-panel",
+      "label": "QuickBooks invoice",
+      "host": "acmeerp",
+      "placement": "job.sidebar",
+      "objects": [
+        "job"
+      ],
+      "data": {
+        "query": "job-invoice-status"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "QuickBooks"
+            }
+          },
+          {
+            "component": "Empty",
+            "when": "!($.data.invoice exists)",
+            "props": {
+              "text": "Invoiced automatically when the job is finished."
+            }
+          },
+          {
+            "component": "KeyValue",
+            "when": "$.data.invoice exists",
+            "props": {
+              "items": [
+                {
+                  "label": "Invoice",
+                  "value": "{{data.invoice.DocNumber}}"
+                },
+                {
+                  "label": "Total",
+                  "value": "${{data.invoice.TotalAmt}}"
+                },
+                {
+                  "label": "Balance",
+                  "value": "${{data.invoice.Balance}}"
+                },
+                {
+                  "label": "Due",
+                  "value": "{{data.invoice.DueDate | date}}"
+                }
+              ]
+            }
+          },
+          {
+            "component": "Badge",
+            "when": "$.data.invoice.Balance == 0",
+            "props": {
+              "text": "Paid",
+              "tone": "success"
+            }
+          },
+          {
+            "component": "Badge",
+            "when": "$.data.invoice.Balance > 0",
+            "props": {
+              "text": "Open",
+              "tone": "warning"
+            }
+          },
+          {
+            "component": "Button",
+            "when": "$.data.invoice exists",
+            "props": {
+              "label": "Open in QuickBooks",
+              "action": {
+                "type": "open_url",
+                "url": "https://app.qbo.intuit.com/app/invoice?txnId={{data.invoice.Id}}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "templates": {
+    "invoice-memo": "Thanks for choosing Acme! Job #{{record.job_number}}: {{record.description | truncate: 200}}"
+  },
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "hook",
+        "use": "acmeerp.webhook.create",
+        "with": {
+          "url": "$.install.webhookUrls.acmeerp",
+          "events": [
+            "job.finished",
+            "job.scheduled",
+            "customer.created",
+            "customer.updated"
+          ]
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "acmeerp.webhook.delete",
+        "with": {
+          "id": "$.install.runtime.installed.hook.id"
+        }
+      }
+    ]
+  }
+}

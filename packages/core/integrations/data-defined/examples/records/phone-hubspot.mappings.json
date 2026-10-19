@@ -1,0 +1,39 @@
+{
+  "$comment": "IntegrationMapping rows (existing table). link:* = the same record on both sides; idx:* = identity index (normalised email/phone); evt:* = an event already handled (insert-only, so a redelivery is a no-op).",
+  "rows": [
+    {
+      "integrationId": "int_7f3a9c",
+      "sourceId": "idx:contacts:phone:+15125550142",
+      "mapping": {
+        "hubspot": "51",
+        "phone": "CT7",
+        "linkedAt": "2026-09-02T15:31:10Z"
+      }
+    },
+    {
+      "integrationId": "int_7f3a9c",
+      "sourceId": "link:contacts:hubspot:51",
+      "mapping": {
+        "hubspot": "51",
+        "phone": "CT7",
+        "linkedAt": "2026-09-02T15:31:10Z"
+      }
+    },
+    {
+      "integrationId": "int_7f3a9c",
+      "sourceId": "link:contacts:phone:CT7",
+      "mapping": {
+        "hubspot": "51",
+        "phone": "CT7",
+        "linkedAt": "2026-09-02T15:31:10Z"
+      }
+    },
+    {
+      "integrationId": "int_7f3a9c",
+      "sourceId": "evt:phone-hubspot:log-call:EVc0a1",
+      "mapping": {
+        "at": "2026-10-18T16:08:10.523Z"
+      }
+    }
+  ]
+}

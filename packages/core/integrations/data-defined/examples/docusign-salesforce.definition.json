@@ -1,0 +1,305 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "docusign-salesforce",
+  "version": "1.3.2",
+  "display": {
+    "label": "DocuSign \u2192 Salesforce",
+    "description": "Completed envelopes move the opportunity forward and attach the signed PDF; declined envelopes create a task for the owner; the opportunity page shows every envelope and its status.",
+    "category": "Contracts",
+    "tags": [
+      "e-signature",
+      "crm",
+      "contracts"
+    ]
+  },
+  "modules": {
+    "docusign": {
+      "module": "docusign",
+      "version": "^1.2"
+    },
+    "salesforce": {
+      "module": "salesforce",
+      "version": "^3.0"
+    }
+  },
+  "settings": {
+    "opportunityField": {
+      "type": "string",
+      "label": "Envelope custom field holding the Opportunity Id",
+      "default": "SalesforceOpportunityId",
+      "required": true
+    }
+  },
+  "workflows": [
+    {
+      "id": "completed-envelope",
+      "label": "Completed envelopes advance the opportunity",
+      "purpose": "write",
+      "default": "on",
+      "settings": {
+        "stage": {
+          "type": "enum",
+          "label": "Move the opportunity to",
+          "enum": [
+            "Negotiation/Review",
+            "Closed Won"
+          ],
+          "default": "Closed Won"
+        },
+        "attachPdf": {
+          "type": "boolean",
+          "label": "Attach the signed PDF",
+          "default": true
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "docusign",
+        "topic": "envelope.completed"
+      },
+      "steps": [
+        {
+          "id": "opp",
+          "use": "code",
+          "with": {
+            "ref": "@acme/docusign-steps#customFieldValue@1.0.0",
+            "with": {
+              "fields": "$.record.customFields.textCustomFields",
+              "name": "$.install.opportunityField"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.opp.value == null",
+          "with": {
+            "reason": "Envelope was not sent from a Salesforce opportunity"
+          }
+        },
+        {
+          "use": "salesforce.opportunity.update",
+          "with": {
+            "id": "$.steps.opp.value",
+            "fields": {
+              "StageName": "$.settings.stage",
+              "NextStep": "Signed {{record.completedDateTime | date}}: kick off onboarding"
+            }
+          }
+        },
+        {
+          "id": "pdf",
+          "use": "docusign.document.combined",
+          "when": "$.settings.attachPdf == true",
+          "with": {
+            "envelopeId": "$.record.envelopeId",
+            "certificate": true
+          }
+        },
+        {
+          "use": "salesforce.file.attach",
+          "when": "$.settings.attachPdf == true",
+          "with": {
+            "title": "{{record.emailSubject}} (signed)",
+            "pathOnClient": "{{record.envelopeId}}.pdf",
+            "versionData": "$.steps.pdf.base64",
+            "firstPublishLocationId": "$.steps.opp.value"
+          }
+        },
+        {
+          "id": "note",
+          "use": "template",
+          "with": {
+            "id": "completed-note"
+          }
+        },
+        {
+          "use": "salesforce.note.create",
+          "with": {
+            "title": "Envelope completed",
+            "content": "$.steps.note",
+            "linkedEntityId": "$.steps.opp.value"
+          }
+        }
+      ],
+      "retry": {
+        "max": 3,
+        "backoff": "exponential"
+      }
+    },
+    {
+      "id": "declined-envelope",
+      "label": "Declined envelopes create a task for the owner",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "docusign",
+        "topic": "envelope.declined"
+      },
+      "steps": [
+        {
+          "id": "opp",
+          "use": "code",
+          "with": {
+            "ref": "@acme/docusign-steps#customFieldValue@1.0.0",
+            "with": {
+              "fields": "$.record.customFields.textCustomFields",
+              "name": "$.install.opportunityField"
+            }
+          }
+        },
+        {
+          "use": "stop",
+          "when": "$.steps.opp.value == null",
+          "with": {
+            "reason": "Envelope was not sent from a Salesforce opportunity"
+          }
+        },
+        {
+          "id": "opportunity",
+          "use": "salesforce.opportunity.get",
+          "with": {
+            "id": "$.steps.opp.value"
+          }
+        },
+        {
+          "id": "description",
+          "use": "template",
+          "with": {
+            "id": "declined-task"
+          }
+        },
+        {
+          "use": "salesforce.task.create",
+          "with": {
+            "fields": {
+              "Subject": "Envelope declined by {{record.recipients.signers[0].name}}",
+              "Status": "Not Started",
+              "Priority": "High",
+              "ActivityDate": "{{record.declinedDateTime | date}}",
+              "WhatId": "$.steps.opp.value",
+              "OwnerId": "$.steps.opportunity.OwnerId",
+              "Description": "$.steps.description"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "opportunity-envelopes",
+      "description": "Envelopes sent for this opportunity in the last year.",
+      "steps": [
+        {
+          "id": "envelopes",
+          "use": "docusign.envelope.list",
+          "with": {
+            "from_date": "-365d",
+            "custom_field": "{{install.opportunityField}}={{record.Id}}",
+            "count": 20
+          }
+        }
+      ],
+      "returns": {
+        "envelopes": "$.steps.envelopes"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "id": "envelopes-card",
+      "label": "DocuSign envelopes",
+      "host": "salesforce",
+      "placement": "lightning.record.sidebar",
+      "objects": [
+        "opportunity"
+      ],
+      "data": {
+        "query": "opportunity-envelopes"
+      },
+      "view": {
+        "component": "Stack",
+        "children": [
+          {
+            "component": "Heading",
+            "props": {
+              "text": "DocuSign"
+            }
+          },
+          {
+            "component": "Table",
+            "props": {
+              "rows": "$.data.envelopes",
+              "columns": [
+                {
+                  "label": "Envelope",
+                  "value": "{{row.emailSubject | truncate: 40}}"
+                },
+                {
+                  "label": "Status",
+                  "value": "{{row.status}}"
+                },
+                {
+                  "label": "Sent",
+                  "value": "{{row.sentDateTime | date}}"
+                },
+                {
+                  "label": "Completed",
+                  "value": "{{row.completedDateTime | date}}"
+                }
+              ]
+            }
+          },
+          {
+            "component": "Empty",
+            "when": "$.data.envelopes[0] == null",
+            "props": {
+              "text": "No envelopes sent for this opportunity."
+            }
+          },
+          {
+            "component": "Button",
+            "props": {
+              "label": "Open DocuSign",
+              "action": {
+                "type": "open_url",
+                "url": "https://app.docusign.com/documents"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "templates": {
+    "completed-note": "{{record.emailSubject}} was completed on {{record.completedDateTime | date}}. Signers: {{record.recipients.signers[0].name}} <{{record.recipients.signers[0].email}}>. Envelope {{record.envelopeId}}.",
+    "declined-task": "{{record.recipients.signers[0].name}} ({{record.recipients.signers[0].email}}) declined \"{{record.emailSubject}}\" on {{record.declinedDateTime | date}}.\nReason: {{record.recipients.signers[0].declinedReason | default: 'none given'}}\nCorrect the documents and resend from DocuSign."
+  },
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "connect",
+        "use": "docusign.connect.create",
+        "with": {
+          "name": "Frigg: Salesforce",
+          "urlToPublishTo": "$.install.webhookUrls.docusign",
+          "events": [
+            "envelope-sent",
+            "envelope-completed",
+            "envelope-declined"
+          ]
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "docusign.connect.delete",
+        "with": {
+          "connectId": "$.install.runtime.installed.connect.connectId"
+        }
+      }
+    ]
+  }
+}

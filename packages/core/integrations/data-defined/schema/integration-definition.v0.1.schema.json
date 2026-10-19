@@ -1,0 +1,848 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "title": "Frigg integration definition v0.1",
+  "description": "An integration as data: what it connects, what it keeps in sync, which workflows it runs and which UI it shows. One document per published version; immutable once published (ADR-063).",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "display",
+    "modules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "0.1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[\\w.]+)?$"
+    },
+    "display": {
+      "type": "object",
+      "required": [
+        "label"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "modules": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "module"
+        ],
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "Capability manifest name."
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/setting"
+      }
+    },
+    "syncs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "source",
+          "target",
+          "direction",
+          "identity",
+          "mapping"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^[a-zA-Z]\\w*\\.[a-zA-Z]\\w*$",
+            "description": "<moduleKey>.<object>"
+          },
+          "target": {
+            "type": "string",
+            "pattern": "^[a-zA-Z]\\w*\\.[a-zA-Z]\\w*$"
+          },
+          "direction": {
+            "enum": [
+              "one_way",
+              "two_way"
+            ]
+          },
+          "identity": {
+            "type": "object",
+            "required": [
+              "match"
+            ],
+            "properties": {
+              "match": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "key",
+                    "source",
+                    "target"
+                  ],
+                  "properties": {
+                    "source": {
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string"
+                    },
+                    "transform": {
+                      "enum": [
+                        "none",
+                        "trim",
+                        "lowercase",
+                        "uppercase",
+                        "number",
+                        "boolean",
+                        "to_iso_date",
+                        "to_e164_phone",
+                        "split_full_name",
+                        "join",
+                        "map_values",
+                        "default",
+                        "units_to_cents",
+                        "cents_to_units",
+                        "from_unix_seconds",
+                        "to_unix_seconds"
+                      ]
+                    },
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-zA-Z0-9]*$",
+                      "description": "Name of the identity key (email, phone). links.find { key: { phone } } looks records up by it."
+                    }
+                  }
+                }
+              },
+              "onAmbiguous": {
+                "enum": [
+                  "skip",
+                  "first",
+                  "create"
+                ],
+                "default": "skip"
+              }
+            }
+          },
+          "mapping": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/mappingRow"
+            }
+          },
+          "filter": {
+            "type": "string",
+            "description": "Only records matching this condition are synced ($.record)."
+          },
+          "backfill": {
+            "type": "object",
+            "properties": {
+              "trigger": {
+                "enum": [
+                  "userAction",
+                  "onInstall",
+                  "none"
+                ]
+              },
+              "pageSize": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 500
+              }
+            }
+          },
+          "ongoing": {
+            "type": "object",
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "webhook",
+                  "poll",
+                  "none"
+                ]
+              },
+              "every": {
+                "type": "string"
+              }
+            }
+          },
+          "default": {
+            "enum": [
+              "on",
+              "off"
+            ],
+            "default": "on"
+          }
+        }
+      }
+    },
+    "links": {
+      "type": "array",
+      "description": "Link sets: records on two modules known to be the same thing, with no sync behind them. links.find / links.upsert take { link: <id> }.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "between"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "between": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-zA-Z]\\w*\\.[a-zA-Z]\\w*$"
+            },
+            "description": "Two <moduleKey>.<object> on different modules."
+          },
+          "identity": {
+            "type": "object",
+            "required": [
+              "match"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "match": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "key"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-zA-Z0-9]*$"
+                    },
+                    "transform": {
+                      "enum": [
+                        "none",
+                        "trim",
+                        "lowercase",
+                        "uppercase",
+                        "number",
+                        "boolean",
+                        "to_iso_date",
+                        "to_e164_phone",
+                        "split_full_name",
+                        "join",
+                        "map_values",
+                        "default",
+                        "units_to_cents",
+                        "cents_to_units",
+                        "from_unix_seconds",
+                        "to_unix_seconds"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "workflows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "trigger",
+          "steps"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "purpose": {
+            "enum": [
+              "notify",
+              "write",
+              "enrich",
+              "maintain",
+              "respond"
+            ],
+            "description": "What the workflow is for. Shown in the UI; not executed."
+          },
+          "default": {
+            "enum": [
+              "on",
+              "off"
+            ],
+            "default": "on"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/setting"
+            }
+          },
+          "trigger": {
+            "$ref": "#/$defs/trigger"
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/step"
+            }
+          },
+          "retry": {
+            "type": "object",
+            "properties": {
+              "max": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10
+              },
+              "backoff": {
+                "enum": [
+                  "fixed",
+                  "exponential"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "steps",
+          "returns"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/step"
+            }
+          },
+          "returns": {
+            "description": "Expression for the query result."
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "host",
+          "placement",
+          "data",
+          "view"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string",
+            "description": "Module key of the app that shows it."
+          },
+          "placement": {
+            "type": "string",
+            "description": "One of the host manifest's ui.placements."
+          },
+          "objects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "query"
+            ],
+            "properties": {
+              "query": {
+                "type": "string"
+              },
+              "with": {
+                "type": "object"
+              }
+            }
+          },
+          "view": {
+            "$ref": "#/$defs/view"
+          },
+          "default": {
+            "enum": [
+              "on",
+              "off"
+            ],
+            "default": "on"
+          }
+        }
+      }
+    },
+    "templates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "onInstall": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "onUninstall": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": [
+        "use"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][\\w-]*$"
+        },
+        "use": {
+          "type": "string",
+          "description": "A built-in (links.find, links.upsert, map, merge, template, set, stop, foreach, branch, code) or <moduleKey>.<object>.<verb> declared by that module's capability manifest."
+        },
+        "with": {
+          "type": "object",
+          "description": "Arguments. Values may be expressions."
+        },
+        "when": {
+          "type": "string",
+          "description": "Condition; the step is skipped when false."
+        },
+        "onError": {
+          "enum": [
+            "fail",
+            "continue",
+            "stop"
+          ],
+          "default": "fail"
+        },
+        "do": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          },
+          "description": "foreach: steps run per item."
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "when",
+              "do"
+            ],
+            "properties": {
+              "when": {
+                "type": "string"
+              },
+              "do": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/step"
+                }
+              }
+            }
+          }
+        },
+        "else": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      }
+    },
+    "setting": {
+      "type": "object",
+      "required": [
+        "type",
+        "label"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "text",
+            "number",
+            "boolean",
+            "enum",
+            "option",
+            "duration"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {},
+        "enum": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "options": {
+          "description": "option settings: \"<moduleKey>.<list>\" from the module manifest, or { source, with } when the list takes inputs read from other settings ($.settings.workspace; a workflow setting may also read $.install.<integration setting>).",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-zA-Z]\\w*\\.[a-zA-Z]\\w*$"
+            },
+            {
+              "type": "object",
+              "required": [
+                "source"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z]\\w*\\.[a-zA-Z]\\w*$"
+                },
+                "with": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "trigger": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "module",
+            "topic"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "webhook"
+            },
+            "module": {
+              "type": "string"
+            },
+            "topic": {
+              "type": "string"
+            },
+            "filter": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "cron"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "schedule"
+            },
+            "cron": {
+              "type": "string"
+            },
+            "timezone": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "label"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "userAction"
+            },
+            "label": {
+              "type": "string"
+            },
+            "from": {
+              "type": "string",
+              "description": "A UI surface id when the action is a button on that surface."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "sync",
+            "on"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "syncRecord"
+            },
+            "sync": {
+              "type": "string"
+            },
+            "on": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "created",
+                  "updated",
+                  "linked"
+                ]
+              }
+            },
+            "filter": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "view": {
+      "type": "object",
+      "required": [
+        "component"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "enum": [
+            "Stack",
+            "Heading",
+            "Text",
+            "KeyValue",
+            "List",
+            "Table",
+            "Badge",
+            "Button",
+            "Empty",
+            "Divider"
+          ]
+        },
+        "props": {
+          "type": "object"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/view"
+          }
+        },
+        "when": {
+          "type": "string"
+        }
+      }
+    },
+    "mappingRow": {
+      "type": "object",
+      "required": [
+        "target"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "transform": {
+          "enum": [
+            "none",
+            "trim",
+            "lowercase",
+            "uppercase",
+            "number",
+            "boolean",
+            "to_iso_date",
+            "to_e164_phone",
+            "split_full_name",
+            "join",
+            "map_values",
+            "default",
+            "units_to_cents",
+            "cents_to_units",
+            "from_unix_seconds",
+            "to_unix_seconds"
+          ]
+        },
+        "options": {
+          "type": "object"
+        },
+        "master": {
+          "enum": [
+            "source",
+            "target",
+            "newest"
+          ],
+          "default": "source"
+        },
+        "direction": {
+          "enum": [
+            "both",
+            "to_target",
+            "to_source"
+          ],
+          "default": "both"
+        },
+        "value": {
+          "description": "A fixed value written to target instead of reading source (QuickBooks Line[0].DetailType)."
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "source"
+          ],
+          "not": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "required": [
+            "value"
+          ],
+          "not": {
+            "required": [
+              "source"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,608 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "acmeerp",
+  "label": "Acme ERP",
+  "package": "@acme/frigg-api-module",
+  "version": "0.9.0",
+  "auth": "api_key",
+  "objects": {
+    "customer": {
+      "label": "Customer",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "display_name",
+          "type": "string",
+          "tag": "record.displayName"
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "company_name",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "mobile_number",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "address.street",
+          "type": "string",
+          "tag": "address.line1"
+        },
+        {
+          "name": "address.city",
+          "type": "string",
+          "tag": "address.locality"
+        },
+        {
+          "name": "address.state",
+          "type": "string",
+          "tag": "address.region"
+        },
+        {
+          "name": "address.zip",
+          "type": "string",
+          "tag": "address.postalCode"
+        },
+        {
+          "name": "tags",
+          "type": "string[]",
+          "tag": "record.tags"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        }
+      ]
+    },
+    "job": {
+      "label": "Job",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "job_number",
+          "type": "number",
+          "tag": "record.displayId",
+          "readOnly": true
+        },
+        {
+          "name": "customer_id",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "tag": "job.status",
+          "values": [
+            "scheduled",
+            "dispatched",
+            "in_progress",
+            "finished",
+            "invoiced",
+            "paid",
+            "canceled"
+          ]
+        },
+        {
+          "name": "description",
+          "type": "text"
+        },
+        {
+          "name": "scheduled_start",
+          "type": "datetime",
+          "tag": "job.scheduledStart"
+        },
+        {
+          "name": "scheduled_end",
+          "type": "datetime",
+          "tag": "job.scheduledEnd"
+        },
+        {
+          "name": "finished_at",
+          "type": "datetime",
+          "tag": "job.completedAt"
+        },
+        {
+          "name": "technician_ids",
+          "type": "string[]",
+          "tag": "record.owner"
+        },
+        {
+          "name": "subtotal",
+          "type": "integer",
+          "tag": "order.subtotal",
+          "readOnly": true
+        },
+        {
+          "name": "tax_amount",
+          "type": "integer",
+          "tag": "order.tax",
+          "readOnly": true
+        },
+        {
+          "name": "total_amount",
+          "type": "integer",
+          "tag": "order.total",
+          "readOnly": true
+        },
+        {
+          "name": "payment_status",
+          "type": "enum",
+          "tag": "order.paymentStatus",
+          "values": [
+            "unpaid",
+            "partially_paid",
+            "paid"
+          ]
+        },
+        {
+          "name": "external_invoice_id",
+          "type": "string",
+          "tag": "record.externalId"
+        }
+      ]
+    },
+    "lineItem": {
+      "label": "Line item",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "job_id",
+          "type": "string"
+        },
+        {
+          "name": "kind",
+          "type": "enum",
+          "values": [
+            "service",
+            "labor",
+            "material",
+            "fee",
+            "discount"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "text"
+        },
+        {
+          "name": "sku",
+          "type": "string"
+        },
+        {
+          "name": "quantity",
+          "type": "number"
+        },
+        {
+          "name": "unit_price",
+          "type": "integer"
+        },
+        {
+          "name": "unit_cost",
+          "type": "integer"
+        },
+        {
+          "name": "taxable",
+          "type": "boolean"
+        }
+      ]
+    },
+    "technician": {
+      "label": "Technician",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "person.fullName"
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "role",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "events": {
+    "job.finished": {
+      "delivery": "webhook",
+      "object": "job",
+      "subscribe": "webhook.create",
+      "payload": {
+        "event_id": "evt_01JAF4T9ZQ",
+        "event": "job.finished",
+        "occurred_at": "2026-10-20T16:42:03Z",
+        "company_id": "co_acme_plumbing",
+        "data": {
+          "job": {
+            "id": "job_8Kq2Lm4N",
+            "job_number": 1042,
+            "customer_id": "cus_3Hx9Pq1R",
+            "status": "finished",
+            "description": "Replace water heater (50 gal) and haul away old unit",
+            "scheduled_start": "2026-10-20T13:00:00Z",
+            "scheduled_end": "2026-10-20T16:00:00Z",
+            "finished_at": "2026-10-20T16:42:00Z",
+            "technician_ids": [
+              "tech_A1",
+              "tech_B7"
+            ],
+            "subtotal": 184500,
+            "tax_amount": 15221,
+            "total_amount": 199721,
+            "payment_status": "unpaid",
+            "external_invoice_id": null,
+            "address": {
+              "street": "4410 Shoal Creek Blvd",
+              "city": "Austin",
+              "state": "TX",
+              "zip": "78756"
+            }
+          }
+        }
+      },
+      "record": "data.job",
+      "idPath": "event_id"
+    },
+    "job.scheduled": {
+      "delivery": "webhook",
+      "object": "job",
+      "subscribe": "webhook.create",
+      "payload": {
+        "event_id": "evt_01JAF4T9ZQ",
+        "event": "job.scheduled",
+        "occurred_at": "2026-10-20T16:42:03Z",
+        "company_id": "co_acme_plumbing",
+        "data": {
+          "job": {
+            "id": "job_8Kq2Lm4N",
+            "job_number": 1042,
+            "customer_id": "cus_3Hx9Pq1R",
+            "status": "scheduled",
+            "description": "Replace water heater (50 gal) and haul away old unit",
+            "scheduled_start": "2026-10-20T13:00:00Z",
+            "scheduled_end": "2026-10-20T16:00:00Z",
+            "finished_at": null,
+            "technician_ids": [
+              "tech_A1",
+              "tech_B7"
+            ],
+            "subtotal": 184500,
+            "tax_amount": 15221,
+            "total_amount": 199721,
+            "payment_status": "unpaid",
+            "external_invoice_id": null,
+            "address": {
+              "street": "4410 Shoal Creek Blvd",
+              "city": "Austin",
+              "state": "TX",
+              "zip": "78756"
+            }
+          }
+        }
+      },
+      "record": "data.job",
+      "idPath": "event_id"
+    },
+    "customer.created": {
+      "delivery": "webhook",
+      "object": "customer",
+      "subscribe": "webhook.create",
+      "payload": {
+        "event_id": "evt_01JAF4T9ZQ",
+        "event": "customer.created",
+        "occurred_at": "2026-10-20T16:42:03Z",
+        "company_id": "co_acme_plumbing",
+        "data": {
+          "customer": {
+            "id": "cus_3Hx9Pq1R",
+            "display_name": "Marisol Ortega",
+            "first_name": "Marisol",
+            "last_name": "Ortega",
+            "company_name": null,
+            "email": "marisol.ortega@example.com",
+            "mobile_number": "(512) 555-0188",
+            "address": {
+              "street": "4410 Shoal Creek Blvd",
+              "city": "Austin",
+              "state": "TX",
+              "zip": "78756"
+            },
+            "tags": [
+              "residential",
+              "maintenance-plan"
+            ],
+            "updated_at": "2026-10-20T12:00:00Z"
+          }
+        }
+      },
+      "record": "data.customer",
+      "idPath": "event_id"
+    },
+    "customer.updated": {
+      "delivery": "webhook",
+      "object": "customer",
+      "subscribe": "webhook.create",
+      "payload": {
+        "event_id": "evt_01JAF4T9ZQ",
+        "event": "customer.updated",
+        "occurred_at": "2026-10-20T16:42:03Z",
+        "company_id": "co_acme_plumbing",
+        "data": {
+          "customer": {
+            "id": "cus_3Hx9Pq1R",
+            "display_name": "Marisol Ortega",
+            "first_name": "Marisol",
+            "last_name": "Ortega",
+            "company_name": null,
+            "email": "marisol@ortega.family",
+            "mobile_number": "(512) 555-0188",
+            "address": {
+              "street": "4410 Shoal Creek Blvd",
+              "city": "Austin",
+              "state": "TX",
+              "zip": "78756"
+            },
+            "tags": [
+              "residential",
+              "maintenance-plan"
+            ],
+            "updated_at": "2026-10-20T12:00:00Z"
+          }
+        }
+      },
+      "record": "data.customer",
+      "idPath": "event_id"
+    }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.event}}",
+    "eventId": "{{body.event_id}}",
+    "verify": "verifyWebhookSignature"
+  },
+  "capabilities": {
+    "customer.get": {
+      "kind": "read",
+      "method": "getCustomer",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.list": {
+      "kind": "read",
+      "method": "listCustomers",
+      "input": {
+        "updated_since": {
+          "type": "string"
+        },
+        "page": {
+          "type": "number"
+        },
+        "page_size": {
+          "type": "number"
+        }
+      },
+      "output": "page<customer>"
+    },
+    "customer.create": {
+      "kind": "write",
+      "method": "createCustomer",
+      "input": {
+        "customer": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "customer.update": {
+      "kind": "write",
+      "method": "updateCustomer",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "customer": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "customer"
+    },
+    "job.get": {
+      "kind": "read",
+      "method": "getJob",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "expand": {
+          "type": "array"
+        }
+      },
+      "output": "job"
+    },
+    "job.search": {
+      "kind": "search",
+      "method": "searchJobs",
+      "input": {
+        "external_invoice_id": {
+          "type": "string"
+        },
+        "job_number": {
+          "type": "number"
+        },
+        "customer_id": {
+          "type": "string"
+        }
+      },
+      "output": "job[]"
+    },
+    "job.lineItems": {
+      "kind": "read",
+      "method": "listJobLineItems",
+      "input": {
+        "jobId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "lineItem[]"
+    },
+    "job.update": {
+      "kind": "write",
+      "method": "updateJob",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "job": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "job"
+    },
+    "job.markPaid": {
+      "kind": "write",
+      "method": "recordJobPayment",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "amount": {
+          "type": "integer",
+          "required": true
+        },
+        "paid_at": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        }
+      },
+      "output": "job"
+    },
+    "job.addNote": {
+      "kind": "write",
+      "method": "createJobNote",
+      "input": {
+        "jobId": {
+          "type": "string",
+          "required": true
+        },
+        "body": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "note"
+    },
+    "technician.list": {
+      "kind": "read",
+      "method": "listTechnicians",
+      "input": {},
+      "output": "technician[]"
+    },
+    "webhook.create": {
+      "kind": "subscribe",
+      "method": "createWebhookSubscription",
+      "input": {
+        "url": {
+          "type": "string",
+          "required": true
+        },
+        "events": {
+          "type": "array",
+          "required": true
+        }
+      },
+      "output": "webhook"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhookSubscription",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  },
+  "options": {
+    "technician": {
+      "capability": "technician.list",
+      "label": "{{item.name}}",
+      "value": "$.item.id"
+    }
+  },
+  "ui": {
+    "placements": [
+      "job.sidebar",
+      "customer.sidebar"
+    ],
+    "renderer": "acme-erp-extension-panel"
+  }
+}

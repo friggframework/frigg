@@ -1,0 +1,715 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "hubspot",
+  "label": "HubSpot",
+  "package": "@friggframework/api-module-hubspot",
+  "version": "1.4.0",
+  "auth": "oauth2",
+  "account": {
+    "description": "Values about the connected account, persisted by the module (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>.",
+    "fields": [
+      {
+        "name": "portalId",
+        "type": "string",
+        "description": "HubSpot portal (hub) id"
+      }
+    ]
+  },
+  "objects": {
+    "contact": {
+      "label": "Contact",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "properties.firstname",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "properties.lastname",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "properties.phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "properties.mobilephone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "properties.company",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "properties.lifecyclestage",
+          "type": "enum",
+          "tag": "contact.lifecycleStage",
+          "values": [
+            "subscriber",
+            "lead",
+            "marketingqualifiedlead",
+            "salesqualifiedlead",
+            "opportunity",
+            "customer"
+          ]
+        },
+        {
+          "name": "properties.hubspot_owner_id",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "properties.notes_last_contacted",
+          "type": "datetime",
+          "tag": "activity.lastContactedAt",
+          "readOnly": true
+        },
+        {
+          "name": "properties.phone_last_call",
+          "type": "datetime",
+          "custom": true
+        },
+        {
+          "name": "properties.jobtitle",
+          "type": "string",
+          "tag": "person.jobTitle"
+        },
+        {
+          "name": "properties.city",
+          "type": "string",
+          "tag": "address.locality"
+        },
+        {
+          "name": "properties.hs_lead_status",
+          "type": "enum",
+          "tag": "contact.leadStatus",
+          "values": [
+            "NEW",
+            "OPEN",
+            "IN_PROGRESS",
+            "OPEN_DEAL",
+            "UNQUALIFIED",
+            "ATTEMPTED_TO_CONTACT",
+            "CONNECTED",
+            "BAD_TIMING"
+          ]
+        },
+        {
+          "name": "properties.hs_email_optout",
+          "type": "boolean",
+          "tag": "contact.emailOptOut",
+          "readOnly": true
+        }
+      ]
+    },
+    "deal": {
+      "label": "Deal",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.dealname",
+          "type": "string",
+          "tag": "deal.name"
+        },
+        {
+          "name": "properties.amount",
+          "type": "number",
+          "tag": "deal.amount"
+        },
+        {
+          "name": "properties.dealstage",
+          "type": "enum",
+          "tag": "deal.stage",
+          "values": "dealStage"
+        },
+        {
+          "name": "properties.closedate",
+          "type": "date",
+          "tag": "deal.closeDate"
+        },
+        {
+          "name": "properties.hubspot_owner_id",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "properties.pipeline",
+          "type": "string",
+          "tag": "deal.pipeline"
+        },
+        {
+          "name": "properties.hs_next_step",
+          "type": "text",
+          "tag": "deal.nextStep"
+        }
+      ]
+    },
+    "company": {
+      "label": "Company",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.name",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "properties.domain",
+          "type": "string",
+          "tag": "organization.domain"
+        }
+      ]
+    },
+    "task": {
+      "label": "Task",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.hs_task_subject",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "properties.hs_task_body",
+          "type": "text"
+        },
+        {
+          "name": "properties.hs_timestamp",
+          "type": "datetime",
+          "required": true
+        },
+        {
+          "name": "properties.hubspot_owner_id",
+          "type": "string"
+        },
+        {
+          "name": "properties.hs_task_status",
+          "type": "enum",
+          "tag": "task.status",
+          "values": [
+            "NOT_STARTED",
+            "IN_PROGRESS",
+            "WAITING",
+            "COMPLETED",
+            "DEFERRED"
+          ]
+        },
+        {
+          "name": "properties.hs_task_priority",
+          "type": "enum",
+          "tag": "task.priority",
+          "values": [
+            "LOW",
+            "MEDIUM",
+            "HIGH"
+          ]
+        }
+      ]
+    },
+    "call": {
+      "label": "Call engagement",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.hs_call_title",
+          "type": "string"
+        },
+        {
+          "name": "properties.hs_call_body",
+          "type": "text"
+        },
+        {
+          "name": "properties.hs_call_duration",
+          "type": "number"
+        },
+        {
+          "name": "properties.hs_call_direction",
+          "type": "enum",
+          "values": [
+            "INBOUND",
+            "OUTBOUND"
+          ]
+        },
+        {
+          "name": "properties.hs_call_recording_url",
+          "type": "string"
+        },
+        {
+          "name": "properties.hs_timestamp",
+          "type": "datetime",
+          "required": true
+        }
+      ]
+    },
+    "note": {
+      "label": "Note",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.hs_note_body",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "properties.hs_timestamp",
+          "type": "datetime",
+          "required": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "contact.created": {
+      "delivery": "webhook",
+      "object": "contact",
+      "description": "App-level subscription; Frigg routes it to the installation by portalId.",
+      "payload": [
+        {
+          "portalId": 12345678,
+          "objectId": "51",
+          "subscriptionType": "contact.creation",
+          "occurredAt": 1760800000000,
+          "eventId": 9001
+        }
+      ],
+      "match": "contact.creation"
+    },
+    "contact.propertyChange": {
+      "delivery": "webhook",
+      "object": "contact",
+      "payload": [
+        {
+          "portalId": 12345678,
+          "objectId": "51",
+          "propertyName": "phone",
+          "propertyValue": "+15125550142",
+          "occurredAt": 1760800000000,
+          "eventId": 9002,
+          "subscriptionType": "contact.propertyChange"
+        }
+      ]
+    },
+    "deal.propertyChange": {
+      "delivery": "webhook",
+      "object": "deal",
+      "payload": [
+        {
+          "portalId": 12345678,
+          "objectId": "880",
+          "propertyName": "dealstage",
+          "propertyValue": "closedwon",
+          "occurredAt": 1760800000000,
+          "eventId": 9003,
+          "subscriptionType": "deal.propertyChange"
+        }
+      ]
+    },
+    "deal.created": {
+      "delivery": "webhook",
+      "object": "deal",
+      "payload": [
+        {
+          "portalId": 12345678,
+          "objectId": "881",
+          "occurredAt": 1760800000000,
+          "eventId": 9004,
+          "subscriptionType": "deal.creation"
+        }
+      ],
+      "match": "deal.creation"
+    }
+  },
+  "webhook": {
+    "scope": "app",
+    "batch": "body",
+    "topic": "{{item.subscriptionType}}",
+    "eventId": "{{item.eventId}}",
+    "account": "{{item.portalId}}",
+    "verify": "verifyWebhookSignature"
+  },
+  "capabilities": {
+    "contact.get": {
+      "kind": "read",
+      "method": "getContactById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "array"
+        }
+      },
+      "output": "contact"
+    },
+    "contact.search": {
+      "kind": "search",
+      "method": "searchContacts",
+      "input": {
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "lastContactedBefore": {
+          "type": "string"
+        }
+      },
+      "output": "contact[]"
+    },
+    "contact.list": {
+      "kind": "read",
+      "method": "listContacts",
+      "input": {
+        "after": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "updatedSince": {
+          "type": "string"
+        }
+      },
+      "output": "page<contact>"
+    },
+    "contact.create": {
+      "kind": "write",
+      "method": "createContact",
+      "input": {
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "contact"
+    },
+    "contact.update": {
+      "kind": "write",
+      "method": "updateContact",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "contact"
+    },
+    "deal.get": {
+      "kind": "read",
+      "method": "getDealById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "deal"
+    },
+    "deal.listForContact": {
+      "kind": "read",
+      "method": "listDealsForContact",
+      "input": {
+        "contactId": {
+          "type": "string",
+          "required": true
+        },
+        "open": {
+          "type": "boolean"
+        }
+      },
+      "output": "deal[]"
+    },
+    "deal.contacts": {
+      "kind": "read",
+      "method": "listContactsForDeal",
+      "input": {
+        "dealId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "contact[]"
+    },
+    "task.create": {
+      "kind": "write",
+      "method": "createTask",
+      "input": {
+        "properties": {
+          "type": "object",
+          "required": true
+        },
+        "contactId": {
+          "type": "string"
+        }
+      },
+      "output": "task"
+    },
+    "call.create": {
+      "kind": "write",
+      "method": "createCallEngagement",
+      "input": {
+        "properties": {
+          "type": "object",
+          "required": true
+        },
+        "contactId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "call"
+    },
+    "note.create": {
+      "kind": "write",
+      "method": "createNote",
+      "input": {
+        "properties": {
+          "type": "object",
+          "required": true
+        },
+        "contactId": {
+          "type": "string"
+        },
+        "dealId": {
+          "type": "string"
+        }
+      },
+      "output": "note"
+    },
+    "owner.list": {
+      "kind": "read",
+      "method": "listOwners",
+      "input": {},
+      "output": "owner[]"
+    },
+    "pipeline.stages": {
+      "kind": "read",
+      "method": "listDealStages",
+      "input": {
+        "pipelineId": {
+          "type": "string"
+        }
+      },
+      "output": "stage[]"
+    },
+    "contact.upsertByEmail": {
+      "kind": "write",
+      "method": "upsertContactByEmail",
+      "label": "Batch upsert with idProperty=email",
+      "input": {
+        "email": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "contact"
+    },
+    "deal.update": {
+      "kind": "write",
+      "method": "updateDeal",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "deal"
+    },
+    "deal.search": {
+      "kind": "search",
+      "method": "searchDeals",
+      "input": {
+        "open": {
+          "type": "boolean"
+        },
+        "closeDateBefore": {
+          "type": "string"
+        },
+        "closeDateAfter": {
+          "type": "string"
+        },
+        "minAmount": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "deal[]"
+    },
+    "task.get": {
+      "kind": "read",
+      "method": "getTaskById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "array"
+        }
+      },
+      "output": "task"
+    },
+    "task.update": {
+      "kind": "write",
+      "method": "updateTask",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "task"
+    },
+    "task.search": {
+      "kind": "search",
+      "method": "searchTasks",
+      "input": {
+        "dueBefore": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "task[]"
+    },
+    "owner.get": {
+      "kind": "read",
+      "method": "getOwnerById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "owner"
+    },
+    "owner.findByEmail": {
+      "kind": "search",
+      "method": "getOwnerByEmail",
+      "input": {
+        "email": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "owner"
+    },
+    "subscription.definitions": {
+      "kind": "read",
+      "method": "listSubscriptionDefinitions",
+      "input": {},
+      "output": "subscriptionDefinition[]"
+    },
+    "subscription.unsubscribe": {
+      "kind": "write",
+      "method": "unsubscribeEmail",
+      "label": "Communication preferences API; hs_email_optout itself is read-only",
+      "input": {
+        "emailAddress": {
+          "type": "string",
+          "required": true
+        },
+        "subscriptionId": {
+          "type": "string",
+          "required": true
+        },
+        "legalBasis": {
+          "type": "string"
+        },
+        "legalBasisExplanation": {
+          "type": "string"
+        }
+      },
+      "output": "subscriptionStatus"
+    }
+  },
+  "options": {
+    "owner": {
+      "capability": "owner.list",
+      "label": "{{item.firstName}} {{item.lastName}}",
+      "value": "$.item.id"
+    },
+    "dealStage": {
+      "capability": "pipeline.stages",
+      "label": "$.item.label",
+      "value": "$.item.id"
+    },
+    "subscriptionType": {
+      "capability": "subscription.definitions",
+      "label": "{{item.name}}",
+      "value": "$.item.id"
+    }
+  },
+  "ui": {
+    "placements": [
+      "crm.record.sidebar",
+      "crm.record.tab",
+      "crm.record.preview"
+    ],
+    "renderer": "left-hook-hubspot-app/frigg-card"
+  }
+}

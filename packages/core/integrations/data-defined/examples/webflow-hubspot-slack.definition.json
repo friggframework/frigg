@@ -1,0 +1,262 @@
+{
+  "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
+  "schemaVersion": "0.1",
+  "id": "webflow-hubspot-slack",
+  "version": "1.0.0",
+  "display": {
+    "label": "Webflow forms \u2192 HubSpot + Slack",
+    "description": "Website form submissions become HubSpot contacts and are routed to the right Slack channel by what the visitor asked about. Honeypot and link spam is dropped before anything is written.",
+    "category": "Lead capture",
+    "tags": [
+      "forms",
+      "website",
+      "crm",
+      "slack"
+    ]
+  },
+  "modules": {
+    "webflow": {
+      "module": "webflow",
+      "version": "^2.0"
+    },
+    "hubspot": {
+      "module": "hubspot",
+      "version": "^1.4"
+    },
+    "slack": {
+      "module": "slack",
+      "version": "^2.0"
+    }
+  },
+  "settings": {
+    "site": {
+      "type": "option",
+      "options": "webflow.site",
+      "label": "Webflow site",
+      "required": true
+    }
+  },
+  "workflows": [
+    {
+      "id": "contact-form",
+      "label": "Contact form \u2192 HubSpot contact + routed Slack alert",
+      "purpose": "write",
+      "default": "on",
+      "settings": {
+        "salesChannel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Sales enquiries go to",
+          "required": true
+        },
+        "supportChannel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Support requests go to",
+          "required": true
+        },
+        "defaultChannel": {
+          "type": "option",
+          "options": "slack.channel",
+          "label": "Everything else goes to",
+          "required": true
+        }
+      },
+      "trigger": {
+        "type": "webhook",
+        "module": "webflow",
+        "topic": "form.submitted",
+        "filter": "$.record.name != 'Newsletter' && $.record.data.Email exists && !($.record.data.Website exists && $.record.data.Website != '') && !($.record.data.Message contains 'http://') && !($.record.data.Message contains 'crypto')"
+      },
+      "steps": [
+        {
+          "id": "fields",
+          "use": "map",
+          "with": {
+            "record": "$.record.data",
+            "mapping": [
+              {
+                "source": "Email",
+                "target": "properties.email",
+                "transform": "lowercase"
+              },
+              {
+                "source": "Name",
+                "target": "properties.firstname",
+                "transform": "split_full_name",
+                "options": {
+                  "part": "first"
+                }
+              },
+              {
+                "source": "Name",
+                "target": "properties.lastname",
+                "transform": "split_full_name",
+                "options": {
+                  "part": "last"
+                }
+              },
+              {
+                "source": "Company",
+                "target": "properties.company",
+                "transform": "trim"
+              },
+              {
+                "source": "Phone",
+                "target": "properties.phone",
+                "transform": "to_e164_phone"
+              },
+              {
+                "target": "properties.lifecyclestage",
+                "value": "lead"
+              }
+            ]
+          }
+        },
+        {
+          "id": "contact",
+          "use": "hubspot.contact.upsertByEmail",
+          "with": {
+            "email": "$.record.data.Email",
+            "properties": "$.steps.fields.properties"
+          }
+        },
+        {
+          "id": "alert",
+          "use": "template",
+          "with": {
+            "id": "lead-alert"
+          }
+        },
+        {
+          "id": "route",
+          "use": "branch",
+          "cases": [
+            {
+              "when": "$.record.data.Interest == 'Sales'",
+              "do": [
+                {
+                  "use": "slack.message.post",
+                  "with": {
+                    "channel": "$.settings.salesChannel",
+                    "text": "$.steps.alert"
+                  }
+                }
+              ]
+            },
+            {
+              "when": "$.record.data.Interest == 'Support'",
+              "do": [
+                {
+                  "use": "slack.message.post",
+                  "with": {
+                    "channel": "$.settings.supportChannel",
+                    "text": ":sos: {{steps.alert}}"
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "use": "slack.message.post",
+              "with": {
+                "channel": "$.settings.defaultChannel",
+                "text": "$.steps.alert"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "newsletter-signup",
+      "label": "Newsletter sign-ups become subscribers",
+      "purpose": "write",
+      "default": "on",
+      "trigger": {
+        "type": "webhook",
+        "module": "webflow",
+        "topic": "form.submitted",
+        "filter": "$.record.name == 'Newsletter' && $.record.data.Email exists && !($.record.data.Website exists && $.record.data.Website != '') && !($.record.data.Message contains 'http://') && !($.record.data.Message contains 'crypto')"
+      },
+      "steps": [
+        {
+          "id": "fields",
+          "use": "map",
+          "with": {
+            "record": "$.record.data",
+            "mapping": [
+              {
+                "source": "Email",
+                "target": "properties.email",
+                "transform": "lowercase"
+              },
+              {
+                "source": "Name",
+                "target": "properties.firstname",
+                "transform": "split_full_name",
+                "options": {
+                  "part": "first"
+                }
+              },
+              {
+                "source": "Name",
+                "target": "properties.lastname",
+                "transform": "split_full_name",
+                "options": {
+                  "part": "last"
+                }
+              },
+              {
+                "source": "Company",
+                "target": "properties.company",
+                "transform": "trim"
+              },
+              {
+                "source": "Phone",
+                "target": "properties.phone",
+                "transform": "to_e164_phone"
+              },
+              {
+                "target": "properties.lifecyclestage",
+                "value": "subscriber"
+              }
+            ]
+          }
+        },
+        {
+          "use": "hubspot.contact.upsertByEmail",
+          "with": {
+            "email": "$.record.data.Email",
+            "properties": "$.steps.fields.properties"
+          }
+        }
+      ]
+    }
+  ],
+  "templates": {
+    "lead-alert": "*New {{record.data.Interest | default: 'website'}} enquiry* from {{record.data.Name | default: 'someone'}} ({{record.data.Company | default: 'no company'}}) on {{record.publishedPath}}\n> {{record.data.Message | truncate: 280}}\n<https://app.hubspot.com/contacts/{{install.portalId}}/record/0-1/{{steps.contact.id}}|Open in HubSpot> \u00b7 {{record.data.Email}}"
+  },
+  "lifecycle": {
+    "onInstall": [
+      {
+        "id": "hook",
+        "use": "webflow.webhook.create",
+        "with": {
+          "siteId": "$.install.site",
+          "triggerType": "form_submission",
+          "url": "$.install.webhookUrls.webflow"
+        }
+      }
+    ],
+    "onUninstall": [
+      {
+        "use": "webflow.webhook.delete",
+        "with": {
+          "webhookId": "$.install.runtime.installed.hook.id"
+        }
+      }
+    ]
+  }
+}

@@ -112,5 +112,6 @@ separate ADR, to be authored independently; this ADR keys off whatever that cont
 - [ADR-012: Database Schema Migrations](./012-database-schema-migrations.md)
 - [ADR-010: Reporting as an Admin Operation](./010-reporting-as-admin-operation.md) (shared runner + isolation)
 - [ADR-005: Admin Script Runner Service](./005-admin-script-runner.md)
-- Integration Versioning ADR — *to be authored separately* (defines the version contract this keys off).
+- [ADR-030: Integration Versioning](./030-integration-versioning.md) (defines the version contract this keys off).
+- [ADR-063: Integration Definitions as Data](./063-integration-definitions-as-data.md) — for data-defined integrations, the migrations here reduce to `planUpgrade` rewriting `Integration.config` plus link rebuilds after an identity change (ADR-063 §17).
 - Implementation: `packages/devtools/migrations/` (`MigrationManager`, `Migrator`, `Options`).

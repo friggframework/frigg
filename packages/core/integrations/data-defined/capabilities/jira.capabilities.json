@@ -1,0 +1,376 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "jira",
+  "label": "Jira Cloud",
+  "package": "@friggframework/api-module-jira",
+  "version": "2.2.0",
+  "auth": "oauth2",
+  "account": {
+    "description": "Values about the connected account, persisted by the module (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>.",
+    "fields": [
+      {
+        "name": "site",
+        "type": "string",
+        "description": "Atlassian site host (acme.atlassian.net)"
+      },
+      {
+        "name": "cloudId",
+        "type": "string",
+        "description": "Atlassian cloud id used in API URLs"
+      }
+    ]
+  },
+  "objects": {
+    "issue": {
+      "label": "Issue",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "tag": "record.displayId",
+          "readOnly": true
+        },
+        {
+          "name": "fields.summary",
+          "type": "string",
+          "tag": "ticket.subject",
+          "required": true
+        },
+        {
+          "name": "fields.description",
+          "type": "text",
+          "tag": "ticket.description"
+        },
+        {
+          "name": "fields.issuetype.id",
+          "type": "string"
+        },
+        {
+          "name": "fields.project.key",
+          "type": "string"
+        },
+        {
+          "name": "fields.priority.name",
+          "type": "enum",
+          "tag": "ticket.priority",
+          "values": [
+            "Highest",
+            "High",
+            "Medium",
+            "Low",
+            "Lowest"
+          ]
+        },
+        {
+          "name": "fields.labels",
+          "type": "string[]",
+          "tag": "record.tags"
+        },
+        {
+          "name": "fields.assignee.accountId",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "fields.status.name",
+          "type": "string",
+          "tag": "ticket.status",
+          "readOnly": true
+        },
+        {
+          "name": "fields.status.statusCategory.key",
+          "type": "enum",
+          "values": [
+            "new",
+            "indeterminate",
+            "done"
+          ],
+          "readOnly": true
+        },
+        {
+          "name": "fields.resolution.name",
+          "type": "string",
+          "readOnly": true
+        },
+        {
+          "name": "fields.created",
+          "type": "datetime",
+          "tag": "record.createdAt",
+          "readOnly": true
+        },
+        {
+          "name": "fields.updated",
+          "type": "datetime",
+          "tag": "record.updatedAt",
+          "readOnly": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "issue.updated": {
+      "delivery": "webhook",
+      "object": "issue",
+      "subscribe": "webhook.register",
+      "description": "jira:issue_updated from a dynamic webhook registered by the OAuth app. Dynamic webhooks expire after 30 days unless refreshed.",
+      "payload": {
+        "timestamp": 1760958061000,
+        "webhookEvent": "jira:issue_updated",
+        "issue_event_type_name": "issue_generic",
+        "matchedWebhookIds": [
+          104
+        ],
+        "user": {
+          "accountId": "5b10ac8d82e05b22cc7d4ef5",
+          "displayName": "Lee Wong"
+        },
+        "issue": {
+          "id": "10071",
+          "key": "SUP-482",
+          "self": "https://acme.atlassian.net/rest/api/2/issue/10071",
+          "fields": {
+            "summary": "[ZD-35436] Checkout fails with 500 for EU customers",
+            "priority": {
+              "name": "Highest"
+            },
+            "labels": [
+              "zendesk"
+            ],
+            "status": {
+              "name": "Done",
+              "statusCategory": {
+                "key": "done"
+              }
+            },
+            "resolution": {
+              "name": "Fixed"
+            },
+            "updated": "2026-10-20T11:01:01.000+0000"
+          }
+        },
+        "changelog": {
+          "id": "10155",
+          "items": [
+            {
+              "field": "status",
+              "fieldtype": "jira",
+              "fromString": "In Progress",
+              "toString": "Done"
+            }
+          ]
+        }
+      },
+      "record": "issue",
+      "match": "jira:issue_updated"
+    },
+    "issue.created": {
+      "delivery": "webhook",
+      "object": "issue",
+      "subscribe": "webhook.register",
+      "payload": {
+        "timestamp": 1760950000000,
+        "webhookEvent": "jira:issue_created",
+        "issue": {
+          "id": "10071",
+          "key": "SUP-482",
+          "fields": {
+            "summary": "[ZD-35436] Checkout fails with 500 for EU customers",
+            "labels": [
+              "zendesk"
+            ]
+          }
+        }
+      },
+      "record": "issue",
+      "match": "jira:issue_created"
+    }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.webhookEvent}}",
+    "eventId": "{{body.issue.id}}:{{body.timestamp}}",
+    "verify": "verifyWebhookSignature"
+  },
+  "capabilities": {
+    "issue.create": {
+      "kind": "write",
+      "method": "createIssue",
+      "input": {
+        "fields": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "issue"
+    },
+    "issue.get": {
+      "kind": "read",
+      "method": "getIssue",
+      "input": {
+        "issueIdOrKey": {
+          "type": "string",
+          "required": true
+        },
+        "fields": {
+          "type": "array"
+        }
+      },
+      "output": "issue"
+    },
+    "issue.update": {
+      "kind": "write",
+      "method": "editIssue",
+      "input": {
+        "issueIdOrKey": {
+          "type": "string",
+          "required": true
+        },
+        "fields": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "void"
+    },
+    "issue.addComment": {
+      "kind": "write",
+      "method": "addComment",
+      "input": {
+        "issueIdOrKey": {
+          "type": "string",
+          "required": true
+        },
+        "body": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "comment"
+    },
+    "issue.transition": {
+      "kind": "write",
+      "method": "transitionIssue",
+      "input": {
+        "issueIdOrKey": {
+          "type": "string",
+          "required": true
+        },
+        "transitionId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "void"
+    },
+    "issue.search": {
+      "kind": "search",
+      "method": "searchJql",
+      "input": {
+        "jql": {
+          "type": "string",
+          "required": true
+        },
+        "maxResults": {
+          "type": "number"
+        },
+        "fields": {
+          "type": "array"
+        }
+      },
+      "output": "issue[]"
+    },
+    "remoteLink.create": {
+      "kind": "write",
+      "method": "createRemoteLink",
+      "input": {
+        "issueIdOrKey": {
+          "type": "string",
+          "required": true
+        },
+        "url": {
+          "type": "string",
+          "required": true
+        },
+        "title": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "remoteLink"
+    },
+    "project.list": {
+      "kind": "read",
+      "method": "listProjects",
+      "input": {},
+      "output": "project[]"
+    },
+    "issueType.list": {
+      "kind": "read",
+      "method": "listIssueTypes",
+      "input": {
+        "projectKey": {
+          "type": "string"
+        }
+      },
+      "output": "issueType[]"
+    },
+    "webhook.register": {
+      "kind": "subscribe",
+      "method": "registerDynamicWebhooks",
+      "input": {
+        "url": {
+          "type": "string",
+          "required": true
+        },
+        "events": {
+          "type": "array",
+          "required": true
+        },
+        "jqlFilter": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "webhook[]"
+    },
+    "webhook.refresh": {
+      "kind": "write",
+      "method": "refreshWebhooks",
+      "input": {
+        "webhookIds": {
+          "type": "array",
+          "required": true
+        }
+      },
+      "output": "void"
+    },
+    "webhook.delete": {
+      "kind": "delete",
+      "method": "deleteWebhooks",
+      "input": {
+        "webhookIds": {
+          "type": "array",
+          "required": true
+        }
+      },
+      "output": "void"
+    }
+  },
+  "options": {
+    "project": {
+      "capability": "project.list",
+      "label": "{{item.name}} ({{item.key}})",
+      "value": "$.item.key"
+    },
+    "issueType": {
+      "capability": "issueType.list",
+      "label": "{{item.name}}",
+      "value": "$.item.id"
+    }
+  }
+}

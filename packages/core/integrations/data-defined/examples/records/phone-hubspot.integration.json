@@ -1,0 +1,86 @@
+{
+  "$comment": "Frigg Integration row (existing model). Only `config` is new in shape; everything else is what Frigg stores today.",
+  "id": "int_7f3a9c",
+  "userId": "usr_acme_admin",
+  "status": "ENABLED",
+  "version": "1.4.0",
+  "entities": [
+    {
+      "id": "ent_phone_51",
+      "moduleName": "phone",
+      "externalId": "ws_9a1"
+    },
+    {
+      "id": "ent_hs_88",
+      "moduleName": "hubspot",
+      "externalId": "12345678"
+    }
+  ],
+  "config": {
+    "definition": {
+      "id": "phone-hubspot",
+      "version": "1.4.0",
+      "checksum": "sha256:386c69e18a51a7cf061634309eca3e8267c1a59629a388498eddaad9eb44be59"
+    },
+    "settings": {
+      "fromNumber": "+15125550100"
+    },
+    "syncs": {
+      "contacts": {
+        "enabled": true
+      }
+    },
+    "workflows": {
+      "log-call": {
+        "enabled": true
+      },
+      "call-summary": {
+        "enabled": true
+      },
+      "missed-call-task": {
+        "enabled": true,
+        "settings": {
+          "owner": "81273645",
+          "dueIn": "2h"
+        }
+      },
+      "texts-timeline": {
+        "enabled": true
+      },
+      "won-thank-you": {
+        "enabled": false
+      },
+      "stale-contacts": {
+        "enabled": false
+      },
+      "text-from-card": {
+        "enabled": true
+      }
+    },
+    "ui": {
+      "phone-card": {
+        "enabled": true
+      },
+      "deals-panel": {
+        "enabled": true
+      }
+    },
+    "runtime": {
+      "installed": {
+        "hook": {
+          "id": "WHk2c9",
+          "url": "https://api.example.com/api/data-defined-integration/webhooks/int_7f3a9c?module=phone",
+          "events": [
+            "call.completed",
+            "call.ringing",
+            "call.summary.completed",
+            "message.received",
+            "contact.updated"
+          ]
+        }
+      }
+    }
+  },
+  "createdAt": "2026-09-02T15:20:00Z",
+  "updatedAt": "2026-10-18T09:12:44Z"
+}
