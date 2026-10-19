@@ -81,6 +81,25 @@ installation (Integration.config)         ─┘                          │
 `runtime.installed`, and `accounts.<module key>.<field>` — values about the connected account that the module's
 manifest declares under `account` (`$.install.accounts.quickbooks.realmId`). Nothing undeclared is exposed.
 
+## Code integrations use the same runtime
+
+A hand-written `IntegrationBase` subclass can embed a definition and get everything a published integration has:
+workflows with delay and approval pauses, syncs, UI surfaces, the generated configure form, and run history.
+
+```js
+class QuoReports extends IntegrationBase { static Definition = { name: 'quo-reports', modules, … }; async notifyTeam(args) { … } }
+module.exports = extendIntegrationClass(QuoReports, { definition: require('./quo-reports.definition.json'), manifests });
+```
+
+- The class keeps its name, modules, routes, schedules, lifecycle and handlers; the definition's id must be its name.
+- A `code` step with `ref: "#notifyTeam"` calls that method on the integration (checked at class creation; a
+  published definition cannot use `#` refs).
+- What the definition does not declare stays the code's: with no webhook-triggered workflow or sync, the class's
+  own webhook handling runs; with no settings, its own configure form; its own schedules run beside the compiled ones.
+- Each queued event the class handles itself is recorded as a run (`triggerType: "code"`) in the same history as its
+  workflows (`IntegrationEventDispatcher.dispatchJob` → `runEvent`). The history never decides a handler's outcome.
+- The definition ships with the code, so installations run the deployed version; `upgrade` says so and moves nothing.
+
 ## Publishing, installing, upgrading
 
 Definitions live in the `IntegrationDefinitionVersion` table (Prisma models in both schemas, PostgreSQL migration

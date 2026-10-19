@@ -404,7 +404,14 @@ classes win over a definition with the same name. Only the deployment is shared:
 is the host's name for a generated class, so it queues and schedules on the host's queue; the host's webhook function
 also serves `/api/{integrationType}/webhooks[/{integrationId}]` (HTTP API cannot match part of a path segment, and
 literal routes of registered integrations win); app-level webhooks, one URL per vendor app, use the host's URL and fan
-out to installations of every type it provides. `{ type: 'data-defined', definition: { id } }` still installs.
+out to installations of every type it provides.
+
+**Code uses the same runtime.** `extendIntegrationClass(CodeClass, { definition, manifests })` is the third shape: a
+hand-written class that embeds a definition keeps its name, modules and handlers and gains workflows (with pauses),
+syncs, UI surfaces, the generated form and run history. Its code steps may call the class's own methods (`#method`),
+its own queued events are recorded as runs beside its workflows, and whatever the definition does not declare
+(webhooks, the form, schedules) stays the code's. So the capabilities that once belonged to data-defined integrations
+belong to integrations; how one was written is not something its users, API callers or logs can tell. `{ type: 'data-defined', definition: { id } }` still installs.
 
 ### 14. Runtime: how an event loads and runs
 

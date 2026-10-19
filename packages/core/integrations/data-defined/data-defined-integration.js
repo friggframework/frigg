@@ -58,6 +58,40 @@ function defineSharedIntegrationClass({ name = 'data-defined', definitions, mani
  * entity reverse lookup, then each candidate's record, because one account can be used by integrations of other
  * types too, and the worker would hydrate those as their own class.
  */
+/**
+ * A code integration that also embeds a definition: the class keeps its own name, modules, handlers and lifecycle,
+ * and gains what a published integration has — workflows (with delay and approval pauses), syncs, the generated
+ * configure form, UI surfaces, versions and run history — through the same records and routes. Code is the escape
+ * hatch inside it: a `code` step whose ref is `#<method>` calls that method on the integration.
+ *
+ *     class HubspotSlack extends IntegrationBase { static Definition = { name: 'hubspot-slack', modules, … }; … }
+ *     module.exports = extendIntegrationClass(HubspotSlack, { definition: require('./hubspot-slack.definition.json'), manifests });
+ *
+ * What the definition does not declare stays the code's: with no webhook-triggered workflow or sync the class's own
+ * webhook handling runs; with no settings, its own configure form; its own schedules run beside the compiled ones.
+ */
+function extendIntegrationClass(CodeClass, { definition, manifests, runCode, runs, lookup }) {
+    const name = CodeClass?.Definition?.name;
+    if (!name) throw new Error('extendIntegrationClass needs an IntegrationBase subclass with a static Definition.name');
+    if (!definition || definition.id !== name) throw new Error(`The definition embedded in "${name}" must have the id "${name}" (it has "${definition?.id}")`);
+    const { validate } = require('./validate');
+    const codeMethods = [];
+    for (let proto = CodeClass.prototype; proto && proto !== Object.prototype; proto = Object.getPrototypeOf(proto)) {
+        for (const k of Object.getOwnPropertyNames(proto)) if (k !== 'constructor' && typeof Object.getOwnPropertyDescriptor(proto, k).value === 'function') codeMethods.push(k);
+    }
+    const problems = (validate(definition, manifests, { codeMethods }).errors || []);
+    if (problems.length) throw new Error(`The definition embedded in "${name}" is not valid: ${problems.map((e) => `${e.path || ''} ${e.message}`.trim()).join('; ')}`);
+    return makeClass({
+        name, defaultId: name, definitions: memoryDefinitions([definition]), manifests, runCode, IntegrationBase: CodeClass, lookup, runs,
+        modules: CodeClass.Definition.modules, display: CodeClass.Definition.display, version: CodeClass.Definition.version, embedded: true,
+    });
+}
+
+/** Whether a definition receives webhooks itself (a webhook-triggered workflow or a webhook-driven sync). */
+const ownsWebhooks = (def) => Boolean((def?.workflows || []).some((w) => w.trigger?.type === 'webhook') || (def?.syncs || []).some((sy) => sy.ongoing?.mode === 'webhook'));
+/** Whether a definition generates the configure form (it declares settings, at its level or a workflow's). */
+const ownsConfigForm = (def) => Boolean(Object.keys(def?.settings || {}).length || (def?.workflows || []).some((w) => Object.keys(w.settings || {}).length));
+
 function friggLookup(accepts) {
     return async (externalId, moduleName) => {
         const { createIntegrationCommands } = require('../../application/commands/integration-commands');
@@ -72,7 +106,7 @@ function friggLookup(accepts) {
     };
 }
 
-function makeClass({ name, defaultId, definitions, manifests, runCode, IntegrationBase, modules, display, version, lookup, runs }) {
+function makeClass({ name, defaultId, definitions, manifests, runCode, IntegrationBase, modules, display, version, lookup, runs, embedded = false }) {
     const Base = IntegrationBase || require('../integration-base').IntegrationBase;
     const id = name;
     // Where workflow runs are kept: the WorkflowRun table by default (loaded lazily, so tests and tools without a
@@ -84,7 +118,8 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
     const baseFor = (typeName) => `${process.env.FRIGG_PUBLIC_URL || ''}/api/${typeName}-integration/webhooks`;
 
     class DataDefinedIntegration extends Base {
-        static Definition = { name, version, modules, webhooks: { enabled: true }, display }; // version is display only; installations pin their own
+        // version is display only; installations pin their own. A code class keeps every part of its Definition.
+        static Definition = embedded ? { ...Base.Definition, webhooks: Base.Definition.webhooks ?? { enabled: true } } : { name, version, modules, webhooks: { enabled: true }, display };
 
         /** How the routers find data-defined classes and the store and manifests they run on. */
         static DataDefined = { definitions, manifests, shared: !defaultId, runs: () => runRepository() };
@@ -108,6 +143,8 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             let pin = this.config?.definition || (fixedId ? { id: fixedId } : null);
             if (fixedId && pin.id !== fixedId) throw new Error(`This installation pins "${pin.id}", but its type is "${fixedId}"`);
             if (!pin?.id) throw new Error('This installation does not name a definition (config.definition.id)');
+            // A definition embedded in code ships with the code: an installation runs the version deployed now.
+            if (embedded) pin = { id: pin.id };
             if (!pin.version) {
                 // Installed by id alone: pin the latest published version now (onCreate persists the pin).
                 const latest = await definitions.latest(pin.id);
@@ -133,7 +170,18 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
         /** Ports for a definition: Api calls through the manifest, and links/dedupe over IntegrationMapping. */
         portsFor(def) {
             return makePorts({
-                def, manifests, runCode,
+                def, manifests,
+                // `#method` is a method of this integration (a code class embedding a definition); anything else is a
+                // registered code step.
+                runCode: (ref, args) => {
+                    if (typeof ref === 'string' && ref.startsWith('#')) {
+                        const fn = this[ref.slice(1)];
+                        if (typeof fn !== 'function') throw new Error(`code: this integration has no method "${ref.slice(1)}"`);
+                        return fn.call(this, args);
+                    }
+                    if (!runCode) throw new Error('code: this runtime has no code steps registered');
+                    return runCode(ref, args);
+                },
                 // The shared class registers modules by module name; a definition may name them by its own keys.
                 callApi: (moduleKey, method, args) => this.moduleFor(moduleKey).api[method](args),
                 store: this.mappingStore(),
@@ -180,6 +228,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
          * X-Hook-Secret), otherwise queue the delivery as Frigg always does. The URL names the module (?module=).
          */
         async onWebhookReceived({ req, res }) {
+            if (embedded && !ownsWebhooks(this.def)) return super.onWebhookReceived({ req, res });
             const manifest = manifests[req.query?.module];
             const h = manifest && handshakeFor(manifest, { body: req.body, headers: req.headers, query: req.query });
             if (h) {
@@ -194,7 +243,9 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
          * connected to each account the delivery is about and queue it for each. With one: verify it, split it into
          * module events, and queue one message per enabled workflow listening for each event.
          */
-        async onWebhook({ data = {} }) {
+        async onWebhook(params) {
+            if (embedded && !ownsWebhooks(this.def)) return super.onWebhook(params);
+            const { data = {} } = params || {};
             if (data.module && data.topic) return this.routeEvents(data.module, [{ topic: data.topic, event: data.body, eventId: data.eventId || data.body?.id || null }]);
             const delivery = { body: data.body, headers: data.headers || {}, query: data.query || {} };
             // No installation yet (an app-level webhook): find the ones it is for.
@@ -284,16 +335,42 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
          * in step (IntegrationBase.syncSchedules).
          */
         scheduleEntries() {
-            return this.def ? compile(this.def, this.config || {}).schedules : [];
+            const compiled = this.def ? compile(this.def, this.config || {}).schedules : [];
+            return embedded && typeof super.scheduleEntries === 'function' ? [...super.scheduleEntries(), ...compiled] : compiled;
+        }
+
+        /**
+         * The queue worker's seam (IntegrationEventDispatcher.dispatchJob): a code integration's own queued events are
+         * runs too, recorded in the same history as its workflows. Compiled events record their own runs (with steps).
+         * As with workflows, the history never decides the outcome: a failed write is logged and the handler's result
+         * or error stands.
+         */
+        async runEvent(event, invoke) {
+            if (!embedded || (this.compiledEventNames || []).includes(event)) return invoke();
+            const startedAt = new Date().toISOString();
+            const write = async (status, error) => {
+                try {
+                    const store = runRepository();
+                    if (store) await store.createRun({ integrationId: this.id, definitionId: name, definitionVersion: this.def?.version, workflowId: event, triggerType: 'code', status, error: error ? String(error.message || error) : null, retryable: Boolean(error), trace: [], startedAt, endedAt: new Date().toISOString() });
+                } catch (e) {
+                    try { require('../../logs').getLogger('frigg.data-defined').warn('Workflow run not recorded', { eventName: 'frigg.data-defined.run.not_recorded', integrationId: this.id, workflowId: event, cause: e?.message }); } catch { /* ignore */ }
+                }
+            };
+            let out;
+            try { out = await invoke(); } catch (e) { await write('failed', e); throw e; }
+            await write('completed');
+            return out;
         }
 
         /** The configure form (GET /api/integrations/:id/config/options), generated from the definition. */
         async getConfigOptions() {
+            if (embedded && !ownsConfigForm(this.def)) return super.getConfigOptions();
             return buildConfigForm(this.def, this.config || {}, (path, values, integrationSettings) => this.optionsFor(path, values, integrationSettings));
         }
 
         /** The same form re-filled from the values chosen so far (POST …/config/options/refresh): dependent dropdowns. */
         async refreshConfigOptions(params = {}) {
+            if (embedded && !ownsConfigForm(this.def)) return super.refreshConfigOptions(params);
             const values = params.config || params.formData || params.data || params;
             return buildConfigForm(this.def, { ...(this.config || {}), ...values }, (path, v, integrationSettings) => this.optionsFor(path, v, integrationSettings));
         }
@@ -304,6 +381,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
 
         /** Required settings come from the definition; checked without calling any API (the base class renders the form). */
         async validateConfig() {
+            if (embedded && !ownsConfigForm(this.def)) return super.validateConfig();
             return missingRequired(this.def, this.config || {}).length > 0;
         }
 
@@ -345,6 +423,8 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
          * install steps changed, undoes the old ones before running the new ones (it never leaves the old webhooks).
          */
         async upgradeTo(toVersion, { apply = false } = {}) {
+            // An embedded definition's version is the code's: a deploy moves every installation, nothing else does.
+            if (embedded) return { allowed: false, applied: false, needs: [], actions: [], from: this.def?.version ?? null, to: this.def?.version ?? null, reason: 'This integration moves to a new version when its code is deployed' };
             const { PlanInstallationUpgrade } = require('./use-cases/definition-use-cases');
             const plan = await new PlanInstallationUpgrade({ catalog: definitions }).execute({ config: this.config, toVersion });
             if (!apply || !plan.allowed) return { ...plan, applied: false };
@@ -605,4 +685,4 @@ function memoryDefinitions(docs) {
     };
 }
 
-module.exports = { defineIntegrationClass, defineSharedIntegrationClass, memoryDefinitions };
+module.exports = { defineIntegrationClass, defineSharedIntegrationClass, extendIntegrationClass, memoryDefinitions };

@@ -23,7 +23,12 @@ const TRIGGERS = new Set(['webhook', 'schedule', 'userAction', 'syncRecord']);
 const TRANSFORMS = new Set(Object.keys(TRANSFORM_FNS));
 const INSTALL_KEYS = new Set(['webhookUrl', 'webhookUrls', 'portalId', 'runtime', 'integrationId', 'accounts']);
 
-function validate(def, manifests = {}) {
+/**
+ * @param {object} [options]
+ * @param {string[]} [options.codeMethods] the methods of the code class a definition is embedded in
+ *        (extendIntegrationClass): a code step may call them as `#method`. A published definition has none.
+ */
+function validate(def, manifests = {}, { codeMethods } = {}) {
     const errors = [], warnings = [];
     const err = (path, message) => errors.push({ path, message });
     const warn = (path, message) => warnings.push({ path, message });
@@ -288,7 +293,10 @@ function validate(def, manifests = {}) {
                 if (st.use === 'map' && Array.isArray(args.mapping)) checkRows(args.mapping, `${p}.with.mapping`);
                 if (st.use === 'template' && args.id && !def.templates?.[args.id]) err(`${p}.with.id`, `Unknown template "${args.id}"`);
                 if (st.use === 'map' && args.sync && !syncs[args.sync]) err(`${p}.with.sync`, `Unknown sync "${args.sync}"`);
-                if (st.use === 'code' && !/^[@\w/.-]+#\w+@\d+\.\d+\.\d+$/.test(args.ref || '')) err(`${p}.with.ref`, 'Code steps are "package#function@x.y.z"');
+                if (st.use === 'code' && /^#/.test(args.ref || '')) {
+                    if (!codeMethods) err(`${p}.with.ref`, `"${args.ref}" calls a method of a code integration; only a definition embedded in one can (extendIntegrationClass)`);
+                    else if (!codeMethods.includes(String(args.ref).slice(1))) err(`${p}.with.ref`, `The integration has no method "${String(args.ref).slice(1)}"`);
+                } else if (st.use === 'code' && !/^[@\w/.-]+#\w+@\d+\.\d+\.\d+$/.test(args.ref || '')) err(`${p}.with.ref`, 'Code steps are "package#function@x.y.z" (or "#method" in a definition a code integration embeds)');
             } else {
                 const cap = splitCapability(st.use);
                 const man = cap && manifestOf[cap.module];

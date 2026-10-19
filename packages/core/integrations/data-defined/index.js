@@ -9,7 +9,7 @@ const { compile, routeWebhook, eventName } = require('./compile');
 const { execute } = require('./interpreter');
 const { makePorts, runWorkflow, runQuery, renderSurface, resolveView, runLifecycle, resolveOptions } = require('./runtime');
 const { diff, checkBump, planUpgrade } = require('./versioning');
-const { defineIntegrationClass, defineSharedIntegrationClass, memoryDefinitions } = require('./data-defined-integration');
+const { defineIntegrationClass, defineSharedIntegrationClass, extendIntegrationClass, memoryDefinitions } = require('./data-defined-integration');
 const { BUILTINS } = require('./steps');
 const { TRANSFORMS, applyMapping } = require('./transforms');
 const { FILTERS } = require('./expressions');
@@ -32,7 +32,7 @@ module.exports = {
     validate, validateManifest, checkDefinition, checkManifest, checkInstallation, compile, routeWebhook, eventName, execute,
     makePorts, runWorkflow, runQuery, renderSurface, resolveView, runLifecycle,
     diff, checkBump, planUpgrade,
-    defineIntegrationClass, defineSharedIntegrationClass, memoryDefinitions,
+    defineIntegrationClass, defineSharedIntegrationClass, extendIntegrationClass, memoryDefinitions,
     BUILTINS, TRANSFORMS, FILTERS, applyMapping, resolveOptions,
     loadManifests, loadExamples,
     ...useCases,
