@@ -1,6 +1,6 @@
 # ADR-063: Integration Definitions as Data
 
-**Status**: Accepted (2026-10-19). v0.1 implemented in `packages/core/integrations/data-defined/` (see Implementation)
+**Status**: Proposed. Direction set; v0.1 implemented in `packages/core/integrations/data-defined/` (see Implementation)
 **Date**: 2026-10-15
 **Deciders**: Sean Matthews
 
@@ -30,10 +30,22 @@ What remains code is the *orchestration*: the event handler that reads from one 
 
 ### Why this matters now
 
-- **The Integrator.** One product will carry many pair integrations (Klaviyo ⇄ HubSpot, Shopify → NetSuite, …). Each must appear in **both** sides' marketplace storefronts, so the runtime cannot be split per storefront. A code-per-integration runtime grows its stack with every listing.
+- **A multi-listing product.** One product will carry many pair integrations (Klaviyo ⇄ HubSpot, Shopify → NetSuite, …). Each must appear in **both** sides' marketplace storefronts, so the runtime cannot be split per storefront. A code-per-integration runtime grows its stack with every listing.
 - **Per-workspace custom integrations.** A customer-specific variant is today either a fork of a class or arbitrary user code. Arbitrary user code needs process isolation to be safe.
 - **Agent authoring.** A document that validates against a JSON Schema is far easier for an agent to produce, diff and check than a class. "Checks still compile" becomes literal: schema validation, reference resolution and a Test Bench run.
 - **Reasoning.** Integration-as-code is easier for a person to reason about: you can read it, step through it and grep it. Any data form has to keep that property, or it loses.
+
+### Terms: "Definition" means three things
+
+The word is already overloaded, and this ADR adds a third use. Where it matters, the text says which one it means.
+
+| Term | What it is | Where it lives |
+|---|---|---|
+| `static Definition` | The metadata literal on a code integration or API module class (`name`, `modules`, `routes`, ...). Unchanged by this ADR | In the class |
+| The definition document | The JSON document this ADR introduces: one integration, as data. It is what the schema validates and what an installation runs | Authored as a file; published to the store; pinned by an installation (the `definitionVersion` below, `config.definition` in the implementation) |
+| `IntegrationDefinitionVersion` | The persisted row that holds one published version of a document, immutable once published | The definition store |
+
+**Naming collision, and the planned rename.** `@friggframework/schemas` already ships `integration-definition.schema.json`, which validates `static Definition`. The document needs a distinct name and `$id` so the two schemas are never confused. The planned name is **integration document**, with `integration-document.v0.1.schema.json`. Only the name is decided here; the code rename is a separate task. Until it lands, this ADR says "definition" for the document where it reads naturally, and the sketch and the schema package in §2 and §3 use the planned name.
 
 ## Decision
 
@@ -63,19 +75,21 @@ Code is the escape hatch and data is the composition. A data definition never co
 
 **The allow-list rule:** a definition may only name step types, transforms and modules registered in the app it runs in. It cannot define new ones. Anything the vocabulary can't express is written as a code step type or an integration extension ([ADR-018](./018-integration-extensions.md)), versioned and released like any other code.
 
+**Mappings and transforms: one vocabulary is the goal.** [ADR-057](./057-canonical-schema.md) keeps a module's meaning of an object in `extensions.mapping` and pair-specific rules in the integration, and refers to transforms by name (`joinName`, for example). A definition's mappings should use ADR-057's module mappings and canonical rules wherever a canonical schema exists. A pair-specific mapping row a definition carries itself must draw its transforms from the same named vocabulary, so that one operation has one name. Two registries that spell the same operation differently would make a mapping unportable between the two forms. If an implementation keeps its own mapping rows or transform names for now, its implementation notes must record the departure and what closes it.
+
 **No general-purpose expression language.** Arguments are literals, references (`$.trigger.body.email`, `$.steps.fetch.result.id`) or calls to named transforms. Conditions are a small, total, side-effect-free predicate set (`eq`, `in`, `exists`, `and`, `or`, `not`). The day a definition needs a loop or arbitrary arithmetic is the day it should become a code step. Without this rule the format turns into a programming language with worse tooling than JavaScript.
 
 ### 2. Shape (sketch, not final)
 
 ```jsonc
 {
-  "$schema": "https://schemas.friggframework.org/integration-definition/v1.json",
+  "$schema": "https://schemas.friggframework.org/integration-document/v0.1.json",   // planned name (Terms)
   "name": "klaviyo-hubspot",
   "version": "1.2.0",
   "display": { "label": "Klaviyo for HubSpot", "category": "Marketing" },
   "modules": {
     "klaviyo": { "module": "klaviyo@^2" },
-    "hubspot": { "module": "hubspot@^3", "instance": "hubspot-klaviyo" }   // ADR-062 (proposed)
+    "hubspot": { "module": "hubspot@^3", "instance": "hubspot-klaviyo" }   // named instance: not decided (see Related, ADR-059)
   },
   "config": { "schema": { /* JSON Schema */ }, "uiSchema": { /* … */ } },
   "events": {
@@ -100,8 +114,8 @@ Code is the escape hatch and data is the composition. A data definition never co
 
 Data does not mean "edited in a database admin screen". The lifecycle mirrors code:
 
-1. **Authored as files** in git, or produced by an agent or The Integrator's canvas and committed. That keeps them diffable, reviewable and blameable, and keeps integration-as-code's main reasoning property.
-2. **Compiled** by a `frigg integration check` step: JSON Schema validation (`@friggframework/schemas`, one `integration-definition.schema.json` and a `validateIntegrationDefinition()` helper, following the existing conventions), reference resolution against the app's registered modules / step types / transforms, mapping validation (ADR-057's `validateCanonicalMapping`), and a Test Bench run against recorded fixtures. A definition that fails any check is not publishable.
+1. **Authored as files** in git, or produced by an agent or a visual editor and committed. That keeps them diffable, reviewable and blameable, and keeps integration-as-code's main reasoning property.
+2. **Compiled** by a `frigg integration check` step: JSON Schema validation (`@friggframework/schemas`, one `integration-document.v0.1.schema.json` and a validator helper, following the existing conventions and the planned name in Terms), reference resolution against the app's registered modules / step types / transforms, mapping validation (ADR-057's `validateCanonicalMapping`), and a Test Bench run against recorded fixtures. A definition that fails any check is not publishable.
 3. **Published** to a definition store as an **immutable** `(name, version, contentHash)` row. Publishing is the only write. A version is never edited in place.
 4. **Pinned.** Every integration record stores the `definitionVersion` it was created with. Upgrading a running integration is an explicit migration, the same problem ADR-030 already frames. Data makes Path D of that ADR ("version as a routing dimension outside the class") almost free, because the version is just a key into the store.
 
@@ -111,25 +125,30 @@ A code-defined app can also ship data definitions **in the bundle** (as files lo
 
 - **One class, many types.** `DataDefinedIntegration` resolves `(name, definitionVersion)` from the integration record (or from the route) and caches the parsed definition by content hash for the life of the process.
 - **Routes keep their paths.** The existing `/api/${name}-integration/*` contract is preserved. A generic router resolves `name` from the path segment at request time instead of mounting one router per class at cold start.
-- **Constant infrastructure.** Data-defined integrations share one HTTP function, one webhook function and a small, fixed set of worker queues. Messages carry `{ integrationType, definitionVersion, event }`. The stack's resource count stops growing with the number of integrations, which removes the CloudFormation ceiling for The Integrator without nested stacks or sharding.
+- **Constant infrastructure.** Data-defined integrations share one HTTP function, one webhook function and a small, fixed set of worker queues. Messages carry `{ integrationType, definitionVersion, event }`. The stack's resource count stops growing with the number of integrations, which removes the CloudFormation ceiling for a product that lists many pairs, without nested stacks or sharding.
 - **Noisy neighbours are the price of sharing.** One integration's backfill must not starve another's webhooks. The runtime therefore needs per-type concurrency keys or hashing onto N queues, with separate queues for interactive and bulk work. This is the main *new* operational problem this ADR creates.
 
 ### 5. Why this is safe for per-workspace customization
 
 Because a definition can only compose allow-listed, versioned code, a workspace-specific definition is configuration, not user code. It can run in the shared runtime without the process isolation that arbitrary customer code would require. It cannot reach a module the app didn't register, call a transform that doesn't exist, or loop. Credentials, encryption and module auth are untouched: they stay in the API module and the framework.
 
+**"Workspace" is not yet an ADR-056 concept.** The ownership model for workspace-specific definitions is a follow-up, and this ADR does not design it. The intent is to build on [ADR-056](./056-app-profiles-tenancy-entity-scopes.md) rather than invent a second tenancy model:
+- *Owner.* A definition is owned the way an entity is: by its owner `userId` plus the owning `organizationId` (ADR-056 Decision §3), not by a free-standing workspace id. Until then, an implementation may treat the authenticated user as the workspace.
+- *Who sees it.* Visibility uses ADR-056's `Definition.visible(context)` (Decision §4), applied where integration options are listed, and it is not authorisation.
+- *Which entities a binding may use.* A definition's module binding takes ADR-056's binding scope (`organization` or `global`, Decision §3) like a code integration's.
+
 ### 6. Explicitly not decided here
 
 - The step-type vocabulary beyond the sketch, and how it relates to `BaseCRMIntegration`-style sync helpers.
 - The definition store's storage (Prisma model in the existing database vs a separate registry service).
 - Whether code integrations can be lowered to data. Probably not in general; possibly for the subset that only uses object routes plus mapping.
-- How a visual editor (The Integrator canvas) round-trips with hand-edited files.
+- How a visual editor round-trips with hand-edited files.
 
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
 `packages/core/integrations/data-defined/`, with 173 tests (the persistence suite runs against real PostgreSQL and
-MongoDB). It runs 16 example definitions (Quo ⇄ HubSpot is the
+MongoDB). It runs 16 example definitions (a phone-to-CRM definition is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
 references are relative to that directory.
@@ -173,11 +192,11 @@ retired rows, never a draft, and caches them by `id@version`. It verifies a pinn
 - **`Integration.config`**:
   ```jsonc
   {
-    "definition": { "id": "quo-hubspot", "version": "1.4.0", "checksum": "sha256:…" },   // the pin
+    "definition": { "id": "phone-crm", "version": "1.4.0", "checksum": "sha256:…" },   // the pin
     "settings":  { "fromNumber": "+15125550100" },
     "syncs":     { "contacts": { "enabled": true, "mapping": [ /* optional full override */ ] } },
     "workflows": { "missed-call-task": { "enabled": true, "settings": { "owner": "81273645" } } },
-    "ui":        { "quo-card": { "enabled": true } },
+    "ui":        { "phone-card": { "enabled": true } },
     "runtime":   { "installed": { "hook": { "id": "WHk2c9" } } }                        // written by the runtime only
   }
   ```
@@ -213,16 +232,18 @@ JSON Schema: `schema/integration-definition.v0.1.schema.json`. Top-level keys:
 | `templates` | Named text templates |
 | `lifecycle` | `onInstall` and `onUninstall` step lists, for example creating and deleting a provider webhook subscription |
 
-A real document is `examples/quo-hubspot.definition.json`, and there are more in `examples/`.
+The reference document (phone to CRM) and more are in `examples/`. Example ids in this ADR are generic; the files keep their own names.
+
+**Mappings: where v0.1 departs from ADR-057.** The `syncs[].mapping` rows above (a `source` or a fixed `value`, plus a `transform`) belong to the definition. They are not [ADR-057](./057-canonical-schema.md) module mappings (`extensions.mapping`) or `canonical.rules`, and the transforms they name (`trim`, `to_e164_phone`, `split_full_name`, `to_iso_date`, ... in §10) have their own names, where ADR-057 names its transforms differently (`joinName`, for example). ADR-057 is still an open PR (#676). §1 states the goal: one transform vocabulary, and module mappings used wherever a module ships one. Closing the gap means reading ADR-057's module mappings when they exist and reconciling the transform names so one operation has one name. Until then the schema's transform list is pinned to the runtime's (§11), which keeps this form consistent with itself, not with ADR-057.
 
 ### 9. Capability manifests: how a definition reaches code without containing any
 
 The allow-list in §1 needs something to list. In v0.1 each API module ships a **capability manifest** next to its
-code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo in `capabilities/`):
+code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and a phone module in `capabilities/`):
 
 - **`objects`**: fields, with type, read-only flag and an ontology tag (`person.email`, `person.phone`). The validator
   checks mapping rows and identity keys against them.
-- **`events`**: each topic the module can deliver, with `record` (where the record sits in the payload; Quo uses
+- **`events`**: each topic the module can deliver, with `record` (where the record sits in the payload; a phone module uses
   `data.object`), `idPath` (the provider's event id, used for dedupe) and an example payload.
 - **`capabilities`**: `<object>.<verb>` → `{ kind: read | write, method, input }`. `method` names a method on the
   module's existing `Api` class. A step `hubspot.task.create` therefore resolves to `HubSpotApi.createTask(args)`, and
@@ -233,7 +254,7 @@ code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo i
 - **`account`**: values about the connected account that the module persists after auth (`apiPropertiesToPersist`),
   such as QuickBooks' `realmId` or a Zendesk subdomain. Definitions read them as `$.install.accounts.<key>.<field>`;
   nothing undeclared is exposed.
-- **`ui`**: the placements this host offers, such as HubSpot's `crm.record.sidebar` and Quo's `conversation.sidebar`.
+- **`ui`**: the placements this host offers, such as HubSpot's `crm.record.sidebar` and a phone module's `conversation.sidebar`.
 - **`webhook`**: how a POST from this provider becomes module events (`webhooks.js`), written with the same template
   expressions definitions use, over `body`, `headers` (lower-case), `query`, `item` and `parent`:
   ```jsonc
@@ -246,7 +267,7 @@ code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo i
                "unwrap": "payload" }                    // a form field holding the JSON body (Slack interactivity)
   ```
   Each event names the provider's topic (`"match": "orders/create"`, default: the event key) and may add a condition
-  (`"when"`): Quo reports a missed call as `call.completed` with status `missed`, so `call.missed` is that subset. An
+  (`"when"`): a phone module reports a missed call as `call.completed` with status `missed`, so `call.missed` is that subset. An
   event's example `payload` (with `headers` when the topic is in one) is an exact delivery, and validation requires it
   to route to its own event through the same code a live webhook uses.
 
@@ -281,7 +302,7 @@ A step is `{ id?, use, with?, when?, onError? }` (`steps.js`). `use` is either a
 
 **Expressions** (`expressions.js`) take three forms:
 - a reference, `$.event.data.object.from`, which keeps its type;
-- a template, `"Quo call · {{record.duration | minutes}}m"`. A filter argument may itself be a path. A string that is
+- a template, `"Call · {{record.duration | minutes}}m"`. A filter argument may itself be a path. A string that is
   exactly one tag keeps the value's type, so `"{{item.Amount | to_cents}}"` is a number and `"{{steps.ids}}"` a list.
   Filters are named, total functions (bad input gives blank, never a throw):
   - text and dates: `upper`, `lower`, `truncate`, `default`, `date`, `json`, `minutes`, `seconds`;
@@ -351,7 +372,7 @@ places:
   calls before writing an `IntegrationDefinitionVersion` row.
 - `tests/schemas.test.js`, in CI on every change: every bundled example and manifest, plus the CLI driven as a child
   process, and the schema's transform list pinned to the runtime's so the two cannot drift.
-- Anything that copies definitions elsewhere refuses to write invalid output; the Integrator's definitions page
+- Anything that copies definitions elsewhere refuses to write invalid output; a product's definitions page
   sync is one.
 
 `ajv` is already a dependency of `@friggframework/schemas`; core's runtime stays dependency-free and loads it only
@@ -370,12 +391,21 @@ tables the runtime needs:
 | sync ongoing (webhook or poll) | `SYNC_CONTACTS_ONGOING` | `WEBHOOK` or `CRON` |
 | workflow `log-call` | `WF_LOG_CALL` | `WEBHOOK`, `CRON`, `USER_ACTION` or `QUEUE`, from its trigger |
 | query `recent-activity` | `Q_RECENT_ACTIVITY` | `ROUTE` |
-| UI surface `quo-card` | `UI_QUO_CARD`, rendered by `POST /api/integrations/:id/actions/UI_QUO_CARD` | `ROUTE` |
+| UI surface `phone-card` | `UI_PHONE_CARD`, rendered by `POST /api/integrations/:id/actions/UI_PHONE_CARD` | `ROUTE` |
 
-The other outputs are `webhooks` (module → topic → event names; a pattern may end in `.*`), `schedules` and
+The other outputs are `webhooks` (module → topic → event names; a pattern may end in `.*`), `triggers` (§15a) and
 `userActions`.
 
-**Only enabled items are compiled.** A workflow the customer has off has no event, no route and no schedule. It
+**Both authoring forms compile to the same two things.** A code-defined integration builds `static Definition` and `this.events` in its class. A definition compiles to the same pair: the `Definition` the host reads for routes, queues and triggers, and the `this.events` map the dispatcher reads. Everything downstream (dispatcher, queue worker, scheduler, mapping repository) therefore cannot tell the forms apart.
+
+**Where this should meet the one-file and trigger ADRs.** Three facts the compiled output depends on are described again here and should come from the module or the framework instead:
+- *Recurring work* is [ADR-055](./055-recurring-triggers.md)'s `Definition.triggers`, which ADR-055 governs for both forms. §15a (recurring triggers) follows ADR-055.
+- *Module webhook facts* (how a delivery is verified, answered, split into events and attributed to an account) come from [ADR-054](./054-one-file-integrations.md) extension contract 2: `verify`, `handshake`, `receive`, `resolve`, and `emits` / `normalize`. The manifest's `webhook` block (§9) is v0.1's own description of the same facts. When contract 2 exists, the manifest should be derived from it, not kept as a second description of one module.
+- *Sync object access* (list, get, upsert, ids and modified-at paths) comes from ADR-054 §6's `objects` descriptor, and the `sync` blocks in §15b are the same kind of fact. They should be derived from `objects` when it exists.
+
+ADR-054 and ADR-055 are Proposed. This section records the intent, and does not depend on either being built.
+
+**Only enabled items are compiled.** A workflow the customer has off has no event, no route and no trigger. It
 does not exist at runtime, so "disabled but still firing" cannot happen.
 
 ### 13. Two deployment shapes
@@ -389,7 +419,7 @@ does not exist at runtime, so "disabled but still firing" cannot happen.
 | Which definition an installation runs | The id is fixed; the version comes from the pin | `config.definition.{id, version}` |
 | New version | Publish only, no deploy | Publish only, no deploy |
 | New integration | A new class, so a deploy and three more functions plus a queue | A row, no deploy |
-| Fits | A product team with a handful of integrations | The Integrator, where definitions accumulate without bound |
+| Fits | A product team with a handful of integrations | A product that lists many integrations, where definitions accumulate without bound |
 
 Shape B is what actually makes §4's "constant infrastructure" true. Shape A still grows the stack per definition
 id, just not per version.
@@ -398,10 +428,11 @@ id, just not per version.
 caller or a log reader. Shape B's class is a *provider of integration types* (`static IntegrationProvider`,
 `integrations/integration-types.js`): wherever Frigg turns `config.type` into a class (the integration use cases,
 the queue worker, `GET /api/integrations` options), a published definition id resolves to a generated subclass named
-by that id, with the definition's label and modules. So an integration is installed with `{ type: 'quo-hubspot' }`,
-exactly as code is, and its logs, telemetry, schedule job ids and webhook URLs carry `quo-hubspot`. Registered code
-classes win over a definition with the same name. Only the deployment is shared: `IntegrationBase.getDeploymentName()`
-is the host's name for a generated class, so it queues and schedules on the host's queue; the host's webhook function
+by that id, with the definition's label and modules. So an integration is installed with `{ type: 'phone-crm' }`,
+exactly as code is, and its logs, telemetry, schedule job ids and webhook URLs carry `phone-crm`. Registered code
+classes win over a definition with the same name (logged once per process as `frigg.integrations.definition.shadowed_by_code`). Only the deployment is shared: `IntegrationBase.getDeploymentName()`
+is the host's name for a generated class, so it queues and books one-time jobs on the host's queue, and its
+triggers run on the host's tick (§15a); the host's webhook function
 also serves `/api/{integrationType}/webhooks[/{integrationId}]` (HTTP API cannot match part of a path segment, and
 literal routes of registered integrations win); app-level webhooks, one URL per vendor app, use the host's URL and fan
 out to installations of every type it provides.
@@ -441,10 +472,10 @@ From there, the existing dispatcher, queue worker, scheduler and mapping reposit
 
 **A webhook arrives.** A provider's POST carries no Frigg vocabulary: nothing says which module sent it or which
 event it is. Install steps register a per-module URL, `$.install.webhookUrls.<key>`, which names the module, and the
-module's manifest says how to read the rest (§9, `webhook` block). For example Quo `call.completed`:
+module's manifest says how to read the rest (§9, `webhook` block). For example a phone module's `call.completed`:
 
 ```
-POST /api/data-defined-integration/webhooks/<integrationId>?module=quo
+POST /api/data-defined-integration/webhooks/<integrationId>?module=phone
   → webhook function (no database): a handshake (Slack url_verification, Asana X-Hook-Secret) is answered here;
     anything else is queued as { integrationId, body, headers, query }       ── the unchanged Frigg path
   → queue worker: hydrate the record → initialize() → loadDefinition()
@@ -459,7 +490,7 @@ POST /api/data-defined-integration/webhooks/<integrationId>?module=quo
       runWorkflow():
         record   = manifest.events['call.completed'].record  → body.data.object
         filter   = trigger.filter evaluated → 'filtered' (nothing claimed, nothing written)
-        claim    = createMapping('evt:quo-hubspot:log-call:<provider event id>') → false ⇒ 'duplicate'
+        claim    = createMapping('evt:phone-crm:log-call:<provider event id>') → false ⇒ 'duplicate'
         steps    = links.find(phone) → template('call-note') → hubspot.engagement.createCall
         result   = WorkflowRun { status, trace[{id, use, at, status, ms, error?}] }
         failed   → release the claim, throw → the queue retries (the DLQ after max receives)
@@ -484,7 +515,9 @@ whose account is its own.
   step 3 again. Idempotent capabilities (upserts, `links.find` before create) are the v0.1 answer.
 - Per-step checkpointing comes after v0.1.
 
-**A schedule fires.** `CRON` → `WF_STALE_CONTACTS`, with no event id, so there is no claim. Steps such as
+**A schedule fires.** The integration's trigger tick finds the installation due and queues `FRIGG_TRIGGER_RUN`,
+which runs `WF_STALE_CONTACTS` with the event id `tick:WF_STALE_CONTACTS:<scheduledFor>`, so a redelivered run is
+claimed once (§15a). Steps such as
 `hubspot.contact.search` followed by `foreach` run in the same interpreter.
 
 **A user clicks a button** in a UI surface. `USER_ACTION` → `WF_TEXT_FROM_CARD`, with the surface's record as
@@ -513,11 +546,20 @@ to move to, never a 404 for being code.
 | `GET /api/integrations/:id/runs` | signed-in user, own installation | `WorkflowRun` history, newest first (`workflowId`, `status`, `before`, `limit`) |
 | `GET /api/integrations/:id/syncs` | signed-in user, own installation | Each sync's backfill progress and poll marks (§15b) |
 | `POST /api/integrations/:id/runs/:runId/decision` `{ decision, note? }` | the run's approvers, or the owner when it names none | Decide a paused approval (§15c). Answers 202 and carries the run on through the queue. An approver need not own the installation; anyone else gets a 404 |
-| `POST /api/integration-definitions` `{ document, notes?, publish? }` | signed-in user | Publish (or draft) an integration of the user's own workspace: listed and installable there, invisible elsewhere. 409 `ID_TAKEN` for an id owned by another workspace, the app's catalogue or a code integration |
+| `POST /api/integration-definitions` `{ document, notes?, publish? }` | signed-in user | Publish (or draft) an integration of the user's own workspace: listed and installable there, invisible elsewhere. 409 `ID_TAKEN` for an id owned by the app's catalogue or a code integration (both public); an id owned by another workspace answers 404 `NOT_FOUND`, identical to reading it, so ids cannot be probed (ADR-052 §3) |
 | `GET /api/integration-definitions/:id` | signed-in user, own workspace | Every version (drafts too) and the newest document, for the editor; 404 for anyone else |
-| `POST /api/admin/integrations/versions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
-| `GET /api/admin/integrations/:id/versions` | admin key | Every version, without documents |
-| `POST /api/admin/integrations/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
+| `POST /admin/integrations/versions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
+| `GET /admin/integrations/:id/versions` | admin key | Every version, without documents |
+| `POST /admin/integrations/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
+
+The admin routes live in core's existing `/admin/*` namespace, beside `/admin/scripts` and `/admin/db-migrate`, behind the same
+`validateAdminApiKey` middleware (`handlers/middleware/admin-auth`); `/api/admin` would have been a third namespace. The user routes
+stay where they are until the `/api/v2` route registry (PR #671) lands. Every route the router serves is listed once, with method,
+path and auth, in the exported `DEFINITION_ROUTES`, so that move is a data change.
+
+**Follow-up: these routes move to `/api/v2`.** The paths above are v0.1's. [ADR-053](./053-management-api-versioning.md) puts every new Management API resource under `/api/v2/`, and the route registry in #671 is how they get there. Moving them is a separate change, and the paths in this table will change with it.
+
+**What "workspace" means in this table.** The workspace routes (`/api/integration-definitions`) scope a definition to the authenticated user: the workspace id is `user.getId()`. That is a stand-in, not an ADR-056 owner and organization. Aligning it with ADR-056 (owner plus `organizationId`, `visible(context)`, binding scope) is the follow-up in §5.
 
 Installing needs no new route. `POST /api/integrations` with `config: { type: '<definition id>' }` pins the latest
 published version, and its checksum, in `onCreate`. An app that bundles its definitions (`memoryDefinitions`) has no store to
@@ -530,61 +572,74 @@ genuine (HubSpot signs its UI-extension requests) is the renderer's job, not Fri
 
 | Moment | What runs | Code |
 |---|---|---|
-| **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `quo.webhook.create` pointed at this installation's webhook URL. Every install step with an `id` has its result saved to `config.runtime.installed.<id>` with `patchConfig` | `onCreate` |
-| **Configure** | The customer toggles workflows, changes settings, overrides a mapping or, where the definition allows it, retimes a schedule. `onUpdate` merges config, then recompiles: enabling a workflow adds its event, routes and host schedule, and disabling removes them (§15a). No deploy, and no other installation is affected | `onUpdate` |
+| **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `phone.webhook.create` pointed at this installation's webhook URL. Every install step with an `id` has its result saved to `config.runtime.installed.<id>` with `patchConfig` | `onCreate` |
+| **Configure** | The customer toggles workflows, changes settings, overrides a mapping or, where the definition allows it, retimes a schedule. `onUpdate` merges config, then recompiles: enabling a workflow adds its event and routes, and disabling removes them. Its trigger needs nothing: the next tick reads the new config (§15a). No deploy, and no other installation is affected | `onUpdate` |
 | **Update** (new version) | Nothing happens to running installations. Each stays on its pin until it is moved, as in §17 | `planUpgrade` |
-| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`quo.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), deletes the installation's host schedules, then the framework removes the record | `onDelete` |
+| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`phone.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), then the framework removes the record. There is no schedule to delete: a deleted installation is simply not due at the next tick | `onDelete` |
 
 `$.install` is built by one function, `installContext`, everywhere a definition runs: workflows, queries, UI
 surfaces, lifecycle steps and option lists. It holds the integration settings with their defaults, `webhookUrl`,
 `integrationId`, `accounts` and `runtime.installed`. The first cut built it four ways, and the query and UI versions
 had no `runtime`, so a query reading an install result silently got nothing.
 
-### 15a. Recurring schedules, one per installation
+### 15a. Recurring triggers (ADR-055), with timing an installation may choose
 
-Schedule-triggered workflows and polling syncs run on a host schedule of their own, one per installation. Recurring
-jobs are not specific to data-defined integrations, so the mechanism is in core and a hand-written integration uses
-the same one (Quo's crons, for example, which are set by hand per integration today):
+Schedule-triggered workflows and polling syncs are ADR-055 recurring triggers. Nothing is scheduled per
+installation. Each integration with triggers gets one function, `{integration}Triggers`, with one schedule per
+distinct tick (and one per `at` trigger); at each tick it pages through the ENABLED installations and queues
+`{ event: 'FRIGG_TRIGGER_RUN', data: { integrationId, trigger, scheduledFor } }` for each one that is due. A disabled
+or deleted installation is not due, a config change or an upgrade applies at the next tick, and there is nothing for
+ADR-032 to clean up. Recurring jobs are not specific to data-defined integrations, so the mechanism is in core and a
+hand-written integration declares the same thing:
 
 ```js
 static Definition = {
     name: 'housecallpro',
-    schedules: {
-        ONGOING_SYNC: { every: '1h', configurable: { min: '15m' } },             // a user may choose >= 15m
-        DAILY_DIGEST: { cron: '0 8 * * 1-5', timezone: 'America/New_York' },     // fixed
+    triggers: {
+        ONGOING_SYNC: { every: '1h', configurable: { min: '15m' }, handler: 'deltaSync' },             // a user may choose >= 15m
+        DAILY_DIGEST: { cron: '0 8 * * 1-5', timezone: 'America/New_York', configurable: true, handler: 'digest' },
+        NIGHTLY: { at: 'cron(0 3 * * ? *)', timezone: 'Europe/London', handler: 'reconcile' },          // one time for everyone
     },
 };
 ```
 
-A data-defined definition says the same thing on the trigger (`{ "type": "schedule", "cron" | "every", "timezone",
-"configurable" }`) or on a polling sync (`ongoing: { "mode": "poll", "every", "configurable" }`). The pieces:
+A data-defined definition says it on the trigger (`{ "type": "schedule", "cron" | "every", "timezone", "configurable" }`)
+or on a polling sync (`ongoing: { "mode": "poll", "every", "configurable" }`). `compile` turns both into the same
+trigger entries (`compiled.triggers`), and the data-defined class resolves them per installation: it declares
+`Definition.instanceTriggers: { tick: '5m' }`, and its static `triggersFor({ config })` compiles the installation's
+pinned definition with its config at each tick. Each entry's handler runs its compiled event.
+The shared class's tick also covers the integration types it provides (`static triggerTypes()`): a published
+definition's installations carry their own `config.type`, so the tick pages each type in turn, and a continuation
+cursor names the type it stopped in. A code class that embeds a definition (`extendIntegrationClass`) keeps its own
+`Definition.triggers` beside the compiled ones, and declares `instanceTriggers` only when its definition has
+schedule-triggered workflows or polling syncs.
 
 | Layer | What | File |
 |---|---|---|
-| Recurrence | Host-neutral: `{ every: '15m' }` or a five-field `{ cron, timezone }`. `validateRecurrence` refuses what no host can run: both day fields restricted, a cron that never fires, an unknown zone. `minGapMinutes` measures what an expression really does, so a floor of 15m refuses `0,5 * * * *` | `infrastructure/scheduler/recurrence.js` |
-| Port | `upsertRecurring({ scheduleName, recurrence, queueResourceId, payload, enabled })` beside the one-time methods. Each adapter translates the recurrence. The payload may carry `TICK.id` / `TICK.scheduledFor`, which the host fills per firing | `scheduler-service-interface.js` |
-| Adapters | EventBridge: `rate(...)` or a six-field `cron(... ? ...)` with weekdays written as names, because EventBridge numbers them 1-7 from Sunday. It updates first, creates when the schedule is missing, and updates again after losing a create race. The tick is filled from `<aws.scheduler.scheduled-time>`. Mock: in memory, with `_simulateTrigger(name, tick)` | `eventbridge-scheduler-adapter.js`, `mock-scheduler-adapter.js` |
-| Commands | `upsertRecurringJob` and `reconcileRecurringJobs({ desired, stored, queueUrl })`. A job is written only when its recurrence, event, payload or state changed, and deleted when it is no longer wanted. A write the host refuses leaves the stored entry as it was, so the next reconcile retries it | `application/commands/scheduler-commands.js` |
-| Desired set | The definition's entries plus the installation's choices. A choice is honoured only where the definition allows it and within its floor. An invalid choice keeps the default and adds a warning message to the integration, so a bad edit never stops a schedule | `integrations/schedules.js` |
-| Lifecycle | `IntegrationBase.syncSchedules()` runs from the default `onCreate`, `onUpdate` and `onDelete`. It records what the host holds at `config.runtime.schedules.<event>`. An integration with no schedules does nothing. The data-defined class supplies its entries by compiling the current config, and also calls it after an upgrade | `integration-base.js` |
+| Recurrence | Host-neutral: `{ every: '15m' }` or a five-field `{ cron, timezone }`. `validateRecurrence` refuses both day fields restricted, a cron that never fires, an unknown zone. `minGapMinutes` measures what an expression really does, so a floor of 15m refuses `0,5 * * * *`. `lastFiringIn(cron, from, to)` answers "did it fire since the last tick" in the cron's time zone | `infrastructure/scheduler/recurrence.js` |
+| Declaration and due check | `validateTriggers`, `provisioningOf` (the ticks and `at` triggers devtools provisions), `resolveTrigger` (config, `when`, the installation's choice within the floor, the cadence in ticks) and `dueRun`. An `every` trigger is due when `slot mod n == hash(integrationId) mod n`; a `cron` trigger when it fired in (previous tick, this tick]; an `at` trigger whenever its own schedule runs | `integrations/triggers.js` |
+| Tick | Pages ENABLED installations 500 at a time by id (`findIntegrations({ type, status, limit, after })`), sends due runs with `batchSend` and per-run `DelaySeconds` jitter, and hands its cursor to the queue (`FRIGG_TRIGGER_TICK`) when it nears the Lambda deadline | `integrations/use-cases/run-trigger-tick.js`, `handlers/workers/integration-triggers.js` |
+| Run | The queue worker hydrates by `integrationId` and dispatches `FRIGG_TRIGGER_RUN` to `IntegrationBase.onTriggerRun`. Not ENABLED: discarded. `overlap: 'skip'`: a Process record `TRIGGER:<name>` per installation is the lease, and a run still going (touched within 2 x tick) makes the next one skip | `integrations/use-cases/run-trigger.js` |
+| Provisioning | `TriggerBuilder` (runs when any integration declares triggers): the function, a `rate()` schedule event per tick with its firing time as input, and a `method: scheduler` event per `at` trigger. No runtime scheduler IAM | `devtools/.../scheduler/trigger-builder.js` |
 
-The installation's choice lives in its config: `config.schedules.<event>` for a hand-written integration, and
+The installation's choice lives in its config: `config.triggers.<name>` for a hand-written integration, and
 `workflows.<id>.schedule` / `syncs.<id>.schedule` for a data-defined one, offered in the configure form only where
-the definition allows it. Host schedule names are `<integration>-<installation id>-<event>`, kept within
-EventBridge's 64 characters. Each firing sends `{ event, data: { integrationId, scheduleKey, tick } }` to the
-integration's queue, so the existing queue worker hydrates the installation and dispatches the event. A redelivered
-tick runs once, because `tick:<event>:<scheduledFor>` is the workflow's dedupe id. Taking configurability away is a
-major change. An upgrade keeps a choice only where the new version still allows it, and otherwise reports a
-`reschedule` action.
+the definition allows it. A choice the definition does not allow, or one under the floor, keeps the default timing
+and `onUpdate` adds a warning message saying why. An interval runs on whole multiples of the tick (a 20-minute
+choice on a 15-minute tick runs every 30 minutes), and a cron runs on the first tick after it fires, so its delay is
+at most one tick. A redelivered run, or two ticks in one slot, run once: the slot decides `scheduledFor`, and
+`tick:<event>:<scheduledFor>` is the workflow's dedupe id. Taking configurability away is a major change. An upgrade
+keeps a choice only where the new version still allows it, and otherwise reports a `reschedule` action.
 
-Ticks for an installation that is not `ENABLED` are discarded by the queue worker, as one-time jobs already are.
-Pausing the host schedule when the status changes is not done yet. Changing status does not go through `onUpdate`,
-so it needs a hook of its own.
+The two additions to ADR-055 (`configurable` floors, and `cron` calendar triggers that differ per installation) are
+proposed as its "Amendment (ADR-063)".
 
 ### 15b. The sync engine
 
 `sync-engine.js` keeps records on two modules as copies of each other. Its I/O is the ports (Api calls through the
 manifest, links over `IntegrationMapping`) and a state store, so tests drive it against in-memory APIs.
+
+**Relation to ADR-044.** [ADR-044](./044-sync-module-revitalization.md) is the canonical spec for Frigg's sync engine. This engine is its first implementation of Tier 2 and Tier 3 (ADR-044 §2): the per-link hash of mapped values is Tier 2's `dataHash`, and the known values kept per side, with a master and a conflict rule, are Tier 3's shadow. It sits in `packages/core/integrations/data-defined/` today. It should move to `packages/core/syncs/`, where ADR-044 places the engine, and be reached from there by both authoring forms. Until it moves, this section describes the engine as built and ADR-044 decides what it becomes.
 
 **How an object is read and written is the manifest's, not the definition's.** Paging, the id path and the payload
 shape are facts about an API, so each syncable object declares them once. A definition only says what to copy:
@@ -626,10 +681,10 @@ side, cursor, pages, counts by outcome, the last 20 errors) and queues `SYNC_<ID
 then the target side of a two-way sync that can list. One backfill runs at a time; a page of an older run is dropped,
 and a record that fails is counted without stopping the page. `GET /api/integrations/:id/syncs` returns the progress.
 A long backfill re-enqueues many times. On AWS that needs the same Lambda recursion override `BaseCRMIntegration`
-needs (the detector stops a chain at depth 16), until Frigg's orchestrator queue lands.
+needs (the detector stops a chain at depth 16). **That override is interim.** It stays until the orchestrator and worker queue of [ADR-047](./047-orchestrator-worker-queue-pattern.md) exists, because ADR-047 removes the cause rather than the alarm: its orchestrator never publishes to the queue it consumes, so the detector stays enabled and never fires. A backfill here that re-enqueues its own next page is exactly the pattern ADR-047 replaces, and its progress row (`sync:<id>:backfill`) is the kind of run state the orchestrator would own.
 
-**Ongoing.** Webhook mode routes the object's events to `SYNC_<ID>_ONGOING`. Poll mode runs on the installation's
-recurring schedule (§15a). The first poll only sets a mark. Later polls read what changed since (at most ten pages
+**Ongoing.** Webhook mode routes the object's events to `SYNC_<ID>_ONGOING`. Poll mode is a recurring trigger
+(§15a): each tick that finds it due queues `SYNC_<ID>_ONGOING` for the installation. The first poll only sets a mark. Later polls read what changed since (at most ten pages
 per side, the rest from the saved cursor next tick) and move the mark to the newest `updatedAt` seen.
 
 **Relink.** An upgrade whose plan says `relink` starts a backfill with reason `relink`, which rewrites every link with
@@ -639,6 +694,8 @@ the new identity keys and creates nothing that already links.
 create or link is once per record, so its run carries a dedupe id; updates do not.
 
 ### 15c. Paused runs: delay and approval
+
+**`WorkflowRun` is an ADR-047 Tier-3 instance row.** [ADR-047](./047-orchestrator-worker-queue-pattern.md) §3 grades workflow state in three tiers; Tier 3 is "machine definition + versioned instance row", for long-running multi-step workflows with an inspectable history. A run that pauses is that case: one `WorkflowRun` row per run, with a status (`waiting` while paused, otherwise one of the final statuses in §7) and the step trace as its history. A run that never pauses is written once, after it finishes, and needs nothing more. What this engine does not have is ADR-047's declared machine and single reducer: the allowed transitions are in the interpreter, not in a machine definition. When the orchestrator exists, a paused run should become one of its Tier-3 machines, with `WorkflowRun` as the persisted instance.
 
 Two built-in steps end a run for now and carry it on later:
 
@@ -667,7 +724,7 @@ inside `foreach` or `branch`, a query or a lifecycle hook. Validation refuses it
 - **One row.** A run that pauses more than once is still one `WorkflowRun` row, updated at every pause and at the end,
   and its trace lists every step. `GET /api/integrations/:id/runs?status=waiting` is the list of pending approvals.
 
-Default approvers are whoever can open the installation (the route is scoped to its owner). A named list restricts it.
+Default approvers are whoever can open the installation (the route is scoped to its owner). A named list restricts it. **Follow-up:** deciding an approval should require `manage` access to the installation under [ADR-056](./056-app-profiles-tenancy-entity-scopes.md), not only the ability to open it. ADR-056's permission rules (Decision §3) cover entities today; extending them to integrations and to this route is a separate change.
 Without a configured scheduler (local stages without the mock), nothing books the resume. An approval can still be
 decided, but a delay waits until its job is run by hand.
 
@@ -723,7 +780,7 @@ code-defined classes; this is the answer only where the class is the shared inte
 |---|---|
 | Lambda module-scope caching | Nothing version-specific is read at module scope. The definition is fetched when an installation is hydrated for an event and cached by `id@version`, so one warm Lambda serves several versions at once and a publish needs no deploy |
 | In-flight SQS jobs | Every message carries `definitionVersion`, and `dispatch` runs it on that version: ADR-030's "dispatch by the payload's declared version" |
-| EventBridge Scheduler entries | The rule: a scheduled run carries no version and runs on the installation's current pin, because a schedule belongs to the installation, not to the version that created it. `compile` produces each installation's `schedules`, so an upgrade that changes a cron yields a different list. **Registering that list is not built in v0.1** (§19), so this row is the contract for when it is |
+| EventBridge Scheduler entries | There are none per installation (§15a). A trigger run carries no version and runs on the installation's current pin, because the tick compiles the pinned definition each time it runs. An upgrade that changes a cron changes what the next tick finds due, and registers nothing |
 | Signed webhook URLs | URLs are per installation, not per version, so an upgrade re-registers nothing. Only a change to `lifecycle.onInstall` re-runs install, and `planUpgrade` lists that as a `reinstall` action |
 | Rollback | Moving the pin back is a config write (ADR-030's Path C behaviour). An identity change still needs links rebuilt in both directions, and `planUpgrade` says so |
 | Global routing / edge | Unchanged: routing is by installation id, and the version is resolved at the origin from the record |
@@ -738,9 +795,9 @@ does not rebuild the rows itself.
 
 ### 18. Hosting
 
-The Integrator's Frigg instance runs on **Frigg Cloud**: AWS, one sub-account per tenant, using **Shape B**. Each
+A hosted multi-tenant deployment runs on AWS, one sub-account per tenant, using **Shape B**. Each
 tenant's stack is constant-size: one HTTP function, one webhook function, one queue worker and one queue for every
-data-defined integration. Netlify was considered for the HTTP side and rejected as the primary host:
+data-defined integration. Netlify was considered for the HTTP side and rejected as the primary host for this case. [ADR-028](./028-multi-provider-support.md) (multi-provider support) is the route to a Netlify provider where that is wanted:
 - function time and size limits;
 - no native queue;
 - no per-tenant isolation boundary to match "one sub-account per tenant".
@@ -753,10 +810,12 @@ work kept apart from bulk work.
 | Missing | Why it matters | Plan |
 |---|---|---|
 | Per-module rate limits | Bursts (a backfill, a webhook storm) hit provider limits; today a 429 fails the step and the queue retries | A token bucket per module and installation, in the ports |
-| Host renderers (HubSpot card, Quo panel) | `renderSurface` returns trees that nothing draws yet | Per host |
+| Host renderers (HubSpot card, Phone panel) | `renderSurface` returns trees that nothing draws yet | Per host |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |
 
 Their order is decided by a month of iteration on v0.1, not fixed here.
+
+**Rate limits belong to the runtime's ports, under ADR-049.** The "per-module rate limits" item is not a definition feature. [ADR-049](./049-rate-limit-awareness.md) puts the budget in the ports: the Requester waits in process for a short wait, and pacing is its §6. A module's `static rateLimit` is descriptive only (provider facts such as windows and scope, ADR-054 §6), so a definition never states a budget. A wait too long for the Requester throws `RateLimitError`, and the queue worker defers the message to `retryAt` (frigg#657) instead of failing it and letting the queue retry. A definition run must therefore let that error through unchanged, so that §14's "a failed run releases its claim and the queue retries" is not what happens to it. The "token bucket per module and installation" in the table above is ADR-049's pacing, built there and not here.
 
 ### 20. Gaps the examples exposed, closed in v0.1
 
@@ -773,8 +832,8 @@ Writing 14 more examples against the first cut found seven places the format was
 | No sync-only example | Every example had workflows | `pipedrive-hubspot`: one two-way sync, no workflows |
 
 Closing them found more, each fixed and pinned by a test:
-- **Install results.** `onCreate` saved only `steps.hook.id`, under a hard-coded `subscriptions.quo`. Every other
-  install step's result was lost, so pipedrive-quo, both Shopify examples and zendesk-jira would have uninstalled
+- **Install results.** `onCreate` saved only `steps.hook.id`, under a hard-coded `subscriptions.phone`. Every other
+  install step's result was lost, so the Pipedrive-to-phone example, both Shopify examples and zendesk-jira would have uninstalled
   against ids nobody stored. Now `runtime.installed.<step id>` (§15).
 - **Account values.** Four examples read `$.install.runtime.realmId`-style values nothing wrote. They come from the
   connected account, so manifests declare `account` fields (§9).
@@ -804,7 +863,7 @@ The bigger consequence is not "fewer CloudFormation resources". **Once an integr
 | Port | Today | Already abstracted? |
 |---|---|---|
 | HTTP host | express app (`createApp`) wrapped by `serverless-http` per Lambda | **Mostly.** The express app is independent of Lambda, so `app.listen()` is a small step |
-| Queue | SQS only (`queues/queuer-util.js` uses `@aws-sdk/client-sqs` directly; local dev uses LocalStack) | **No.** No port; this is the largest gap |
+| Queue | SQS (`queues/queuer-util.js` uses `@aws-sdk/client-sqs` directly; local dev uses LocalStack) | **Not on `next`; being added.** PR #686 introduces `QueueProvider` and `QueueClientInterface` ([ADR-028](./028-multi-provider-support.md)) with SQS as the default adapter. In-process and Postgres adapters do not exist yet |
 | Scheduler | EventBridge Scheduler, with `SCHEDULER_PROVIDER=mock` | **Yes**, a port with two adapters |
 | Encryption | KMS or AES via `Cryptor` | **Yes** |
 | Database | Prisma, MongoDB or PostgreSQL | **Yes**, for those two |
@@ -812,7 +871,7 @@ The bigger consequence is not "fewer CloudFormation resources". **Once an integr
 
 ### Architecture: serverless vs packaged
 
-A **packaged** runtime is one long-lived process (or a few) running the same express app, an in-process or database-backed queue, cron in place of EventBridge, and AES in place of KMS. It needs exactly one new port: a queue abstraction with SQS, in-process and Postgres-backed (`SKIP LOCKED`) adapters. Nothing in a data definition knows which one it runs on. Code-defined integrations would work too. Data definitions matter more here because a packaged runtime cannot redeploy per integration change either.
+A **packaged** runtime is one long-lived process (or a few) running the same express app, an in-process or database-backed queue, cron in place of EventBridge, and AES in place of KMS. Its queue port is the one PR #686 adds (`QueueClientInterface`), plus two adapters that do not exist yet: in-process and Postgres-backed (`SKIP LOCKED`). Nothing in a data definition knows which one it runs on. Code-defined integrations would work too. Data definitions matter more here because a packaged runtime cannot redeploy per integration change either.
 
 ### Where: cloud, edge, local, home server, Raspberry Pi
 
@@ -821,7 +880,7 @@ A **packaged** runtime is one long-lived process (or a few) running the same exp
 | AWS Lambda (today) | Everything | Resource ceiling (solved above), cold starts |
 | Container (ECS, Fly, Kubernetes) | Packaged runtime as-is | Needs the queue port |
 | Edge (Cloudflare Workers, Lambda@Edge) | **Webhook ingress, signature validation, light single-call steps** | CPU-time limits, no long jobs, database access over HTTP or driver adapters, partial Node API support. Edge should *receive and route*, not backfill: hand heavy work to a regional queue |
-| Local / home server / Raspberry Pi | Packaged runtime, SQLite or Postgres, in-process queue | OAuth redirects and inbound webhooks need public HTTPS, so a tunnel or a relay (a natural Frigg Cloud service). SQLite would be a third Prisma target. Small memory favours a lean runtime |
+| Local / home server / Raspberry Pi | Packaged runtime, SQLite or Postgres, in-process queue | OAuth redirects and inbound webhooks need public HTTPS, so a tunnel or a relay (a natural hosted service). SQLite would be a third Prisma target. Small memory favours a lean runtime |
 
 The pattern is **one definition, several placements**. A webhook can be validated at the edge and fanned into a regional queue, then processed by a Lambda worker in the cloud or by a Pi in a closet, and the definition does not change.
 
@@ -844,7 +903,7 @@ So "Frigg in Rust" splits into options with very different costs:
 
 ### Positive
 
-- **Infrastructure stops scaling with integration count** for data-defined integrations; The Integrator fits in one stack.
+- **Infrastructure stops scaling with integration count** for data-defined integrations; a product that lists many pairs fits in one stack.
 - **Adding or changing an integration is a publish, not a deploy**, with the same review and checks a code change gets.
 - **Agents and the canvas author something they can validate**, and a failing check is a schema error, not a runtime surprise.
 - **Per-workspace custom integrations are safe** without per-tenant process isolation.
@@ -876,10 +935,13 @@ So "Frigg in Rust" splits into options with very different costs:
 
 - [ADR-015](./015-extensions-taxonomy.md) / [ADR-018](./018-integration-extensions.md): code escape hatch for steps the vocabulary can't express
 - [ADR-020](./020-capabilities.md): capabilities declared by definitions
+- [ADR-023](./023-integration-templates.md): a template may ship as a definition document (see its Amendment (ADR-063))
 - [ADR-021](./021-ontology.md): agent context for authoring definitions (not a field vocabulary)
 - [ADR-027](./027-ssm-parameter-offload-and-env-scoping.md): per-function environment, relevant once many integrations share functions
 - [ADR-013](./013-integration-version-migrations.md): record migrations between versions; §17 says what they reduce to here
 - [ADR-030](./030-integration-versioning.md): versioning, which the definition store makes concrete (§17 answers its serverless concerns for data-defined integrations)
 - [ADR-057](./057-canonical-schema.md) (PR #676): data-only mappings this format reuses
-- ADR-062 (proposed, not yet written): per-app module instances, referenced by `modules.*.instance`
+- [ADR-059](./059-app-level-entity-registry.md), open question 1: named registry entries are the closest existing proposal for more than one instance of a module in an app. The `modules.*.instance` key in the sketch depends on how that is resolved and is not decided here
+- [ADR-056](./056-app-profiles-tenancy-entity-scopes.md): owner, `organizationId`, `visible(context)` and binding scope for workspace-specific definitions (follow-up, §5)
+- [ADR-028](./028-multi-provider-support.md): provider plugins and the queue provider that the portability section builds on
 - Follow-up: an ADR on runtime targets and the queue port

@@ -1,11 +1,11 @@
 {
   "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
   "schemaVersion": "0.1",
-  "id": "quo-hubspot",
+  "id": "phone-hubspot",
   "version": "1.4.0",
   "display": {
-    "label": "Quo \u2194 HubSpot",
-    "description": "Two-way contact sync, call and text logging, missed-call follow-up, closed-won thank-you texts, and Quo activity inside HubSpot.",
+    "label": "Phone \u2194 HubSpot",
+    "description": "Two-way contact sync, call and text logging, missed-call follow-up, closed-won thank-you texts, and Phone activity inside HubSpot.",
     "category": "CRM",
     "tags": [
       "calls",
@@ -14,8 +14,8 @@
     ]
   },
   "modules": {
-    "quo": {
-      "module": "quo",
+    "phone": {
+      "module": "phone",
       "version": "^2.1"
     },
     "hubspot": {
@@ -26,8 +26,8 @@
   "settings": {
     "fromNumber": {
       "type": "option",
-      "options": "quo.phoneNumber",
-      "label": "Quo number to send texts from",
+      "options": "phone.phoneNumber",
+      "label": "Phone number to send texts from",
       "required": true
     }
   },
@@ -35,9 +35,9 @@
     {
       "id": "contacts",
       "label": "Contacts",
-      "description": "HubSpot contacts and Quo contacts stay the same person on both sides.",
+      "description": "HubSpot contacts and Phone contacts stay the same person on both sides.",
       "source": "hubspot.contact",
-      "target": "quo.contact",
+      "target": "phone.contact",
       "direction": "two_way",
       "identity": {
         "match": [
@@ -103,7 +103,7 @@
       "default": "on",
       "trigger": {
         "type": "webhook",
-        "module": "quo",
+        "module": "phone",
         "topic": "call.completed"
       },
       "steps": [
@@ -137,7 +137,7 @@
           "with": {
             "contactId": "$.steps.contact.hubspot",
             "properties": {
-              "hs_call_title": "Quo call ({{record.direction}})",
+              "hs_call_title": "Phone call ({{record.direction}})",
               "hs_call_body": "$.steps.body",
               "hs_call_duration": "$.record.duration",
               "hs_call_direction": "{{record.direction | upper}}",
@@ -149,12 +149,12 @@
     },
     {
       "id": "call-summary",
-      "label": "Add Quo AI call summaries as notes",
+      "label": "Add Phone AI call summaries as notes",
       "purpose": "write",
       "default": "on",
       "trigger": {
         "type": "webhook",
-        "module": "quo",
+        "module": "phone",
         "topic": "call.summary.completed"
       },
       "steps": [
@@ -162,7 +162,7 @@
           "id": "calls",
           "use": "code",
           "with": {
-            "ref": "@lefthook/quo-steps#participantsForCall@1.0.0",
+            "ref": "@acme/phone-steps#participantsForCall@1.0.0",
             "with": {
               "callId": "$.record.callId"
             }
@@ -217,7 +217,7 @@
       },
       "trigger": {
         "type": "webhook",
-        "module": "quo",
+        "module": "phone",
         "topic": "call.missed",
         "filter": "$.record.direction == 'incoming'"
       },
@@ -255,7 +255,7 @@
           "with": {
             "contactId": "$.steps.contact.hubspot",
             "properties": {
-              "hs_task_subject": "Call back {{steps.full.properties.firstname | default: 'caller'}} (missed Quo call)",
+              "hs_task_subject": "Call back {{steps.full.properties.firstname | default: 'caller'}} (missed Phone call)",
               "hs_task_body": "Missed call from {{record.from}} at {{record.createdAt}}.",
               "hs_timestamp": "$.record.createdAt",
               "hubspot_owner_id": "{{settings.owner | default: steps.full.properties.hubspot_owner_id}}"
@@ -271,7 +271,7 @@
       "default": "on",
       "trigger": {
         "type": "webhook",
-        "module": "quo",
+        "module": "phone",
         "topic": "message.received"
       },
       "steps": [
@@ -351,7 +351,7 @@
           }
         },
         {
-          "use": "quo.message.send",
+          "use": "phone.message.send",
           "with": {
             "from": "$.install.fromNumber",
             "to": [
@@ -394,7 +394,7 @@
               "with": {
                 "id": "$.item.id",
                 "properties": {
-                  "quo_last_call": "$.item.properties.notes_last_contacted"
+                  "phone_last_call": "$.item.properties.notes_last_contacted"
                 }
               }
             }
@@ -410,11 +410,11 @@
       "trigger": {
         "type": "userAction",
         "label": "Send text",
-        "from": "quo-card"
+        "from": "phone-card"
       },
       "steps": [
         {
-          "use": "quo.message.send",
+          "use": "phone.message.send",
           "with": {
             "from": "$.install.fromNumber",
             "to": [
@@ -433,7 +433,7 @@
       "steps": [
         {
           "id": "calls",
-          "use": "quo.call.list",
+          "use": "phone.call.list",
           "with": {
             "participant": "$.record.properties.phone",
             "maxResults": 5
@@ -441,7 +441,7 @@
         },
         {
           "id": "texts",
-          "use": "quo.message.list",
+          "use": "phone.message.list",
           "with": {
             "participants": [
               "$.record.properties.phone"
@@ -457,7 +457,7 @@
     },
     {
       "id": "open-deals",
-      "description": "Open HubSpot deals for the contact in the current Quo conversation.",
+      "description": "Open HubSpot deals for the contact in the current Phone conversation.",
       "steps": [
         {
           "id": "contact",
@@ -493,8 +493,8 @@
   ],
   "ui": [
     {
-      "id": "quo-card",
-      "label": "Quo activity",
+      "id": "phone-card",
+      "label": "Phone activity",
       "host": "hubspot",
       "placement": "crm.record.sidebar",
       "objects": [
@@ -509,7 +509,7 @@
           {
             "component": "Heading",
             "props": {
-              "text": "Quo activity"
+              "text": "Phone activity"
             }
           },
           {
@@ -532,7 +532,7 @@
             "component": "Empty",
             "when": "$.data.calls == null",
             "props": {
-              "text": "No Quo activity with this number yet."
+              "text": "No Phone activity with this number yet."
             }
           },
           {
@@ -557,7 +557,7 @@
     {
       "id": "deals-panel",
       "label": "HubSpot deals",
-      "host": "quo",
+      "host": "phone",
       "placement": "conversation.sidebar",
       "data": {
         "query": "open-deals"
@@ -606,15 +606,15 @@
     }
   ],
   "templates": {
-    "call-note": "Quo call with {{record.from}} \u00b7 {{record.duration}}s ({{record.status}})"
+    "call-note": "Phone call with {{record.from}} \u00b7 {{record.duration}}s ({{record.status}})"
   },
   "lifecycle": {
     "onInstall": [
       {
         "id": "hook",
-        "use": "quo.webhook.create",
+        "use": "phone.webhook.create",
         "with": {
-          "url": "$.install.webhookUrls.quo",
+          "url": "$.install.webhookUrls.phone",
           "events": [
             "call.completed",
             "call.ringing",
@@ -627,7 +627,7 @@
     ],
     "onUninstall": [
       {
-        "use": "quo.webhook.delete",
+        "use": "phone.webhook.delete",
         "with": {
           "id": "$.install.runtime.installed.hook.id"
         }

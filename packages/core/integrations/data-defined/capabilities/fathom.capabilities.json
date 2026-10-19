@@ -80,7 +80,7 @@
       "description": "Fired when a recording's summary, action items (and transcript, if asked for) are ready. The payload is the meeting.",
       "payload": {
         "recording_id": 123456789,
-        "title": "Acme / Left Hook renewal review",
+        "title": "Acme / Initech renewal review",
         "meeting_title": "Acme renewal",
         "url": "https://fathom.video/calls/123456789",
         "share_url": "https://fathom.video/share/zXv8m2KqQhJt",
@@ -90,14 +90,14 @@
         "recording_end_time": "2026-10-20T15:46:30Z",
         "transcript_language": "en",
         "recorded_by": {
-          "name": "Sean Matthews",
-          "email": "sean@lefthook.example",
+          "name": "Alex Morgan",
+          "email": "alex@acme.example",
           "team": "Sales"
         },
         "calendar_invitees": [
           {
-            "name": "Sean Matthews",
-            "email": "sean@lefthook.example",
+            "name": "Alex Morgan",
+            "email": "alex@acme.example",
             "is_external": false
           },
           {
@@ -119,8 +119,8 @@
             "recording_timestamp": "00:31:05",
             "recording_playback_url": "https://fathom.video/calls/123456789?timestamp=1865",
             "assignee": {
-              "name": "Sean Matthews",
-              "email": "sean@lefthook.example"
+              "name": "Alex Morgan",
+              "email": "alex@acme.example"
             }
           },
           {

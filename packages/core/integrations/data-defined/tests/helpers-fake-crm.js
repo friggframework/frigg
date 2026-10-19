@@ -1,4 +1,4 @@
-/** In-memory HubSpot and Quo APIs shaped like the real ones as their manifests describe them. Test helper. */
+/** In-memory HubSpot and Phone APIs shaped like the real ones as their manifests describe them. Test helper. */
 /** A fake API: records by id, a write log, and the methods the manifest names. */
 function hubspotApi() {
     const records = new Map();
@@ -19,7 +19,7 @@ function hubspotApi() {
     };
     return api;
 }
-function quoApi() {
+function phoneApi() {
     const records = new Map();
     let n = 0;
     const api = {
@@ -41,4 +41,4 @@ function quoApi() {
     return api;
 }
 
-module.exports = { hubspotApi, quoApi };
+module.exports = { hubspotApi, phoneApi };

@@ -91,8 +91,8 @@
             "emailSubject": "Please sign: Acme Corp MSA and Work Order 3",
             "sentDateTime": "2026-10-19T14:00:00.000Z",
             "sender": {
-              "userName": "Sean Matthews",
-              "email": "sean@lefthook.example"
+              "userName": "Alex Morgan",
+              "email": "alex@acme.example"
             },
             "recipients": {
               "signers": [
@@ -143,8 +143,8 @@
             "emailSubject": "Please sign: Acme Corp MSA and Work Order 3",
             "sentDateTime": "2026-10-19T14:00:00.000Z",
             "sender": {
-              "userName": "Sean Matthews",
-              "email": "sean@lefthook.example"
+              "userName": "Alex Morgan",
+              "email": "alex@acme.example"
             },
             "recipients": {
               "signers": [
@@ -195,8 +195,8 @@
             "emailSubject": "Please sign: Acme Corp MSA and Work Order 3",
             "sentDateTime": "2026-10-19T14:00:00.000Z",
             "sender": {
-              "userName": "Sean Matthews",
-              "email": "sean@lefthook.example"
+              "userName": "Alex Morgan",
+              "email": "alex@acme.example"
             },
             "recipients": {
               "signers": [

@@ -1,6 +1,6 @@
 # Data-defined integrations: database records (v0.1)
 
-Three layers, stored separately. Worked examples for Quo ↔ HubSpot are in `examples/records/`.
+Three layers, stored separately. Worked examples for Phone ↔ HubSpot are in `examples/records/`.
 
 | Layer | What it holds | Table | Changes when |
 |---|---|---|---|
@@ -16,7 +16,7 @@ One row per published version. `document` is the definition verbatim; `checksum`
 ```prisma
 model IntegrationDefinitionVersion {
   id            String   @id @default(cuid())
-  definitionId  String                       // "quo-hubspot"
+  definitionId  String                       // "phone-hubspot"
   version       String                       // "1.4.0" (semver)
   schemaVersion String                       // "0.1"
   status        DefinitionStatus @default(DRAFT)
@@ -45,11 +45,11 @@ when no installation pins it and no queued message references it.
 
 ```jsonc
 {
-  "definition": { "id": "quo-hubspot", "version": "1.4.0", "checksum": "sha256:…" },   // the pin
+  "definition": { "id": "phone-hubspot", "version": "1.4.0", "checksum": "sha256:…" },   // the pin
   "settings":  { "fromNumber": "+15125550100" },                                       // integration-level settings
   "syncs":     { "contacts": { "enabled": true, "mapping": [ /* optional full override */ ] } },
   "workflows": { "missed-call-task": { "enabled": true, "settings": { "owner": "81273645" } } },
-  "ui":        { "quo-card": { "enabled": true } },
+  "ui":        { "phone-card": { "enabled": true } },
   "runtime":   { "installed": { "hook": { "id": "WHk2c9", "url": "…", "events": [ … ] } } }  // runtime-owned: onInstall results by step id
 }
 ```

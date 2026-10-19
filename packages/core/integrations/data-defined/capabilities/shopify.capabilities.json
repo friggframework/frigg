@@ -507,7 +507,7 @@
             "variant_id": 44012345678,
             "product_id": 8123456789,
             "sku": "TW-MUG-12",
-            "title": "Tidewater Mug",
+            "title": "Acme Mug",
             "variant_title": "12 oz / Slate",
             "quantity": 2,
             "price": "32.00",
@@ -590,7 +590,7 @@
             "variant_id": 44012345678,
             "product_id": 8123456789,
             "sku": "TW-MUG-12",
-            "title": "Tidewater Mug",
+            "title": "Acme Mug",
             "variant_title": "12 oz / Slate",
             "quantity": 2,
             "price": "32.00",
@@ -673,7 +673,7 @@
             "variant_id": 44012345678,
             "product_id": 8123456789,
             "sku": "TW-MUG-12",
-            "title": "Tidewater Mug",
+            "title": "Acme Mug",
             "variant_title": "12 oz / Slate",
             "quantity": 2,
             "price": "32.00",
@@ -831,7 +831,7 @@
             "total_tax": 2.38,
             "line_item": {
               "sku": "TW-MUG-12",
-              "title": "Tidewater Mug"
+              "title": "Acme Mug"
             }
           }
         ],
@@ -878,9 +878,9 @@
       "description": "Polled from GET /checkouts.json. Shopify sends no webhook when a checkout is abandoned; a checkout with an email and no completed_at after an hour counts as abandoned.",
       "payload": {
         "id": 35112233445566,
-        "token": "b1946ac92492d2347c6235b4d2611184",
+        "token": "example-checkout-token",
         "email": "dana.reyes@example.com",
-        "abandoned_checkout_url": "https://tidewater-goods.myshopify.com/58912/checkouts/b1946ac9/recover?key=7c2f",
+        "abandoned_checkout_url": "https://acme-goods.myshopify.com/58912/checkouts/b1946ac9/recover?key=7c2f",
         "total_price": "64.00",
         "currency": "USD",
         "customer": {

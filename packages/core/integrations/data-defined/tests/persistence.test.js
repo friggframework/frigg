@@ -35,35 +35,35 @@ describeLegs('data-defined persistence on %s', (_, url, loadClient, DefRepo, Run
     afterAll(async () => { await client?.$disconnect(); });
 
     it('publishes a first version: PUBLISHED, checksummed, served by the catalogue and named latest', async () => {
-        const out = await publish(example('quo-hubspot'), { notes: 'first', createdBy: 'test' });
+        const out = await publish(example('phone-hubspot'), { notes: 'first', createdBy: 'test' });
         expect(out).toMatchObject({ created: true, changeLevel: null });
-        expect(out.version).toMatchObject({ definitionId: 'quo-hubspot', version: '1.4.0', status: 'PUBLISHED', previousVersion: null, notes: 'first' });
-        expect(out.version.checksum).toBe(d.checksum ? d.checksum(example('quo-hubspot')) : require('../canonical').checksum(example('quo-hubspot')));
+        expect(out.version).toMatchObject({ definitionId: 'phone-hubspot', version: '1.4.0', status: 'PUBLISHED', previousVersion: null, notes: 'first' });
+        expect(out.version.checksum).toBe(d.checksum ? d.checksum(example('phone-hubspot')) : require('../canonical').checksum(example('phone-hubspot')));
         const catalog = d.createDefinitionCatalog({ repository: repo });
-        expect((await catalog.get('quo-hubspot', '1.4.0')).id).toBe('quo-hubspot');
-        expect((await catalog.latest('quo-hubspot')).version).toBe('1.4.0');
+        expect((await catalog.get('phone-hubspot', '1.4.0')).id).toBe('phone-hubspot');
+        expect((await catalog.latest('phone-hubspot')).version).toBe('1.4.0');
     });
 
     it('re-publishing the same document is a no-op; changing a published version is refused', async () => {
-        expect((await publish(example('quo-hubspot'))).created).toBe(false);
-        const changed = example('quo-hubspot'); changed.display.label = 'Changed';
+        expect((await publish(example('phone-hubspot'))).created).toBe(false);
+        const changed = example('phone-hubspot'); changed.display.label = 'Changed';
         await expect(publish(changed)).rejects.toMatchObject({ status: 409, code: 'IMMUTABLE' });
     });
 
     it('refuses a bump smaller than the change, accepts the right one, and records its level and predecessor', async () => {
-        const v = example('quo-hubspot'); v.version = '1.5.0'; v.syncs[0].identity.match[0].transform = 'trim';   // identity change: major
+        const v = example('phone-hubspot'); v.version = '1.5.0'; v.syncs[0].identity.match[0].transform = 'trim';   // identity change: major
         await expect(publish(v)).rejects.toMatchObject({ status: 409, code: 'BUMP_TOO_SMALL', details: { required: 'major' } });
         v.version = '2.0.0';
         const out = await publish(v);
         expect(out.version).toMatchObject({ version: '2.0.0', changeLevel: 'major', previousVersion: '1.4.0' });
-        const older = example('quo-hubspot'); older.version = '1.9.0';
+        const older = example('phone-hubspot'); older.version = '1.9.0';
         await expect(publish(older)).rejects.toMatchObject({ code: 'NOT_NEWER' });
     });
 
     it('refuses an invalid document, reporting each layer', async () => {
-        const bad = example('quo-hubspot'); bad.version = '3.0.0'; bad.syncs[0].mapping[0].transform = 'shout';
+        const bad = example('phone-hubspot'); bad.version = '3.0.0'; bad.syncs[0].mapping[0].transform = 'shout';
         await expect(publish(bad)).rejects.toMatchObject({ code: 'INVALID', details: { errors: [expect.objectContaining({ layer: 'schema' }), expect.objectContaining({ layer: 'references' })] } });
-        expect(await repo.findVersion('quo-hubspot', '3.0.0')).toBeNull();
+        expect(await repo.findVersion('phone-hubspot', '3.0.0')).toBeNull();
     });
 
     it('a draft is never served, can be rewritten, then published', async () => {
@@ -87,30 +87,30 @@ describeLegs('data-defined persistence on %s', (_, url, loadClient, DefRepo, Run
 
     it('deprecating keeps the version running for its pins but takes it out of "latest"; only once', async () => {
         const deprecate = new d.DeprecateDefinitionVersion({ repository: repo });
-        expect((await deprecate.execute({ definitionId: 'quo-hubspot', version: '2.0.0' })).status).toBe('DEPRECATED');
-        await expect(deprecate.execute({ definitionId: 'quo-hubspot', version: '2.0.0' })).rejects.toMatchObject({ code: 'WRONG_STATUS' });
-        await expect(deprecate.execute({ definitionId: 'quo-hubspot', version: '9.9.9' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        expect((await deprecate.execute({ definitionId: 'phone-hubspot', version: '2.0.0' })).status).toBe('DEPRECATED');
+        await expect(deprecate.execute({ definitionId: 'phone-hubspot', version: '2.0.0' })).rejects.toMatchObject({ code: 'WRONG_STATUS' });
+        await expect(deprecate.execute({ definitionId: 'phone-hubspot', version: '9.9.9' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
         const catalog = d.createDefinitionCatalog({ repository: repo });
-        expect((await catalog.get('quo-hubspot', '2.0.0')).version).toBe('2.0.0');
-        expect((await catalog.latest('quo-hubspot')).version).toBe('1.4.0');
+        expect((await catalog.get('phone-hubspot', '2.0.0')).version).toBe('2.0.0');
+        expect((await catalog.latest('phone-hubspot')).version).toBe('1.4.0');
     });
 
     it('the status precondition is enforced by the database: a published row cannot be rewritten as if it were a draft', async () => {
-        expect(await repo.updateIfStatus('quo-hubspot', '1.4.0', 'DRAFT', { notes: 'rewritten' })).toBeNull();
-        expect((await repo.findVersion('quo-hubspot', '1.4.0')).notes).toBe('first');
+        expect(await repo.updateIfStatus('phone-hubspot', '1.4.0', 'DRAFT', { notes: 'rewritten' })).toBeNull();
+        expect((await repo.findVersion('phone-hubspot', '1.4.0')).notes).toBe('first');
     });
 
     it('verifies a pinned checksum', async () => {
         const catalog = d.createDefinitionCatalog({ repository: repo });
-        await expect(catalog.get('quo-hubspot', '1.4.0', { checksum: 'sha256:not-it' })).rejects.toMatchObject({ code: 'CHECKSUM_MISMATCH' });
-        const sum = await catalog.checksumOf('quo-hubspot', '1.4.0');
-        expect((await catalog.get('quo-hubspot', '1.4.0', { checksum: sum })).version).toBe('1.4.0');
+        await expect(catalog.get('phone-hubspot', '1.4.0', { checksum: 'sha256:not-it' })).rejects.toMatchObject({ code: 'CHECKSUM_MISMATCH' });
+        const sum = await catalog.checksumOf('phone-hubspot', '1.4.0');
+        expect((await catalog.get('phone-hubspot', '1.4.0', { checksum: sum })).version).toBe('1.4.0');
     });
 
     it('lists the latest published version of each definition, and the full history newest first', async () => {
         const list = await d.createDefinitionCatalog({ repository: repo }).list();
-        expect(list.map((x) => [x.id, x.version]).sort()).toEqual([['hubspot-slack', '1.2.0'], ['pipedrive-hubspot', '1.0.0'], ['quo-hubspot', '1.4.0']]);
-        const history = await new d.GetDefinitionHistory({ repository: repo }).execute({ definitionId: 'quo-hubspot' });
+        expect(list.map((x) => [x.id, x.version]).sort()).toEqual([['hubspot-slack', '1.2.0'], ['phone-hubspot', '1.4.0'], ['pipedrive-hubspot', '1.0.0']]);
+        const history = await new d.GetDefinitionHistory({ repository: repo }).execute({ definitionId: 'phone-hubspot' });
         expect(history.map((r) => [r.version, r.status])).toEqual([['2.0.0', 'DEPRECATED'], ['1.4.0', 'PUBLISHED']]);
         expect(history[0].document).toBeUndefined();
     });
@@ -123,13 +123,14 @@ describeLegs('data-defined persistence on %s', (_, url, loadClient, DefRepo, Run
         expect((await catalog.list({ workspaceId: 'ws-acme' })).map((x) => x.id)).toContain('acme-github-linear');
         expect((await catalog.list({ workspaceId: 'ws-other' })).map((x) => x.id)).not.toContain('acme-github-linear');
         expect(await catalog.ownerOf('acme-github-linear')).toBe('ws-acme');
-        expect(await catalog.ownerOf('quo-hubspot')).toBeNull();
-        await expect(publish({ ...own, version: '1.0.1' }, 'ws-other')).rejects.toMatchObject({ code: 'ID_TAKEN' });
-        await expect(publish({ ...example('quo-hubspot'), version: '9.0.0' }, 'ws-acme')).rejects.toMatchObject({ code: 'ID_TAKEN' });
+        expect(await catalog.ownerOf('phone-hubspot')).toBeNull();
+        await expect(publish({ ...own, version: '1.0.1' }, 'ws-other')).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' });   // not confirmed to another tenant
+        await expect(publish({ ...own, version: '1.0.1' }, null)).rejects.toMatchObject({ status: 409, code: 'ID_TAKEN' });         // the admin is not a tenant
+        await expect(publish({ ...example('phone-hubspot'), version: '9.0.0' }, 'ws-acme')).rejects.toMatchObject({ code: 'ID_TAKEN' });
     });
 
     it('records workflow runs and lists them newest first, filtered and paged; old runs can be deleted', async () => {
-        const base = { integrationId, definitionId: 'quo-hubspot', definitionVersion: '1.4.0', triggerType: 'webhook', trace: [{ id: 'contact', use: 'links.find', at: 'steps[0]', status: 'ok', ms: 3 }] };
+        const base = { integrationId, definitionId: 'phone-hubspot', definitionVersion: '1.4.0', triggerType: 'webhook', trace: [{ id: 'contact', use: 'links.find', at: 'steps[0]', status: 'ok', ms: 3 }] };
         await runs.createRun({ ...base, workflowId: 'log-call', status: 'completed', eventId: 'e1', startedAt: '2026-10-18T10:00:00Z', endedAt: '2026-10-18T10:00:01Z' });
         await runs.createRun({ ...base, workflowId: 'log-call', status: 'failed', error: 'HubSpot 503', retryable: true, startedAt: '2026-10-18T11:00:00Z' });
         await runs.createRun({ ...base, workflowId: 'missed-call-task', status: 'stopped', reason: 'Caller is not a known contact', startedAt: '2026-10-18T12:00:00Z' });
@@ -145,7 +146,7 @@ describeLegs('data-defined persistence on %s', (_, url, loadClient, DefRepo, Run
     });
 
     it('a paused run is found by its run key and updated in place when it resumes', async () => {
-        const row = await runs.createRun({ integrationId, definitionId: 'quo-hubspot', definitionVersion: '1.4.0', workflowId: 'gate', triggerType: 'userAction', status: 'waiting', runKey: 'run_abc', waitingFor: { stepId: 'ok', kind: 'approval', prompt: 'Go?' }, resumeAt: '2026-10-20T10:00:00Z', trace: [{ id: 'ok', status: 'waiting' }], startedAt: '2026-10-19T10:00:00Z' });
+        const row = await runs.createRun({ integrationId, definitionId: 'phone-hubspot', definitionVersion: '1.4.0', workflowId: 'gate', triggerType: 'userAction', status: 'waiting', runKey: 'run_abc', waitingFor: { stepId: 'ok', kind: 'approval', prompt: 'Go?' }, resumeAt: '2026-10-20T10:00:00Z', trace: [{ id: 'ok', status: 'waiting' }], startedAt: '2026-10-19T10:00:00Z' });
         expect(await runs.findRun(integrationId, 'run_abc')).toMatchObject({ id: row.id, status: 'waiting', waitingFor: { kind: 'approval', prompt: 'Go?' } });
         expect((await runs.listRuns(integrationId, { status: 'waiting' })).map((r) => r.runKey)).toEqual(['run_abc']);
         const done = await runs.updateRun(row.id, { status: 'completed', waitingFor: null, resumeAt: null, endedAt: '2026-10-19T11:00:00Z', trace: [{ id: 'ok', status: 'ok' }, { id: 'create', status: 'ok' }] });

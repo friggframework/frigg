@@ -442,7 +442,7 @@
               "id": "summary",
               "use": "code",
               "with": {
-                "ref": "@lefthook/finance-steps#payoutDepositLines@1.0.0",
+                "ref": "@acme/finance-steps#payoutDepositLines@1.0.0",
                 "with": {
                   "payout": "$.item",
                   "transactions": "$.steps.transactions",
