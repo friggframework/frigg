@@ -541,7 +541,7 @@ class IntegrationBase {
 
     /**
      * The recurring schedules this installation should have (integrations/schedules.js). The default reads
-     * `Definition.schedules` and the installation's choices at `config.schedules`; data-defined integrations
+     * `Definition.schedules` and the installation's choices at `config.schedules`; integrations published as definitions
      * override it with their compiled definition.
      * @returns {Array} schedule entries
      */

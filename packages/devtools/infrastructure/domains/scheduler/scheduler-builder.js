@@ -9,7 +9,7 @@
  * - Adding necessary IAM statements for Lambda to create/delete schedules
  *
  * This builder enables integrations to schedule one-time jobs (e.g., webhook renewals) and
- * recurring per-installation jobs (Definition.schedules, data-defined schedule triggers)
+ * recurring per-installation jobs (Definition.schedules, definition schedule triggers)
  * using AWS EventBridge Scheduler. Recurring jobs are upserted, hence UpdateSchedule.
  */
 

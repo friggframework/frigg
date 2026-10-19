@@ -67,7 +67,7 @@
     "scripts": {
         "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
         "test": "jest --passWithNoTests # TODO",
-        "validate:definitions": "node integrations/data-defined/scripts/validate.js",
+        "validate:definitions": "node integrations/definitions/scripts/validate.js",
         "prisma:generate:mongo": "npx prisma generate --schema ./prisma-mongodb/schema.prisma",
         "prisma:generate:postgres": "npx prisma generate --schema ./prisma-postgresql/schema.prisma",
         "prisma:generate": "npm run prisma:generate:mongo && npm run prisma:generate:postgres",

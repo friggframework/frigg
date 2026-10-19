@@ -39,8 +39,8 @@ describe('desiredSchedules', () => {
 
     it('builds host-safe names within 64 characters that stay unique', () => {
         expect(scheduleJobId('hubspot', 42, 'ONGOING_SYNC')).toBe('hubspot-42-ongoing_sync');
-        const long = scheduleJobId('data-defined', '65f1c0ffee0000000000abcd', 'SYNC_A_VERY_LONG_SYNC_IDENTIFIER_THAT_GOES_ON_ONGOING');
-        const other = scheduleJobId('data-defined', '65f1c0ffee0000000000abcd', 'SYNC_A_VERY_LONG_SYNC_IDENTIFIER_THAT_GOES_ON_ONGOING_2');
+        const long = scheduleJobId('integration-runtime', '65f1c0ffee0000000000abcd', 'SYNC_A_VERY_LONG_SYNC_IDENTIFIER_THAT_GOES_ON_ONGOING');
+        const other = scheduleJobId('integration-runtime', '65f1c0ffee0000000000abcd', 'SYNC_A_VERY_LONG_SYNC_IDENTIFIER_THAT_GOES_ON_ONGOING_2');
         expect(long.length).toBeLessThanOrEqual(64);
         expect(long).not.toBe(other);
         expect(long).toMatch(/^[0-9A-Za-z_.-]+$/);
