@@ -150,7 +150,7 @@ code production runs (`renderers/`):
 
 | Function | Does |
 |---|---|
-| `previewSurface({ def, installation, surfaceId, record, ports, host? })` | `{ surface, view, html, slack?, hubspot? }`. `slack` is Block Kit (`{ blocks, text, truncated }`), `hubspot` a data description of `@hubspot/ui-extensions` components, `html` the same card framed as its host looks. `host` defaults to the surface's own |
+| `previewSurface({ def, installation, surfaceId, record, ports, host? })` | `{ surface, view, html, slack?, hubspot? }`. `slack` is Block Kit (`{ blocks, text, truncated }`), `hubspot` a data description of `@hubspot/ui-extensions` components (names and props checked against 0.17.1; `props` are real component props, a userAction button carries our own node-level `action` for the card to post, an `open_url` button is a real `href`), `html` the same card framed as its host looks. `host` defaults to the surface's own |
 | `previewWorkflow({ def, installation, workflowId, event?, record?, manifests, fixtures? })` | Dry run: `{ status, sends, calls, trace, waiting? }`. Each call is `{ stepId, module, capability, kind, args, output, rendered }`; `rendered` is `{ html, slack? }` for writes (a Slack post renders as the message, anything else as a "would call" card) |
 | `recordingPorts({ def, manifests, fixtures })` | Ports that record and answer instead of calling an API; give them to `previewSurface` for sample data |
 | `viewToSlack`, `viewToHubSpot`, `viewToHtml`, `slackMessageToHtml` | The renderers on their own. `decodeAction(value)` reads a Slack button click back to `{ integrationId?, workflow, surface }` |

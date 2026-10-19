@@ -137,7 +137,8 @@ describe('HubSpot component description', () => {
         expect(JSON.parse(button)).toEqual(r.hubspot); // plain data
         let send;
         walk({ children: [r.hubspot] }, (n) => { if (n.type === 'Button' && n.children[0] === 'Send text') send = n; });
-        expect(send.props.action).toEqual({ type: 'userAction', workflow: 'text-from-card', surface: 'quo-card', integrationId: 'int_1', input: { message: { type: 'text', label: 'Message' } } });
+        expect(send.props.action).toBeUndefined();
+        expect(send.action).toEqual({ type: 'userAction', workflow: 'text-from-card', surface: 'quo-card', integrationId: 'int_1', input: { message: { type: 'text', label: 'Message' } } });
     });
 
     it('maps tone to Tag variants, keeps data as text children, never as markup, and disables a button with no safe action', () => {
@@ -148,8 +149,9 @@ describe('HubSpot component description', () => {
         expect(t(view('Text', { text: '<script>alert(1)</script>' }))).toEqual({ type: 'Text', children: ['<script>alert(1)</script>'] });
         const bad = t(view('Button', { label: 'Go', action: { type: 'open_url', url: 'javascript:alert(1)' } }));
         expect(bad.props.disabled).toBe(true);
-        expect(bad.props.action).toBeUndefined();
-        expect(t(view('Button', { label: 'Go', action: { type: 'open_url', url: 'https://example.com/x' } })).props.action).toEqual({ type: 'open_url', url: 'https://example.com/x' });
+        expect(bad.action).toBeUndefined();
+        expect(bad.props.href).toBeUndefined();
+        expect(t(view('Button', { label: 'Go', action: { type: 'open_url', url: 'https://example.com/x' } }))).toEqual({ type: 'Button', props: { variant: 'secondary', href: 'https://example.com/x' }, children: ['Go'] });
         expect(t(null)).toBeNull();
     });
 
@@ -168,6 +170,60 @@ describe('HubSpot component description', () => {
         expect(r.surface.host).toBe('zendesk');
         expect(r.hubspot).toBeUndefined(); // no hubspot tree unless that host is asked for
         expect(d.viewToHubSpot(r.view).type).toBe('Flex');
+    });
+});
+
+describe('HubSpot components against @hubspot/ui-extensions 0.17.1', () => {
+    // Exports of @hubspot/ui-extensions 0.17.1 (dist/index.d.ts) and the prop values its d.ts files allow.
+    const REAL = new Set(['Accordion', 'Alert', 'AutoGrid', 'BarChart', 'Box', 'Button', 'ButtonRow', 'Card', 'Checkbox', 'CurrencyInput', 'DateInput', 'DescriptionList', 'DescriptionListItem', 'Divider', 'Dropdown', 'EmptyState', 'ErrorState', 'Flex', 'Form', 'Heading', 'Icon', 'Illustration', 'Image', 'Inline', 'Input', 'LineChart', 'Link', 'List', 'LoadingButton', 'LoadingSpinner', 'Modal', 'ModalBody', 'ModalFooter', 'MultiSelect', 'NumberInput', 'Panel', 'PanelBody', 'PanelFooter', 'PanelSection', 'ProgressBar', 'RadioButton', 'ScoreCircle', 'SearchInput', 'Select', 'Spacer', 'Stack', 'Statistics', 'StatisticsItem', 'StatisticsTrend', 'StatusTag', 'StepIndicator', 'StepperInput', 'Tab', 'Table', 'TableBody', 'TableCell', 'TableFooter', 'TableHead', 'TableHeader', 'TableRow', 'Tabs', 'Tag', 'Text', 'TextArea', 'Textarea', 'Tile', 'TimeInput', 'Toggle', 'ToggleGroup', 'Tooltip']);
+    const DIST = ['flush', 'xs', 'extra-small', 'sm', 'small', 'md', 'medium', 'lg', 'large', 'xl', 'extra-large'];
+    const ALLOWED = {
+        Flex: { direction: ['row', 'column'], gap: DIST },
+        Tag: { variant: ['default', 'warning', 'success', 'error', 'info'] },
+        Button: { variant: ['primary', 'secondary', 'destructive', 'transparent'], disabled: [true, false], href: null },
+        Text: { variant: ['bodytext', 'microcopy'], format: null },
+        List: { variant: ['unordered', 'unordered-styled', 'ordered', 'ordered-styled', 'inline', 'inline-divided'] },
+        DescriptionList: { direction: ['row', 'column'] },
+        DescriptionListItem: { label: null },
+        Divider: { distance: DIST, size: DIST },
+        EmptyState: { layout: ['horizontal', 'vertical'], title: null },
+    };
+    const REQUIRES_CHILDREN = ['Button', 'Text', 'Heading', 'Tag', 'List', 'EmptyState', 'DescriptionList', 'DescriptionListItem'];
+
+    it('pins the allowlist to components the package exports', () => {
+        expect([...HUBSPOT_COMPONENTS].sort()).toEqual(['Button', 'DescriptionList', 'DescriptionListItem', 'Divider', 'EmptyState', 'Flex', 'Heading', 'List', 'Table', 'TableBody', 'TableCell', 'TableHead', 'TableHeader', 'TableRow', 'Tag', 'Text']);
+        for (const n of HUBSPOT_COMPONENTS) expect(REAL.has(n)).toBe(true);
+    });
+
+    it('emits only real components, real props and allowed values for every view kind', () => {
+        const all = view('Stack', {}, [
+            view('Heading', { text: 'H' }), view('Text', { text: 't' }),
+            view('KeyValue', { items: [{ label: 'a', value: 'b' }] }),
+            view('List', { items: [{ title: 'x', meta: 'm' }] }),
+            view('Table', { columns: ['A'], rows: [['1']] }),
+            view('Badge', { text: 'b', tone: 'critical' }), view('Badge', { text: 'b' }),
+            view('Empty', { text: 'none' }), view('Divider', {}),
+            view('Button', { label: 'a', style: 'danger', action: { type: 'userAction', workflow: 'w' } }),
+            view('Button', { label: 'b', style: 'primary', action: { type: 'open_url', url: 'https://example.com' } }),
+            view('Button', { label: 'c' }),
+        ]);
+        const tree = d.viewToHubSpot(all, { integrationId: 'i', surface: 's' });
+        const seen = [];
+        const check = (n) => {
+            if (typeof n === 'string') return;
+            seen.push(n.type);
+            expect(REAL.has(n.type)).toBe(true);
+            expect(HUBSPOT_COMPONENTS).toContain(n.type);
+            for (const [k, v] of Object.entries(n.props || {})) {
+                const allowed = (ALLOWED[n.type] || {})[k];
+                expect(allowed === undefined ? `${n.type}.${k} is not an emitted prop` : null).toBeNull();
+                if (allowed) expect(allowed).toContain(v);
+            }
+            if (REQUIRES_CHILDREN.includes(n.type)) expect((n.children || []).length).toBeGreaterThan(0);
+            (n.children || []).forEach(check);
+        };
+        check(tree);
+        for (const t of ['EmptyState', 'Tag', 'Button', 'Divider', 'List', 'DescriptionListItem', 'TableHeader']) expect(seen).toContain(t);
     });
 });
 
