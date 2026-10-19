@@ -17,9 +17,11 @@
  *
  * Fail closed: with no secret configured, a message is accepted unsigned only
  * when FRIGG_QUEUE_ALLOW_UNSIGNED=true AND the environment is not production
- * (isProductionEnvironment). Anything else is refused.
+ * (isProductionEnvironment; a deployed function always is). Anything else is
+ * refused.
  */
 const crypto = require('crypto');
+const { isDeployedRuntime } = require('../providers/runtime-detection');
 
 const SIGNING_SECRET_ENV = 'FRIGG_QUEUE_SIGNING_SECRET';
 const ALLOW_UNSIGNED_ENV = 'FRIGG_QUEUE_ALLOW_UNSIGNED';
@@ -36,11 +38,15 @@ const NON_PRODUCTION_NODE_ENVS = ['development', 'test'];
 /**
  * Production unless the environment says otherwise: an unset STAGE and
  * NODE_ENV count as production, so a missing setting never opens the door.
+ * A deployed function (AWS Lambda, or the active provider's platform such as
+ * a Netlify Function: providers/runtime-detection) is production whatever
+ * STAGE says, so a deployed `dev` stage cannot opt out of signatures.
  *
  * @param {Object} [env=process.env]
  * @returns {boolean}
  */
 function isProductionEnvironment(env = process.env) {
+    if (isDeployedRuntime(env)) return true;
     if (NON_PRODUCTION_STAGES.includes(env.STAGE)) return false;
     if (NON_PRODUCTION_NODE_ENVS.includes(env.NODE_ENV)) return false;
     if (env.NETLIFY_DEV === 'true') return false;

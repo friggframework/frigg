@@ -1,9 +1,11 @@
 /**
  * Extension Loader
  *
- * Validates and normalizes extensions from the app definition.
- * Extensions allow integration developers to add custom Prisma models,
- * encryption schemas, routes, and bootstrap logic to a Frigg app.
+ * Validates and normalizes the core extensions of the app definition
+ * (`appDefinition.coreExtensions`, an array). Core extensions add custom
+ * Prisma models, encryption schemas, admin routes and bootstrap logic to a
+ * Frigg app. The key is `coreExtensions`, not `extensions`: ADR-017 keeps
+ * `appDefinition.extensions` for its keyed object form.
  *
  * @example
  * const extensions = loadExtensions(appDefinition);
@@ -11,15 +13,18 @@
  */
 
 const path = require('path');
+const {
+    coreExtensionRoutePathError,
+} = require('../management-api/route-registry');
 
 /**
  * Validates a single extension definition.
  * @param {Object} ext - Raw extension config from app definition
- * @param {number} index - Position in the extensions array (for error messages)
+ * @param {number} index - Position in the coreExtensions array (for error messages)
  * @returns {{valid: boolean, errors: string[]}}
  */
 function validateExtension(ext, index) {
-    const prefix = `extensions[${index}]`;
+    const prefix = `coreExtensions[${index}]`;
     const errors = [];
 
     if (!ext || typeof ext !== 'object') {
@@ -62,6 +67,11 @@ function validateExtension(ext, index) {
         } else {
             if (!ext.routes.path || typeof ext.routes.path !== 'string') {
                 errors.push(`${prefix}.routes.path: required string`);
+            } else {
+                const pathError = coreExtensionRoutePathError(ext.routes.path);
+                if (pathError) {
+                    errors.push(`${prefix}.routes.path: ${pathError}`);
+                }
             }
             if (!ext.routes.handler) {
                 errors.push(`${prefix}.routes.handler: required (function or module path)`);
@@ -91,11 +101,21 @@ function validateExtension(ext, index) {
 function loadExtensions(appDefinition) {
     if (!appDefinition) return [];
 
-    const raw = appDefinition.extensions;
+    // The array this loader reads used to be `appDefinition.extensions`;
+    // that key now belongs to ADR-017's keyed object. An array there is the
+    // old spelling: stop at load rather than silently dropping the extensions.
+    if (Array.isArray(appDefinition.extensions)) {
+        throw new Error(
+            'appDefinition.extensions (array) was renamed to appDefinition.coreExtensions; ' +
+                'move the array to coreExtensions'
+        );
+    }
+
+    const raw = appDefinition.coreExtensions;
     if (!raw) return [];
 
     if (!Array.isArray(raw)) {
-        throw new Error('appDefinition.extensions must be an array');
+        throw new Error('appDefinition.coreExtensions must be an array');
     }
 
     if (raw.length === 0) return [];

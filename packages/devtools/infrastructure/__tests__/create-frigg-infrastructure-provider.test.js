@@ -46,7 +46,7 @@ describe('createFriggInfrastructure with a non-AWS provider', () => {
             expect(composeServerlessDefinition).not.toHaveBeenCalled();
             expect(fs.existsSync(path.join(dir, 'netlify.toml'))).toBe(true);
             expect(fs.existsSync(path.join(dir, 'netlify/functions/auth.js'))).toBe(true);
-            expect(fs.existsSync(path.join(dir, 'netlify/lib/routers.js'))).toBe(true);
+            expect(fs.existsSync(path.join(dir, 'netlify/lib/create-netlify-app-handler.js'))).toBe(true);
         } finally {
             fs.rmSync(dir, { recursive: true, force: true });
         }

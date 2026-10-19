@@ -429,3 +429,24 @@ describe('setAppDefinition (provider-netlify preamble)', () => {
         expect(() => setAppDefinition('backend/index.js')).toThrow(TypeError);
     });
 });
+
+describe('integration schedule config (Definition.schedule)', () => {
+    afterEach(() => setAppDefinition(null));
+
+    const load = (schedule) => {
+        setAppDefinition({ integrations: [{ Definition: { name: 'crm', modules: {}, schedule } }] });
+        return loadAppDefinition();
+    };
+
+    it('loads without a schedule, and with each valid scope', () => {
+        expect(() => load(undefined)).not.toThrow();
+        expect(() => load({ scope: 'class' })).not.toThrow();
+        expect(() => load({ scope: 'installation', isDue: () => true })).not.toThrow();
+    });
+
+    it('stops the app at load on a mistyped scope', () => {
+        expect(() => load({ scope: 'installations' })).toThrow(
+            expect.objectContaining({ name: 'ScheduleConfigError', code: 'SCHEDULE_CONFIG_INVALID' })
+        );
+    });
+});

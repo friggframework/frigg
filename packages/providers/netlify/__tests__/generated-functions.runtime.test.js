@@ -49,10 +49,10 @@ module.exports = {
         database: { postgres: { enable: true } },
         user: { authModes: { friggToken: true, sharedSecret: true, adopterJwt: false } },
         managementApi: { v1: false },
-        extensions: [{
+        coreExtensions: [{
             name: 'probe',
             routes: {
-                path: '/api/admin/probe',
+                path: '/admin/probe',
                 handler: () => express.Router().get('/', (_req, res) => res.json({ probe: true })),
             },
         }],
@@ -123,27 +123,26 @@ describe('generated Netlify functions at runtime', () => {
         expect(JSON.parse(res.body).error.code).toBe('API_VERSION_DISABLED');
     });
 
-    it('admin: extension routes sit behind the admin API key', async () => {
-        const admin = load('admin');
-        expect((await admin(event('GET', '/api/admin/probe'), {})).statusCode).toBe(401);
+    it('auth: core extension admin routes (/admin/<name>) sit behind the admin API key', async () => {
+        const auth = load('auth');
+        expect((await auth(event('GET', '/admin/probe'), {})).statusCode).toBe(401);
 
-        const ok = await admin(
-            event('GET', '/api/admin/probe', { 'x-frigg-admin-api-key': 'smoke-admin-key' }),
+        const ok = await auth(
+            event('GET', '/admin/probe', { 'x-frigg-admin-api-key': 'smoke-admin-key' }),
             {}
         );
         expect(ok.statusCode).toBe(200);
         expect(JSON.parse(ok.body)).toEqual({ probe: true });
-
-        expect((await admin(event('GET', '/api/admin/users'), {})).statusCode).toBe(404);
     });
 
-    it('health and docs serve the Management API discovery routes', async () => {
-        const meta = await load('health')(event('GET', '/api/meta'), {});
+    it('health serves the Management API discovery routes and the /api/docs redirect', async () => {
+        const health = load('health');
+        const meta = await health(event('GET', '/api/meta'), {});
         expect(meta.statusCode).toBe(200);
 
-        const docs = await load('docs')(event('GET', '/api/docs'), {});
+        const docs = await health(event('GET', '/api/docs'), {});
         expect(docs.statusCode).toBe(302);
-        expect(docs.headers.location).toBe('/api/meta/openapi/v2.json');
+        expect(docs.headers.location || docs.headers.Location).toBe('/api/meta/openapi/v2.json');
     });
 
     it('every generated file requires core and provider-netlify through the backend only', () => {

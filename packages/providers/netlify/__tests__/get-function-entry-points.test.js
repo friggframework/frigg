@@ -3,16 +3,17 @@ const path = require('path');
 const fs = require('fs');
 
 describe('getFunctionEntryPoints', () => {
-    test('returns all 9 standard function files', () => {
+    test('returns all 7 standard function files', () => {
         const entryPoints = getFunctionEntryPoints({ name: 'test' });
         const filenames = Object.keys(entryPoints);
 
-        expect(filenames).toHaveLength(9);
+        expect(filenames).toHaveLength(7);
         expect(filenames).toContain('auth.js');
         expect(filenames).toContain('user.js');
         expect(filenames).toContain('health.js');
-        expect(filenames).toContain('admin.js');
-        expect(filenames).toContain('docs.js');
+        // /api/docs and /admin/<extension> are served by health and auth (core's route registry).
+        expect(filenames).not.toContain('admin.js');
+        expect(filenames).not.toContain('docs.js');
         expect(filenames).toContain('integration-routes.js');
         expect(filenames).toContain('webhooks.js');
         expect(filenames).toContain('worker-background.js');
@@ -67,6 +68,17 @@ describe('getFunctionEntryPoints', () => {
         for (const content of Object.values(entryPoints)) {
             expect(content).toContain("require('../app/index.js')");
             expect(content).toContain('../app/node_modules/@friggframework/core');
+        }
+    });
+
+    test('every entry point declares the platform (FRIGG_PROVIDER=netlify) before loading core', () => {
+        const entries = getFunctionEntryPoints({ name: 'test' });
+        for (const [, content] of Object.entries(entries)) {
+            const declared = content.indexOf(
+                "process.env.FRIGG_PROVIDER = process.env.FRIGG_PROVIDER || 'netlify';"
+            );
+            expect(declared).toBeGreaterThanOrEqual(0);
+            expect(declared).toBeLessThan(content.indexOf('setAppDefinition'));
         }
     });
 

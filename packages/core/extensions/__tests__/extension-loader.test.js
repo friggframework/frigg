@@ -10,7 +10,7 @@ describe('Extension Loader', () => {
                     MyModel: { fields: ['secretField'] },
                 },
                 routes: {
-                    path: '/api/admin/test',
+                    path: '/admin/test',
                     handler: () => {},
                 },
                 bootstrap: () => {},
@@ -75,12 +75,38 @@ describe('Extension Loader', () => {
             const { valid, errors } = validateExtension(
                 {
                     name: 'test',
-                    routes: { path: '/api/test' },
+                    routes: { path: '/admin/test' },
                 },
                 0
             );
             expect(valid).toBe(false);
             expect(errors[0]).toContain('handler');
+        });
+
+        it.each([
+            ['/api/admin/oauth-credentials', 'must start with /admin/'],
+            ['/oauth-credentials', 'must start with /admin/'],
+            ['/admin/', 'must be /admin/<segment>'],
+            ['/admin/x/../y', 'must be /admin/<segment>'],
+            ['/admin/scripts', 'reserved'],
+            ['/admin/db-migrate/x', 'reserved'],
+            ['/admin/queue', 'reserved'],
+        ])('should reject routes.path %s (admin routes live under /admin, not /api)', (path, message) => {
+            const { valid, errors } = validateExtension(
+                { name: 'test', routes: { path, handler: () => {} } },
+                0
+            );
+            expect(valid).toBe(false);
+            expect(errors[0]).toContain('routes.path');
+            expect(errors[0]).toContain(message);
+        });
+
+        it('should accept a nested /admin path', () => {
+            const { valid } = validateExtension(
+                { name: 'test', routes: { path: '/admin/oauth/credentials', handler: () => {} } },
+                0
+            );
+            expect(valid).toBe(true);
         });
 
         it('should reject bootstrap that is not a function or string', () => {
@@ -105,13 +131,30 @@ describe('Extension Loader', () => {
         });
 
         it('should return empty array for empty extensions array', () => {
-            expect(loadExtensions({ extensions: [] })).toEqual([]);
+            expect(loadExtensions({ coreExtensions: [] })).toEqual([]);
         });
 
-        it('should throw for non-array extensions', () => {
-            expect(() => loadExtensions({ extensions: 'bad' })).toThrow(
-                'must be an array'
+        it('should throw for non-array coreExtensions', () => {
+            expect(() => loadExtensions({ coreExtensions: 'bad' })).toThrow(
+                'appDefinition.coreExtensions must be an array'
             );
+        });
+
+        it('stops at the old spelling: an extensions ARRAY was renamed to coreExtensions', () => {
+            expect(() => loadExtensions({ extensions: [{ name: 'db-credentials' }] })).toThrow(
+                'appDefinition.extensions (array) was renamed to appDefinition.coreExtensions'
+            );
+        });
+
+        it("leaves ADR-017's keyed appDefinition.extensions object alone", () => {
+            expect(loadExtensions({ extensions: { slack: {} } })).toEqual([]);
+            expect(
+                loadExtensions({ extensions: { slack: {} }, coreExtensions: [{ name: 'x' }] }).map((e) => e.name)
+            ).toEqual(['x']);
+        });
+
+        it('names the coreExtensions index in validation errors', () => {
+            expect(() => loadExtensions({ coreExtensions: [{}] })).toThrow('coreExtensions[0].name');
         });
 
         it('should normalize a valid extension', () => {
@@ -119,7 +162,7 @@ describe('Extension Loader', () => {
             const handlerFn = jest.fn();
 
             const result = loadExtensions({
-                extensions: [
+                coreExtensions: [
                     {
                         name: 'db-credentials',
                         schema: '/path/to/schema.prisma',
@@ -129,7 +172,7 @@ describe('Extension Loader', () => {
                             },
                         },
                         routes: {
-                            path: '/api/admin/oauth-credentials',
+                            path: '/admin/oauth-credentials',
                             handler: handlerFn,
                         },
                         bootstrap: bootstrapFn,
@@ -144,7 +187,7 @@ describe('Extension Loader', () => {
                 OAuthAppCredential: { fields: ['clientSecret'] },
             });
             expect(result[0].routes.path).toBe(
-                '/api/admin/oauth-credentials'
+                '/admin/oauth-credentials'
             );
             expect(result[0].routes.handler).toBe(handlerFn);
             expect(result[0].bootstrap).toBe(bootstrapFn);
@@ -152,7 +195,7 @@ describe('Extension Loader', () => {
 
         it('should normalize extension with null optional fields', () => {
             const result = loadExtensions({
-                extensions: [{ name: 'minimal-ext' }],
+                coreExtensions: [{ name: 'minimal-ext' }],
             });
 
             expect(result).toHaveLength(1);
@@ -165,7 +208,7 @@ describe('Extension Loader', () => {
         it('should throw on validation errors with all errors listed', () => {
             expect(() =>
                 loadExtensions({
-                    extensions: [
+                    coreExtensions: [
                         {}, // missing name
                         { name: 'ok', schema: 'bad.sql' }, // bad schema
                     ],
@@ -175,7 +218,7 @@ describe('Extension Loader', () => {
 
         it('should load multiple extensions', () => {
             const result = loadExtensions({
-                extensions: [
+                coreExtensions: [
                     { name: 'ext-a' },
                     { name: 'ext-b', schema: '/a/b.prisma' },
                 ],

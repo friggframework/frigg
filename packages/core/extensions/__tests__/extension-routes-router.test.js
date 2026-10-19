@@ -8,10 +8,10 @@ function extensionDefinition(handler) {
     return {
         name: 'app',
         integrations: [],
-        extensions: [
+        coreExtensions: [
             {
                 name: 'db-credentials',
-                routes: { path: '/api/admin/oauth-credentials', handler },
+                routes: { path: '/admin/oauth-credentials', handler },
             },
         ],
     };
@@ -41,11 +41,11 @@ describe('createExtensionRoutesRouter', () => {
             a.use(createExtensionRoutesRouter({ appDefinition: extensionDefinition(handler), prisma }))
         );
 
-        const denied = await request(app, { path: '/api/admin/oauth-credentials' });
+        const denied = await request(app, { path: '/admin/oauth-credentials' });
         expect(denied.status).toBe(401);
 
         const ok = await request(app, {
-            path: '/api/admin/oauth-credentials',
+            path: '/admin/oauth-credentials',
             headers: { 'x-frigg-admin-api-key': 'admin-secret' },
         });
         expect(ok.status).toBe(200);

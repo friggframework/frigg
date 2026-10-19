@@ -220,11 +220,12 @@ describe('worker-background authentication', () => {
             handler = loadWorker();
         });
 
-        const qstashEvent = async (body, key = QSTASH_KEY) => {
+        const QUEUE_URL = 'https://site/admin/queue';
+        const qstashEvent = async (body, key = QSTASH_KEY, { sub = QUEUE_URL, rawUrl = QUEUE_URL } = {}) => {
             const now = Math.floor(Date.now() / 1000);
             const sig = await new jose.SignJWT({
                 iss: 'Upstash',
-                sub: 'https://site/api/queue',
+                sub,
                 iat: now,
                 nbf: now,
                 exp: now + 300,
@@ -232,7 +233,7 @@ describe('worker-background authentication', () => {
             })
                 .setProtectedHeader({ alg: 'HS256' })
                 .sign(new TextEncoder().encode(key));
-            return { httpMethod: 'POST', headers: { 'upstash-signature': sig }, body };
+            return { httpMethod: 'POST', rawUrl, headers: { 'upstash-signature': sig }, body };
         };
 
         it('runs a valid QStash delivery', async () => {
@@ -251,6 +252,16 @@ describe('worker-background authentication', () => {
                 handler,
                 await qstashEvent(JSON.stringify(MESSAGE), 'not-the-key'),
                 'invalid_signature'
+            );
+        });
+
+        it('refuses a QStash delivery published to another URL (sub is not this request)', async () => {
+            await expectRejected(
+                handler,
+                await qstashEvent(JSON.stringify(MESSAGE), QSTASH_KEY, {
+                    sub: 'https://site/some-other-endpoint',
+                }),
+                'invalid_subject'
             );
         });
 

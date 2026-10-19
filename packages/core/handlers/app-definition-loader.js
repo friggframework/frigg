@@ -16,6 +16,7 @@ const { assertProxyConfig } = require('../modules/proxy/proxy-bases');
 const {
     resolveManagementApiConfig,
 } = require('../management-api/management-api-config');
+const { resolveScheduleConfig } = require('../integrations/schedule-config');
 
 // Handlers without a database never load the encryption registry, so the
 // credential leaf keys are registered for redaction here too.
@@ -109,6 +110,7 @@ function discoverAppDefinition() {
  * @throws {OwnershipConfigError} Throws if an ownership or scope setting is invalid (ADR-056 §3.1).
  * @throws {ManagementApiConfigError} Throws if `managementApi.proxy.scopes` is invalid (ADR-056 §3.5).
  * @throws {ProxyConfigError} Throws if a module's `proxy.baseUrls` or an allow rule's `base` is invalid (ADR-052).
+ * @throws {ScheduleConfigError} Throws if an integration's `Definition.schedule` is invalid.
  * @example
  * const { integrations, userConfig, telemetry } = loadAppDefinition();
  * console.log(`Found ${integrations.length} integrations`);
@@ -154,6 +156,14 @@ function resolveAppDefinition(appDefinition) {
     // `baseUrl` and `baseUrls`, a bad base URL or name, or an allow rule for a
     // base the module lacks, stops the app here.
     assertProxyConfig(moduleDefinitions, managementApiConfig.proxy);
+
+    // And for each integration's `Definition.schedule`: a mistyped scope would
+    // otherwise tick ONGOING_SYNC per class when per installation was meant.
+    for (const IntegrationClass of integrations) {
+        if (IntegrationClass?.Definition) {
+            resolveScheduleConfig(IntegrationClass.Definition);
+        }
+    }
 
     registerCredentialLogKeys(appDefinition, moduleDefinitions);
 

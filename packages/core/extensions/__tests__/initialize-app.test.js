@@ -42,7 +42,7 @@ describe('initializeApp', () => {
         loadAppDefinition.mockReturnValue({
             appDefinition: {
                 name: 'test-app',
-                extensions: [
+                coreExtensions: [
                     {
                         name: 'test-ext',
                         bootstrap: bootstrapFn,
@@ -66,7 +66,7 @@ describe('initializeApp', () => {
         loadAppDefinition.mockReturnValue({
             appDefinition: {
                 name: 'test-app',
-                extensions: [{ name: 'ext', bootstrap: bootstrapFn }],
+                coreExtensions: [{ name: 'ext', bootstrap: bootstrapFn }],
             },
         });
 
@@ -82,7 +82,7 @@ describe('initializeApp', () => {
         loadAppDefinition.mockReturnValue({
             appDefinition: {
                 name: 'test-app',
-                extensions: [{ name: 'ext', bootstrap: bootstrapFn }],
+                coreExtensions: [{ name: 'ext', bootstrap: bootstrapFn }],
             },
         });
 
@@ -97,7 +97,7 @@ describe('initializeApp', () => {
         const customPrisma = { custom: true };
         const customAppDef = {
             name: 'custom',
-            extensions: [{ name: 'ext', bootstrap: bootstrapFn }],
+            coreExtensions: [{ name: 'ext', bootstrap: bootstrapFn }],
         };
 
         const result = await initializeApp({
@@ -115,7 +115,7 @@ describe('initializeApp', () => {
         loadAppDefinition.mockReturnValue({
             appDefinition: {
                 name: 'test-app',
-                extensions: [
+                coreExtensions: [
                     {
                         name: 'failing-ext',
                         bootstrap: async () => {
@@ -138,7 +138,7 @@ describe('initializeApp', () => {
 
         loadAppDefinition.mockReturnValue({
             appDefinition: {
-                extensions: [{ name: 'retry-ext', bootstrap: bootstrapFn }],
+                coreExtensions: [{ name: 'retry-ext', bootstrap: bootstrapFn }],
             },
         });
 

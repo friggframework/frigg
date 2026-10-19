@@ -47,10 +47,16 @@ function resolveDbTypes(appDefinition) {
  * @param {string} [options.nodeVersion] - Node.js version (default: '18')
  * @returns {string} netlify.toml content
  */
+/** Netlify function names for registry functions whose name differs. */
+const NETLIFY_FUNCTION_NAMES = Object.freeze({ queueWorker: 'worker-background' });
+
 /**
- * The Management API redirects for an app: one per gateway route core's
- * route registry lists, `{proxy+}` becoming a Netlify splat. Order follows
- * the registry; duplicates (several methods on one path) are dropped.
+ * The redirects for an app, one per route core's route registry lists
+ * (`{proxy+}` becoming a Netlify splat): the Management API v1/v2, /api/meta
+ * and /api/docs, the core extensions' admin routes (/admin/<name>, on the
+ * auth function) and the signed queue endpoint /admin/queue
+ * (worker-background). Order follows the registry; duplicates (several
+ * methods on one path) are dropped.
  *
  * @param {Object} appDefinition
  * @returns {Array<{ from: string, fn: string }>}
@@ -65,11 +71,13 @@ function managementApiRedirects(appDefinition) {
     for (const route of getGatewayRoutes({
         v1: managementApi.v1 !== false,
         proxy: managementApi.proxy?.enable === true,
+        coreExtensions: appDefinition.coreExtensions,
+        httpQueue: true,
     })) {
         const from = route.path.replace(/\{proxy\+\}$/, '*');
         if (seen.has(from)) continue;
         seen.add(from);
-        out.push({ from, fn: route.function });
+        out.push({ from, fn: NETLIFY_FUNCTION_NAMES[route.function] || route.function });
     }
     return out;
 }
@@ -126,13 +134,20 @@ function generateNetlifyToml(appDefinition, options = {}) {
     // Redirects — route API requests to split Netlify Functions
     // =========================================================================
 
-    // Management API (v1 + v2) and discovery routes. Derived from core's
-    // route registry, the source the AWS API Gateway routes come from
-    // (devtools base-definition-factory), so both hosts expose the same
-    // paths: v2 per resource, v1 unless managementApi.v1 is false, the
-    // entity proxy only when managementApi.proxy.enable, /api/meta on the
-    // health function.
-    lines.push('# Management API (v1 + v2), from core\'s route registry');
+    // Management API (v1 + v2), discovery and docs, core extension admin
+    // routes and the queue endpoint. Derived from core's route registry, the
+    // source the AWS API Gateway routes come from (devtools
+    // base-definition-factory), so both hosts expose the same paths: v2 per
+    // resource, v1 unless managementApi.v1 is false, the entity proxy only
+    // when managementApi.proxy.enable, /api/meta and /api/docs on the health
+    // function, /admin/<extension> on the auth function. /admin/queue is the
+    // worker-background endpoint (QStash posts there); every message must be
+    // signed: FRIGG_QUEUE_SIGNING_SECRET, or a valid Upstash-Signature whose
+    // sub is that URL. Unsigned messages are refused (401, logged as
+    // frigg.netlify.queue.rejected).
+    lines.push('# Routes from core\'s route registry: Management API (v1 + v2), /api/meta, /api/docs,');
+    lines.push('# core extension admin routes (/admin/<name>) and the signed queue endpoint (/admin/queue).');
+    lines.push('# REQUIRED: set FRIGG_QUEUE_SIGNING_SECRET in the site environment.');
     for (const { from, fn } of managementApiRedirects(appDefinition)) {
         pushRedirect(lines, from, fn);
     }
@@ -150,22 +165,6 @@ function generateNetlifyToml(appDefinition, options = {}) {
     lines.push('# Health check routes');
     pushRedirect(lines, '/health', 'health');
     pushRedirect(lines, '/health/*', 'health');
-
-    // Admin routes
-    lines.push('# Admin routes');
-    lines.push('[[redirects]]');
-    lines.push('  from = "/api/admin/*"');
-    lines.push('  to = "/.netlify/functions/admin"');
-    lines.push('  status = 200');
-    lines.push('');
-
-    // Docs routes
-    lines.push('# API documentation routes');
-    lines.push('[[redirects]]');
-    lines.push('  from = "/api/docs"');
-    lines.push('  to = "/.netlify/functions/docs"');
-    lines.push('  status = 200');
-    lines.push('');
 
     // Integration-defined routes (per integration)
     if (integrations.length > 0) {
@@ -191,17 +190,6 @@ function generateNetlifyToml(appDefinition, options = {}) {
             lines.push('');
         }
     }
-
-    // Queue worker (background function)
-    lines.push('# Queue worker (background function - 15min execution limit)');
-    lines.push('# REQUIRED: set FRIGG_QUEUE_SIGNING_SECRET in the site environment. The worker');
-    lines.push('# refuses (401, logged as frigg.netlify.queue.rejected) every message that is not');
-    lines.push('# signed with it, or with a valid Upstash-Signature when the queue is QStash.');
-    lines.push('[[redirects]]');
-    lines.push('  from = "/api/queue"');
-    lines.push('  to = "/.netlify/functions/worker-background"');
-    lines.push('  status = 200');
-    lines.push('');
 
     // =========================================================================
     // Scheduled function (cron dispatcher)

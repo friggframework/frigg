@@ -11,13 +11,13 @@
  *   const appDefinition = {
  *       name: 'my-app',
  *       integrations: [...],
- *       extensions: [dbCredentials],
+ *       coreExtensions: [dbCredentials],
  *   };
  *
  * What it provides:
  * - A Prisma model `OAuthAppCredential` for storing client_id/client_secret per module
  * - A bootstrap hook that replaces static `definition.env` with DB-backed lookups
- * - Admin API routes at `/api/admin/oauth-credentials` for CRUD operations
+ * - Admin API routes at `/admin/oauth-credentials` for CRUD operations
  * - Encryption for the `clientSecret` field via Frigg's field-level encryption
  */
 
@@ -37,7 +37,7 @@ module.exports = {
     },
 
     routes: {
-        path: '/api/admin/oauth-credentials',
+        path: '/admin/oauth-credentials',
         handler: createRouter,
     },
 

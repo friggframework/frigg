@@ -217,6 +217,11 @@ the OpenAPI documents and the API Gateway routes devtools generates.
 - **v1**: the unprefixed `/api/*` routes in `integrations/integration-router.js`. Frozen and
   deprecated (`Deprecation` + `Link` headers); `managementApi.v1: false` turns them off (410).
 - **Discovery**: `GET /api/meta` and `/api/meta/openapi/v{n}.json` on the DB-free health Lambda.
+  `GET /api/docs` is registered there too and redirects to `/api/meta/openapi/v2.json`.
+- **Admin routes live under `/admin`**, never `/api`. Core extensions (`appDefinition.coreExtensions`, an array) mount theirs at
+  `routes.path: '/admin/<name>'` (served by the auth Lambda behind the admin API key; the registry
+  lists them so API Gateway routes and netlify.toml redirects come from it). `/admin/scripts`,
+  `/admin/db-migrate` and `/admin/queue` (the signed HTTP queue endpoint on Netlify) are reserved.
 - `/api/v2/reports` belongs to the admin-scripts Lambda (ADR-010); the registry reserves the
   `reports` segment. Never declare `ANY /api/v2/{proxy+}`.
 - Adding a route: add it to the registry, a handler keyed by its `operationId`, and its

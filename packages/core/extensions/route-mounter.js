@@ -60,7 +60,7 @@ module.exports = { mountExtensionRoutes };
 
 /**
  * Builds one router serving every app-level extension's routes
- * (`appDefinition.extensions[].routes`), each behind the admin API key.
+ * (`appDefinition.coreExtensions[].routes`), each behind the admin API key.
  *
  * Lazy by design: the extensions, their route factories and the Prisma
  * client are only touched on the first request, so requiring a handler

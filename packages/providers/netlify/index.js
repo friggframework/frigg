@@ -49,7 +49,6 @@ const { detect } = require('./lib/detect');
 
 // ── Utilities ─────────────────────────────────────────────────────
 const { ScheduledJobRepository } = require('./lib/scheduled-job-repository');
-const { createAdminRouter, createDocsRouter } = require('./lib/routers');
 
 // ═══════════════════════════════════════════════════════════════════
 // Provider Plugin Interface
@@ -74,8 +73,6 @@ module.exports = {
         ScheduledJobRepository,
         createNetlifyApp,
         getFunctionEntryPointsDir,
-        createAdminRouter,
-        createDocsRouter,
     },
 
     // ── Build-Time / Infrastructure ───────────────────────────────

@@ -7,6 +7,9 @@ const {
     listRoutes,
     getGatewayRoutes,
     toGatewayPath,
+    DOCS_ROUTES,
+    coreExtensionRoutePathError,
+    listCoreExtensionRoutes,
 } = require('./route-registry');
 
 describe('Management API route registry', () => {
@@ -141,6 +144,50 @@ describe('Management API route registry', () => {
         it('lists each method + path once', () => {
             const routes = getGatewayRoutes().map(key);
             expect(new Set(routes).size).toBe(routes.length);
+        });
+    });
+
+    describe('routes outside the Management API', () => {
+        const key = (r) => `${r.function} ${r.method} ${r.path}`;
+
+        it('registers GET /api/docs on the health function', () => {
+            expect(DOCS_ROUTES.map(key)).toEqual(['health GET /api/docs']);
+            expect(getGatewayRoutes().map(key)).toContain('health GET /api/docs');
+        });
+
+        it('routes each core extension admin path and everything below it to auth', () => {
+            const coreExtensions = [
+                { name: 'db-credentials', routes: { path: '/admin/oauth-credentials' } },
+                { name: 'plain' },
+            ];
+            const routes = getGatewayRoutes({ coreExtensions }).map(key);
+            expect(routes).toContain('auth ANY /admin/oauth-credentials');
+            expect(routes).toContain('auth ANY /admin/oauth-credentials/{proxy+}');
+            expect(routes.filter((r) => r.includes('/admin/'))).toHaveLength(2);
+        });
+
+        it('never routes an extension path outside /admin, or onto a reserved segment', () => {
+            const coreExtensions = [
+                { name: 'a', routes: { path: '/api/admin/oauth-credentials' } },
+                { name: 'b', routes: { path: '/admin/scripts' } },
+                { name: 'c', routes: { path: '/admin/queue' } },
+            ];
+            expect(listCoreExtensionRoutes(coreExtensions)).toEqual([]);
+            expect(listCoreExtensionRoutes('not-a-list')).toEqual([]);
+        });
+
+        it('explains why an extension path is refused', () => {
+            expect(coreExtensionRoutePathError('/admin/oauth-credentials')).toBeNull();
+            expect(coreExtensionRoutePathError('/api/admin/x')).toMatch(/must start with \/admin\//);
+            expect(coreExtensionRoutePathError('/admin/../x')).toMatch(/must be \/admin\/<segment>/);
+            expect(coreExtensionRoutePathError('/admin/db-migrate')).toMatch(/reserved/);
+        });
+
+        it('lists the HTTP queue endpoint only for hosts that ask for it', () => {
+            expect(getGatewayRoutes().map(key)).not.toContain('queueWorker POST /admin/queue');
+            expect(getGatewayRoutes({ httpQueue: true }).map(key)).toContain(
+                'queueWorker POST /admin/queue'
+            );
         });
     });
 });

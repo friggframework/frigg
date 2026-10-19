@@ -145,7 +145,7 @@
  *
  * @property {Object} [environment] - Environment variables
  *
- * @property {ExtensionDefinition[]} [extensions] - App-level extensions that add custom Prisma models, encrypted fields, admin routes and bootstrap hooks (not an integration's Definition.extensions)
+ * @property {ExtensionDefinition[]} [coreExtensions] - Core (app-level) extensions that add custom Prisma models, encrypted fields, admin routes and bootstrap hooks (not an integration's Definition.extensions, nor ADR-017's keyed appDefinition.extensions)
  */
 
 /**
@@ -155,7 +155,7 @@
  * @property {string} [schema] - Absolute path to a .prisma schema fragment
  * @property {Object<string, {fields: string[]}>} [encryption] - Model name → encrypted fields mapping
  * @property {Object} [routes] - Express router configuration
- * @property {string} routes.path - Base URL path for the extension routes
+ * @property {string} routes.path - Base URL path for the extension routes: /admin/<segment>..., never /api (/admin/scripts, /admin/db-migrate and /admin/queue are reserved); served by the auth function
  * @property {Function|Object} routes.handler - Router factory (prisma, appDefinition) → Router, or { router } object
  * @property {Function} [bootstrap] - Async function (prisma, appDefinition) → void, run by initializeApp()
  */

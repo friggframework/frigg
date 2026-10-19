@@ -122,10 +122,11 @@ describe('generateNetlifyToml', () => {
     test('generates queue worker redirect', () => {
         const toml = generateNetlifyToml(baseAppDefinition);
 
-        expect(toml).toContain('from = "/api/queue"');
         expect(toml).toContain(
-            'to = "/.netlify/functions/worker-background"'
+            'from = "/admin/queue"\n  to = "/.netlify/functions/worker-background"'
         );
+        // The queue is not part of the public /api surface any more.
+        expect(toml).not.toContain('from = "/api/queue"');
     });
 
     test('generates scheduled-sync cron schedule', () => {
@@ -239,7 +240,7 @@ describe('resolveDbTypes', () => {
 describe('queue worker authentication settings', () => {
     test('netlify.toml marks FRIGG_QUEUE_SIGNING_SECRET as required beside the queue redirect', () => {
         const toml = generateNetlifyToml({ integrations: [] });
-        const redirectAt = toml.indexOf('from = "/api/queue"');
+        const redirectAt = toml.indexOf('from = "/admin/queue"');
         const noteAt = toml.indexOf('# REQUIRED: set FRIGG_QUEUE_SIGNING_SECRET');
         expect(noteAt).toBeGreaterThan(-1);
         expect(noteAt).toBeLessThan(redirectAt);

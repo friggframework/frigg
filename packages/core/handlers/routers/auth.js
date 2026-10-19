@@ -30,7 +30,7 @@ function buildRouter() {
         );
     });
 
-    // App-level extension routes (appDefinition.extensions[].routes), each
+    // Core extension routes (appDefinition.coreExtensions[].routes), each
     // behind the admin API key.
     built.use(createExtensionRoutesRouter());
 

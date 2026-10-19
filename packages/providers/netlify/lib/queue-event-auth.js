@@ -1,7 +1,7 @@
 /**
  * Queue event authentication for the Netlify worker (adapter layer).
  *
- * The worker-background function, and the /api/queue redirect to it, are
+ * The worker-background function, and the /admin/queue redirect to it, are
  * public URLs. Two senders reach it legitimately:
  * - Frigg itself through NetlifyBackgroundProvider (scheduled-sync, the
  *   Netlify scheduler adapter, and any app on the default queue), signed

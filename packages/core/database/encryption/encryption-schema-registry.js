@@ -220,7 +220,7 @@ function loadModuleEncryptionSchemas(integrations) {
  */
 /**
  * Registers encryption schemas declared by app-level extensions
- * (`appDefinition.extensions[].encryption`), e.g. the db-credentials
+ * (`appDefinition.coreExtensions[].encryption`), e.g. the db-credentials
  * extension's `OAuthAppCredential.clientSecret`.
  *
  * @param {Array<Object>} extensions - Normalized extensions (extension-loader)
