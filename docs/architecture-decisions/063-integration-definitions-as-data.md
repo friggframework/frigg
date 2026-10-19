@@ -278,6 +278,8 @@ method; a definition using one validates with a warning. The first audit (`capab
 capabilities in the nine modules with source were missing or shaped wrong, and no module implements
 `verifyWebhookSignature`.
 
+**Manifests should ship with each module.** Today they sit together in core (`capabilities/`) so that core's tests can run them, and the audit above found that copies written beside the code they describe drift from it. A manifest is the module's own statement of what is safe to call, so it belongs in the module's package, checked against that module's `Api` in the module's own tests. See the Amendment (ADR-063) in [ADR-020](./020-capabilities.md): the manifest is the serialised form of the module's `Definition.capabilities`, and should be generated from or checked against it. Moving the files is a separate change.
+
 The manifest is the module author's promise of what is safe to call. Adding a capability is a module release, which
 is code that gets reviewed. Using it from a definition is a publish. This is the line between the two authoring forms.
 
