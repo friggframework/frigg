@@ -3,7 +3,7 @@
  * them (list pages, search by key, create returns the record). Assertions are on what was written to each side.
  */
 const d = require('..');
-const { makePorts, installContext } = require('../runtime');
+const { makePorts, installContext, argumentsFor } = require('../runtime');
 const { createSyncEngine } = require('../sync-engine');
 
 const manifests = d.loadManifests();
@@ -15,7 +15,7 @@ function setup({ def = example('quo-hubspot'), installation = {} } = {}) {
     const rows = new Map();
     const store = { get: async (k) => rows.get(k) ?? null, put: async (k, v) => { rows.set(k, JSON.parse(JSON.stringify(v))); }, claim: async (k, v) => (rows.has(k) ? false : (rows.set(k, v), true)) };
     const apis = { hubspot: hubspotApi(), quo: quoApi() };
-    const ports = makePorts({ def, manifests, store, callApi: (k, method, args) => apis[k][method](args) });
+    const ports = makePorts({ def, manifests, store, callApi: (k, method, args, order) => apis[k][method](...argumentsFor(args, order)) });
     const inst = { definition: { id: def.id, version: def.version }, ...installation };
     const engine = createSyncEngine({ def, installation: inst, install: installContext(def, inst), manifests, ports, state: store });
     const backfill = async (syncId = def.syncs[0].id) => {
@@ -151,7 +151,7 @@ describe('one record', () => {
         const hs = t.apis.hubspot.seed({ firstname: 'Ida', email: 'ida@x.com' });
         const get = jest.spyOn(t.apis.hubspot, 'getContactById');
         const out = await t.engine.handleEvent({ syncId: 'contacts', moduleKey: 'hubspot', topic: 'contact.created', event: hubspotEvent(hs, 'contact.creation')[0] });
-        expect(get).toHaveBeenCalledWith({ id: hs });
+        expect(get).toHaveBeenCalledWith(hs);
         expect(out.status).toBe('created');
         expect(t.apis.quo.writes[0][1]).toEqual({ firstName: 'Ida', emails: [{ value: 'ida@x.com' }] });
     });

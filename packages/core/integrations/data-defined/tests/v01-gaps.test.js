@@ -160,12 +160,12 @@ describe('option lists that take inputs', () => {
     const projects = [{ gid: 'p1', name: 'Launch' }, { gid: 'p2', name: 'Ops' }];
 
     it('calls the list with inputs read from earlier choices, and returns nothing until they are chosen', async () => {
-        const h = harness(def, (m, method) => (method === 'getProjects' ? projects : []));
+        const h = harness(def, (m, method) => (method === 'listProjects' ? projects : []));
         expect(await d.resolveOptions({ def, manifests, ports: h.ports, path: 'settings.project', values: {} })).toEqual([]);
         expect(h.calls).toEqual([]);
         const opts = await d.resolveOptions({ def, manifests, ports: h.ports, path: 'settings.project', values: { workspace: 'w9' } });
         expect(opts).toEqual([{ label: 'Launch', value: 'p1' }, { label: 'Ops', value: 'p2' }]);
-        expect(h.calls).toEqual([{ module: 'asana', method: 'getProjects', args: { workspaceGid: 'w9' } }]);
+        expect(h.calls).toEqual([{ module: 'asana', method: 'listProjects', args: { workspace: 'w9' } }]);
     });
 
     it('a workflow setting reads integration settings as $.install', async () => {
@@ -181,13 +181,13 @@ describe('option lists that take inputs', () => {
         x.settings.project.options = { source: 'asana.project', with: { colour: '$.settings.workspace' } };
         x.settings.workspace.options = { source: 'asana.workspace', with: {} };
         let e = errorsOf(x).join('\n');
-        expect(e).toMatch(/settings\.project\.options\.with\.workspaceGid: Option list asana\.project needs input "workspaceGid"/);
+        expect(e).toMatch(/settings\.project\.options\.with\.workspace: Option list asana\.project needs input "workspace"/);
         expect(e).toMatch(/takes no input "colour"/);
-        x.settings.project.options = { source: 'asana.project', with: { workspaceGid: '$.settings.project' } };
+        x.settings.project.options = { source: 'asana.project', with: { workspace: '$.settings.project' } };
         expect(errorsOf(x).join('\n')).toMatch(/cannot read its own setting/);
         const loop = example('asana-slack');
-        loop.settings.a = { type: 'option', label: 'A', options: { source: 'asana.project', with: { workspaceGid: '$.settings.b' } } };
-        loop.settings.b = { type: 'option', label: 'B', options: { source: 'asana.project', with: { workspaceGid: '$.settings.a' } } };
+        loop.settings.a = { type: 'option', label: 'A', options: { source: 'asana.project', with: { workspace: '$.settings.b' } } };
+        loop.settings.b = { type: 'option', label: 'B', options: { source: 'asana.project', with: { workspace: '$.settings.a' } } };
         expect(errorsOf(loop).join('\n')).toMatch(/Option inputs form a loop/);
     });
 });
@@ -261,14 +261,14 @@ describe('lifecycle results and account values on $.install', () => {
         const def = example('pipedrive-quo');
         let n = 0;
         const inst = make(def, (self) => ({
-            quo: { api: { createWebhook: async (a) => { self.calls.push(['quo.create', a]); return { id: 'WHq' }; }, deleteWebhook: async (a) => { self.calls.push(['quo.delete', a]); } } },
-            pipedrive: { api: { addWebhook: async (a) => { self.calls.push(['pd.create', a]); n += 1; return { id: `pd${n}` }; }, deleteWebhook: async (a) => { self.calls.push(['pd.delete', a]); } } },
+            quo: { api: { createUnifiedWebhook: async (a) => { self.calls.push(['quo.create', a]); return { id: 'WHq' }; }, deleteWebhook: async (id) => { self.calls.push(['quo.delete', id]); } } },
+            pipedrive: { api: { createWebhook: async (a) => { self.calls.push(['pd.create', a]); n += 1; return { id: `pd${n}` }; }, deleteWebhook: async (id) => { self.calls.push(['pd.delete', id]); } } },
         }));
         await inst.onCreate({});
         expect(inst.config.runtime.installed).toEqual({ quoHook: { id: 'WHq' }, personCreated: { id: 'pd1' }, personChanged: { id: 'pd2' } });
         inst.calls.length = 0;
         await inst.onDelete({});
-        expect(inst.calls).toEqual([['quo.delete', { id: 'WHq' }], ['pd.delete', { id: 'pd1' }], ['pd.delete', { id: 'pd2' }]]);
+        expect(inst.calls).toEqual([['quo.delete', 'WHq'], ['pd.delete', 'pd1'], ['pd.delete', 'pd2']]);
     });
 
     it('in every example, uninstall makes one call per thing install created, and never with a blank id', async () => {
@@ -303,7 +303,8 @@ describe('lifecycle results and account values on $.install', () => {
         const w = d.validate(x, manifests).warnings.map((e) => `${e.path}: ${e.message}`).join('\n');
         expect(w).toMatch(/onInstall\[0\]: onUninstall never reads \$\.install\.runtime\.installed\.quoHook/);
         expect(w).toMatch(/onInstall\[3\]: This install step has no id/);
-        expect(d.validate(example('pipedrive-quo'), manifests).warnings).toEqual([]);
+        // Unimplemented-capability warnings are about the module's Api (see the unimplemented-capability tests), not install/uninstall pairing.
+        expect(d.validate(example('pipedrive-quo'), manifests).warnings.filter((e) => !/unimplemented|verification/.test(e.message))).toEqual([]);
     });
 
     it('refuses an undeclared account field, an unknown install step, and install steps reading their own results', () => {
@@ -348,7 +349,7 @@ describe('versioning of the new shapes', () => {
     it('changing only an option list\'s inputs is minor, not "setting type changed"', () => {
         const a = example('asana-slack');
         const b = example('asana-slack'); b.version = '0.3.0';
-        b.settings.project.options = { ...b.settings.project.options, with: { workspaceGid: '$.settings.workspace', archived: false } };
+        b.settings.project.options = { ...b.settings.project.options, with: { workspace: '$.settings.workspace', archived: false } };
         expect(d.diff(a, b).changes.map((x) => `${x.level} ${x.message}`)).toEqual(['minor Option list inputs changed']);
     });
 });

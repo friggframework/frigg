@@ -239,10 +239,7 @@
           "id": "contact",
           "use": "hubspot.contact.get",
           "with": {
-            "id": "$.record.objectId",
-            "properties": [
-              "email"
-            ]
+            "id": "$.record.objectId"
           }
         },
         {

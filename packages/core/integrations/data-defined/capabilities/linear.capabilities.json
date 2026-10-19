@@ -182,7 +182,9 @@
       "{{body.webhookId}}:{{body.webhookTimestamp}}"
     ],
     "account": "{{body.organizationId}}",
-    "verify": "verifyWebhookSignature"
+    "verify": "verifyWebhookSignature",
+    "status": "unimplemented",
+    "note": "The linear Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
   },
   "capabilities": {
     "issue.get": {
@@ -194,7 +196,9 @@
           "required": true
         }
       },
-      "output": "issue"
+      "output": "issue",
+      "status": "unimplemented",
+      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
     },
     "issue.byIdentifier": {
       "kind": "read",
@@ -205,7 +209,9 @@
           "required": true
         }
       },
-      "output": "issue"
+      "output": "issue",
+      "status": "unimplemented",
+      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
     },
     "issue.search": {
       "kind": "search",
@@ -224,7 +230,9 @@
           "type": "number"
         }
       },
-      "output": "issue[]"
+      "output": "issue[]",
+      "status": "unimplemented",
+      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
     },
     "issue.create": {
       "kind": "write",
@@ -251,7 +259,9 @@
           "type": "array"
         }
       },
-      "output": "issue"
+      "output": "issue",
+      "status": "unimplemented",
+      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
     },
     "issue.update": {
       "kind": "write",
@@ -266,7 +276,9 @@
           "required": true
         }
       },
-      "output": "issue"
+      "output": "issue",
+      "status": "unimplemented",
+      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
     },
     "comment.create": {
       "kind": "write",
@@ -281,7 +293,9 @@
           "required": true
         }
       },
-      "output": "comment"
+      "output": "comment",
+      "status": "unimplemented",
+      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
     },
     "attachment.link": {
       "kind": "write",
@@ -299,13 +313,17 @@
           "type": "string"
         }
       },
-      "output": "attachment"
+      "output": "attachment",
+      "status": "unimplemented",
+      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
     },
     "team.list": {
       "kind": "read",
       "method": "teams",
       "input": {},
-      "output": "team[]"
+      "output": "team[]",
+      "status": "unimplemented",
+      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
     },
     "workflowState.list": {
       "kind": "read",
@@ -316,7 +334,9 @@
           "required": true
         }
       },
-      "output": "workflowState[]"
+      "output": "workflowState[]",
+      "status": "unimplemented",
+      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
     }
   },
   "options": {

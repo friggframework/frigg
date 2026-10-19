@@ -387,7 +387,9 @@
     "topic": "{{item.subscriptionType}}",
     "eventId": "{{item.eventId}}",
     "account": "{{item.portalId}}",
-    "verify": "verifyWebhookSignature"
+    "verify": "verifyWebhookSignature",
+    "status": "unimplemented",
+    "note": "The hubspot Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
   },
   "capabilities": {
     "contact.get": {
@@ -397,12 +399,13 @@
         "id": {
           "type": "string",
           "required": true
-        },
-        "properties": {
-          "type": "array"
         }
       },
-      "output": "contact"
+      "output": "contact",
+      "args": [
+        "id"
+      ],
+      "note": "Api.getContactById(id) always requests the portal's full property list; a properties argument is not supported."
     },
     "contact.search": {
       "kind": "search",
@@ -421,7 +424,9 @@
           "type": "string"
         }
       },
-      "output": "contact[]"
+      "output": "contact[]",
+      "status": "unimplemented",
+      "note": "Api has no contact search (searchCompanies, searchDeals, searchCustomObjects and searchLists only)."
     },
     "contact.list": {
       "kind": "read",
@@ -437,7 +442,8 @@
           "type": "string"
         }
       },
-      "output": "page<contact>"
+      "output": "page<contact>",
+      "note": "Api.listContacts({ after, limit, properties }) has no modified-since filter, so updatedSince is ignored and a poll re-lists every contact."
     },
     "contact.create": {
       "kind": "write",
@@ -448,7 +454,10 @@
           "required": true
         }
       },
-      "output": "contact"
+      "output": "contact",
+      "args": [
+        "properties"
+      ]
     },
     "contact.update": {
       "kind": "write",
@@ -463,7 +472,11 @@
           "required": true
         }
       },
-      "output": "contact"
+      "output": "contact",
+      "args": [
+        "id",
+        "properties"
+      ]
     },
     "deal.get": {
       "kind": "read",
@@ -474,7 +487,10 @@
           "required": true
         }
       },
-      "output": "deal"
+      "output": "deal",
+      "args": [
+        "id"
+      ]
     },
     "deal.listForContact": {
       "kind": "read",
@@ -488,7 +504,9 @@
           "type": "boolean"
         }
       },
-      "output": "deal[]"
+      "output": "deal[]",
+      "status": "unimplemented",
+      "note": "Api has no per-contact deal listing; associations come from getBatchAssociations(from, to, inputs)."
     },
     "deal.contacts": {
       "kind": "read",
@@ -499,7 +517,9 @@
           "required": true
         }
       },
-      "output": "contact[]"
+      "output": "contact[]",
+      "status": "unimplemented",
+      "note": "Api has no per-deal contact listing; associations come from getBatchAssociations(from, to, inputs)."
     },
     "task.create": {
       "kind": "write",
@@ -513,7 +533,9 @@
           "type": "string"
         }
       },
-      "output": "task"
+      "output": "task",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
     },
     "call.create": {
       "kind": "write",
@@ -528,7 +550,9 @@
           "required": true
         }
       },
-      "output": "call"
+      "output": "call",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
     },
     "note.create": {
       "kind": "write",
@@ -545,13 +569,17 @@
           "type": "string"
         }
       },
-      "output": "note"
+      "output": "note",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
     },
     "owner.list": {
       "kind": "read",
       "method": "listOwners",
       "input": {},
-      "output": "owner[]"
+      "output": "owner[]",
+      "status": "unimplemented",
+      "note": "Api has getOwnerById only."
     },
     "pipeline.stages": {
       "kind": "read",
@@ -561,7 +589,9 @@
           "type": "string"
         }
       },
-      "output": "stage[]"
+      "output": "stage[]",
+      "status": "unimplemented",
+      "note": "Api.getPipelineDetails(objType) returns every pipeline for an object type, not the stages of one pipeline."
     },
     "contact.upsertByEmail": {
       "kind": "write",
@@ -577,7 +607,9 @@
           "required": true
         }
       },
-      "output": "contact"
+      "output": "contact",
+      "status": "unimplemented",
+      "note": "Api has no upsert and no contact search to build one from."
     },
     "deal.update": {
       "kind": "write",
@@ -592,7 +624,9 @@
           "required": true
         }
       },
-      "output": "deal"
+      "output": "deal",
+      "status": "unimplemented",
+      "note": "Api.updateDeal({ dealId, properties }) reads this.URLs.getDealById, which is not defined (the table has dealById), so it throws before sending."
     },
     "deal.search": {
       "kind": "search",
@@ -614,7 +648,9 @@
           "type": "number"
         }
       },
-      "output": "deal[]"
+      "output": "deal[]",
+      "status": "unimplemented",
+      "note": "Api.searchDeals takes HubSpot filterGroups, sorts, props, limit and after, not open/closeDate/amount filters."
     },
     "task.get": {
       "kind": "read",
@@ -628,7 +664,9 @@
           "type": "array"
         }
       },
-      "output": "task"
+      "output": "task",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
     },
     "task.update": {
       "kind": "write",
@@ -643,7 +681,9 @@
           "required": true
         }
       },
-      "output": "task"
+      "output": "task",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
     },
     "task.search": {
       "kind": "search",
@@ -662,7 +702,9 @@
           "type": "number"
         }
       },
-      "output": "task[]"
+      "output": "task[]",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
     },
     "owner.get": {
       "kind": "read",
@@ -673,7 +715,10 @@
           "required": true
         }
       },
-      "output": "owner"
+      "output": "owner",
+      "args": [
+        "id"
+      ]
     },
     "owner.findByEmail": {
       "kind": "search",
@@ -684,13 +729,17 @@
           "required": true
         }
       },
-      "output": "owner"
+      "output": "owner",
+      "status": "unimplemented",
+      "note": "Api has getOwnerById only."
     },
     "subscription.definitions": {
       "kind": "read",
       "method": "listSubscriptionDefinitions",
       "input": {},
-      "output": "subscriptionDefinition[]"
+      "output": "subscriptionDefinition[]",
+      "status": "unimplemented",
+      "note": "Api has no email subscription methods."
     },
     "subscription.unsubscribe": {
       "kind": "write",
@@ -712,7 +761,9 @@
           "type": "string"
         }
       },
-      "output": "subscriptionStatus"
+      "output": "subscriptionStatus",
+      "status": "unimplemented",
+      "note": "Api has no email subscription methods."
     }
   },
   "options": {

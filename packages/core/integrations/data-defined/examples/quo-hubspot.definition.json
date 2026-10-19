@@ -243,11 +243,7 @@
           "id": "full",
           "use": "hubspot.contact.get",
           "with": {
-            "id": "$.steps.contact.hubspot",
-            "properties": [
-              "hubspot_owner_id",
-              "firstname"
-            ]
+            "id": "$.steps.contact.hubspot"
           }
         },
         {
