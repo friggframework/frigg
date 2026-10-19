@@ -129,8 +129,11 @@ into their workspace (the user's Frigg id; `IntegrationDefinitionVersion.workspa
 installable for that workspace like any other integration (its install option carries `editable: true`, the cue for
 the editor views), and invisible to everyone else: not listed, not resolvable when they install, not readable.
 `GET /api/integration-definitions/:id` gives its owner every version, drafts included, and the newest document for
-the editor. An id has one owner: another workspace, the app's catalogue or a code integration's name is refused with
-409 `ID_TAKEN`. PostgreSQL migration `20261019120000_definition_workspace`.
+the editor. An id has one owner. The app's catalogue's ids and a code integration's name are public, and refused with
+409 `ID_TAKEN`; an id owned by another workspace answers 404 `NOT_FOUND`, byte for byte what reading it answers, so one
+tenant cannot learn that another's id exists (ADR-052 section 3). (The admin route, which is not a tenant, still gets 409.)
+A published definition whose name matches a registered code integration is ignored (code wins); that is logged once per
+process as `frigg.integrations.definition.shadowed_by_code`. PostgreSQL migration `20261019120000_definition_workspace`.
 
 The installation
 routes answer for every integration, code included: one with no run history, syncs or other versions gets `[]`, or a
