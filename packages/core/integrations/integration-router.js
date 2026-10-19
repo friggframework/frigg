@@ -274,7 +274,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             const integrations = await getIntegrationsForUser.execute(userId);
             const results = {
                 entities: {
-                    options: await getPossibleIntegrations.execute(),
+                    options: await getPossibleIntegrations.execute({ userId }),
                     authorized: await getEntitiesForUser.execute(userId),
                 },
                 integrations: integrations,

@@ -9,14 +9,18 @@
  * Registered classes win over provided ones, so a published definition can never shadow code.
  */
 
-/** The class for a type, or null. */
-async function resolveIntegrationClass(integrationClasses, type) {
+/**
+ * The class for a type, or null.
+ * @param {object} [context] who is asking. With `workspaceId`, a type built in another workspace does not resolve:
+ *        what a user may install or see. Without it (hydrating an installation that exists) every type resolves.
+ */
+async function resolveIntegrationClass(integrationClasses, type, context) {
     if (!type) return null;
     const registered = integrationClasses.find((c) => c?.Definition?.name === type);
     if (registered) return registered;
     for (const c of integrationClasses) {
         if (!c?.IntegrationProvider) continue;
-        const provided = await c.IntegrationProvider.resolve(type);
+        const provided = await c.IntegrationProvider.resolve(type, context);
         if (provided) return provided;
     }
     return null;
@@ -26,12 +30,12 @@ async function resolveIntegrationClass(integrationClasses, type) {
  * Every type a user can install: the registered classes, except providers (which are hosts, not integrations),
  * plus every type each provider offers.
  */
-async function listIntegrationClasses(integrationClasses) {
+async function listIntegrationClasses(integrationClasses, context) {
     const registered = new Set(integrationClasses.map((c) => c?.Definition?.name));
     const out = [];
     for (const c of integrationClasses) {
         if (!c?.IntegrationProvider) { out.push(c); continue; }
-        for (const provided of await c.IntegrationProvider.list()) {
+        for (const provided of await c.IntegrationProvider.list(context)) {
             if (!registered.has(provided.Definition.name)) out.push(provided);
         }
     }

@@ -19,9 +19,10 @@ class GetPossibleIntegrations {
      * @async
      * @returns {Promise<Object[]>} Array of integration option details for all available integration types.
      */
-    async execute() {
-        // Registered classes and the types providers offer (published definitions), one list.
-        const classes = await listIntegrationClasses(this.integrationClasses);
+    async execute({ userId } = {}) {
+        // Registered classes and the types providers offer (published definitions, and the ones this user's workspace
+        // built), one list.
+        const classes = await listIntegrationClasses(this.integrationClasses, userId ? { workspaceId: String(userId) } : undefined);
         return classes.map((integrationClass) =>
             integrationClass.getOptionDetails()
         );

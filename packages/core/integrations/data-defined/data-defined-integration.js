@@ -627,7 +627,7 @@ function definitionProvider(Host, definitions) {
     const cache = new Map();   // id -> { version, cls }
     const classFor = (entry) => {
         const hit = cache.get(entry.id);
-        if (hit && hit.version === entry.version) return hit.cls;
+        if (hit && hit.version === entry.version && hit.workspaceId === (entry.workspaceId ?? null)) return hit.cls;
         const hostModules = Host.Definition.modules;
         const modules = {};
         for (const [key, m] of Object.entries(entry.modules || {})) {
@@ -640,31 +640,40 @@ function definitionProvider(Host, definitions) {
             static Definition = { name: entry.id, version: entry.version, modules, webhooks: { enabled: true }, display: { label: display.label, description: display.description, category: display.category } };
             static definitionId = entry.id;
             static Host = Host;
+            /** The workspace that built it (null: the app's own catalogue). */
+            static workspaceId = entry.workspaceId ?? null;
 
             /** The install option (GET /api/integrations): the base class reports its first module's name as the type,
              *  which is not this integration's name. */
             static getOptionDetails() {
                 return {
                     type: entry.id, hasUserConfig: true, isMany: false, requiresNewEntity: false,
+                    // Built by this workspace: its page shows the editor views (rule: otherwise identical).
+                    ...(entry.workspaceId ? { editable: true } : {}),
                     display: { name: display.label, description: display.description, detailsUrl: display.detailsUrl, icon: display.icon },
                 };
             }
         }
         Object.defineProperty(PublishedIntegration, 'IntegrationProvider', { value: undefined });
         Object.defineProperty(PublishedIntegration, 'name', { value: `Integration_${entry.id.replace(/[^0-9A-Za-z]/g, '_')}` });
-        cache.set(entry.id, { version: entry.version, cls: PublishedIntegration });
+        cache.set(entry.id, { version: entry.version, workspaceId: entry.workspaceId ?? null, cls: PublishedIntegration });
         return PublishedIntegration;
     };
+    const visible = (cls, context) => Boolean(cls) && (!context?.workspaceId || cls.workspaceId == null || cls.workspaceId === String(context.workspaceId));
     return {
-        async resolve(type) {
+        async resolve(type, context) {
             if (!type || type === Host.Definition.name) return null;
-            if (cache.has(type)) return cache.get(type).cls;
-            const latest = await definitions.latest(type);
-            return latest ? classFor(latest) : null;
+            let cls = cache.get(type)?.cls;
+            if (!cls) {
+                const latest = await definitions.latest(type);
+                if (!latest) return null;
+                cls = classFor({ ...latest, workspaceId: (await definitions.ownerOf?.(type)) ?? null });
+            }
+            return visible(cls, context) ? cls : null;
         },
-        async list() {
-            const entries = (await definitions.list?.()) || [];
-            return entries.map(classFor).filter(Boolean);
+        async list(context) {
+            const entries = (await definitions.list?.(context)) || [];
+            return entries.map(classFor).filter((cls) => visible(cls, context));
         },
     };
 }

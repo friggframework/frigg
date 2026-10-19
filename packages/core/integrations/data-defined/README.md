@@ -124,6 +124,14 @@ const DataDefined = defineSharedIntegrationClass({ definitions: createDefinition
 | `GET /api/integrations/:id/syncs` | user | Each sync's backfill progress and poll marks |
 | `POST /api/integrations/:id/runs/:runId/decision` `{ decision, note? }` | user | Decide a paused approval. The approval step's `approvers` may decide without owning the installation; anyone else gets a 404 |
 
+A signed-in user can also build their own: `POST /api/integration-definitions` `{ document, notes?, publish? }` publishes
+into their workspace (the user's Frigg id; `IntegrationDefinitionVersion.workspaceId`). It is then listed and
+installable for that workspace like any other integration (its install option carries `editable: true`, the cue for
+the editor views), and invisible to everyone else: not listed, not resolvable when they install, not readable.
+`GET /api/integration-definitions/:id` gives its owner every version, drafts included, and the newest document for
+the editor. An id has one owner: another workspace, the app's catalogue or a code integration's name is refused with
+409 `ID_TAKEN`. PostgreSQL migration `20261019120000_definition_workspace`.
+
 The installation
 routes answer for every integration, code included: one with no run history, syncs or other versions gets `[]`, or a
 plan that says there is nothing to move to, never a 404 for how it was made.

@@ -13,6 +13,10 @@
  *   GET  /api/integrations/:integrationId/syncs          each sync's backfill progress and poll marks
  *   POST /api/integrations/:integrationId/runs/:runId/decision   { decision: approve|reject, note? } on a paused approval
  *
+ * A workspace's own integrations (signed-in user; the workspace is the user's Frigg id):
+ *   POST /api/integration-definitions                    { document, notes?, publish? = true } publish (or draft) a version
+ *   GET  /api/integration-definitions/:id                its versions and the latest document, for the editor
+ *
  * App admins (x-frigg-admin-api-key):
  *   POST /api/admin/integrations/versions                { document, notes?, publish? = true, strict? } validate + publish
  *   GET  /api/admin/integrations/:id/versions            every version of one integration
@@ -23,7 +27,7 @@
  */
 const catchAsyncError = require('express-async-handler');
 const { validateAdminApiKey } = require('../../handlers/middleware/admin-auth');
-const { DefinitionError, PublishDefinitionVersion, DeprecateDefinitionVersion, GetDefinitionHistory, GetIntegrationForDecision } = require('./use-cases/definition-use-cases');
+const { DefinitionError, PublishDefinitionVersion, DeprecateDefinitionVersion, GetDefinitionHistory, GetIntegrationForDecision, GetOwnDefinition } = require('./use-cases/definition-use-cases');
 
 /** An integration with one version (code that is not published as versions): nothing to move to. */
 const noUpgrade = (integration) => ({
@@ -56,8 +60,8 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
     const runtimeOf = (integration) => integration?.constructor?.DataDefined || null;
 
     router.route('/api/data-defined/definitions').get(guard(async (req, res) => {
-        await authenticateUser.execute(req);
-        const lists = await Promise.all(classes.map((c) => (c.DataDefined.definitions.list ? c.DataDefined.definitions.list() : [])));
+        const user = await authenticateUser.execute(req);
+        const lists = await Promise.all(classes.map((c) => (c.DataDefined.definitions.list ? c.DataDefined.definitions.list({ workspaceId: String(user.getId()) }) : [])));
         const seen = new Set();
         res.json({ definitions: lists.flat().filter((d) => (seen.has(d.id) ? false : seen.add(d.id))) });
     }));
@@ -98,6 +102,23 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
         res.json({ syncs: typeof integration.syncStatus === 'function' ? await integration.syncStatus() : [] });
     }));
 
+    // A workspace's own integrations (built in The Integrator): publish a version, read it back for the editor. The
+    // integration then appears to that workspace like any other; no one else can see, read or install it.
+    const registeredNames = new Set(integrationClasses.map((c) => c.Definition?.name).filter(Boolean));
+    router.route('/api/integration-definitions').post(guard(async (req, res) => {
+        const user = await authenticateUser.execute(req);
+        const { document, notes, publish } = req.body || {};
+        const out = await new PublishDefinitionVersion({ repository: repository(), manifests, isReserved: (id) => registeredNames.has(id) })
+            .execute({ document, notes, publish: publish !== false, workspaceId: String(user.getId()), createdBy: String(user.getId()) });
+        const { document: _omit, ...version } = out.version;
+        res.status(out.created ? 201 : 200).json({ ...out, version });
+    }));
+    router.route('/api/integration-definitions/:definitionId').get(guard(async (req, res) => {
+        const user = await authenticateUser.execute(req);
+        const out = await new GetOwnDefinition({ repository: repository() }).execute({ definitionId: req.params.definitionId, workspaceId: String(user.getId()) });
+        res.json(out);
+    }));
+
     const admin = (path) => router.route(path).all(validateAdminApiKey);
     const repository = () => {
         const repo = definitions.repository;
@@ -107,7 +128,7 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
 
     admin('/api/admin/integrations/versions').post(guard(async (req, res) => {
         const { document, notes, publish, strict, createdBy } = req.body || {};
-        const out = await new PublishDefinitionVersion({ repository: repository(), manifests }).execute({ document, notes, createdBy, publish: publish !== false, strict: Boolean(strict) });
+        const out = await new PublishDefinitionVersion({ repository: repository(), manifests, isReserved: (id) => registeredNames.has(id) }).execute({ document, notes, createdBy, publish: publish !== false, strict: Boolean(strict) });
         const { document: _omit, ...version } = out.version;
         res.status(out.created ? 201 : 200).json({ ...out, version });
     }));

@@ -55,8 +55,13 @@ function createDefinitionCatalog({ repository } = {}) {
         async checksumOf(definitionId, version) {
             return (await repo().findVersion(definitionId, version))?.checksum || null;
         },
-        /** The install catalogue: latest published version of each definition. */
-        list: () => new ListPublishedDefinitions({ repository: repo() }).execute(),
+        /** The workspace that built a definition, or null for the app's own catalogue. */
+        async ownerOf(definitionId) {
+            const rows = await repo().listVersions(definitionId);
+            return rows[0]?.workspaceId ?? null;
+        },
+        /** The install catalogue: latest published version of each definition (with `workspaceId`, that workspace's too). */
+        list: (context) => new ListPublishedDefinitions({ repository: repo() }).execute(context),
         /** The repository behind this catalogue, for publishing (bundled stores have none). */
         get repository() { return repo(); },
     };
@@ -67,17 +72,26 @@ class PublishDefinitionVersion {
      * @param {{ repository, manifests: object, check?: (def, manifests) => { valid, errors, warnings } }} deps
      *        check defaults to schema-check's checkDefinition (JSON Schema + references)
      */
-    constructor({ repository, manifests, check }) {
+    constructor({ repository, manifests, check, isReserved }) {
         this.repository = repository;
         this.manifests = manifests;
         this.check = check || require('../schema-check').checkDefinition;
+        /** Names a definition may not take: the app's registered (code) integrations. */
+        this.isReserved = isReserved || (() => false);
     }
 
     /** @returns {Promise<{ version: object, created: boolean, changeLevel: string|null, warnings: array }>} */
-    async execute({ document, notes, createdBy, publish = true, strict = false } = {}) {
+    /** @param {{ workspaceId?: string }} p workspaceId: the workspace building its own integration (null: the app's catalogue) */
+    async execute({ document, notes, createdBy, publish = true, strict = false, workspaceId = null } = {}) {
         if (!document || typeof document !== 'object') throw new DefinitionError('Send the definition as `document`');
         const result = this.check(document, this.manifests);
         if (!result.valid || (strict && result.warnings.length)) throw new DefinitionError(`${document.id}@${document.version} is not valid`, { code: 'INVALID', details: { errors: result.errors, warnings: result.warnings } });
+
+        // An id belongs to one owner: the app's catalogue, or one workspace. Nobody publishes over someone else's, nor
+        // takes the name of a code integration.
+        if (this.isReserved(document.id)) throw new DefinitionError(`"${document.id}" is the name of an integration this app already has`, { status: 409, code: 'ID_TAKEN' });
+        const versions = await this.repository.listVersions(document.id);
+        if (versions.some((v) => (v.workspaceId ?? null) !== (workspaceId ?? null))) throw new DefinitionError(`"${document.id}" is already used by another integration`, { status: 409, code: 'ID_TAKEN' });
 
         const sum = checksum(document);
         const existing = await this.repository.findVersion(document.id, document.version);
@@ -86,7 +100,7 @@ class PublishDefinitionVersion {
             throw new DefinitionError(`${document.id}@${document.version} is already ${existing.status.toLowerCase()} and cannot change. Publish a new version.`, { status: 409, code: 'IMMUTABLE' });
         }
 
-        const published = newestFirst((await this.repository.listVersions(document.id)).filter((r) => r.status === 'PUBLISHED' || r.status === 'DEPRECATED'));
+        const published = newestFirst(versions.filter((r) => r.status === 'PUBLISHED' || r.status === 'DEPRECATED'));
         const previous = published.find((r) => r.version !== document.version) || null;
         let changeLevel = null;
         if (previous) {
@@ -98,7 +112,7 @@ class PublishDefinitionVersion {
 
         const row = {
             definitionId: document.id, version: document.version, schemaVersion: document.schemaVersion, checksum: sum, document,
-            changeLevel, previousVersion: previous?.version || null, notes: notes ?? null, createdBy: createdBy ?? null,
+            changeLevel, previousVersion: previous?.version || null, notes: notes ?? null, createdBy: createdBy ?? null, workspaceId: workspaceId ?? null,
             status: publish ? 'PUBLISHED' : 'DRAFT', publishedAt: publish ? new Date() : null,
         };
         if (existing) {
@@ -135,10 +149,14 @@ class DeprecateDefinitionVersion {
 
 class ListPublishedDefinitions {
     constructor({ repository }) { this.repository = repository; }
-    /** Latest published version of each definition, with what an install screen shows. */
-    async execute() {
+    /**
+     * Latest published version of each definition, with what an install screen shows: the app's catalogue, plus the
+     * integrations `workspaceId` built (another workspace's are never listed). Without a workspace, every one.
+     */
+    async execute({ workspaceId } = {}) {
         const byId = new Map();
         for (const r of await this.repository.listByStatus(['PUBLISHED'])) {
+            if (workspaceId && r.workspaceId && r.workspaceId !== String(workspaceId)) continue;
             const cur = byId.get(r.definitionId);
             if (!cur || compareVersions(r.version, cur.version) > 0) byId.set(r.definitionId, r);
         }
@@ -146,7 +164,7 @@ class ListPublishedDefinitions {
         for (const r of byId.values()) {
             const doc = (await this.repository.findVersion(r.definitionId, r.version)).document;
             out.push({
-                id: r.definitionId, version: r.version, checksum: r.checksum, publishedAt: r.publishedAt,
+                id: r.definitionId, version: r.version, checksum: r.checksum, publishedAt: r.publishedAt, workspaceId: r.workspaceId ?? null,
                 display: doc.display, modules: Object.fromEntries(Object.entries(doc.modules || {}).map(([k, m]) => [k, m.module])),
                 counts: { syncs: (doc.syncs || []).length, links: (doc.links || []).length, workflows: (doc.workflows || []).length, ui: (doc.ui || []).length },
             });
@@ -169,6 +187,19 @@ class GetDefinitionHistory {
  * approvers, and they decide from their own sign-in. Whether this user may decide a particular run is the run's
  * business (decide()); here, only who owns it.
  */
+/**
+ * A workspace's own integration, for its editor: every version (drafts included) and the newest document. Anyone
+ * else's, or the app's catalogue, is "not found": the editor exists only for what this workspace built.
+ */
+class GetOwnDefinition {
+    constructor({ repository }) { this.repository = repository; }
+    async execute({ definitionId, workspaceId }) {
+        const rows = newestFirst(await this.repository.listVersions(definitionId));
+        if (!rows.length || !workspaceId || rows[0].workspaceId !== String(workspaceId)) throw new DefinitionError(`No integration "${definitionId}" in this workspace`, { status: 404, code: 'NOT_FOUND' });
+        return { id: definitionId, versions: rows.map(({ document, ...meta }) => meta), document: rows[0].document };
+    }
+}
+
 class GetIntegrationForDecision {
     constructor({ getIntegrationInstance }) { this.getIntegrationInstance = getIntegrationInstance; }
     async execute(integrationId, userId) {
@@ -200,5 +231,5 @@ class PlanInstallationUpgrade {
 module.exports = {
     DefinitionError, compareVersions, createDefinitionCatalog,
     PublishDefinitionVersion, DeprecateDefinitionVersion, ListPublishedDefinitions, GetDefinitionHistory, PlanInstallationUpgrade,
-    GetIntegrationForDecision,
+    GetIntegrationForDecision, GetOwnDefinition,
 };

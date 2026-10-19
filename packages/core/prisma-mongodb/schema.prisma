@@ -475,12 +475,15 @@ model IntegrationDefinitionVersion {
   previousVersion String?
   notes           String?
   createdBy       String?
+  // The workspace an integration a user built belongs to (null: the app's own catalogue, offered to everyone).
+  workspaceId     String?
   publishedAt     DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   @@unique([definitionId, version])
   @@index([definitionId, status])
+  @@index([workspaceId, status])
   @@map("IntegrationDefinitionVersion")
 }
 

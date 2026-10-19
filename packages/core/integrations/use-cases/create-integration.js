@@ -39,6 +39,16 @@ class CreateIntegration {
             `[Frigg] Creating ${config?.type} integration for user ${userId} with entities [${entities}]`
         );
 
+        // Only a type this user may install: registered code, the app's catalogue, or one their workspace built.
+        const integrationClass = await resolveIntegrationClass(
+            this.integrationClasses,
+            config?.type,
+            { workspaceId: String(userId) }
+        );
+        if (!integrationClass) {
+            throw new Error(`No integration class found for type: ${config?.type}`);
+        }
+
         const existing = await this._findDuplicate(
             userId,
             config?.type,

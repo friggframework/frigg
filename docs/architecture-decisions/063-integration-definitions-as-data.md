@@ -513,6 +513,8 @@ to move to, never a 404 for being code.
 | `GET /api/integrations/:id/runs` | signed-in user, own installation | `WorkflowRun` history, newest first (`workflowId`, `status`, `before`, `limit`) |
 | `GET /api/integrations/:id/syncs` | signed-in user, own installation | Each sync's backfill progress and poll marks (§15b) |
 | `POST /api/integrations/:id/runs/:runId/decision` `{ decision, note? }` | the run's approvers, or the owner when it names none | Decide a paused approval (§15c). Answers 202 and carries the run on through the queue. An approver need not own the installation; anyone else gets a 404 |
+| `POST /api/integration-definitions` `{ document, notes?, publish? }` | signed-in user | Publish (or draft) an integration of the user's own workspace: listed and installable there, invisible elsewhere. 409 `ID_TAKEN` for an id owned by another workspace, the app's catalogue or a code integration |
+| `GET /api/integration-definitions/:id` | signed-in user, own workspace | Every version (drafts too) and the newest document, for the editor; 404 for anyone else |
 | `POST /api/admin/integrations/versions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
 | `GET /api/admin/integrations/:id/versions` | admin key | Every version, without documents |
 | `POST /api/admin/integrations/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
