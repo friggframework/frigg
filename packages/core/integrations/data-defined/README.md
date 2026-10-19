@@ -114,6 +114,29 @@ different document at the same version is refused. So is a version that is not n
 semver bump smaller than the changes. Publishing goes through a conditional write, so two concurrent publishes of one
 version cannot both win. With `memoryDefinitions()` (definitions bundled in the app) the admin routes answer 501.
 
+## Previews: in the app
+
+An integration shows up inside the apps it connects: a HubSpot card, a Slack message, digest or approval request. A
+preview renders exactly that from the current settings and sample or real records, with the same query, view and step
+code production runs (`renderers/`):
+
+| Function | Does |
+|---|---|
+| `previewSurface({ def, installation, surfaceId, record, ports, host? })` | `{ surface, view, html, slack?, hubspot? }`. `slack` is Block Kit (`{ blocks, text, truncated }`), `hubspot` a data description of `@hubspot/ui-extensions` components, `html` the same card framed as its host looks. `host` defaults to the surface's own |
+| `previewWorkflow({ def, installation, workflowId, event?, record?, manifests, fixtures? })` | Dry run: `{ status, sends, calls, trace, waiting? }`. Each call is `{ stepId, module, capability, kind, args, output, rendered }`; `rendered` is `{ html, slack? }` for writes (a Slack post renders as the message, anything else as a "would call" card) |
+| `recordingPorts({ def, manifests, fixtures })` | Ports that record and answer instead of calling an API; give them to `previewSurface` for sample data |
+| `viewToSlack`, `viewToHubSpot`, `viewToHtml`, `slackMessageToHtml` | The renderers on their own. `decodeAction(value)` reads a Slack button click back to `{ integrationId?, workflow, surface }` |
+
+Dry-run rules: nothing is performed (the base ports' API function throws, and the recorder sits in front of it).
+`fixtures` answers calls, keyed `"<module key>.<capability>"` (a value, or `(args) => value`; `code:<ref>` for code
+steps, which are never run), otherwise the manifest's own record shape with ids filled. A webhook workflow with no
+`event` runs on the manifest's sample payload. A pausing step ends the preview with `waiting`.
+
+Everything that is record data is escaped for its target (mrkdwn `& < >` plus fenced `* _ ~`, HTML, text children for
+HubSpot), links are http(s) only, Block Kit limits are met by truncating with a marker (50 blocks, 3000/2000/150
+characters, 25 buttons), and nothing throws on an odd tree. Text a *definition* writes into a Slack message (templates)
+is sent as authored: a preview shows it as sent, including any raw record data a template interpolates.
+
 ## Syncs
 
 `sync-engine.js` runs `syncs`: backfill (a button or `onInstall`, one queued page per message, progress at
