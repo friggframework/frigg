@@ -58,7 +58,7 @@ function defineSharedIntegrationClass({ name = 'data-defined', definitions, mani
  * entity reverse lookup, then each candidate's record, because one account can be used by integrations of other
  * types too, and the worker would hydrate those as their own class.
  */
-function friggLookup(typeName) {
+function friggLookup(accepts) {
     return async (externalId, moduleName) => {
         const { createIntegrationCommands } = require('../../application/commands/integration-commands');
         const commands = createIntegrationCommands();
@@ -66,7 +66,7 @@ function friggLookup(typeName) {
         const out = [];
         for (const integrationId of ids) {
             const found = await commands.loadIntegrationContextById(integrationId);
-            if (found?.context?.record?.config?.type === typeName) out.push(integrationId);
+            if (await accepts(found?.context?.record?.config?.type)) out.push(integrationId);
         }
         return out;
     };
@@ -75,18 +75,22 @@ function friggLookup(typeName) {
 function makeClass({ name, defaultId, definitions, manifests, runCode, IntegrationBase, modules, display, version, lookup, runs }) {
     const Base = IntegrationBase || require('../integration-base').IntegrationBase;
     const id = name;
-    const findInstallations = lookup || friggLookup(name);
     // Where workflow runs are kept: the WorkflowRun table by default (loaded lazily, so tests and tools without a
     // database can pass their own store or `false` to keep none).
     let runStore = runs;
+    // App-level webhooks fan out to the installations of every type this deployment runs.
+    const findInstallations = (externalId, moduleName, Cls) => (lookup || friggLookup(async (type) => type === id || type === Cls.Definition.name || Boolean(await DataDefinedIntegration.IntegrationProvider?.resolve(type))))(externalId, moduleName);
     const runRepository = () => (runStore === undefined ? (runStore = require('./repositories/workflow-run-repository').createWorkflowRunRepository()) : runStore);
-    const publicBase = () => `${process.env.FRIGG_PUBLIC_URL || ''}/api/${id}-integration/webhooks`;
+    const baseFor = (typeName) => `${process.env.FRIGG_PUBLIC_URL || ''}/api/${typeName}-integration/webhooks`;
 
     class DataDefinedIntegration extends Base {
         static Definition = { name, version, modules, webhooks: { enabled: true }, display }; // version is display only; installations pin their own
 
         /** How the routers find data-defined classes and the store and manifests they run on. */
         static DataDefined = { definitions, manifests, shared: !defaultId, runs: () => runRepository() };
+
+        /** Shape A: the one definition this class runs. A class generated for a published definition sets its own. */
+        static definitionId = defaultId;
 
         /**
          * Frigg's use cases construct an integration from its record and call initialize() before anything else
@@ -95,19 +99,22 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
          * before its installation is known) has no pin and loads nothing.
          */
         async initialize() {
-            if (this.config?.definition || defaultId) await this.loadDefinition();
+            if (this.config?.definition || this.constructor.definitionId) await this.loadDefinition();
             return super.initialize();
         }
 
         async loadDefinition() {
-            let pin = this.config?.definition || (defaultId ? { id: defaultId } : null);
+            const fixedId = this.constructor.definitionId;
+            let pin = this.config?.definition || (fixedId ? { id: fixedId } : null);
+            if (fixedId && pin.id !== fixedId) throw new Error(`This installation pins "${pin.id}", but its type is "${fixedId}"`);
             if (!pin?.id) throw new Error('This installation does not name a definition (config.definition.id)');
             if (!pin.version) {
                 // Installed by id alone: pin the latest published version now (onCreate persists the pin).
                 const latest = await definitions.latest(pin.id);
                 if (!latest) throw new Error(`No published version of "${pin.id}"`);
                 pin = { id: pin.id, version: latest.version, checksum: await definitions.checksumOf?.(pin.id, latest.version) || undefined };
-                if (this.config?.definition) this.config = { ...this.config, definition: pin };
+                // Persisted by onCreate, so this installation stays on this version until it is upgraded.
+                this.config = { ...(this.config || {}), definition: pin };
             }
             this.def = await definitions.get(pin.id, pin.version, { checksum: pin.checksum });
             if (!this.def) throw new Error(`Definition ${pin.id}@${pin.version} is not published`);
@@ -190,7 +197,8 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
         async onWebhook({ data = {} }) {
             if (data.module && data.topic) return this.routeEvents(data.module, [{ topic: data.topic, event: data.body, eventId: data.eventId || data.body?.id || null }]);
             const delivery = { body: data.body, headers: data.headers || {}, query: data.query || {} };
-            if (!this.def) return this.fanOutAppWebhook(delivery);
+            // No installation yet (an app-level webhook): find the ones it is for.
+            if (!this.id || !this.def) return this.fanOutAppWebhook(delivery);
 
             const keys = modulesFor(this.def, manifests, delivery);
             if (keys.length !== 1) { this.logWebhook('webhook.unrouted', { module: delivery.query.module || null, candidates: keys }); return { routed: 0 }; }
@@ -224,7 +232,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             const accounts = new Set(eventsIn(manifest, delivery).map((e) => e.account).filter(Boolean));
             let queued = 0;
             for (const account of accounts) {
-                for (const integrationId of await findInstallations(account, moduleName)) {
+                for (const integrationId of await findInstallations(account, moduleName, this.constructor)) {
                     await this.queueWebhook({ integrationId, body: delivery.body, headers: delivery.headers, query: delivery.query });
                     queued += 1;
                 }
@@ -248,7 +256,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             // Every onInstall step with an id keeps its result, so onUninstall can undo exactly what install did
             // ($.install.runtime.installed.<step id>). Saved even when empty, so a re-install replaces stale ids.
             const installed = Object.fromEntries((this.def.lifecycle?.onInstall || []).filter((st) => st.id).map((st) => [st.id, out.steps?.[st.id] ?? null]));
-            await this.patchConfig({ ...(this.config?.definition ? { definition: this.config.definition } : {}), runtime: { ...(this.config?.runtime || {}), installed } });
+            await this.patchConfig({ definition: this.config.definition, runtime: { ...(this.config?.runtime || {}), installed } });
             const result = await super.onCreate(params);
             // Syncs that copy what already exists at install time start their backfill now (through the queue).
             for (const sy of this.def.syncs || []) {
@@ -310,9 +318,12 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
         }
 
         installation() {
-            const base = publicBase();
+            // An installation's webhooks arrive at its own type's URL. App-level webhooks (one URL registered with the
+            // vendor for every account) arrive at the deployment's URL, which finds the installations they are for.
+            const base = baseFor(this.constructor.Definition.name);
+            const appBase = baseFor(this.constructor.getDeploymentName?.() || id);
             const webhookUrls = Object.fromEntries(Object.entries(this.def?.modules || {}).map(([key, m]) => [key, manifests[m.module]?.webhook?.scope === 'app'
-                ? `${base}?module=${encodeURIComponent(m.module)}`
+                ? `${appBase}?module=${encodeURIComponent(m.module)}`
                 : `${base}/${this.id}?module=${encodeURIComponent(m.module)}`]));
             return { ...(this.config || {}), integrationId: this.id, accounts: this.accounts(), webhookUrl: `${base}/${this.id}`, webhookUrls };
         }
@@ -440,11 +451,13 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
          * An approval decision (POST /api/integrations/:id/runs/:runId/decision). Checked here, carried out through
          * the queue (the steps after an approval may take longer than an HTTP request should).
          */
-        async decide(runId, { decision, userId, note } = {}) {
+        async decide(runId, { decision, userId, note, isOwner = true } = {}) {
             const { DefinitionError } = require('./use-cases/definition-use-cases');
-            if (!['approve', 'reject'].includes(decision)) throw new DefinitionError('decision is approve or reject', { status: 400, code: 'BAD_DECISION' });
             const store = this.mappingStore();
             const cp = await store.get(`wait:${runId}`);
+            // Someone who neither owns the installation nor is named on this run learns nothing about it.
+            if (!isOwner && !(cp?.wait?.approvers || []).includes(String(userId))) throw new DefinitionError(`Integration ${this.id} not found`, { status: 404, code: 'NOT_FOUND' });
+            if (!['approve', 'reject'].includes(decision)) throw new DefinitionError('decision is approve or reject', { status: 400, code: 'BAD_DECISION' });
             if (!cp) throw new DefinitionError(`Run ${runId} is not waiting`, { status: 404, code: 'NOT_WAITING' });
             if (cp.wait.kind !== 'approval') throw new DefinitionError(`Run ${runId} is waiting on a ${cp.wait.kind}, not an approval`, { status: 409, code: 'NOT_AN_APPROVAL' });
             if (cp.wait.approvers?.length && !cp.wait.approvers.includes(String(userId))) throw new DefinitionError('You are not an approver of this run', { status: 403, code: 'NOT_AN_APPROVER' });
@@ -521,7 +534,59 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
         }
     }
     Object.defineProperty(DataDefinedIntegration, 'name', { value: `DataDefined_${id.replace(/-/g, '_')}` });
+    if (!defaultId) DataDefinedIntegration.IntegrationProvider = definitionProvider(DataDefinedIntegration, definitions);
     return DataDefinedIntegration;
+}
+
+/**
+ * The shared class as a provider of integration types (integration-types.js): every published definition is an
+ * integration type named by its id, run by a class of its own. The class differs from code only in where it gets its
+ * behaviour; it runs on the shared deployment (queue, functions) of the class that provides it.
+ */
+function definitionProvider(Host, definitions) {
+    const cache = new Map();   // id -> { version, cls }
+    const classFor = (entry) => {
+        const hit = cache.get(entry.id);
+        if (hit && hit.version === entry.version) return hit.cls;
+        const hostModules = Host.Definition.modules;
+        const modules = {};
+        for (const [key, m] of Object.entries(entry.modules || {})) {
+            const moduleName = typeof m === 'string' ? m : m?.module;
+            if (!hostModules[moduleName]) return null;   // an app module this deployment does not have: not installable here
+            modules[key] = hostModules[moduleName];
+        }
+        const display = entry.display || {};
+        class PublishedIntegration extends Host {
+            static Definition = { name: entry.id, version: entry.version, modules, webhooks: { enabled: true }, display: { label: display.label, description: display.description, category: display.category } };
+            static definitionId = entry.id;
+            static Host = Host;
+
+            /** The install option (GET /api/integrations): the base class reports its first module's name as the type,
+             *  which is not this integration's name. */
+            static getOptionDetails() {
+                return {
+                    type: entry.id, hasUserConfig: true, isMany: false, requiresNewEntity: false,
+                    display: { name: display.label, description: display.description, detailsUrl: display.detailsUrl, icon: display.icon },
+                };
+            }
+        }
+        Object.defineProperty(PublishedIntegration, 'IntegrationProvider', { value: undefined });
+        Object.defineProperty(PublishedIntegration, 'name', { value: `Integration_${entry.id.replace(/[^0-9A-Za-z]/g, '_')}` });
+        cache.set(entry.id, { version: entry.version, cls: PublishedIntegration });
+        return PublishedIntegration;
+    };
+    return {
+        async resolve(type) {
+            if (!type || type === Host.Definition.name) return null;
+            if (cache.has(type)) return cache.get(type).cls;
+            const latest = await definitions.latest(type);
+            return latest ? classFor(latest) : null;
+        },
+        async list() {
+            const entries = (await definitions.list?.()) || [];
+            return entries.map(classFor).filter(Boolean);
+        },
+    };
 }
 
 /** In-memory definition store for tests and local dev. Production: the IntegrationDefinitionVersion table. */

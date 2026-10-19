@@ -620,6 +620,28 @@ describe('IntegrationBuilder', () => {
             ]);
         });
 
+        it('gives a provider of integration types the webhook routes of every type it provides', async () => {
+            const appDefinition = {
+                integrations: [
+                    { Definition: { name: 'stripe', webhooks: true } },
+                    {
+                        Definition: { name: 'data-defined', webhooks: { enabled: true } },
+                        IntegrationProvider: { resolve: async () => null, list: async () => [] },
+                    },
+                ],
+            };
+
+            const result = await integrationBuilder.build(appDefinition, {});
+
+            expect(result.functions['data-definedWebhook'].events.map((e) => e.httpApi.path)).toEqual([
+                '/api/data-defined-integration/webhooks',
+                '/api/data-defined-integration/webhooks/{integrationId}',
+                '/api/{integrationType}/webhooks',
+                '/api/{integrationType}/webhooks/{integrationId}',
+            ]);
+            expect(result.functions.stripeWebhook.events).toHaveLength(2);
+        });
+
         it('emits a dedicated per-binding function (namespaced) for Tier 3 extension routes; the main handler keeps only {proxy+}', async () => {
             const appDefinition = {
                 integrations: [

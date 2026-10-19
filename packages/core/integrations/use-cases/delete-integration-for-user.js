@@ -1,3 +1,4 @@
+const { resolveIntegrationClass } = require('../integration-types');
 const Boom = require('@hapi/boom');
 const { getLogger } = require('../../logs');
 
@@ -44,10 +45,9 @@ class DeleteIntegrationForUser {
             );
         }
 
-        const integrationClass = this.integrationClasses.find(
-            (integrationClass) =>
-                integrationClass.Definition.name ===
-                integrationRecord.config.type
+        const integrationClass = await resolveIntegrationClass(
+            this.integrationClasses,
+            integrationRecord.config.type
         );
 
         if (integrationRecord.userId !== userId) {

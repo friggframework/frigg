@@ -209,7 +209,7 @@ function createIntegrationRouter() {
         updateIntegration,
         getPossibleIntegrations,
     });
-    // Data-defined integrations (ADR-063): only mounted when the app registers a data-defined class.
+    // Integration versions, run history, sync progress and approvals (ADR-063): mounted when the app registers the integration runtime.
     require('./data-defined/router').setDataDefinedRoutes(router, authenticateUser, {
         getIntegrationInstance,
         integrationClasses,

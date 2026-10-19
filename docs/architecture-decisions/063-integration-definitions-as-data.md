@@ -1,6 +1,6 @@
 # ADR-063: Integration Definitions as Data
 
-**Status**: Proposed. Direction set; v0.1 implemented in `packages/core/integrations/data-defined/` (see Implementation)
+**Status**: Accepted (2026-10-19). v0.1 implemented in `packages/core/integrations/data-defined/` (see Implementation)
 **Date**: 2026-10-15
 **Deciders**: Sean Matthews
 
@@ -43,6 +43,9 @@ Frigg supports **two authoring forms behind one runtime contract**:
 2. **Data-defined integrations**: an `IntegrationDefinition` document, interpreted at runtime by one generic class, `DataDefinedIntegration extends IntegrationBase`.
 
 Code is the escape hatch and data is the composition. A data definition never contains code. It names building blocks that exist as code, and the app has registered and versioned them.
+
+> §1–§6 are the proposal as first written. Where they differ from what was built (step and expression vocabulary,
+> the document's shape, `name` vs `id`, routes), §7 onward is what runs.
 
 ### 1. What is data and what stays code
 
@@ -391,6 +394,18 @@ does not exist at runtime, so "disabled but still firing" cannot happen.
 Shape B is what actually makes §4's "constant infrastructure" true. Shape A still grows the stack per definition
 id, just not per version.
 
+**Neither shape is visible from outside.** Rule: nobody can tell how an integration was made, not a user, an API
+caller or a log reader. Shape B's class is a *provider of integration types* (`static IntegrationProvider`,
+`integrations/integration-types.js`): wherever Frigg turns `config.type` into a class (the integration use cases,
+the queue worker, `GET /api/integrations` options), a published definition id resolves to a generated subclass named
+by that id, with the definition's label and modules. So an integration is installed with `{ type: 'quo-hubspot' }`,
+exactly as code is, and its logs, telemetry, schedule job ids and webhook URLs carry `quo-hubspot`. Registered code
+classes win over a definition with the same name. Only the deployment is shared: `IntegrationBase.getDeploymentName()`
+is the host's name for a generated class, so it queues and schedules on the host's queue; the host's webhook function
+also serves `/api/{integrationType}/webhooks[/{integrationId}]` (HTTP API cannot match part of a path segment, and
+literal routes of registered integrations win); app-level webhooks, one URL per vendor app, use the host's URL and fan
+out to installations of every type it provides. `{ type: 'data-defined', definition: { id } }` still installs.
+
 ### 14. Runtime: how an event loads and runs
 
 **Cold start (unchanged).** `loadAppDefinition()` registers the generated classes like any others. No definition is
@@ -478,21 +493,27 @@ whose account is its own.
 | `GET …/actions`, `POST …/actions/:id/options` | `GET_USER_ACTIONS`, `GET_USER_ACTION_OPTIONS` | Button workflows and backfills; a button's inputs are its options form |
 | `POST …/actions/:id` | any registered event | Runs a button workflow (`WF_*`), a backfill (`SYNC_*_BACKFILL`) or renders a UI surface (`UI_*`, body `{ record }`) |
 
-Data-defined apps add a few routes of their own (`router.js`, mounted by `createIntegrationRouter` only when a
-registered class is data-defined). These are the only new routes, and every one is authenticated:
+Apps that register the runtime add a few routes of their own (`router.js`, mounted by `createIntegrationRouter` when
+a registered class carries `DataDefined`). Every one is authenticated, and the installation routes answer for every
+integration however it was made: one with no run history, syncs or other versions gets `[]`, or a plan with nothing
+to move to, never a 404 for being code.
 
 | Route | Who | What |
 |---|---|---|
-| `GET /api/data-defined/definitions` | signed-in user | The install catalogue: the latest published version of each definition |
+| `GET /api/data-defined/definitions` | signed-in user | The published ones with their counts (`GET /api/integrations` already lists them as options beside code) |
 | `GET /api/integrations/:id/upgrade?to=` | signed-in user, own installation | The upgrade plan (`planUpgrade`); changes nothing |
 | `POST /api/integrations/:id/upgrade` `{ to? }` | signed-in user, own installation | Applies the plan: uninstall steps of the old version, then install steps of the new one if it asks for a reinstall, then the new config and a reload. Answers 409 with the plan when a person must supply something first |
 | `GET /api/integrations/:id/runs` | signed-in user, own installation | `WorkflowRun` history, newest first (`workflowId`, `status`, `before`, `limit`) |
-| `POST /api/admin/data-defined/definitions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
-| `GET /api/admin/data-defined/definitions/:id` | admin key | Every version, without documents |
-| `POST /api/admin/data-defined/definitions/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
+| `GET /api/integrations/:id/syncs` | signed-in user, own installation | Each sync's backfill progress and poll marks (§15b) |
+| `POST /api/integrations/:id/runs/:runId/decision` `{ decision, note? }` | the run's approvers, or the owner when it names none | Decide a paused approval (§15c). Answers 202 and carries the run on through the queue. An approver need not own the installation; anyone else gets a 404 |
+| `POST /api/admin/integrations/versions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
+| `GET /api/admin/integrations/:id/versions` | admin key | Every version, without documents |
+| `POST /api/admin/integrations/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
 
-Installing needs no new route. `POST /api/integrations` with `config.definition: { id }` pins the latest published
-version, and its checksum, in `onCreate`. An app that bundles its definitions (`memoryDefinitions`) has no store to
+The admin routes also answer at their first paths, under `/api/admin/data-defined/definitions`.
+
+Installing needs no new route. `POST /api/integrations` with `config: { type: '<definition id>' }` pins the latest
+published version, and its checksum, in `onCreate`. An app that bundles its definitions (`memoryDefinitions`) has no store to
 publish to, so the admin routes answer 501.
 
 A host renderer (the HubSpot card) therefore calls Frigg through an authenticated path. Proving the host request is

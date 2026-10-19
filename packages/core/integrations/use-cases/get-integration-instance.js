@@ -1,3 +1,4 @@
+const { resolveIntegrationClass } = require('../integration-types');
 // Removed Integration wrapper - using IntegrationBase directly
 
 /**
@@ -36,10 +37,9 @@ class GetIntegrationInstance {
             );
         }
 
-        const integrationClass = this.integrationClasses.find(
-            (integrationClass) =>
-                integrationClass.Definition.name ===
-                integrationRecord.config.type
+        const integrationClass = await resolveIntegrationClass(
+            this.integrationClasses,
+            integrationRecord.config.type
         );
 
         if (!integrationClass) {

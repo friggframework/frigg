@@ -1,3 +1,4 @@
+const { resolveIntegrationClass } = require('../integration-types');
 // Removed Integration wrapper - using IntegrationBase directly
 const {
     mapIntegrationClassToIntegrationDTO,
@@ -174,10 +175,9 @@ class CreateIntegration {
     }
 
     async _buildInstance(integrationRecord) {
-        const integrationClass = this.integrationClasses.find(
-            (integrationClass) =>
-                integrationClass.Definition.name ===
-                integrationRecord.config.type
+        const integrationClass = await resolveIntegrationClass(
+            this.integrationClasses,
+            integrationRecord.config.type
         );
 
         if (!integrationClass) {

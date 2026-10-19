@@ -164,6 +164,22 @@ class GetDefinitionHistory {
     }
 }
 
+/**
+ * The installation an approval decision is about, for someone who may not own it: an approval step names its
+ * approvers, and they decide from their own sign-in. Whether this user may decide a particular run is the run's
+ * business (decide()); here, only who owns it.
+ */
+class GetIntegrationForDecision {
+    constructor({ getIntegrationInstance }) { this.getIntegrationInstance = getIntegrationInstance; }
+    async execute(integrationId, userId) {
+        const record = await this.getIntegrationInstance.integrationRepository.findIntegrationById(integrationId).catch(() => null);
+        if (!record) throw new DefinitionError(`Integration ${integrationId} not found`, { status: 404, code: 'NOT_FOUND' });
+        const isOwner = String(record.userId) === String(userId);
+        const integration = await this.getIntegrationInstance.execute(integrationId, record.userId);
+        return { integration, isOwner };
+    }
+}
+
 class PlanInstallationUpgrade {
     constructor({ catalog }) { this.catalog = catalog; }
     /** @returns {Promise<{ from, to, allowed, needs, actions, config, changes }>} */
@@ -184,4 +200,5 @@ class PlanInstallationUpgrade {
 module.exports = {
     DefinitionError, compareVersions, createDefinitionCatalog,
     PublishDefinitionVersion, DeprecateDefinitionVersion, ListPublishedDefinitions, GetDefinitionHistory, PlanInstallationUpgrade,
+    GetIntegrationForDecision,
 };

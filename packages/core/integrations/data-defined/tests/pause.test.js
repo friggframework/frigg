@@ -180,7 +180,11 @@ describe('approval', () => {
         const a = express();
         a.use(express.json());
         const authenticateUser = { execute: async () => ({ getId: () => userId }) };
-        const getIntegrationInstance = { execute: async () => inst };
+        // As the real use case: the record names its owner, and execute() refuses anyone else.
+        const getIntegrationInstance = {
+            integrationRepository: { findIntegrationById: async (id) => (id === 'int1' ? { id, userId: 'u1' } : null) },
+            execute: async (id, uid) => { if (uid !== 'u1') { const e = new Error(`Integration ${id} does not belong to User ${uid}`); e.status = 500; throw e; } return inst; },
+        };
         setDataDefinedRoutes(a, authenticateUser, { getIntegrationInstance, integrationClasses: [inst.constructor] });
         a.use((err, req, res, next) => res.status(err.status || 500).json({ error: err.message })); // eslint-disable-line no-unused-vars
         return a;
@@ -239,17 +243,24 @@ describe('approval', () => {
         }
     });
 
-    it('only a named approver may decide; a bad decision or a delay cannot be decided', async () => {
+    it('a named approver decides without owning the installation; anyone else learns nothing; a bad decision or a delay cannot be decided', async () => {
         const def = approvalDef({ approvers: ['boss'] });
         def.workflows.push(workflow('wait', [{ id: 'w', use: 'delay', with: { for: '1h' } }]));
         const { inst } = setup([def]);
         await inst.initialize();
         const delayed = await inst.events.WF_WAIT.handler({});
-        expect((await request(app(inst, 'boss')).post(`/api/integrations/int1/runs/${delayed.id}/decision`).send({ decision: 'approve' })).status).toBe(409);
+        expect((await request(app(inst, 'u1')).post(`/api/integrations/int1/runs/${delayed.id}/decision`).send({ decision: 'approve' })).status).toBe(409);
+        expect((await request(app(inst, 'boss')).post(`/api/integrations/int1/runs/${delayed.id}/decision`).send({ decision: 'approve' })).status).toBe(404);   // not named on the delay
         const paused = await inst.events.WF_GATE.handler({});
-        expect((await request(app(inst, 'u1')).post(`/api/integrations/int1/runs/${paused.id}/decision`).send({ decision: 'approve' })).status).toBe(403);
+        expect((await request(app(inst, 'u1')).post(`/api/integrations/int1/runs/${paused.id}/decision`).send({ decision: 'approve' })).status).toBe(403);   // the owner, but not named
+        const stranger = await request(app(inst, 'mallory')).post(`/api/integrations/int1/runs/${paused.id}/decision`).send({ decision: 'approve' });
+        expect(stranger.status).toBe(404);
+        expect(stranger.body.code).toBe('NOT_FOUND');
+        expect((await request(app(inst, 'mallory')).post(`/api/integrations/nope/runs/${paused.id}/decision`).send({ decision: 'approve' })).status).toBe(404);
         expect((await request(app(inst, 'boss')).post(`/api/integrations/int1/runs/${paused.id}/decision`).send({ decision: 'maybe' })).status).toBe(400);
         expect((await request(app(inst, 'boss')).post(`/api/integrations/int1/runs/${paused.id}/decision`).send({ decision: 'approve' })).status).toBe(202);
+        expect(inst.queue).toEqual([expect.objectContaining({ resume: paused.id, decision: 'approved', by: 'boss' })]);
+        expect(inst.queue).toHaveLength(1);
     });
 });
 

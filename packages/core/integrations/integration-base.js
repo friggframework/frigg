@@ -104,6 +104,14 @@ class IntegrationBase {
         return this.Definition.name;
     }
 
+    /**
+     * The deployed integration whose queue and functions this one runs on: itself, unless another class hosts it
+     * (`static Host`, e.g. a published integration definition run by the shared runtime).
+     */
+    static getDeploymentName() {
+        return (this.Host || this).Definition.name;
+    }
+
     static getCurrentVersion() {
         return this.Definition.version;
     }
@@ -585,7 +593,7 @@ class IntegrationBase {
     /** The queue a schedule fires into: this integration's queue (`<NAME>_QUEUE_URL`). */
     scheduleQueueUrl() {
         if (typeof this.getQueueUrl === 'function') return this.getQueueUrl();
-        return process.env[`${this.constructor.Definition.name.toUpperCase().replace(/-/g, '_')}_QUEUE_URL`];
+        return process.env[`${this.constructor.getDeploymentName().toUpperCase().replace(/-/g, '_')}_QUEUE_URL`];
     }
 
     async getConfigOptions() {
@@ -684,7 +692,7 @@ class IntegrationBase {
     async queueWebhook(data) {
         const { QueuerUtil } = require('../queues');
 
-        const queueName = `${this.constructor.Definition.name
+        const queueName = `${this.constructor.getDeploymentName()
             .toUpperCase()
             .replace(/-/g, '_')}_QUEUE_URL`;
         const queueUrl = process.env[queueName];

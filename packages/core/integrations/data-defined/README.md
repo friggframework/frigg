@@ -57,9 +57,19 @@ installation (Integration.config)         ─┘                          │
 
 ## How it plugs into Frigg
 
+- **One kind of integration**: every published definition is an integration type named by its id. The shared class
+  is a *provider* (`static IntegrationProvider`, see `../integration-types.js`): wherever Frigg turns `config.type`
+  into a class (create, get, update, delete, the queue worker, `GET /api/integrations` options), a published id
+  resolves to a class of its own, with its own name, label and modules. Registered code classes win over a
+  definition with the same name. What is shared is the deployment underneath: published types queue and schedule on
+  the provider's queue (`IntegrationBase.getDeploymentName()`), and their webhooks reach the provider's function.
+  Logs, telemetry, schedule job ids and installation webhook URLs carry each integration's own name.
 - **Hydration**: Frigg's use cases call `initialize()` on every hydrated integration; the class loads its pinned
   definition there.
-- **Webhooks**: install steps register `$.install.webhookUrls.<key>` (the URL names the module). The manifest's
+- **Webhooks**: install steps register `$.install.webhookUrls.<key>` (the URL names the module). An installation's
+  webhooks arrive at its own type's URL (`/api/<id>-integration/webhooks/<integrationId>`), which the provider's
+  webhook function also serves (devtools adds `/api/{integrationType}/webhooks[/{integrationId}]` to it; literal
+  routes of registered integrations win). App-level webhooks use the provider's URL, one per vendor app. The manifest's
   `webhook` block (`webhooks.js`) splits batches and reads each event's topic, id and account; `verify` must return
   true; handshakes are answered at receipt. App-level webhooks (`webhook.scope: "app"`, one URL per provider app)
   are fanned out to the installations connected to each account.
@@ -84,13 +94,20 @@ const DataDefined = defineSharedIntegrationClass({ definitions: createDefinition
 
 | Route | Auth | |
 |---|---|---|
-| `POST /api/admin/data-defined/definitions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
-| `GET /api/admin/data-defined/definitions/:id` | admin key | Version history |
-| `POST /api/admin/data-defined/definitions/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
-| `GET /api/data-defined/definitions` | user | What can be installed |
-| `POST /api/integrations` with `config: { type, definition: { id } }` | user | Install; pins the latest published version and its checksum |
+| `POST /api/admin/integrations/versions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
+| `GET /api/admin/integrations/:id/versions` | admin key | Version history |
+| `POST /api/admin/integrations/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
+| `GET /api/integrations` | user | What can be installed: code and published integrations in one list of options |
+| `GET /api/data-defined/definitions` | user | The published ones, with their counts |
+| `POST /api/integrations` with `config: { type: '<id>' }` | user | Install; pins the latest published version and its checksum (`{ type: 'data-defined', definition: { id } }` still works) |
 | `GET` / `POST /api/integrations/:id/upgrade` `{ to? }` | user | Plan / apply an upgrade (409 with the plan while something is needed) |
 | `GET /api/integrations/:id/runs` | user | Run history, newest first |
+| `GET /api/integrations/:id/syncs` | user | Each sync's backfill progress and poll marks |
+| `POST /api/integrations/:id/runs/:runId/decision` `{ decision, note? }` | user | Decide a paused approval. The approval step's `approvers` may decide without owning the installation; anyone else gets a 404 |
+
+The admin routes also answer at their older paths under `/api/admin/data-defined/definitions`. The installation
+routes answer for every integration, code included: one with no run history, syncs or other versions gets `[]`, or a
+plan that says there is nothing to move to, never a 404 for how it was made.
 
 Published versions cannot change. Publishing a document that is identical to a published one returns that row. A
 different document at the same version is refused. So is a version that is not newer than the latest, and so is a
