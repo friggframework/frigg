@@ -25,11 +25,11 @@ describe('both validation layers', () => {
     });
 
     it('the schema refuses what validate refuses, and each layer reports it under its own name', () => {
-        const def = JSON.parse(JSON.stringify(d.loadExamples().find((x) => x.id === 'quo-hubspot')));
+        const def = JSON.parse(JSON.stringify(d.loadExamples().find((x) => x.id === 'phone-hubspot')));
         def.syncs[0].mapping[0].transform = 'shout';
         const layers = checkDefinition(def, manifests).errors.map((e) => e.layer);
         expect(layers).toEqual(['schema', 'references']);
-        const ok = JSON.parse(JSON.stringify(d.loadExamples().find((x) => x.id === 'quo-hubspot')));
+        const ok = JSON.parse(JSON.stringify(d.loadExamples().find((x) => x.id === 'phone-hubspot')));
         ok.syncs[0].mapping.push({ target: 'source', value: 'hubspot', direction: 'to_target' });
         expect(checkDefinition(ok, manifests).valid).toBe(true);
     });
@@ -40,7 +40,7 @@ describe('both validation layers', () => {
     });
 
     it('the generated installation record matches the installation schema', () => {
-        const rec = JSON.parse(fs.readFileSync(path.join(__dirname, '../examples/records/quo-hubspot.integration.json'), 'utf8'));
+        const rec = JSON.parse(fs.readFileSync(path.join(__dirname, '../examples/records/phone-hubspot.integration.json'), 'utf8'));
         expect(failures(require('../schema-check').checkInstallation(rec.config))).toEqual([]);
     });
 });
@@ -52,7 +52,7 @@ describe('scripts/validate.js (the real CLI, as a child process)', () => {
     };
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dd-validate-'));
     const write = (name, doc) => { const f = path.join(tmp, name); fs.writeFileSync(f, typeof doc === 'string' ? doc : JSON.stringify(doc)); return f; };
-    const quo = () => JSON.parse(JSON.stringify(require('../examples/quo-hubspot.definition.json')));
+    const phone = () => JSON.parse(JSON.stringify(require('../examples/phone-hubspot.definition.json')));
 
     it('exits 0 on every bundled manifest and example', () => {
         const r = runCli();
@@ -61,14 +61,14 @@ describe('scripts/validate.js (the real CLI, as a child process)', () => {
     });
 
     it('exits 1 on an invalid definition and names the layer, path and reason', () => {
-        const bad = quo(); bad.workflows[0].steps[0].use = 'hubspot.nope.make';
+        const bad = phone(); bad.workflows[0].steps[0].use = 'hubspot.nope.make';
         const r = runCli(write('bad.json', bad));
         expect(r.code).toBe(1);
         expect(r.out).toMatch(/error\s+\[references\] workflows\[0\]\.steps\[0\]\.use: Module "hubspot" \(hubspot\) has no capability "nope\.make"/);
     });
 
     it('a warning passes, unless --strict', () => {
-        const w = quo(); w.templates.orphan = 'x';
+        const w = phone(); w.templates.orphan = 'x';
         const f = write('warn.json', w);
         expect(runCli(f).code).toBe(0);
         expect(runCli('--strict', f).code).toBe(1);

@@ -36,58 +36,58 @@ class HubspotSlack extends FakeBase {
     static getOptionDetails() { return { type: 'hubspot-slack-code', display: { name: 'Code one' } }; }
 }
 
-function host(docs = [example('quo-hubspot')], Base = FakeBase) {
-    return d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions(docs), manifests, modules: { quo: { getName: () => 'quo' }, hubspot: { getName: () => 'hubspot' } }, IntegrationBase: Base, runs: false });
+function host(docs = [example('phone-hubspot')], Base = FakeBase) {
+    return d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions(docs), manifests, modules: { phone: { getName: () => 'phone' }, hubspot: { getName: () => 'hubspot' } }, IntegrationBase: Base, runs: false });
 }
 
 describe('integration types', () => {
     it('a published definition resolves to its own class: its name, its label, the host underneath', async () => {
         const Host = host();
-        const Cls = await resolveIntegrationClass([HubspotSlack, Host], 'quo-hubspot');
-        expect(Cls.Definition).toMatchObject({ name: 'quo-hubspot', version: '1.4.0', display: { label: 'Quo ↔ HubSpot', category: 'CRM' } });
-        expect(Object.keys(Cls.Definition.modules)).toEqual(['quo', 'hubspot']);
+        const Cls = await resolveIntegrationClass([HubspotSlack, Host], 'phone-hubspot');
+        expect(Cls.Definition).toMatchObject({ name: 'phone-hubspot', version: '1.4.0', display: { label: 'Phone ↔ HubSpot', category: 'CRM' } });
+        expect(Object.keys(Cls.Definition.modules)).toEqual(['phone', 'hubspot']);
         expect(Cls.Host).toBe(Host);
         expect(Cls.getDeploymentName()).toBe('data-defined');
         expect(Cls.IntegrationProvider).toBeUndefined();
-        expect(await resolveIntegrationClass([HubspotSlack, Host], 'quo-hubspot')).toBe(Cls);   // one class per type
+        expect(await resolveIntegrationClass([HubspotSlack, Host], 'phone-hubspot')).toBe(Cls);   // one class per type
         expect(await resolveIntegrationClass([HubspotSlack, Host], 'hubspot-slack-code')).toBe(HubspotSlack);
         expect(await resolveIntegrationClass([HubspotSlack, Host], 'nothing-by-this-name')).toBeNull();
         expect(await resolveIntegrationClass([HubspotSlack, Host], 'data-defined')).toBe(Host);  // legacy installs keep working
     });
 
     it('code wins: a definition with a registered name never shadows the class', async () => {
-        const doc = { ...example('quo-hubspot'), id: 'hubspot-slack-code' };
+        const doc = { ...example('phone-hubspot'), id: 'hubspot-slack-code' };
         expect(await resolveIntegrationClass([HubspotSlack, host([doc])], 'hubspot-slack-code')).toBe(HubspotSlack);
         expect((await listIntegrationClasses([HubspotSlack, host([doc])])).map((c) => c.Definition.name)).toEqual(['hubspot-slack-code']);
     });
 
     it('a definition needing an app module this deployment lacks is not installable here', async () => {
-        const Host = host([example('quo-hubspot'), example('shopify-netsuite')]);
+        const Host = host([example('phone-hubspot'), example('shopify-netsuite')]);
         expect(await resolveIntegrationClass([Host], 'shopify-netsuite')).toBeNull();
-        expect((await listIntegrationClasses([Host])).map((c) => c.Definition.name)).toEqual(['quo-hubspot']);
+        expect((await listIntegrationClasses([Host])).map((c) => c.Definition.name)).toEqual(['phone-hubspot']);
     });
 
     it('GET /api/integrations options list code and published types the same way; the host itself is not one', async () => {
         const options = await new GetPossibleIntegrations({ integrationClasses: [HubspotSlack, host()] }).execute();
         expect(options).toEqual([
             { type: 'hubspot-slack-code', display: { name: 'Code one' } },
-            { type: 'quo-hubspot', hasUserConfig: true, isMany: false, requiresNewEntity: false, display: { name: 'Quo ↔ HubSpot', description: expect.any(String), detailsUrl: undefined, icon: undefined } },
+            { type: 'phone-hubspot', hasUserConfig: true, isMany: false, requiresNewEntity: false, display: { name: 'Phone ↔ HubSpot', description: expect.any(String), detailsUrl: undefined, icon: undefined } },
         ]);
     });
 });
 
 describe('installing by type', () => {
     it('{ type } pins the latest version at install, and keeps it when a newer one is published', async () => {
-        const v1 = example('quo-hubspot');
+        const v1 = example('phone-hubspot');
         const docs = [v1];
         const Host = host(docs);
-        const Cls = await resolveIntegrationClass([Host], 'quo-hubspot');
-        const inst = new Cls({ id: 'int9', config: { type: 'quo-hubspot', settings: { fromNumber: '+15125550100' } } });
-        inst.quo = { api: { createUnifiedWebhook: async () => ({ id: 'W1' }) } };
+        const Cls = await resolveIntegrationClass([Host], 'phone-hubspot');
+        const inst = new Cls({ id: 'int9', config: { type: 'phone-hubspot', settings: { fromNumber: '+15125550100' } } });
+        inst.phone = { api: { createUnifiedWebhook: async () => ({ id: 'W1' }) } };
         inst.hubspot = { api: {}, entity: { externalId: '1' } };
         await inst.initialize();
         await inst.onCreate({});
-        expect(inst.patches[0].definition).toEqual({ id: 'quo-hubspot', version: '1.4.0', checksum: expect.any(String) });
+        expect(inst.patches[0].definition).toEqual({ id: 'phone-hubspot', version: '1.4.0', checksum: expect.any(String) });
 
         docs.push({ ...JSON.parse(JSON.stringify(v1)), version: '1.5.0' });
         const later = new Cls({ id: 'int9', config: inst.config });
@@ -96,17 +96,17 @@ describe('installing by type', () => {
     });
 
     it('refuses an installation whose pin names another definition than its type', async () => {
-        const Cls = await resolveIntegrationClass([host([example('quo-hubspot'), example('github-linear')])], 'quo-hubspot');
-        await expect(new Cls({ id: 'x', config: { type: 'quo-hubspot', definition: { id: 'github-linear', version: '1.0.0' } } }).initialize()).rejects.toThrow('type is "quo-hubspot"');
+        const Cls = await resolveIntegrationClass([host([example('phone-hubspot'), example('github-linear')])], 'phone-hubspot');
+        await expect(new Cls({ id: 'x', config: { type: 'phone-hubspot', definition: { id: 'github-linear', version: '1.0.0' } } }).initialize()).rejects.toThrow('type is "phone-hubspot"');
     });
 
     it('webhooks: its own URL for its own webhooks; the shared URL for app-level ones', async () => {
-        const Cls = await resolveIntegrationClass([host()], 'quo-hubspot');
-        const inst = new Cls({ id: 'int9', config: { type: 'quo-hubspot', definition: { id: 'quo-hubspot', version: '1.4.0' } } });
+        const Cls = await resolveIntegrationClass([host()], 'phone-hubspot');
+        const inst = new Cls({ id: 'int9', config: { type: 'phone-hubspot', definition: { id: 'phone-hubspot', version: '1.4.0' } } });
         await inst.initialize();
         const { webhookUrl, webhookUrls } = inst.installation();
-        expect(webhookUrl).toBe('/api/quo-hubspot-integration/webhooks/int9');
-        expect(webhookUrls.quo).toBe('/api/quo-hubspot-integration/webhooks/int9?module=quo');
+        expect(webhookUrl).toBe('/api/phone-hubspot-integration/webhooks/int9');
+        expect(webhookUrls.phone).toBe('/api/phone-hubspot-integration/webhooks/int9?module=phone');
         expect(webhookUrls.hubspot).toBe('/api/data-defined-integration/webhooks?module=hubspot');   // HubSpot posts every account to one URL
     });
 });
@@ -117,13 +117,13 @@ describe('on the shared deployment', () => {
 
     it('queues and schedules on the host queue, while reporting its own name', async () => {
         process.env.DATA_DEFINED_QUEUE_URL = 'https://sqs/host-queue';
-        const Host = host([example('quo-hubspot')], IntegrationBase);
-        const Cls = await resolveIntegrationClass([Host], 'quo-hubspot');
+        const Host = host([example('phone-hubspot')], IntegrationBase);
+        const Cls = await resolveIntegrationClass([Host], 'phone-hubspot');
         expect(Cls.getDeploymentName()).toBe('data-defined');
         expect(IntegrationBase.getDeploymentName.call(HubspotSlack)).toBe('hubspot-slack-code');
-        const inst = new Cls({ id: 'int9', config: { type: 'quo-hubspot', definition: { id: 'quo-hubspot', version: '1.4.0' } } });
+        const inst = new Cls({ id: 'int9', config: { type: 'phone-hubspot', definition: { id: 'phone-hubspot', version: '1.4.0' } } });
         expect(inst.scheduleQueueUrl()).toBe('https://sqs/host-queue');
-        expect(inst.getTelemetryContext().integrationType).toBe('quo-hubspot');
+        expect(inst.getTelemetryContext().integrationType).toBe('phone-hubspot');
         const { QueuerUtil } = require('../../../queues');
         const send = jest.spyOn(QueuerUtil, 'send').mockResolvedValue('m1');
         await inst.queueWebhook({ event: 'ON_WEBHOOK', integrationId: 'int9' });
@@ -134,19 +134,19 @@ describe('on the shared deployment', () => {
     it('app-level webhooks fan out to installations of every type the host provides, and no others', async () => {
         const lookups = [];
         const Host = d.defineSharedIntegrationClass({
-            definitions: d.memoryDefinitions([example('quo-hubspot')]), manifests, modules: { quo: {}, hubspot: {} }, IntegrationBase: FakeBase, runs: false,
+            definitions: d.memoryDefinitions([example('phone-hubspot')]), manifests, modules: { phone: {}, hubspot: {} }, IntegrationBase: FakeBase, runs: false,
             lookup: async (account, moduleName) => { lookups.push([account, moduleName]); return ['a1']; },
         });
         const dry = new Host();
         await dry.initialize();
-        const out = await dry.onWebhook({ data: { body: [{ portalId: 1944396, objectId: 5, subscriptionType: 'contact.creation', eventId: 1 }], headers: {}, query: { module: 'hubspot' } } });
+        const out = await dry.onWebhook({ data: { body: [{ portalId: 12345678, objectId: 5, subscriptionType: 'contact.creation', eventId: 1 }], headers: {}, query: { module: 'hubspot' } } });
         expect(out).toEqual({ queued: 1 });
-        expect(lookups).toEqual([['1944396', 'hubspot']]);
+        expect(lookups).toEqual([['12345678', 'hubspot']]);
         // A dry instance of a published type (no installation yet) fans out too, rather than routing as if installed.
-        const Cls = await resolveIntegrationClass([Host], 'quo-hubspot');
+        const Cls = await resolveIntegrationClass([Host], 'phone-hubspot');
         const dryTyped = new Cls();
         await dryTyped.initialize();
-        expect(await dryTyped.onWebhook({ data: { body: [{ portalId: 1944396, objectId: 5, subscriptionType: 'contact.creation', eventId: 1 }], headers: {}, query: { module: 'hubspot' } } })).toEqual({ queued: 1 });
+        expect(await dryTyped.onWebhook({ data: { body: [{ portalId: 12345678, objectId: 5, subscriptionType: 'contact.creation', eventId: 1 }], headers: {}, query: { module: 'hubspot' } } })).toEqual({ queued: 1 });
     });
 });
 
@@ -174,10 +174,10 @@ describe('the same routes for every integration', () => {
         expect(decision.body.code).toBe('NOT_WAITING');
     });
 
-    it('publishing answers at /api/admin/integrations/versions, and nowhere else', async () => {
+    it('publishing answers at /admin/integrations/versions, and nowhere else', async () => {
         process.env.ADMIN_API_KEY = 'admin-key';
         const a = app(new HubspotSlack({ id: 'c1' }));
-        const r = await request(a).post('/api/admin/integrations/versions').set('x-frigg-admin-api-key', 'admin-key').send({ document: example('quo-hubspot') });
+        const r = await request(a).post('/admin/integrations/versions').set('x-frigg-admin-api-key', 'admin-key').send({ document: example('phone-hubspot') });
         expect(r.status).toBe(501);                             // bundled definitions: the route exists, there is no store
         expect(r.body.code).toBe('NO_STORE');
         expect((await request(a).post('/api/admin/data-defined/definitions').set('x-frigg-admin-api-key', 'admin-key').send({})).status).toBe(404);

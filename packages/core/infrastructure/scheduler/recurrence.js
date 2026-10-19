@@ -1,11 +1,12 @@
 /**
- * Recurrence: how often a recurring job fires, in a form no host owns.
+ * Recurrence: how often something repeats, in a form no host owns.
  *
- *   { every: '15m' }                               every 15 minutes ('30s' is refused: hosts tick in minutes)
+ *   { every: '15m' }                               every 15 minutes ('30s' is refused: ticks are whole minutes)
  *   { cron: '0 9 * * 1-5', timezone: 'America/New_York' }   standard five-field cron (minute hour dom month dow)
  *
- * Each scheduler adapter translates this into its host's syntax (EventBridge: rate(...) / cron(...) with six fields
- * and `?`). Keeping the neutral form here is what lets one definition, or one integration, run on any host.
+ * Recurring triggers (ADR-055, integrations/triggers.js) use it for the timing an installation may choose and for
+ * the floor a developer sets on that choice. Nothing here creates a host schedule: the tick asks `lastFiringIn`
+ * whether a cron fired since the previous tick, so a per-installation calendar needs no schedule of its own.
  *
  * Pure; no I/O.
  */
@@ -166,4 +167,38 @@ function recurrenceKey(r) {
     return r.every !== undefined ? `every:${parseEvery(r.every)}` : `cron:${String(r.cron).trim().split(/\s+/).join(' ')}@${r.timezone || 'UTC'}`;
 }
 
-module.exports = { parseEvery, parseCron, minGapMinutes, validateRecurrence, recurrenceKey, isTimeZone, matches };
+const wallClockFormats = new Map();
+/**
+ * The wall-clock time of an instant in a time zone, as a Date whose UTC fields hold that wall clock (what `matches`
+ * reads). Seconds are dropped.
+ */
+function wallClock(ms, timezone = 'UTC') {
+    if (timezone === 'UTC') return new Date(Math.floor(ms / 60000) * 60000);
+    let format = wallClockFormats.get(timezone);
+    if (!format) {
+        format = new Intl.DateTimeFormat('en-US', { timeZone: timezone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+        wallClockFormats.set(timezone, format);
+    }
+    const p = Object.fromEntries(format.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+    return new Date(Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour) % 24, Number(p.minute)));
+}
+
+/**
+ * The latest whole minute in (fromMs, toMs] at which a cron recurrence fires in its time zone, as epoch ms, or null.
+ *
+ * This is how one shared tick serves a calendar each installation chose: the tick asks whether the cron fired since
+ * the previous tick. It is stateless, so a tick that runs twice for the same slot gives the same answer (and the same
+ * `scheduledFor`, which is what a run dedupes on). Real instants are walked, so a wall-clock time a DST change skips
+ * does not fire that day, and one it repeats fires twice.
+ */
+function lastFiringIn(recurrence, fromMs, toMs) {
+    const parsed = parseCron(recurrence?.cron);
+    if (parsed.error) return null;
+    const tz = recurrence.timezone || 'UTC';
+    for (let t = Math.floor(toMs / 60000) * 60000; t > fromMs; t -= 60000) {
+        if (matches(parsed, wallClock(t, tz))) return t;
+    }
+    return null;
+}
+
+module.exports = { parseEvery, parseCron, minGapMinutes, validateRecurrence, recurrenceKey, isTimeZone, matches, wallClock, lastFiringIn };

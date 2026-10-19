@@ -67,6 +67,9 @@ function createDefinitionCatalog({ repository } = {}) {
     };
 }
 
+/** The one answer for an integration id that is not this workspace's, whether it is someone else's or does not exist. */
+const notInWorkspace = (id) => new DefinitionError(`No integration "${id}" in this workspace`, { status: 404, code: 'NOT_FOUND' });
+
 class PublishDefinitionVersion {
     /**
      * @param {{ repository, manifests: object, check?: (def, manifests) => { valid, errors, warnings } }} deps
@@ -91,7 +94,14 @@ class PublishDefinitionVersion {
         // takes the name of a code integration.
         if (this.isReserved(document.id)) throw new DefinitionError(`"${document.id}" is the name of an integration this app already has`, { status: 409, code: 'ID_TAKEN' });
         const versions = await this.repository.listVersions(document.id);
-        if (versions.some((v) => (v.workspaceId ?? null) !== (workspaceId ?? null))) throw new DefinitionError(`"${document.id}" is already used by another integration`, { status: 409, code: 'ID_TAKEN' });
+        const other = versions.find((v) => (v.workspaceId ?? null) !== (workspaceId ?? null));
+        if (other) {
+            // Another WORKSPACE's id must not be confirmed to this one: answer as a miss, exactly as reading it does
+            // (GetOwnDefinition; ADR-052 section 3: a foreign resource is a 404, so ids cannot be probed). The catalogue's
+            // ids are public (they are listed), and the admin is not a tenant, so those may say what is wrong.
+            if (workspaceId != null && other.workspaceId != null) throw notInWorkspace(document.id);
+            throw new DefinitionError(`"${document.id}" is already used by another integration`, { status: 409, code: 'ID_TAKEN' });
+        }
 
         const sum = checksum(document);
         const existing = await this.repository.findVersion(document.id, document.version);
@@ -195,7 +205,7 @@ class GetOwnDefinition {
     constructor({ repository }) { this.repository = repository; }
     async execute({ definitionId, workspaceId }) {
         const rows = newestFirst(await this.repository.listVersions(definitionId));
-        if (!rows.length || !workspaceId || rows[0].workspaceId !== String(workspaceId)) throw new DefinitionError(`No integration "${definitionId}" in this workspace`, { status: 404, code: 'NOT_FOUND' });
+        if (!rows.length || !workspaceId || rows[0].workspaceId !== String(workspaceId)) throw notInWorkspace(definitionId);
         return { id: definitionId, versions: rows.map(({ document, ...meta }) => meta), document: rows[0].document };
     }
 }

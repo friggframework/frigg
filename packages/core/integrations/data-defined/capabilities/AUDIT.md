@@ -8,7 +8,7 @@ Re-run it (no network, nothing instantiated):
 
 ```bash
 node packages/core/integrations/data-defined/scripts/check-manifests.js --stub-missing \
-  ~/quo--frigg/backend/src/api-modules ~/quo--frigg/backend/node_modules/@friggframework \
+  ~/phone-app/backend/src/api-modules ~/phone-app/backend/node_modules/@friggframework \
   ~/api-module-library/packages/v1-ready ~/api-module-library/packages/needs-updating
 ```
 
@@ -47,22 +47,22 @@ the Api's methods can be read. Roots are searched in order and the first module 
 | linear | ~/api-module-library/packages/v1-ready/linear | 9 | 0 | 0 | 0 | 9 |
 | netsuite | none found | 15 | - | - | - | - |
 | notion | none found | 6 | - | - | - | - |
-| pipedrive | ~/quo--frigg/backend/node_modules/@friggframework/api-module-pipedrive | 11 | 4 | 3 | 1 | 2 |
+| pipedrive | ~/phone-app/backend/node_modules/@friggframework/api-module-pipedrive | 11 | 4 | 3 | 1 | 2 |
 | quickbooks | none found | 14 | - | - | - | - |
-| quo | ~/quo--frigg/backend/src/api-modules/quo | 13 | 1 | 4 | 0 | 1 |
+| phone | ~/phone-app/backend/src/api-modules/phone | 13 | 1 | 4 | 0 | 1 |
 | salesforce | ~/api-module-library/packages/v1-ready/salesforce | 12 | 5 | 5 | 0 | 7 |
 | shopify | none found | 15 | - | - | - | - |
 | slack | ~/api-module-library/packages/needs-updating/slack | 7 | 2 | 1 | 0 | 1 |
 | stripe | ~/api-module-library/packages/v1-ready/stripe | 9 | 1 | 0 | 0 | 8 |
-| tidewater | none found | 13 | - | - | - | - |
+| acmeerp | none found | 13 | - | - | - | - |
 | webflow | none found | 5 | - | - | - | - |
 | zendesk | none found | 8 | - | - | - | - |
 
-Modules with no source to check against: calendly, docusign, github, jira, klaviyo, netsuite, notion, quickbooks, shopify, tidewater, webflow, zendesk. Their capabilities are still mock-shaped:
+Modules with no source to check against: calendly, docusign, github, jira, klaviyo, netsuite, notion, quickbooks, shopify, acmeerp, webflow, zendesk. Their capabilities are still mock-shaped:
 nothing in them is known to exist.
 
-Where a module has two candidates the first root given wins. Quo is checked against the deployed
-`quo--frigg/backend/src/api-modules/quo` (the Left Hook module: `createUnifiedWebhook`, `updateContact`). The library's `v1-ready/quo` 1.0.0 lacks `updateContact` and has `createCallWebhook` and friends
+Where a module has two candidates the first root given wins. Phone is checked against the deployed
+`phone-app/backend/src/api-modules/phone` (the app's own module: `createUnifiedWebhook`, `updateContact`). The library's `v1-ready/phone` 1.0.0 lacks `updateContact` and has `createCallWebhook` and friends
 instead of one webhook method. Pipedrive is checked against the built `@friggframework/api-module-pipedrive`
 2.1.0-next.7 (the library copy is TypeScript source with no `dist`).
 
@@ -265,7 +265,7 @@ Checked against `~/api-module-library/packages/v1-ready/linear` (@friggframework
 
 ## Pipedrive (`pipedrive`)
 
-Checked against `~/quo--frigg/backend/node_modules/@friggframework/api-module-pipedrive` (@friggframework/api-module-pipedrive manifest 2.1.0).
+Checked against `~/phone-app/backend/node_modules/@friggframework/api-module-pipedrive` (@friggframework/api-module-pipedrive manifest 2.1.0).
 
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|
@@ -304,9 +304,9 @@ Checked against `~/quo--frigg/backend/node_modules/@friggframework/api-module-pi
 | `account.list` | `listAccounts` | unverified |  |  |
 | `webhook.verify` | `verifyWebhookSignature` | unverified | |  |
 
-## Quo (`quo`)
+## Phone (`phone`)
 
-Checked against `~/quo--frigg/backend/src/api-modules/quo` (@lefthook/api-module-quo manifest 2.1.0).
+Checked against `~/phone-app/backend/src/api-modules/phone` (@acme/api-module-phone manifest 2.1.0).
 
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|
@@ -323,7 +323,7 @@ Checked against `~/quo--frigg/backend/src/api-modules/quo` (@lefthook/api-module
 | `user.list` | `listUsers` | ok | `listUsers(params = {})` |  |
 | `webhook.create` | `createUnifiedWebhook` | ok | `createUnifiedWebhook(data)` | (method was `createWebhook`) |
 | `webhook.delete` | `deleteWebhook` | ok | `deleteWebhook(id)` | (called with one object; now positional) |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The quo Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The phone Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
 
 ## Salesforce (`salesforce`)
 
@@ -400,9 +400,9 @@ Checked against `~/api-module-library/packages/v1-ready/stripe` (@friggframework
 | `balanceTransaction.list` | `getBalanceTransactions` | ok | `getBalanceTransactions(params)` | (method was `listBalanceTransactions`) |
 | `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The stripe Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
 
-## Tidewater (`tidewater`)
+## Acme ERP (`acmeerp`)
 
-**No module source available** (No directory named tidewater or api-module-tidewater). Nothing here is verified; the manifest is still a mock.
+**No module source available** (No directory named acmeerp or api-module-acmeerp). Nothing here is verified; the manifest is still a mock.
 
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|

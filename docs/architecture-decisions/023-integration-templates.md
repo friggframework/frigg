@@ -117,6 +117,14 @@ Two reasons a sufficiently rich Integration Extension does not solve the same pr
 - [CAPABILITIES](./020-capabilities.md): each template declares the capability set it promises; the adopter inherits and can extend
 - [AGENT-HARNESS](./025-agent-harness.md): the harness uses templates as the dominant scaffold path for new integration work
 
+## Amendment (ADR-063)
+
+[ADR-063](./063-integration-definitions-as-data.md) (Proposed) adds a second authoring form, the definition document, which is data and not a class. If it is accepted, this ADR is amended as follows:
+
+- **A template may ship as a definition document.** A template then is a published document, not only a base class plus a copied scaffold. The categories above still apply; a document-form template declares the capability set it promises in the same way.
+- **"Copy and own" means forking the document.** The adopter copies the template's document into their own definition id and version line, edits it, and publishes it from there. As with the ShadCN model above, there is no upstream dependency to bump: later template versions are compared and selectively re-copied. Forking the document does not fork the code it names. Step types, transforms and modules stay registered, versioned code that the app already has (ADR-063 §1, the allow-list rule).
+- **The class form is unchanged.** Everything above about `composeDefinition` and copied scaffolds still holds for code-defined integrations.
+
 ## Open questions
 
 1. **Re-copy vs upgrade.** When a template ships a new version, how does the adopter compare against their owned copy? `frigg add template ... --diff`? Lean: yes.

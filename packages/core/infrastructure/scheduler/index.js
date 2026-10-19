@@ -1,8 +1,7 @@
 /**
  * Scheduler Infrastructure
  *
- * Provides scheduling capabilities for one-time and recurring jobs. Recurrence is host-neutral (recurrence.js);
- * each adapter translates it.
+ * Provides scheduling capabilities for one-time jobs.
  * Follows hexagonal architecture with interface + adapters pattern.
  *
  * Providers:
@@ -10,8 +9,7 @@
  * - mock: In-memory mock scheduler (local development)
  */
 
-const { SchedulerServiceInterface, TICK, fillTick } = require('./scheduler-service-interface');
-const recurrence = require('./recurrence');
+const { SchedulerServiceInterface } = require('./scheduler-service-interface');
 const { EventBridgeSchedulerAdapter } = require('./eventbridge-scheduler-adapter');
 const { MockSchedulerAdapter } = require('./mock-scheduler-adapter');
 const {
@@ -23,9 +21,6 @@ const {
 module.exports = {
     // Interface (Port)
     SchedulerServiceInterface,
-    TICK,
-    fillTick,
-    ...recurrence,
 
     // Adapters
     EventBridgeSchedulerAdapter,

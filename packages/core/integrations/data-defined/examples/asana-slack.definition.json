@@ -82,7 +82,7 @@
           "id": "groups",
           "use": "code",
           "with": {
-            "ref": "@lefthook/asana-steps#groupByAssignee@1.0.0",
+            "ref": "@acme/asana-steps#groupByAssignee@1.0.0",
             "with": {
               "tasks": "$.steps.tasks"
             }

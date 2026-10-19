@@ -28,15 +28,15 @@ describe('args: how the Api method takes its arguments', () => {
     });
 
     it('a capability call reaches the Api positionally when the manifest says so', async () => {
-        const def = example('quo-hubspot');
+        const def = example('phone-hubspot');
         const seen = [];
         const ports = makePorts({ def, manifests, store: { get: async () => null, put: async () => {}, claim: async () => true }, callApi: async (module, method, args, order) => { seen.push([module, method, argumentsFor(args, order)]); return {}; } });
         await ports.call('hubspot', 'contact.update', { id: '9', properties: { firstname: 'Ada' } });
-        await ports.call('quo', 'contact.update', { id: 'CT1', defaultFields: { firstName: 'Ada' } });
+        await ports.call('phone', 'contact.update', { id: 'CT1', defaultFields: { firstName: 'Ada' } });
         await ports.call('hubspot', 'contact.list', { limit: 5 });
         expect(seen).toEqual([
             ['hubspot', 'updateContact', ['9', { firstname: 'Ada' }]],
-            ['quo', 'updateContact', ['CT1', { defaultFields: { firstName: 'Ada' } }]],
+            ['phone', 'updateContact', ['CT1', { defaultFields: { firstName: 'Ada' } }]],
             ['hubspot', 'listContacts', [{ limit: 5 }]],
         ]);
     });
@@ -95,14 +95,14 @@ describe('unimplemented capabilities are a warning in the definition, never an e
     const errorsOf = (def) => d.validate(def, manifests).errors;
 
     it('a step on an unimplemented capability warns, naming the capability and why', () => {
-        const def = example('quo-hubspot');
+        const def = example('phone-hubspot');
         def.workflows[0].steps.unshift({ id: 'find', use: 'hubspot.contact.search', with: { email: 'a@b.co' } });
         expect(errorsOf(def)).toEqual([]);
         expect(warningsOf(def).join('\n')).toMatch(/steps\[0\]\.use: hubspot\.contact\.search is unimplemented in the hubspot Api \(Api has no contact search/);
     });
 
     it('an implemented capability does not', () => {
-        const def = example('quo-hubspot');
+        const def = example('phone-hubspot');
         def.workflows[0].steps.unshift({ id: 'get', use: 'hubspot.contact.get', with: { id: '1' } });
         expect(warningsOf(def).filter((w) => w.includes('workflows[0].steps[0]'))).toEqual([]);
     });
@@ -116,16 +116,16 @@ describe('unimplemented capabilities are a warning in the definition, never an e
     });
 
     it('a trigger on a module whose webhook verification is unimplemented warns once per trigger', () => {
-        const def = example('quo-hubspot');
+        const def = example('phone-hubspot');
         const w = warningsOf(def).filter((x) => /fails signature verification|fail signature verification/.test(x));
         expect(w.length).toBeGreaterThan(0);
         expect(w[0]).toMatch(/verifyWebhookSignature method, so every delivery fails signature verification/);
         // A manifest that does verify has no such warning.
         const ok = clone(manifests);
-        delete ok.quo.webhook.status;
-        delete ok.quo.webhook.note;
-        const quoOnly = d.validate(def, ok).warnings.filter((x) => /signature verification/.test(x.message) && /quo/.test(x.message));
-        expect(quoOnly).toEqual([]);
+        delete ok.phone.webhook.status;
+        delete ok.phone.webhook.note;
+        const phoneOnly = d.validate(def, ok).warnings.filter((x) => /signature verification/.test(x.message) && /phone/.test(x.message));
+        expect(phoneOnly).toEqual([]);
     });
 
     it('every bundled manifest validates, and every unimplemented one says why', () => {

@@ -28,7 +28,7 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         return records.map((doc) => this._mapIntegration(doc));
     }
 
-    async findIntegrations({ type, status } = {}) {
+    async findIntegrations({ type, status, limit, after } = {}) {
         const filter = {};
         if (type) {
             filter['config.type'] = type;
@@ -36,7 +36,11 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
         if (status) {
             filter.status = status;
         }
-        const records = await findMany(this.prisma, 'Integration', filter);
+        if (limit && after !== undefined && after !== null) {
+            // Extended JSON: $runCommandRaw does not match a BSON ObjectId instance inside an operator.
+            filter._id = { $gt: { $oid: fromObjectId(toObjectId(after)) } };
+        }
+        const records = await findMany(this.prisma, 'Integration', filter, limit ? { sort: { _id: 1 }, limit, batchSize: limit } : {});
         return records.map((doc) => this._mapIntegration(doc));
     }
 
