@@ -1,3 +1,4 @@
+const { resolveIntegrationClass } = require('../integration-types');
 // Removed Integration wrapper - using IntegrationBase directly
 const { mapIntegrationClassToIntegrationDTO } = require('../utils/map-integration-dto');
 const Boom = require('@hapi/boom');
@@ -47,8 +48,9 @@ class GetIntegrationForUser {
             throw Boom.forbidden('User does not have access to this integration');
         }
 
-        const integrationClass = this.integrationClasses.find(
-            (integrationClass) => integrationClass.Definition.name === integrationRecord.config.type
+        const integrationClass = await resolveIntegrationClass(
+            this.integrationClasses,
+            integrationRecord.config.type
         );
 
         const modules = [];

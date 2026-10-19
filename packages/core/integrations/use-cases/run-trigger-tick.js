@@ -6,7 +6,8 @@
  * so the slot it falls in, and therefore every due decision and every `scheduledFor`, is the same if the same tick
  * is delivered twice or carried on by a continuation.
  *
- * 1. Page through the ENABLED installations of this integration, `pageSize` (500) at a time, by id.
+ * 1. Page through the ENABLED installations of this integration, `pageSize` (500) at a time, by id. A class that hosts
+ *    other installation types (`static triggerTypes()`, the shared runtime of published definitions) pages each.
  * 2. For each installation and trigger, resolve config, `when` and the cadence (integrations/triggers.js).
  * 3. Due: `every` when `slot mod n == hash(integrationId) mod n`; `cron` when it fired in (previous tick, this tick];
  *    `at` always (it is its own schedule).
@@ -27,7 +28,7 @@ const MAX_DELAY_SECONDS = 900;   // SQS DelaySeconds ceiling
 class RunTriggerTick {
     /**
      * @param {Object} deps
-     * @param {Function} deps.integrationClass - the IntegrationBase subclass (Definition.name, triggersFor)
+     * @param {Function} deps.integrationClass - the IntegrationBase subclass (Definition.name, triggersFor, optional triggerTypes)
      * @param {Object} deps.integrationRepository - findIntegrations({ type, status, limit, after })
      * @param {Object} deps.queue - { batchSend(entries, queueUrl, { delaySeconds }), send(message, queueUrl) }
      * @param {string} deps.queueUrl
@@ -48,7 +49,8 @@ class RunTriggerTick {
      * @param {string} [params.tick] - '5m': evaluate the every/cron triggers on this tick
      * @param {string} [params.at] - an `at` trigger's name: run it for every ENABLED installation
      * @param {string} [params.time] - the schedule's firing time (ISO); defaults to now
-     * @param {string|number} [params.cursor] - continue after this installation id
+     * @param {string|number|{type: string, after: string|number|null}} [params.cursor] - continue after this installation id
+     *        (in this type, when the class covers several)
      * @param {() => number} [params.remainingMs] - time left in this invocation
      * @returns {Promise<{ installations: number, sent: number, pages: number, continued: boolean, failed: Array }>}
      */
@@ -67,10 +69,25 @@ class RunTriggerTick {
         };
         const delayOf = (m) => (at ? 0 : hashId(`${m.data.integrationId}:${m.data.trigger}`) % Math.min(tickMinutes * 60, MAX_DELAY_SECONDS));
 
-        const out = { installations: 0, sent: 0, pages: 0, continued: false, failed: [] };
+        // The installation types this tick covers: the class's own, unless it hosts others (a shared runtime whose
+        // published definitions are integration types of their own; static triggerTypes). With more than one, the
+        // continuation cursor names the type it stopped in: `{ type, after }`.
+        const types = typeof this.Integration.triggerTypes === 'function' ? await this.Integration.triggerTypes() : [name];
+        let typeIndex = 0;
         let after = cursor;
+        if (cursor && typeof cursor === 'object') {
+            typeIndex = Math.max(0, types.indexOf(cursor.type));
+            after = cursor.after ?? null;
+        }
+        const cursorAt = (type, id) => (types.length > 1 ? { type, after: id } : id);
+        const continueAt = async (nextCursor) => {
+            await this.queue.send({ event: TRIGGER_TICK, data: { ...(at ? { at } : { tick }), time: new Date(timeMs).toISOString(), cursor: nextCursor } }, this.queueUrl);
+        };
+
+        const out = { installations: 0, sent: 0, pages: 0, continued: false, failed: [] };
         for (;;) {
-            const rows = await this.repository.findIntegrations({ type: name, status: 'ENABLED', limit: this.pageSize, after });
+            const type = types[typeIndex];
+            const rows = await this.repository.findIntegrations({ type, status: 'ENABLED', limit: this.pageSize, after });
             out.pages += 1;
             const messages = [];
             for (const row of rows) {
@@ -95,10 +112,16 @@ class RunTriggerTick {
                 await this.queue.batchSend(messages, this.queueUrl, { delaySeconds: delayOf });
                 out.sent += messages.length;
             }
-            if (rows.length < this.pageSize) return out;
-            after = rows[rows.length - 1].id;
+            if (rows.length < this.pageSize) {
+                // This type is done; carry on with the next one, from its start.
+                typeIndex += 1;
+                if (typeIndex >= types.length) return out;
+                after = null;
+            } else {
+                after = rows[rows.length - 1].id;
+            }
             if (remainingMs() < DEADLINE_MARGIN_MS) {
-                await this.queue.send({ event: TRIGGER_TICK, data: { ...(at ? { at } : { tick }), time: new Date(timeMs).toISOString(), cursor: after } }, this.queueUrl);
+                await continueAt(cursorAt(types[typeIndex], after));
                 out.continued = true;
                 return out;
             }

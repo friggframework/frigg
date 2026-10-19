@@ -115,6 +115,20 @@ describeLegs('data-defined persistence on %s', (_, url, loadClient, DefRepo, Run
         expect(history[0].document).toBeUndefined();
     });
 
+    it("keeps a workspace's own integration in that workspace: stored, listed to it alone, and its id is taken", async () => {
+        const own = { ...example('github-linear'), id: 'acme-github-linear', version: '1.0.0' };
+        const publish = (document, workspaceId) => new d.PublishDefinitionVersion({ repository: repo, manifests }).execute({ document, workspaceId });
+        expect((await publish(own, 'ws-acme')).version.workspaceId).toBe('ws-acme');
+        const catalog = d.createDefinitionCatalog({ repository: repo });
+        expect((await catalog.list({ workspaceId: 'ws-acme' })).map((x) => x.id)).toContain('acme-github-linear');
+        expect((await catalog.list({ workspaceId: 'ws-other' })).map((x) => x.id)).not.toContain('acme-github-linear');
+        expect(await catalog.ownerOf('acme-github-linear')).toBe('ws-acme');
+        expect(await catalog.ownerOf('phone-hubspot')).toBeNull();
+        await expect(publish({ ...own, version: '1.0.1' }, 'ws-other')).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' });   // not confirmed to another tenant
+        await expect(publish({ ...own, version: '1.0.1' }, null)).rejects.toMatchObject({ status: 409, code: 'ID_TAKEN' });         // the admin is not a tenant
+        await expect(publish({ ...example('phone-hubspot'), version: '9.0.0' }, 'ws-acme')).rejects.toMatchObject({ code: 'ID_TAKEN' });
+    });
+
     it('records workflow runs and lists them newest first, filtered and paged; old runs can be deleted', async () => {
         const base = { integrationId, definitionId: 'phone-hubspot', definitionVersion: '1.4.0', triggerType: 'webhook', trace: [{ id: 'contact', use: 'links.find', at: 'steps[0]', status: 'ok', ms: 3 }] };
         await runs.createRun({ ...base, workflowId: 'log-call', status: 'completed', eventId: 'e1', startedAt: '2026-10-18T10:00:00Z', endedAt: '2026-10-18T10:00:01Z' });

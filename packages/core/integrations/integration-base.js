@@ -109,6 +109,14 @@ class IntegrationBase {
         return this.Definition.name;
     }
 
+    /**
+     * The deployed integration whose queue and functions this one runs on: itself, unless another class hosts it
+     * (`static Host`, e.g. a published integration definition run by the shared runtime).
+     */
+    static getDeploymentName() {
+        return (this.Host || this).Definition.name;
+    }
+
     static getCurrentVersion() {
         return this.Definition.version;
     }
@@ -585,6 +593,12 @@ class IntegrationBase {
         return outcome;
     }
 
+    /** The queue a one-time scheduled job (a paused run's resume) fires into: this integration's deployment queue (`<NAME>_QUEUE_URL`). */
+    scheduleQueueUrl() {
+        if (typeof this.getQueueUrl === 'function') return this.getQueueUrl();
+        return process.env[`${this.constructor.getDeploymentName().toUpperCase().replace(/-/g, '_')}_QUEUE_URL`];
+    }
+
     /** A tick that ran out of time continues here, on a dry instance, from its page cursor. */
     async onTriggerTick({ data = {}, context } = {}) {
         const { runTriggerTick } = require('./use-cases/run-trigger-tick');
@@ -710,7 +724,7 @@ class IntegrationBase {
     async queueWebhook(data) {
         const { QueuerUtil } = require('../queues');
 
-        const queueName = `${this.constructor.Definition.name
+        const queueName = `${this.constructor.getDeploymentName()
             .toUpperCase()
             .replace(/-/g, '_')}_QUEUE_URL`;
         const queueUrl = process.env[queueName];

@@ -7,7 +7,7 @@
  */
 const { prisma } = require('../../../database/prisma');
 
-const FIELDS = ['definitionId', 'version', 'schemaVersion', 'status', 'checksum', 'document', 'changeLevel', 'previousVersion', 'notes', 'createdBy', 'publishedAt'];
+const FIELDS = ['definitionId', 'version', 'schemaVersion', 'status', 'checksum', 'document', 'changeLevel', 'previousVersion', 'notes', 'createdBy', 'workspaceId', 'publishedAt'];
 const pick = (o) => Object.fromEntries(FIELDS.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
 
 class DefinitionVersionRepositoryMongo {
@@ -27,7 +27,7 @@ class DefinitionVersionRepositoryMongo {
     async listByStatus(statuses) {
         const rows = await this.prisma.integrationDefinitionVersion.findMany({
             where: { status: { in: statuses } },
-            select: { id: true, definitionId: true, version: true, schemaVersion: true, status: true, checksum: true, changeLevel: true, publishedAt: true, createdAt: true },
+            select: { id: true, definitionId: true, version: true, schemaVersion: true, status: true, checksum: true, changeLevel: true, workspaceId: true, publishedAt: true, createdAt: true },
         });
         return rows.map((r) => this.toRow(r));
     }

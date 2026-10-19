@@ -360,6 +360,25 @@ class IntegrationBuilder extends InfrastructureBuilder {
                             method: 'POST',
                         },
                     },
+                    // A provider (the shared runtime for published integration definitions) also receives the
+                    // webhooks of every type it provides at that type's own URL. HTTP API cannot match part of a
+                    // segment, so the whole segment is a parameter; literal routes still win over it.
+                    ...(integration.IntegrationProvider
+                        ? [
+                              {
+                                  httpApi: {
+                                      path: '/api/{integrationType}/webhooks',
+                                      method: 'POST',
+                                  },
+                              },
+                              {
+                                  httpApi: {
+                                      path: '/api/{integrationType}/webhooks/{integrationId}',
+                                      method: 'POST',
+                                  },
+                              },
+                          ]
+                        : []),
                 ],
             };
             console.log(`      ✓ Webhook handler function defined`);

@@ -1,3 +1,4 @@
+const { resolveIntegrationClass } = require('../integration-types');
 const {
     mapIntegrationClassToIntegrationDTO,
 } = require('../utils/map-integration-dto');
@@ -41,10 +42,9 @@ class UpdateIntegration {
         }
 
         // 2. Get the correct Integration class by type
-        const integrationClass = this.integrationClasses.find(
-            (integrationClass) =>
-                integrationClass.Definition.name ===
-                integrationRecord.config.type
+        const integrationClass = await resolveIntegrationClass(
+            this.integrationClasses,
+            integrationRecord.config.type
         );
 
         if (!integrationClass) {

@@ -115,12 +115,12 @@ describe('one shared tick for every installation', () => {
         /** The tick over the installations' records, as the Lambda runs it (fake repository and queue). */
         const tickAt = async (installations, time) => {
             const sent = [];
-            const integrationRepository = { findIntegrations: async ({ status }) => installations.filter((i) => i.status === status).map((i) => ({ id: i.id, status: i.status, config: i.config })) };
+            const integrationRepository = { findIntegrations: async ({ type, status }) => installations.filter((i) => i.status === status && i.config.type === type).map((i) => ({ id: i.id, status: i.status, config: i.config })) };
             const queue = { batchSend: async (entries) => { sent.push(...entries); }, send: async () => {} };
             await new RunTriggerTick({ integrationClass: Cls, integrationRepository, queue, queueUrl: QUEUE_URL }).execute({ tick: '5m', time });
             return sent;
         };
-        return { Cls, install, tickAt };
+        return { Cls, install, tickAt, QUEUE_URL };
     };
     // The digest runs at 16:00 New York on weekdays: 20:00Z on Monday 2026-10-19 (EDT).
     const DUE = '2026-10-19T20:00:00Z';
@@ -188,6 +188,30 @@ describe('one shared tick for every installation', () => {
         expect(inst.config.workflows['due-tomorrow-digest'].schedule).toBeUndefined();
         expect(await tickAt([inst], '2026-10-19T19:00:00Z')).toEqual([expect.objectContaining({ data: expect.objectContaining({ trigger: DIGEST, scheduledFor: '2026-10-19T19:00:00.000Z' }) })]);
         expect(await tickAt([inst], DUE)).toEqual([]);
+    });
+
+    it('the shared tick also covers each published definition, an integration type of its own', async () => {
+        const { Cls, install, tickAt } = setup([digestDef()]);
+        expect(await Cls.triggerTypes()).toEqual(['data-defined', 'asana-slack']);
+        const pin = { definition: { id: 'asana-slack', version: digestDef().version } };
+        const hosted = install('int7', { type: 'asana-slack', ...pin }, 'ENABLED');
+        const legacy = install('int8', pin, 'ENABLED');   // { type: 'data-defined', definition } still works
+        const due = await tickAt([hosted, legacy], DUE);
+        expect(due.map((m) => [m.data.integrationId, m.data.trigger]).sort()).toEqual([['int7', DIGEST], ['int8', DIGEST]]);
+
+        // A tick that runs out of time hands on a cursor naming the type it stopped in, and the next one carries on there.
+        const rows = [legacy, hosted].map((i) => ({ id: i.id, status: i.status, config: i.config }));
+        const integrationRepository = { findIntegrations: async ({ type, after }) => rows.filter((r) => r.config.type === type && (after == null || r.id > after)) };
+        const handedOn = [];
+        const sent = [];
+        const queue = { batchSend: async (entries) => { sent.push(...entries); }, send: async (m) => { handedOn.push(m); } };
+        const tick = (cursor) => new RunTriggerTick({ integrationClass: Cls, integrationRepository, queue, queueUrl: 'https://sqs/q', pageSize: 1 }).execute({ tick: '5m', time: DUE, cursor, remainingMs: () => 0 });
+        await tick();
+        expect(handedOn.map((m) => m.data.cursor)).toEqual([{ type: 'data-defined', after: 'int8' }]);
+        await tick(handedOn[0].data.cursor);
+        expect(handedOn.map((m) => m.data.cursor)).toEqual([{ type: 'data-defined', after: 'int8' }, { type: 'asana-slack', after: null }]);
+        await tick(handedOn[1].data.cursor);
+        expect(sent.map((m) => m.data.integrationId)).toEqual(['int8', 'int7']);
     });
 
     it('a run delivered twice runs once: the trigger and its scheduled time are the dedupe id', async () => {

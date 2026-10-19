@@ -86,6 +86,20 @@ jest.mock('../app-definition-loader', () => {
         };
     }
 
+    // A provider: the shared runtime for published integration definitions.
+    class ProviderIntegration extends IntegrationBase {
+        static Definition = { name: 'runtime-host', version: '1.0.0', modules: {}, webhooks: { enabled: true } };
+        static IntegrationProvider = { resolve: async () => null, list: async () => [] };
+        constructor(params) {
+            super(params);
+            this.events = {
+                WEBHOOK_RECEIVED: {
+                    handler: async ({ req, res }) => res.status(200).json({ receivedBy: 'runtime-host', integrationId: req.params.integrationId ?? null, type: req.params.integrationType ?? null }),
+                },
+            };
+        }
+    }
+
     return {
         loadAppDefinition: () => ({
             integrations: [
@@ -93,6 +107,7 @@ jest.mock('../app-definition-loader', () => {
                 AdvancedWebhookIntegration,
                 LoggingWebhookIntegration,
                 NoWebhookIntegration,
+                ProviderIntegration,
             ],
         }),
     };
@@ -148,6 +163,37 @@ describe('Integration Webhook Routers', () => {
         it('should skip integrations with webhooks disabled', () => {
             // webhooks: false or missing should not create handlers
             expect(handlers['no-webhookWebhook']).toBeUndefined();
+        });
+    });
+
+    describe('types a provider offers', () => {
+        const post = (path) =>
+            handlers['runtime-hostWebhook'].handler(
+                {
+                    version: '2.0',
+                    routeKey: 'POST /api/{integrationType}/webhooks/{integrationId}',
+                    rawPath: path,
+                    rawQueryString: '',
+                    headers: { 'content-type': 'application/json' },
+                    requestContext: { http: { method: 'POST', path }, requestId: 'r' },
+                    body: '{}',
+                    isBase64Encoded: false,
+                },
+                { awsRequestId: 'req-provided' }
+            );
+
+        it("receives a provided type's webhooks at that type's own URL", async () => {
+            const withId = await post('/api/phone-hubspot-integration/webhooks/int-5');
+            expect(withId.statusCode).toBe(200);
+            expect(JSON.parse(withId.body)).toEqual({ receivedBy: 'runtime-host', integrationId: 'int-5', type: 'phone-hubspot-integration' });
+            const appLevel = await post('/api/phone-hubspot-integration/webhooks');
+            expect(JSON.parse(appLevel.body)).toMatchObject({ receivedBy: 'runtime-host', integrationId: null });
+        });
+
+        it('leaves registered integrations and other paths alone', async () => {
+            expect((await post('/api/webhook-enabled-integration/webhooks/int-5')).statusCode).toBe(404);
+            expect((await post('/api/users/webhooks/int-5')).statusCode).toBe(404);
+            expect(handlers['webhook-enabledWebhook']).toBeDefined();
         });
     });
 

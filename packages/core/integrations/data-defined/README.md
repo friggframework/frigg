@@ -57,9 +57,19 @@ installation (Integration.config)         ─┘                          │
 
 ## How it plugs into Frigg
 
+- **One kind of integration**: every published definition is an integration type named by its id. The shared class
+  is a *provider* (`static IntegrationProvider`, see `../integration-types.js`): wherever Frigg turns `config.type`
+  into a class (create, get, update, delete, the queue worker, `GET /api/integrations` options), a published id
+  resolves to a class of its own, with its own name, label and modules. Registered code classes win over a
+  definition with the same name. What is shared is the deployment underneath: published types queue and book one-time jobs
+  on the provider's queue (`IntegrationBase.getDeploymentName()`), their triggers run on the provider's tick, and their webhooks reach the provider's function.
+  Logs, telemetry, schedule job ids and installation webhook URLs carry each integration's own name.
 - **Hydration**: Frigg's use cases call `initialize()` on every hydrated integration; the class loads its pinned
   definition there.
-- **Webhooks**: install steps register `$.install.webhookUrls.<key>` (the URL names the module). The manifest's
+- **Webhooks**: install steps register `$.install.webhookUrls.<key>` (the URL names the module). An installation's
+  webhooks arrive at its own type's URL (`/api/<id>-integration/webhooks/<integrationId>`), which the provider's
+  webhook function also serves (devtools adds `/api/{integrationType}/webhooks[/{integrationId}]` to it; literal
+  routes of registered integrations win). App-level webhooks use the provider's URL, one per vendor app. The manifest's
   `webhook` block (`webhooks.js`) splits batches and reads each event's topic, id and account; `verify` must return
   true; handshakes are answered at receipt. App-level webhooks (`webhook.scope: "app"`, one URL per provider app)
   are fanned out to the installations connected to each account.
@@ -70,6 +80,25 @@ installation (Integration.config)         ─┘                          │
 `$.install` is the same everywhere a definition runs: integration settings, `webhookUrl`, `integrationId`,
 `runtime.installed`, and `accounts.<module key>.<field>` — values about the connected account that the module's
 manifest declares under `account` (`$.install.accounts.quickbooks.realmId`). Nothing undeclared is exposed.
+
+## Code integrations use the same runtime
+
+A hand-written `IntegrationBase` subclass can embed a definition and get everything a published integration has:
+workflows with delay and approval pauses, syncs, UI surfaces, the generated configure form, and run history.
+
+```js
+class PhoneReports extends IntegrationBase { static Definition = { name: 'phone-reports', modules, … }; async notifyTeam(args) { … } }
+module.exports = extendIntegrationClass(PhoneReports, { definition: require('./phone-reports.definition.json'), manifests });
+```
+
+- The class keeps its name, modules, routes, schedules, lifecycle and handlers; the definition's id must be its name.
+- A `code` step with `ref: "#notifyTeam"` calls that method on the integration (checked at class creation; a
+  published definition cannot use `#` refs).
+- What the definition does not declare stays the code's: with no webhook-triggered workflow or sync, the class's
+  own webhook handling runs; with no settings, its own configure form; its own schedules run beside the compiled ones.
+- Each queued event the class handles itself is recorded as a run (`triggerType: "code"`) in the same history as its
+  workflows (`IntegrationEventDispatcher.dispatchJob` → `runEvent`). The history never decides a handler's outcome.
+- The definition ships with the code, so installations run the deployed version; `upgrade` says so and moves nothing.
 
 ## Publishing, installing, upgrading
 
@@ -84,13 +113,31 @@ const DataDefined = defineSharedIntegrationClass({ definitions: createDefinition
 
 | Route | Auth | |
 |---|---|---|
-| `POST /admin/integrations/definitions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
-| `GET /admin/integrations/definitions/:id` | admin key | Version history |
-| `POST /admin/integrations/definitions/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
-| `GET /api/data-defined/definitions` | user | What can be installed |
-| `POST /api/integrations` with `config: { type, definition: { id } }` | user | Install; pins the latest published version and its checksum |
+| `POST /admin/integrations/versions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
+| `GET /admin/integrations/:id/versions` | admin key | Version history |
+| `POST /admin/integrations/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
+| `GET /api/integrations` | user | What can be installed: code and published integrations in one list of options |
+| `GET /api/data-defined/definitions` | user | The published ones, with their counts |
+| `POST /api/integrations` with `config: { type: '<id>' }` | user | Install; pins the latest published version and its checksum (`{ type: 'data-defined', definition: { id } }` still works) |
 | `GET` / `POST /api/integrations/:id/upgrade` `{ to? }` | user | Plan / apply an upgrade (409 with the plan while something is needed) |
 | `GET /api/integrations/:id/runs` | user | Run history, newest first |
+| `GET /api/integrations/:id/syncs` | user | Each sync's backfill progress and poll marks |
+| `POST /api/integrations/:id/runs/:runId/decision` `{ decision, note? }` | user | Decide a paused approval. The approval step's `approvers` may decide without owning the installation; anyone else gets a 404 |
+
+A signed-in user can also build their own: `POST /api/integration-definitions` `{ document, notes?, publish? }` publishes
+into their workspace (the user's Frigg id; `IntegrationDefinitionVersion.workspaceId`). It is then listed and
+installable for that workspace like any other integration (its install option carries `editable: true`, the cue for
+the editor views), and invisible to everyone else: not listed, not resolvable when they install, not readable.
+`GET /api/integration-definitions/:id` gives its owner every version, drafts included, and the newest document for
+the editor. An id has one owner. The app's catalogue's ids and a code integration's name are public, and refused with
+409 `ID_TAKEN`; an id owned by another workspace answers 404 `NOT_FOUND`, byte for byte what reading it answers, so one
+tenant cannot learn that another's id exists (ADR-052 section 3). (The admin route, which is not a tenant, still gets 409.)
+A published definition whose name matches a registered code integration is ignored (code wins); that is logged once per
+process as `frigg.integrations.definition.shadowed_by_code`. PostgreSQL migration `20261019120000_definition_workspace`.
+
+The installation
+routes answer for every integration, code included: one with no run history, syncs or other versions gets `[]`, or a
+plan that says there is nothing to move to, never a 404 for how it was made.
 
 Published versions cannot change. Publishing a document that is identical to a published one returns that row. A
 different document at the same version is refused. So is a version that is not newer than the latest, and so is a
