@@ -51,7 +51,8 @@ function diff(from, to) {
         if (o.direction !== s.direction) push('major', `syncs.${id}.direction`, 'Sync direction changed');
         if (!same(o.identity, s.identity)) push('major', `syncs.${id}.identity`, 'Identity keys changed: existing links must be rebuilt');
         if (!same(o.mapping, s.mapping)) push('patch', `syncs.${id}.mapping`, 'Default mapping changed (installations with their own mapping keep it)');
-        if (!same(o.ongoing, s.ongoing) || !same(o.backfill, s.backfill) || o.filter !== s.filter) push('minor', `syncs.${id}`, 'Sync schedule or filter changed');
+        if (o.ongoing?.configurable && !s.ongoing?.configurable) push('major', `syncs.${id}.ongoing.configurable`, 'Poll interval no longer configurable: installations lose their chosen interval');
+        else if (!same(o.ongoing, s.ongoing) || !same(o.backfill, s.backfill) || o.filter !== s.filter) push('minor', `syncs.${id}`, 'Sync schedule or filter changed');
     }
 
     const la = byId(from.links), lb = byId(to.links);
@@ -70,6 +71,7 @@ function diff(from, to) {
         const o = wa[id];
         if (!o) { push('minor', `workflows.${id}`, `New workflow (default ${w.default || 'on'})`); continue; }
         if (o.trigger?.type !== w.trigger?.type || o.trigger?.module !== w.trigger?.module) push('major', `workflows.${id}.trigger`, 'Trigger source changed');
+        else if (o.trigger?.configurable && !w.trigger?.configurable) push('major', `workflows.${id}.trigger.configurable`, 'Schedule no longer configurable: installations lose their chosen timing');
         else if (!same(o.trigger, w.trigger)) push('minor', `workflows.${id}.trigger`, 'Trigger topic, schedule or filter changed');
         diffSettings(o.settings, w.settings, `workflows.${id}.settings`, push);
         if (!same(o.steps, w.steps)) push('patch', `workflows.${id}.steps`, 'Steps changed');
@@ -152,6 +154,16 @@ function planUpgrade(installation, from, to) {
     const la = byId(from.links), lb = byId(to.links);
     for (const l of to.links || []) if (la[l.id] && !same(la[l.id].identity, l.identity)) actions.push({ kind: 'reindex', id: l.id, message: `${l.label || l.id}: links by id still resolve; lookups by the new identity keys miss until each pair is linked again` });
     for (const id of Object.keys(la)) if (!lb[id]) actions.push({ kind: 'drop-links', id, message: `Link set "${la[id].label || id}" is gone; its stored links are no longer read` });
+    // An installation's own timing survives an upgrade only where the new version still allows it.
+    const keepTiming = (chosen, allowed, path, label) => {
+        if (!chosen?.schedule) return;
+        const problems = !allowed ? ['not configurable'] : validateRecurrence(recurrenceOf(chosen.schedule), { min: allowed === true ? undefined : allowed.min });
+        if (!problems.length) return;
+        delete chosen.schedule;
+        actions.push({ kind: 'reschedule', id: path, message: `${label}: back to the definition's schedule (${problems.join('; ')})` });
+    };
+    for (const w of to.workflows || []) if (w.trigger?.type === 'schedule') keepTiming(config.workflows?.[w.id], w.trigger.configurable, `workflows.${w.id}`, w.label || w.id);
+    for (const sy of to.syncs || []) keepTiming(config.syncs?.[sy.id], sy.ongoing?.mode === 'poll' && sy.ongoing.configurable, `syncs.${sy.id}`, sy.label || sy.id);
     if (!same(from.lifecycle?.onInstall, to.lifecycle?.onInstall)) actions.push({ kind: 'reinstall', message: 'Re-run install steps (webhook subscriptions)' });
     actions.push({ kind: 'drain', message: `Messages already queued under ${from.version} finish on ${from.version}; new events run on ${to.version}` });
 
@@ -159,3 +171,6 @@ function planUpgrade(installation, from, to) {
 }
 
 module.exports = { diff, checkBump, planUpgrade, bumpOf };
+
+const { validateRecurrence } = require('../../infrastructure/scheduler/recurrence');
+const { recurrenceOf } = require('../triggers');

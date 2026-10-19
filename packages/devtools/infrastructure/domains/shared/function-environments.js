@@ -1,3 +1,5 @@
+const { hasTriggers } = require('@friggframework/core/integrations/triggers');
+
 /**
  * Per-function environment scoping (ADR-027)
  *
@@ -47,7 +49,8 @@ function applyFunctionEnvironments(functions, functionEnvironments = {}) {
 /**
  * Function names the integration builder creates for one integration.
  * Wire contract: must stay in sync with
- * IntegrationBuilder.createFunctionDefinitions — a drift here surfaces as a
+ * IntegrationBuilder.createFunctionDefinitions (and TriggerBuilder for
+ * `${name}Triggers`) — a drift here surfaces as a
  * hard unknown-function error at compose time, not a silent var drop.
  *
  * @param {Object} integration - entry from appDefinition.integrations
@@ -60,6 +63,11 @@ function getIntegrationFunctionNames(integration) {
     const webhooks = integration.Definition.webhooks;
     if (webhooks === true || webhooks?.enabled === true) {
         names.splice(1, 0, `${name}Webhook`);
+    }
+
+    // TriggerBuilder (ADR-055): the tick function, which sends trigger runs to this integration's queue.
+    if (hasTriggers(integration)) {
+        names.push(`${name}Triggers`);
     }
 
     for (const [bindingKey, binding] of Object.entries(

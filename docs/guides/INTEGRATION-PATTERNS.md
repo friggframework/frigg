@@ -324,7 +324,7 @@ Define event handlers in your integration class to handle different types of ope
 | Type | Purpose | Trigger |
 |------|---------|---------|
 | `USER_ACTION` | User-initiated operations | UI button click |
-| `CRON` | Scheduled operations | CloudWatch Events |
+| Trigger (`Definition.triggers`) | Recurring operations | The integration's trigger tick (ADR-055) |
 | `QUEUE` | Queue-triggered handlers | SQS messages |
 | `WEBHOOK` | External webhook events | HTTP POST from external service |
 
@@ -335,6 +335,11 @@ class MyIntegration extends IntegrationBase {
     static Definition = {
         name: 'my-integration',
         version: '1.0.0',
+        // Recurring work is a trigger, not a CRON event: one tick per integration fans out to
+        // the ENABLED installations that are due (ADR-055). The handler is a method name.
+        triggers: {
+            ONGOING_SYNC: { every: '15m', handler: 'startOngoingSync' },
+        },
         // ... other definition properties
     };
 
@@ -348,13 +353,6 @@ class MyIntegration extends IntegrationBase {
                 handler: this.startInitialSync.bind(this),
                 title: 'Start Initial Sync',
                 description: 'Sync all records from source to destination'
-            },
-
-            // Cron-triggered ongoing sync
-            ONGOING_SYNC: {
-                type: 'CRON',
-                handler: this.startOngoingSync.bind(this),
-                schedule: 'rate(15 minutes)'
             },
 
             // Queue handlers
@@ -678,6 +676,10 @@ class MyIntegration extends IntegrationBase {
             destination: { definition: DestinationApiDefinition }
         },
 
+        triggers: {
+            ONGOING_SYNC: { every: '15m', handler: 'startOngoingSync' }
+        },
+
         events: [
             'SYNC_STARTED',
             'SYNC_COMPLETED',
@@ -714,10 +716,6 @@ class MyIntegration extends IntegrationBase {
                 handler: this.startInitialSync.bind(this),
                 title: 'Initial Sync',
                 description: 'Sync all data from source to destination'
-            },
-            ONGOING_SYNC: {
-                type: 'CRON',
-                handler: this.startOngoingSync.bind(this)
             },
             FETCH_PAGE: {
                 handler: this.fetchPageHandler.bind(this)

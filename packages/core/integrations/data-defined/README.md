@@ -25,7 +25,7 @@ installation (Integration.config)         ─┘                          │
 | `steps.js`, `interpreter.js`, `transforms.js` | The step catalogue and the interpreter |
 | `validate.js` | Structure + cross-references against the manifests (steps, templates, views, settings, `$.install`) |
 | `manifests.js` | `validateManifest`: the manifests themselves (kinds, option lists, account fields) |
-| `compile.js` | Definition + installation → events, webhook routes, schedules, user actions |
+| `compile.js` | Definition + installation → events, webhook routes, recurring triggers, user actions |
 | `runtime.js` | Ports (Api calls, link store), `runWorkflow`, `runQuery`, `renderSurface`, `runLifecycle`, `resolveOptions`, `installContext` |
 | `versioning.js` | `diff`, `checkBump`, `planUpgrade` |
 | `data-defined-integration.js` | `defineIntegrationClass`: the IntegrationBase subclass that runs it all |
@@ -96,6 +96,24 @@ different document at the same version is refused. So is a version that is not n
 semver bump smaller than the changes. Publishing goes through a conditional write, so two concurrent publishes of one
 version cannot both win. With `memoryDefinitions()` (definitions bundled in the app) the admin routes answer 501.
 
+## Schedules
+
+A schedule-triggered workflow or a polling sync is a recurring trigger (ADR-055), the same mechanism hand-written
+integrations declare as `Definition.triggers` (ADR-063 §15a). Nothing is scheduled per installation: the class
+declares `instanceTriggers: { tick: '5m' }`, so devtools provisions one tick function for it, and each tick compiles
+every ENABLED installation's pinned definition with its config and queues the runs that are due. Mark one
+`configurable` to let installations pick their own timing, optionally with a floor:
+
+```json
+"trigger": { "type": "schedule", "cron": "0 16 * * 1-5", "timezone": "America/New_York", "configurable": { "min": "1h" } }
+"ongoing": { "mode": "poll", "every": "15m", "configurable": true }
+```
+
+The choice goes in `workflows.<id>.schedule` / `syncs.<id>.schedule` (the configure form offers the field). An
+interval runs on whole multiples of the 5-minute tick; a cron runs on the first tick after it fires. Create, update,
+upgrade and delete need no scheduler call: the next tick reads the new state. A run is deduped on
+`tick:<event>:<scheduledFor>`, so a redelivered run happens once.
+
 ## Steps (v0.1)
 
 Built-ins: `links.find`, `links.upsert`, `map`, `merge`, `template`, `set`, `stop`, `foreach` (≤1000), `branch`, `code`.
@@ -164,6 +182,4 @@ CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's
   the existing `SYNC_PAGE` pattern. `runSync` throws until then.
 - `delay` / wait steps, approvals that pause a run, and per-tenant rate limits.
 - The host renderers (the HubSpot app extension and Phone panel that draw `renderSurface` output).
-- Registering `compiled.schedules` as recurring schedules (Frigg's scheduler commands are one-time jobs). They compile
-  today; nothing creates them yet.
 - Rebuilding `link:` / `idx:` rows after an identity change; `planUpgrade` reports it as `relink` / `reindex`.

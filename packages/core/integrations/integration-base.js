@@ -22,6 +22,7 @@ const { getTelemetry } = require('../telemetry/telemetry-runtime');
 const { instrumentHandler } = require('../telemetry/instrument-handler');
 const { bindTelemetryContext } = require('../telemetry/bind-telemetry-context');
 const { getLogger } = require('../logs');
+const { TRIGGER_RUN, TRIGGER_TICK, resolveTrigger } = require('./triggers');
 
 const constantsToBeMigrated = {
     defaultEvents: {
@@ -35,6 +36,8 @@ const constantsToBeMigrated = {
         REFRESH_USER_ACTION_OPTIONS: 'REFRESH_USER_ACTION_OPTIONS',
         WEBHOOK_RECEIVED: 'WEBHOOK_RECEIVED', // HTTP handler, no DB
         ON_WEBHOOK: 'ON_WEBHOOK', // Queue worker, DB-connected
+        [TRIGGER_RUN]: TRIGGER_RUN, // Queue worker: one recurring trigger run (ADR-055)
+        [TRIGGER_TICK]: TRIGGER_TICK, // Queue worker: a trigger tick carrying on from its page cursor
         // etc...
     },
     types: {
@@ -91,6 +94,9 @@ class IntegrationBase {
         extensions: {},
         // usage: { canonical: ['records.synced'], custom: { 'deals.enriched': { unit, label } } }
         usage: {},
+        // Recurring triggers (ADR-055) — see integrations/triggers.js
+        // Shape: { [name]: { every | at | cron, timezone?, tick?, when?, overlap?, configurable?, handler } }
+        triggers: {},
         display: {
             name: 'Integration Name',
             logo: '',
@@ -170,6 +176,14 @@ class IntegrationBase {
             [constantsToBeMigrated.defaultEvents.ON_WEBHOOK]: {
                 type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
                 handler: this.onWebhook,
+            },
+            [TRIGGER_RUN]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.onTriggerRun,
+            },
+            [TRIGGER_TICK]: {
+                type: constantsToBeMigrated.types.LIFE_CYCLE_EVENT,
+                handler: this.onTriggerTick,
             },
         };
     }
@@ -522,9 +536,83 @@ class IntegrationBase {
         } else if (this.status === 'NEEDS_CONFIG') {
             await this.persistStatus('ENABLED');
         }
+        await this.reportTriggerChoices();
     }
 
     async onDelete(params) {}
+
+    /**
+     * The recurring triggers declared for one installation (ADR-055): `Definition.triggers`, each with its `name`.
+     * Static so the tick can read them from a record without hydrating the installation; a class whose triggers
+     * depend on the installation (data-defined integrations, `Definition.instanceTriggers`) overrides it.
+     * @param {{ config?: Object, record?: Object }} [installation]
+     * @returns {Promise<Array<Object>>}
+     */
+    static async triggersFor(installation = {}) {
+        return Object.entries(this.Definition?.triggers || {}).map(([name, t]) => ({ ...t, name }));
+    }
+
+    /** This installation's trigger declarations (the static `triggersFor`, unless a subclass knows better). */
+    async triggerDeclarations() {
+        return this.constructor.triggersFor({ config: this.config || {}, record: this.record });
+    }
+
+    /**
+     * Run one recurring trigger: the queue worker dispatches `FRIGG_TRIGGER_RUN` here with
+     * `{ integrationId, trigger, scheduledFor }` after hydrating the installation. The handler is called as
+     * `handler(payload, ctx)` with `payload = { trigger, scheduledFor }` and `ctx = { modules, config, log, integration }`
+     * (ADR-054); a string handler names a method on this instance. Overlap and the run record: use-cases/run-trigger.js.
+     */
+    async onTriggerRun({ data = {} } = {}) {
+        const declarations = await this.triggerDeclarations();
+        const declaration = declarations.find((t) => t.name === data.trigger);
+        const resolved = declaration ? resolveTrigger(declaration.name, declaration, this.config || {}) : null;
+        const payload = { trigger: data.trigger, scheduledFor: data.scheduledFor };
+        const invoke = async (p) => {
+            const handler = typeof declaration.handler === 'string' ? this[declaration.handler] : declaration.handler;
+            if (typeof handler !== 'function') throw new Error(`Trigger "${declaration.name}" handler "${declaration.handler}" is not a method of ${this.constructor.Definition?.name}`);
+            return handler.call(this, p, { modules: this.modules, config: this.config || {}, log: this.logger, integration: this });
+        };
+        const { RunTrigger } = require('./use-cases/run-trigger');
+        if (!this.triggerProcessRepository) {
+            const { createProcessRepository } = require('./repositories/process-repository-factory');
+            this.triggerProcessRepository = createProcessRepository();
+        }
+        const outcome = await new RunTrigger({ processRepository: this.triggerProcessRepository }).execute({ integration: this, resolved, invoke, payload });
+        if (outcome.status !== 'ran') {
+            this.logger.info('Trigger run not started', { eventName: `${this.logger.name}.trigger_${outcome.status}`, trigger: data.trigger, reason: outcome.reason });
+        }
+        return outcome;
+    }
+
+    /** A tick that ran out of time continues here, on a dry instance, from its page cursor. */
+    async onTriggerTick({ data = {}, context } = {}) {
+        const { runTriggerTick } = require('./use-cases/run-trigger-tick');
+        return runTriggerTick(this.constructor, data, context);
+    }
+
+    /**
+     * Report each trigger timing this installation chose that cannot be used (not configurable, or under the
+     * floor): the trigger keeps its default, and the integration gets a warning message saying why. No-op for an
+     * integration without triggers.
+     */
+    async reportTriggerChoices() {
+        if (this.id === undefined || this.id === null) return [];
+        try {
+            const declarations = await this.triggerDeclarations();
+            const problems = declarations
+                .map((t) => ({ name: t.name, problems: resolveTrigger(t.name, t, this.config || {}).problems }))
+                .filter((p) => p.problems.length);
+            for (const p of problems) {
+                await this.updateIntegrationMessages.execute(this.id, 'warnings', 'Trigger timing not changed', `${p.name}: ${p.problems.join('; ')}`, Date.now());
+            }
+            return problems;
+        } catch (error) {
+            // A report, never a reason to fail the update.
+            this.logger.warn('Trigger choices not checked', { eventName: `${this.logger.name}.trigger_choices_unchecked`, error });
+            return [];
+        }
+    }
 
     async getConfigOptions() {
         const options = {

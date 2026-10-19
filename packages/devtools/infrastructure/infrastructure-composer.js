@@ -17,6 +17,7 @@ const { SsmBuilder } = require('./domains/parameters/ssm-builder');
 const { WebsocketBuilder } = require('./domains/integration/websocket-builder');
 const { IntegrationBuilder } = require('./domains/integration/integration-builder');
 const { SchedulerBuilder } = require('./domains/scheduler/scheduler-builder');
+const { TriggerBuilder } = require('./domains/scheduler/trigger-builder');
 const { AdminScriptBuilder } = require('./domains/admin-scripts/admin-script-builder');
 
 // Utilities
@@ -92,6 +93,7 @@ const composeServerlessDefinition = async (AppDefinition) => {
         new WebsocketBuilder(),
         new IntegrationBuilder(),
         new SchedulerBuilder(), // Add scheduler after IntegrationBuilder (depends on it)
+        new TriggerBuilder(), // One trigger tick function per integration with triggers (ADR-055)
         new AdminScriptBuilder(),
     ]);
 

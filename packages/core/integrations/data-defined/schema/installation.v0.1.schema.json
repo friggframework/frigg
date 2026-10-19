@@ -40,6 +40,9 @@
           "mapping": {
             "type": "array",
             "description": "Full replacement mapping when the customer overrides the default."
+          },
+          "schedule": {
+            "$ref": "#/$defs/scheduleChoice"
           }
         }
       }
@@ -54,6 +57,9 @@
           },
           "settings": {
             "type": "object"
+          },
+          "schedule": {
+            "$ref": "#/$defs/scheduleChoice"
           }
         }
       }
@@ -78,6 +84,47 @@
           "type": "object"
         }
       }
+    }
+  },
+  "$defs": {
+    "scheduleChoice": {
+      "description": "The installation's timing for a schedule trigger or polling sync the definition marks configurable: every, or cron with an optional time zone. Honoured only within the definition's minimum; otherwise the definition's timing runs. The integration's shared trigger tick reads it (ADR-055); nothing is scheduled per installation.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "every": {
+          "type": "string",
+          "pattern": "^\\d+\\s*(m|h|d)$"
+        },
+        "cron": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "every"
+          ],
+          "not": {
+            "required": [
+              "cron"
+            ]
+          }
+        },
+        {
+          "required": [
+            "cron"
+          ],
+          "not": {
+            "required": [
+              "every"
+            ]
+          }
+        }
+      ]
     }
   }
 }
