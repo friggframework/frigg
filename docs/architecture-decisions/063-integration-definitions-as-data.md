@@ -1,6 +1,6 @@
 # ADR-063: Integration Definitions as Data
 
-**Status**: Accepted (2026-10-19). v0.1 implemented in `packages/core/integrations/data-defined/` (see Implementation)
+**Status**: Proposed. Direction set; v0.1 implemented in `packages/core/integrations/data-defined/` (see Implementation)
 **Date**: 2026-10-15
 **Deciders**: Sean Matthews
 
@@ -398,8 +398,8 @@ id, just not per version.
 caller or a log reader. Shape B's class is a *provider of integration types* (`static IntegrationProvider`,
 `integrations/integration-types.js`): wherever Frigg turns `config.type` into a class (the integration use cases,
 the queue worker, `GET /api/integrations` options), a published definition id resolves to a generated subclass named
-by that id, with the definition's label and modules. So an integration is installed with `{ type: 'quo-hubspot' }`,
-exactly as code is, and its logs, telemetry, schedule job ids and webhook URLs carry `quo-hubspot`. Registered code
+by that id, with the definition's label and modules. So an integration is installed with `{ type: 'phone-crm' }`,
+exactly as code is, and its logs, telemetry, schedule job ids and webhook URLs carry `phone-crm`. Registered code
 classes win over a definition with the same name. Only the deployment is shared: `IntegrationBase.getDeploymentName()`
 is the host's name for a generated class, so it queues and schedules on the host's queue; the host's webhook function
 also serves `/api/{integrationType}/webhooks[/{integrationId}]` (HTTP API cannot match part of a path segment, and
@@ -518,6 +518,10 @@ to move to, never a 404 for being code.
 | `POST /api/admin/integrations/versions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
 | `GET /api/admin/integrations/:id/versions` | admin key | Every version, without documents |
 | `POST /api/admin/integrations/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
+
+**Follow-up: these routes move to `/api/v2`.** The paths above are v0.1's. [ADR-053](./053-management-api-versioning.md) puts every new Management API resource under `/api/v2/`, and the route registry in #671 is how they get there. Moving them is a separate change, and the paths in this table will change with it.
+
+**What "workspace" means in this table.** The workspace routes (`/api/integration-definitions`) scope a definition to the authenticated user: the workspace id is `user.getId()`. That is a stand-in, not an ADR-056 owner and organization. Aligning it with ADR-056 (owner plus `organizationId`, `visible(context)`, binding scope) is the follow-up in §5.
 
 Installing needs no new route. `POST /api/integrations` with `config: { type: '<definition id>' }` pins the latest
 published version, and its checksum, in `onCreate`. An app that bundles its definitions (`memoryDefinitions`) has no store to
