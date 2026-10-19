@@ -99,7 +99,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
      * @param {string} [filter.status] - Integration status
      * @returns {Promise<Array>} Array of integration objects (possibly empty)
      */
-    async findIntegrations({ type, status } = {}) {
+    async findIntegrations({ type, status, limit, after } = {}) {
         const where = {};
         if (type) {
             where.config = { path: ['type'], equals: type };
@@ -107,12 +107,16 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         if (status) {
             where.status = status;
         }
+        if (limit && after !== undefined && after !== null) {
+            where.id = { gt: this._convertId(after) };
+        }
 
         const integrations = await this.prisma.integration.findMany({
             where,
             include: {
                 entities: true,
             },
+            ...(limit ? { orderBy: { id: 'asc' }, take: limit } : {}),
         });
 
         return integrations.map((integration) => {
