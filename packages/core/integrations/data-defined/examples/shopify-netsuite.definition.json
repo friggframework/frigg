@@ -206,7 +206,7 @@
           "id": "lines",
           "use": "code",
           "with": {
-            "ref": "@lefthook/commerce-steps#netsuiteItemLines@1.2.0",
+            "ref": "@acme/commerce-steps#netsuiteItemLines@1.2.0",
             "with": {
               "lineItems": "$.record.line_items",
               "shipping": "$.record.total_shipping_price_set.shop_money.amount",
@@ -408,7 +408,7 @@
           "id": "lines",
           "use": "code",
           "with": {
-            "ref": "@lefthook/commerce-steps#netsuiteRefundLines@1.2.0",
+            "ref": "@acme/commerce-steps#netsuiteRefundLines@1.2.0",
             "with": {
               "refundLineItems": "$.record.refund_line_items",
               "transactions": "$.record.transactions",

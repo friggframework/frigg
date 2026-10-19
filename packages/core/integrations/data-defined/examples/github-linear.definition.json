@@ -166,7 +166,7 @@
           "id": "ids",
           "use": "code",
           "with": {
-            "ref": "@lefthook/github-steps#linearIdentifiers@1.0.0",
+            "ref": "@acme/github-steps#linearIdentifiers@1.0.0",
             "with": {
               "branch": "$.record.head.ref",
               "title": "$.record.title",

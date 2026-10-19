@@ -6,19 +6,19 @@
   "version": "1.4.0",
   "entities": [
     {
-      "id": "ent_quo_51",
-      "moduleName": "quo",
+      "id": "ent_phone_51",
+      "moduleName": "phone",
       "externalId": "ws_9a1"
     },
     {
       "id": "ent_hs_88",
       "moduleName": "hubspot",
-      "externalId": "1944396"
+      "externalId": "12345678"
     }
   ],
   "config": {
     "definition": {
-      "id": "quo-hubspot",
+      "id": "phone-hubspot",
       "version": "1.4.0",
       "checksum": "sha256:386c69e18a51a7cf061634309eca3e8267c1a59629a388498eddaad9eb44be59"
     },
@@ -58,7 +58,7 @@
       }
     },
     "ui": {
-      "quo-card": {
+      "phone-card": {
         "enabled": true
       },
       "deals-panel": {
@@ -69,7 +69,7 @@
       "installed": {
         "hook": {
           "id": "WHk2c9",
-          "url": "https://api.example.com/api/data-defined-integration/webhooks/int_7f3a9c?module=quo",
+          "url": "https://api.example.com/api/data-defined-integration/webhooks/int_7f3a9c?module=phone",
           "events": [
             "call.completed",
             "call.ringing",

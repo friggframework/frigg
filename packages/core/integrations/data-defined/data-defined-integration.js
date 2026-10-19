@@ -5,7 +5,7 @@
  * registers one generated class per definition id:
  *
  *     const { defineIntegrationClass } = require('@friggframework/core/integrations/data-defined');
- *     integrations: [ defineIntegrationClass({ id: 'quo-hubspot', definitions, manifests, modules: { quo: QuoModule, hubspot: HubSpotModule } }) ]
+ *     integrations: [ defineIntegrationClass({ id: 'phone-hubspot', definitions, manifests, modules: { phone: PhoneModule, hubspot: HubSpotModule } }) ]
  *
  * The class's static Definition (name, modules) is what the infrastructure needs, and it is the same for every
  * version, so publishing a new version deploys nothing. Each installation loads the exact version it pins
@@ -29,7 +29,7 @@ const { buildConfigForm, missingRequired } = require('./config-form');
  * Shape B — one class for every definition (defineSharedIntegrationClass): registered once as "data-defined", its
  * static modules are every API module the app has installed, and each installation names its definition id and
  * version in config. A new integration is a row, not a deploy, and every installation shares one set of functions
- * and one queue. Right for The Integrator, where definitions accumulate without bound.
+ * and one queue. Right for a multi-tenant product, where definitions accumulate without bound.
  */
 function defineIntegrationClass({ id, definitions, manifests, modules, runCode, IntegrationBase, lookup, runs }) {
     const latest = definitions.latest(id);

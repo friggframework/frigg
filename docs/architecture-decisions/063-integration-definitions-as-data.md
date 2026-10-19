@@ -631,7 +631,7 @@ work kept apart from bulk work.
 | `delay`, approvals, per-module rate limits | Common in workflows; each needs durable state between steps | With step checkpointing |
 | Rebuilding links after an identity change | `planUpgrade` reports `relink` / `reindex`; nothing performs it | With the sync engine, which owns backfill |
 | Registering `compiled.schedules` | Schedule-triggered workflows and polling syncs compile to `CRON` events, but nothing creates the recurring schedule. Frigg's scheduler commands schedule one-time jobs, so recurring per-installation schedules need either an EventBridge schedule group per installation or one app-level tick that fans out | A design decision of its own |
-| Host renderers (HubSpot card, Quo panel) | `renderSurface` returns trees that nothing draws yet | Per host |
+| Host renderers (HubSpot card, Phone panel) | `renderSurface` returns trees that nothing draws yet | Per host |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |
 
 Their order is decided by a month of iteration on v0.1, not fixed here.
