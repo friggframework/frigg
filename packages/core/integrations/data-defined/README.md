@@ -83,9 +83,9 @@ const DataDefined = defineSharedIntegrationClass({ definitions: createDefinition
 
 | Route | Auth | |
 |---|---|---|
-| `POST /api/admin/data-defined/definitions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
-| `GET /api/admin/data-defined/definitions/:id` | admin key | Version history |
-| `POST /api/admin/data-defined/definitions/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
+| `POST /admin/integrations/definitions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
+| `GET /admin/integrations/definitions/:id` | admin key | Version history |
+| `POST /admin/integrations/definitions/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
 | `GET /api/data-defined/definitions` | user | What can be installed |
 | `POST /api/integrations` with `config: { type, definition: { id } }` | user | Install; pins the latest published version and its checksum |
 | `GET` / `POST /api/integrations/:id/upgrade` `{ to? }` | user | Plan / apply an upgrade (409 with the plan while something is needed) |
