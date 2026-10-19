@@ -144,7 +144,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 136 tests (the persistence suite runs against real PostgreSQL and
+`packages/core/integrations/data-defined/`, with 137 tests (the persistence suite runs against real PostgreSQL and
 MongoDB). It runs 16 example definitions (a phone-to-CRM definition is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
@@ -390,19 +390,19 @@ tables the runtime needs:
 | query `recent-activity` | `Q_RECENT_ACTIVITY` | `ROUTE` |
 | UI surface `phone-card` | `UI_PHONE_CARD`, rendered by `POST /api/integrations/:id/actions/UI_PHONE_CARD` | `ROUTE` |
 
-The other outputs are `webhooks` (module → topic → event names; a pattern may end in `.*`), `schedules` and
+The other outputs are `webhooks` (module → topic → event names; a pattern may end in `.*`), `triggers` (§15a) and
 `userActions`.
 
-**Both authoring forms compile to the same two things.** A code-defined integration builds `static Definition` and `this.events` in its class. A definition compiles to the same pair: the `Definition` the host reads for routes, queues and schedules, and the `this.events` map the dispatcher reads. Everything downstream (dispatcher, queue worker, scheduler, mapping repository) therefore cannot tell the forms apart.
+**Both authoring forms compile to the same two things.** A code-defined integration builds `static Definition` and `this.events` in its class. A definition compiles to the same pair: the `Definition` the host reads for routes, queues and triggers, and the `this.events` map the dispatcher reads. Everything downstream (dispatcher, queue worker, scheduler, mapping repository) therefore cannot tell the forms apart.
 
 **Where this should meet the one-file and trigger ADRs.** Three facts the compiled output depends on are described again here and should come from the module or the framework instead:
-- *Recurring work* is [ADR-055](./055-recurring-triggers.md)'s `Definition.triggers`, which ADR-055 governs for both forms. A later section (§15a, recurring schedules) will follow ADR-055.
+- *Recurring work* is [ADR-055](./055-recurring-triggers.md)'s `Definition.triggers`, which ADR-055 governs for both forms. §15a (recurring triggers) follows ADR-055.
 - *Module webhook facts* (how a delivery is verified, answered, split into events and attributed to an account) come from [ADR-054](./054-one-file-integrations.md) extension contract 2: `verify`, `handshake`, `receive`, `resolve`, and `emits` / `normalize`. The manifest's `webhook` block (§9) is v0.1's own description of the same facts. When contract 2 exists, the manifest should be derived from it, not kept as a second description of one module.
 - *Sync object access* (list, get, upsert, ids and modified-at paths) comes from ADR-054 §6's `objects` descriptor, and the `sync` blocks in §15b are the same kind of fact. They should be derived from `objects` when it exists.
 
 ADR-054 and ADR-055 are Proposed. This section records the intent, and does not depend on either being built.
 
-**Only enabled items are compiled.** A workflow the customer has off has no event, no route and no schedule. It
+**Only enabled items are compiled.** A workflow the customer has off has no event, no route and no trigger. It
 does not exist at runtime, so "disabled but still firing" cannot happen.
 
 ### 13. Two deployment shapes
@@ -492,7 +492,9 @@ whose account is its own.
   step 3 again. Idempotent capabilities (upserts, `links.find` before create) are the v0.1 answer.
 - Per-step checkpointing comes after v0.1.
 
-**A schedule fires.** `CRON` → `WF_STALE_CONTACTS`, with no event id, so there is no claim. Steps such as
+**A schedule fires.** The integration's trigger tick finds the installation due and queues `FRIGG_TRIGGER_RUN`,
+which runs `WF_STALE_CONTACTS` with the event id `tick:WF_STALE_CONTACTS:<scheduledFor>`, so a redelivered run is
+claimed once (§15a). Steps such as
 `hubspot.contact.search` followed by `foreach` run in the same interpreter.
 
 **A user clicks a button** in a UI surface. `USER_ACTION` → `WF_TEXT_FROM_CARD`, with the surface's record as
@@ -537,57 +539,61 @@ genuine (HubSpot signs its UI-extension requests) is the renderer's job, not Fri
 | Moment | What runs | Code |
 |---|---|---|
 | **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `phone.webhook.create` pointed at this installation's webhook URL. Every install step with an `id` has its result saved to `config.runtime.installed.<id>` with `patchConfig` | `onCreate` |
-| **Configure** | The customer toggles workflows, changes settings, overrides a mapping or, where the definition allows it, retimes a schedule. `onUpdate` merges config, then recompiles: enabling a workflow adds its event, routes and host schedule, and disabling removes them (§15a). No deploy, and no other installation is affected | `onUpdate` |
+| **Configure** | The customer toggles workflows, changes settings, overrides a mapping or, where the definition allows it, retimes a schedule. `onUpdate` merges config, then recompiles: enabling a workflow adds its event and routes, and disabling removes them. Its trigger needs nothing: the next tick reads the new config (§15a). No deploy, and no other installation is affected | `onUpdate` |
 | **Update** (new version) | Nothing happens to running installations. Each stays on its pin until it is moved, as in §17 | `planUpgrade` |
-| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`phone.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), deletes the installation's host schedules, then the framework removes the record | `onDelete` |
+| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`phone.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), then the framework removes the record. There is no schedule to delete: a deleted installation is simply not due at the next tick | `onDelete` |
 
 `$.install` is built by one function, `installContext`, everywhere a definition runs: workflows, queries, UI
 surfaces, lifecycle steps and option lists. It holds the integration settings with their defaults, `webhookUrl`,
 `integrationId`, `accounts` and `runtime.installed`. The first cut built it four ways, and the query and UI versions
 had no `runtime`, so a query reading an install result silently got nothing.
 
-### 15a. Recurring schedules, one per installation
+### 15a. Recurring triggers (ADR-055), with timing an installation may choose
 
-Schedule-triggered workflows and polling syncs run on a host schedule of their own, one per installation. Recurring
-jobs are not specific to data-defined integrations, so the mechanism is in core and a hand-written integration uses
-the same one (the crons that some integrations set by hand today, for example):
+Schedule-triggered workflows and polling syncs are ADR-055 recurring triggers. Nothing is scheduled per
+installation. Each integration with triggers gets one function, `{integration}Triggers`, with one schedule per
+distinct tick (and one per `at` trigger); at each tick it pages through the ENABLED installations and queues
+`{ event: 'FRIGG_TRIGGER_RUN', data: { integrationId, trigger, scheduledFor } }` for each one that is due. A disabled
+or deleted installation is not due, a config change or an upgrade applies at the next tick, and there is nothing for
+ADR-032 to clean up. Recurring jobs are not specific to data-defined integrations, so the mechanism is in core and a
+hand-written integration declares the same thing:
 
 ```js
 static Definition = {
     name: 'housecallpro',
-    schedules: {
-        ONGOING_SYNC: { every: '1h', configurable: { min: '15m' } },             // a user may choose >= 15m
-        DAILY_DIGEST: { cron: '0 8 * * 1-5', timezone: 'America/New_York' },     // fixed
+    triggers: {
+        ONGOING_SYNC: { every: '1h', configurable: { min: '15m' }, handler: 'deltaSync' },             // a user may choose >= 15m
+        DAILY_DIGEST: { cron: '0 8 * * 1-5', timezone: 'America/New_York', configurable: true, handler: 'digest' },
+        NIGHTLY: { at: 'cron(0 3 * * ? *)', timezone: 'Europe/London', handler: 'reconcile' },          // one time for everyone
     },
 };
 ```
 
-A data-defined definition says the same thing on the trigger (`{ "type": "schedule", "cron" | "every", "timezone",
-"configurable" }`) or on a polling sync (`ongoing: { "mode": "poll", "every", "configurable" }`). The pieces:
+A data-defined definition says it on the trigger (`{ "type": "schedule", "cron" | "every", "timezone", "configurable" }`)
+or on a polling sync (`ongoing: { "mode": "poll", "every", "configurable" }`). `compile` turns both into the same
+trigger entries (`compiled.triggers`), and the data-defined class resolves them per installation: it declares
+`Definition.instanceTriggers: { tick: '5m' }`, and its static `triggersFor({ config })` compiles the installation's
+pinned definition with its config at each tick. Each entry's handler runs its compiled event.
 
 | Layer | What | File |
 |---|---|---|
-| Recurrence | Host-neutral: `{ every: '15m' }` or a five-field `{ cron, timezone }`. `validateRecurrence` refuses what no host can run: both day fields restricted, a cron that never fires, an unknown zone. `minGapMinutes` measures what an expression really does, so a floor of 15m refuses `0,5 * * * *` | `infrastructure/scheduler/recurrence.js` |
-| Port | `upsertRecurring({ scheduleName, recurrence, queueResourceId, payload, enabled })` beside the one-time methods. Each adapter translates the recurrence. The payload may carry `TICK.id` / `TICK.scheduledFor`, which the host fills per firing | `scheduler-service-interface.js` |
-| Adapters | EventBridge: `rate(...)` or a six-field `cron(... ? ...)` with weekdays written as names, because EventBridge numbers them 1-7 from Sunday. It updates first, creates when the schedule is missing, and updates again after losing a create race. The tick is filled from `<aws.scheduler.scheduled-time>`. Mock: in memory, with `_simulateTrigger(name, tick)` | `eventbridge-scheduler-adapter.js`, `mock-scheduler-adapter.js` |
-| Commands | `upsertRecurringJob` and `reconcileRecurringJobs({ desired, stored, queueUrl })`. A job is written only when its recurrence, event, payload or state changed, and deleted when it is no longer wanted. A write the host refuses leaves the stored entry as it was, so the next reconcile retries it | `application/commands/scheduler-commands.js` |
-| Desired set | The definition's entries plus the installation's choices. A choice is honoured only where the definition allows it and within its floor. An invalid choice keeps the default and adds a warning message to the integration, so a bad edit never stops a schedule | `integrations/schedules.js` |
-| Lifecycle | `IntegrationBase.syncSchedules()` runs from the default `onCreate`, `onUpdate` and `onDelete`. It records what the host holds at `config.runtime.schedules.<event>`. An integration with no schedules does nothing. The data-defined class supplies its entries by compiling the current config, and also calls it after an upgrade | `integration-base.js` |
+| Recurrence | Host-neutral: `{ every: '15m' }` or a five-field `{ cron, timezone }`. `validateRecurrence` refuses both day fields restricted, a cron that never fires, an unknown zone. `minGapMinutes` measures what an expression really does, so a floor of 15m refuses `0,5 * * * *`. `lastFiringIn(cron, from, to)` answers "did it fire since the last tick" in the cron's time zone | `infrastructure/scheduler/recurrence.js` |
+| Declaration and due check | `validateTriggers`, `provisioningOf` (the ticks and `at` triggers devtools provisions), `resolveTrigger` (config, `when`, the installation's choice within the floor, the cadence in ticks) and `dueRun`. An `every` trigger is due when `slot mod n == hash(integrationId) mod n`; a `cron` trigger when it fired in (previous tick, this tick]; an `at` trigger whenever its own schedule runs | `integrations/triggers.js` |
+| Tick | Pages ENABLED installations 500 at a time by id (`findIntegrations({ type, status, limit, after })`), sends due runs with `batchSend` and per-run `DelaySeconds` jitter, and hands its cursor to the queue (`FRIGG_TRIGGER_TICK`) when it nears the Lambda deadline | `integrations/use-cases/run-trigger-tick.js`, `handlers/workers/integration-triggers.js` |
+| Run | The queue worker hydrates by `integrationId` and dispatches `FRIGG_TRIGGER_RUN` to `IntegrationBase.onTriggerRun`. Not ENABLED: discarded. `overlap: 'skip'`: a Process record `TRIGGER:<name>` per installation is the lease, and a run still going (touched within 2 x tick) makes the next one skip | `integrations/use-cases/run-trigger.js` |
+| Provisioning | `TriggerBuilder` (runs when any integration declares triggers): the function, a `rate()` schedule event per tick with its firing time as input, and a `method: scheduler` event per `at` trigger. No runtime scheduler IAM | `devtools/.../scheduler/trigger-builder.js` |
 
-The installation's choice lives in its config: `config.schedules.<event>` for a hand-written integration, and
+The installation's choice lives in its config: `config.triggers.<name>` for a hand-written integration, and
 `workflows.<id>.schedule` / `syncs.<id>.schedule` for a data-defined one, offered in the configure form only where
-the definition allows it. Host schedule names are `<integration>-<installation id>-<event>`, kept within
-EventBridge's 64 characters. Each firing sends `{ event, data: { integrationId, scheduleKey, tick } }` to the
-integration's queue, so the existing queue worker hydrates the installation and dispatches the event. A redelivered
-tick runs once, because `tick:<event>:<scheduledFor>` is the workflow's dedupe id. Taking configurability away is a
-major change. An upgrade keeps a choice only where the new version still allows it, and otherwise reports a
-`reschedule` action.
+the definition allows it. A choice the definition does not allow, or one under the floor, keeps the default timing
+and `onUpdate` adds a warning message saying why. An interval runs on whole multiples of the tick (a 20-minute
+choice on a 15-minute tick runs every 30 minutes), and a cron runs on the first tick after it fires, so its delay is
+at most one tick. A redelivered run, or two ticks in one slot, run once: the slot decides `scheduledFor`, and
+`tick:<event>:<scheduledFor>` is the workflow's dedupe id. Taking configurability away is a major change. An upgrade
+keeps a choice only where the new version still allows it, and otherwise reports a `reschedule` action.
 
-**This design is being reworked to follow ADR-055.** The review of this change requires [ADR-055](./055-recurring-triggers.md) to govern recurring work. ADR-055 declares recurrence as `Definition.triggers`, provisions one schedule per integration, and has the framework fan out at each tick to the `ENABLED` installations that are due. No per-installation schedule exists. This section does the opposite on that last point: one host schedule per installation, reconciled by `syncSchedules()`. The rework changes the declaration (`Definition.triggers`) and replaces the per-installation host schedules with a tick and a due check. The Port, Adapters, Commands and Lifecycle rows above describe what this change builds, not the target, and the schedule names and `config.runtime.schedules` record may change with it. The code change is a separate task. A definition's `schedule` triggers and polling syncs reach the same mechanism, so they follow ADR-055 as well.
-
-Ticks for an installation that is not `ENABLED` are discarded by the queue worker, as one-time jobs already are.
-Pausing the host schedule when the status changes is not done yet. Changing status does not go through `onUpdate`,
-so it needs a hook of its own.
+The two additions to ADR-055 (`configurable` floors, and `cron` calendar triggers that differ per installation) are
+proposed as its "Amendment (ADR-063)".
 
 ### 16. UI surfaces
 
@@ -641,7 +647,7 @@ code-defined classes; this is the answer only where the class is the shared inte
 |---|---|
 | Lambda module-scope caching | Nothing version-specific is read at module scope. The definition is fetched when an installation is hydrated for an event and cached by `id@version`, so one warm Lambda serves several versions at once and a publish needs no deploy |
 | In-flight SQS jobs | Every message carries `definitionVersion`, and `dispatch` runs it on that version: ADR-030's "dispatch by the payload's declared version" |
-| EventBridge Scheduler entries | The rule: a scheduled run carries no version and runs on the installation's current pin, because a schedule belongs to the installation, not to the version that created it. `compile` produces each installation's `schedules`, so an upgrade that changes a cron yields a different list. **Registering that list is built here** (§15a): one host schedule per installation, reconciled on create, update and delete. This row is how an upgrade interacts with it |
+| EventBridge Scheduler entries | There are none per installation (§15a). A trigger run carries no version and runs on the installation's current pin, because the tick compiles the pinned definition each time it runs. An upgrade that changes a cron changes what the next tick finds due, and registers nothing |
 | Signed webhook URLs | URLs are per installation, not per version, so an upgrade re-registers nothing. Only a change to `lifecycle.onInstall` re-runs install, and `planUpgrade` lists that as a `reinstall` action |
 | Rollback | Moving the pin back is a config write (ADR-030's Path C behaviour). An identity change still needs links rebuilt in both directions, and `planUpgrade` says so |
 | Global routing / edge | Unchanged: routing is by installation id, and the version is resolved at the origin from the record |

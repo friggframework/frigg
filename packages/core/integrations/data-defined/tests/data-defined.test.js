@@ -73,7 +73,7 @@ describe('compile', () => {
         expect(c.events.WF_WON_THANK_YOU).toBeUndefined();             // default off, left off
         expect(c.events.SYNC_CONTACTS_BACKFILL).toMatchObject({ type: 'USER_ACTION', userActionType: 'SYNC_ACTION' });
         expect(c.events.WF_TEXT_FROM_CARD).toMatchObject({ type: 'USER_ACTION' });
-        expect(c.schedules).toEqual([]);                                 // stale-contacts is off
+        expect(c.triggers).toEqual([]);                                  // stale-contacts is off
         expect(d.routeWebhook(c, 'phone', 'call.completed')).toEqual(['WF_LOG_CALL']);
         expect(d.routeWebhook(c, 'hubspot', 'contact.propertyChange')).toEqual(['SYNC_CONTACTS_ONGOING']);
         expect(c.routes.map((r) => r.path)).toEqual(['/ui/phone-card', '/ui/deals-panel']);

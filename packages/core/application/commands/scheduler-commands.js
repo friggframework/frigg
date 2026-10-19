@@ -19,7 +19,7 @@
  * });
  */
 
-const { createSchedulerService, TICK, validateRecurrence, recurrenceKey } = require('../../infrastructure/scheduler');
+const { createSchedulerService } = require('../../infrastructure/scheduler');
 
 /**
  * Derive SQS ARN from SQS URL
@@ -89,7 +89,7 @@ function createSchedulerCommands({ integrationName, schedulerService }) {
         return _schedulerService;
     }
 
-    const commands = {
+    return {
         /**
          * Schedule a one-time job to be executed at a specific time
          *
@@ -180,96 +180,6 @@ function createSchedulerCommands({ integrationName, schedulerService }) {
         },
 
         /**
-         * Create or update a recurring job. Every firing sends `{ event, data: { ...payload, tick } }` to the queue,
-         * where `tick` is `{ id, scheduledFor }` for that firing (when the host supplies them), so a handler can
-         * dedupe a redelivered tick.
-         *
-         * @param {Object} params
-         * @param {string} params.jobId - Unique, stable name for the schedule
-         * @param {{every?: string, cron?: string, timezone?: string}} params.recurrence - Host-neutral recurrence
-         * @param {string} params.event - Event name to trigger
-         * @param {Object} [params.payload] - Data sent on every firing
-         * @param {string} params.queueUrl - Target SQS queue URL
-         * @param {boolean} [params.enabled=true]
-         * @returns {Promise<{jobId, jobArn, created} | {jobId, warning} | {error, reason, code}>}
-         */
-        async upsertRecurringJob({ jobId, recurrence, event, payload, queueUrl, enabled = true }) {
-            try {
-                const invalid = (message) => Object.assign(new Error(message), { code: 'INVALID_JOB_DATA' });
-                if (!jobId) throw invalid('jobId is required');
-                if (!event) throw invalid('event is required');
-                if (!queueUrl) throw invalid('queueUrl is required');
-                const problems = validateRecurrence(recurrence);
-                if (problems.length) throw invalid(`Invalid recurrence: ${problems.join('; ')}`);
-
-                const service = getSchedulerService();
-                if (!service) {
-                    console.warn(`[${integrationName}] Scheduler not configured, skipping recurring job ${jobId}`);
-                    return { jobId, jobArn: null, warning: 'Scheduler not configured' };
-                }
-                const result = await service.upsertRecurring({
-                    scheduleName: jobId,
-                    recurrence,
-                    queueResourceId: deriveArnFromQueueUrl(queueUrl),
-                    payload: {
-                        event,
-                        integrationName,
-                        scheduleName: jobId,
-                        data: { ...(payload || {}), tick: { id: TICK.id, scheduledFor: TICK.scheduledFor } },
-                    },
-                    enabled,
-                });
-                return { jobId, jobArn: result.scheduledJobId, created: result.created };
-            } catch (error) {
-                console.error(`[${integrationName}] Failed to upsert recurring job ${jobId}:`, error.message);
-                return mapErrorToResponse(error);
-            }
-        },
-
-        /**
-         * Make the host's recurring jobs match what an installation should have, and return what to store.
-         *
-         * `desired` is the full list for one installation; `stored` is what the last reconcile returned (kept on the
-         * integration config). A job is upserted when it is new or its recurrence, event, payload or state changed,
-         * and deleted when it is no longer desired. A failed upsert or delete leaves its stored entry as it was, so
-         * the next reconcile retries it; nothing is reported as scheduled that the host did not accept.
-         *
-         * @param {Object} params
-         * @param {Array<{key, jobId, recurrence, event, payload?, enabled?}>} params.desired
-         * @param {Object<string, {jobId, recurrence, event, enabled, fingerprint}>} [params.stored]
-         * @param {string} params.queueUrl
-         * @returns {Promise<{stored, created: string[], updated: string[], deleted: string[], unchanged: string[], failed: Array<{key, reason}>, warning?: string}>}
-         */
-        async reconcileRecurringJobs({ desired = [], stored = {}, queueUrl }) {
-            const out = { stored: { ...(stored || {}) }, created: [], updated: [], deleted: [], unchanged: [], failed: [] };
-            if (!getSchedulerService()) return { ...out, warning: 'Scheduler not configured' };
-            const fingerprint = (d) => JSON.stringify([recurrenceKey(d.recurrence), d.event, d.payload || {}, d.enabled !== false, d.jobId]);
-            const wanted = new Set();
-            for (const d of desired) {
-                wanted.add(d.key);
-                const prev = out.stored[d.key];
-                const print = fingerprint(d);
-                if (prev && prev.fingerprint === print) { out.unchanged.push(d.key); continue; }
-                const res = await commands.upsertRecurringJob({ jobId: d.jobId, recurrence: d.recurrence, event: d.event, payload: d.payload, queueUrl, enabled: d.enabled !== false });
-                if (res.error || res.warning) { out.failed.push({ key: d.key, reason: res.reason || res.warning }); continue; }
-                if (prev && prev.jobId !== d.jobId) {
-                    const del = await commands.deleteJob(prev.jobId);
-                    if (del.error) out.failed.push({ key: d.key, reason: `Old schedule ${prev.jobId} not deleted: ${del.reason}` });
-                }
-                out.stored[d.key] = { jobId: d.jobId, recurrence: d.recurrence, event: d.event, enabled: d.enabled !== false, jobArn: res.jobArn, fingerprint: print, updatedAt: new Date().toISOString() };
-                (prev ? out.updated : out.created).push(d.key);
-            }
-            for (const [key, prev] of Object.entries(out.stored)) {
-                if (wanted.has(key)) continue;
-                const del = await commands.deleteJob(prev.jobId);
-                if (del.error) { out.failed.push({ key, reason: del.reason }); continue; }
-                delete out.stored[key];
-                out.deleted.push(key);
-            }
-            return out;
-        },
-
-        /**
          * Delete a scheduled job
          *
          * @param {string} jobId - Job ID to delete
@@ -346,7 +256,6 @@ function createSchedulerCommands({ integrationName, schedulerService }) {
             }
         },
     };
-    return commands;
 }
 
 module.exports = {

@@ -61,13 +61,27 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
      * @param {string} [filter.status] - Integration status
      * @returns {Promise<Array>} Array of integration objects (possibly empty)
      */
-    async findIntegrations({ type, status } = {}) {
+    async findIntegrations({ type, status, limit, after } = {}) {
         const where = {};
-        if (type) {
-            where.config = { path: ['type'], equals: type };
-        }
         if (status) {
             where.status = status;
+        }
+        if (limit && after !== undefined && after !== null) {
+            where.id = { gt: after };
+        }
+        if (type) {
+            // Prisma's MongoDB connector has no JSON path filter (`config: { path }` is refused), so the ids of the
+            // matching rows come from a raw find on config.type, then the rows load as usual.
+            const filter = { 'config.type': type };
+            if (status) filter.status = status;
+            if (where.id) filter._id = { $gt: { $oid: String(after) } };
+            const found = await this.prisma.integration.findRaw({
+                filter,
+                options: { projection: { _id: 1 }, sort: { _id: 1 }, ...(limit ? { limit } : {}) },
+            });
+            const ids = found.map((doc) => doc._id?.$oid ?? String(doc._id));
+            if (!ids.length) return [];
+            where.id = { in: ids };
         }
 
         const integrations = await this.prisma.integration.findMany({
@@ -75,6 +89,7 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
             include: {
                 entities: true,
             },
+            ...(limit ? { orderBy: { id: 'asc' }, take: limit } : {}),
         });
 
         return integrations.map((integration) => ({
