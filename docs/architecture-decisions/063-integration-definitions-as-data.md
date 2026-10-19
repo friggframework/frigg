@@ -126,7 +126,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 
 The decision above was written before any code existed. v0.1 is a working implementation in
 `packages/core/integrations/data-defined/`, with 128 tests (the persistence suite runs against real PostgreSQL and
-MongoDB). It runs 16 example definitions (Quo ⇄ HubSpot is the
+MongoDB). It runs 16 example definitions (a phone-to-CRM definition is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
 references are relative to that directory.
@@ -170,11 +170,11 @@ retired rows, never a draft, and caches them by `id@version`. It verifies a pinn
 - **`Integration.config`**:
   ```jsonc
   {
-    "definition": { "id": "quo-hubspot", "version": "1.4.0", "checksum": "sha256:…" },   // the pin
+    "definition": { "id": "phone-crm", "version": "1.4.0", "checksum": "sha256:…" },   // the pin
     "settings":  { "fromNumber": "+15125550100" },
     "syncs":     { "contacts": { "enabled": true, "mapping": [ /* optional full override */ ] } },
     "workflows": { "missed-call-task": { "enabled": true, "settings": { "owner": "81273645" } } },
-    "ui":        { "quo-card": { "enabled": true } },
+    "ui":        { "phone-card": { "enabled": true } },
     "runtime":   { "installed": { "hook": { "id": "WHk2c9" } } }                        // written by the runtime only
   }
   ```
@@ -210,16 +210,18 @@ JSON Schema: `schema/integration-definition.v0.1.schema.json`. Top-level keys:
 | `templates` | Named text templates |
 | `lifecycle` | `onInstall` and `onUninstall` step lists, for example creating and deleting a provider webhook subscription |
 
-A real document is `examples/quo-hubspot.definition.json`, and there are more in `examples/`.
+The reference document (phone to CRM) and more are in `examples/`. Example ids in this ADR are generic; the files keep their own names.
+
+**Mappings: where v0.1 departs from ADR-057.** The `syncs[].mapping` rows above (a `source` or a fixed `value`, plus a `transform`) belong to the definition. They are not [ADR-057](./057-canonical-schema.md) module mappings (`extensions.mapping`) or `canonical.rules`, and the transforms they name (`trim`, `to_e164_phone`, `split_full_name`, `to_iso_date`, ... in §10) have their own names, where ADR-057 names its transforms differently (`joinName`, for example). ADR-057 is still an open PR (#676). §1 states the goal: one transform vocabulary, and module mappings used wherever a module ships one. Closing the gap means reading ADR-057's module mappings when they exist and reconciling the transform names so one operation has one name. Until then the schema's transform list is pinned to the runtime's (§11), which keeps this form consistent with itself, not with ADR-057.
 
 ### 9. Capability manifests: how a definition reaches code without containing any
 
 The allow-list in §1 needs something to list. In v0.1 each API module ships a **capability manifest** next to its
-code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo in `capabilities/`):
+code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and a phone module in `capabilities/`):
 
 - **`objects`**: fields, with type, read-only flag and an ontology tag (`person.email`, `person.phone`). The validator
   checks mapping rows and identity keys against them.
-- **`events`**: each topic the module can deliver, with `record` (where the record sits in the payload; Quo uses
+- **`events`**: each topic the module can deliver, with `record` (where the record sits in the payload; a phone module uses
   `data.object`), `idPath` (the provider's event id, used for dedupe) and an example payload.
 - **`capabilities`**: `<object>.<verb>` → `{ kind: read | write, method, input }`. `method` names a method on the
   module's existing `Api` class. A step `hubspot.task.create` therefore resolves to `HubSpotApi.createTask(args)`, and
@@ -230,7 +232,7 @@ code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo i
 - **`account`**: values about the connected account that the module persists after auth (`apiPropertiesToPersist`),
   such as QuickBooks' `realmId` or a Zendesk subdomain. Definitions read them as `$.install.accounts.<key>.<field>`;
   nothing undeclared is exposed.
-- **`ui`**: the placements this host offers, such as HubSpot's `crm.record.sidebar` and Quo's `conversation.sidebar`.
+- **`ui`**: the placements this host offers, such as HubSpot's `crm.record.sidebar` and a phone module's `conversation.sidebar`.
 - **`webhook`**: how a POST from this provider becomes module events (`webhooks.js`), written with the same template
   expressions definitions use, over `body`, `headers` (lower-case), `query`, `item` and `parent`:
   ```jsonc
@@ -243,7 +245,7 @@ code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo i
                "unwrap": "payload" }                    // a form field holding the JSON body (Slack interactivity)
   ```
   Each event names the provider's topic (`"match": "orders/create"`, default: the event key) and may add a condition
-  (`"when"`): Quo reports a missed call as `call.completed` with status `missed`, so `call.missed` is that subset. An
+  (`"when"`): a phone module reports a missed call as `call.completed` with status `missed`, so `call.missed` is that subset. An
   event's example `payload` (with `headers` when the topic is in one) is an exact delivery, and validation requires it
   to route to its own event through the same code a live webhook uses.
 
@@ -278,7 +280,7 @@ A step is `{ id?, use, with?, when?, onError? }` (`steps.js`). `use` is either a
 
 **Expressions** (`expressions.js`) take three forms:
 - a reference, `$.event.data.object.from`, which keeps its type;
-- a template, `"Quo call · {{record.duration | minutes}}m"`. A filter argument may itself be a path. A string that is
+- a template, `"Call · {{record.duration | minutes}}m"`. A filter argument may itself be a path. A string that is
   exactly one tag keeps the value's type, so `"{{item.Amount | to_cents}}"` is a number and `"{{steps.ids}}"` a list.
   Filters are named, total functions (bad input gives blank, never a throw):
   - text and dates: `upper`, `lower`, `truncate`, `default`, `date`, `json`, `minutes`, `seconds`;
@@ -348,7 +350,7 @@ places:
   calls before writing an `IntegrationDefinitionVersion` row.
 - `tests/schemas.test.js`, in CI on every change: every bundled example and manifest, plus the CLI driven as a child
   process, and the schema's transform list pinned to the runtime's so the two cannot drift.
-- Anything that copies definitions elsewhere refuses to write invalid output; the Integrator's definitions page
+- Anything that copies definitions elsewhere refuses to write invalid output; a product's definitions page
   sync is one.
 
 `ajv` is already a dependency of `@friggframework/schemas`; core's runtime stays dependency-free and loads it only
@@ -367,10 +369,19 @@ tables the runtime needs:
 | sync ongoing (webhook or poll) | `SYNC_CONTACTS_ONGOING` | `WEBHOOK` or `CRON` |
 | workflow `log-call` | `WF_LOG_CALL` | `WEBHOOK`, `CRON`, `USER_ACTION` or `QUEUE`, from its trigger |
 | query `recent-activity` | `Q_RECENT_ACTIVITY` | `ROUTE` |
-| UI surface `quo-card` | `UI_QUO_CARD`, rendered by `POST /api/integrations/:id/actions/UI_QUO_CARD` | `ROUTE` |
+| UI surface `phone-card` | `UI_PHONE_CARD`, rendered by `POST /api/integrations/:id/actions/UI_PHONE_CARD` | `ROUTE` |
 
 The other outputs are `webhooks` (module → topic → event names; a pattern may end in `.*`), `schedules` and
 `userActions`.
+
+**Both authoring forms compile to the same two things.** A code-defined integration builds `static Definition` and `this.events` in its class. A definition compiles to the same pair: the `Definition` the host reads for routes, queues and schedules, and the `this.events` map the dispatcher reads. Everything downstream (dispatcher, queue worker, scheduler, mapping repository) therefore cannot tell the forms apart.
+
+**Where this should meet the one-file and trigger ADRs.** Three facts the compiled output depends on are described again here and should come from the module or the framework instead:
+- *Recurring work* is [ADR-055](./055-recurring-triggers.md)'s `Definition.triggers`, which ADR-055 governs for both forms. A later section (§15a, recurring schedules) will follow ADR-055.
+- *Module webhook facts* (how a delivery is verified, answered, split into events and attributed to an account) come from [ADR-054](./054-one-file-integrations.md) extension contract 2: `verify`, `handshake`, `receive`, `resolve`, and `emits` / `normalize`. The manifest's `webhook` block (§9) is v0.1's own description of the same facts. When contract 2 exists, the manifest should be derived from it, not kept as a second description of one module.
+- *Sync object access* (list, get, upsert, ids and modified-at paths) comes from ADR-054 §6's `objects` descriptor, and the `sync` blocks in §15b are the same kind of fact. They should be derived from `objects` when it exists.
+
+ADR-054 and ADR-055 are Proposed. This section records the intent, and does not depend on either being built.
 
 **Only enabled items are compiled.** A workflow the customer has off has no event, no route and no schedule. It
 does not exist at runtime, so "disabled but still firing" cannot happen.
@@ -386,7 +397,7 @@ does not exist at runtime, so "disabled but still firing" cannot happen.
 | Which definition an installation runs | The id is fixed; the version comes from the pin | `config.definition.{id, version}` |
 | New version | Publish only, no deploy | Publish only, no deploy |
 | New integration | A new class, so a deploy and three more functions plus a queue | A row, no deploy |
-| Fits | A product team with a handful of integrations | The Integrator, where definitions accumulate without bound |
+| Fits | A product team with a handful of integrations | A product that lists many integrations, where definitions accumulate without bound |
 
 Shape B is what actually makes §4's "constant infrastructure" true. Shape A still grows the stack per definition
 id, just not per version.
@@ -419,10 +430,10 @@ From there, the existing dispatcher, queue worker, scheduler and mapping reposit
 
 **A webhook arrives.** A provider's POST carries no Frigg vocabulary: nothing says which module sent it or which
 event it is. Install steps register a per-module URL, `$.install.webhookUrls.<key>`, which names the module, and the
-module's manifest says how to read the rest (§9, `webhook` block). For example Quo `call.completed`:
+module's manifest says how to read the rest (§9, `webhook` block). For example a phone module's `call.completed`:
 
 ```
-POST /api/data-defined-integration/webhooks/<integrationId>?module=quo
+POST /api/data-defined-integration/webhooks/<integrationId>?module=phone
   → webhook function (no database): a handshake (Slack url_verification, Asana X-Hook-Secret) is answered here;
     anything else is queued as { integrationId, body, headers, query }       ── the unchanged Frigg path
   → queue worker: hydrate the record → initialize() → loadDefinition()
@@ -437,7 +448,7 @@ POST /api/data-defined-integration/webhooks/<integrationId>?module=quo
       runWorkflow():
         record   = manifest.events['call.completed'].record  → body.data.object
         filter   = trigger.filter evaluated → 'filtered' (nothing claimed, nothing written)
-        claim    = createMapping('evt:quo-hubspot:log-call:<provider event id>') → false ⇒ 'duplicate'
+        claim    = createMapping('evt:phone-crm:log-call:<provider event id>') → false ⇒ 'duplicate'
         steps    = links.find(phone) → template('call-note') → hubspot.engagement.createCall
         result   = WorkflowRun { status, trace[{id, use, at, status, ms, error?}] }
         failed   → release the claim, throw → the queue retries (the DLQ after max receives)
@@ -502,10 +513,10 @@ genuine (HubSpot signs its UI-extension requests) is the renderer's job, not Fri
 
 | Moment | What runs | Code |
 |---|---|---|
-| **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `quo.webhook.create` pointed at this installation's webhook URL. Every install step with an `id` has its result saved to `config.runtime.installed.<id>` with `patchConfig` | `onCreate` |
+| **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `phone.webhook.create` pointed at this installation's webhook URL. Every install step with an `id` has its result saved to `config.runtime.installed.<id>` with `patchConfig` | `onCreate` |
 | **Configure** | The customer toggles workflows, changes settings or overrides a mapping. `onUpdate` merges config, then recompiles: enabling a workflow adds its event, routes and schedule, and disabling removes them. No deploy, and no other installation is affected | `onUpdate` |
 | **Update** (new version) | Nothing happens to running installations. Each stays on its pin until it is moved, as in §17 | `planUpgrade` |
-| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`quo.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), then the framework removes the record | `onDelete` |
+| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`phone.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), then the framework removes the record | `onDelete` |
 
 `$.install` is built by one function, `installContext`, everywhere a definition runs: workflows, queries, UI
 surfaces, lifecycle steps and option lists. It holds the integration settings with their defaults, `webhookUrl`,
@@ -579,9 +590,9 @@ does not rebuild the rows itself.
 
 ### 18. Hosting
 
-The Integrator's Frigg instance runs on **Frigg Cloud**: AWS, one sub-account per tenant, using **Shape B**. Each
+A hosted multi-tenant deployment runs on AWS, one sub-account per tenant, using **Shape B**. Each
 tenant's stack is constant-size: one HTTP function, one webhook function, one queue worker and one queue for every
-data-defined integration. Netlify was considered for the HTTP side and rejected as the primary host:
+data-defined integration. Netlify was considered for the HTTP side and rejected as the primary host for this case. [ADR-028](./028-multi-provider-support.md) (multi-provider support) is the route to a Netlify provider where that is wanted:
 - function time and size limits;
 - no native queue;
 - no per-tenant isolation boundary to match "one sub-account per tenant".
@@ -602,6 +613,8 @@ work kept apart from bulk work.
 
 Their order is decided by a month of iteration on v0.1, not fixed here.
 
+**Rate limits belong to the runtime's ports, under ADR-049.** The "per-module rate limits" item is not a definition feature. [ADR-049](./049-rate-limit-awareness.md) puts the budget in the ports: the Requester waits in process for a short wait, and pacing is its §6. A module's `static rateLimit` is descriptive only (provider facts such as windows and scope, ADR-054 §6), so a definition never states a budget. A wait too long for the Requester throws `RateLimitError`, and the queue worker defers the message to `retryAt` (frigg#657) instead of failing it and letting the queue retry. A definition run must therefore let that error through unchanged, so that §14's "a failed run releases its claim and the queue retries" is not what happens to it. The "token bucket per module and installation" in the table above is ADR-049's pacing, built there and not here.
+
 ### 20. Gaps the examples exposed, closed in v0.1
 
 Writing 14 more examples against the first cut found seven places the format was thin. Each was closed inside v0.1:
@@ -617,8 +630,8 @@ Writing 14 more examples against the first cut found seven places the format was
 | No sync-only example | Every example had workflows | `pipedrive-hubspot`: one two-way sync, no workflows |
 
 Closing them found more, each fixed and pinned by a test:
-- **Install results.** `onCreate` saved only `steps.hook.id`, under a hard-coded `subscriptions.quo`. Every other
-  install step's result was lost, so pipedrive-quo, both Shopify examples and zendesk-jira would have uninstalled
+- **Install results.** `onCreate` saved only `steps.hook.id`, under a hard-coded `subscriptions.phone`. Every other
+  install step's result was lost, so the Pipedrive-to-phone example, both Shopify examples and zendesk-jira would have uninstalled
   against ids nobody stored. Now `runtime.installed.<step id>` (§15).
 - **Account values.** Four examples read `$.install.runtime.realmId`-style values nothing wrote. They come from the
   connected account, so manifests declare `account` fields (§9).
