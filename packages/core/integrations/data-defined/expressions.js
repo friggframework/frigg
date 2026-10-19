@@ -46,6 +46,8 @@ const FILTERS = {
     seconds: (v) => (v == null ? '' : String(Math.round(Number(v) / 1000))),
     date: (v) => (v ? new Date(v).toISOString().slice(0, 10) : ''),
     json: (v) => JSON.stringify(v),
+    // Record data inside a Slack message: escaped so a name like "*x* <!channel>" neither formats nor pings.
+    mrkdwn: (v) => require('./renderers/slack').escapeMrkdwn(v),
     default: (v, arg) => (v == null || v === '' ? arg : v),
     truncate: (v, arg) => { const s = String(v ?? ''); const n = Number(arg) || 80; return s.length > n ? s.slice(0, n - 1) + '…' : s; },
     // lists

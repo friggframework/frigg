@@ -401,3 +401,16 @@ describe('previewWorkflow: a dry run', () => {
         await expect(ports.call('hubspot', 'deal.get', { id: '1' })).resolves.toEqual(expect.objectContaining({ id: 'preview-deal-id' }));
     });
 });
+
+describe('the mrkdwn template filter', () => {
+    const { renderTemplate } = require('../expressions');
+    it('record data in a Slack message neither formats nor pings; the definition\'s own markup still does', () => {
+        const hubspotSlack = JSON.parse(JSON.stringify(require('..').loadExamples().find((x) => x.id === 'hubspot-slack')));
+        const out = renderTemplate(hubspotSlack.templates['deal-won'], { steps: { deal: { id: '9', properties: { dealname: '*Big* <!channel> & co', amount: 5 } }, owner: { firstName: '_Sam_' } }, install: { portalId: 1 } });
+        expect(out).not.toContain('<!channel>');
+        expect(out).toContain('&lt;!channel&gt;');
+        expect(out).not.toMatch(/\*Big\*/);
+        expect(out.startsWith(':tada: *')).toBe(true);                 // the template's own bold survives
+        expect(out).toContain('<https://app.hubspot.com/contacts/1/record/0-3/9|Open deal>');
+    });
+});
