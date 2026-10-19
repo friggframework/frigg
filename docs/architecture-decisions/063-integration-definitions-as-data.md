@@ -30,10 +30,22 @@ What remains code is the *orchestration*: the event handler that reads from one 
 
 ### Why this matters now
 
-- **The Integrator.** One product will carry many pair integrations (Klaviyo ⇄ HubSpot, Shopify → NetSuite, …). Each must appear in **both** sides' marketplace storefronts, so the runtime cannot be split per storefront. A code-per-integration runtime grows its stack with every listing.
+- **A multi-listing product.** One product will carry many pair integrations (Klaviyo ⇄ HubSpot, Shopify → NetSuite, …). Each must appear in **both** sides' marketplace storefronts, so the runtime cannot be split per storefront. A code-per-integration runtime grows its stack with every listing.
 - **Per-workspace custom integrations.** A customer-specific variant is today either a fork of a class or arbitrary user code. Arbitrary user code needs process isolation to be safe.
 - **Agent authoring.** A document that validates against a JSON Schema is far easier for an agent to produce, diff and check than a class. "Checks still compile" becomes literal: schema validation, reference resolution and a Test Bench run.
 - **Reasoning.** Integration-as-code is easier for a person to reason about: you can read it, step through it and grep it. Any data form has to keep that property, or it loses.
+
+### Terms: "Definition" means three things
+
+The word is already overloaded, and this ADR adds a third use. Where it matters, the text says which one it means.
+
+| Term | What it is | Where it lives |
+|---|---|---|
+| `static Definition` | The metadata literal on a code integration or API module class (`name`, `modules`, `routes`, ...). Unchanged by this ADR | In the class |
+| The definition document | The JSON document this ADR introduces: one integration, as data. It is what the schema validates and what an installation runs | Authored as a file; published to the store; pinned by an installation (the `definitionVersion` below, `config.definition` in the implementation) |
+| `IntegrationDefinitionVersion` | The persisted row that holds one published version of a document, immutable once published | The definition store |
+
+**Naming collision, and the planned rename.** `@friggframework/schemas` already ships `integration-definition.schema.json`, which validates `static Definition`. The document needs a distinct name and `$id` so the two schemas are never confused. The planned name is **integration document**, with `integration-document.v0.1.schema.json`. Only the name is decided here; the code rename is a separate task. Until it lands, this ADR says "definition" for the document where it reads naturally, and the sketch and the schema package in §2 and §3 use the planned name.
 
 ## Decision
 
@@ -60,19 +72,21 @@ Code is the escape hatch and data is the composition. A data definition never co
 
 **The allow-list rule:** a definition may only name step types, transforms and modules registered in the app it runs in. It cannot define new ones. Anything the vocabulary can't express is written as a code step type or an integration extension ([ADR-018](./018-integration-extensions.md)), versioned and released like any other code.
 
+**Mappings and transforms: one vocabulary is the goal.** [ADR-057](./057-canonical-schema.md) keeps a module's meaning of an object in `extensions.mapping` and pair-specific rules in the integration, and refers to transforms by name (`joinName`, for example). A definition's mappings should use ADR-057's module mappings and canonical rules wherever a canonical schema exists. A pair-specific mapping row a definition carries itself must draw its transforms from the same named vocabulary, so that one operation has one name. Two registries that spell the same operation differently would make a mapping unportable between the two forms. If an implementation keeps its own mapping rows or transform names for now, its implementation notes must record the departure and what closes it.
+
 **No general-purpose expression language.** Arguments are literals, references (`$.trigger.body.email`, `$.steps.fetch.result.id`) or calls to named transforms. Conditions are a small, total, side-effect-free predicate set (`eq`, `in`, `exists`, `and`, `or`, `not`). The day a definition needs a loop or arbitrary arithmetic is the day it should become a code step. Without this rule the format turns into a programming language with worse tooling than JavaScript.
 
 ### 2. Shape (sketch, not final)
 
 ```jsonc
 {
-  "$schema": "https://schemas.friggframework.org/integration-definition/v1.json",
+  "$schema": "https://schemas.friggframework.org/integration-document/v0.1.json",   // planned name (Terms)
   "name": "klaviyo-hubspot",
   "version": "1.2.0",
   "display": { "label": "Klaviyo for HubSpot", "category": "Marketing" },
   "modules": {
     "klaviyo": { "module": "klaviyo@^2" },
-    "hubspot": { "module": "hubspot@^3", "instance": "hubspot-klaviyo" }   // ADR-062 (proposed)
+    "hubspot": { "module": "hubspot@^3", "instance": "hubspot-klaviyo" }   // named instance: not decided (see Related, ADR-059)
   },
   "config": { "schema": { /* JSON Schema */ }, "uiSchema": { /* … */ } },
   "events": {
@@ -97,8 +111,8 @@ Code is the escape hatch and data is the composition. A data definition never co
 
 Data does not mean "edited in a database admin screen". The lifecycle mirrors code:
 
-1. **Authored as files** in git, or produced by an agent or The Integrator's canvas and committed. That keeps them diffable, reviewable and blameable, and keeps integration-as-code's main reasoning property.
-2. **Compiled** by a `frigg integration check` step: JSON Schema validation (`@friggframework/schemas`, one `integration-definition.schema.json` and a `validateIntegrationDefinition()` helper, following the existing conventions), reference resolution against the app's registered modules / step types / transforms, mapping validation (ADR-057's `validateCanonicalMapping`), and a Test Bench run against recorded fixtures. A definition that fails any check is not publishable.
+1. **Authored as files** in git, or produced by an agent or a visual editor and committed. That keeps them diffable, reviewable and blameable, and keeps integration-as-code's main reasoning property.
+2. **Compiled** by a `frigg integration check` step: JSON Schema validation (`@friggframework/schemas`, one `integration-document.v0.1.schema.json` and a validator helper, following the existing conventions and the planned name in Terms), reference resolution against the app's registered modules / step types / transforms, mapping validation (ADR-057's `validateCanonicalMapping`), and a Test Bench run against recorded fixtures. A definition that fails any check is not publishable.
 3. **Published** to a definition store as an **immutable** `(name, version, contentHash)` row. Publishing is the only write. A version is never edited in place.
 4. **Pinned.** Every integration record stores the `definitionVersion` it was created with. Upgrading a running integration is an explicit migration, the same problem ADR-030 already frames. Data makes Path D of that ADR ("version as a routing dimension outside the class") almost free, because the version is just a key into the store.
 
@@ -108,19 +122,24 @@ A code-defined app can also ship data definitions **in the bundle** (as files lo
 
 - **One class, many types.** `DataDefinedIntegration` resolves `(name, definitionVersion)` from the integration record (or from the route) and caches the parsed definition by content hash for the life of the process.
 - **Routes keep their paths.** The existing `/api/${name}-integration/*` contract is preserved. A generic router resolves `name` from the path segment at request time instead of mounting one router per class at cold start.
-- **Constant infrastructure.** Data-defined integrations share one HTTP function, one webhook function and a small, fixed set of worker queues. Messages carry `{ integrationType, definitionVersion, event }`. The stack's resource count stops growing with the number of integrations, which removes the CloudFormation ceiling for The Integrator without nested stacks or sharding.
+- **Constant infrastructure.** Data-defined integrations share one HTTP function, one webhook function and a small, fixed set of worker queues. Messages carry `{ integrationType, definitionVersion, event }`. The stack's resource count stops growing with the number of integrations, which removes the CloudFormation ceiling for a product that lists many pairs, without nested stacks or sharding.
 - **Noisy neighbours are the price of sharing.** One integration's backfill must not starve another's webhooks. The runtime therefore needs per-type concurrency keys or hashing onto N queues, with separate queues for interactive and bulk work. This is the main *new* operational problem this ADR creates.
 
 ### 5. Why this is safe for per-workspace customization
 
 Because a definition can only compose allow-listed, versioned code, a workspace-specific definition is configuration, not user code. It can run in the shared runtime without the process isolation that arbitrary customer code would require. It cannot reach a module the app didn't register, call a transform that doesn't exist, or loop. Credentials, encryption and module auth are untouched: they stay in the API module and the framework.
 
+**"Workspace" is not yet an ADR-056 concept.** The ownership model for workspace-specific definitions is a follow-up, and this ADR does not design it. The intent is to build on [ADR-056](https://github.com/friggframework/frigg/blob/adr/056-app-profiles/docs/architecture-decisions/056-app-profiles-tenancy-entity-scopes.md) rather than invent a second tenancy model:
+- *Owner.* A definition is owned the way an entity is: by its owner `userId` plus the owning `organizationId` (ADR-056 Decision §3), not by a free-standing workspace id. Until then, an implementation may treat the authenticated user as the workspace.
+- *Who sees it.* Visibility uses ADR-056's `Definition.visible(context)` (Decision §4), applied where integration options are listed, and it is not authorisation.
+- *Which entities a binding may use.* A definition's module binding takes ADR-056's binding scope (`organization` or `global`, Decision §3) like a code integration's.
+
 ### 6. Explicitly not decided here
 
 - The step-type vocabulary beyond the sketch, and how it relates to `BaseCRMIntegration`-style sync helpers.
 - The definition store's storage (Prisma model in the existing database vs a separate registry service).
 - Whether code integrations can be lowered to data. Probably not in general; possibly for the subset that only uses object routes plus mapping.
-- How a visual editor (The Integrator canvas) round-trips with hand-edited files.
+- How a visual editor round-trips with hand-edited files.
 
 ## Where this leads: Frigg in other runtimes
 
@@ -131,7 +150,7 @@ The bigger consequence is not "fewer CloudFormation resources". **Once an integr
 | Port | Today | Already abstracted? |
 |---|---|---|
 | HTTP host | express app (`createApp`) wrapped by `serverless-http` per Lambda | **Mostly.** The express app is independent of Lambda, so `app.listen()` is a small step |
-| Queue | SQS only (`queues/queuer-util.js` uses `@aws-sdk/client-sqs` directly; local dev uses LocalStack) | **No.** No port; this is the largest gap |
+| Queue | SQS (`queues/queuer-util.js` uses `@aws-sdk/client-sqs` directly; local dev uses LocalStack) | **Not on `next`; being added.** PR #686 introduces `QueueProvider` and `QueueClientInterface` ([ADR-028](./028-multi-provider-support.md)) with SQS as the default adapter. In-process and Postgres adapters do not exist yet |
 | Scheduler | EventBridge Scheduler, with `SCHEDULER_PROVIDER=mock` | **Yes**, a port with two adapters |
 | Encryption | KMS or AES via `Cryptor` | **Yes** |
 | Database | Prisma, MongoDB or PostgreSQL | **Yes**, for those two |
@@ -139,7 +158,7 @@ The bigger consequence is not "fewer CloudFormation resources". **Once an integr
 
 ### Architecture: serverless vs packaged
 
-A **packaged** runtime is one long-lived process (or a few) running the same express app, an in-process or database-backed queue, cron in place of EventBridge, and AES in place of KMS. It needs exactly one new port: a queue abstraction with SQS, in-process and Postgres-backed (`SKIP LOCKED`) adapters. Nothing in a data definition knows which one it runs on. Code-defined integrations would work too. Data definitions matter more here because a packaged runtime cannot redeploy per integration change either.
+A **packaged** runtime is one long-lived process (or a few) running the same express app, an in-process or database-backed queue, cron in place of EventBridge, and AES in place of KMS. Its queue port is the one PR #686 adds (`QueueClientInterface`), plus two adapters that do not exist yet: in-process and Postgres-backed (`SKIP LOCKED`). Nothing in a data definition knows which one it runs on. Code-defined integrations would work too. Data definitions matter more here because a packaged runtime cannot redeploy per integration change either.
 
 ### Where: cloud, edge, local, home server, Raspberry Pi
 
@@ -171,7 +190,7 @@ So "Frigg in Rust" splits into options with very different costs:
 
 ### Positive
 
-- **Infrastructure stops scaling with integration count** for data-defined integrations; The Integrator fits in one stack.
+- **Infrastructure stops scaling with integration count** for data-defined integrations; a product that lists many pairs fits in one stack.
 - **Adding or changing an integration is a publish, not a deploy**, with the same review and checks a code change gets.
 - **Agents and the canvas author something they can validate**, and a failing check is a schema error, not a runtime surprise.
 - **Per-workspace custom integrations are safe** without per-tenant process isolation.
@@ -203,9 +222,12 @@ So "Frigg in Rust" splits into options with very different costs:
 
 - [ADR-015](./015-extensions-taxonomy.md) / [ADR-018](./018-integration-extensions.md): code escape hatch for steps the vocabulary can't express
 - [ADR-020](./020-capabilities.md): capabilities declared by definitions
+- [ADR-023](./023-integration-templates.md): a template may ship as a definition document (see its Amendment (ADR-063))
 - [ADR-021](./021-ontology.md): agent context for authoring definitions (not a field vocabulary)
 - [ADR-027](./027-ssm-parameter-offload-and-env-scoping.md): per-function environment, relevant once many integrations share functions
 - [ADR-030](./030-integration-versioning.md): versioning, which the definition store makes concrete
 - [ADR-057](./057-canonical-schema.md) (PR #676): data-only mappings this format reuses
-- ADR-062 (proposed, not yet written): per-app module instances, referenced by `modules.*.instance`
+- [ADR-059](./059-app-level-entity-registry.md), open question 1: named registry entries are the closest existing proposal for more than one instance of a module in an app. The `modules.*.instance` key in the sketch depends on how that is resolved and is not decided here
+- [ADR-056](./056-app-profiles-tenancy-entity-scopes.md): owner, `organizationId`, `visible(context)` and binding scope for workspace-specific definitions (follow-up, §5)
+- [ADR-028](./028-multi-provider-support.md): provider plugins and the queue provider that the portability section builds on
 - Follow-up: an ADR on runtime targets and the queue port
