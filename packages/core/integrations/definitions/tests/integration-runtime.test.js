@@ -209,7 +209,7 @@ describe('defineIntegrationClass', () => {
         inst.rows.set('idx:contacts:phone:+15125550142', { hubspot: '51', quo: 'CT7' });
         const run = await inst.on.WF_LOG_CALL.handler({ data: { body: quoCall(), definitionVersion: '1.3.2' } });
         expect(run.status).toBe('completed');
-        expect(inst.hubspot.api.createCallEngagement).toHaveBeenCalledWith(expect.objectContaining({ contactId: '51' }));
+        expect(inst.hubspot.api.createCallEngagement).toHaveBeenCalledWith(expect.objectContaining({ hs_call_direction: 'INCOMING' }), '51'); // (properties, contactId)
     });
 
     it('shared class: one registration runs installations of different definitions', async () => {

@@ -195,8 +195,10 @@
         }
       },
       "output": "task[]",
-      "status": "unimplemented",
-      "note": "Api.listTasks({ workspaceId, assigneeId }) filters by workspace and assignee only; due_on, completed, projects_any and limit have no equivalent."
+      "args": [
+        "workspaceGid",
+        "$rest"
+      ]
     },
     "project.list": {
       "kind": "read",
@@ -235,8 +237,11 @@
         }
       },
       "output": "webhook",
-      "status": "unimplemented",
-      "note": "Api has no webhook methods."
+      "args": [
+        "resource",
+        "target",
+        "filters"
+      ]
     },
     "webhook.delete": {
       "kind": "delete",
@@ -248,8 +253,9 @@
         }
       },
       "output": "void",
-      "status": "unimplemented",
-      "note": "Api has no webhook methods."
+      "args": [
+        "webhookGid"
+      ]
     }
   },
   "options": {

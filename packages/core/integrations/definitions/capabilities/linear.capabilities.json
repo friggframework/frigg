@@ -196,8 +196,9 @@
         }
       },
       "output": "issue",
-      "status": "unimplemented",
-      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
+      "args": [
+        "id"
+      ]
     },
     "issue.byIdentifier": {
       "kind": "read",
@@ -209,8 +210,9 @@
         }
       },
       "output": "issue",
-      "status": "unimplemented",
-      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
+      "args": [
+        "identifier"
+      ]
     },
     "issue.search": {
       "kind": "search",
@@ -230,8 +232,12 @@
         }
       },
       "output": "issue[]",
-      "status": "unimplemented",
-      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
+      "args": [
+        "teamId",
+        "stateType",
+        "updatedBefore",
+        "first"
+      ]
     },
     "issue.create": {
       "kind": "write",
@@ -259,8 +265,14 @@
         }
       },
       "output": "issue",
-      "status": "unimplemented",
-      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
+      "args": [
+        "teamId",
+        "title",
+        "description",
+        "priority",
+        "stateName",
+        "labelIds"
+      ]
     },
     "issue.update": {
       "kind": "write",
@@ -276,8 +288,10 @@
         }
       },
       "output": "issue",
-      "status": "unimplemented",
-      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
+      "args": [
+        "id",
+        "input"
+      ]
     },
     "comment.create": {
       "kind": "write",
@@ -293,8 +307,10 @@
         }
       },
       "output": "comment",
-      "status": "unimplemented",
-      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
+      "args": [
+        "issueId",
+        "body"
+      ]
     },
     "attachment.link": {
       "kind": "write",
@@ -313,16 +329,18 @@
         }
       },
       "output": "attachment",
-      "status": "unimplemented",
-      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
+      "args": [
+        "issueId",
+        "url",
+        "title"
+      ]
     },
     "team.list": {
       "kind": "read",
       "method": "teams",
       "input": {},
       "output": "team[]",
-      "status": "unimplemented",
-      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
+      "args": []
     },
     "workflowState.list": {
       "kind": "read",
@@ -334,8 +352,9 @@
         }
       },
       "output": "workflowState[]",
-      "status": "unimplemented",
-      "note": "Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods."
+      "args": [
+        "teamId"
+      ]
     }
   },
   "options": {

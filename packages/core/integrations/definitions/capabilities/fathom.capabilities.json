@@ -230,8 +230,9 @@
         }
       },
       "output": "void",
-      "status": "unimplemented",
-      "note": "Api has createWebhook but no deleteWebhook."
+      "args": [
+        "id"
+      ]
     }
   }
 }

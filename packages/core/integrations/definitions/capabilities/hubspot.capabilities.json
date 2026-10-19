@@ -421,11 +421,15 @@
         },
         "lastContactedBefore": {
           "type": "string"
+        },
+        "properties": {
+          "type": "array"
+        },
+        "after": {
+          "type": "string"
         }
       },
-      "output": "contact[]",
-      "status": "unimplemented",
-      "note": "Api has no contact search (searchCompanies, searchDeals, searchCustomObjects and searchLists only)."
+      "output": "contact[]"
     },
     "contact.list": {
       "kind": "read",
@@ -504,8 +508,10 @@
         }
       },
       "output": "deal[]",
-      "status": "unimplemented",
-      "note": "Api has no per-contact deal listing; associations come from getBatchAssociations(from, to, inputs)."
+      "args": [
+        "contactId",
+        "open"
+      ]
     },
     "deal.contacts": {
       "kind": "read",
@@ -517,8 +523,9 @@
         }
       },
       "output": "contact[]",
-      "status": "unimplemented",
-      "note": "Api has no per-deal contact listing; associations come from getBatchAssociations(from, to, inputs)."
+      "args": [
+        "dealId"
+      ]
     },
     "task.create": {
       "kind": "write",
@@ -533,8 +540,10 @@
         }
       },
       "output": "task",
-      "status": "unimplemented",
-      "note": "Api has no engagement or task methods."
+      "args": [
+        "properties",
+        "contactId"
+      ]
     },
     "call.create": {
       "kind": "write",
@@ -550,8 +559,10 @@
         }
       },
       "output": "call",
-      "status": "unimplemented",
-      "note": "Api has no engagement or task methods."
+      "args": [
+        "properties",
+        "contactId"
+      ]
     },
     "note.create": {
       "kind": "write",
@@ -569,16 +580,18 @@
         }
       },
       "output": "note",
-      "status": "unimplemented",
-      "note": "Api has no engagement or task methods."
+      "args": [
+        "properties",
+        "contactId",
+        "dealId"
+      ]
     },
     "owner.list": {
       "kind": "read",
       "method": "listOwners",
       "input": {},
       "output": "owner[]",
-      "status": "unimplemented",
-      "note": "Api has getOwnerById only."
+      "args": []
     },
     "pipeline.stages": {
       "kind": "read",
@@ -589,8 +602,9 @@
         }
       },
       "output": "stage[]",
-      "status": "unimplemented",
-      "note": "Api.getPipelineDetails(objType) returns every pipeline for an object type, not the stages of one pipeline."
+      "args": [
+        "pipelineId"
+      ]
     },
     "contact.upsertByEmail": {
       "kind": "write",
@@ -607,14 +621,16 @@
         }
       },
       "output": "contact",
-      "status": "unimplemented",
-      "note": "Api has no upsert and no contact search to build one from."
+      "args": [
+        "email",
+        "properties"
+      ]
     },
     "deal.update": {
       "kind": "write",
       "method": "updateDeal",
       "input": {
-        "id": {
+        "dealId": {
           "type": "string",
           "required": true
         },
@@ -624,32 +640,33 @@
         }
       },
       "output": "deal",
-      "status": "unimplemented",
-      "note": "Api.updateDeal({ dealId, properties }) reads this.URLs.getDealById, which is not defined (the table has dealById), so it throws before sending. Fixed upstream (api-module-library 5961c9a); unimplemented here until a release carries it."
+      "note": "Api.updateDeal({ dealId, properties }) takes one object, so the input is dealId (it was id)."
     },
     "deal.search": {
       "kind": "search",
       "method": "searchDeals",
       "input": {
-        "open": {
-          "type": "boolean"
+        "filterGroups": {
+          "type": "array"
         },
-        "closeDateBefore": {
-          "type": "string"
+        "sorts": {
+          "type": "array"
         },
-        "closeDateAfter": {
-          "type": "string"
-        },
-        "minAmount": {
-          "type": "number"
+        "props": {
+          "type": "array"
         },
         "limit": {
           "type": "number"
+        },
+        "after": {
+          "type": "string"
+        },
+        "allProps": {
+          "type": "boolean"
         }
       },
       "output": "deal[]",
-      "status": "unimplemented",
-      "note": "Api.searchDeals takes HubSpot filterGroups, sorts, props, limit and after, not open/closeDate/amount filters."
+      "note": "Api.searchDeals takes HubSpot filterGroups ([{ filters: [{ propertyName, operator, value }] }]), sorts, props, limit, after and allProps (default true: every deal property when props is empty). The capability was reshaped from open/closeDateBefore/closeDateAfter/minAmount, which the Api never had; a definition expresses those as filterGroups."
     },
     "task.get": {
       "kind": "read",
@@ -664,8 +681,10 @@
         }
       },
       "output": "task",
-      "status": "unimplemented",
-      "note": "Api has no engagement or task methods."
+      "args": [
+        "id",
+        "properties"
+      ]
     },
     "task.update": {
       "kind": "write",
@@ -681,8 +700,10 @@
         }
       },
       "output": "task",
-      "status": "unimplemented",
-      "note": "Api has no engagement or task methods."
+      "args": [
+        "id",
+        "properties"
+      ]
     },
     "task.search": {
       "kind": "search",
@@ -699,11 +720,15 @@
         },
         "limit": {
           "type": "number"
+        },
+        "properties": {
+          "type": "array"
+        },
+        "after": {
+          "type": "string"
         }
       },
-      "output": "task[]",
-      "status": "unimplemented",
-      "note": "Api has no engagement or task methods."
+      "output": "task[]"
     },
     "owner.get": {
       "kind": "read",
@@ -729,16 +754,16 @@
         }
       },
       "output": "owner",
-      "status": "unimplemented",
-      "note": "Api has getOwnerById only."
+      "args": [
+        "email"
+      ]
     },
     "subscription.definitions": {
       "kind": "read",
       "method": "listSubscriptionDefinitions",
       "input": {},
       "output": "subscriptionDefinition[]",
-      "status": "unimplemented",
-      "note": "Api has no email subscription methods."
+      "args": []
     },
     "subscription.unsubscribe": {
       "kind": "write",
@@ -761,8 +786,12 @@
         }
       },
       "output": "subscriptionStatus",
-      "status": "unimplemented",
-      "note": "Api has no email subscription methods."
+      "args": [
+        "emailAddress",
+        "subscriptionId",
+        "legalBasis",
+        "legalBasisExplanation"
+      ]
     }
   },
   "options": {

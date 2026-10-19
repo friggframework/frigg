@@ -485,8 +485,9 @@
         }
       },
       "output": "customer",
-      "status": "unimplemented",
-      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
+      "args": [
+        "id"
+      ]
     },
     "customer.list": {
       "kind": "read",
@@ -503,8 +504,9 @@
         }
       },
       "output": "page<customer>",
-      "status": "unimplemented",
-      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
+      "args": [
+        "$rest"
+      ]
     },
     "customer.search": {
       "kind": "search",
@@ -516,8 +518,9 @@
         }
       },
       "output": "customer[]",
-      "status": "unimplemented",
-      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
+      "args": [
+        "query"
+      ]
     },
     "customer.create": {
       "kind": "write",
@@ -529,8 +532,9 @@
         }
       },
       "output": "customer",
-      "status": "unimplemented",
-      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
+      "args": [
+        "params"
+      ]
     },
     "customer.update": {
       "kind": "write",
@@ -546,8 +550,10 @@
         }
       },
       "output": "customer",
-      "status": "unimplemented",
-      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
+      "args": [
+        "id",
+        "params"
+      ]
     },
     "paymentIntent.get": {
       "kind": "read",
@@ -562,8 +568,10 @@
         }
       },
       "output": "paymentIntent",
-      "status": "unimplemented",
-      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
+      "args": [
+        "id",
+        "$rest"
+      ]
     },
     "refund.get": {
       "kind": "read",
@@ -575,8 +583,9 @@
         }
       },
       "output": "refund",
-      "status": "unimplemented",
-      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
+      "args": [
+        "id"
+      ]
     },
     "payout.list": {
       "kind": "read",
@@ -596,8 +605,9 @@
         }
       },
       "output": "payout[]",
-      "status": "unimplemented",
-      "note": "Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed."
+      "args": [
+        "$rest"
+      ]
     },
     "balanceTransaction.list": {
       "kind": "read",

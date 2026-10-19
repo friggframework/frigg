@@ -4,16 +4,45 @@ Audit of every `*.capabilities.json` in this directory against the Api class it 
 began as bundled mocks; for each module whose source could be found, every `method` was checked to exist on the real
 Api class and every call shape was read against the method's real signature.
 
-Re-run it (no network, nothing instantiated):
+Re-run it (no network, nothing instantiated). **One run per module, with that module's checkout first**: the
+api-module-library branches that carry the new methods are separate worktrees, and every worktree also holds an older copy
+of the other modules, so a single run with several roots lets the first root's stale copy of (say) `stripe` win. The
+roots below are the specific module directories, so nothing else can match:
 
 ```bash
-node packages/core/integrations/definitions/scripts/check-manifests.js --stub-missing \
-  ~/quo--frigg/backend/src/api-modules ~/quo--frigg/backend/node_modules/@friggframework \
-  ~/api-module-library/packages/v1-ready ~/api-module-library/packages/needs-updating
+M=packages/core/integrations/definitions/scripts/check-manifests.js
+node $M --stub-missing ~/aml-hubspot/packages/v1-ready/hubspot        # hubspot   (PR #106)
+node $M --stub-missing ~/aml-salesforce/packages/v1-ready/salesforce  # salesforce (PR #107)
+node $M --stub-missing ~/aml-stripe/packages/v1-ready/stripe          # stripe    (PR #108)
+node $M --stub-missing ~/aml-linear/packages/v1-ready/linear          # linear    (PR #109)
+node $M --stub-missing ~/aml-small/packages/v1-ready                  # asana, fathom (PR #110)
+node $M --stub-missing ~/aml-small/packages/needs-updating            # slack     (PR #110)
+node $M --stub-missing <built pipedrive>                              # pipedrive (PR #110): src/api.ts has no dist, so
+                                                                      # compile it first (tsc --outDir dist --noCheck)
+node $M --stub-missing ~/quo--frigg/backend/src/api-modules           # quo (the deployed Left Hook module)
 ```
 
-(`--stub-missing` stands in for dependencies that are not installed here, such as jsforce, stripe and @linear/sdk, so
-the Api's methods can be read. Roots are searched in order and the first module that loads wins.)
+Each run reports every manifest, so read only the line for the module you are checking (the others resolve to nothing or
+to an older copy). Run from the repo root: loading an Api pulls in `@friggframework/core`, which reads `package.json`
+from the working directory. (`--stub-missing` stands in for dependencies that are not installed here, such as jsforce,
+stripe and @linear/sdk, so the Api's methods can be read.)
+
+## Methods that landed after this audit
+
+The capabilities this file first marked unimplemented for hubspot, salesforce, stripe, linear, asana, pipedrive, fathom
+and slack now have methods, on unmerged api-module-library branches: **#106 (hubspot), #107 (salesforce), #108 (stripe),
+#109 (linear), #110 (asana, pipedrive, fathom, slack)**, stacked on #105. The manifests describe those methods, so **a
+definition that uses them needs the module releases that carry those PRs**; against an older release the call fails at
+runtime with "not a function". Exceptions that stay unimplemented: Salesforce's signed webhook (it has none: CDC arrives
+over the Pub/Sub stream and Outbound Messages are unsigned), and Quo's `contact.search`, which is not part of that work.
+Two shape notes:
+
+- HubSpot `deal.search` was reshaped to the real `searchDeals({ filterGroups, sorts, props, limit, after, allProps })`;
+  the old open/closeDateBefore/closeDateAfter/minAmount inputs never existed in the Api and are now `filterGroups`
+  filters (`hs_is_closed`, `closedate`, `amount`). The Api returns HubSpot's `{ results, paging }` page, not a bare array,
+  so a step that indexes the result as a list (`$.steps.deals[0]`) reads the page object: the `hubspot-slack` example still
+  does and is a mock-era shape to revisit.
+- HubSpot `deal.update` is `updateDeal({ dealId, properties })`: one object, so the input is now `dealId` (it was `id`).
 
 ## How to read this
 
@@ -37,24 +66,24 @@ the Api's methods can be read. Roots are searched in order and the first module 
 
 | Module | Source checked | Capabilities | Renamed method | Call shape fixed | Inputs changed | Unimplemented upstream |
 |---|---|---|---|---|---|---|
-| asana | ~/api-module-library/packages/v1-ready/asana | 6 | 3 | 1 | 2 | 3 |
+| asana | ~/api-module-library/packages/v1-ready/asana | 6 | 3 | 1 | 2 | 0 |
 | calendly | none found | 6 | - | - | - | - |
 | docusign | none found | 5 | - | - | - | - |
-| fathom | ~/api-module-library/packages/v1-ready/fathom | 5 | 2 | 2 | 0 | 1 |
+| fathom | ~/api-module-library/packages/v1-ready/fathom | 5 | 2 | 2 | 0 | 0 |
 | github | none found | 6 | - | - | - | - |
-| hubspot | ~/api-module-library/packages/v1-ready/hubspot | 23 | 0 | 5 | 1 | 17 |
+| hubspot | ~/api-module-library/packages/v1-ready/hubspot | 23 | 0 | 5 | 1 | 0 |
 | jira | none found | 12 | - | - | - | - |
 | klaviyo | none found | 14 | - | - | - | - |
-| linear | ~/api-module-library/packages/v1-ready/linear | 9 | 0 | 0 | 0 | 9 |
+| linear | ~/api-module-library/packages/v1-ready/linear | 9 | 0 | 0 | 0 | 0 |
 | netsuite | none found | 15 | - | - | - | - |
 | notion | none found | 6 | - | - | - | - |
-| pipedrive | ~/quo--frigg/backend/node_modules/@friggframework/api-module-pipedrive | 11 | 4 | 3 | 1 | 2 |
+| pipedrive | ~/aml-small/packages/v1-ready/pipedrive (compiled src/api.ts) | 11 | 4 | 3 | 1 | 0 |
 | quickbooks | none found | 14 | - | - | - | - |
 | quo | ~/quo--frigg/backend/src/api-modules/quo | 13 | 1 | 4 | 0 | 1 |
-| salesforce | ~/api-module-library/packages/v1-ready/salesforce | 12 | 5 | 5 | 0 | 7 |
+| salesforce | ~/api-module-library/packages/v1-ready/salesforce | 12 | 5 | 5 | 0 | 0 (webhook signing aside) |
 | shopify | none found | 15 | - | - | - | - |
-| slack | ~/api-module-library/packages/needs-updating/slack | 7 | 2 | 1 | 0 | 1 |
-| stripe | ~/api-module-library/packages/v1-ready/stripe | 9 | 1 | 0 | 0 | 8 |
+| slack | ~/api-module-library/packages/needs-updating/slack | 7 | 2 | 1 | 0 | 0 |
+| stripe | ~/api-module-library/packages/v1-ready/stripe | 9 | 1 | 0 | 0 | 0 |
 | tidewater | none found | 13 | - | - | - | - |
 | webflow | none found | 5 | - | - | - | - |
 | zendesk | none found | 8 | - | - | - | - |
@@ -64,8 +93,7 @@ nothing in them is known to exist.
 
 Where a module has two candidates the first root given wins. Quo is checked against the deployed
 `quo--frigg/backend/src/api-modules/quo` (the Left Hook module: `createUnifiedWebhook`, `updateContact`). The library's `v1-ready/quo` 1.0.0 lacks `updateContact` and has `createCallWebhook` and friends
-instead of one webhook method. Pipedrive is checked against the built `@friggframework/api-module-pipedrive`
-2.1.0-next.7 (the library copy is TypeScript source with no `dist`).
+instead of one webhook method. Pipedrive is checked against the compiled TypeScript source of the api-module-library branch (the library copy has no `dist`).
 
 Manifest versions in the files (for example HubSpot 1.4.0, Asana 1.5.1) are ahead of the module sources audited (HubSpot
 1.1.7, Asana 1.1.5): the manifests describe modules that were never released as written.
@@ -77,11 +105,11 @@ Checked against `~/api-module-library/packages/v1-ready/asana` (@friggframework/
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|
 | `task.get` | `getTaskById` | ok | `getTaskById(id)` | Api.getTaskById(id) takes only the id; field selection (opt_fields) is not supported. (method was `getTask`; called with one object; now positional; inputs were taskGid, opt_fields) |
-| `task.search` | `searchTasksInWorkspace` | unimplemented | none | Api.listTasks({ workspaceId, assigneeId }) filters by workspace and assignee only; due_on, completed, projects_any and limit have no equivalent. |
+| `task.search` | `searchTasksInWorkspace` | ok (unreleased) | `searchTasksInWorkspace(workspaceId, params = {})` | Implemented in api-module-library #110; needs the release that includes it. |
 | `project.list` | `listProjects` | ok | `listProjects(params)` | (method was `getProjects`; inputs were workspaceGid, archived) |
 | `workspace.list` | `listWorkspaces` | ok | `listWorkspaces()` | (method was `getWorkspaces`) |
-| `webhook.create` | `createWebhook` | unimplemented | none | Api has no webhook methods. |
-| `webhook.delete` | `deleteWebhook` | unimplemented | none | Api has no webhook methods. |
+| `webhook.create` | `createWebhook` | ok (unreleased) | `createWebhook(resource, target, filters)` | Implemented in api-module-library #110; needs the release that includes it. |
+| `webhook.delete` | `deleteWebhook` | ok (unreleased) | `deleteWebhook(webhookGid)` | Implemented in api-module-library #110; needs the release that includes it. |
 | `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## Calendly (`calendly`)
@@ -121,7 +149,7 @@ Checked against `~/api-module-library/packages/v1-ready/fathom` (@friggframework
 | `meeting.summary` | `getSummary` | ok | `getSummary(recordingId, params = {})` | (method was `getRecordingSummary`; called with one object; now positional) |
 | `meeting.transcript` | `getTranscript` | ok | `getTranscript(recordingId, params = {})` | (method was `getRecordingTranscript`; called with one object; now positional) |
 | `webhook.create` | `createWebhook` | ok | `createWebhook(data)` |  |
-| `webhook.delete` | `deleteWebhook` | unimplemented | none | Api has createWebhook but no deleteWebhook. |
+| `webhook.delete` | `deleteWebhook` | ok (unreleased) | `deleteWebhook(id)` | Implemented in api-module-library #110; needs the release that includes it. |
 | `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## GitHub (`github`)
@@ -145,28 +173,28 @@ Checked against `~/api-module-library/packages/v1-ready/hubspot` (@friggframewor
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|
 | `contact.get` | `getContactById` | ok | `getContactById(contactId)` | Api.getContactById(id) always requests the portal's full property list; a properties argument is not supported. (called with one object; now positional; inputs were id, properties) |
-| `contact.search` | `searchContacts` | unimplemented | none | Api has no contact search (searchCompanies, searchDeals, searchCustomObjects and searchLists only). |
+| `contact.search` | `searchContacts` | ok (unreleased) | `searchContacts(params = {})` | Implemented in api-module-library #106; needs the release that includes it. |
 | `contact.list` | `listContacts` | ok | `listContacts(params)` | Api.listContacts({ after, limit, properties }) has no modified-since filter, so updatedSince is ignored and a poll re-lists every contact. |
 | `contact.create` | `createContact` | ok | `createContact(body)` | (called with one object; now positional) |
 | `contact.update` | `updateContact` | ok | `updateContact(contactId, properties)` | (called with one object; now positional) |
 | `deal.get` | `getDealById` | ok | `getDealById(dealId)` | (called with one object; now positional) |
-| `deal.listForContact` | `listDealsForContact` | unimplemented | none | Api has no per-contact deal listing; associations come from getBatchAssociations(from, to, inputs). |
-| `deal.contacts` | `listContactsForDeal` | unimplemented | none | Api has no per-deal contact listing; associations come from getBatchAssociations(from, to, inputs). |
-| `task.create` | `createTask` | unimplemented | none | Api has no engagement or task methods. |
-| `call.create` | `createCallEngagement` | unimplemented | none | Api has no engagement or task methods. |
-| `note.create` | `createNote` | unimplemented | none | Api has no engagement or task methods. |
-| `owner.list` | `listOwners` | unimplemented | none | Api has getOwnerById only. |
-| `pipeline.stages` | `listDealStages` | unimplemented | none | Api.getPipelineDetails(objType) returns every pipeline for an object type, not the stages of one pipeline. |
-| `contact.upsertByEmail` | `upsertContactByEmail` | unimplemented | none | Api has no upsert and no contact search to build one from. |
-| `deal.update` | `updateDeal` | unimplemented (a method of that name exists, unusable as the capability is shaped) | `updateDeal(params)` | Api.updateDeal({ dealId, properties }) reads this.URLs.getDealById, which is not defined (the table has dealById), so it throws before sending. Fixed in api-module-library (claude/shared-conversation-8hgmbr, 5961c9a); stays unimplemented here until a release carries it. |
-| `deal.search` | `searchDeals` | unimplemented (a method of that name exists, unusable as the capability is shaped) | `searchDeals(params)` | Api.searchDeals takes HubSpot filterGroups, sorts, props, limit and after, not open/closeDate/amount filters. |
-| `task.get` | `getTaskById` | unimplemented | none | Api has no engagement or task methods. |
-| `task.update` | `updateTask` | unimplemented | none | Api has no engagement or task methods. |
-| `task.search` | `searchTasks` | unimplemented | none | Api has no engagement or task methods. |
+| `deal.listForContact` | `listDealsForContact` | ok (unreleased) | `listDealsForContact(contactId, open)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `deal.contacts` | `listContactsForDeal` | ok (unreleased) | `listContactsForDeal(dealId)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `task.create` | `createTask` | ok (unreleased) | `createTask(properties, contactId)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `call.create` | `createCallEngagement` | ok (unreleased) | `createCallEngagement(properties, contactId)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `note.create` | `createNote` | ok (unreleased) | `createNote(properties, contactId, dealId)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `owner.list` | `listOwners` | ok (unreleased) | `listOwners()` | Implemented in api-module-library #106; needs the release that includes it. |
+| `pipeline.stages` | `listDealStages` | ok (unreleased) | `listDealStages(pipelineId)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `contact.upsertByEmail` | `upsertContactByEmail` | ok (unreleased) | `upsertContactByEmail(email, properties)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `deal.update` | `updateDeal` | ok (unreleased) | `updateDeal(params)` | Api.updateDeal({ dealId, properties }) takes one object, so the input is dealId (it was id). Implemented in api-module-library #106; needs the release that includes it. |
+| `deal.search` | `searchDeals` | ok (unreleased) | `searchDeals(params)` | Api.searchDeals takes HubSpot filterGroups ([{ filters: [{ propertyName, operator, value }] }]), sorts, props, limit, after and allProps (default true: every deal property when props is empty). The capability was reshaped from open/closeDateBefore/closeDateAfter/minAmount, which the Api never had; a definition expresses those as filterGroups. Implemented in api-module-library #106; needs the release that includes it. |
+| `task.get` | `getTaskById` | ok (unreleased) | `getTaskById(id, properties)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `task.update` | `updateTask` | ok (unreleased) | `updateTask(id, properties)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `task.search` | `searchTasks` | ok (unreleased) | `searchTasks(params = {})` | Implemented in api-module-library #106; needs the release that includes it. |
 | `owner.get` | `getOwnerById` | ok | `getOwnerById(ownerId)` | (called with one object; now positional) |
-| `owner.findByEmail` | `getOwnerByEmail` | unimplemented | none | Api has getOwnerById only. |
-| `subscription.definitions` | `listSubscriptionDefinitions` | unimplemented | none | Api has no email subscription methods. |
-| `subscription.unsubscribe` | `unsubscribeEmail` | unimplemented | none | Api has no email subscription methods. |
+| `owner.findByEmail` | `getOwnerByEmail` | ok (unreleased) | `getOwnerByEmail(email)` | Implemented in api-module-library #106; needs the release that includes it. |
+| `subscription.definitions` | `listSubscriptionDefinitions` | ok (unreleased) | `listSubscriptionDefinitions()` | Implemented in api-module-library #106; needs the release that includes it. |
+| `subscription.unsubscribe` | `unsubscribeEmail` | ok (unreleased) | `unsubscribeEmail(emailAddress, subscriptionId, legalBasis, legalBasisExplanation)` | Implemented in api-module-library #106; needs the release that includes it. |
 | `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## Jira Cloud (`jira`)
@@ -217,15 +245,15 @@ Checked against `~/api-module-library/packages/v1-ready/linear` (@friggframework
 
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|
-| `issue.get` | `issue` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
-| `issue.byIdentifier` | `issueByIdentifier` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
-| `issue.search` | `searchIssues` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
-| `issue.create` | `issueCreate` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
-| `issue.update` | `issueUpdate` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
-| `comment.create` | `commentCreate` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
-| `attachment.link` | `attachmentLinkURL` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
-| `team.list` | `teams` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
-| `workflowState.list` | `workflowStates` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
+| `issue.get` | `issue` | ok (unreleased) | `issue(id)` | Implemented in api-module-library #109; needs the release that includes it. |
+| `issue.byIdentifier` | `issueByIdentifier` | ok (unreleased) | `issueByIdentifier(identifier)` | Implemented in api-module-library #109; needs the release that includes it. |
+| `issue.search` | `searchIssues` | ok (unreleased) | `searchIssues(teamId, stateType, updatedBefore, first)` | Implemented in api-module-library #109; needs the release that includes it. |
+| `issue.create` | `issueCreate` | ok (unreleased) | `issueCreate(teamId, title, description, priority, stateName, labelIds)` | Implemented in api-module-library #109; needs the release that includes it. |
+| `issue.update` | `issueUpdate` | ok (unreleased) | `issueUpdate(id, input)` | Implemented in api-module-library #109; needs the release that includes it. |
+| `comment.create` | `commentCreate` | ok (unreleased) | `commentCreate(issueId, body)` | Implemented in api-module-library #109; needs the release that includes it. |
+| `attachment.link` | `attachmentLinkURL` | ok (unreleased) | `attachmentLinkURL(issueId, url, title)` | Implemented in api-module-library #109; needs the release that includes it. |
+| `team.list` | `teams` | ok (unreleased) | `teams()` | Implemented in api-module-library #109; needs the release that includes it. |
+| `workflowState.list` | `workflowStates` | ok (unreleased) | `workflowStates(teamId, name)` | Implemented in api-module-library #109; needs the release that includes it. |
 | `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## NetSuite (`netsuite`)
@@ -266,15 +294,15 @@ Checked against `~/api-module-library/packages/v1-ready/linear` (@friggframework
 
 ## Pipedrive (`pipedrive`)
 
-Checked against `~/quo--frigg/backend/node_modules/@friggframework/api-module-pipedrive` (@friggframework/api-module-pipedrive manifest 2.1.0).
+Checked against the api-module-library branch source `~/aml-small/packages/v1-ready/pipedrive` (src/api.ts, compiled; PR #110), manifest 2.1.0. The built 2.1.0 in `~/quo--frigg/backend/node_modules/@friggframework` predates `addPerson`/`updatePerson`.
 
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|
 | `person.get` | `getPerson` | ok | `getPerson(personId, params)` | (called with one object; now positional) |
 | `person.search` | `searchPersons` | ok | `searchPersons(params)` |  |
 | `person.list` | `listPersons` | ok | `listPersons(params)` |  |
-| `person.create` | `addPerson` | unimplemented | none | Api has no addPerson (persons can be listed, fetched and searched only). |
-| `person.update` | `updatePerson` | unimplemented | none | Api has no updatePerson. |
+| `person.create` | `addPerson` | ok (unreleased) | `addPerson(person)` | Implemented in api-module-library #110; needs the release that includes it. |
+| `person.update` | `updatePerson` | ok (unreleased) | `updatePerson(personId, person)` | Implemented in api-module-library #110; needs the release that includes it. |
 | `activity.create` | `createActivity` | ok | `createActivity(params)` | (method was `addActivity`; called with one object; now positional) |
 | `activity.list` | `listActivities` | ok | `listActivities(params)` |  |
 | `deal.listForPerson` | `listDeals` | ok | `listDeals(params)` | (method was `listPersonDeals`; inputs were personId, status) |
@@ -334,16 +362,16 @@ Checked against `~/api-module-library/packages/v1-ready/salesforce` (@friggframe
 |---|---|---|---|---|
 | `lead.get` | `get` | ok | `get(object, id)` | (method was `getLead`; called with one object; now positional) |
 | `lead.create` | `create` | ok | `create(object, data)` | (method was `createLead`; called with one object; now positional) |
-| `lead.update` | `updateLead` | unimplemented | none | Api.update(object, data) needs the record id inside data (data.Id); the capability passes the id separately, so there is no way to call it. |
-| `person.searchByEmail` | `searchPeopleByEmail` | unimplemented | none | Api.find(object, filter) searches one sObject at a time; searching Lead and Contact together would need two calls. |
+| `lead.update` | `updateLead` | ok (unreleased) | `updateLead(id, fields)` | Implemented in api-module-library #107; needs the release that includes it. |
+| `person.searchByEmail` | `searchPeopleByEmail` | ok (unreleased) | `searchPeopleByEmail(email)` | Implemented in api-module-library #107; needs the release that includes it. |
 | `event.create` | `create` | ok | `create(object, data)` | (method was `createEvent`; called with one object; now positional) |
-| `event.update` | `updateEvent` | unimplemented | none | Api.update(object, data) needs the record id inside data (data.Id); the capability passes the id separately, so there is no way to call it. |
+| `event.update` | `updateEvent` | ok (unreleased) | `updateEvent(id, fields)` | Implemented in api-module-library #107; needs the release that includes it. |
 | `opportunity.get` | `get` | ok | `get(object, id)` | (method was `getOpportunity`; called with one object; now positional) |
-| `opportunity.update` | `updateOpportunity` | unimplemented | none | Api.update(object, data) needs the record id inside data (data.Id); the capability passes the id separately, so there is no way to call it. |
+| `opportunity.update` | `updateOpportunity` | ok (unreleased) | `updateOpportunity(id, fields)` | Implemented in api-module-library #107; needs the release that includes it. |
 | `task.create` | `create` | ok | `create(object, data)` | (method was `createTask`; called with one object; now positional) |
-| `file.attach` | `createContentVersion` | unimplemented | none | Api has the generic create(object, data) only; ContentVersion field names differ from this capability's inputs. |
-| `note.create` | `createContentNote` | unimplemented | none | Api has the generic create(object, data) only; ContentNote field names differ from this capability's inputs. |
-| `user.list` | `listUsers` | unimplemented | none | Api has find(object, filter) but no user listing with an activeOnly filter. |
+| `file.attach` | `createContentVersion` | ok (unreleased) | `createContentVersion(title, pathOnClient, versionData, firstPublishLocationId)` | Implemented in api-module-library #107; needs the release that includes it. |
+| `note.create` | `createContentNote` | ok (unreleased) | `createContentNote(title, content, linkedEntityId)` | Implemented in api-module-library #107; needs the release that includes it. |
+| `user.list` | `listUsers` | ok (unreleased) | `listUsers(activeOnly = false)` | Implemented in api-module-library #107; needs the release that includes it. |
 | `webhook.verify` | `verifyWebhookSignature` | unimplemented | | Not a webhook: CDC arrives over the Pub/Sub or CometD stream; Outbound Messages are unsigned (OrganizationId + IP allowlist). Deliveries are rejected. |
 
 ## Shopify (`shopify`)
@@ -380,7 +408,7 @@ Checked against `~/api-module-library/packages/needs-updating/slack` (@friggfram
 | `message.postEphemeral` | `postEphemeral` | ok | `postEphemeral(body)` |  |
 | `message.permalink` | `getMessagePermalink` | ok | `getMessagePermalink(query)` | (method was `getPermalink`) |
 | `channel.list` | `listChannels` | ok | `listChannels(query)` | (method was `listConversations`) |
-| `user.list` | `listUsers` | unimplemented | none | Api has lookupUserByEmail, getUserById and getUserProfileById, but no user listing. |
+| `user.list` | `listUsers` | ok (unreleased) | `listUsers(query = {})` | Implemented in api-module-library #110; needs the release that includes it. |
 | `user.lookupByEmail` | `lookupUserByEmail` | ok | `lookupUserByEmail(email)` | (called with one object; now positional) |
 | `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
@@ -390,14 +418,14 @@ Checked against `~/api-module-library/packages/v1-ready/stripe` (@friggframework
 
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|
-| `customer.get` | `retrieveCustomer` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
-| `customer.list` | `listCustomers` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
-| `customer.search` | `searchCustomers` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
-| `customer.create` | `createCustomer` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
-| `customer.update` | `updateCustomer` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
-| `paymentIntent.get` | `retrievePaymentIntent` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
-| `refund.get` | `retrieveRefund` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
-| `payout.list` | `listPayouts` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
+| `customer.get` | `retrieveCustomer` | ok (unreleased) | `retrieveCustomer(id, params = {}, options = {})` | Implemented in api-module-library #108; needs the release that includes it. |
+| `customer.list` | `listCustomers` | ok (unreleased) | `listCustomers(params = {}, options = {})` | Implemented in api-module-library #108; needs the release that includes it. |
+| `customer.search` | `searchCustomers` | ok (unreleased) | `searchCustomers(query, params = {}, options = {})` | Implemented in api-module-library #108; needs the release that includes it. |
+| `customer.create` | `createCustomer` | ok (unreleased) | `createCustomer(params = {}, options = {})` | Implemented in api-module-library #108; needs the release that includes it. |
+| `customer.update` | `updateCustomer` | ok (unreleased) | `updateCustomer(id, params = {}, options = {})` | Implemented in api-module-library #108; needs the release that includes it. |
+| `paymentIntent.get` | `retrievePaymentIntent` | ok (unreleased) | `retrievePaymentIntent(id, params = {}, options = {})` | Implemented in api-module-library #108; needs the release that includes it. |
+| `refund.get` | `retrieveRefund` | ok (unreleased) | `retrieveRefund(id, params = {}, options = {})` | Implemented in api-module-library #108; needs the release that includes it. |
+| `payout.list` | `listPayouts` | ok (unreleased) | `listPayouts(params = {}, options = {})` | Implemented in api-module-library #108; needs the release that includes it. |
 | `balanceTransaction.list` | `getBalanceTransactions` | ok | `getBalanceTransactions(params)` | (method was `listBalanceTransactions`) |
 | `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 

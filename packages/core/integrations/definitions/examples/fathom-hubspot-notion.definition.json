@@ -399,7 +399,7 @@
                 {
                   "use": "hubspot.deal.update",
                   "with": {
-                    "id": "$.steps.deals[0].id",
+                    "dealId": "$.steps.deals[0].id",
                     "properties": {
                       "hs_next_step": "$.steps.proposal.nextStep"
                     }
@@ -432,7 +432,7 @@
         {
           "use": "hubspot.deal.update",
           "with": {
-            "id": "$.record.metadata.event_payload.dealId",
+            "dealId": "$.record.metadata.event_payload.dealId",
             "properties": {
               "dealstage": "$.record.metadata.event_payload.stage",
               "hs_next_step": "$.record.metadata.event_payload.nextStep"

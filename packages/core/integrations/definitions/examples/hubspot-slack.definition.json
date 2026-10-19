@@ -159,9 +159,27 @@
           "id": "deals",
           "use": "hubspot.deal.search",
           "with": {
-            "open": true,
-            "closeDateBefore": "+7d",
-            "minAmount": "$.settings.minAmount",
+            "filterGroups": [
+              {
+                "filters": [
+                  {
+                    "propertyName": "hs_is_closed",
+                    "operator": "EQ",
+                    "value": "false"
+                  },
+                  {
+                    "propertyName": "closedate",
+                    "operator": "LT",
+                    "value": "+7d"
+                  },
+                  {
+                    "propertyName": "amount",
+                    "operator": "GTE",
+                    "value": "$.settings.minAmount"
+                  }
+                ]
+              }
+            ],
             "limit": 50
           }
         },
