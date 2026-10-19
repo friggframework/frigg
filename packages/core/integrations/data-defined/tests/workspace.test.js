@@ -104,7 +104,12 @@ describe("a workspace's own integrations", () => {
         await new d.PublishDefinitionVersion({ repository, manifests }).execute({ document: example('quo-hubspot') });
         await request(app('u-acme')).post('/api/integration-definitions').send({ document: own() });
         const taken = async (userId, document) => { const r = await request(app(userId)).post('/api/integration-definitions').send({ document }); return [r.status, r.body.code]; };
-        expect(await taken('u-other', own({ version: '2.0.0' }))).toEqual([409, 'ID_TAKEN']);
+        // Another workspace's id answers as a miss (it must not confirm the id exists), the same as reading it does.
+        expect(await taken('u-other', own({ version: '2.0.0' }))).toEqual([404, 'NOT_FOUND']);
+        const foreignPublish = await request(app('u-other')).post('/api/integration-definitions').send({ document: own({ version: '2.0.0' }) });
+        const foreignRead = await request(app('u-other')).get('/api/integration-definitions/acme-issues');
+        expect([foreignPublish.status, foreignPublish.body]).toEqual([foreignRead.status, foreignRead.body]);
+        expect(JSON.stringify(foreignPublish.body)).not.toMatch(/already|taken|another/i);
         expect(await taken('u-acme', { ...example('quo-hubspot'), version: '9.0.0' })).toEqual([409, 'ID_TAKEN']);
         expect(await taken('u-acme', own({ id: 'code-one' }))).toEqual([409, 'ID_TAKEN']);
         expect(await taken('u-acme', own({ version: '1.0.1' }))).toEqual([201, undefined]);   // its own next version is fine

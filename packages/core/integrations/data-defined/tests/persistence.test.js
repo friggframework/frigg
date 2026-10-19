@@ -124,7 +124,8 @@ describeLegs('data-defined persistence on %s', (_, url, loadClient, DefRepo, Run
         expect((await catalog.list({ workspaceId: 'ws-other' })).map((x) => x.id)).not.toContain('acme-github-linear');
         expect(await catalog.ownerOf('acme-github-linear')).toBe('ws-acme');
         expect(await catalog.ownerOf('quo-hubspot')).toBeNull();
-        await expect(publish({ ...own, version: '1.0.1' }, 'ws-other')).rejects.toMatchObject({ code: 'ID_TAKEN' });
+        await expect(publish({ ...own, version: '1.0.1' }, 'ws-other')).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' });   // not confirmed to another tenant
+        await expect(publish({ ...own, version: '1.0.1' }, null)).rejects.toMatchObject({ status: 409, code: 'ID_TAKEN' });         // the admin is not a tenant
         await expect(publish({ ...example('quo-hubspot'), version: '9.0.0' }, 'ws-acme')).rejects.toMatchObject({ code: 'ID_TAKEN' });
     });
 

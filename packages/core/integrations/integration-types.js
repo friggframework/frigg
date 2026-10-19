@@ -6,8 +6,26 @@
  * than code (published integration definitions). Those resolve to classes of their own, with their own name, so a
  * caller cannot tell how an integration was made; only the deployment underneath (queue, functions) is shared.
  *
- * Registered classes win over provided ones, so a published definition can never shadow code.
+ * Registered classes win over provided ones, so a published definition can never shadow code. When one would have,
+ * that is logged (once per name per process) as `frigg.integrations.definition.shadowed_by_code`: the definition is
+ * dead weight and whoever published it expects it to be installable.
  */
+const { getLogger } = require('../logs');
+
+const warnedShadowed = new Set();
+
+/** A definition is ignored because registered code has the same name. Logging must never break a listing. */
+function warnShadowed(name, provider) {
+    if (warnedShadowed.has(name)) return;
+    warnedShadowed.add(name);
+    try {
+        getLogger('frigg.integrations').warn('A published integration definition is ignored because registered code has the same name', {
+            eventName: 'frigg.integrations.definition.shadowed_by_code',
+            integrationName: name,
+            provider: provider?.name || null,
+        });
+    } catch { /* ignore */ }
+}
 
 /**
  * The class for a type, or null.
@@ -36,10 +54,11 @@ async function listIntegrationClasses(integrationClasses, context) {
     for (const c of integrationClasses) {
         if (!c?.IntegrationProvider) { out.push(c); continue; }
         for (const provided of await c.IntegrationProvider.list(context)) {
-            if (!registered.has(provided.Definition.name)) out.push(provided);
+            if (registered.has(provided.Definition.name)) warnShadowed(provided.Definition.name, c);
+            else out.push(provided);
         }
     }
     return out;
 }
 
-module.exports = { resolveIntegrationClass, listIntegrationClasses };
+module.exports = { resolveIntegrationClass, listIntegrationClasses, _resetShadowWarningsForTests: () => warnedShadowed.clear() };
