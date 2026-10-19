@@ -105,7 +105,7 @@ const DataDefined = defineSharedIntegrationClass({ definitions: createDefinition
 | `GET /api/integrations/:id/syncs` | user | Each sync's backfill progress and poll marks |
 | `POST /api/integrations/:id/runs/:runId/decision` `{ decision, note? }` | user | Decide a paused approval. The approval step's `approvers` may decide without owning the installation; anyone else gets a 404 |
 
-The admin routes also answer at their older paths under `/api/admin/data-defined/definitions`. The installation
+The installation
 routes answer for every integration, code included: one with no run history, syncs or other versions gets `[]`, or a
 plan that says there is nothing to move to, never a 404 for how it was made.
 

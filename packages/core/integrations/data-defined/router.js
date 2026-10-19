@@ -13,7 +13,7 @@
  *   GET  /api/integrations/:integrationId/syncs          each sync's backfill progress and poll marks
  *   POST /api/integrations/:integrationId/runs/:runId/decision   { decision: approve|reject, note? } on a paused approval
  *
- * App admins (x-frigg-admin-api-key). Each path also answers under /api/admin/data-defined/definitions (older name):
+ * App admins (x-frigg-admin-api-key):
  *   POST /api/admin/integrations/versions                { document, notes?, publish? = true, strict? } validate + publish
  *   GET  /api/admin/integrations/:id/versions            every version of one integration
  *   POST /api/admin/integrations/:id/versions/:version/deprecate
@@ -105,17 +105,16 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
         return repo;
     };
 
-    const admins = (...paths) => ({ get: (h) => paths.forEach((p) => admin(p).get(h)), post: (h) => paths.forEach((p) => admin(p).post(h)) });
-    admins('/api/admin/integrations/versions', '/api/admin/data-defined/definitions').post(guard(async (req, res) => {
+    admin('/api/admin/integrations/versions').post(guard(async (req, res) => {
         const { document, notes, publish, strict, createdBy } = req.body || {};
         const out = await new PublishDefinitionVersion({ repository: repository(), manifests }).execute({ document, notes, createdBy, publish: publish !== false, strict: Boolean(strict) });
         const { document: _omit, ...version } = out.version;
         res.status(out.created ? 201 : 200).json({ ...out, version });
     }));
-    admins('/api/admin/integrations/:definitionId/versions', '/api/admin/data-defined/definitions/:definitionId').get(guard(async (req, res) => {
+    admin('/api/admin/integrations/:definitionId/versions').get(guard(async (req, res) => {
         res.json({ versions: await new GetDefinitionHistory({ repository: repository() }).execute({ definitionId: req.params.definitionId }) });
     }));
-    admins('/api/admin/integrations/:definitionId/versions/:version/deprecate', '/api/admin/data-defined/definitions/:definitionId/versions/:version/deprecate').post(guard(async (req, res) => {
+    admin('/api/admin/integrations/:definitionId/versions/:version/deprecate').post(guard(async (req, res) => {
         const row = await new DeprecateDefinitionVersion({ repository: repository() }).execute(req.params);
         const { document: _omit, ...version } = row;
         res.json({ version });

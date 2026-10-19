@@ -174,13 +174,12 @@ describe('the same routes for every integration', () => {
         expect(decision.body.code).toBe('NOT_WAITING');
     });
 
-    it('publishing answers at /api/admin/integrations/versions and at the older path', async () => {
+    it('publishing answers at /api/admin/integrations/versions, and nowhere else', async () => {
         process.env.ADMIN_API_KEY = 'admin-key';
         const a = app(new HubspotSlack({ id: 'c1' }));
-        for (const path of ['/api/admin/integrations/versions', '/api/admin/data-defined/definitions']) {
-            const r = await request(a).post(path).set('x-frigg-admin-api-key', 'admin-key').send({ document: example('quo-hubspot') });
-            expect(r.status).toBe(501);                         // bundled definitions: the route exists, there is no store
-            expect(r.body.code).toBe('NO_STORE');
-        }
+        const r = await request(a).post('/api/admin/integrations/versions').set('x-frigg-admin-api-key', 'admin-key').send({ document: example('quo-hubspot') });
+        expect(r.status).toBe(501);                             // bundled definitions: the route exists, there is no store
+        expect(r.body.code).toBe('NO_STORE');
+        expect((await request(a).post('/api/admin/data-defined/definitions').set('x-frigg-admin-api-key', 'admin-key').send({})).status).toBe(404);
     });
 });

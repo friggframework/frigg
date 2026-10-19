@@ -510,8 +510,6 @@ to move to, never a 404 for being code.
 | `GET /api/admin/integrations/:id/versions` | admin key | Every version, without documents |
 | `POST /api/admin/integrations/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
 
-The admin routes also answer at their first paths, under `/api/admin/data-defined/definitions`.
-
 Installing needs no new route. `POST /api/integrations` with `config: { type: '<definition id>' }` pins the latest
 published version, and its checksum, in `onCreate`. An app that bundles its definitions (`memoryDefinitions`) has no store to
 publish to, so the admin routes answer 501.
