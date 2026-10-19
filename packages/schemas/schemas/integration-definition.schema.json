@@ -336,6 +336,22 @@
       },
       "additionalProperties": true
     },
+    "schedule": {
+      "type": "object",
+      "description": "How a host that ticks ONGOING_SYNC from a cron (provider-netlify's scheduled-sync) dispatches it for this integration. Applies to integrations that implement startOngoingSync.",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["class", "installation"],
+          "default": "class",
+          "description": "'class': one ONGOING_SYNC per integration class per tick, with no integration id (the handler finds its own installations). 'installation': one per ENABLED integration record, carrying data.integrationId so the worker hydrates that installation."
+        },
+        "isDue": {
+          "description": "Optional function (integration, { now }) => boolean | Promise<boolean>, scope 'installation' only. Return true to dispatch that installation this tick; without it every installation is dispatched on every tick."
+        }
+      },
+      "additionalProperties": false
+    },
     "display": {
       "type": "object",
       "description": "Display properties for UI representation",

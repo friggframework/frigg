@@ -27,6 +27,29 @@ A core extension's `routes.path` must be `/admin/<segment>…`; `/admin/scripts`
 `/admin/db-migrate` and `/admin/queue` are reserved. Admin routes are never served
 under `/api`.
 
+## Ongoing sync ticks (`scheduled-sync`)
+
+Every tick, `scheduled-sync` dispatches `ONGOING_SYNC` to `worker-background` for
+each integration that implements `startOngoingSync`, as its
+`Definition.schedule.scope` says (core `DispatchOngoingSyncs`):
+
+```js
+static Definition = {
+    name: 'crm',
+    schedule: {
+        // 'class' (default): one message per integration class, data: {}.
+        // 'installation': one per ENABLED integration record, data: { integrationId },
+        //   so the worker hydrates that installation.
+        scope: 'installation',
+        // Optional ('installation' only): return true to dispatch this tick.
+        isDue: (integration, { now }) => true,
+    },
+};
+```
+
+A mistyped scope stops the app at load (`ScheduleConfigError`). Without `isDue`
+every installation is dispatched on every tick.
+
 ## Queue worker authentication
 
 `worker-background` (and the `/admin/queue` redirect to it) is a public URL, and

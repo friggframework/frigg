@@ -15,6 +15,7 @@ const { resolveOwnershipConfig } = require('../modules/entity-scope');
 const {
     resolveManagementApiConfig,
 } = require('../management-api/management-api-config');
+const { resolveScheduleConfig } = require('../integrations/schedule-config');
 
 // Handlers without a database never load the encryption registry, so the
 // credential leaf keys are registered for redaction here too.
@@ -107,6 +108,7 @@ function discoverAppDefinition() {
  * @throws {Error} Throws error if user.authModes.adopterJwt is enabled without a usable user.jwtConfig.
  * @throws {OwnershipConfigError} Throws if an ownership or scope setting is invalid (ADR-056 §3.1).
  * @throws {ManagementApiConfigError} Throws if `managementApi.proxy.scopes` is invalid (ADR-056 §3.5).
+ * @throws {ScheduleConfigError} Throws if an integration's `Definition.schedule` is invalid.
  * @example
  * const { integrations, userConfig, telemetry } = loadAppDefinition();
  * console.log(`Found ${integrations.length} integrations`);
@@ -147,6 +149,14 @@ function resolveAppDefinition(appDefinition) {
     // credentials the entity proxy may act through (ADR-056 §3.5), so an
     // unknown scope stops the app here rather than being read as a default.
     resolveManagementApiConfig(managementApi);
+
+    // And for each integration's `Definition.schedule`: a mistyped scope would
+    // otherwise tick ONGOING_SYNC per class when per installation was meant.
+    for (const IntegrationClass of integrations) {
+        if (IntegrationClass?.Definition) {
+            resolveScheduleConfig(IntegrationClass.Definition);
+        }
+    }
 
     registerCredentialLogKeys(appDefinition, moduleDefinitions);
 
