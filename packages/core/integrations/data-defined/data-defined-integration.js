@@ -16,6 +16,7 @@
  * Ports used: definitions.get(id, version) -> definition doc (immutable; cache freely)
  *             runCode(ref, args) -> registered code steps (optional)
  */
+const crypto = require('crypto');
 const { compile, routeWebhook, eventName } = require('./compile');
 const { makePorts, runWorkflow, resumeWorkflow, runQuery, renderSurface, runLifecycle, resolveOptions, installContext } = require('./runtime');
 const { createSyncEngine } = require('./sync-engine');
@@ -520,7 +521,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
 
         /** Start a backfill (or a relink after an identity change) and queue its first page. */
         async startBackfill(syncId, reason = 'user') {
-            const runId = `bf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+            const runId = `bf_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
             const out = await this.syncEngine().startBackfill({ syncId, runId, reason });
             if (out.started) await this.queueWebhook({ event: eventName('SYNC', syncId, 'PAGE'), integrationId: this.id, ...out.next, definitionVersion: this.def.version });
             return { started: out.started, progress: out.progress };
@@ -537,7 +538,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
                 if (t.type !== 'syncRecord' || t.sync !== syncId || !this.compiled.events[n]) continue;
                 for (const r of results) {
                     if (!r?.action || !(t.on || []).includes(r.action)) continue;
-                    const ids = Object.entries(r.ids || {}).map(([k, v]) => `${k}:${v}`).sort().join('|');
+                    const ids = Object.entries(r.ids || {}).map(([k, v]) => `${k}:${v}`).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).join('|');
                     await this.queueWebhook({ event: n, integrationId: this.id, body: { sync: syncId, action: r.action, ids: r.ids }, ...(r.action !== 'updated' ? { eventId: `${syncId}:${r.action}:${ids}` } : {}), definitionVersion: this.def.version });
                 }
             }
