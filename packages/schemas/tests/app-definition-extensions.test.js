@@ -25,3 +25,23 @@ describe('app definition: core extension route paths', () => {
         expect(validateAppDefinition(withRoutePath(path)).valid).toBe(false);
     });
 });
+
+describe('app definition: appDefinition.extensions (ADR-017) beside coreExtensions', () => {
+    test("accepts ADR-017's keyed extensions object", () => {
+        const def = {
+            integrations: [],
+            extensions: { alerting: { extension: { name: 'pagerduty' }, config: { serviceKey: 'x' } } },
+        };
+        expect(validateAppDefinition(def).valid).toBe(true);
+    });
+
+    test('rejects the old array shape at extensions (it moved to coreExtensions)', () => {
+        const def = { integrations: [], extensions: [{ name: 'db-credentials' }] };
+        expect(validateAppDefinition(def).valid).toBe(false);
+    });
+
+    test('rejects a binding without an extension', () => {
+        const def = { integrations: [], extensions: { alerting: { config: {} } } };
+        expect(validateAppDefinition(def).valid).toBe(false);
+    });
+});

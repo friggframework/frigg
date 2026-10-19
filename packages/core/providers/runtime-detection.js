@@ -91,12 +91,28 @@ function resolveActiveProvider(env = process.env, { appDefinition, resolve = res
 function isDeployedRuntime(env = process.env, { provider, appDefinition } = {}) {
     if (isLocalRun(env)) return false;
     if (isAwsLambdaRuntime(env)) return true;
-    const active = provider === undefined ? resolveActiveProvider(env, { appDefinition }) : provider;
-    if (!active || typeof active.detect !== 'function') return false;
+    if (provider === undefined) {
+        // A named non-AWS provider whose package cannot be loaded (or has no
+        // detect()) cannot say where we run. Fail closed: provider-netlify's
+        // generated entry points set FRIGG_PROVIDER, so treating that as local
+        // would let a deployed function accept unsigned queue messages.
+        const name = appDefinition?.provider || env.FRIGG_PROVIDER;
+        if (isSet(name) && name !== 'aws') {
+            const active = resolveActiveProvider(env, { appDefinition });
+            if (!active || typeof active.detect !== 'function') return true;
+            return askProvider(active, env, true);
+        }
+        return false;
+    }
+    if (!provider || typeof provider.detect !== 'function') return false;
+    return askProvider(provider, env, false);
+}
+
+function askProvider(active, env, onError) {
     try {
         return active.detect(env) === true;
     } catch (_) {
-        return false;
+        return onError;
     }
 }
 

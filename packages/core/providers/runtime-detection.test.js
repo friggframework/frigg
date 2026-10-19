@@ -40,6 +40,19 @@ describe('isDeployedRuntime', () => {
         expect(isDeployedRuntime(env, { provider: onNetlify })).toBe(false);
     });
 
+    it('a named provider whose package cannot be loaded fails closed (deployed)', () => {
+        expect(isDeployedRuntime({ FRIGG_PROVIDER: 'not-an-installed-provider', STAGE: 'dev' })).toBe(true);
+        expect(
+            isDeployedRuntime({ STAGE: 'dev' }, { appDefinition: { provider: 'not-an-installed-provider' } })
+        ).toBe(true);
+    });
+
+    it('a named provider still yields to a local run', () => {
+        expect(
+            isDeployedRuntime({ FRIGG_PROVIDER: 'not-an-installed-provider', NETLIFY_DEV: 'true' })
+        ).toBe(false);
+    });
+
     it('a laptop with no platform signal is local', () => {
         expect(isDeployedRuntime({ STAGE: 'production' })).toBe(false);
     });

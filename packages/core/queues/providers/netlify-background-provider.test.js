@@ -286,5 +286,9 @@ describe('isProductionEnvironment / allowsUnsignedMessages', () => {
         expect(
             allowsUnsignedMessages({ STAGE: 'dev', FRIGG_PROVIDER: 'netlify', FRIGG_QUEUE_ALLOW_UNSIGNED: 'true' })
         ).toBe(false);
+        // ...nor one whose provider package cannot be loaded (fails closed).
+        expect(
+            allowsUnsignedMessages({ STAGE: 'dev', FRIGG_PROVIDER: 'not-an-installed-provider', FRIGG_QUEUE_ALLOW_UNSIGNED: 'true' })
+        ).toBe(false);
     });
 });
