@@ -144,7 +144,7 @@ describe('runWorkflow', () => {
 
     it('runs foreach with $.item and caps it', async () => {
         const def = base(); const h = harness();
-        const respond = (m, method) => (method === 'searchContacts' ? [{ id: 'a', properties: { notes_last_contacted: 'x' } }, { id: 'b', properties: {} }] : {});
+        const respond = (m, method) => (method === 'searchContacts' ? { total: 2, results: [{ id: 'a', properties: { notes_last_contacted: 'x' } }, { id: 'b', properties: {} }] } : {});
         const run = await d.runWorkflow({ def, installation: {}, workflowId: 'stale-contacts', event: {}, ports: h.ports(def, respond), manifests });
         expect(run.status).toBe('completed');
         expect(h.calls.filter((c) => c.method === 'updateContact').map((c) => c.args.id)).toEqual(['a', 'b']);

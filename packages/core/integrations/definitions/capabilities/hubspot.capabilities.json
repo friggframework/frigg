@@ -429,7 +429,7 @@
           "type": "string"
         }
       },
-      "output": "contact[]"
+      "output": "{ total, results: contact[], paging }"
     },
     "contact.list": {
       "kind": "read",
@@ -665,7 +665,7 @@
           "type": "boolean"
         }
       },
-      "output": "deal[]",
+      "output": "{ total, results: deal[], paging }",
       "note": "Api.searchDeals takes HubSpot filterGroups ([{ filters: [{ propertyName, operator, value }] }]), sorts, props, limit, after and allProps (default true: every deal property when props is empty). The capability was reshaped from open/closeDateBefore/closeDateAfter/minAmount, which the Api never had; a definition expresses those as filterGroups."
     },
     "task.get": {
@@ -728,7 +728,7 @@
           "type": "string"
         }
       },
-      "output": "task[]"
+      "output": "{ total, results: task[], paging }"
     },
     "owner.get": {
       "kind": "read",

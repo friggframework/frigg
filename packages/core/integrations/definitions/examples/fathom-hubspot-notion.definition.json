@@ -79,7 +79,7 @@
         },
         {
           "use": "stop",
-          "when": "$.steps.contacts[0] == null",
+          "when": "$.steps.contacts.results[0] == null",
           "with": {
             "reason": "Attendee is not a HubSpot contact"
           }
@@ -88,7 +88,7 @@
           "id": "deals",
           "use": "hubspot.deal.listForContact",
           "with": {
-            "contactId": "$.steps.contacts[0].id",
+            "contactId": "$.steps.contacts.results[0].id",
             "open": true
           }
         },
@@ -102,7 +102,7 @@
         {
           "use": "hubspot.note.create",
           "with": {
-            "contactId": "$.steps.contacts[0].id",
+            "contactId": "$.steps.contacts.results[0].id",
             "dealId": "$.steps.deals[0].id",
             "properties": {
               "hs_note_body": "$.steps.body",
@@ -163,7 +163,7 @@
         },
         {
           "use": "stop",
-          "when": "$.steps.contacts[0] == null",
+          "when": "$.steps.contacts.results[0] == null",
           "with": {
             "reason": "Attendee is not a HubSpot contact"
           }
@@ -189,7 +189,7 @@
               "use": "hubspot.task.create",
               "when": "$.item.completed != true",
               "with": {
-                "contactId": "$.steps.contacts[0].id",
+                "contactId": "$.steps.contacts.results[0].id",
                 "properties": {
                   "hs_task_subject": "{{item.description | truncate: 120}}",
                   "hs_task_body": "From \"{{record.title}}\" at {{item.recording_timestamp}}: {{record.share_url}}",
@@ -329,7 +329,7 @@
         },
         {
           "use": "stop",
-          "when": "$.steps.contacts[0] == null",
+          "when": "$.steps.contacts.results[0] == null",
           "with": {
             "reason": "Attendee is not a HubSpot contact"
           }
@@ -338,7 +338,7 @@
           "id": "deals",
           "use": "hubspot.deal.listForContact",
           "with": {
-            "contactId": "$.steps.contacts[0].id",
+            "contactId": "$.steps.contacts.results[0].id",
             "open": true
           }
         },
