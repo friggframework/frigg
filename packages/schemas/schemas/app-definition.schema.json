@@ -934,6 +934,18 @@
       },
       "additionalProperties": true
     },
+    "extensions": {
+      "type": "object",
+      "description": "ADR-017 Core Extensions: a keyed object { <binding>: { extension, config } }. Reserved for that design; the core extension loader does not read it. The array of { name, schema, encryption, routes, bootstrap } lives at coreExtensions, and an array here is rejected.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "extension": {},
+          "config": { "type": "object" }
+        },
+        "required": ["extension"]
+      }
+    },
     "coreExtensions": {
       "type": "array",
       "description": "Core extensions that add custom Prisma models, encrypted fields, admin routes, and bootstrap lifecycle hooks to a Frigg app. Each extension can declare a schema fragment, encryption config, route handler, and bootstrap function. App-level; distinct from an integration's Definition.extensions (Tier 3 integration extensions) and from ADR-017's keyed appDefinition.extensions.",
