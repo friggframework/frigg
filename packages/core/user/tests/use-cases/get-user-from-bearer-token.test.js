@@ -88,17 +88,6 @@ describe('GetUserFromBearerToken Use Case', () => {
             expect(user.getId()).toBe(owner.id);
         });
 
-        it('should fall back to the legacy user field on the token row', async () => {
-            const owner = await userRepository.createIndividualUser({ id: 'legacy-user' });
-            userRepository.getSessionToken = jest
-                .fn()
-                .mockResolvedValue({ id: 'token-1', user: owner.id });
-
-            const user = await getUserFromBearerToken.execute('Bearer legacy-token');
-
-            expect(user.getId()).toBe(owner.id);
-        });
-
         it('should fail closed when the token row has no owner id', async () => {
             await userRepository.createIndividualUser({ id: 'first-user' });
             userRepository.getSessionToken = jest

@@ -40,7 +40,7 @@ class GetUserFromBearerToken {
             throw Boom.unauthorized('Session Token Not Found');
         }
 
-        const tokenUserId = sessionToken.userId ?? sessionToken.user;
+        const tokenUserId = sessionToken.userId;
         if (!tokenUserId) {
             throw Boom.unauthorized('Session Token Has No User');
         }
