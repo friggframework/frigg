@@ -18,7 +18,7 @@
  */
 const crypto = require('crypto');
 const { compile, routeWebhook, eventName } = require('./compile');
-const { makePorts, runWorkflow, resumeWorkflow, runQuery, renderSurface, runLifecycle, resolveOptions, installContext } = require('./runtime');
+const { argumentsFor, makePorts, runWorkflow, resumeWorkflow, runQuery, renderSurface, runLifecycle, resolveOptions, installContext } = require('./runtime');
 const { createSyncEngine } = require('./sync-engine');
 const { eventsIn, handshakeFor, modulesFor } = require('./webhooks');
 const { buildConfigForm, missingRequired } = require('./config-form');
@@ -252,7 +252,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
                     return runCode(ref, args);
                 },
                 // The shared class registers modules by module name; a definition may name them by its own keys.
-                callApi: (moduleKey, method, args) => this.moduleFor(moduleKey).api[method](args),
+                callApi: (moduleKey, method, args, order) => this.moduleFor(moduleKey).api[method](...argumentsFor(args, order)),
                 store: this.mappingStore(),
             });
         }

@@ -21,6 +21,21 @@ const { TRANSFORMS } = require('./transforms');
  *        Backed by IntegrationMapping: get = getMapping, put = upsertMapping, claim = createMapping (insert-only; false if it existed)
  * @param {(ref:string, args:object) => Promise<any>} [p.runCode]
  */
+/**
+ * The arguments an Api method is called with. A capability with no `args` takes one object holding every input; one
+ * with `args` (manifest `args`) takes them positionally: an input by name, "$rest" (an object of the inputs not
+ * named in the list) or { value } (a constant, e.g. the sObject name of Salesforce's generic create/get).
+ */
+function argumentsFor(input, order) {
+    if (!Array.isArray(order)) return [input];
+    const named = new Set(order.filter((a) => typeof a === 'string' && a !== '$rest'));
+    return order.map((a) => {
+        if (a === '$rest') return Object.fromEntries(Object.entries(input || {}).filter(([k]) => !named.has(k)));
+        if (a && typeof a === 'object') return a.value;
+        return input?.[a];
+    });
+}
+
 function makePorts({ def, manifests, callApi, store, runCode }) {
     const manifestFor = (key) => manifests[def.modules[key]?.module];
     const normalise = (set, key, value) => {
@@ -39,7 +54,7 @@ function makePorts({ def, manifests, callApi, store, runCode }) {
         async call(moduleKey, capability, args) {
             const c = manifestFor(moduleKey)?.capabilities?.[capability];
             if (!c) throw new Error(`${moduleKey}.${capability} is not declared by the module manifest`);
-            return callApi(moduleKey, c.method, args);
+            return callApi(moduleKey, c.method, args, c.args);
         },
         links: {
             /** By one side's id: link:<set>:<module>:<id>. By identity key: idx:<set>:<key>:<normalised value>. */
@@ -250,4 +265,4 @@ function defaultsOf(settings) {
     return Object.fromEntries(Object.entries(settings || {}).filter(([, s]) => s.default !== undefined).map(([k, s]) => [k, s.default]));
 }
 
-module.exports = { makePorts, runWorkflow, resumeWorkflow, runQuery, renderSurface, resolveView, runLifecycle, resolveOptions, installContext, recordOf, defaultsOf };
+module.exports = { argumentsFor, makePorts, runWorkflow, resumeWorkflow, runQuery, renderSurface, resolveView, runLifecycle, resolveOptions, installContext, recordOf, defaultsOf };

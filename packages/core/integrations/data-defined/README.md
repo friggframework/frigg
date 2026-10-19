@@ -19,7 +19,8 @@ installation (Integration.config)         ─┘                          │
 | `schema/capability-manifest.v0.1.schema.json` | What an API module declares it can do |
 | `schema/installation.v0.1.schema.json` | `Integration.config` for a data-defined installation |
 | `schema/records.md` | Database records: definition versions, installation, mappings, workflow runs |
-| `capabilities/*.capabilities.json` | Mock manifests (HubSpot, Phone, and the apps the examples use) |
+| `capabilities/*.capabilities.json` | Capability manifests. Nine are checked against the real Api classes (`capabilities/AUDIT.md`); the other twelve are still mock-shaped |
+| `scripts/check-manifests.js` | Checks every manifest `method` exists on the real module's Api class, with the arguments it takes |
 | `examples/*.definition.json` | Example definitions; `examples/records/` has Phone ↔ HubSpot database records |
 | `expressions.js` | `$.ref`, `{{template \| filter}}` and conditions. No eval. |
 | `steps.js`, `interpreter.js`, `transforms.js` | The step catalogue and the interpreter |
@@ -257,6 +258,12 @@ node packages/core/integrations/data-defined/scripts/validate.js --manifests ./c
 Exit codes: `0` valid, `1` invalid (or a warning with `--strict`), `2` could not run (unreadable JSON, missing file,
 unknown option, `ajv` not installed). Manifests are checked first and an invalid manifest fails the run, because a
 definition is only as trustworthy as the manifests it is checked against.
+
+A manifest is only as real as its methods. `scripts/check-manifests.js <modules-dir>...` loads each module's Api class
+(no network, nothing instantiated) and checks that every capability's `method` exists and is called the way it takes its
+arguments (`args`: positional inputs, `"$rest"`, or a `{ "value" }` constant; no `args` means one object of all inputs).
+A capability the real Api lacks is marked `"status": "unimplemented"` with a `note`: a definition that uses it validates
+with a warning, not an error. `capabilities/AUDIT.md` has the table.
 
 `ajv` comes from the monorepo root (`@friggframework/schemas` depends on it); core's runtime stays dependency-free and
 loads it only for validation. `tests/schemas.test.js` runs both layers over every example and manifest and drives the

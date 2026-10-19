@@ -206,7 +206,9 @@
       "body": {
         "challenge": "$.body.challenge"
       }
-    }
+    },
+    "status": "unimplemented",
+    "note": "The slack Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
   },
   "capabilities": {
     "message.post": {
@@ -285,7 +287,7 @@
     },
     "message.permalink": {
       "kind": "read",
-      "method": "getPermalink",
+      "method": "getMessagePermalink",
       "label": "chat.getPermalink",
       "input": {
         "channel": {
@@ -301,7 +303,7 @@
     },
     "channel.list": {
       "kind": "read",
-      "method": "listConversations",
+      "method": "listChannels",
       "label": "conversations.list",
       "input": {
         "types": {
@@ -325,7 +327,9 @@
           "type": "number"
         }
       },
-      "output": "user[]"
+      "output": "user[]",
+      "status": "unimplemented",
+      "note": "Api has lookupUserByEmail, getUserById and getUserProfileById, but no user listing."
     },
     "user.lookupByEmail": {
       "kind": "read",
@@ -337,7 +341,10 @@
           "required": true
         }
       },
-      "output": "user"
+      "output": "user",
+      "args": [
+        "email"
+      ]
     }
   },
   "options": {

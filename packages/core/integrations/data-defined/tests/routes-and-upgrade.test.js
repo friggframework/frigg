@@ -127,7 +127,7 @@ describe('user routes: catalogue, upgrade, runs', () => {
         expect((await publishAs(v15)).body.changeLevel).toBe('minor');
         const calls = [];
         const inst = install('int_2', 'user-a', { definition: { id: 'phone-hubspot', version: '1.4.0' }, settings: { fromNumber: '+15125550100' }, runtime: { installed: { hook: { id: 'WH_old' } } } }, {
-            phone: { api: { createWebhook: async (a) => { calls.push(['create', a.events.length]); return { id: 'WH_new' }; }, deleteWebhook: async (a) => { calls.push(['delete', a.id]); } } },
+            phone: { api: { createUnifiedWebhook: async (a) => { calls.push(['create', a.events.length]); return { id: 'WH_new' }; }, deleteWebhook: async (id) => { calls.push(['delete', id]); } } },
             hubspot: { api: {} },
         });
         const r = await request(app).post('/api/integrations/int_2/upgrade').set('authorization', 'Bearer token-a').send({ to: '1.5.0' });
@@ -161,7 +161,7 @@ describe('installing by id alone', () => {
     it('pins the latest published version and its checksum, and persists the pin at install', async () => {
         const { publishAs, install, catalog } = await setup();
         await publishAs(example('phone-hubspot'));
-        const inst = install('int_4', 'user-a', { definition: { id: 'phone-hubspot' } }, { phone: { api: { createWebhook: async () => ({ id: 'WH1' }) } }, hubspot: { api: {} } });
+        const inst = install('int_4', 'user-a', { definition: { id: 'phone-hubspot' } }, { phone: { api: { createUnifiedWebhook: async () => ({ id: 'WH1' }) } }, hubspot: { api: {} } });
         await inst.initialize();
         expect(inst.config.definition).toEqual({ id: 'phone-hubspot', version: '1.4.0', checksum: await catalog.checksumOf('phone-hubspot', '1.4.0') });
         await inst.onCreate({});

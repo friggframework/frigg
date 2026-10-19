@@ -151,22 +151,25 @@
       "headers": {
         "X-Hook-Secret": "$.headers.x-hook-secret"
       }
-    }
+    },
+    "status": "unimplemented",
+    "note": "The asana Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
   },
   "capabilities": {
     "task.get": {
       "kind": "read",
-      "method": "getTask",
+      "method": "getTaskById",
       "input": {
         "taskGid": {
           "type": "string",
           "required": true
-        },
-        "opt_fields": {
-          "type": "string"
         }
       },
-      "output": "task"
+      "output": "task",
+      "args": [
+        "taskGid"
+      ],
+      "note": "Api.getTaskById(id) takes only the id; field selection (opt_fields) is not supported."
     },
     "task.search": {
       "kind": "search",
@@ -192,13 +195,15 @@
           "type": "number"
         }
       },
-      "output": "task[]"
+      "output": "task[]",
+      "status": "unimplemented",
+      "note": "Api.listTasks({ workspaceId, assigneeId }) filters by workspace and assignee only; due_on, completed, projects_any and limit have no equivalent."
     },
     "project.list": {
       "kind": "read",
-      "method": "getProjects",
+      "method": "listProjects",
       "input": {
-        "workspaceGid": {
+        "workspace": {
           "type": "string",
           "required": true
         },
@@ -210,7 +215,7 @@
     },
     "workspace.list": {
       "kind": "read",
-      "method": "getWorkspaces",
+      "method": "listWorkspaces",
       "input": {},
       "output": "workspace[]"
     },
@@ -230,7 +235,9 @@
           "type": "array"
         }
       },
-      "output": "webhook"
+      "output": "webhook",
+      "status": "unimplemented",
+      "note": "Api has no webhook methods."
     },
     "webhook.delete": {
       "kind": "delete",
@@ -241,7 +248,9 @@
           "required": true
         }
       },
-      "output": "void"
+      "output": "void",
+      "status": "unimplemented",
+      "note": "Api has no webhook methods."
     }
   },
   "options": {
@@ -255,7 +264,7 @@
       "label": "{{item.name}}",
       "value": "$.item.gid",
       "inputs": {
-        "workspaceGid": {
+        "workspace": {
           "type": "string",
           "required": true
         }

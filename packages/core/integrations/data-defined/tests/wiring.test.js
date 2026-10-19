@@ -70,7 +70,7 @@ describe('initialize() is where a real Frigg entry point hydrates the definition
         const inst = shared([def], { apis: { hubspot: { api: { getContactById } }, phone: { api: {} } } })(pin(def));
         await inst.initialize();
         expect((await inst.send('WF_LOOK_UP', { id: '51' })).status).toBe('completed');
-        expect(getContactById).toHaveBeenCalledWith({ id: '51' });
+        expect(getContactById).toHaveBeenCalledWith('51');
     });
 });
 
@@ -210,7 +210,7 @@ describe('receipt and worker', () => {
 
 describe('the existing authenticated routes: config options, user actions, UI surfaces', () => {
     const def = example('asana-slack');
-    const make = () => shared([def], { apis: { asana: { api: { getWorkspaces: async () => [{ gid: 'w1', name: 'Acme' }], getProjects: async ({ workspaceGid }) => (workspaceGid === 'w1' ? [{ gid: 'p1', name: 'Launch' }] : []) } }, slack: { api: { listChannels: async () => [{ id: 'C1', name: 'general' }], listUsers: async () => [] } } } });
+    const make = () => shared([def], { apis: { asana: { api: { listWorkspaces: async () => [{ gid: 'w1', name: 'Acme' }], listProjects: async ({ workspace }) => (workspace === 'w1' ? [{ gid: 'p1', name: 'Launch' }] : []) } }, slack: { api: { listChannels: async () => [{ id: 'C1', name: 'general' }], listUsers: async () => [] } } } });
 
     it('GET config/options: a form whose data is the config shape; a dependent list waits for its input', async () => {
         const inst = make()(pin(def));
@@ -234,14 +234,14 @@ describe('the existing authenticated routes: config options, user actions, UI su
     });
 
     it('NEEDS_CONFIG comes from the definition\'s required settings, without calling any API', async () => {
-        const getWorkspaces = jest.fn();
-        const inst = shared([def], { apis: { asana: { api: { getWorkspaces } }, slack: { api: {} } } })(pin(def));
+        const listWorkspaces = jest.fn();
+        const inst = shared([def], { apis: { asana: { api: { listWorkspaces } }, slack: { api: {} } } })(pin(def));
         await inst.initialize();
         expect(await inst.validateConfig()).toBe(true);
         inst.config = { ...inst.config, settings: Object.fromEntries(Object.entries(def.settings).filter(([, s]) => s.required).map(([k]) => [k, 'x'])) };
         for (const w of def.workflows) for (const [k, s] of Object.entries(w.settings || {})) if (s.required && s.default === undefined) ((inst.config.workflows ||= {})[w.id] ||= { settings: {} }).settings[k] = 'x';
         expect(await inst.validateConfig()).toBe(false);
-        expect(getWorkspaces).not.toHaveBeenCalled();
+        expect(listWorkspaces).not.toHaveBeenCalled();
     });
 
     it('POST actions/:id runs a button workflow, renders a UI surface, and the button\'s inputs are its options form', async () => {

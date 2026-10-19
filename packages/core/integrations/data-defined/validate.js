@@ -100,6 +100,7 @@ function validate(def, manifests = {}, { codeMethods } = {}) {
         const list = manifestOf[mk].options?.[ok];
         if (!list) { err(p, `Module "${mk}" has no option list "${ok}"`); return; }
         const inputs = list.inputs || {};
+        if (manifestOf[mk].capabilities?.[list.capability]?.status === 'unimplemented') warn(p, `Option list ${ref.source} reads ${list.capability}, which is unimplemented in the ${mk} Api; the dropdown will not load`);
         for (const [name, spec] of Object.entries(inputs)) if (spec.required && !(name in (ref.with || {}))) err(`${p}.with.${name}`, `Option list ${ref.source} needs input "${name}"`);
         for (const [name, v] of Object.entries(ref.with || {})) {
             if (!(name in inputs)) { err(`${p}.with.${name}`, `Option list ${ref.source} takes no input "${name}"`); continue; }
@@ -177,6 +178,9 @@ function validate(def, manifests = {}, { codeMethods } = {}) {
             const toName = `${to.k}.${to.o}`;
             if (!fs) { err(`${p}.${from === src ? 'source' : 'target'}`, `${fromName} declares no sync block (objects.${from.o}.sync), so it cannot be read`); continue; }
             if (!ts) { err(`${p}.${to === tgt ? 'target' : 'source'}`, `${toName} declares no sync block (objects.${to.o}.sync), so it cannot be written`); continue; }
+            for (const [spec, man, nm, where] of [[fs, manifestOf[from.k], fromName, from === src ? 'source' : 'target'], [ts, manifestOf[to.k], toName, to === tgt ? 'target' : 'source']]) {
+                for (const op of Object.values(spec)) if (op?.capability && man.capabilities?.[op.capability]?.status === 'unimplemented') warn(`${p}.${where}`, `${nm} syncs through ${op.capability}, which is unimplemented in the ${man.module} Api`);
+            }
             if (!ts.create && !ts.update) err(`${p}.${to === tgt ? 'target' : 'source'}`, `${toName} has neither sync.create nor sync.update`);
             if ((s.backfill?.trigger || 'none') !== 'none' && !fs.list && from === src) err(`${p}.backfill`, `A backfill pages through ${fromName}, which has no sync.list`);
             // A two-way backfill also reads the target when it can list; when it cannot, it reads only the source.
@@ -305,6 +309,7 @@ function validate(def, manifests = {}, { codeMethods } = {}) {
                     const c = man.capabilities?.[cap.capability];
                     if (!c) err(`${p}.use`, `Module "${cap.module}" (${man.module}) has no capability "${cap.capability}"`);
                     else {
+                        if (c.status === 'unimplemented') warn(`${p}.use`, `${st.use} is unimplemented in the ${man.module} Api${c.note ? ` (${c.note})` : ''}; this step will fail at run time until the module adds it`);
                         for (const [name, spec] of Object.entries(c.input || {})) if (spec.required && !(name in args)) err(`${p}.with.${name}`, `Required by ${st.use}`);
                         for (const name of Object.keys(args)) if (c.input && !(name in c.input)) err(`${p}.with.${name}`, `${st.use} takes no argument "${name}"`);
                     }
@@ -329,6 +334,7 @@ function validate(def, manifests = {}, { codeMethods } = {}) {
         if (t.type === 'webhook') {
             if (!manifestOf[t.module]) err(`${p}.trigger.module`, `Unknown module key "${t.module}"`);
             else if (!manifestOf[t.module].events?.[t.topic]) err(`${p}.trigger.topic`, `Module "${t.module}" emits no event "${t.topic}"`);
+            else if (manifestOf[t.module].webhook?.status === 'unimplemented' && (manifestOf[t.module].events[t.topic].delivery || 'webhook') === 'webhook') warn(`${p}.trigger`, `${t.module} events arrive by webhook, but the ${manifestOf[t.module].module} Api has no ${manifestOf[t.module].webhook.verify || 'verify'} method, so every delivery fails signature verification`);
         }
         if (t.type === 'schedule') {
             if ((t.cron === undefined) === (t.every === undefined)) err(`${p}.trigger`, 'Give exactly one of cron or every');

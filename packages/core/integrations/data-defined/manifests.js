@@ -40,6 +40,23 @@ function validateManifest(m) {
         if (!KINDS.has(c?.kind)) err(`${p}.kind`, [...KINDS].join(', '));
         if (!/^[A-Za-z_$][\w$]*$/.test(c?.method || '')) err(`${p}.method`, 'Name of a method on the module\'s Api class');
         for (const [arg, spec] of Object.entries(c?.input || {})) if (!spec?.type) err(`${p}.input.${arg}`, 'Input needs a type');
+        if (c?.status !== undefined && c.status !== 'unimplemented') err(`${p}.status`, 'Only "unimplemented" (the module\'s Api has no such method)');
+        if (c?.args !== undefined) {
+            if (!Array.isArray(c.args)) err(`${p}.args`, 'An ordered list: input names, "$rest", or { value }');
+            else {
+                const named = new Set();
+                c.args.forEach((a, i) => {
+                    if (typeof a === 'string' && a !== '$rest') {
+                        if (!(a in (c.input || {}))) err(`${p}.args[${i}]`, `"${a}" is not an input of this capability`);
+                        else if (named.has(a)) err(`${p}.args[${i}]`, `"${a}" is passed twice`);
+                        named.add(a);
+                    } else if (a === '$rest') { if (c.args.indexOf('$rest') !== i) err(`${p}.args[${i}]`, '"$rest" appears once'); }
+                    else if (!(a && typeof a === 'object' && 'value' in a)) err(`${p}.args[${i}]`, 'An input name, "$rest" or { value }');
+                });
+                // An input that is never passed would be accepted and silently dropped.
+                if (!c.args.includes('$rest')) for (const k of Object.keys(c.input || {})) if (!named.has(k)) err(`${p}.args`, `Input "${k}" is declared but never passed to ${c.method}; list it in args or use "$rest"`);
+            }
+        }
     }
 
     // How a sync reads and writes an object (sync-engine.js). Each operation names a capability of the right kind on
@@ -140,6 +157,7 @@ function validateManifest(m) {
         if (w.account) tpl(w.account, 'webhook.account');
         const batch = w.batch == null ? [] : Array.isArray(w.batch) ? w.batch : [w.batch];
         if (batch.length > 2 || batch.some((b) => typeof b !== 'string')) err('webhook.batch', 'A path to the array of events, or [outer, inner] for two levels');
+        if (w.status !== undefined && w.status !== 'unimplemented') err('webhook.status', 'Only "unimplemented" (the module\'s Api has no verify method)');
         if (w.verify != null && !/^[A-Za-z_$][\w$]*$/.test(w.verify)) err('webhook.verify', 'Name of an Api method that checks the signature');
         if (w.handshake) {
             try { parseCondition(w.handshake.when); } catch (e) { err('webhook.handshake.when', e.message); }

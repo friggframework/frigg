@@ -35,7 +35,7 @@
       "options": {
         "source": "asana.project",
         "with": {
-          "workspaceGid": "$.settings.workspace"
+          "workspace": "$.settings.workspace"
         }
       },
       "label": "Project to announce completed tasks from",
@@ -163,8 +163,7 @@
           "id": "task",
           "use": "asana.task.get",
           "with": {
-            "taskGid": "$.record.gid",
-            "opt_fields": "name,completed,completed_by.name,assignee.name,permalink_url"
+            "taskGid": "$.record.gid"
           }
         },
         {
