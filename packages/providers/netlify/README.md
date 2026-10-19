@@ -44,7 +44,19 @@ is refused and `send()` throws. The only exception is local development:
 `FRIGG_QUEUE_ALLOW_UNSIGNED=true` accepts unsigned messages when the
 environment is not production (`STAGE` is `dev`/`test`/`local`, `NODE_ENV` is
 `development`/`test`, or `NETLIFY_DEV=true`). An unset `STAGE` and `NODE_ENV`
-count as production.
+count as production, and so does any deployed function whatever `STAGE` says.
+
+## Runtime detection
+
+Core decides "deployed or local" with `isDeployedRuntime()`
+(`@friggframework/core/providers/runtime-detection`): AWS Lambda's variables, or
+the active provider's `detect()`. A Netlify Function sets none of the AWS
+variables, and Netlify documents `NETLIFY`, `SITE_ID`, `CONTEXT` and the deploy
+URLs as build-time variables, so the generated function entry points declare the
+platform themselves: their preamble sets `FRIGG_PROVIDER=netlify` (unless already
+set), and this package's `detect()` returns true for it (or for `NETLIFY`).
+`netlify dev` (`NETLIFY_DEV=true`), serverless-offline and Jest count as local
+runs.
 
 ## Environment variables
 

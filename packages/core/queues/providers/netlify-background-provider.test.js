@@ -268,6 +268,11 @@ describe('isProductionEnvironment / allowsUnsignedMessages', () => {
         [{ NODE_ENV: 'development' }, false],
         [{ NODE_ENV: 'test' }, false],
         [{ NETLIFY_DEV: 'true' }, false],
+        // Deployed functions are production whatever STAGE says.
+        [{ STAGE: 'dev', AWS_LAMBDA_FUNCTION_NAME: 'app-dev-worker' }, true],
+        [{ STAGE: 'dev', FRIGG_PROVIDER: 'netlify' }, true],
+        [{ NODE_ENV: 'development', FRIGG_PROVIDER: 'netlify' }, true],
+        [{ STAGE: 'dev', FRIGG_PROVIDER: 'netlify', NETLIFY_DEV: 'true' }, false],
     ])('%j -> production %s', (env, expected) => {
         expect(isProductionEnvironment(env)).toBe(expected);
     });
@@ -277,5 +282,9 @@ describe('isProductionEnvironment / allowsUnsignedMessages', () => {
         expect(allowsUnsignedMessages({ STAGE: 'dev', FRIGG_QUEUE_ALLOW_UNSIGNED: '1' })).toBe(false);
         expect(allowsUnsignedMessages({ STAGE: 'dev' })).toBe(false);
         expect(allowsUnsignedMessages({ FRIGG_QUEUE_ALLOW_UNSIGNED: 'true' })).toBe(false);
+        // A deployed Netlify Function with STAGE=dev cannot opt out.
+        expect(
+            allowsUnsignedMessages({ STAGE: 'dev', FRIGG_PROVIDER: 'netlify', FRIGG_QUEUE_ALLOW_UNSIGNED: 'true' })
+        ).toBe(false);
     });
 });

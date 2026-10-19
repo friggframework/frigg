@@ -131,6 +131,7 @@ const {
     determineProviderName,
     providerPackageName,
     KNOWN_PROVIDERS,
+    isDeployedRuntime,
 } = require('./providers');
 
 // App-level extensions (appDefinition.extensions): Prisma models, encrypted
@@ -261,6 +262,7 @@ module.exports = {
     determineProviderName,
     providerPackageName,
     KNOWN_PROVIDERS,
+    isDeployedRuntime,
 
     // app-level extensions
     extensions,

@@ -70,6 +70,17 @@ describe('getFunctionEntryPoints', () => {
         }
     });
 
+    test('every entry point declares the platform (FRIGG_PROVIDER=netlify) before loading core', () => {
+        const entries = getFunctionEntryPoints({ name: 'test' });
+        for (const [, content] of Object.entries(entries)) {
+            const declared = content.indexOf(
+                "process.env.FRIGG_PROVIDER = process.env.FRIGG_PROVIDER || 'netlify';"
+            );
+            expect(declared).toBeGreaterThanOrEqual(0);
+            expect(declared).toBeLessThan(content.indexOf('setAppDefinition'));
+        }
+    });
+
     test('preamble appears before the template content', () => {
         const entryPoints = getFunctionEntryPoints({ name: 'test' });
 
