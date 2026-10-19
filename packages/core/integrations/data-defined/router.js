@@ -17,10 +17,10 @@
  *   POST /api/integration-definitions                    { document, notes?, publish? = true } publish (or draft) a version
  *   GET  /api/integration-definitions/:id                its versions and the latest document, for the editor
  *
- * App admins (x-frigg-admin-api-key):
- *   POST /api/admin/integrations/versions                { document, notes?, publish? = true, strict? } validate + publish
- *   GET  /api/admin/integrations/:id/versions            every version of one integration
- *   POST /api/admin/integrations/:id/versions/:version/deprecate
+ * App admins (x-frigg-admin-api-key, the validateAdminApiKey middleware that /admin/scripts and /admin/db-migrate use):
+ *   POST /admin/integrations/versions                { document, notes?, publish? = true, strict? } validate + publish
+ *   GET  /admin/integrations/:id/versions            every version of one integration
+ *   POST /admin/integrations/:id/versions/:version/deprecate
  *
  * Installing needs no new route: POST /api/integrations with config { type: '<integration id>' } pins the latest
  * published version, exactly as a code integration is installed by its name.
@@ -35,6 +35,30 @@ const noUpgrade = (integration) => ({
     from: integration.constructor?.Definition?.version ?? null, to: integration.constructor?.Definition?.version ?? null,
     reason: 'This integration has no other version to move to',
 });
+
+/**
+ * Every route this router registers, in one place: method, path and who may call it. The registrations below take their
+ * paths from here, so this list cannot drift from what is served.
+ *
+ * Admin routes sit in core's existing /admin/* namespace (beside /admin/scripts and /admin/db-migrate, same admin-auth
+ * middleware). The user routes are on their pre-/api/v2 paths and move onto the /api/v2 route registry via PR #671; having
+ * them listed as data is what makes that move mechanical.
+ * auth: 'user' = a signed-in user (the workspace is the user's Frigg id), 'admin' = x-frigg-admin-api-key.
+ */
+const DEFINITION_ROUTES = Object.freeze({
+    catalogue:        { method: 'GET',  path: '/api/data-defined/definitions', auth: 'user' },
+    upgradePlan:      { method: 'GET',  path: '/api/integrations/:integrationId/upgrade', auth: 'user' },
+    upgradeApply:     { method: 'POST', path: '/api/integrations/:integrationId/upgrade', auth: 'user' },
+    runs:             { method: 'GET',  path: '/api/integrations/:integrationId/runs', auth: 'user' },
+    decide:           { method: 'POST', path: '/api/integrations/:integrationId/runs/:runId/decision', auth: 'user' },
+    syncs:            { method: 'GET',  path: '/api/integrations/:integrationId/syncs', auth: 'user' },
+    ownPublish:       { method: 'POST', path: '/api/integration-definitions', auth: 'user' },
+    ownRead:          { method: 'GET',  path: '/api/integration-definitions/:definitionId', auth: 'user' },
+    adminPublish:     { method: 'POST', path: '/admin/integrations/versions', auth: 'admin' },
+    adminVersions:    { method: 'GET',  path: '/admin/integrations/:definitionId/versions', auth: 'admin' },
+    adminDeprecate:   { method: 'POST', path: '/admin/integrations/:definitionId/versions/:version/deprecate', auth: 'admin' },
+});
+const path = (key) => DEFINITION_ROUTES[key].path;
 
 function sendError(res, e) {
     if (e instanceof DefinitionError || e?.name === 'DefinitionError') return res.status(e.status || 400).json({ error: e.message, code: e.code, details: e.details });
@@ -59,14 +83,14 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
     };
     const runtimeOf = (integration) => integration?.constructor?.DataDefined || null;
 
-    router.route('/api/data-defined/definitions').get(guard(async (req, res) => {
+    router.route(path('catalogue')).get(guard(async (req, res) => {
         const user = await authenticateUser.execute(req);
         const lists = await Promise.all(classes.map((c) => (c.DataDefined.definitions.list ? c.DataDefined.definitions.list({ workspaceId: String(user.getId()) }) : [])));
         const seen = new Set();
         res.json({ definitions: lists.flat().filter((d) => (seen.has(d.id) ? false : seen.add(d.id))) });
     }));
 
-    router.route('/api/integrations/:integrationId/upgrade')
+    router.route(path('upgradePlan'))
         .get(guard(async (req, res) => {
             const integration = await installation(req);
             if (typeof integration.upgradeTo !== 'function') return res.json(noUpgrade(integration));
@@ -79,7 +103,7 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
             res.status(result.applied ? 200 : 409).json(result);
         }));
 
-    router.route('/api/integrations/:integrationId/runs').get(guard(async (req, res) => {
+    router.route(path('runs')).get(guard(async (req, res) => {
         const integration = await installation(req);
         const store = runtimeOf(integration)?.runs() || catalogClass.DataDefined.runs();
         if (!store) return res.json({ runs: [] });
@@ -89,7 +113,7 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
 
     // Approvers need not own the installation: the run names who may decide it (an approval step's approvers).
     // Anyone else learns nothing, not even that the installation exists.
-    router.route('/api/integrations/:integrationId/runs/:runId/decision').post(guard(async (req, res) => {
+    router.route(path('decide')).post(guard(async (req, res) => {
         const user = await authenticateUser.execute(req);
         const { integration, isOwner } = await new GetIntegrationForDecision({ getIntegrationInstance }).execute(req.params.integrationId, user.getId());
         if (typeof integration?.decide !== 'function') throw new DefinitionError(`Run ${req.params.runId} is not waiting`, { status: 404, code: 'NOT_WAITING' });
@@ -97,7 +121,7 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
         res.status(202).json(out);
     }));
 
-    router.route('/api/integrations/:integrationId/syncs').get(guard(async (req, res) => {
+    router.route(path('syncs')).get(guard(async (req, res) => {
         const integration = await installation(req);
         res.json({ syncs: typeof integration.syncStatus === 'function' ? await integration.syncStatus() : [] });
     }));
@@ -105,7 +129,7 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
     // A workspace's own integrations (built in The Integrator): publish a version, read it back for the editor. The
     // integration then appears to that workspace like any other; no one else can see, read or install it.
     const registeredNames = new Set(integrationClasses.map((c) => c.Definition?.name).filter(Boolean));
-    router.route('/api/integration-definitions').post(guard(async (req, res) => {
+    router.route(path('ownPublish')).post(guard(async (req, res) => {
         const user = await authenticateUser.execute(req);
         const { document, notes, publish } = req.body || {};
         const out = await new PublishDefinitionVersion({ repository: repository(), manifests, isReserved: (id) => registeredNames.has(id) })
@@ -113,7 +137,7 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
         const { document: _omit, ...version } = out.version;
         res.status(out.created ? 201 : 200).json({ ...out, version });
     }));
-    router.route('/api/integration-definitions/:definitionId').get(guard(async (req, res) => {
+    router.route(path('ownRead')).get(guard(async (req, res) => {
         const user = await authenticateUser.execute(req);
         const out = await new GetOwnDefinition({ repository: repository() }).execute({ definitionId: req.params.definitionId, workspaceId: String(user.getId()) });
         res.json(out);
@@ -126,16 +150,16 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
         return repo;
     };
 
-    admin('/api/admin/integrations/versions').post(guard(async (req, res) => {
+    admin(path('adminPublish')).post(guard(async (req, res) => {
         const { document, notes, publish, strict, createdBy } = req.body || {};
         const out = await new PublishDefinitionVersion({ repository: repository(), manifests, isReserved: (id) => registeredNames.has(id) }).execute({ document, notes, createdBy, publish: publish !== false, strict: Boolean(strict) });
         const { document: _omit, ...version } = out.version;
         res.status(out.created ? 201 : 200).json({ ...out, version });
     }));
-    admin('/api/admin/integrations/:definitionId/versions').get(guard(async (req, res) => {
+    admin(path('adminVersions')).get(guard(async (req, res) => {
         res.json({ versions: await new GetDefinitionHistory({ repository: repository() }).execute({ definitionId: req.params.definitionId }) });
     }));
-    admin('/api/admin/integrations/:definitionId/versions/:version/deprecate').post(guard(async (req, res) => {
+    admin(path('adminDeprecate')).post(guard(async (req, res) => {
         const row = await new DeprecateDefinitionVersion({ repository: repository() }).execute(req.params);
         const { document: _omit, ...version } = row;
         res.json({ version });
@@ -143,4 +167,4 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
     return true;
 }
 
-module.exports = { setDataDefinedRoutes };
+module.exports = { setDataDefinedRoutes, DEFINITION_ROUTES };
