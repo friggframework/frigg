@@ -1,6 +1,6 @@
 /**
- * In-memory HubSpot and Quo APIs with the real Api classes' call shapes (the manifests' `args`): HubSpot's
- * getContactById(id), createContact(properties), updateContact(id, properties); Quo's getContact(id) and
+ * In-memory HubSpot and Phone APIs with the real Api classes' call shapes (the manifests' `args`): HubSpot's
+ * getContactById(id), createContact(properties), updateContact(id, properties); Phone's getContact(id) and
  * updateContact(id, { defaultFields }). searchContacts is on both only because the sync tests need a search; neither
  * real Api has one (the manifests mark contact.search unimplemented). Test helper.
  */
@@ -24,7 +24,7 @@ function hubspotApi() {
     };
     return api;
 }
-function quoApi() {
+function phoneApi() {
     const records = new Map();
     let n = 0;
     const api = {
@@ -46,4 +46,4 @@ function quoApi() {
     return api;
 }
 
-module.exports = { hubspotApi, quoApi };
+module.exports = { hubspotApi, phoneApi };

@@ -19,7 +19,7 @@ node $M --stub-missing ~/aml-small/packages/v1-ready                  # asana, f
 node $M --stub-missing ~/aml-small/packages/needs-updating            # slack     (PR #110)
 node $M --stub-missing <built pipedrive>                              # pipedrive (PR #110): src/api.ts has no dist, so
                                                                       # compile it first (tsc --outDir dist --noCheck)
-node $M --stub-missing ~/quo--frigg/backend/src/api-modules           # quo (the deployed Left Hook module)
+node $M --stub-missing ~/phone-app/backend/src/api-modules           # phone (the app's own module)
 ```
 
 Each run reports every manifest, so read only the line for the module you are checking (the others resolve to nothing or
@@ -34,7 +34,7 @@ and slack now have methods, on unmerged api-module-library branches: **#106 (hub
 #109 (linear), #110 (asana, pipedrive, fathom, slack)**, stacked on #105. The manifests describe those methods, so **a
 definition that uses them needs the module releases that carry those PRs**; against an older release the call fails at
 runtime with "not a function". Exceptions that stay unimplemented: Salesforce's signed webhook (it has none: CDC arrives
-over the Pub/Sub stream and Outbound Messages are unsigned), and Quo's `contact.search`, which is not part of that work.
+over the Pub/Sub stream and Outbound Messages are unsigned), and Phone's `contact.search`, which is not part of that work.
 Two shape notes:
 
 - HubSpot `deal.search` was reshaped to the real `searchDeals({ filterGroups, sorts, props, limit, after, allProps })`;
@@ -79,20 +79,20 @@ Two shape notes:
 | notion | none found | 6 | - | - | - | - |
 | pipedrive | ~/aml-small/packages/v1-ready/pipedrive (compiled src/api.ts) | 11 | 4 | 3 | 1 | 0 |
 | quickbooks | none found | 14 | - | - | - | - |
-| quo | ~/quo--frigg/backend/src/api-modules/quo | 13 | 1 | 4 | 0 | 1 |
+| phone | ~/phone-app/backend/src/api-modules/phone | 13 | 1 | 4 | 0 | 1 |
 | salesforce | ~/api-module-library/packages/v1-ready/salesforce | 12 | 5 | 5 | 0 | 0 (webhook signing aside) |
 | shopify | none found | 15 | - | - | - | - |
 | slack | ~/api-module-library/packages/needs-updating/slack | 7 | 2 | 1 | 0 | 0 |
 | stripe | ~/api-module-library/packages/v1-ready/stripe | 9 | 1 | 0 | 0 | 0 |
-| tidewater | none found | 13 | - | - | - | - |
+| acmeerp | none found | 13 | - | - | - | - |
 | webflow | none found | 5 | - | - | - | - |
 | zendesk | none found | 8 | - | - | - | - |
 
-Modules with no source to check against: calendly, docusign, github, jira, klaviyo, netsuite, notion, quickbooks, shopify, tidewater, webflow, zendesk. Their capabilities are still mock-shaped:
+Modules with no source to check against: calendly, docusign, github, jira, klaviyo, netsuite, notion, quickbooks, shopify, acmeerp, webflow, zendesk. Their capabilities are still mock-shaped:
 nothing in them is known to exist.
 
-Where a module has two candidates the first root given wins. Quo is checked against the deployed
-`quo--frigg/backend/src/api-modules/quo` (the Left Hook module: `createUnifiedWebhook`, `updateContact`). The library's `v1-ready/quo` 1.0.0 lacks `updateContact` and has `createCallWebhook` and friends
+Where a module has two candidates the first root given wins. Phone is checked against the deployed
+`phone-app/backend/src/api-modules/phone` (the app's own module: `createUnifiedWebhook`, `updateContact`). The library's `v1-ready/phone` 1.0.0 lacks `updateContact` and has `createCallWebhook` and friends
 instead of one webhook method. Pipedrive is checked against the compiled TypeScript source of the api-module-library branch (the library copy has no `dist`).
 
 Manifest versions in the files (for example HubSpot 1.4.0, Asana 1.5.1) are ahead of the module sources audited (HubSpot
@@ -294,7 +294,7 @@ Checked against `~/api-module-library/packages/v1-ready/linear` (@friggframework
 
 ## Pipedrive (`pipedrive`)
 
-Checked against the api-module-library branch source `~/aml-small/packages/v1-ready/pipedrive` (src/api.ts, compiled; PR #110), manifest 2.1.0. The built 2.1.0 in `~/quo--frigg/backend/node_modules/@friggframework` predates `addPerson`/`updatePerson`.
+Checked against the api-module-library branch source `~/aml-small/packages/v1-ready/pipedrive` (src/api.ts, compiled; PR #110), manifest 2.1.0. The built 2.1.0 in `~/phone-app/backend/node_modules/@friggframework` predates `addPerson`/`updatePerson`.
 
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|
@@ -333,9 +333,9 @@ Checked against the api-module-library branch source `~/aml-small/packages/v1-re
 | `account.list` | `listAccounts` | unverified |  |  |
 | `webhook.verify` | `verifyWebhookSignature` | unverified | |  |
 
-## Quo (`quo`)
+## Phone (`phone`)
 
-Checked against `~/quo--frigg/backend/src/api-modules/quo` (@lefthook/api-module-quo manifest 2.1.0).
+Checked against `~/phone-app/backend/src/api-modules/phone` (@acme/api-module-phone manifest 2.1.0).
 
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|
@@ -429,9 +429,9 @@ Checked against `~/api-module-library/packages/v1-ready/stripe` (@friggframework
 | `balanceTransaction.list` | `getBalanceTransactions` | ok | `getBalanceTransactions(params)` | (method was `listBalanceTransactions`) |
 | `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
-## Tidewater (`tidewater`)
+## Acme ERP (`acmeerp`)
 
-**No module source available** (No directory named tidewater or api-module-tidewater). Nothing here is verified; the manifest is still a mock.
+**No module source available** (No directory named acmeerp or api-module-acmeerp). Nothing here is verified; the manifest is still a mock.
 
 | Capability | Method | Status | Real signature | Note |
 |---|---|---|---|---|

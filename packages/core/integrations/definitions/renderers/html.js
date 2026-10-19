@@ -8,7 +8,7 @@ const { str, safeUrl, toneOf } = require('./common');
 const esc = (v) => str(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const FONT = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 
-/** How each host frames what it shows. `generic` is for hosts with no look of their own (Quo, Zendesk, Shopify…). */
+/** How each host frames what it shows. `generic` is for hosts with no look of their own (a phone app, Zendesk, Shopify…). */
 const HOSTS = {
     hubspot: { label: 'HubSpot card', frame: `${FONT};background:#fff;border:1px solid #cbd6e2;border-radius:3px;max-width:420px;color:#33475b;font-size:14px;box-shadow:0 1px 2px rgba(0,0,0,.08)`, head: 'background:#f5f8fa;border-bottom:1px solid #cbd6e2;padding:8px 14px;font-size:12px;color:#516f90;font-weight:600', body: 'padding:14px', accent: '#ff7a59' },
     slack: { label: 'Slack message', frame: `${FONT};background:#fff;border:1px solid #e0e0e0;border-radius:8px;max-width:560px;color:#1d1c1d;font-size:15px`, head: 'padding:8px 14px 0;font-size:13px;color:#616061', body: 'padding:6px 14px 12px', accent: '#4a154b' },

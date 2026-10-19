@@ -28,15 +28,15 @@ describe('args: how the Api method takes its arguments', () => {
     });
 
     it('a capability call reaches the Api positionally when the manifest says so', async () => {
-        const def = example('quo-hubspot');
+        const def = example('phone-hubspot');
         const seen = [];
         const ports = makePorts({ def, manifests, store: { get: async () => null, put: async () => {}, claim: async () => true }, callApi: async (module, method, args, order) => { seen.push([module, method, argumentsFor(args, order)]); return {}; } });
         await ports.call('hubspot', 'contact.update', { id: '9', properties: { firstname: 'Ada' } });
-        await ports.call('quo', 'contact.update', { id: 'CT1', defaultFields: { firstName: 'Ada' } });
+        await ports.call('phone', 'contact.update', { id: 'CT1', defaultFields: { firstName: 'Ada' } });
         await ports.call('hubspot', 'contact.list', { limit: 5 });
         expect(seen).toEqual([
             ['hubspot', 'updateContact', ['9', { firstname: 'Ada' }]],
-            ['quo', 'updateContact', ['CT1', { defaultFields: { firstName: 'Ada' } }]],
+            ['phone', 'updateContact', ['CT1', { defaultFields: { firstName: 'Ada' } }]],
             ['hubspot', 'listContacts', [{ limit: 5 }]],
         ]);
     });
@@ -95,24 +95,24 @@ describe('unimplemented capabilities are a warning in the definition, never an e
     const errorsOf = (def) => d.validate(def, manifests).errors;
 
     it('a step on an unimplemented capability warns, naming the capability and why', () => {
-        // Quo has no contact search; every HubSpot capability now has a method (api-module-library #106).
-        const def = example('quo-hubspot');
-        def.workflows[0].steps.unshift({ id: 'find', use: 'quo.contact.search', with: { email: 'a@b.co' } });
+        // Phone has no contact search; every HubSpot capability now has a method (api-module-library #106).
+        const def = example('phone-hubspot');
+        def.workflows[0].steps.unshift({ id: 'find', use: 'phone.contact.search', with: { email: 'a@b.co' } });
         expect(errorsOf(def)).toEqual([]);
-        expect(warningsOf(def).join('\n')).toMatch(/steps\[0\]\.use: quo\.contact\.search is unimplemented in the quo Api \(Api has no contact search/);
+        expect(warningsOf(def).join('\n')).toMatch(/steps\[0\]\.use: phone\.contact\.search is unimplemented in the phone Api \(Api has no contact search/);
     });
 
     it('an implemented capability does not', () => {
-        const def = example('quo-hubspot');
+        const def = example('phone-hubspot');
         def.workflows[0].steps.unshift({ id: 'get', use: 'hubspot.contact.get', with: { id: '1' } });
         expect(warningsOf(def).filter((w) => w.includes('workflows[0].steps[0]'))).toEqual([]);
     });
 
     it('an option list and a sync that read through one warn too', () => {
-        // The bundled manifests only leave Quo's contact.search unimplemented now, so the other two shapes are checked
+        // The bundled manifests only leave Phone's contact.search unimplemented now, so the other two shapes are checked
         // against a copy in which HubSpot's owner.list and Linear's issue.create are marked unimplemented.
         const all = d.loadExamples().flatMap((def) => warningsOf(def)).join('\n');
-        expect(all).toMatch(/quo\.contact syncs through contact\.search, which is unimplemented in the quo Api/);
+        expect(all).toMatch(/phone\.contact syncs through contact\.search, which is unimplemented in the phone Api/);
         const marked = clone(manifests);
         for (const [mod, cap] of [['hubspot', 'owner.list'], ['linear', 'issue.create']]) {
             marked[mod].capabilities[cap].status = 'unimplemented';
@@ -126,7 +126,7 @@ describe('unimplemented capabilities are a warning in the definition, never an e
     });
 
     it('a trigger on a module whose webhook verification is unimplemented warns once per trigger', () => {
-        const def = example('quo-hubspot');
+        const def = example('phone-hubspot');
         // Mark HubSpot's verification unimplemented in a copy: the bundled manifests now verify (api-module-library).
         const unverified = clone(manifests);
         unverified.hubspot.webhook.status = 'unimplemented';

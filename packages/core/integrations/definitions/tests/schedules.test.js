@@ -1,7 +1,7 @@
 /**
- * Recurring schedules for installations: what a definition may declare, what an installation may
- * change, and that the class keeps one host schedule per installation in step through create, update, upgrade and
- * delete (IntegrationBase.syncSchedules over the real scheduler commands and the mock adapter).
+ * Schedules for installations of published definitions, as ADR-055 recurring triggers: what a definition may declare, what an
+ * installation may change, and that one shared tick (RunTriggerTick over the class's triggersFor) finds each
+ * installation's runs due from its pinned definition and config, with no scheduler call anywhere in the lifecycle.
  */
 jest.mock('../../../database/config', () => ({ DB_TYPE: 'mongodb', getDatabaseType: () => 'mongodb', PRISMA_LOG_LEVEL: 'error,warn' }));
 
@@ -11,8 +11,9 @@ const { validate } = require('../validate');
 const { diff, planUpgrade } = require('../versioning');
 const { buildConfigForm } = require('../config-form');
 const { IntegrationBase } = require('../../integration-base');
-const { MockSchedulerAdapter } = require('../../../infrastructure/scheduler/mock-scheduler-adapter');
-const { createSchedulerCommands } = require('../../../application/commands/scheduler-commands');
+const { RunTriggerTick } = require('../../use-cases/run-trigger-tick');
+const { IntegrationEventDispatcher } = require('../../../handlers/integration-event-dispatcher');
+const { provisioningOf } = require('../../triggers');
 
 const manifests = d.loadManifests();
 const example = (id) => JSON.parse(JSON.stringify(d.loadExamples().find((x) => x.id === id)));
@@ -28,18 +29,18 @@ function digestDef({ configurable = { min: '1h' }, version } = {}) {
 }
 
 describe('definition and installation', () => {
-    it('compiles each switched-on schedule into an entry with its default, its allowance and the installation\'s choice', () => {
+    it('compiles each switched-on schedule into a trigger with its timing, its allowance and the installation\'s choice', () => {
         const def = digestDef();
         const out = compile(def, { workflows: { 'due-tomorrow-digest': { schedule: { cron: '0 9 * * 1-5', timezone: 'Europe/Paris' } } } });
-        expect(out.schedules).toEqual([{ key: DIGEST, event: DIGEST, default: { cron: '0 16 * * 1-5', timezone: 'America/New_York' }, configurable: { min: '1h' }, choice: { cron: '0 9 * * 1-5', timezone: 'Europe/Paris' } }]);
-        expect(compile(def, { workflows: { 'due-tomorrow-digest': { enabled: false } } }).schedules).toEqual([]);
+        expect(out.triggers).toEqual([{ name: DIGEST, cron: '0 16 * * 1-5', timezone: 'America/New_York', configurable: { min: '1h' }, choice: { cron: '0 9 * * 1-5', timezone: 'Europe/Paris' } }]);
+        expect(compile(def, { workflows: { 'due-tomorrow-digest': { enabled: false } } }).triggers).toEqual([]);
     });
 
     it('a polling sync compiles to an interval entry, configurable when the definition says so', () => {
         const def = example('pipedrive-hubspot');
         def.syncs[0].ongoing = { mode: 'poll', every: '30m', configurable: true };
         const out = compile(def, { syncs: { [def.syncs[0].id]: { schedule: { every: '2h' } } } });
-        expect(out.schedules).toEqual([expect.objectContaining({ default: { every: '30m' }, configurable: {}, choice: { every: '2h' } })]);
+        expect(out.triggers).toEqual([expect.objectContaining({ every: '30m', configurable: true, choice: { every: '2h' } })]);
     });
 
     it('validates a schedule as a host would run it, and a default that breaks its own floor', () => {
@@ -81,18 +82,16 @@ describe('definition and installation', () => {
     });
 });
 
-describe('installation lifecycle', () => {
-    let service;
-
-    /** IntegrationBase's real lifecycle and syncSchedules, with persistence and module wiring stubbed. */
+describe('one shared tick for every installation', () => {
+    /** IntegrationBase's real lifecycle and trigger run, with persistence and module wiring stubbed. */
     class Base extends IntegrationBase {
         constructor(p = {}) {
             super(p);
-            this.id = p.id; this.config = p.config; this.status = 'IN_CREATION';
+            this.id = p.id; this.config = p.config; this.status = p.status || 'IN_CREATION';
             this.updateIntegrationStatus = { execute: async () => true };
             this.updateIntegrationMessages = { execute: jest.fn(async () => true) };
             this.patchIntegrationConfig = { execute: async (id, patch) => ({ config: (this.config = { ...this.config, ...patch }) }) };
-            this.schedulerCommands = createSchedulerCommands({ integrationName: 'integration-runtime', schedulerService: service });
+            this.triggerProcessRepository = { findByIntegrationAndType: async () => [], create: async (r) => ({ id: 'p1', ...r }), update: async () => ({}) };
             this.ran = [];
         }
         async initialize() { this.registerEventHandlers(); }
@@ -103,76 +102,132 @@ describe('installation lifecycle', () => {
         async deleteMapping() {}
     }
 
+    const QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789012/integration-runtime-queue';
     const setup = (defs) => {
         const definitions = d.memoryDefinitions(defs);
         const Cls = d.defineSharedIntegrationClass({ definitions, manifests, modules: { asana: {}, slack: {} }, IntegrationBase: Base, runs: false });
-        return (config) => { const inst = new Cls({ id: 'int9', config: { type: 'integration-runtime', ...config } }); const api = new Proxy({}, { get: () => async () => ({ id: 'X1' }) });   // install steps succeed
-        inst.asana = { api }; inst.slack = { api }; return inst; };
+        const install = (id, config, status) => {
+            const inst = new Cls({ id, status, config: { type: 'integration-runtime', ...config } });
+            const api = new Proxy({}, { get: () => async () => ({ id: 'X1' }) });   // install steps succeed
+            inst.asana = { api }; inst.slack = { api };
+            return inst;
+        };
+        /** The tick over the installations' records, as the Lambda runs it (fake repository and queue). */
+        const tickAt = async (installations, time) => {
+            const sent = [];
+            const integrationRepository = { findIntegrations: async ({ type, status }) => installations.filter((i) => i.status === status && i.config.type === type).map((i) => ({ id: i.id, status: i.status, config: i.config })) };
+            const queue = { batchSend: async (entries) => { sent.push(...entries); }, send: async () => {} };
+            await new RunTriggerTick({ integrationClass: Cls, integrationRepository, queue, queueUrl: QUEUE_URL }).execute({ tick: '5m', time });
+            return sent;
+        };
+        return { Cls, install, tickAt, QUEUE_URL };
     };
+    // The digest runs at 16:00 New York on weekdays: 20:00Z on Monday 2026-10-19 (EDT).
+    const DUE = '2026-10-19T20:00:00Z';
 
-    beforeEach(() => {
-        jest.spyOn(console, 'log').mockImplementation(() => {});
-        process.env.INTEGRATION_RUNTIME_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789012/integration-runtime-queue';
-        service = new MockSchedulerAdapter();
+    beforeEach(() => { jest.spyOn(console, 'log').mockImplementation(() => {}); });
+    afterEach(() => { jest.restoreAllMocks(); });
+
+    it('the class declares one 5m tick for all its installations, and nothing per installation', () => {
+        const { Cls } = setup([digestDef()]);
+        expect(provisioningOf(Cls)).toEqual({ ticks: [5], at: [] });
     });
-    afterEach(() => { jest.restoreAllMocks(); delete process.env.INTEGRATION_RUNTIME_QUEUE_URL; });
 
-    it('create schedules the installation\'s workflows; an update to its own timing retimes it; delete removes it', async () => {
-        const newInstall = setup([digestDef()]);
-        const inst = newInstall({ definition: { id: 'asana-slack', version: digestDef().version } });
+    it('create, update and delete schedule nothing; the tick reads the current config each time', async () => {
+        const scheduler = require('../../../application/commands/scheduler-commands');
+        const spy = jest.spyOn(scheduler, 'createSchedulerCommands');
+        const { install, tickAt } = setup([digestDef()]);
+        const inst = install('int9', { definition: { id: 'asana-slack', version: digestDef().version }, settings: { workspace: 'W1', project: 'P1' }, workflows: { 'completed-in-project': { enabled: true, settings: { channel: 'C1' } } } });
         await inst.initialize();
         await inst.onCreate();
-        const name = 'integration-runtime-int9-wf_due_tomorrow_digest';
-        expect(service._getSchedules()[name]).toMatchObject({ recurrence: { cron: '0 16 * * 1-5', timezone: 'America/New_York' }, state: 'ENABLED' });
-        expect(inst.config.runtime.schedules[DIGEST]).toMatchObject({ jobId: name, event: DIGEST });
+        expect(inst.status).toBe('ENABLED');
+        expect(await tickAt([inst], DUE)).toEqual([{ event: 'FRIGG_TRIGGER_RUN', data: { integrationId: 'int9', trigger: DIGEST, scheduledFor: '2026-10-19T20:00:00.000Z' } }]);
+        expect(await tickAt([inst], '2026-10-19T20:05:00Z')).toEqual([]);
 
-        await inst.onUpdate({ config: { workflows: { 'due-tomorrow-digest': { enabled: true, schedule: { every: '3h' } } } } });
-        expect(service._getSchedules()[name].recurrence).toEqual({ every: '3h' });
+        // Retimed to every 3 hours: due on the slots the installation's hash picks, 36 ticks apart.
+        const workflows = (digest) => ({ workflows: { 'completed-in-project': { enabled: true, settings: { channel: 'C1' } }, 'due-tomorrow-digest': digest } });
+        await inst.onUpdate({ config: workflows({ enabled: true, schedule: { every: '3h' } }) });
+        expect(inst.status).toBe('ENABLED');
+        const slots = [];
+        for (let k = 0; k < 72; k += 1) if ((await tickAt([inst], new Date(Date.parse(DUE) + k * 300000).toISOString())).length) slots.push(k);
+        expect(slots).toHaveLength(2);
+        expect(slots[1] - slots[0]).toBe(36);
 
-        await inst.onUpdate({ config: { workflows: { 'due-tomorrow-digest': { enabled: true, schedule: { every: '10m' } } } } });
-        expect(service._getSchedules()[name].recurrence).toEqual({ cron: '0 16 * * 1-5', timezone: 'America/New_York' });
-        expect(inst.updateIntegrationMessages.execute).toHaveBeenCalledWith('int9', 'warnings', 'Schedule not changed', `${DIGEST}: Runs every 10 minutes at its most frequent; the minimum is 1h`, expect.any(Number));
+        // Under the floor: the definition's timing stays, and the installation is told why.
+        await inst.onUpdate({ config: workflows({ enabled: true, schedule: { every: '10m' } }) });
+        expect((await tickAt([inst], DUE)).map((m) => m.data.trigger)).toEqual([DIGEST]);
+        expect(inst.updateIntegrationMessages.execute).toHaveBeenCalledWith('int9', 'warnings', 'Trigger timing not changed', `${DIGEST}: Runs every 10 minutes at its most frequent; the minimum is 1h`, expect.any(Number));
 
-        await inst.onUpdate({ config: { workflows: { 'due-tomorrow-digest': { enabled: false } } } });
-        expect(service._getSchedules()).toEqual({});                  // switching the workflow off removes its schedule
-
-        await inst.onUpdate({ config: { workflows: { 'due-tomorrow-digest': { enabled: true } } } });
+        // Switched off: no trigger. Disabled or deleted: not read at all.
+        await inst.onUpdate({ config: workflows({ enabled: false }) });
+        expect(await tickAt([inst], DUE)).toEqual([]);
+        await inst.onUpdate({ config: workflows({ enabled: true }) });
+        expect(await tickAt([inst], DUE)).toHaveLength(1);
+        inst.status = 'DISABLED';
+        expect(await tickAt([inst], DUE)).toEqual([]);
         await inst.onDelete();
-        expect(service._getSchedules()).toEqual({});
-        expect(inst.config.runtime.schedules).toEqual({});
+        expect(spy).not.toHaveBeenCalled();
     });
 
-    it('an upgrade retimes schedules and keeps the install steps\' results beside them', async () => {
+    it('an upgrade changes what the next tick finds due, and drops a choice the new version disallows', async () => {
         const v2 = digestDef({ configurable: false, version: '2.0.0' });
         v2.workflows.find((x) => x.id === 'due-tomorrow-digest').trigger.cron = '0 15 * * 1-5';
-        const newInstall = setup([digestDef(), v2]);
-        const inst = newInstall({ definition: { id: 'asana-slack', version: digestDef().version }, settings: { workspace: 'W1', project: 'P1' }, workflows: { 'due-tomorrow-digest': { enabled: true, schedule: { every: '2h' } }, 'completed-in-project': { enabled: true, settings: { channel: 'C1' } } } });
+        const { install, tickAt } = setup([digestDef(), v2]);
+        const inst = install('int9', { definition: { id: 'asana-slack', version: digestDef().version }, settings: { workspace: 'W1', project: 'P1' }, workflows: { 'due-tomorrow-digest': { enabled: true, schedule: { every: '2h' } }, 'completed-in-project': { enabled: true, settings: { channel: 'C1' } } } });
         await inst.initialize();
         await inst.onCreate();
-        expect(service._getSchedules()['integration-runtime-int9-wf_due_tomorrow_digest'].recurrence).toEqual({ every: '2h' });
+        expect(inst.status).toBe('ENABLED');
+        // every 2h (24 ticks): due only where this installation's hash puts it, never because of the 16:00 cron
+        const twoHourly = [];
+        for (let k = 0; k < 24; k += 1) if ((await tickAt([inst], new Date(Date.parse(DUE) + k * 300000).toISOString())).length) twoHourly.push(k);
+        expect(twoHourly).toHaveLength(1);
 
         const out = await inst.upgradeTo('2.0.0', { apply: true });
         expect(out.applied).toBe(true);
         expect(out.actions).toContainEqual(expect.objectContaining({ kind: 'reschedule' }));
-        expect(service._getSchedules()['integration-runtime-int9-wf_due_tomorrow_digest'].recurrence).toEqual({ cron: '0 15 * * 1-5', timezone: 'America/New_York' });
-        expect(inst.config.runtime.schedules[DIGEST].recurrence).toEqual({ cron: '0 15 * * 1-5', timezone: 'America/New_York' });
+        expect(inst.config.workflows['due-tomorrow-digest'].schedule).toBeUndefined();
+        expect(await tickAt([inst], '2026-10-19T19:00:00Z')).toEqual([expect.objectContaining({ data: expect.objectContaining({ trigger: DIGEST, scheduledFor: '2026-10-19T19:00:00.000Z' }) })]);
+        expect(await tickAt([inst], DUE)).toEqual([]);
     });
 
-    it('a redelivered tick runs once: the tick\'s scheduled time is the dedupe id', async () => {
-        const newInstall = setup([digestDef()]);
-        const inst = newInstall({ definition: { id: 'asana-slack', version: digestDef().version } });
+    it('the shared tick also covers each published definition, an integration type of its own', async () => {
+        const { Cls, install, tickAt } = setup([digestDef()]);
+        expect(await Cls.triggerTypes()).toEqual(['integration-runtime', 'asana-slack']);
+        const pin = { definition: { id: 'asana-slack', version: digestDef().version } };
+        const hosted = install('int7', { type: 'asana-slack', ...pin }, 'ENABLED');
+        const legacy = install('int8', pin, 'ENABLED');   // { type: 'integration-runtime', definition } still works
+        const due = await tickAt([hosted, legacy], DUE);
+        expect(due.map((m) => [m.data.integrationId, m.data.trigger]).sort()).toEqual([['int7', DIGEST], ['int8', DIGEST]]);
+
+        // A tick that runs out of time hands on a cursor naming the type it stopped in, and the next one carries on there.
+        const rows = [legacy, hosted].map((i) => ({ id: i.id, status: i.status, config: i.config }));
+        const integrationRepository = { findIntegrations: async ({ type, after }) => rows.filter((r) => r.config.type === type && (after == null || r.id > after)) };
+        const handedOn = [];
+        const sent = [];
+        const queue = { batchSend: async (entries) => { sent.push(...entries); }, send: async (m) => { handedOn.push(m); } };
+        const tick = (cursor) => new RunTriggerTick({ integrationClass: Cls, integrationRepository, queue, queueUrl: 'https://sqs/q', pageSize: 1 }).execute({ tick: '5m', time: DUE, cursor, remainingMs: () => 0 });
+        await tick();
+        expect(handedOn.map((m) => m.data.cursor)).toEqual([{ type: 'integration-runtime', after: 'int8' }]);
+        await tick(handedOn[0].data.cursor);
+        expect(handedOn.map((m) => m.data.cursor)).toEqual([{ type: 'integration-runtime', after: 'int8' }, { type: 'asana-slack', after: null }]);
+        await tick(handedOn[1].data.cursor);
+        expect(sent.map((m) => m.data.integrationId)).toEqual(['int8', 'int7']);
+    });
+
+    it('a run delivered twice runs once: the trigger and its scheduled time are the dedupe id', async () => {
+        const { install } = setup([digestDef()]);
+        const inst = install('int9', { definition: { id: 'asana-slack', version: digestDef().version } }, 'ENABLED');
         await inst.initialize();
         const runs = [];
         inst.recordRun = async (r) => { runs.push(r); return r; };
-        const tick = { event: DIGEST, data: { integrationId: 'int9', scheduleKey: DIGEST, tick: { id: 'exec-1', scheduledFor: '2026-10-19T20:00:00Z' } } };
-        await inst.events[DIGEST].handler(tick);
-        await inst.events[DIGEST].handler(tick);
+        const run = { integrationId: 'int9', trigger: DIGEST, scheduledFor: '2026-10-19T20:00:00.000Z' };
+        const dispatch = () => new IntegrationEventDispatcher(inst).dispatchJob({ event: 'FRIGG_TRIGGER_RUN', data: run });
+        await dispatch();
+        await dispatch();
         expect(runs.map((r) => r.status)).toEqual([expect.not.stringMatching(/duplicate/), 'duplicate']);
-        expect(runs[0].trigger.eventId).toBe(`tick:${DIGEST}:2026-10-19T20:00:00Z`);
-        // An unfilled placeholder (a host that cannot supply the time) is not an id, so it cannot block every tick.
-        const unfilled = { data: { scheduleKey: DIGEST, tick: { scheduledFor: '{{frigg.tick.scheduledFor}}' } } };
-        await inst.events[DIGEST].handler(unfilled);
-        await inst.events[DIGEST].handler(unfilled);
-        expect(runs.slice(2).map((r) => r.status)).not.toContain('duplicate');
+        expect(runs[0].trigger.eventId).toBe(`tick:${DIGEST}:2026-10-19T20:00:00.000Z`);
+        // A different scheduled time is a different run.
+        await new IntegrationEventDispatcher(inst).dispatchJob({ event: 'FRIGG_TRIGGER_RUN', data: { ...run, scheduledFor: '2026-10-20T20:00:00.000Z' } });
+        expect(runs[2].status).not.toBe('duplicate');
     });
 });

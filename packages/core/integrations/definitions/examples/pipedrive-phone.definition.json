@@ -1,11 +1,11 @@
 {
   "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
   "schemaVersion": "0.1",
-  "id": "pipedrive-quo",
+  "id": "pipedrive-phone",
   "version": "0.3.1",
   "display": {
-    "label": "Quo \u2194 Pipedrive",
-    "description": "Two-way person sync, Quo calls logged as Pipedrive call activities, missed calls as call-back activities, and recent Quo activity on the person panel.",
+    "label": "Phone \u2194 Pipedrive",
+    "description": "Two-way person sync, Phone calls logged as Pipedrive call activities, missed calls as call-back activities, and recent Phone activity on the person panel.",
     "category": "CRM",
     "tags": [
       "calls",
@@ -14,8 +14,8 @@
     ]
   },
   "modules": {
-    "quo": {
-      "module": "quo",
+    "phone": {
+      "module": "phone",
       "version": "^2.1"
     },
     "pipedrive": {
@@ -28,7 +28,7 @@
       "id": "people",
       "label": "People and contacts",
       "source": "pipedrive.person",
-      "target": "quo.contact",
+      "target": "phone.contact",
       "direction": "two_way",
       "identity": {
         "match": [
@@ -85,12 +85,12 @@
   "workflows": [
     {
       "id": "log-call",
-      "label": "Log Quo calls as call activities",
+      "label": "Log Phone calls as call activities",
       "purpose": "write",
       "default": "on",
       "trigger": {
         "type": "webhook",
-        "module": "quo",
+        "module": "phone",
         "topic": "call.completed"
       },
       "steps": [
@@ -115,7 +115,7 @@
           "use": "pipedrive.activity.create",
           "with": {
             "activity": {
-              "subject": "Quo call ({{record.direction}})",
+              "subject": "Phone call ({{record.direction}})",
               "type": "call",
               "done": true,
               "due_date": "{{record.completedAt | date}}",
@@ -141,7 +141,7 @@
       },
       "trigger": {
         "type": "webhook",
-        "module": "quo",
+        "module": "phone",
         "topic": "call.missed",
         "filter": "$.record.direction == 'incoming'"
       },
@@ -174,7 +174,7 @@
           "use": "pipedrive.activity.create",
           "with": {
             "activity": {
-              "subject": "Call back {{steps.full.first_name | default: 'caller'}} (missed Quo call)",
+              "subject": "Call back {{steps.full.first_name | default: 'caller'}} (missed Phone call)",
               "type": "call",
               "done": false,
               "due_date": "{{record.createdAt | date}}",
@@ -189,8 +189,8 @@
   ],
   "queries": [
     {
-      "id": "quo-activity",
-      "description": "Last five Quo calls and texts with this person's phone number.",
+      "id": "phone-activity",
+      "description": "Last five Phone calls and texts with this person's phone number.",
       "steps": [
         {
           "use": "stop",
@@ -201,7 +201,7 @@
         },
         {
           "id": "calls",
-          "use": "quo.call.list",
+          "use": "phone.call.list",
           "with": {
             "participant": "$.record.phones[0].value",
             "maxResults": 5
@@ -209,7 +209,7 @@
         },
         {
           "id": "texts",
-          "use": "quo.message.list",
+          "use": "phone.message.list",
           "with": {
             "participants": [
               "$.record.phones[0].value"
@@ -226,15 +226,15 @@
   ],
   "ui": [
     {
-      "id": "quo-panel",
-      "label": "Quo",
+      "id": "phone-panel",
+      "label": "Phone",
       "host": "pipedrive",
       "placement": "person.details.panel",
       "objects": [
         "person"
       ],
       "data": {
-        "query": "quo-activity"
+        "query": "phone-activity"
       },
       "view": {
         "component": "Stack",
@@ -242,7 +242,7 @@
           {
             "component": "Heading",
             "props": {
-              "text": "Quo activity"
+              "text": "Phone activity"
             }
           },
           {
@@ -265,7 +265,7 @@
             "component": "Empty",
             "when": "$.data.calls[0] == null && $.data.texts[0] == null",
             "props": {
-              "text": "No Quo calls or texts with this person yet."
+              "text": "No Phone calls or texts with this person yet."
             }
           }
         ]
@@ -275,10 +275,10 @@
   "lifecycle": {
     "onInstall": [
       {
-        "id": "quoHook",
-        "use": "quo.webhook.create",
+        "id": "phoneHook",
+        "use": "phone.webhook.create",
         "with": {
-          "url": "$.install.webhookUrls.quo",
+          "url": "$.install.webhookUrls.phone",
           "events": [
             "call.completed",
             "call.ringing",
@@ -309,9 +309,9 @@
     ],
     "onUninstall": [
       {
-        "use": "quo.webhook.delete",
+        "use": "phone.webhook.delete",
         "with": {
-          "id": "$.install.runtime.installed.quoHook.id"
+          "id": "$.install.runtime.installed.phoneHook.id"
         },
         "onError": "continue"
       },
