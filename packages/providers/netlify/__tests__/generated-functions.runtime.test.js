@@ -49,7 +49,7 @@ module.exports = {
         database: { postgres: { enable: true } },
         user: { authModes: { friggToken: true, sharedSecret: true, adopterJwt: false } },
         managementApi: { v1: false },
-        extensions: [{
+        coreExtensions: [{
             name: 'probe',
             routes: {
                 path: '/admin/probe',

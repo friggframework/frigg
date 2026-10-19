@@ -134,7 +134,7 @@ const {
     isDeployedRuntime,
 } = require('./providers');
 
-// App-level extensions (appDefinition.extensions): Prisma models, encrypted
+// App-level core extensions (appDefinition.coreExtensions): Prisma models, encrypted
 // fields, admin routes and bootstrap hooks (friggframework/frigg#545).
 const extensions = require('./extensions');
 

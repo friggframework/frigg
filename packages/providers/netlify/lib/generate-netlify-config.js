@@ -71,7 +71,7 @@ function managementApiRedirects(appDefinition) {
     for (const route of getGatewayRoutes({
         v1: managementApi.v1 !== false,
         proxy: managementApi.proxy?.enable === true,
-        extensions: appDefinition.extensions,
+        coreExtensions: appDefinition.coreExtensions,
         httpQueue: true,
     })) {
         const from = route.path.replace(/\{proxy\+\}$/, '*');

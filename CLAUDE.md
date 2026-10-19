@@ -218,7 +218,7 @@ the OpenAPI documents and the API Gateway routes devtools generates.
   deprecated (`Deprecation` + `Link` headers); `managementApi.v1: false` turns them off (410).
 - **Discovery**: `GET /api/meta` and `/api/meta/openapi/v{n}.json` on the DB-free health Lambda.
   `GET /api/docs` is registered there too and redirects to `/api/meta/openapi/v2.json`.
-- **Admin routes live under `/admin`**, never `/api`. Core extensions mount theirs at
+- **Admin routes live under `/admin`**, never `/api`. Core extensions (`appDefinition.coreExtensions`, an array) mount theirs at
   `routes.path: '/admin/<name>'` (served by the auth Lambda behind the admin API key; the registry
   lists them so API Gateway routes and netlify.toml redirects come from it). `/admin/scripts`,
   `/admin/db-migrate` and `/admin/queue` (the signed HTTP queue endpoint on Netlify) are reserved.

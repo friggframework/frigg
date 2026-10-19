@@ -17,7 +17,7 @@ describe('@friggframework/extension-db-credentials', () => {
         expect(fs.existsSync(dbCredentials.schema)).toBe(true);
     });
 
-    it('should be usable directly in appDefinition.extensions', () => {
+    it('should be usable directly in appDefinition.coreExtensions', () => {
         // Verify it matches the ExtensionDefinition shape
         const ext = dbCredentials;
 

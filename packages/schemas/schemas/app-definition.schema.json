@@ -934,9 +934,9 @@
       },
       "additionalProperties": true
     },
-    "extensions": {
+    "coreExtensions": {
       "type": "array",
-      "description": "Extensions that add custom Prisma models, encrypted fields, admin routes, and bootstrap lifecycle hooks to a Frigg app. Each extension can declare a schema fragment, encryption config, route handler, and bootstrap function. App-level; distinct from an integration's Definition.extensions (Tier 3 integration extensions).",
+      "description": "Core extensions that add custom Prisma models, encrypted fields, admin routes, and bootstrap lifecycle hooks to a Frigg app. Each extension can declare a schema fragment, encryption config, route handler, and bootstrap function. App-level; distinct from an integration's Definition.extensions (Tier 3 integration extensions) and from ADR-017's keyed appDefinition.extensions.",
       "items": {
         "type": "object",
         "required": ["name"],

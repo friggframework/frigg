@@ -131,13 +131,30 @@ describe('Extension Loader', () => {
         });
 
         it('should return empty array for empty extensions array', () => {
-            expect(loadExtensions({ extensions: [] })).toEqual([]);
+            expect(loadExtensions({ coreExtensions: [] })).toEqual([]);
         });
 
-        it('should throw for non-array extensions', () => {
-            expect(() => loadExtensions({ extensions: 'bad' })).toThrow(
-                'must be an array'
+        it('should throw for non-array coreExtensions', () => {
+            expect(() => loadExtensions({ coreExtensions: 'bad' })).toThrow(
+                'appDefinition.coreExtensions must be an array'
             );
+        });
+
+        it('stops at the old spelling: an extensions ARRAY was renamed to coreExtensions', () => {
+            expect(() => loadExtensions({ extensions: [{ name: 'db-credentials' }] })).toThrow(
+                'appDefinition.extensions (array) was renamed to appDefinition.coreExtensions'
+            );
+        });
+
+        it("leaves ADR-017's keyed appDefinition.extensions object alone", () => {
+            expect(loadExtensions({ extensions: { slack: {} } })).toEqual([]);
+            expect(
+                loadExtensions({ extensions: { slack: {} }, coreExtensions: [{ name: 'x' }] }).map((e) => e.name)
+            ).toEqual(['x']);
+        });
+
+        it('names the coreExtensions index in validation errors', () => {
+            expect(() => loadExtensions({ coreExtensions: [{}] })).toThrow('coreExtensions[0].name');
         });
 
         it('should normalize a valid extension', () => {
@@ -145,7 +162,7 @@ describe('Extension Loader', () => {
             const handlerFn = jest.fn();
 
             const result = loadExtensions({
-                extensions: [
+                coreExtensions: [
                     {
                         name: 'db-credentials',
                         schema: '/path/to/schema.prisma',
@@ -178,7 +195,7 @@ describe('Extension Loader', () => {
 
         it('should normalize extension with null optional fields', () => {
             const result = loadExtensions({
-                extensions: [{ name: 'minimal-ext' }],
+                coreExtensions: [{ name: 'minimal-ext' }],
             });
 
             expect(result).toHaveLength(1);
@@ -191,7 +208,7 @@ describe('Extension Loader', () => {
         it('should throw on validation errors with all errors listed', () => {
             expect(() =>
                 loadExtensions({
-                    extensions: [
+                    coreExtensions: [
                         {}, // missing name
                         { name: 'ok', schema: 'bad.sql' }, // bad schema
                     ],
@@ -201,7 +218,7 @@ describe('Extension Loader', () => {
 
         it('should load multiple extensions', () => {
             const result = loadExtensions({
-                extensions: [
+                coreExtensions: [
                     { name: 'ext-a' },
                     { name: 'ext-b', schema: '/a/b.prisma' },
                 ],

@@ -8,7 +8,7 @@ function extensionDefinition(handler) {
     return {
         name: 'app',
         integrations: [],
-        extensions: [
+        coreExtensions: [
             {
                 name: 'db-credentials',
                 routes: { path: '/admin/oauth-credentials', handler },

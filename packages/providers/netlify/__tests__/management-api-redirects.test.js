@@ -36,10 +36,10 @@ describe('Management API redirects', () => {
     it('route each core extension admin path, from the registry, to the auth function', () => {
         const appDefinition = {
             integrations: [],
-            extensions: [{ name: 'db-credentials', routes: { path: '/admin/oauth-credentials' } }],
+            coreExtensions: [{ name: 'db-credentials', routes: { path: '/admin/oauth-credentials' } }],
         };
         const redirects = redirectsOf(generateNetlifyToml(appDefinition));
-        for (const route of getGatewayRoutes({ extensions: appDefinition.extensions })) {
+        for (const route of getGatewayRoutes({ coreExtensions: appDefinition.coreExtensions })) {
             const from = route.path.replace(/\{proxy\+\}$/, '*');
             expect(redirects).toContainEqual({ from, fn: route.function });
         }

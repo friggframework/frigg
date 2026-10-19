@@ -156,23 +156,23 @@ describe('Management API route registry', () => {
         });
 
         it('routes each core extension admin path and everything below it to auth', () => {
-            const extensions = [
+            const coreExtensions = [
                 { name: 'db-credentials', routes: { path: '/admin/oauth-credentials' } },
                 { name: 'plain' },
             ];
-            const routes = getGatewayRoutes({ extensions }).map(key);
+            const routes = getGatewayRoutes({ coreExtensions }).map(key);
             expect(routes).toContain('auth ANY /admin/oauth-credentials');
             expect(routes).toContain('auth ANY /admin/oauth-credentials/{proxy+}');
             expect(routes.filter((r) => r.includes('/admin/'))).toHaveLength(2);
         });
 
         it('never routes an extension path outside /admin, or onto a reserved segment', () => {
-            const extensions = [
+            const coreExtensions = [
                 { name: 'a', routes: { path: '/api/admin/oauth-credentials' } },
                 { name: 'b', routes: { path: '/admin/scripts' } },
                 { name: 'c', routes: { path: '/admin/queue' } },
             ];
-            expect(listCoreExtensionRoutes(extensions)).toEqual([]);
+            expect(listCoreExtensionRoutes(coreExtensions)).toEqual([]);
             expect(listCoreExtensionRoutes('not-a-list')).toEqual([]);
         });
 

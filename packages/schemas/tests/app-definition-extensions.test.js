@@ -2,7 +2,7 @@ const { validateAppDefinition } = require('../index');
 
 const withRoutePath = (path) => ({
     integrations: [],
-    extensions: [{ name: 'db-credentials', routes: { path } }],
+    coreExtensions: [{ name: 'db-credentials', routes: { path } }],
 });
 
 describe('app definition: core extension route paths', () => {

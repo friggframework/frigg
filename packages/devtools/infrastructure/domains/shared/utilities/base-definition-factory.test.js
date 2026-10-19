@@ -150,7 +150,7 @@ describe('Base Definition Factory', () => {
         it('routes each core extension admin path (and below) to the auth function', () => {
             const result = createBaseDefinition(
                 {
-                    extensions: [
+                    coreExtensions: [
                         { name: 'db-credentials', routes: { path: '/admin/oauth-credentials' } },
                         { name: 'no-routes' },
                     ],

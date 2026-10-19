@@ -48,7 +48,7 @@ describe('extension encryption schemas', () => {
         setAppDefinition({
             integrations: [{ Definition: { name: 'x', modules: {} } }],
             encryption: { schema: { CustomModel: { fields: ['secret'] } } },
-            extensions: [dbCredentials],
+            coreExtensions: [dbCredentials],
         });
 
         loadCustomEncryptionSchema();

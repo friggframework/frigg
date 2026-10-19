@@ -11,7 +11,7 @@
  *   const appDefinition = {
  *       name: 'my-app',
  *       integrations: [...],
- *       extensions: [dbCredentials],
+ *       coreExtensions: [dbCredentials],
  *   };
  *
  * What it provides:

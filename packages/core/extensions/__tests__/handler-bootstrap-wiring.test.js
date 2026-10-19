@@ -65,7 +65,7 @@ function makeApp(extensionBootstrap) {
     const extensions = extensionBootstrap
         ? [{ name: 'probe', bootstrap: extensionBootstrap }]
         : [dbCredentials];
-    return { definition, appDefinition: { name: 'app', integrations: [HubSpotIntegration], extensions } };
+    return { definition, appDefinition: { name: 'app', integrations: [HubSpotIntegration], coreExtensions: extensions } };
 }
 
 describe('createHandler runs extension bootstraps', () => {

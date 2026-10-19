@@ -206,7 +206,7 @@ const DOCS_ROUTES = Object.freeze(
 /**
  * Admin routes live under /admin (as core's /admin/db-migrate and the
  * admin-scripts /admin/scripts do), never under the public /api prefix. A
- * core extension (appDefinition.extensions[].routes.path) mounts its admin
+ * core extension (appDefinition.coreExtensions[].routes.path) mounts its admin
  * API at /admin/<name>, served by the auth function behind the admin API key;
  * these segments belong to other functions and cannot be taken.
  */
@@ -255,14 +255,14 @@ function coreExtensionRoutePathError(path) {
  * everything under it, on the auth function (core's auth router mounts the
  * extension routes behind the admin API key).
  *
- * @param {Array<Object>} [extensions] - appDefinition.extensions (plain data;
+ * @param {Array<Object>} [coreExtensions] - appDefinition.coreExtensions (plain data;
  *   only `routes.path` is read)
  * @returns {Array<Object>}
  */
-function listCoreExtensionRoutes(extensions = []) {
-    if (!Array.isArray(extensions)) return [];
+function listCoreExtensionRoutes(coreExtensions = []) {
+    if (!Array.isArray(coreExtensions)) return [];
     const out = [];
-    for (const ext of extensions) {
+    for (const ext of coreExtensions) {
         const path = ext?.routes?.path;
         if (typeof path !== 'string' || coreExtensionRoutePathError(path)) continue;
         out.push(
@@ -333,11 +333,11 @@ function resourceRoot(record) {
  * @param {Object} [options]
  * @param {boolean} [options.v1=true]
  * @param {boolean} [options.proxy=false]
- * @param {Array<Object>} [options.extensions=[]] - appDefinition.extensions
+ * @param {Array<Object>} [options.coreExtensions=[]] - appDefinition.coreExtensions
  * @param {boolean} [options.httpQueue=false] - include the HTTP queue route
  * @returns {Array<{function: string, method: string, path: string}>}
  */
-function getGatewayRoutes({ v1 = true, proxy = false, extensions = [], httpQueue = false } = {}) {
+function getGatewayRoutes({ v1 = true, proxy = false, coreExtensions = [], httpQueue = false } = {}) {
     const out = [];
     const seen = new Set();
     const add = (fn, method, path) => {
@@ -375,7 +375,7 @@ function getGatewayRoutes({ v1 = true, proxy = false, extensions = [], httpQueue
         }
     }
 
-    for (const record of listCoreExtensionRoutes(extensions)) {
+    for (const record of listCoreExtensionRoutes(coreExtensions)) {
         add(record.function, record.method, record.path);
     }
 

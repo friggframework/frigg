@@ -25,7 +25,7 @@ function managementApiEvents(AppDefinition, functionName) {
     return getGatewayRoutes({
         v1: managementApi.v1 !== false,
         proxy: managementApi.proxy?.enable === true,
-        extensions: AppDefinition.extensions,
+        coreExtensions: AppDefinition.coreExtensions,
     })
         .filter((route) => route.function === functionName)
         .map(({ method, path }) => ({ httpApi: { path, method } }));

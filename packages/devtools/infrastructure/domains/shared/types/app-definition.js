@@ -145,7 +145,7 @@
  *
  * @property {Object} [environment] - Environment variables
  *
- * @property {ExtensionDefinition[]} [extensions] - App-level extensions that add custom Prisma models, encrypted fields, admin routes and bootstrap hooks (not an integration's Definition.extensions)
+ * @property {ExtensionDefinition[]} [coreExtensions] - Core (app-level) extensions that add custom Prisma models, encrypted fields, admin routes and bootstrap hooks (not an integration's Definition.extensions, nor ADR-017's keyed appDefinition.extensions)
  */
 
 /**

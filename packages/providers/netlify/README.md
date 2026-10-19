@@ -23,7 +23,7 @@ same source devtools builds the AWS API Gateway routes from:
 | Core extension admin routes, `/admin/<name>` and below (e.g. db-credentials' `/admin/oauth-credentials`), behind the admin API key | `auth` |
 | `/admin/queue` (signed queue deliveries, the QStash destination) | `worker-background` |
 
-A core extension's `routes.path` must be `/admin/<segment>…`; `/admin/scripts`,
+A core extension's (`appDefinition.coreExtensions[]`) `routes.path` must be `/admin/<segment>…`; `/admin/scripts`,
 `/admin/db-migrate` and `/admin/queue` are reserved. Admin routes are never served
 under `/api`.
 
