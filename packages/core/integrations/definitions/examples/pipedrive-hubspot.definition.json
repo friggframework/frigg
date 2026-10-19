@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "display": {
     "label": "Pipedrive \u21c4 HubSpot people",
-    "description": "Keeps Pipedrive people and HubSpot contacts the same person on both sides, matched by email then phone. Sync only: no workflows, no UI.",
+    "description": "Keeps Pipedrive people and HubSpot contacts the same person on both sides, matched by email, then by phone.",
     "category": "CRM",
     "tags": [
       "crm",
