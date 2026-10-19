@@ -487,9 +487,13 @@ registered class is data-defined). These are the only new routes, and every one 
 | `GET /api/integrations/:id/upgrade?to=` | signed-in user, own installation | The upgrade plan (`planUpgrade`); changes nothing |
 | `POST /api/integrations/:id/upgrade` `{ to? }` | signed-in user, own installation | Applies the plan: uninstall steps of the old version, then install steps of the new one if it asks for a reinstall, then the new config and a reload. Answers 409 with the plan when a person must supply something first |
 | `GET /api/integrations/:id/runs` | signed-in user, own installation | `WorkflowRun` history, newest first (`workflowId`, `status`, `before`, `limit`) |
-| `POST /api/admin/data-defined/definitions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
-| `GET /api/admin/data-defined/definitions/:id` | admin key | Every version, without documents |
-| `POST /api/admin/data-defined/definitions/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
+| `POST /admin/integrations/definitions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
+| `GET /admin/integrations/definitions/:id` | admin key | Every version, without documents |
+| `POST /admin/integrations/definitions/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
+
+The admin routes live in core's existing `/admin/*` namespace, beside `/admin/scripts` and `/admin/db-migrate`, behind the same
+`validateAdminApiKey` middleware (`handlers/middleware/admin-auth`). They are deliberately not under `/api/admin`, which would be a
+third namespace. The user routes stay where they are until the `/api/v2` route registry (PR #671) lands; they move then.
 
 Installing needs no new route. `POST /api/integrations` with `config.definition: { id }` pins the latest published
 version, and its checksum, in `onCreate`. An app that bundles its definitions (`memoryDefinitions`) has no store to

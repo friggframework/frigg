@@ -8,10 +8,10 @@
  *   POST /api/integrations/:integrationId/upgrade        { to? } apply it (refused while anything is needed)
  *   GET  /api/integrations/:integrationId/runs           workflow run history, newest first (?workflowId&status&before&limit)
  *
- * App admins (x-frigg-admin-api-key):
- *   POST /api/admin/data-defined/definitions             { document, notes?, publish? = true, strict? } validate + publish
- *   GET  /api/admin/data-defined/definitions/:id         every version of one definition
- *   POST /api/admin/data-defined/definitions/:id/versions/:version/deprecate
+ * App admins (x-frigg-admin-api-key, the validateAdminApiKey middleware that /admin/scripts and /admin/db-migrate use):
+ *   POST /admin/integrations/definitions             { document, notes?, publish? = true, strict? } validate + publish
+ *   GET  /admin/integrations/definitions/:id         every version of one definition
+ *   POST /admin/integrations/definitions/:id/versions/:version/deprecate
  *
  * Installing needs no new route: POST /api/integrations with config { type: '<class name>', definition: { id } }
  * pins the latest published version.
@@ -77,16 +77,16 @@ function setDataDefinedRoutes(router, authenticateUser, { getIntegrationInstance
         return repo;
     };
 
-    admin('/api/admin/data-defined/definitions').post(guard(async (req, res) => {
+    admin('/admin/integrations/definitions').post(guard(async (req, res) => {
         const { document, notes, publish, strict, createdBy } = req.body || {};
         const out = await new PublishDefinitionVersion({ repository: repository(), manifests }).execute({ document, notes, createdBy, publish: publish !== false, strict: Boolean(strict) });
         const { document: _omit, ...version } = out.version;
         res.status(out.created ? 201 : 200).json({ ...out, version });
     }));
-    admin('/api/admin/data-defined/definitions/:definitionId').get(guard(async (req, res) => {
+    admin('/admin/integrations/definitions/:definitionId').get(guard(async (req, res) => {
         res.json({ versions: await new GetDefinitionHistory({ repository: repository() }).execute({ definitionId: req.params.definitionId }) });
     }));
-    admin('/api/admin/data-defined/definitions/:definitionId/versions/:version/deprecate').post(guard(async (req, res) => {
+    admin('/admin/integrations/definitions/:definitionId/versions/:version/deprecate').post(guard(async (req, res) => {
         const row = await new DeprecateDefinitionVersion({ repository: repository() }).execute(req.params);
         const { document: _omit, ...version } = row;
         res.json({ version });
