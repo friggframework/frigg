@@ -741,7 +741,7 @@ A UI extension is a `query` plus a `view`. The view is a tree of a **fixed compo
 - A `Button` can only point at a `userAction` workflow (checked by `validate`). A surface can therefore read data
   and trigger declared workflows, and nothing else.
 
-The renderers themselves are not in v0.1.
+**Preview renderers are not host renderers.** v0.1 has *preview* renderers (`renderers/`): they turn a resolved tree into Slack blocks, a HubSpot tree or HTML, and dry-run a workflow, so an author can see in the editor what an integration will show in the apps it connects. They run inside this app, over sample or real records, and nothing deploys them to a host. The *host* renderer described above, the one deployed card or panel inside each host that calls `POST /api/integrations/:id/actions/UI_<SURFACE>` and draws the answer, is not in v0.1.
 
 ### 17. Versioning (answers ADR-030 for data-defined integrations)
 
@@ -810,7 +810,7 @@ work kept apart from bulk work.
 | Missing | Why it matters | Plan |
 |---|---|---|
 | Per-module rate limits | Bursts (a backfill, a webhook storm) hit provider limits; today a 429 fails the step and the queue retries | A token bucket per module and installation, in the ports |
-| Host renderers (HubSpot card, Phone panel) | `renderSurface` returns trees that nothing draws yet | Per host |
+| Deployed host renderers (HubSpot card, phone panel) | `renderSurface` returns trees that no host draws yet. The preview renderers draw them, but only inside this app, for authors | Per host. Not the same work as the previews |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |
 
 Their order is decided by a month of iteration on v0.1, not fixed here.

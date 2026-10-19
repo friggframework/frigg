@@ -178,14 +178,14 @@
           "use": "slack.message.post",
           "with": {
             "channel": "$.settings.channel",
-            "text": ":white_check_mark: {{steps.task.completed_by.name | default: 'Someone'}} completed <{{steps.task.permalink_url}}|{{steps.task.name}}>"
+            "text": ":white_check_mark: {{steps.task.completed_by.name | default: 'Someone' | mrkdwn}} completed <{{steps.task.permalink_url}}|{{steps.task.name | mrkdwn}}>"
           }
         }
       ]
     }
   ],
   "templates": {
-    "assignee-digest": ":spiral_calendar_pad: Hi {{item.firstName | default: item.name}}, you have {{item.count}} Asana task(s) due tomorrow:\n{{item.lines}}",
+    "assignee-digest": ":spiral_calendar_pad: Hi {{item.firstName | default: item.name | mrkdwn}}, you have {{item.count}} Asana task(s) due tomorrow:\n{{item.lines}}",
     "unassigned-digest": ":warning: {{steps.groups.unassignedCount}} task(s) due tomorrow have no assignee:\n{{steps.groups.unassignedLines}}"
   },
   "lifecycle": {

@@ -15,6 +15,11 @@ const { TRANSFORMS, applyMapping } = require('./transforms');
 const { FILTERS } = require('./expressions');
 const { validateManifest } = require('./manifests');
 const { checkDefinition, checkManifest, checkInstallation } = require('./schema-check');
+const { viewToSlack, escapeMrkdwn } = require('./renderers/slack');
+const { viewToHubSpot } = require('./renderers/hubspot');
+const { viewToHtml, slackMessageToHtml } = require('./renderers/html');
+const { previewSurface, previewWorkflow, recordingPorts } = require('./renderers/preview');
+const { decodeAction } = require('./renderers/common');
 const useCases = require('./use-cases/definition-use-cases');
 
 /** Load every capabilities/*.capabilities.json (bundled mocks; real modules ship their own). */
@@ -35,5 +40,6 @@ module.exports = {
     defineIntegrationClass, defineSharedIntegrationClass, extendIntegrationClass, memoryDefinitions,
     BUILTINS, TRANSFORMS, FILTERS, applyMapping, resolveOptions,
     loadManifests, loadExamples,
+    viewToSlack, escapeMrkdwn, viewToHubSpot, viewToHtml, slackMessageToHtml, previewSurface, previewWorkflow, recordingPorts, decodeAction,
     ...useCases,
 };
