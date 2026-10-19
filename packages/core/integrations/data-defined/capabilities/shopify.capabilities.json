@@ -832,7 +832,7 @@
       "description": "Polled from GET /checkouts.json. Shopify sends no webhook when a checkout is abandoned; a checkout with an email and no completed_at after an hour counts as abandoned.",
       "payload": {
         "id": 35112233445566,
-        "token": "b1946ac92492d2347c6235b4d2611184",
+        "token": "example-checkout-token",
         "email": "dana.reyes@example.com",
         "abandoned_checkout_url": "https://tidewater-goods.myshopify.com/58912/checkouts/b1946ac9/recover?key=7c2f",
         "total_price": "64.00",
