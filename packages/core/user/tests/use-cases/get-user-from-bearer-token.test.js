@@ -61,4 +61,55 @@ describe('GetUserFromBearerToken Use Case', () => {
             getUserFromBearerToken.execute(`Bearer ${token}`)
         ).rejects.toThrow('Session Token Not Found');
     });
+
+    describe('token owner resolution', () => {
+        it('should look up the individual user by the token row userId', async () => {
+            await userRepository.createIndividualUser({ id: 'first-user' });
+            const owner = await userRepository.createIndividualUser({ id: 'second-user' });
+            const token = await userRepository.createToken(owner.id);
+            const findSpy = jest.spyOn(userRepository, 'findIndividualUserById');
+
+            const user = await getUserFromBearerToken.execute(`Bearer ${token}`);
+
+            expect(findSpy).toHaveBeenCalledWith(owner.id);
+            expect(user.getId()).toBe(owner.id);
+        });
+
+        it('should look up the organization user by the token row userId', async () => {
+            userConfig.primary = 'organization';
+            await userRepository.createOrganizationUser({ id: 'first-org' });
+            const owner = await userRepository.createOrganizationUser({ id: 'second-org' });
+            const token = await userRepository.createToken(owner.id);
+            const findSpy = jest.spyOn(userRepository, 'findOrganizationUserById');
+
+            const user = await getUserFromBearerToken.execute(`Bearer ${token}`);
+
+            expect(findSpy).toHaveBeenCalledWith(owner.id);
+            expect(user.getId()).toBe(owner.id);
+        });
+
+        it('should fall back to the legacy user field on the token row', async () => {
+            const owner = await userRepository.createIndividualUser({ id: 'legacy-user' });
+            userRepository.getSessionToken = jest
+                .fn()
+                .mockResolvedValue({ id: 'token-1', user: owner.id });
+
+            const user = await getUserFromBearerToken.execute('Bearer legacy-token');
+
+            expect(user.getId()).toBe(owner.id);
+        });
+
+        it('should fail closed when the token row has no owner id', async () => {
+            await userRepository.createIndividualUser({ id: 'first-user' });
+            userRepository.getSessionToken = jest
+                .fn()
+                .mockResolvedValue({ id: 'token-1' });
+            const findSpy = jest.spyOn(userRepository, 'findIndividualUserById');
+
+            await expect(
+                getUserFromBearerToken.execute('Bearer orphan-token')
+            ).rejects.toThrow('Session Token Has No User');
+            expect(findSpy).not.toHaveBeenCalled();
+        });
+    });
 }); 
