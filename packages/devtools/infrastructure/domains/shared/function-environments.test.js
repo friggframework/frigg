@@ -67,6 +67,20 @@ describe('function-environments', () => {
             ).not.toContain('hubspotWebhook');
         });
 
+        it('includes the trigger tick function when the integration declares triggers (ADR-055)', () => {
+            expect(
+                getIntegrationFunctionNames({
+                    Definition: { name: 'hubspot', triggers: { poll: { every: '15m', handler: 'poll' } } },
+                })
+            ).toEqual(['hubspot', 'hubspotQueueWorker', 'hubspotTriggers']);
+            expect(
+                getIntegrationFunctionNames({ Definition: { name: 'dd', instanceTriggers: { tick: '5m' } } })
+            ).toContain('ddTriggers');
+            expect(
+                getIntegrationFunctionNames({ Definition: { name: 'hubspot', triggers: {} } })
+            ).not.toContain('hubspotTriggers');
+        });
+
         it('includes one function per routed extension binding, sanitized', () => {
             const names = getIntegrationFunctionNames({
                 Definition: {

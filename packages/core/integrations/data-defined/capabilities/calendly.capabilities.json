@@ -195,8 +195,8 @@
             "event_memberships": [
               {
                 "user": "https://api.calendly.com/users/AAAA",
-                "user_email": "sean@lefthook.example",
-                "user_name": "Sean Matthews"
+                "user_email": "alex@acme.example",
+                "user_name": "Alex Morgan"
               }
             ]
           }
@@ -257,8 +257,8 @@
             "event_memberships": [
               {
                 "user": "https://api.calendly.com/users/AAAA",
-                "user_email": "sean@lefthook.example",
-                "user_name": "Sean Matthews"
+                "user_email": "alex@acme.example",
+                "user_name": "Alex Morgan"
               }
             ]
           },

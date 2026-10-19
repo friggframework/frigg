@@ -88,14 +88,21 @@ const QueuerUtil = {
         return result;
     },
 
-    batchSend: async (entries = [], queueUrl) => {
+    /**
+     * Send entries in batches of 10. `options.delaySeconds(entry, index)` may return a per-message SQS
+     * DelaySeconds (0-900), e.g. to spread trigger runs across a tick.
+     */
+    batchSend: async (entries = [], queueUrl, options = {}) => {
         const buffer = [];
         const batchSize = 10;
+        const delayOf = typeof options.delaySeconds === 'function' ? options.delaySeconds : null;
 
-        for (const entry of entries) {
+        for (const [index, entry] of entries.entries()) {
+            const delay = delayOf ? Math.max(0, Math.min(900, Math.floor(delayOf(entry, index) || 0))) : 0;
             buffer.push({
                 Id: uuid(),
                 MessageBody: JSON.stringify(entry),
+                ...(delay ? { DelaySeconds: delay } : {}),
             });
             // Sends 10, then purges the buffer
             if (buffer.length === batchSize) {

@@ -180,7 +180,7 @@ Key patterns covered:
 - **Process Model**: Track long-running operations with state management (`INITIALIZING` → `PROCESSING` → `COMPLETED`)
 - **friggCommands**: Standardized interface for persisting integration config (`createFriggCommands()`)
 - **QueueManager**: AWS SQS wrapper for async job processing with rate limiting and fan-out
-- **Integration Events**: Define `USER_ACTION`, `CRON`, `QUEUE`, and `WEBHOOK` event handlers
+- **Integration Events**: Define `USER_ACTION`, `QUEUE`, and `WEBHOOK` event handlers; recurring work is `Definition.triggers`
 - **SyncOrchestrator**: Coordinate sync operations across entity types
 
 Quick example:
@@ -189,13 +189,17 @@ Quick example:
 const { createFriggCommands } = require('@friggframework/core');
 
 class MyIntegration extends IntegrationBase {
+    static Definition = {
+        // ...name, version, modules
+        triggers: { ONGOING_SYNC: { every: '15m', handler: 'deltaSync' } },   // recurring (ADR-055)
+    };
+
     constructor(params) {
         super(params);
         this.commands = createFriggCommands({ integrationClass: MyIntegration });
 
         this.events = {
             INITIAL_SYNC: { type: 'USER_ACTION', handler: this.startSync.bind(this) },
-            ONGOING_SYNC: { type: 'CRON', handler: this.deltaSync.bind(this) },
             PROCESS_BATCH: { handler: this.processBatch.bind(this) }
         };
     }
@@ -917,7 +921,7 @@ When working on the Frigg Framework, always prioritize finding the **best soluti
 
 ### Scheduler Commands
 
-The Frigg framework provides scheduler commands for one-time and recurring jobs using AWS EventBridge Scheduler:
+The Frigg framework provides scheduler commands for scheduling one-time jobs using AWS EventBridge Scheduler:
 
 ```javascript
 const { createSchedulerCommands } = require('@friggframework/core');
@@ -942,26 +946,32 @@ await schedulerCommands.deleteJob('zoho-notif-renewal-abc123');
 const status = await schedulerCommands.getJobStatus('zoho-notif-renewal-abc123');
 ```
 
-**Recurring schedules, one per installation** (`Definition.schedules`): declare them on the integration and
-`IntegrationBase` creates, retimes and deletes them in `onCreate` / `onUpdate` / `onDelete` (an override calls
-`this.syncSchedules()` itself). Recurrence is host-neutral; each scheduler adapter translates it.
+**Recurring work uses triggers, not per-installation schedules** (`Definition.triggers`, ADR-055). Devtools
+provisions one `{integration}Triggers` function per integration that declares any, with one schedule per distinct
+tick. Each tick pages through the ENABLED installations and queues `{ event: 'FRIGG_TRIGGER_RUN', data:
+{ integrationId, trigger, scheduledFor } }` for each one that is due; the queue worker runs it through
+`IntegrationBase.onTriggerRun`. Lifecycle hooks never touch the scheduler: a disabled or deleted installation is
+simply not due, and a config change applies at the next tick.
 
 ```javascript
 static Definition = {
     name: 'housecallpro',
-    schedules: {
-        ONGOING_SYNC: { every: '1h', configurable: { min: '15m' } },        // user may set config.schedules.ONGOING_SYNC
-        DAILY_DIGEST: { cron: '0 8 * * 1-5', timezone: 'America/New_York' }, // fixed
+    triggers: {
+        ONGOING_SYNC: { every: '1h', configurable: { min: '15m' }, handler: 'deltaSync' }, // user may set config.triggers.ONGOING_SYNC
+        DAILY_DIGEST: { cron: '0 8 * * 1-5', timezone: 'America/New_York', handler: digest }, // due when it fired since the last tick
+        NIGHTLY: { at: 'cron(0 3 * * ? *)', timezone: 'Europe/London', handler: 'reconcile' },  // own schedule, same for everyone
     },
 };
 ```
 
-The host's state is recorded at `config.runtime.schedules`. Each firing sends `{ event, data: { integrationId,
-scheduleKey, tick: { id, scheduledFor } } }` to the integration's queue, so a handler can dedupe a redelivered tick.
-For one job without the lifecycle, use `schedulerCommands.upsertRecurringJob({ jobId, recurrence, event, payload, queueUrl })`.
+Handlers are called as `handler({ trigger, scheduledFor }, { modules, config, log, integration })` (a string names a
+method on the instance). `every` is due when `slot mod n == hash(integrationId) mod n`, so installations spread over
+the cadence; a chosen interval rounds up to whole ticks. `overlap: 'skip'` (default) keeps a `TRIGGER:<name>` Process
+record per installation as the lease. Pure rules: `integrations/triggers.js`; tick: `integrations/use-cases/run-trigger-tick.js`.
+`createSchedulerCommands` stays the API for one-time jobs.
 
 **Key Features**:
-- Uses AWS EventBridge Scheduler for reliable one-time and recurring job execution
+- Uses AWS EventBridge Scheduler for reliable one-time job execution
 - Targets SQS queues (accepts `queueUrl`, derives ARN internally)
 - Mock scheduler available for local development (`SCHEDULER_PROVIDER=mock`)
 - Auto-cleanup with dead letter queue support

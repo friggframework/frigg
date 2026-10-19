@@ -5,7 +5,7 @@
  * registers one generated class per definition id:
  *
  *     const { defineIntegrationClass } = require('@friggframework/core/integrations/data-defined');
- *     integrations: [ defineIntegrationClass({ id: 'quo-hubspot', definitions, manifests, modules: { quo: QuoModule, hubspot: HubSpotModule } }) ]
+ *     integrations: [ defineIntegrationClass({ id: 'phone-hubspot', definitions, manifests, modules: { phone: PhoneModule, hubspot: HubSpotModule } }) ]
  *
  * The class's static Definition (name, modules) is what the infrastructure needs, and it is the same for every
  * version, so publishing a new version deploys nothing. Each installation loads the exact version it pins
@@ -22,6 +22,22 @@ const { createSyncEngine } = require('./sync-engine');
 const { eventsIn, handshakeFor, modulesFor } = require('./webhooks');
 const { buildConfigForm, missingRequired } = require('./config-form');
 
+/** The tick every data-defined trigger runs on: a chosen interval is rounded up to whole multiples of it. */
+const INSTANCE_TICK = '5m';
+
+/** A compiled definition's triggers as IntegrationBase trigger declarations: each runs its compiled event. */
+function triggersOf(def, config) {
+    return compile(def, config).triggers.map((t) => ({
+        ...t,
+        tick: INSTANCE_TICK,
+        handler(payload) {
+            const event = this.events?.[t.name];
+            if (!event) throw new Error(`Trigger "${t.name}" has no compiled event in this installation`);
+            return event.handler({ data: { integrationId: this.id, ...payload } });
+        },
+    }));
+}
+
 /**
  * Shape A — one class per definition id (defineIntegrationClass): the class name and modules come from the
  * definition. Publishing a new VERSION deploys nothing; a new definition ID is a new class (a deploy, and its own
@@ -30,7 +46,7 @@ const { buildConfigForm, missingRequired } = require('./config-form');
  * Shape B — one class for every definition (defineSharedIntegrationClass): registered once as "data-defined", its
  * static modules are every API module the app has installed, and each installation names its definition id and
  * version in config. A new integration is a row, not a deploy, and every installation shares one set of functions
- * and one queue. Right for The Integrator, where definitions accumulate without bound.
+ * and one queue. Right for a multi-tenant product, where definitions accumulate without bound.
  */
 function defineIntegrationClass({ id, definitions, manifests, modules, runCode, IntegrationBase, lookup, runs }) {
     const latest = definitions.latest(id);
@@ -81,9 +97,35 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
     let runStore = runs;
     const runRepository = () => (runStore === undefined ? (runStore = require('./repositories/workflow-run-repository').createWorkflowRunRepository()) : runStore);
     const publicBase = () => `${process.env.FRIGG_PUBLIC_URL || ''}/api/${id}-integration/webhooks`;
+    const pinnedDefinitions = new Map();   // `${id}@${version}` -> definition, for the trigger tick
 
     class DataDefinedIntegration extends Base {
-        static Definition = { name, version, modules, webhooks: { enabled: true }, display }; // version is display only; installations pin their own
+        // version is display only; installations pin their own. instanceTriggers: schedule-triggered workflows and
+        // polling syncs are this class's recurring triggers, resolved per installation (triggersFor) on one 5m tick.
+        static Definition = { name, version, modules, webhooks: { enabled: true }, display, instanceTriggers: { tick: INSTANCE_TICK } };
+
+        /**
+         * The recurring triggers of one installation (ADR-055): its pinned definition compiled with its config, so a
+         * switched-off workflow has none and a configurable one carries the installation's choice. Each runs its
+         * compiled event. Read by the shared tick from the record alone (no modules, no credentials).
+         */
+        static async triggersFor({ config = {} } = {}) {
+            const pin = config.definition || (defaultId ? { id: defaultId } : null);
+            if (!pin?.id) return [];
+            let def;
+            if (pin.version) {
+                // Published versions are immutable, so a tick over many installations reads each one once.
+                const key = `${pin.id}@${pin.version}`;
+                if (!pinnedDefinitions.has(key)) {
+                    if (pinnedDefinitions.size >= 100) pinnedDefinitions.clear();
+                    pinnedDefinitions.set(key, await definitions.get(pin.id, pin.version, { checksum: pin.checksum }));
+                }
+                def = pinnedDefinitions.get(key);
+            } else {
+                def = await definitions.latest(pin.id);
+            }
+            return def ? triggersOf(def, config) : [];
+        }
 
         /** How the routers find data-defined classes and the store and manifests they run on. */
         static DataDefined = { definitions, manifests, shared: !defaultId, runs: () => runRepository() };
@@ -157,10 +199,9 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
                 ? await definitions.get(this.def.id, msg.definitionVersion) || this.def
                 : this.def;
             const installation = this.installation();
-            // A scheduled tick may be delivered twice; its scheduled time makes the dedupe id (an unfilled
-            // placeholder, from a host that cannot supply it, is not an id).
-            const scheduledFor = msg.tick?.scheduledFor && !String(msg.tick.scheduledFor).startsWith('{{') ? msg.tick.scheduledFor : null;
-            const eventId = msg.eventId || (scheduledFor ? `tick:${msg.scheduleKey}:${scheduledFor}` : undefined);
+            // A trigger run may be delivered twice (a redelivery, two ticks in one slot); the trigger and the time it
+            // was scheduled for make its dedupe id.
+            const eventId = msg.eventId || (msg.trigger && msg.scheduledFor ? `tick:${msg.trigger}:${msg.scheduledFor}` : undefined);
             if (ref.kind === 'workflow') return this.recordRun(await runWorkflow({ def, installation, workflowId: ref.id, event: msg.body ?? msg, eventId, record: msg.record, ports: this.ports, manifests }));
             if (ref.kind === 'query') return runQuery({ def, installation, queryId: ref.id, record: msg.record, ports: this.ports });
             if (ref.kind === 'ui') return renderSurface({ def, installation, surfaceId: ref.id, record: payload.req?.body?.record || msg.record, ports: this.ports });
@@ -268,15 +309,9 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             return super.onDelete(params);
         }
 
-        /**
-         * The recurring schedules this installation should have: the definition's schedule-triggered workflows and
-         * polling syncs that are switched on, with the installation's timing where the definition allows it.
-         * Compiled from the current config every time, so the base class's onUpdate (which patches config, then
-         * reconciles) schedules what was just chosen. The base class's onCreate, onUpdate and onDelete keep the host
-         * in step (IntegrationBase.syncSchedules).
-         */
-        scheduleEntries() {
-            return this.def ? compile(this.def, this.config || {}).schedules : [];
+        /** This installation's triggers, from the definition it already loaded and its current config. */
+        async triggerDeclarations() {
+            return this.def ? triggersOf(this.def, this.config || {}) : this.constructor.triggersFor({ config: this.config || {} });
         }
 
         /** The configure form (GET /api/integrations/:id/config/options), generated from the definition. */
@@ -348,12 +383,11 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             await this.patchConfig(config);
             this.config = { ...this.config, ...config };
             await this.loadDefinition();
-            // The new version may add, drop or retime schedules.
-            const schedules = typeof this.syncSchedules === 'function' ? await this.syncSchedules() : null;
+            // Triggers need nothing here: the next tick reads the new pin and config.
             // New identity keys: a backfill rewrites every link with them. A new sync starts its own backfill
             // only if its definition says so (onInstall); otherwise it waits for its button.
             for (const a of plan.actions.filter((x) => x.kind === 'relink')) await this.startBackfill(a.id, 'relink');
-            return { ...plan, config, applied: true, ...(schedules ? { schedules } : {}) };
+            return { ...plan, config, applied: true };
         }
 
         /**

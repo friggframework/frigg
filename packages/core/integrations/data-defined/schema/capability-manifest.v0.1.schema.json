@@ -292,7 +292,7 @@
           },
           "when": {
             "type": "string",
-            "description": "Condition on $.record / $.event: Quo reports a missed call as call.completed with status missed."
+            "description": "Condition on $.record / $.event: a phone module reports a missed call as call.completed with status missed."
           },
           "headers": {
             "type": "object",
