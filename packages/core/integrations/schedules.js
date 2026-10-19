@@ -14,7 +14,7 @@
  * `{ cron, timezone }`, or `{ enabled: false }` when configurable); what the host actually holds is recorded by the
  * runtime at `config.runtime.schedules.<key>` (see scheduler-commands reconcileRecurringJobs).
  *
- * Data-defined integrations build the same entries from their compiled definition, so both forms share one
+ * Integrations published as definitions build the same entries from their compiled definition, so both forms share one
  * reconcile path and one storage shape.
  */
 const { createHash } = require('crypto');

@@ -21,7 +21,7 @@ class IntegrationEventDispatcher {
     async dispatchJob({ event, data, context, delivery }) {
         return this._dispatch(event, (instance, handler) => {
             const invoke = () => handler.call(instance, { data, context, delivery });
-            // An integration that keeps run history records each queued event as a run (data-defined runtime).
+            // An integration that keeps run history records each queued event as a run (integration runtime).
             return typeof instance.runEvent === 'function'
                 ? instance.runEvent(event, invoke)
                 : invoke();
