@@ -5,7 +5,7 @@
  * registers one generated class per definition id:
  *
  *     const { defineIntegrationClass } = require('@friggframework/core/integrations/data-defined');
- *     integrations: [ defineIntegrationClass({ id: 'quo-hubspot', definitions, manifests, modules: { quo: QuoModule, hubspot: HubSpotModule } }) ]
+ *     integrations: [ defineIntegrationClass({ id: 'phone-hubspot', definitions, manifests, modules: { phone: PhoneModule, hubspot: HubSpotModule } }) ]
  *
  * The class's static Definition (name, modules) is what the infrastructure needs, and it is the same for every
  * version, so publishing a new version deploys nothing. Each installation loads the exact version it pins

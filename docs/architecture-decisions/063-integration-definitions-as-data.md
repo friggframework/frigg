@@ -126,7 +126,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 
 The decision above was written before any code existed. v0.1 is a working implementation in
 `packages/core/integrations/data-defined/`, with 128 tests (the persistence suite runs against real PostgreSQL and
-MongoDB). It runs 16 example definitions (Quo ⇄ HubSpot is the
+MongoDB). It runs 16 example definitions (Phone ⇄ HubSpot is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
 references are relative to that directory.
@@ -170,11 +170,11 @@ retired rows, never a draft, and caches them by `id@version`. It verifies a pinn
 - **`Integration.config`**:
   ```jsonc
   {
-    "definition": { "id": "quo-hubspot", "version": "1.4.0", "checksum": "sha256:…" },   // the pin
+    "definition": { "id": "phone-hubspot", "version": "1.4.0", "checksum": "sha256:…" },   // the pin
     "settings":  { "fromNumber": "+15125550100" },
     "syncs":     { "contacts": { "enabled": true, "mapping": [ /* optional full override */ ] } },
     "workflows": { "missed-call-task": { "enabled": true, "settings": { "owner": "81273645" } } },
-    "ui":        { "quo-card": { "enabled": true } },
+    "ui":        { "phone-card": { "enabled": true } },
     "runtime":   { "installed": { "hook": { "id": "WHk2c9" } } }                        // written by the runtime only
   }
   ```
@@ -210,16 +210,16 @@ JSON Schema: `schema/integration-definition.v0.1.schema.json`. Top-level keys:
 | `templates` | Named text templates |
 | `lifecycle` | `onInstall` and `onUninstall` step lists, for example creating and deleting a provider webhook subscription |
 
-A real document is `examples/quo-hubspot.definition.json`, and there are more in `examples/`.
+A real document is `examples/phone-hubspot.definition.json`, and there are more in `examples/`.
 
 ### 9. Capability manifests: how a definition reaches code without containing any
 
 The allow-list in §1 needs something to list. In v0.1 each API module ships a **capability manifest** next to its
-code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo in `capabilities/`):
+code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Phone in `capabilities/`):
 
 - **`objects`**: fields, with type, read-only flag and an ontology tag (`person.email`, `person.phone`). The validator
   checks mapping rows and identity keys against them.
-- **`events`**: each topic the module can deliver, with `record` (where the record sits in the payload; Quo uses
+- **`events`**: each topic the module can deliver, with `record` (where the record sits in the payload; Phone uses
   `data.object`), `idPath` (the provider's event id, used for dedupe) and an example payload.
 - **`capabilities`**: `<object>.<verb>` → `{ kind: read | write, method, input }`. `method` names a method on the
   module's existing `Api` class. A step `hubspot.task.create` therefore resolves to `HubSpotApi.createTask(args)`, and
@@ -230,7 +230,7 @@ code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo i
 - **`account`**: values about the connected account that the module persists after auth (`apiPropertiesToPersist`),
   such as QuickBooks' `realmId` or a Zendesk subdomain. Definitions read them as `$.install.accounts.<key>.<field>`;
   nothing undeclared is exposed.
-- **`ui`**: the placements this host offers, such as HubSpot's `crm.record.sidebar` and Quo's `conversation.sidebar`.
+- **`ui`**: the placements this host offers, such as HubSpot's `crm.record.sidebar` and Phone's `conversation.sidebar`.
 - **`webhook`**: how a POST from this provider becomes module events (`webhooks.js`), written with the same template
   expressions definitions use, over `body`, `headers` (lower-case), `query`, `item` and `parent`:
   ```jsonc
@@ -243,7 +243,7 @@ code (`schema/capability-manifest.v0.1.schema.json`; mocks for HubSpot and Quo i
                "unwrap": "payload" }                    // a form field holding the JSON body (Slack interactivity)
   ```
   Each event names the provider's topic (`"match": "orders/create"`, default: the event key) and may add a condition
-  (`"when"`): Quo reports a missed call as `call.completed` with status `missed`, so `call.missed` is that subset. An
+  (`"when"`): Phone reports a missed call as `call.completed` with status `missed`, so `call.missed` is that subset. An
   event's example `payload` (with `headers` when the topic is in one) is an exact delivery, and validation requires it
   to route to its own event through the same code a live webhook uses.
 
@@ -278,7 +278,7 @@ A step is `{ id?, use, with?, when?, onError? }` (`steps.js`). `use` is either a
 
 **Expressions** (`expressions.js`) take three forms:
 - a reference, `$.event.data.object.from`, which keeps its type;
-- a template, `"Quo call · {{record.duration | minutes}}m"`. A filter argument may itself be a path. A string that is
+- a template, `"Phone call · {{record.duration | minutes}}m"`. A filter argument may itself be a path. A string that is
   exactly one tag keeps the value's type, so `"{{item.Amount | to_cents}}"` is a number and `"{{steps.ids}}"` a list.
   Filters are named, total functions (bad input gives blank, never a throw):
   - text and dates: `upper`, `lower`, `truncate`, `default`, `date`, `json`, `minutes`, `seconds`;
@@ -367,7 +367,7 @@ tables the runtime needs:
 | sync ongoing (webhook or poll) | `SYNC_CONTACTS_ONGOING` | `WEBHOOK` or `CRON` |
 | workflow `log-call` | `WF_LOG_CALL` | `WEBHOOK`, `CRON`, `USER_ACTION` or `QUEUE`, from its trigger |
 | query `recent-activity` | `Q_RECENT_ACTIVITY` | `ROUTE` |
-| UI surface `quo-card` | `UI_QUO_CARD`, rendered by `POST /api/integrations/:id/actions/UI_QUO_CARD` | `ROUTE` |
+| UI surface `phone-card` | `UI_PHONE_CARD`, rendered by `POST /api/integrations/:id/actions/UI_PHONE_CARD` | `ROUTE` |
 
 The other outputs are `webhooks` (module → topic → event names; a pattern may end in `.*`), `schedules` and
 `userActions`.
@@ -419,10 +419,10 @@ From there, the existing dispatcher, queue worker, scheduler and mapping reposit
 
 **A webhook arrives.** A provider's POST carries no Frigg vocabulary: nothing says which module sent it or which
 event it is. Install steps register a per-module URL, `$.install.webhookUrls.<key>`, which names the module, and the
-module's manifest says how to read the rest (§9, `webhook` block). For example Quo `call.completed`:
+module's manifest says how to read the rest (§9, `webhook` block). For example Phone `call.completed`:
 
 ```
-POST /api/data-defined-integration/webhooks/<integrationId>?module=quo
+POST /api/data-defined-integration/webhooks/<integrationId>?module=phone
   → webhook function (no database): a handshake (Slack url_verification, Asana X-Hook-Secret) is answered here;
     anything else is queued as { integrationId, body, headers, query }       ── the unchanged Frigg path
   → queue worker: hydrate the record → initialize() → loadDefinition()
@@ -437,7 +437,7 @@ POST /api/data-defined-integration/webhooks/<integrationId>?module=quo
       runWorkflow():
         record   = manifest.events['call.completed'].record  → body.data.object
         filter   = trigger.filter evaluated → 'filtered' (nothing claimed, nothing written)
-        claim    = createMapping('evt:quo-hubspot:log-call:<provider event id>') → false ⇒ 'duplicate'
+        claim    = createMapping('evt:phone-hubspot:log-call:<provider event id>') → false ⇒ 'duplicate'
         steps    = links.find(phone) → template('call-note') → hubspot.engagement.createCall
         result   = WorkflowRun { status, trace[{id, use, at, status, ms, error?}] }
         failed   → release the claim, throw → the queue retries (the DLQ after max receives)
@@ -502,10 +502,10 @@ genuine (HubSpot signs its UI-extension requests) is the renderer's job, not Fri
 
 | Moment | What runs | Code |
 |---|---|---|
-| **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `quo.webhook.create` pointed at this installation's webhook URL. Every install step with an `id` has its result saved to `config.runtime.installed.<id>` with `patchConfig` | `onCreate` |
+| **Install** | The customer connects both modules (the existing auth flow), picks settings, and the record is created with the pin to the latest `PUBLISHED` version. `onCreate` loads the definition and runs `lifecycle.onInstall`, for example `phone.webhook.create` pointed at this installation's webhook URL. Every install step with an `id` has its result saved to `config.runtime.installed.<id>` with `patchConfig` | `onCreate` |
 | **Configure** | The customer toggles workflows, changes settings or overrides a mapping. `onUpdate` merges config, then recompiles: enabling a workflow adds its event, routes and schedule, and disabling removes them. No deploy, and no other installation is affected | `onUpdate` |
 | **Update** (new version) | Nothing happens to running installations. Each stays on its pin until it is moved, as in §17 | `planUpgrade` |
-| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`quo.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), then the framework removes the record | `onDelete` |
+| **Uninstall** | `onDelete` runs `lifecycle.onUninstall`, which reads what install created (`phone.webhook.delete` with `$.install.runtime.installed.hook.id`; a `foreach` over several webhook ids for Shopify), then the framework removes the record | `onDelete` |
 
 `$.install` is built by one function, `installContext`, everywhere a definition runs: workflows, queries, UI
 surfaces, lifecycle steps and option lists. It holds the integration settings with their defaults, `webhookUrl`,
@@ -597,7 +597,7 @@ work kept apart from bulk work.
 | `delay`, approvals, per-module rate limits | Common in workflows; each needs durable state between steps | With step checkpointing |
 | Rebuilding links after an identity change | `planUpgrade` reports `relink` / `reindex`; nothing performs it | With the sync engine, which owns backfill |
 | Registering `compiled.schedules` | Schedule-triggered workflows and polling syncs compile to `CRON` events, but nothing creates the recurring schedule. Frigg's scheduler commands schedule one-time jobs, so recurring per-installation schedules need either an EventBridge schedule group per installation or one app-level tick that fans out | A design decision of its own |
-| Host renderers (HubSpot card, Quo panel) | `renderSurface` returns trees that nothing draws yet | Per host |
+| Host renderers (HubSpot card, Phone panel) | `renderSurface` returns trees that nothing draws yet | Per host |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |
 
 Their order is decided by a month of iteration on v0.1, not fixed here.
@@ -617,8 +617,8 @@ Writing 14 more examples against the first cut found seven places the format was
 | No sync-only example | Every example had workflows | `pipedrive-hubspot`: one two-way sync, no workflows |
 
 Closing them found more, each fixed and pinned by a test:
-- **Install results.** `onCreate` saved only `steps.hook.id`, under a hard-coded `subscriptions.quo`. Every other
-  install step's result was lost, so pipedrive-quo, both Shopify examples and zendesk-jira would have uninstalled
+- **Install results.** `onCreate` saved only `steps.hook.id`, under a hard-coded `subscriptions.phone`. Every other
+  install step's result was lost, so pipedrive-phone, both Shopify examples and zendesk-jira would have uninstalled
   against ids nobody stored. Now `runtime.installed.<step id>` (§15).
 - **Account values.** Four examples read `$.install.runtime.realmId`-style values nothing wrote. They come from the
   connected account, so manifests declare `account` fields (§9).
