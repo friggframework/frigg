@@ -324,11 +324,15 @@
       "input": {
         "limit": {
           "type": "number"
+        },
+        "cursor": {
+          "type": "string"
         }
       },
       "output": "user[]",
-      "status": "unimplemented",
-      "note": "Api has lookupUserByEmail, getUserById and getUserProfileById, but no user listing."
+      "args": [
+        "$rest"
+      ]
     },
     "user.lookupByEmail": {
       "kind": "read",

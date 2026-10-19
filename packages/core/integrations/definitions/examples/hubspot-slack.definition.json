@@ -159,15 +159,33 @@
           "id": "deals",
           "use": "hubspot.deal.search",
           "with": {
-            "open": true,
-            "closeDateBefore": "+7d",
-            "minAmount": "$.settings.minAmount",
+            "filterGroups": [
+              {
+                "filters": [
+                  {
+                    "propertyName": "hs_is_closed",
+                    "operator": "EQ",
+                    "value": "false"
+                  },
+                  {
+                    "propertyName": "closedate",
+                    "operator": "LT",
+                    "value": "{{now | to_unix | plus: 604800 | times: 1000}}"
+                  },
+                  {
+                    "propertyName": "amount",
+                    "operator": "GTE",
+                    "value": "$.settings.minAmount"
+                  }
+                ]
+              }
+            ],
             "limit": 50
           }
         },
         {
           "use": "stop",
-          "when": "$.steps.deals[0] == null",
+          "when": "$.steps.deals.results[0] == null",
           "with": {
             "reason": "Nothing closes this week"
           }
@@ -176,7 +194,7 @@
           "id": "build",
           "use": "foreach",
           "with": {
-            "over": "$.steps.deals",
+            "over": "$.steps.deals.results",
             "max": 50,
             "collect": "$.steps.line"
           },
@@ -231,7 +249,7 @@
           "id": "remind",
           "use": "foreach",
           "with": {
-            "over": "$.steps.tasks",
+            "over": "$.steps.tasks.results",
             "max": 100
           },
           "do": [
@@ -404,6 +422,6 @@
     "deal-won": ":tada: *{{steps.deal.properties.dealname | mrkdwn}}* closed won for ${{steps.deal.properties.amount | default: '?'}}. Nice work {{steps.owner.firstName | default: 'team' | mrkdwn}}! <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{steps.deal.id}}|Open deal>",
     "high-value": ":moneybag: New deal over ${{settings.threshold}}: *{{steps.deal.properties.dealname | mrkdwn}}* (${{steps.deal.properties.amount}}), closing {{steps.deal.properties.closedate | date}}. <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{steps.deal.id}}|Open deal>",
     "digest-line": "\u2022 <https://app.hubspot.com/contacts/{{install.portalId}}/record/0-3/{{item.id}}|{{item.properties.dealname | mrkdwn}}>: ${{item.properties.amount | default: 0}}, closes {{item.properties.closedate | date}}",
-    "digest": ":calendar: *Closing in the next 7 days* ({{steps.deals | size}} deals)\n{{steps.build | join: '\\n'}}"
+    "digest": ":calendar: *Closing in the next 7 days* ({{steps.deals.results | size}} deals)\n{{steps.build | join: '\\n'}}"
   }
 }

@@ -302,8 +302,9 @@
         }
       },
       "output": "person",
-      "status": "unimplemented",
-      "note": "Api has no addPerson (persons can be listed, fetched and searched only)."
+      "args": [
+        "person"
+      ]
     },
     "person.update": {
       "kind": "write",
@@ -319,8 +320,10 @@
         }
       },
       "output": "person",
-      "status": "unimplemented",
-      "note": "Api has no updatePerson."
+      "args": [
+        "id",
+        "person"
+      ]
     },
     "activity.create": {
       "kind": "write",

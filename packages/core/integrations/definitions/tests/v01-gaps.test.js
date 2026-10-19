@@ -108,7 +108,7 @@ describe('foreach collect and where', () => {
         const w = hs.workflows.find((x) => x.id === 'weekly-digest');
         expect(JSON.stringify(w.steps)).not.toMatch(/"use":"set"/);
         const deals = [{ id: '1', properties: { dealname: 'Acme', amount: '1200' } }, { id: '2', properties: { dealname: 'Globex', amount: '450' } }];
-        const h = harness(hs, (m, method) => (method === 'searchDeals' ? deals : { ok: true }));
+        const h = harness(hs, (m, method) => (method === 'searchDeals' ? { total: deals.length, results: deals } : { ok: true }));
         const r = await d.runWorkflow({ def: hs, installation: { workflows: { 'weekly-digest': { settings: { channel: 'C1' } } } }, workflowId: 'weekly-digest', ports: h.ports, manifests });
         expect(r.status).toBe('completed');
         const post = h.calls.find((c) => c.method === 'postMessage');

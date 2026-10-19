@@ -399,7 +399,7 @@
             "id": "each",
             "use": "foreach",
             "with": {
-              "over": "$.steps.stale",
+              "over": "$.steps.stale.results",
               "max": 100
             },
             "do": [

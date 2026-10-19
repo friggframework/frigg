@@ -95,10 +95,11 @@ describe('unimplemented capabilities are a warning in the definition, never an e
     const errorsOf = (def) => d.validate(def, manifests).errors;
 
     it('a step on an unimplemented capability warns, naming the capability and why', () => {
+        // Phone has no contact search; every HubSpot capability now has a method (api-module-library #106).
         const def = example('phone-hubspot');
-        def.workflows[0].steps.unshift({ id: 'find', use: 'hubspot.contact.search', with: { email: 'a@b.co' } });
+        def.workflows[0].steps.unshift({ id: 'find', use: 'phone.contact.search', with: { email: 'a@b.co' } });
         expect(errorsOf(def)).toEqual([]);
-        expect(warningsOf(def).join('\n')).toMatch(/steps\[0\]\.use: hubspot\.contact\.search is unimplemented in the hubspot Api \(Api has no contact search/);
+        expect(warningsOf(def).join('\n')).toMatch(/steps\[0\]\.use: phone\.contact\.search is unimplemented in the phone Api \(Api has no contact search/);
     });
 
     it('an implemented capability does not', () => {
@@ -108,11 +109,20 @@ describe('unimplemented capabilities are a warning in the definition, never an e
     });
 
     it('an option list and a sync that read through one warn too', () => {
+        // The bundled manifests only leave Phone's contact.search unimplemented now, so the other two shapes are checked
+        // against a copy in which HubSpot's owner.list and Linear's issue.create are marked unimplemented.
         const all = d.loadExamples().flatMap((def) => warningsOf(def)).join('\n');
-        expect(all).toMatch(/Option list hubspot\.owner reads owner\.list, which is unimplemented in the hubspot Api/);
+        expect(all).toMatch(/phone\.contact syncs through contact\.search, which is unimplemented in the phone Api/);
+        const marked = clone(manifests);
+        for (const [mod, cap] of [['hubspot', 'owner.list'], ['linear', 'issue.create']]) {
+            marked[mod].capabilities[cap].status = 'unimplemented';
+            marked[mod].capabilities[cap].note = `Api has no ${cap}.`;
+        }
+        const warnsMarked = (def) => d.validate(def, marked).warnings.map((w) => `${w.path}: ${w.message}`);
+        expect(d.loadExamples().flatMap(warnsMarked).join('\n')).toMatch(/Option list hubspot\.owner reads owner\.list, which is unimplemented in the hubspot Api/);
         const sync = example('github-linear');
-        expect(warningsOf(sync).join('\n')).toMatch(/linear\.issue syncs through issue\.create, which is unimplemented in the linear Api/);
-        expect(errorsOf(sync)).toEqual([]);
+        expect(warnsMarked(sync).join('\n')).toMatch(/linear\.issue syncs through issue\.create, which is unimplemented in the linear Api/);
+        expect(d.validate(sync, marked).errors).toEqual([]);
     });
 
     it('a trigger on a module whose webhook verification is unimplemented warns once per trigger', () => {
