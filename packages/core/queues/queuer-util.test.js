@@ -70,6 +70,19 @@ describe('QueuerUtil - AWS SDK v3', () => {
             expect(call.args[0].input.QueueUrl).toBe(queueUrl);
         });
 
+        it('sets a per-message DelaySeconds when asked, clamped to 0-900, and none otherwise', async () => {
+            sqsMock.on(SendMessageBatchCommand).resolves({ Successful: [], Failed: [] });
+            const entries = [{ n: 0 }, { n: 1 }, { n: 2 }];
+            await QueuerUtil.batchSend(entries, 'https://q', { delaySeconds: (e) => [0, 42, 5000][e.n] });
+            const sent = sqsMock.call(0).args[0].input.Entries;
+            expect(sent.map((e) => e.DelaySeconds)).toEqual([undefined, 42, 900]);
+            expect(JSON.parse(sent[1].MessageBody)).toEqual({ n: 1 });
+
+            sqsMock.resetHistory();
+            await QueuerUtil.batchSend(entries, 'https://q');
+            expect(sqsMock.call(0).args[0].input.Entries.every((e) => e.DelaySeconds === undefined)).toBe(true);
+        });
+
         it('should send multiple batches for large entry sets (10 per batch)', async () => {
             sqsMock.on(SendMessageBatchCommand).resolves({ 
                 Successful: [],

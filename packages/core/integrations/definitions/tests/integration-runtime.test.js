@@ -2,8 +2,8 @@ const d = require('..');
 const { checksum } = require('../canonical');
 
 const manifests = d.loadManifests();
-const base = () => JSON.parse(JSON.stringify(require('../examples/quo-hubspot.definition.json')));
-const quoCall = () => JSON.parse(JSON.stringify(manifests.quo.events['call.completed'].payload));
+const base = () => JSON.parse(JSON.stringify(require('../examples/phone-hubspot.definition.json')));
+const phoneCall = () => JSON.parse(JSON.stringify(manifests.phone.events['call.completed'].payload));
 
 function harness(seed = {}) {
     const store = new Map(Object.entries(seed));
@@ -16,7 +16,7 @@ function harness(seed = {}) {
     });
     return { store, calls, ports };
 }
-const linked = { 'idx:contacts:phone:+15125550142': { hubspot: '51', quo: 'CT7' } };
+const linked = { 'idx:contacts:phone:+15125550142': { hubspot: '51', phone: 'CT7' } };
 
 describe('expressions', () => {
     it('resolves references with their type, templates as strings, and conditions without eval', () => {
@@ -46,7 +46,7 @@ describe('validate', () => {
         ['undeclared workflow setting', (x) => { x.workflows[2].steps[3].with.properties.hs_task_body = '{{settings.nope}}'; }, /\$\.settings\.nope/],
         ['unknown trigger topic', (x) => { x.workflows[0].trigger.topic = 'call.teleported'; }, /emits no event "call.teleported"/],
         ['identity key not in the sync', (x) => { x.workflows[0].steps[0].with.key = { fax: '$.record.from' }; }, /"fax" is not an identity key/],
-        ['mapping field the object lacks', (x) => { x.syncs[0].mapping[0].target = 'defaultFields.nickname'; }, /not a field of quo\.contact/],
+        ['mapping field the object lacks', (x) => { x.syncs[0].mapping[0].target = 'defaultFields.nickname'; }, /not a field of phone\.contact/],
         ['read-only target field', (x) => { x.syncs[0].mapping.push({ source: 'properties.email', target: 'id' }); }, /read-only/],
         ['placement the host lacks', (x) => { x.ui[0].placement = 'crm.navbar'; }, /not a placement hubspot supports/],
         ['button pointing at a non-user-action workflow', (x) => { x.ui[0].view.children[4].props.action.workflow = 'log-call'; }, /not triggered by a user action/],
@@ -73,28 +73,28 @@ describe('compile', () => {
         expect(c.events.WF_WON_THANK_YOU).toBeUndefined();             // default off, left off
         expect(c.events.SYNC_CONTACTS_BACKFILL).toMatchObject({ type: 'USER_ACTION', userActionType: 'SYNC_ACTION' });
         expect(c.events.WF_TEXT_FROM_CARD).toMatchObject({ type: 'USER_ACTION' });
-        expect(c.schedules).toEqual([]);                                 // stale-contacts is off
-        expect(d.routeWebhook(c, 'quo', 'call.completed')).toEqual(['WF_LOG_CALL']);
+        expect(c.triggers).toEqual([]);                                  // stale-contacts is off
+        expect(d.routeWebhook(c, 'phone', 'call.completed')).toEqual(['WF_LOG_CALL']);
         expect(d.routeWebhook(c, 'hubspot', 'contact.propertyChange')).toEqual(['SYNC_CONTACTS_ONGOING']);
-        expect(c.routes.map((r) => r.path)).toEqual(['/ui/quo-card', '/ui/deals-panel']);
+        expect(c.routes.map((r) => r.path)).toEqual(['/ui/phone-card', '/ui/deals-panel']);
     });
 });
 
 describe('runWorkflow', () => {
-    it('logs a Quo call on the linked HubSpot contact, through the manifest method, with resolved arguments', async () => {
+    it('logs a Phone call on the linked HubSpot contact, through the manifest method, with resolved arguments', async () => {
         const def = base(); const h = harness(linked);
-        const run = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: quoCall(), ports: h.ports(def), manifests });
+        const run = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: phoneCall(), ports: h.ports(def), manifests });
         expect(run.status).toBe('completed');
         expect(h.calls).toEqual([{ module: 'hubspot', method: 'createCallEngagement', args: {
             contactId: '51',
-            properties: { hs_call_title: 'Quo call (incoming)', hs_call_body: 'Quo call with +15125550142 · 312s (completed)', hs_call_duration: 312, hs_call_direction: 'INCOMING', hs_timestamp: '2026-10-18T14:07:12Z' },
+            properties: { hs_call_title: 'Phone call (incoming)', hs_call_body: 'Phone call with +15125550142 · 312s (completed)', hs_call_duration: 312, hs_call_direction: 'INCOMING', hs_timestamp: '2026-10-18T14:07:12Z' },
         } }]);
     });
 
     it('runs each provider event once: a redelivery writes nothing', async () => {
         const def = base(); const h = harness(linked); const p = h.ports(def);
-        await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: quoCall(), ports: p, manifests });
-        const again = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: quoCall(), ports: p, manifests });
+        await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: phoneCall(), ports: p, manifests });
+        const again = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: phoneCall(), ports: p, manifests });
         expect(again.status).toBe('duplicate');
         expect(h.calls).toHaveLength(1);
     });
@@ -103,24 +103,24 @@ describe('runWorkflow', () => {
         const def = base(); const h = harness(linked);
         let fail = true;
         const p = h.ports(def, () => { if (fail) throw new Error('HubSpot 503'); return { id: 'out_1' }; });
-        const first = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: quoCall(), ports: p, manifests });
+        const first = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: phoneCall(), ports: p, manifests });
         expect(first).toMatchObject({ status: 'failed', retryable: true });
         fail = false;
-        const retry = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: quoCall(), ports: p, manifests });
+        const retry = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: phoneCall(), ports: p, manifests });
         expect(retry.status).toBe('completed');
         expect(h.calls).toHaveLength(2);
     });
 
     it('stops (not fails) when there is no linked contact, and writes nothing', async () => {
         const def = base(); const h = harness();
-        const run = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: quoCall(), ports: h.ports(def), manifests });
+        const run = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: phoneCall(), ports: h.ports(def), manifests });
         expect(run).toMatchObject({ status: 'stopped', reason: 'No linked HubSpot contact for this number' });
         expect(h.calls).toEqual([]);
     });
 
     it('applies the trigger filter before claiming the event', async () => {
         const def = base(); const h = harness(linked);
-        const ev = JSON.parse(JSON.stringify(manifests.quo.events['call.missed'].payload)); ev.data.object.direction = 'outgoing';
+        const ev = JSON.parse(JSON.stringify(manifests.phone.events['call.missed'].payload)); ev.data.object.direction = 'outgoing';
         const run = await d.runWorkflow({ def, installation: {}, workflowId: 'missed-call-task', event: ev, ports: h.ports(def), manifests });
         expect(run.status).toBe('filtered');
         expect([...h.store.keys()].some((k) => k.startsWith('evt:'))).toBe(false);
@@ -129,15 +129,15 @@ describe('runWorkflow', () => {
     it('uses installation settings over defaults (missed-call owner)', async () => {
         const def = base(); const h = harness(linked);
         const respond = (m, method) => (method === 'getContactById' ? { id: '51', properties: { firstname: 'Dana', hubspot_owner_id: '999' } } : { id: 't1' });
-        const run = await d.runWorkflow({ def, installation: { workflows: { 'missed-call-task': { enabled: true, settings: { owner: '81273645' } } } }, workflowId: 'missed-call-task', event: manifests.quo.events['call.missed'].payload, ports: h.ports(def, respond), manifests });
+        const run = await d.runWorkflow({ def, installation: { workflows: { 'missed-call-task': { enabled: true, settings: { owner: '81273645' } } } }, workflowId: 'missed-call-task', event: manifests.phone.events['call.missed'].payload, ports: h.ports(def, respond), manifests });
         expect(run.status).toBe('completed');
         const task = h.calls.find((c) => c.method === 'createTask');
-        expect(task.args.properties).toMatchObject({ hs_task_subject: 'Call back Dana (missed Quo call)', hubspot_owner_id: '81273645' });
+        expect(task.args.properties).toMatchObject({ hs_task_subject: 'Call back Dana (missed Phone call)', hubspot_owner_id: '81273645' });
     });
 
     it('reports a failed step as a retryable failed run with the trace up to the failure', async () => {
         const def = base(); const h = harness(linked);
-        const run = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: quoCall(), ports: h.ports(def, () => { throw new Error('HubSpot 503'); }), manifests });
+        const run = await d.runWorkflow({ def, installation: {}, workflowId: 'log-call', event: phoneCall(), ports: h.ports(def, () => { throw new Error('HubSpot 503'); }), manifests });
         expect(run).toMatchObject({ status: 'failed', error: 'HubSpot 503', retryable: true });
         expect(run.trace.map((t) => t.status)).toEqual(['ok', 'skipped', 'ok', 'error']);
     });
@@ -155,8 +155,8 @@ describe('renderSurface', () => {
     it('runs the query and resolves the view into a static tree for the host renderer', async () => {
         const def = base(); const h = harness();
         const respond = (m, method) => (method === 'listCalls' ? [{ direction: 'incoming', duration: 60, createdAt: '2026-10-18T14:00:00Z' }] : []);
-        const out = await d.renderSurface({ def, installation: {}, surfaceId: 'quo-card', record: { properties: { phone: '+15125550142' } }, ports: h.ports(def, respond) });
-        expect(out.surface).toEqual({ id: 'quo-card', host: 'hubspot', placement: 'crm.record.sidebar', definition: 'quo-hubspot@1.4.0' });
+        const out = await d.renderSurface({ def, installation: {}, surfaceId: 'phone-card', record: { properties: { phone: '+15125550142' } }, ports: h.ports(def, respond) });
+        expect(out.surface).toEqual({ id: 'phone-card', host: 'hubspot', placement: 'crm.record.sidebar', definition: 'phone-hubspot@1.4.0' });
         const list = out.view.children.find((c) => c.component === 'List');
         expect(list.props.items).toEqual([{ title: 'incoming call · 60s', meta: '2026-10-18' }]);
         expect(out.view.children.some((c) => c.component === 'Empty')).toBe(false);
@@ -175,7 +175,7 @@ describe('versioning', () => {
     it('plans an upgrade: required input first, then what the runtime does', () => {
         const a = base(); const b = base(); b.version = '2.0.0';
         b.workflows = b.workflows.filter((w) => w.id !== 'texts-timeline');
-        b.workflows.push({ id: 'voicemail', label: 'Voicemail notes', default: 'on', settings: { pipeline: { type: 'string', label: 'Pipeline', required: true } }, trigger: { type: 'webhook', module: 'quo', topic: 'call.missed' }, steps: [{ use: 'stop' }] });
+        b.workflows.push({ id: 'voicemail', label: 'Voicemail notes', default: 'on', settings: { pipeline: { type: 'string', label: 'Pipeline', required: true } }, trigger: { type: 'webhook', module: 'phone', topic: 'call.missed' }, steps: [{ use: 'stop' }] });
         const plan = d.planUpgrade({ definition: { id: a.id, version: a.version }, settings: { fromNumber: '+1' }, workflows: { 'texts-timeline': { enabled: true } } }, a, b);
         expect(plan.allowed).toBe(false);
         expect(plan.needs).toEqual([expect.objectContaining({ path: 'workflows.voicemail.settings.pipeline' })]);
@@ -191,7 +191,7 @@ describe('versioning', () => {
 
 describe('defineIntegrationClass', () => {
     class FakeBase {
-        constructor(p = {}) { this.events = {}; this.config = p.config; this.id = p.id; this.rows = new Map(); this.hubspot = { api: { createCallEngagement: jest.fn(async () => ({ id: 'e1' })) } }; this.quo = { api: {} }; }
+        constructor(p = {}) { this.events = {}; this.config = p.config; this.id = p.id; this.rows = new Map(); this.hubspot = { api: { createCallEngagement: jest.fn(async () => ({ id: 'e1' })) } }; this.phone = { api: {} }; }
         registerEventHandlers() { this.on = { ...this.events }; }
         async getMapping(k) { return this.rows.has(k) ? { mapping: this.rows.get(k) } : null; }
         async upsertMapping(k, v) { this.rows.set(k, v); }
@@ -200,27 +200,27 @@ describe('defineIntegrationClass', () => {
 
     it('loads the pinned version, builds this.events, and a dispatched webhook event writes to HubSpot', async () => {
         const v14 = base(); const v13 = { ...base(), version: '1.3.2' };
-        const Cls = d.defineIntegrationClass({ id: 'quo-hubspot', definitions: d.memoryDefinitions([v13, v14]), manifests, modules: { quo: {}, hubspot: {} }, IntegrationBase: FakeBase, runs: false });
-        expect(Cls.Definition.name).toBe('quo-hubspot');
-        const inst = new Cls({ id: 'int_1', config: { definition: { id: 'quo-hubspot', version: '1.3.2' } } });
+        const Cls = d.defineIntegrationClass({ id: 'phone-hubspot', definitions: d.memoryDefinitions([v13, v14]), manifests, modules: { phone: {}, hubspot: {} }, IntegrationBase: FakeBase, runs: false });
+        expect(Cls.Definition.name).toBe('phone-hubspot');
+        const inst = new Cls({ id: 'int_1', config: { definition: { id: 'phone-hubspot', version: '1.3.2' } } });
         await inst.loadDefinition();
         expect(inst.def.version).toBe('1.3.2');                              // the pin, not the latest
         expect(Object.keys(inst.on)).toContain('WF_LOG_CALL');
-        inst.rows.set('idx:contacts:phone:+15125550142', { hubspot: '51', quo: 'CT7' });
-        const run = await inst.on.WF_LOG_CALL.handler({ data: { body: quoCall(), definitionVersion: '1.3.2' } });
+        inst.rows.set('idx:contacts:phone:+15125550142', { hubspot: '51', phone: 'CT7' });
+        const run = await inst.on.WF_LOG_CALL.handler({ data: { body: phoneCall(), definitionVersion: '1.3.2' } });
         expect(run.status).toBe('completed');
         expect(inst.hubspot.api.createCallEngagement).toHaveBeenCalledWith(expect.objectContaining({ contactId: '51' }));
     });
 
     it('shared class: one registration runs installations of different definitions', async () => {
-        const qh = base(); const other = { ...base(), id: 'quo-other', version: '0.1.0' };
-        const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions([qh, other]), manifests, modules: { quo: {}, hubspot: {} }, IntegrationBase: FakeBase, runs: false });
+        const qh = base(); const other = { ...base(), id: 'phone-other', version: '0.1.0' };
+        const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions([qh, other]), manifests, modules: { phone: {}, hubspot: {} }, IntegrationBase: FakeBase, runs: false });
         expect(Cls.Definition.name).toBe('integration-runtime');
-        expect(Object.keys(Cls.Definition.modules)).toEqual(['quo', 'hubspot']);
-        const a = new Cls({ id: 'int_a', config: { definition: { id: 'quo-hubspot', version: '1.4.0' } } });
-        const b = new Cls({ id: 'int_b', config: { definition: { id: 'quo-other', version: '0.1.0' } } });
+        expect(Object.keys(Cls.Definition.modules)).toEqual(['phone', 'hubspot']);
+        const a = new Cls({ id: 'int_a', config: { definition: { id: 'phone-hubspot', version: '1.4.0' } } });
+        const b = new Cls({ id: 'int_b', config: { definition: { id: 'phone-other', version: '0.1.0' } } });
         await a.loadDefinition(); await b.loadDefinition();
-        expect([a.def.id, b.def.id]).toEqual(['quo-hubspot', 'quo-other']);
+        expect([a.def.id, b.def.id]).toEqual(['phone-hubspot', 'phone-other']);
         await expect(new Cls({ id: 'int_c', config: {} }).loadDefinition()).rejects.toThrow(/does not name a definition/);
     });
 });

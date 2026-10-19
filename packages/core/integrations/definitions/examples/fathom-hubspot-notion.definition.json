@@ -56,7 +56,7 @@
           "id": "people",
           "use": "code",
           "with": {
-            "ref": "@lefthook/meeting-steps#externalInvitees@1.0.0",
+            "ref": "@acme/meeting-steps#externalInvitees@1.0.0",
             "with": {
               "invitees": "$.record.calendar_invitees"
             }
@@ -140,7 +140,7 @@
           "id": "people",
           "use": "code",
           "with": {
-            "ref": "@lefthook/meeting-steps#externalInvitees@1.0.0",
+            "ref": "@acme/meeting-steps#externalInvitees@1.0.0",
             "with": {
               "invitees": "$.record.calendar_invitees"
             }
@@ -218,7 +218,7 @@
           "id": "blocks",
           "use": "code",
           "with": {
-            "ref": "@lefthook/notion-steps#markdownToBlocks@1.1.0",
+            "ref": "@acme/notion-steps#markdownToBlocks@1.1.0",
             "with": {
               "markdown": "$.record.default_summary.markdown_formatted",
               "actionItems": "$.record.action_items"
@@ -229,7 +229,7 @@
           "id": "attendees",
           "use": "code",
           "with": {
-            "ref": "@lefthook/meeting-steps#inviteeNames@1.0.0",
+            "ref": "@acme/meeting-steps#inviteeNames@1.0.0",
             "with": {
               "invitees": "$.record.calendar_invitees"
             }
@@ -306,7 +306,7 @@
           "id": "people",
           "use": "code",
           "with": {
-            "ref": "@lefthook/meeting-steps#externalInvitees@1.0.0",
+            "ref": "@acme/meeting-steps#externalInvitees@1.0.0",
             "with": {
               "invitees": "$.record.calendar_invitees"
             }
@@ -353,7 +353,7 @@
           "id": "proposal",
           "use": "code",
           "with": {
-            "ref": "@lefthook/meeting-steps#proposeDealUpdates@1.0.0",
+            "ref": "@acme/meeting-steps#proposeDealUpdates@1.0.0",
             "with": {
               "summary": "$.record.default_summary.markdown_formatted",
               "actionItems": "$.record.action_items",

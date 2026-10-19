@@ -117,7 +117,7 @@ function createSyncEngine({ def, installation = {}, install = {}, manifests, por
 
         const isCreate = idB == null;
         const updatedAt = A.spec.updatedAt ? readField(record, A.spec.updatedAt) ?? null : null;
-        // Only fields the write accepts: Quo's update takes defaultFields but not externalId, and a field the API drops
+        // Only fields the write accepts: Phone's update takes defaultFields but not externalId, and a field the API drops
         // would read as changed forever. (A write that takes the record in one argument, body, is not checked.)
         const op = B.spec[isCreate ? 'create' : 'update'];
         const accepts = op && !op.body ? new Set(Object.keys(B.manifest?.capabilities?.[op.capability]?.input || {})) : null;

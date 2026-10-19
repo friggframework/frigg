@@ -21,12 +21,12 @@ installation (Integration.config)         ─┘                          │
 | `schema/records.md` | Database records: definition versions, installation, mappings, workflow runs |
 | `capabilities/*.capabilities.json` | Capability manifests. Nine are checked against the real Api classes (`capabilities/AUDIT.md`); the other twelve are still mock-shaped |
 | `scripts/check-manifests.js` | Checks every manifest `method` exists on the real module's Api class, with the arguments it takes |
-| `examples/*.definition.json` | Example definitions; `examples/records/` has Quo ↔ HubSpot database records |
+| `examples/*.definition.json` | Example definitions; `examples/records/` has Phone ↔ HubSpot database records |
 | `expressions.js` | `$.ref`, `{{template \| filter}}` and conditions. No eval. |
 | `steps.js`, `interpreter.js`, `transforms.js` | The step catalogue and the interpreter |
 | `validate.js` | Structure + cross-references against the manifests (steps, templates, views, settings, `$.install`) |
 | `manifests.js` | `validateManifest`: the manifests themselves (kinds, option lists, account fields) |
-| `compile.js` | Definition + installation → events, webhook routes, schedules, user actions |
+| `compile.js` | Definition + installation → events, webhook routes, recurring triggers, user actions |
 | `sync-engine.js` | Syncs: link → identity → search → create/update, master rules, backfill pages, polls |
 | `runtime.js` | Ports (Api calls, link store), `runWorkflow`, `runQuery`, `renderSurface`, `runLifecycle`, `resolveOptions`, `installContext` |
 | `versioning.js` | `diff`, `checkBump`, `planUpgrade` |
@@ -37,7 +37,7 @@ installation (Integration.config)         ─┘                          │
 
 ## The pieces of a definition
 
-- **modules** — module keys used everywhere else (`quo`, `hubspot`), each naming a capability manifest.
+- **modules** — module keys used everywhere else (`phone`, `hubspot`), each naming a capability manifest.
 - **settings** — integration-level choices (`fromNumber`); workflows can declare their own. An option setting draws
   its choices from a module's option list, and may pass it inputs read from earlier choices
   (`{ "source": "asana.project", "with": { "workspaceGid": "$.settings.workspace" } }`); `resolveOptions` fills the
@@ -62,8 +62,8 @@ installation (Integration.config)         ─┘                          │
   is a *provider* (`static IntegrationProvider`, see `../integration-types.js`): wherever Frigg turns `config.type`
   into a class (create, get, update, delete, the queue worker, `GET /api/integrations` options), a published id
   resolves to a class of its own, with its own name, label and modules. Registered code classes win over a
-  definition with the same name. What is shared is the deployment underneath: published types queue and schedule on
-  the provider's queue (`IntegrationBase.getDeploymentName()`), and their webhooks reach the provider's function.
+  definition with the same name. What is shared is the deployment underneath: published types queue and book one-time jobs
+  on the provider's queue (`IntegrationBase.getDeploymentName()`), their triggers run on the provider's tick, and their webhooks reach the provider's function.
   Logs, telemetry, schedule job ids and installation webhook URLs carry each integration's own name.
 - **Hydration**: Frigg's use cases call `initialize()` on every hydrated integration; the class loads its pinned
   definition there.
@@ -88,8 +88,8 @@ A hand-written `IntegrationBase` subclass can embed a definition and get everyth
 workflows with delay and approval pauses, syncs, UI surfaces, the generated configure form, and run history.
 
 ```js
-class QuoReports extends IntegrationBase { static Definition = { name: 'quo-reports', modules, … }; async notifyTeam(args) { … } }
-module.exports = extendIntegrationClass(QuoReports, { definition: require('./quo-reports.definition.json'), manifests });
+class PhoneReports extends IntegrationBase { static Definition = { name: 'phone-reports', modules, … }; async notifyTeam(args) { … } }
+module.exports = extendIntegrationClass(PhoneReports, { definition: require('./phone-reports.definition.json'), manifests });
 ```
 
 - The class keeps its name, modules, routes, schedules, lifecycle and handlers; the definition's id must be its name.
@@ -114,9 +114,9 @@ const IntegrationRuntime = defineSharedIntegrationClass({ definitions: createDef
 
 | Route | Auth | |
 |---|---|---|
-| `POST /api/admin/integrations/versions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
-| `GET /api/admin/integrations/:id/versions` | admin key | Version history |
-| `POST /api/admin/integrations/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
+| `POST /admin/integrations/versions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
+| `GET /admin/integrations/:id/versions` | admin key | Version history |
+| `POST /admin/integrations/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
 | `GET /api/integrations` | user | What can be installed: code and published integrations in one list of options |
 | `GET /api/integration-definitions` | user | The published ones, with their counts |
 | `POST /api/integrations` with `config: { type: '<id>' }` | user | Install; pins the latest published version and its checksum |
@@ -130,8 +130,11 @@ into their workspace (the user's Frigg id; `IntegrationDefinitionVersion.workspa
 installable for that workspace like any other integration (its install option carries `editable: true`, the cue for
 the editor views), and invisible to everyone else: not listed, not resolvable when they install, not readable.
 `GET /api/integration-definitions/:id` gives its owner every version, drafts included, and the newest document for
-the editor. An id has one owner: another workspace, the app's catalogue or a code integration's name is refused with
-409 `ID_TAKEN`. PostgreSQL migration `20261019120000_definition_workspace`.
+the editor. An id has one owner. The app's catalogue's ids and a code integration's name are public, and refused with
+409 `ID_TAKEN`; an id owned by another workspace answers 404 `NOT_FOUND`, byte for byte what reading it answers, so one
+tenant cannot learn that another's id exists (ADR-052 section 3). (The admin route, which is not a tenant, still gets 409.)
+A published definition whose name matches a registered code integration is ignored (code wins); that is logged once per
+process as `frigg.integrations.definition.shadowed_by_code`. PostgreSQL migration `20261019120000_definition_workspace`.
 
 The installation
 routes answer for every integration, code included: one with no run history, syncs or other versions gets `[]`, or a
@@ -174,9 +177,11 @@ manifest (`objects.<obj>.sync`); ADR-063 §15b has the rules.
 
 ## Schedules
 
-A schedule-triggered workflow or a polling sync gets one recurring host schedule per installation, through the same
-core mechanism hand-written integrations use (`Definition.schedules`; ADR-063 §15a). Mark one `configurable` to let
-installations pick their own timing, optionally with a floor:
+A schedule-triggered workflow or a polling sync is a recurring trigger (ADR-055), the same mechanism hand-written
+integrations declare as `Definition.triggers` (ADR-063 §15a). Nothing is scheduled per installation: the class
+declares `instanceTriggers: { tick: '5m' }`, so devtools provisions one tick function for it, and each tick compiles
+every ENABLED installation's pinned definition with its config and queues the runs that are due. Mark one
+`configurable` to let installations pick their own timing, optionally with a floor:
 
 ```json
 {
@@ -187,8 +192,10 @@ installations pick their own timing, optionally with a floor:
 
 (`trigger` belongs to a workflow, `ongoing` to a sync.)
 
-The choice goes in `workflows.<id>.schedule` / `syncs.<id>.schedule` (the configure form offers the field). Create,
-update, upgrade and delete keep the host in step. What it holds is recorded at `config.runtime.schedules`.
+The choice goes in `workflows.<id>.schedule` / `syncs.<id>.schedule` (the configure form offers the field). An
+interval runs on whole multiples of the 5-minute tick; a cron runs on the first tick after it fires. Create, update,
+upgrade and delete need no scheduler call: the next tick reads the new state. A run is deduped on
+`tick:<event>:<scheduledFor>`, so a redelivered run happens once.
 
 ## Steps (v0.1)
 
@@ -266,6 +273,6 @@ CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's
 ## Not in v0.1
 
 - Per-module rate limits.
-- The host renderers (the HubSpot app extension and Quo panel that draw `renderSurface` output).
+- The host renderers (the HubSpot app extension and Phone panel that draw `renderSurface` output).
 - Rebuilding a link set's (`links`, not a sync's) identity index after its keys change: it has no backfill to
   rebuild from, so `planUpgrade` reports `reindex`. A sync's `relink` is done by a backfill.

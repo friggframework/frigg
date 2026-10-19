@@ -126,9 +126,9 @@ describe('Slack blocks', () => {
 
 describe('HubSpot component description', () => {
     it('describes the Zendesk-style card with real component names, status as a Tag, and the action on the button', async () => {
-        const def = example('quo-hubspot');
+        const def = example('phone-hubspot');
         const { ports } = d.recordingPorts({ def, manifests });
-        const r = await d.previewSurface({ def, surfaceId: 'quo-card', record: { properties: { phone: '+15551230000' } }, ports, installation: { integrationId: 'int_1' } });
+        const r = await d.previewSurface({ def, surfaceId: 'phone-card', record: { properties: { phone: '+15551230000' } }, ports, installation: { integrationId: 'int_1' } });
         expect(r.hubspot.type).toBe('Flex');
         const names = new Set();
         walk({ children: [r.hubspot] }, (n) => n.type && names.add(n.type));
@@ -138,7 +138,7 @@ describe('HubSpot component description', () => {
         let send;
         walk({ children: [r.hubspot] }, (n) => { if (n.type === 'Button' && n.children[0] === 'Send text') send = n; });
         expect(send.props.action).toBeUndefined();
-        expect(send.action).toEqual({ type: 'userAction', workflow: 'text-from-card', surface: 'quo-card', integrationId: 'int_1', input: { message: { type: 'text', label: 'Message' } } });
+        expect(send.action).toEqual({ type: 'userAction', workflow: 'text-from-card', surface: 'phone-card', integrationId: 'int_1', input: { message: { type: 'text', label: 'Message' } } });
     });
 
     it('maps tone to Tag variants, keeps data as text children, never as markup, and disables a button with no safe action', () => {
@@ -278,7 +278,7 @@ describe('HTML', () => {
         const btn = view('Button', { label: 'B', style: 'primary', action: { type: 'userAction', workflow: 'w' } });
         expect(viewToHtml(btn, { host: 'hubspot' })).toContain('background:#ff7a59');
         expect(viewToHtml(btn, { host: 'generic' })).toContain('background:#2563eb');
-        expect(viewToHtml(v, { host: 'quo' })).toBe(viewToHtml(v, { host: 'generic' }));
+        expect(viewToHtml(v, { host: 'phone' })).toBe(viewToHtml(v, { host: 'generic' }));
         expect(new Set([h, s, g]).size).toBe(3);
         expect(viewToHtml(null, { host: 'hubspot' })).toContain('Nothing to show');
     });
@@ -364,11 +364,11 @@ describe('previewWorkflow: a dry run', () => {
     });
 
     it('renders a non-Slack write as a "would call" card with escaped args, and the sample payload drives a webhook workflow with no event', async () => {
-        const def = example('quo-hubspot');
+        const def = example('phone-hubspot');
         const r = await d.previewWorkflow({ def, workflowId: 'text-from-card', manifests, installation: { settings: { fromNumber: '+15550000000' } }, event: { input: { message: 'Hi <script>' } }, record: { properties: { phone: '+15551234567' } } });
         const send = r.sends[0];
         expect(send.args).toEqual({ from: '+15550000000', to: ['+15551234567'], content: 'Hi <script>' });
-        expect(send.rendered.html).toContain('Would call quo');
+        expect(send.rendered.html).toContain('Would call phone');
         expect(send.rendered.html).toContain('Hi &lt;script&gt;');
         expect(send.rendered.html).not.toMatch(/<script/i);
         expect(send.rendered.slack).toBeUndefined();

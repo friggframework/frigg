@@ -134,6 +134,16 @@ App level capabilities are usually computed (the union of declared integration c
 - [ONTOLOGY](./021-ontology.md): the ontology contains capability naming and surface-kind conventions
 - [AGENT-HARNESS](./025-agent-harness.md): the harness compiles and injects the capability graph at session start
 
+## Amendment (ADR-063)
+
+[ADR-063](./063-integration-definitions-as-data.md) (Proposed) adds integrations that are published as data and checks them against a per-module **capability manifest**. If it is accepted, this ADR is amended as follows. It records how the two meet, and does not change the three levels or the surfaces above.
+
+- **The manifest is the serialised form of a module's `Definition.capabilities`.** The manifest's `capabilities` map (read and write verbs, each naming a method on the module's `Api`) is the module level of this ADR, written as a JSON file a validator and the runtime can read without loading the module. It is not a second source of truth: it should be generated from `Definition.capabilities`, or at minimum checked against the module's `Api` and its `Definition.capabilities` in the module's own tests, so the two cannot drift.
+- **Key convention.** Manifest keys are `<object>.<verb>` (`contact.list`). Names in this ADR are `<domain>.<object>.<verb>` (`crm.contact.list`), and Open question 1 leaves namespacing open. For now the domain is implied by the module: a CRM module's `contact.list` is `crm.contact.list`. The target is the full `crm.contact.list` form once a module declares its domain, so a manifest key and a capability name map to each other without a lookup beyond the module's domain.
+- **Webhook events are webhook-source capabilities.** A manifest `events` entry (a topic the module can deliver) is a capability with surface `webhook-source`, like `crm.contact.watch` above. How a delivery is verified, answered and split into events comes from the webhook-source's extension, which for a one-file integration is [ADR-054](./054-one-file-integrations.md) extension contract 2 (`verify`, `handshake`, `receive`, `emits`, `normalize`), not from a second description in the manifest.
+- **The endpoint is versioned.** `GET /api/capabilities` becomes `GET /api/v2/capabilities`, since [ADR-053](./053-management-api-versioning.md) puts every new Management API resource under `/api/v2/`.
+- **Naming clash with `/api/meta`.** ADR-053 §4's `GET /api/meta` already returns a `capabilities` array. Its entries are server feature flags (`multiStepAuthorize`, `entityProxy`, `credentials`), not this ADR's graph. Two things called "capabilities" with different meanings on one API will confuse clients and docs. Not decided here: the choice is between renaming the meta field (for example to `features`) and giving the graph its own name. It should be settled before either ships.
+
 ## Open questions
 
 1. **Capability namespacing.** `crm.contact.sync.bidir` vs `crm/contact/sync.bidir` vs `crm:contact:sync:bidir`. Lean dot-notation for filesystem-safety and grep-ability.

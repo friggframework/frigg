@@ -5,7 +5,7 @@
  * registers one generated class per definition id:
  *
  *     const { defineIntegrationClass } = require('@friggframework/core/integrations/definitions');
- *     integrations: [ defineIntegrationClass({ id: 'quo-hubspot', definitions, manifests, modules: { quo: QuoModule, hubspot: HubSpotModule } }) ]
+ *     integrations: [ defineIntegrationClass({ id: 'phone-hubspot', definitions, manifests, modules: { phone: PhoneModule, hubspot: HubSpotModule } }) ]
  *
  * The class's static Definition (name, modules) is what the infrastructure needs, and it is the same for every
  * version, so publishing a new version deploys nothing. Each installation loads the exact version it pins
@@ -16,11 +16,28 @@
  * Ports used: definitions.get(id, version) -> definition doc (immutable; cache freely)
  *             runCode(ref, args) -> registered code steps (optional)
  */
+const crypto = require('crypto');
 const { compile, routeWebhook, eventName } = require('./compile');
 const { argumentsFor, makePorts, runWorkflow, resumeWorkflow, runQuery, renderSurface, runLifecycle, resolveOptions, installContext } = require('./runtime');
 const { createSyncEngine } = require('./sync-engine');
 const { eventsIn, handshakeFor, modulesFor } = require('./webhooks');
 const { buildConfigForm, missingRequired } = require('./config-form');
+
+/** The tick every trigger of a published definition runs on: a chosen interval is rounded up to whole multiples of it. */
+const INSTANCE_TICK = '5m';
+
+/** A compiled definition's triggers as IntegrationBase trigger declarations: each runs its compiled event. */
+function triggersOf(def, config) {
+    return compile(def, config).triggers.map((t) => ({
+        ...t,
+        tick: INSTANCE_TICK,
+        handler(payload) {
+            const event = this.events?.[t.name];
+            if (!event) throw new Error(`Trigger "${t.name}" has no compiled event in this installation`);
+            return event.handler({ data: { integrationId: this.id, ...payload } });
+        },
+    }));
+}
 
 /**
  * Shape A — one class per definition id (defineIntegrationClass): the class name and modules come from the
@@ -30,7 +47,7 @@ const { buildConfigForm, missingRequired } = require('./config-form');
  * Shape B — one class for every definition (defineSharedIntegrationClass): registered once as "integration-runtime", its
  * static modules are every API module the app has installed, and each installation names its definition id and
  * version in config. A new integration is a row, not a deploy, and every installation shares one set of functions
- * and one queue. Right for The Integrator, where definitions accumulate without bound.
+ * and one queue. Right for a multi-tenant product, where definitions accumulate without bound.
  */
 function defineIntegrationClass({ id, definitions, manifests, modules, runCode, IntegrationBase, lookup, runs }) {
     const latest = definitions.latest(id);
@@ -68,7 +85,7 @@ function defineSharedIntegrationClass({ name = 'integration-runtime', definition
  *     module.exports = extendIntegrationClass(HubspotSlack, { definition: require('./hubspot-slack.definition.json'), manifests });
  *
  * What the definition does not declare stays the code's: with no webhook-triggered workflow or sync the class's own
- * webhook handling runs; with no settings, its own configure form; its own schedules run beside the compiled ones.
+ * webhook handling runs; with no settings, its own configure form; its own triggers run beside the compiled ones.
  */
 function extendIntegrationClass(CodeClass, { definition, manifests, runCode, runs, lookup }) {
     const name = CodeClass?.Definition?.name;
@@ -87,6 +104,8 @@ function extendIntegrationClass(CodeClass, { definition, manifests, runCode, run
     });
 }
 
+/** Whether a definition has recurring work of its own (a schedule-triggered workflow or a polling sync). */
+const hasRecurring = (def) => Boolean((def?.workflows || []).some((w) => w.trigger?.type === 'schedule') || (def?.syncs || []).some((sy) => sy.ongoing?.mode === 'poll'));
 /** Whether a definition receives webhooks itself (a webhook-triggered workflow or a webhook-driven sync). */
 const ownsWebhooks = (def) => Boolean((def?.workflows || []).some((w) => w.trigger?.type === 'webhook') || (def?.syncs || []).some((sy) => sy.ongoing?.mode === 'webhook'));
 /** Whether a definition generates the configure form (it declares settings, at its level or a workflow's). */
@@ -116,10 +135,60 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
     const findInstallations = (externalId, moduleName, Cls) => (lookup || friggLookup(async (type) => type === id || type === Cls.Definition.name || Boolean(await IntegrationRuntime.IntegrationProvider?.resolve(type))))(externalId, moduleName);
     const runRepository = () => (runStore === undefined ? (runStore = require('./repositories/workflow-run-repository').createWorkflowRunRepository()) : runStore);
     const baseFor = (typeName) => `${process.env.FRIGG_PUBLIC_URL || ''}/api/${typeName}-integration/webhooks`;
+    const pinnedDefinitions = new Map();   // `${id}@${version}` -> definition, for the trigger tick
+    // A code class embedding a definition provisions the per-installation tick only when its definition has
+    // schedule-triggered workflows or polling syncs; its own Definition.triggers are provisioned as they are.
+    const embeddedRecurring = embedded && hasRecurring(definitions.latest(defaultId));
+    // A code class's own Definition.triggers (IntegrationBase.triggersFor), kept beside the compiled ones.
+    const codeTriggers = async (Cls, installation) => (embedded && typeof Base.triggersFor === 'function' ? Base.triggersFor.call(Cls, installation) : []);
 
     class IntegrationRuntime extends Base {
         // version is display only; installations pin their own. A code class keeps every part of its Definition.
-        static Definition = embedded ? { ...Base.Definition, webhooks: Base.Definition.webhooks ?? { enabled: true } } : { name, version, modules, webhooks: { enabled: true }, display };
+        // instanceTriggers: schedule-triggered workflows and polling syncs are this class's recurring triggers,
+        // resolved per installation (triggersFor) on one 5m tick.
+        static Definition = embedded
+            ? { ...Base.Definition, webhooks: Base.Definition.webhooks ?? { enabled: true }, ...(embeddedRecurring ? { instanceTriggers: { tick: INSTANCE_TICK } } : {}) }
+            : { name, version, modules, webhooks: { enabled: true }, display, instanceTriggers: { tick: INSTANCE_TICK } };
+
+        /**
+         * The recurring triggers of one installation (ADR-055): its pinned definition compiled with its config, so a
+         * switched-off workflow has none and a configurable one carries the installation's choice. Each runs its
+         * compiled event. A code class embedding a definition keeps its own Definition.triggers beside them. Read by
+         * the shared tick from the record alone (no modules, no credentials).
+         */
+        static async triggersFor(installation = {}) {
+            const config = installation.config || {};
+            const own = await codeTriggers(this, installation);
+            const fixedId = this.definitionId;
+            let pin = config.definition || (fixedId ? { id: fixedId } : null);
+            if (!pin?.id) return own;
+            if (embedded) pin = { id: pin.id };   // the definition ships with the code: the deployed version runs
+            let def;
+            if (pin.version) {
+                // Published versions are immutable, so a tick over many installations reads each one once.
+                const key = `${pin.id}@${pin.version}`;
+                if (!pinnedDefinitions.has(key)) {
+                    if (pinnedDefinitions.size >= 100) pinnedDefinitions.clear();
+                    pinnedDefinitions.set(key, await definitions.get(pin.id, pin.version, { checksum: pin.checksum }));
+                }
+                def = pinnedDefinitions.get(key);
+            } else {
+                def = await definitions.latest(pin.id);
+            }
+            return def ? [...own, ...triggersOf(def, config)] : own;
+        }
+
+        /**
+         * The installation types one tick of this class covers (RunTriggerTick): its own, plus, for the shared class,
+         * every published definition it provides, because each of those is an integration type of its own that runs
+         * on this deployment.
+         */
+        static async triggerTypes() {
+            const own = this.Definition.name;
+            if (!this.IntegrationProvider) return [own];
+            const provided = (await this.IntegrationProvider.list()).map((c) => c.Definition.name);
+            return [...new Set([own, ...provided])];
+        }
 
         /** How the routers find integration runtime classes and the store and manifests they run on. */
         static IntegrationRuntime = { definitions, manifests, shared: !defaultId, runs: () => runRepository() };
@@ -212,10 +281,9 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
                 ? await definitions.get(this.def.id, msg.definitionVersion) || this.def
                 : this.def;
             const installation = this.installation();
-            // A scheduled tick may be delivered twice; its scheduled time makes the dedupe id (an unfilled
-            // placeholder, from a host that cannot supply it, is not an id).
-            const scheduledFor = msg.tick?.scheduledFor && !String(msg.tick.scheduledFor).startsWith('{{') ? msg.tick.scheduledFor : null;
-            const eventId = msg.eventId || (scheduledFor ? `tick:${msg.scheduleKey}:${scheduledFor}` : undefined);
+            // A trigger run may be delivered twice (a redelivery, two ticks in one slot); the trigger and the time it
+            // was scheduled for make its dedupe id.
+            const eventId = msg.eventId || (msg.trigger && msg.scheduledFor ? `tick:${msg.trigger}:${msg.scheduledFor}` : undefined);
             if (ref.kind === 'workflow') return this.recordRun(await runWorkflow({ def, installation, workflowId: ref.id, event: msg.body ?? msg, eventId, record: msg.record, ports: this.ports, manifests }));
             if (ref.kind === 'query') return runQuery({ def, installation, queryId: ref.id, record: msg.record, ports: this.ports });
             if (ref.kind === 'ui') return renderSurface({ def, installation, surfaceId: ref.id, record: payload.req?.body?.record || msg.record, ports: this.ports });
@@ -329,15 +397,13 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
         }
 
         /**
-         * The recurring schedules this installation should have: the definition's schedule-triggered workflows and
-         * polling syncs that are switched on, with the installation's timing where the definition allows it.
-         * Compiled from the current config every time, so the base class's onUpdate (which patches config, then
-         * reconciles) schedules what was just chosen. The base class's onCreate, onUpdate and onDelete keep the host
-         * in step (IntegrationBase.syncSchedules).
+         * This installation's triggers, from the definition it already loaded and its current config, beside a code
+         * class's own Definition.triggers.
          */
-        scheduleEntries() {
-            const compiled = this.def ? compile(this.def, this.config || {}).schedules : [];
-            return embedded && typeof super.scheduleEntries === 'function' ? [...super.scheduleEntries(), ...compiled] : compiled;
+        async triggerDeclarations() {
+            if (!this.def) return this.constructor.triggersFor({ config: this.config || {}, record: this.record });
+            const own = await codeTriggers(this.constructor, { config: this.config || {}, record: this.record });
+            return [...own, ...triggersOf(this.def, this.config || {})];
         }
 
         /**
@@ -440,12 +506,11 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             await this.patchConfig(config);
             this.config = { ...this.config, ...config };
             await this.loadDefinition();
-            // The new version may add, drop or retime schedules.
-            const schedules = typeof this.syncSchedules === 'function' ? await this.syncSchedules() : null;
+            // Triggers need nothing here: the next tick reads the new pin and config.
             // New identity keys: a backfill rewrites every link with them. A new sync starts its own backfill
             // only if its definition says so (onInstall); otherwise it waits for its button.
             for (const a of plan.actions.filter((x) => x.kind === 'relink')) await this.startBackfill(a.id, 'relink');
-            return { ...plan, config, applied: true, ...(schedules ? { schedules } : {}) };
+            return { ...plan, config, applied: true };
         }
 
         /**
@@ -580,7 +645,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
 
         /** Start a backfill (or a relink after an identity change) and queue its first page. */
         async startBackfill(syncId, reason = 'user') {
-            const runId = `bf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+            const runId = `bf_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
             const out = await this.syncEngine().startBackfill({ syncId, runId, reason });
             if (out.started) await this.queueWebhook({ event: eventName('SYNC', syncId, 'PAGE'), integrationId: this.id, ...out.next, definitionVersion: this.def.version });
             return { started: out.started, progress: out.progress };
@@ -597,7 +662,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
                 if (t.type !== 'syncRecord' || t.sync !== syncId || !this.compiled.events[n]) continue;
                 for (const r of results) {
                     if (!r?.action || !(t.on || []).includes(r.action)) continue;
-                    const ids = Object.entries(r.ids || {}).map(([k, v]) => `${k}:${v}`).sort().join('|');
+                    const ids = Object.entries(r.ids || {}).map(([k, v]) => `${k}:${v}`).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).join('|');
                     await this.queueWebhook({ event: n, integrationId: this.id, body: { sync: syncId, action: r.action, ids: r.ids }, ...(r.action !== 'updated' ? { eventId: `${syncId}:${r.action}:${ids}` } : {}), definitionVersion: this.def.version });
                 }
             }

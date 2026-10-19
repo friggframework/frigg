@@ -173,4 +173,4 @@ function planUpgrade(installation, from, to) {
 module.exports = { diff, checkBump, planUpgrade, bumpOf };
 
 const { validateRecurrence } = require('../../infrastructure/scheduler/recurrence');
-const { recurrenceOf } = require('../schedules');
+const { recurrenceOf } = require('../triggers');

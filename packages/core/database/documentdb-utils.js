@@ -25,6 +25,8 @@ async function findMany(client, collection, filter = {}, options = {}) {
     if (options.projection) command.projection = options.projection;
     if (options.sort) command.sort = options.sort;
     if (options.limit) command.limit = options.limit;
+    // The first batch holds 101 documents unless asked for more; a page wants all of its rows.
+    if (options.batchSize) command.batchSize = options.batchSize;
     const result = await client.$runCommandRaw(command);
     return result?.cursor?.firstBatch || [];
 }

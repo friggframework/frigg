@@ -82,14 +82,14 @@ describe('fixed values and merge', () => {
 
     it('merge deep-merges, later objects win, lists are replaced, and inputs are untouched', async () => {
         const a = { properties: { name: 'A', tags: ['x'] }, keep: 1 };
-        const out = await run(example('quo-hubspot'), [{ id: 'm', use: 'merge', with: { objects: ['$.vars.a', { properties: { tags: ['y'], owner: '7' } }] } }], { vars: { a } });
+        const out = await run(example('phone-hubspot'), [{ id: 'm', use: 'merge', with: { objects: ['$.vars.a', { properties: { tags: ['y'], owner: '7' } }] } }], { vars: { a } });
         expect(out.steps.m).toEqual({ properties: { name: 'A', tags: ['y'], owner: '7' }, keep: 1 });
         expect(a).toEqual({ properties: { name: 'A', tags: ['x'] }, keep: 1 });
     });
 });
 
 describe('foreach collect and where', () => {
-    const def = example('quo-hubspot');
+    const def = example('phone-hubspot');
 
     it('collect makes the step result a list of one value per item; where skips items before the cap', async () => {
         const items = [{ n: 'a', ok: true }, { n: 'b', ok: false }, { n: 'c', ok: true }, { n: 'd', ok: true }];
@@ -117,7 +117,7 @@ describe('foreach collect and where', () => {
     });
 
     it('foreach needs do, collect or both, and max is 1..1000', () => {
-        const x = example('quo-hubspot');
+        const x = example('phone-hubspot');
         x.workflows[0].steps.unshift({ use: 'foreach', with: { over: '$.event.x' } }, { use: 'foreach', with: { over: '$.event.x', max: 5000, collect: '$.item' } });
         const e = errorsOf(x).join('\n');
         expect(e).toMatch(/foreach needs do steps, collect, or both/);
@@ -127,7 +127,7 @@ describe('foreach collect and where', () => {
 
 describe('static checks of templates and views', () => {
     it('an unknown filter is an error wherever a template appears: steps, named templates, views', () => {
-        const x = example('quo-hubspot');
+        const x = example('phone-hubspot');
         x.templates['call-note'] += ' {{record.x | shout}}';
         x.workflows[0].steps.push({ use: 'set', with: { y: '{{event.id | yell}}' } });
         x.ui[0].view.children[0].props.text = '{{data.calls | whisper}}';
@@ -138,7 +138,7 @@ describe('static checks of templates and views', () => {
     });
 
     it('a view can only read what its query returns, $.item inside a List row and $.row inside a Table column', () => {
-        const x = example('quo-hubspot');
+        const x = example('phone-hubspot');
         const kids = x.ui[0].view.children;
         kids[0].props.text = '{{data.deals}}';
         kids.push({ component: 'Text', props: { text: '{{item.title}}' } }, { component: 'Text', props: { text: '{{steps.x}}' } });
@@ -149,7 +149,7 @@ describe('static checks of templates and views', () => {
     });
 
     it('a named template no step renders is a warning', () => {
-        const x = example('quo-hubspot');
+        const x = example('phone-hubspot');
         x.templates.orphan = 'hi';
         expect(d.validate(x, manifests).warnings.map((w) => w.path)).toContain('templates.orphan');
     });
@@ -244,31 +244,31 @@ describe('a sync-only definition', () => {
 
 describe('lifecycle results and account values on $.install', () => {
     class FakeBase {
-        constructor(p = {}) { this.events = {}; this.config = p.config; this.id = p.id; this.pipedrive = { api: {} }; this.quo = { api: {} }; this.calls = []; }
+        constructor(p = {}) { this.events = {}; this.config = p.config; this.id = p.id; this.pipedrive = { api: {} }; this.phone = { api: {} }; this.calls = []; }
         registerEventHandlers() {}
         async patchConfig(patch) { this.config = { ...this.config, ...patch }; }
         async onCreate() {} async onDelete() {} async onUpdate() {}
         async getMapping() { return null; } async upsertMapping() {} async createMapping() {}
     }
     const make = (def, apis) => {
-        const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions([def]), manifests, modules: { pipedrive: {}, quo: {}, hubspot: {}, zendesk: {}, jira: {} }, IntegrationBase: FakeBase, runs: false });
+        const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions([def]), manifests, modules: { pipedrive: {}, phone: {}, hubspot: {}, zendesk: {}, jira: {} }, IntegrationBase: FakeBase, runs: false });
         const inst = new Cls({ id: 'int_1', config: { definition: { id: def.id, version: def.version } } });
         Object.assign(inst, apis(inst));
         return inst;
     };
 
     it('install keeps every onInstall result by step id, and uninstall undoes exactly those', async () => {
-        const def = example('pipedrive-quo');
+        const def = example('pipedrive-phone');
         let n = 0;
         const inst = make(def, (self) => ({
-            quo: { api: { createUnifiedWebhook: async (a) => { self.calls.push(['quo.create', a]); return { id: 'WHq' }; }, deleteWebhook: async (id) => { self.calls.push(['quo.delete', id]); } } },
+            phone: { api: { createUnifiedWebhook: async (a) => { self.calls.push(['phone.create', a]); return { id: 'WHq' }; }, deleteWebhook: async (id) => { self.calls.push(['phone.delete', id]); } } },
             pipedrive: { api: { createWebhook: async (a) => { self.calls.push(['pd.create', a]); n += 1; return { id: `pd${n}` }; }, deleteWebhook: async (id) => { self.calls.push(['pd.delete', id]); } } },
         }));
         await inst.onCreate({});
-        expect(inst.config.runtime.installed).toEqual({ quoHook: { id: 'WHq' }, personCreated: { id: 'pd1' }, personChanged: { id: 'pd2' } });
+        expect(inst.config.runtime.installed).toEqual({ phoneHook: { id: 'WHq' }, personCreated: { id: 'pd1' }, personChanged: { id: 'pd2' } });
         inst.calls.length = 0;
         await inst.onDelete({});
-        expect(inst.calls).toEqual([['quo.delete', 'WHq'], ['pd.delete', 'pd1'], ['pd.delete', 'pd2']]);
+        expect(inst.calls).toEqual([['phone.delete', 'WHq'], ['pd.delete', 'pd1'], ['pd.delete', 'pd2']]);
     });
 
     it('in every example, uninstall makes one call per thing install created, and never with a blank id', async () => {
@@ -297,14 +297,14 @@ describe('lifecycle results and account values on $.install', () => {
     });
 
     it('warns when uninstall never undoes an install step, or an install step keeps no result', () => {
-        const x = example('pipedrive-quo');
-        x.lifecycle.onUninstall = x.lifecycle.onUninstall.filter((st) => st.use !== 'quo.webhook.delete');
-        x.lifecycle.onInstall.push({ use: 'quo.webhook.create', with: { url: '$.install.webhookUrl', events: ['call.completed'] } });
+        const x = example('pipedrive-phone');
+        x.lifecycle.onUninstall = x.lifecycle.onUninstall.filter((st) => st.use !== 'phone.webhook.delete');
+        x.lifecycle.onInstall.push({ use: 'phone.webhook.create', with: { url: '$.install.webhookUrl', events: ['call.completed'] } });
         const w = d.validate(x, manifests).warnings.map((e) => `${e.path}: ${e.message}`).join('\n');
-        expect(w).toMatch(/onInstall\[0\]: onUninstall never reads \$\.install\.runtime\.installed\.quoHook/);
+        expect(w).toMatch(/onInstall\[0\]: onUninstall never reads \$\.install\.runtime\.installed\.phoneHook/);
         expect(w).toMatch(/onInstall\[3\]: This install step has no id/);
         // Unimplemented-capability warnings are about the module's Api (see the unimplemented-capability tests), not install/uninstall pairing.
-        expect(d.validate(example('pipedrive-quo'), manifests).warnings.filter((e) => !/unimplemented|verification/.test(e.message))).toEqual([]);
+        expect(d.validate(example('pipedrive-phone'), manifests).warnings.filter((e) => !/unimplemented|verification/.test(e.message))).toEqual([]);
     });
 
     it('refuses an undeclared account field, an unknown install step, and install steps reading their own results', () => {
