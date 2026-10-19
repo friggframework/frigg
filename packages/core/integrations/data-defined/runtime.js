@@ -70,7 +70,7 @@ function makePorts({ def, manifests, callApi, store, runCode }) {
     };
 }
 
-/** The record an event is about, per the manifest's `record` path (Quo: data.object; HubSpot: the payload itself). */
+/** The record an event is about, per the manifest's `record` path (phone: data.object; HubSpot: the payload itself). */
 function recordOf(manifests, def, moduleKey, topic, payload) {
     const ev = manifests[def.modules[moduleKey]?.module]?.events?.[topic];
     return ev?.record ? getPath(payload, '$.' + ev.record) : payload;

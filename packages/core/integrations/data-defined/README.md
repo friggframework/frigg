@@ -19,8 +19,8 @@ installation (Integration.config)         ─┘                          │
 | `schema/capability-manifest.v0.1.schema.json` | What an API module declares it can do |
 | `schema/installation.v0.1.schema.json` | `Integration.config` for a data-defined installation |
 | `schema/records.md` | Database records: definition versions, installation, mappings, workflow runs |
-| `capabilities/*.capabilities.json` | Mock manifests (HubSpot, Quo, and the apps the examples use) |
-| `examples/*.definition.json` | Example definitions; `examples/records/` has Quo ↔ HubSpot database records |
+| `capabilities/*.capabilities.json` | Mock manifests (HubSpot, Phone, and the apps the examples use) |
+| `examples/*.definition.json` | Example definitions; `examples/records/` has Phone ↔ HubSpot database records |
 | `expressions.js` | `$.ref`, `{{template \| filter}}` and conditions. No eval. |
 | `steps.js`, `interpreter.js`, `transforms.js` | The step catalogue and the interpreter |
 | `validate.js` | Structure + cross-references against the manifests (steps, templates, views, settings, `$.install`) |
@@ -35,7 +35,7 @@ installation (Integration.config)         ─┘                          │
 
 ## The pieces of a definition
 
-- **modules** — module keys used everywhere else (`quo`, `hubspot`), each naming a capability manifest.
+- **modules** — module keys used everywhere else (`phone`, `hubspot`), each naming a capability manifest.
 - **settings** — integration-level choices (`fromNumber`); workflows can declare their own. An option setting draws
   its choices from a module's option list, and may pass it inputs read from earlier choices
   (`{ "source": "asana.project", "with": { "workspaceGid": "$.settings.workspace" } }`); `resolveOptions` fills the
@@ -83,9 +83,9 @@ const DataDefined = defineSharedIntegrationClass({ definitions: createDefinition
 
 | Route | Auth | |
 |---|---|---|
-| `POST /api/admin/data-defined/definitions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
-| `GET /api/admin/data-defined/definitions/:id` | admin key | Version history |
-| `POST /api/admin/data-defined/definitions/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
+| `POST /admin/integrations/definitions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
+| `GET /admin/integrations/definitions/:id` | admin key | Version history |
+| `POST /admin/integrations/definitions/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
 | `GET /api/data-defined/definitions` | user | What can be installed |
 | `POST /api/integrations` with `config: { type, definition: { id } }` | user | Install; pins the latest published version and its checksum |
 | `GET` / `POST /api/integrations/:id/upgrade` `{ to? }` | user | Plan / apply an upgrade (409 with the plan while something is needed) |
@@ -177,5 +177,5 @@ CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's
 - The sync engine (backfill pages, ongoing deltas, two-way master rules) — specified by the schema, to be executed by
   the existing `SYNC_PAGE` pattern. `runSync` throws until then.
 - `delay` / wait steps, approvals that pause a run, and per-tenant rate limits.
-- The host renderers (the HubSpot app extension and Quo panel that draw `renderSurface` output).
+- The host renderers (the HubSpot app extension and Phone panel that draw `renderSurface` output).
 - Rebuilding `link:` / `idx:` rows after an identity change; `planUpgrade` reports it as `relink` / `reindex`.

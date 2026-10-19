@@ -19,7 +19,7 @@
  *   }
  *
  * and each event says which provider topic it is (`match`, default: the event key) and optionally a condition on the
- * record (`when`): Quo reports a missed call as call.completed with status missed.
+ * record (`when`): a phone module reports a missed call as call.completed with status missed.
  *
  * Template context: { body, headers, query, item, parent }. `item` is the event (the body itself when there is no
  * batch); `parent` is the outer item of a two-level batch (a QuickBooks notification, which carries the realmId).

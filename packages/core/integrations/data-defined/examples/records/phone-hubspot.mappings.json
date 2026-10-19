@@ -6,7 +6,7 @@
       "sourceId": "idx:contacts:phone:+15125550142",
       "mapping": {
         "hubspot": "51",
-        "quo": "CT7",
+        "phone": "CT7",
         "linkedAt": "2026-09-02T15:31:10Z"
       }
     },
@@ -15,22 +15,22 @@
       "sourceId": "link:contacts:hubspot:51",
       "mapping": {
         "hubspot": "51",
-        "quo": "CT7",
+        "phone": "CT7",
         "linkedAt": "2026-09-02T15:31:10Z"
       }
     },
     {
       "integrationId": "int_7f3a9c",
-      "sourceId": "link:contacts:quo:CT7",
+      "sourceId": "link:contacts:phone:CT7",
       "mapping": {
         "hubspot": "51",
-        "quo": "CT7",
+        "phone": "CT7",
         "linkedAt": "2026-09-02T15:31:10Z"
       }
     },
     {
       "integrationId": "int_7f3a9c",
-      "sourceId": "evt:quo-hubspot:log-call:EVc0a1",
+      "sourceId": "evt:phone-hubspot:log-call:EVc0a1",
       "mapping": {
         "at": "2026-10-18T16:08:10.523Z"
       }

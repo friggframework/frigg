@@ -79,7 +79,7 @@
           "readOnly": true
         },
         {
-          "name": "properties.quo_last_call",
+          "name": "properties.phone_last_call",
           "type": "datetime",
           "custom": true
         },
@@ -299,7 +299,7 @@
       "description": "App-level subscription; Frigg routes it to the installation by portalId.",
       "payload": [
         {
-          "portalId": 1944396,
+          "portalId": 12345678,
           "objectId": "51",
           "subscriptionType": "contact.creation",
           "occurredAt": 1760800000000,
@@ -313,7 +313,7 @@
       "object": "contact",
       "payload": [
         {
-          "portalId": 1944396,
+          "portalId": 12345678,
           "objectId": "51",
           "propertyName": "phone",
           "propertyValue": "+15125550142",
@@ -328,7 +328,7 @@
       "object": "deal",
       "payload": [
         {
-          "portalId": 1944396,
+          "portalId": 12345678,
           "objectId": "880",
           "propertyName": "dealstage",
           "propertyValue": "closedwon",
@@ -343,7 +343,7 @@
       "object": "deal",
       "payload": [
         {
-          "portalId": 1944396,
+          "portalId": 12345678,
           "objectId": "881",
           "occurredAt": 1760800000000,
           "eventId": 9004,

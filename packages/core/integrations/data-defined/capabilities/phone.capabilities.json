@@ -1,8 +1,8 @@
 {
   "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
-  "module": "quo",
-  "label": "Quo",
-  "package": "@lefthook/api-module-quo",
+  "module": "phone",
+  "label": "Phone",
+  "package": "@friggframework/api-module-phone",
   "version": "2.1.0",
   "auth": "api_key",
   "objects": {
@@ -206,7 +206,7 @@
       "record": "data.object",
       "match": "call.completed",
       "when": "$.record.status == 'missed' || $.record.status == 'voicemail'",
-      "description": "Quo reports a missed call as call.completed with status missed (or voicemail); this event is that subset."
+      "description": "Phone reports a missed call as call.completed with status missed (or voicemail); this event is that subset."
     },
     "call.summary.completed": {
       "delivery": "webhook",
@@ -465,6 +465,6 @@
       "conversation.sidebar",
       "contact.panel"
     ],
-    "renderer": "quo-integrations-panel"
+    "renderer": "phone-integrations-panel"
   }
 }
