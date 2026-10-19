@@ -1,9 +1,9 @@
 {
-  "$comment": "WorkflowRun row written by the runtime for one delivered Quo call.completed event. `outbound` is the captured HubSpot call (shown here for documentation; production stores a digest).",
+  "$comment": "WorkflowRun row written by the runtime for one delivered Phone call.completed event. `outbound` is the captured HubSpot call (shown here for documentation; production stores a digest).",
   "id": "run_01JB8A0K",
   "integrationId": "int_7f3a9c",
   "definition": {
-    "id": "quo-hubspot",
+    "id": "phone-hubspot",
     "version": "1.4.0"
   },
   "workflowId": "log-call",
@@ -50,8 +50,8 @@
       "args": {
         "contactId": "51",
         "properties": {
-          "hs_call_title": "Quo call (incoming)",
-          "hs_call_body": "Quo call with +15125550142 · 312s (completed)",
+          "hs_call_title": "Phone call (incoming)",
+          "hs_call_body": "Phone call with +15125550142 · 312s (completed)",
           "hs_call_duration": 312,
           "hs_call_direction": "INCOMING",
           "hs_timestamp": "2026-10-18T14:07:12Z"

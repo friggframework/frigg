@@ -2,7 +2,7 @@
  * Compile a definition + one installation into what Frigg runs: an events map shaped exactly like a hand-written
  * integration's `this.events`, plus the routing tables the runtime needs. Pure; no I/O.
  *
- * Only what the installation has enabled is compiled, so a disabled workflow has no event, no route and no schedule.
+ * Only what the installation has enabled is compiled, so a disabled workflow has no event, no route and no trigger.
  *
  * Event names:  SYNC_<ID>_BACKFILL (USER_ACTION) · SYNC_<ID>_PAGE (QUEUE) · SYNC_<ID>_ONGOING (WEBHOOK|CRON)
  *               WF_<ID> (WEBHOOK|CRON|USER_ACTION|QUEUE) · Q_<ID> (ROUTE) · UI_<ID> (ROUTE)
@@ -17,8 +17,7 @@ function isOn(item, chosen) {
 function compile(def, installation = {}) {
     const events = {};
     const webhooks = {};      // moduleKey -> topic -> [eventName]
-    const schedules = [];     // { key, event, default: { every } | { cron, timezone }, configurable, choice } (integrations/schedules.js)
-    const configurableOf = (c) => (c ? (c === true ? {} : c) : false);
+    const triggers = [];      // recurring triggers (integrations/triggers.js): { name, every | cron, timezone?, configurable, choice }
     const userActions = [];   // { event, label, from }
     const routes = [];        // { method, path, event }
     const add = (name, e) => { events[name] = e; return name; };
@@ -40,7 +39,7 @@ function compile(def, installation = {}) {
             }
         } else if (mode === 'poll') {
             const n = add(eventName('SYNC', s.id, 'ONGOING'), { type: 'CRON', ref: { kind: 'sync', id: s.id, phase: 'ongoing' } });
-            schedules.push({ key: n, event: n, default: { every: s.ongoing.every || '15m' }, configurable: configurableOf(s.ongoing.configurable), choice: installation.syncs?.[s.id]?.schedule });
+            triggers.push({ name: n, every: s.ongoing.every || '15m', configurable: s.ongoing.configurable || false, choice: installation.syncs?.[s.id]?.schedule });
         }
     }
 
@@ -51,8 +50,8 @@ function compile(def, installation = {}) {
         const n = add(eventName('WF', w.id), { type, ...(type === 'USER_ACTION' ? { userActionType: 'DATA_ACTION', title: t.label } : {}), ref: { kind: 'workflow', id: w.id } });
         if (t.type === 'webhook') route(t.module, t.topic, n);
         if (t.type === 'schedule') {
-            const recurrence = t.every !== undefined ? { every: t.every } : { cron: t.cron, ...(t.timezone ? { timezone: t.timezone } : {}) };
-            schedules.push({ key: n, event: n, default: recurrence, configurable: configurableOf(t.configurable), choice: installation.workflows?.[w.id]?.schedule });
+            const timing = t.every !== undefined ? { every: t.every } : { cron: t.cron, ...(t.timezone ? { timezone: t.timezone } : {}) };
+            triggers.push({ name: n, ...timing, configurable: t.configurable || false, choice: installation.workflows?.[w.id]?.schedule });
         }
         if (t.type === 'userAction') userActions.push({ event: n, label: t.label, from: t.from || null });
         if (t.type === 'syncRecord') route('$sync', `${t.sync}:${(t.on || []).join('|')}`, n);
@@ -65,7 +64,7 @@ function compile(def, installation = {}) {
         routes.push({ method: 'GET', path: `/ui/${u.id}`, event: n });
     }
 
-    return { events, webhooks, schedules, userActions, routes };
+    return { events, webhooks, triggers, userActions, routes };
 }
 
 /** Which compiled events a delivered webhook goes to. Topic patterns may end in ".*". */

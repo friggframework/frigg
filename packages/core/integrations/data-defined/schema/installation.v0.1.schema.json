@@ -77,55 +77,18 @@
     },
     "runtime": {
       "type": "object",
-      "description": "Owned by the runtime, not the customer. installed: each onInstall step's result by step id (webhook subscriptions), read by onUninstall as $.install.runtime.installed.<id>. schedules: the recurring schedules the host holds for this installation, by event (written by IntegrationBase.syncSchedules). Sync cursors join it with the sync engine.",
+      "description": "Owned by the runtime, not the customer. installed: each onInstall step's result by step id (webhook subscriptions), read by onUninstall as $.install.runtime.installed.<id>. Sync cursors join it with the sync engine.",
       "additionalProperties": false,
       "properties": {
         "installed": {
           "type": "object"
-        },
-        "schedules": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "required": [
-              "jobId",
-              "recurrence",
-              "event"
-            ],
-            "properties": {
-              "jobId": {
-                "type": "string"
-              },
-              "recurrence": {
-                "type": "object"
-              },
-              "event": {
-                "type": "string"
-              },
-              "enabled": {
-                "type": "boolean"
-              },
-              "jobArn": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "fingerprint": {
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              }
-            }
-          }
         }
       }
     }
   },
   "$defs": {
     "scheduleChoice": {
-      "description": "The installation's timing for a schedule the definition marks configurable: every, or cron with an optional time zone. Honoured only within the definition's minimum; otherwise the definition's schedule runs.",
+      "description": "The installation's timing for a schedule trigger or polling sync the definition marks configurable: every, or cron with an optional time zone. Honoured only within the definition's minimum; otherwise the definition's timing runs. The integration's shared trigger tick reads it (ADR-055); nothing is scheduled per installation.",
       "type": "object",
       "additionalProperties": false,
       "properties": {

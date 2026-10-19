@@ -7,7 +7,7 @@ const express = require('express');
 const request = require('supertest');
 const d = require('..');
 const { setDataDefinedRoutes } = require('../router');
-const { hubspotApi, quoApi } = require('./helpers-fake-crm');
+const { hubspotApi, phoneApi } = require('./helpers-fake-crm');
 const { MockSchedulerAdapter } = require('../../../infrastructure/scheduler/mock-scheduler-adapter');
 const { createSchedulerCommands } = require('../../../application/commands/scheduler-commands');
 
@@ -41,7 +41,7 @@ function runStore() {
 
 const workflow = (id, steps) => ({ id, label: id, default: 'on', trigger: { type: 'userAction', label: id }, steps });
 function definition(...workflows) {
-    const def = example('quo-hubspot');
+    const def = example('phone-hubspot');
     def.workflows.push(...workflows);
     return def;
 }
@@ -49,10 +49,10 @@ function definition(...workflows) {
 function setup(defs) {
     const runs = runStore();
     const scheduler = new MockSchedulerAdapter();
-    const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions(defs), manifests, modules: { quo: {}, hubspot: {} }, IntegrationBase: FakeBase, runs });
+    const Cls = d.defineSharedIntegrationClass({ definitions: d.memoryDefinitions(defs), manifests, modules: { phone: {}, hubspot: {} }, IntegrationBase: FakeBase, runs });
     const inst = new Cls({ id: 'int1', config: { type: 'data-defined', definition: { id: defs[0].id, version: defs[0].version }, settings: { fromNumber: '+15125550100' } } });
     inst.hubspot = { api: hubspotApi() };
-    inst.quo = { api: quoApi() };
+    inst.phone = { api: phoneApi() };
     inst.schedulerCommands = createSchedulerCommands({ integrationName: 'data-defined', schedulerService: scheduler });
     process.env.DATA_DEFINED_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789012/data-defined-queue';
     /** What the scheduler's one booked job would deliver: the queue worker hands `data` to the event's handler. */
@@ -135,7 +135,7 @@ describe('delay', () => {
         const put = inst.upsertMapping.bind(inst);
         inst.upsertMapping = async (k, v) => { if (k.startsWith('wait:')) throw new Error('db down'); return put(k, v); };
         await expect(inst.dispatch({ kind: 'workflow', id: 'hooked' }, { data: { eventId: 'E1' } })).rejects.toThrow('db down');
-        expect(inst.rows.has('evt:quo-hubspot:hooked:E1')).toBe(false);
+        expect(inst.rows.has('evt:phone-hubspot:hooked:E1')).toBe(false);
         inst.upsertMapping = put;
         expect((await inst.dispatch({ kind: 'workflow', id: 'hooked' }, { data: { eventId: 'E1' } })).status).toBe('waiting');
     });

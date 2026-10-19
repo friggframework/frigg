@@ -1,11 +1,11 @@
 {
   "$schema": "https://friggframework.org/schemas/integration-definition/v0.1.json",
   "schemaVersion": "0.1",
-  "id": "tidewater-quickbooks",
+  "id": "acme-erp-quickbooks",
   "version": "1.3.0",
   "display": {
-    "label": "Tidewater \u2194 QuickBooks Online",
-    "description": "Finished jobs become QuickBooks invoices with every line item, customers stay matched both ways, and payments recorded in QuickBooks mark the job paid in Tidewater.",
+    "label": "Acme ERP \u2194 QuickBooks Online",
+    "description": "Finished jobs become QuickBooks invoices with every line item, customers stay matched both ways, and payments recorded in QuickBooks mark the job paid in Acme ERP.",
     "category": "Accounting",
     "tags": [
       "field-service",
@@ -14,8 +14,8 @@
     ]
   },
   "modules": {
-    "tidewater": {
-      "module": "tidewater",
+    "acmeerp": {
+      "module": "acmeerp",
       "version": "^0.9"
     },
     "quickbooks": {
@@ -46,7 +46,7 @@
       "id": "customers",
       "label": "Customers",
       "description": "One customer in both systems. Contact details follow whichever side changed last; QuickBooks owns the billing name.",
-      "source": "tidewater.customer",
+      "source": "acmeerp.customer",
       "target": "quickbooks.customer",
       "direction": "two_way",
       "identity": {
@@ -145,7 +145,7 @@
       },
       "trigger": {
         "type": "webhook",
-        "module": "tidewater",
+        "module": "acmeerp",
         "topic": "job.finished",
         "filter": "$.record.total_amount > 0 && $.record.external_invoice_id == null"
       },
@@ -155,7 +155,7 @@
           "use": "links.find",
           "with": {
             "sync": "customers",
-            "from": "tidewater",
+            "from": "acmeerp",
             "id": "$.record.customer_id"
           }
         },
@@ -168,7 +168,7 @@
         },
         {
           "id": "lineItems",
-          "use": "tidewater.job.lineItems",
+          "use": "acmeerp.job.lineItems",
           "with": {
             "jobId": "$.record.id"
           }
@@ -177,7 +177,7 @@
           "id": "lines",
           "use": "code",
           "with": {
-            "ref": "@tidewater/frigg-steps#quickbooksInvoiceLines@1.0.0",
+            "ref": "@acme/frigg-steps#quickbooksInvoiceLines@1.0.0",
             "with": {
               "lineItems": "$.steps.lineItems",
               "fallbackItemId": "$.install.fallbackItem",
@@ -208,13 +208,13 @@
               "CustomerMemo": {
                 "value": "$.steps.memo"
               },
-              "PrivateNote": "Tidewater job {{record.id}}",
+              "PrivateNote": "Acme ERP job {{record.id}}",
               "Line": "$.steps.lines.lines"
             }
           }
         },
         {
-          "use": "tidewater.job.update",
+          "use": "acmeerp.job.update",
           "with": {
             "id": "$.record.id",
             "job": {
@@ -265,14 +265,14 @@
           "do": [
             {
               "id": "jobs",
-              "use": "tidewater.job.search",
+              "use": "acmeerp.job.search",
               "when": "$.item.LinkedTxn[0].TxnType == 'Invoice'",
               "with": {
                 "external_invoice_id": "$.item.LinkedTxn[0].TxnId"
               }
             },
             {
-              "use": "tidewater.job.markPaid",
+              "use": "acmeerp.job.markPaid",
               "when": "$.steps.jobs[0] exists",
               "with": {
                 "id": "$.steps.jobs[0].id",
@@ -301,7 +301,7 @@
       "steps": [
         {
           "id": "open",
-          "use": "tidewater.job.search",
+          "use": "acmeerp.job.search",
           "with": {
             "customer_id": "$.record.id"
           }
@@ -315,7 +315,7 @@
           },
           "do": [
             {
-              "use": "tidewater.job.addNote",
+              "use": "acmeerp.job.addNote",
               "when": "$.item.status == 'finished'",
               "with": {
                 "jobId": "$.item.id",
@@ -357,7 +357,7 @@
     {
       "id": "invoice-panel",
       "label": "QuickBooks invoice",
-      "host": "tidewater",
+      "host": "acmeerp",
       "placement": "job.sidebar",
       "objects": [
         "job"
@@ -437,15 +437,15 @@
     }
   ],
   "templates": {
-    "invoice-memo": "Thanks for choosing Tidewater! Job #{{record.job_number}}: {{record.description | truncate: 200}}"
+    "invoice-memo": "Thanks for choosing Acme! Job #{{record.job_number}}: {{record.description | truncate: 200}}"
   },
   "lifecycle": {
     "onInstall": [
       {
         "id": "hook",
-        "use": "tidewater.webhook.create",
+        "use": "acmeerp.webhook.create",
         "with": {
-          "url": "$.install.webhookUrls.tidewater",
+          "url": "$.install.webhookUrls.acmeerp",
           "events": [
             "job.finished",
             "job.scheduled",
@@ -457,7 +457,7 @@
     ],
     "onUninstall": [
       {
-        "use": "tidewater.webhook.delete",
+        "use": "acmeerp.webhook.delete",
         "with": {
           "id": "$.install.runtime.installed.hook.id"
         }

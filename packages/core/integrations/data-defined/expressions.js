@@ -162,7 +162,7 @@ function parseCondition(src) {
     const next = () => t[i++];
     function atom() {
         const tok = next();
-        if (tok === undefined) throw new Error(`Condition ends early: "${src}"`);
+        if (i > t.length) throw new Error(`Condition ends early: "${src}"`);
         if (tok === '(') { const e = or(); if (next() !== ')') throw new Error(`Missing ) in "${src}"`); return e; }
         if (tok.startsWith('$.')) return { ref: tok };
         if (tok.startsWith("'")) return { lit: tok.slice(1, -1).replace(/\\'/g, "'") };

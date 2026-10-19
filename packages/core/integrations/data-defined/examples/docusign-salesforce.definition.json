@@ -63,7 +63,7 @@
           "id": "opp",
           "use": "code",
           "with": {
-            "ref": "@lefthook/docusign-steps#customFieldValue@1.0.0",
+            "ref": "@acme/docusign-steps#customFieldValue@1.0.0",
             "with": {
               "fields": "$.record.customFields.textCustomFields",
               "name": "$.install.opportunityField"
@@ -142,7 +142,7 @@
           "id": "opp",
           "use": "code",
           "with": {
-            "ref": "@lefthook/docusign-steps#customFieldValue@1.0.0",
+            "ref": "@acme/docusign-steps#customFieldValue@1.0.0",
             "with": {
               "fields": "$.record.customFields.textCustomFields",
               "name": "$.install.opportunityField"

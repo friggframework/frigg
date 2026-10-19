@@ -28,6 +28,9 @@ class IntegrationRepositoryInterface {
      * @param {Object} [filter={}]
      * @param {string} [filter.type] - Integration type (config.type)
      * @param {string} [filter.status] - Integration status
+     * @param {number} [filter.limit] - Page size: at most this many rows, in id order
+     * @param {string|number} [filter.after] - With limit: only rows whose id sorts after this one (the last id of the
+     *   previous page), so a caller can page through every row (the trigger tick does, ADR-055)
      * @returns {Promise<Array>} Array of integration objects (possibly empty)
      * @abstract
      */

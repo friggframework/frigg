@@ -19,13 +19,13 @@ installation (Integration.config)         ─┘                          │
 | `schema/capability-manifest.v0.1.schema.json` | What an API module declares it can do |
 | `schema/installation.v0.1.schema.json` | `Integration.config` for a data-defined installation |
 | `schema/records.md` | Database records: definition versions, installation, mappings, workflow runs |
-| `capabilities/*.capabilities.json` | Mock manifests (HubSpot, Quo, and the apps the examples use) |
-| `examples/*.definition.json` | Example definitions; `examples/records/` has Quo ↔ HubSpot database records |
+| `capabilities/*.capabilities.json` | Mock manifests (HubSpot, Phone, and the apps the examples use) |
+| `examples/*.definition.json` | Example definitions; `examples/records/` has Phone ↔ HubSpot database records |
 | `expressions.js` | `$.ref`, `{{template \| filter}}` and conditions. No eval. |
 | `steps.js`, `interpreter.js`, `transforms.js` | The step catalogue and the interpreter |
 | `validate.js` | Structure + cross-references against the manifests (steps, templates, views, settings, `$.install`) |
 | `manifests.js` | `validateManifest`: the manifests themselves (kinds, option lists, account fields) |
-| `compile.js` | Definition + installation → events, webhook routes, schedules, user actions |
+| `compile.js` | Definition + installation → events, webhook routes, recurring triggers, user actions |
 | `sync-engine.js` | Syncs: link → identity → search → create/update, master rules, backfill pages, polls |
 | `runtime.js` | Ports (Api calls, link store), `runWorkflow`, `runQuery`, `renderSurface`, `runLifecycle`, `resolveOptions`, `installContext` |
 | `versioning.js` | `diff`, `checkBump`, `planUpgrade` |
@@ -36,7 +36,7 @@ installation (Integration.config)         ─┘                          │
 
 ## The pieces of a definition
 
-- **modules** — module keys used everywhere else (`quo`, `hubspot`), each naming a capability manifest.
+- **modules** — module keys used everywhere else (`phone`, `hubspot`), each naming a capability manifest.
 - **settings** — integration-level choices (`fromNumber`); workflows can declare their own. An option setting draws
   its choices from a module's option list, and may pass it inputs read from earlier choices
   (`{ "source": "asana.project", "with": { "workspaceGid": "$.settings.workspace" } }`); `resolveOptions` fills the
@@ -61,8 +61,8 @@ installation (Integration.config)         ─┘                          │
   is a *provider* (`static IntegrationProvider`, see `../integration-types.js`): wherever Frigg turns `config.type`
   into a class (create, get, update, delete, the queue worker, `GET /api/integrations` options), a published id
   resolves to a class of its own, with its own name, label and modules. Registered code classes win over a
-  definition with the same name. What is shared is the deployment underneath: published types queue and schedule on
-  the provider's queue (`IntegrationBase.getDeploymentName()`), and their webhooks reach the provider's function.
+  definition with the same name. What is shared is the deployment underneath: published types queue and book one-time jobs
+  on the provider's queue (`IntegrationBase.getDeploymentName()`), their triggers run on the provider's tick, and their webhooks reach the provider's function.
   Logs, telemetry, schedule job ids and installation webhook URLs carry each integration's own name.
 - **Hydration**: Frigg's use cases call `initialize()` on every hydrated integration; the class loads its pinned
   definition there.
@@ -150,9 +150,11 @@ manifest (`objects.<obj>.sync`); ADR-063 §15b has the rules.
 
 ## Schedules
 
-A schedule-triggered workflow or a polling sync gets one recurring host schedule per installation, through the same
-core mechanism hand-written integrations use (`Definition.schedules`; ADR-063 §15a). Mark one `configurable` to let
-installations pick their own timing, optionally with a floor:
+A schedule-triggered workflow or a polling sync is a recurring trigger (ADR-055), the same mechanism hand-written
+integrations declare as `Definition.triggers` (ADR-063 §15a). Nothing is scheduled per installation: the class
+declares `instanceTriggers: { tick: '5m' }`, so devtools provisions one tick function for it, and each tick compiles
+every ENABLED installation's pinned definition with its config and queues the runs that are due. Mark one
+`configurable` to let installations pick their own timing, optionally with a floor:
 
 ```json
 {
@@ -163,8 +165,10 @@ installations pick their own timing, optionally with a floor:
 
 (`trigger` belongs to a workflow, `ongoing` to a sync.)
 
-The choice goes in `workflows.<id>.schedule` / `syncs.<id>.schedule` (the configure form offers the field). Create,
-update, upgrade and delete keep the host in step. What it holds is recorded at `config.runtime.schedules`.
+The choice goes in `workflows.<id>.schedule` / `syncs.<id>.schedule` (the configure form offers the field). An
+interval runs on whole multiples of the 5-minute tick; a cron runs on the first tick after it fires. Create, update,
+upgrade and delete need no scheduler call: the next tick reads the new state. A run is deduped on
+`tick:<event>:<scheduledFor>`, so a redelivered run happens once.
 
 ## Steps (v0.1)
 
@@ -236,6 +240,6 @@ CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's
 ## Not in v0.1
 
 - Per-module rate limits.
-- The host renderers (the HubSpot app extension and Quo panel that draw `renderSurface` output).
+- The host renderers (the HubSpot app extension and Phone panel that draw `renderSurface` output).
 - Rebuilding a link set's (`links`, not a sync's) identity index after its keys change: it has no backfill to
   rebuild from, so `planUpgrade` reports `reindex`. A sync's `relink` is done by a backfill.
