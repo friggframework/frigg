@@ -1,6 +1,6 @@
 # ADR-063: Integration Definitions as Data
 
-**Status**: Proposed. Direction set; v0.1 implemented in `packages/core/integrations/data-defined/` (see Implementation)
+**Status**: Proposed. Direction set; v0.1 implemented in `packages/core/integrations/definitions/` (see Implementation)
 **Date**: 2026-10-15
 **Deciders**: Sean Matthews
 
@@ -52,7 +52,7 @@ The word is already overloaded, and this ADR adds a third use. Where it matters,
 Frigg supports **two authoring forms behind one runtime contract**:
 
 1. **Code-defined integrations**: exactly as today. Nothing existing changes.
-2. **Data-defined integrations**: an `IntegrationDefinition` document, interpreted at runtime by one generic class, `DataDefinedIntegration extends IntegrationBase`.
+2. **Integrations published as definitions**: an `IntegrationDefinition` document, interpreted at runtime by one generic class, `IntegrationRuntime extends IntegrationBase`.
 
 Code is the escape hatch and data is the composition. A data definition never contains code. It names building blocks that exist as code, and the app has registered and versioned them.
 
@@ -61,7 +61,7 @@ Code is the escape hatch and data is the composition. A data definition never co
 
 ### 1. What is data and what stays code
 
-| Concern | Data-defined | Stays code (referenced by name + version) |
+| Concern | Definition | Stays code (referenced by name + version) |
 |---|---|---|
 | Identity, display, category | ✅ | |
 | Which modules, which module instance | ✅ (`moduleName@version`) | The API module itself: auth, requester, pagination |
@@ -123,9 +123,9 @@ A code-defined app can also ship data definitions **in the bundle** (as files lo
 
 ### 4. Runtime shape
 
-- **One class, many types.** `DataDefinedIntegration` resolves `(name, definitionVersion)` from the integration record (or from the route) and caches the parsed definition by content hash for the life of the process.
+- **One class, many types.** `IntegrationRuntime` resolves `(name, definitionVersion)` from the integration record (or from the route) and caches the parsed definition by content hash for the life of the process.
 - **Routes keep their paths.** The existing `/api/${name}-integration/*` contract is preserved. A generic router resolves `name` from the path segment at request time instead of mounting one router per class at cold start.
-- **Constant infrastructure.** Data-defined integrations share one HTTP function, one webhook function and a small, fixed set of worker queues. Messages carry `{ integrationType, definitionVersion, event }`. The stack's resource count stops growing with the number of integrations, which removes the CloudFormation ceiling for a product that lists many pairs, without nested stacks or sharding.
+- **Constant infrastructure.** Integrations published as definitions share one HTTP function, one webhook function and a small, fixed set of worker queues. Messages carry `{ integrationType, definitionVersion, event }`. The stack's resource count stops growing with the number of integrations, which removes the CloudFormation ceiling for a product that lists many pairs, without nested stacks or sharding.
 - **Noisy neighbours are the price of sharing.** One integration's backfill must not starve another's webhooks. The runtime therefore needs per-type concurrency keys or hashing onto N queues, with separate queues for interactive and bulk work. This is the main *new* operational problem this ADR creates.
 
 ### 5. Why this is safe for per-workspace customization
@@ -147,7 +147,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 173 tests (the persistence suite runs against real PostgreSQL and
+`packages/core/integrations/definitions/`, with 173 tests (the persistence suite runs against real PostgreSQL and
 MongoDB). It runs 16 example definitions (a phone-to-CRM definition is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
@@ -419,9 +419,9 @@ does not exist at runtime, so "disabled but still firing" cannot happen.
 
 ### 13. Two deployment shapes
 
-`data-defined-integration.js` produces an `IntegrationBase` subclass in one of two ways:
+`integration-runtime.js` produces an `IntegrationBase` subclass in one of two ways:
 
-| | Shape A: `defineIntegrationClass({ id, … })` | Shape B: `defineSharedIntegrationClass({ name: 'data-defined', … })` |
+| | Shape A: `defineIntegrationClass({ id, … })` | Shape B: `defineSharedIntegrationClass({ name: 'integration-runtime', … })` |
 |---|---|---|
 | Classes | One per definition id; name and modules come from the definition | One for every definition |
 | `static Definition.modules` | That definition's modules | Every API module the app has installed |
@@ -450,8 +450,8 @@ out to installations of every type it provides.
 hand-written class that embeds a definition keeps its name, modules and handlers and gains workflows (with pauses),
 syncs, UI surfaces, the generated form and run history. Its code steps may call the class's own methods (`#method`),
 its own queued events are recorded as runs beside its workflows, and whatever the definition does not declare
-(webhooks, the form, schedules) stays the code's. So the capabilities that once belonged to data-defined integrations
-belong to integrations; how one was written is not something its users, API callers or logs can tell. `{ type: 'data-defined', definition: { id } }` still installs.
+(webhooks, the form, schedules) stays the code's. So the capabilities that once belonged to integrations published as definitions
+belong to integrations; how one was written is not something its users, API callers or logs can tell.
 
 ### 14. Runtime: how an event loads and runs
 
@@ -460,7 +460,7 @@ read at cold start.
 
 **Hydrating an installation.** Every Frigg use case that touches an integration (create, update, delete, the queue
 worker, user actions, config options) constructs the class from its record and calls `initialize()` first. The
-data-defined class loads its definition there, so every real entry point hydrates through the same path. A dry
+integration runtime class loads its definition there, so every real entry point hydrates through the same path. A dry
 instance with no record (an app-level webhook before its installation is known) has no pin and loads nothing.
 `loadDefinition()` does five things:
 1. Reads the pin from `config.definition`. With no pin, it fails loudly: "This installation does not name a
@@ -484,7 +484,7 @@ event it is. Install steps register a per-module URL, `$.install.webhookUrls.<ke
 module's manifest says how to read the rest (§9, `webhook` block). For example a phone module's `call.completed`:
 
 ```
-POST /api/data-defined-integration/webhooks/<integrationId>?module=phone
+POST /api/integration-runtime-integration/webhooks/<integrationId>?module=phone
   → webhook function (no database): a handshake (Slack url_verification, Asana X-Hook-Secret) is answered here;
     anything else is queued as { integrationId, body, headers, query }       ── the unchanged Frigg path
   → queue worker: hydrate the record → initialize() → loadDefinition()
@@ -523,6 +523,8 @@ whose account is its own.
 - Within a retried run, steps are **at-least-once**. If step 3 wrote to HubSpot and step 4 failed, the retry writes
   step 3 again. Idempotent capabilities (upserts, `links.find` before create) are the v0.1 answer.
 - Per-step checkpointing comes after v0.1.
+- A webhook is **verified against the exact bytes the vendor signed, and fails closed**. The HTTP app keeps `req.rawBody`. `onWebhookReceived` queues the method, the public URL (from `x-forwarded-proto`, the host and the original URL) and the raw body, **up to 96 KB**. SQS messages are capped at 256 KB, so a larger body is left out of the message rather than truncated, and a verifier that needs it fails: the delivery is dropped, never accepted unchecked. The same holds when the manifest's `verify` returns anything but `true`, throws, or is marked unimplemented (a delivery to a provider whose signature cannot be checked is rejected, not accepted).
+- **One verification input.** `webhookVerificationInput(data)` gives a code integration's module the same facts the runtime passes to a manifest's `verify`: `headers`, `body`, `query`, `rawBody`, `method` and `url`. It should be the one input for [ADR-054](./054-one-file-integrations.md) contract-2 verifiers (`verify: (req) => { valid, reason }`) too, so that a module's verification code reads one shape on every path and a contract-2 `verify` does not get a second, different request object.
 
 **A schedule fires.** The integration's trigger tick finds the installation due and queues `FRIGG_TRIGGER_RUN`,
 which runs `WF_STALE_CONTACTS` with the event id `tick:WF_STALE_CONTACTS:<scheduledFor>`, so a redelivered run is
@@ -534,7 +536,7 @@ claimed once (§15a). Steps such as
 
 **Running an installation uses Frigg's existing, authenticated routes.** None is unauthenticated:
 
-| Route (all authenticated, all hydrate via `GetIntegrationInstance`) | Event | Data-defined handling |
+| Route (all authenticated, all hydrate via `GetIntegrationInstance`) | Event | Definition handling |
 |---|---|---|
 | `GET /api/integrations/:id/config/options` | `GET_CONFIG_OPTIONS` | The configure form, generated from the definition (`config-form.js`); its data is the `Integration.config` shape, so what the UI PATCHes back is the config |
 | `POST …/config/options/refresh` | `REFRESH_CONFIG_OPTIONS` | The same form re-filled from the values chosen so far: dependent dropdowns (`resolveOptions`) |
@@ -543,13 +545,13 @@ claimed once (§15a). Steps such as
 | `POST …/actions/:id` | any registered event | Runs a button workflow (`WF_*`), a backfill (`SYNC_*_BACKFILL`) or renders a UI surface (`UI_*`, body `{ record }`) |
 
 Apps that register the runtime add a few routes of their own (`router.js`, mounted by `createIntegrationRouter` when
-a registered class carries `DataDefined`). Every one is authenticated, and the installation routes answer for every
+a registered class carries `IntegrationRuntime`). Every one is authenticated, and the installation routes answer for every
 integration however it was made: one with no run history, syncs or other versions gets `[]`, or a plan with nothing
 to move to, never a 404 for being code.
 
 | Route | Who | What |
 |---|---|---|
-| `GET /api/data-defined/definitions` | signed-in user | The published ones with their counts (`GET /api/integrations` already lists them as options beside code) |
+| `GET /api/integration-definitions` | signed-in user | The published ones with their counts (`GET /api/integrations` already lists them as options beside code) |
 | `GET /api/integrations/:id/upgrade?to=` | signed-in user, own installation | The upgrade plan (`planUpgrade`); changes nothing |
 | `POST /api/integrations/:id/upgrade` `{ to? }` | signed-in user, own installation | Applies the plan: uninstall steps of the old version, then install steps of the new one if it asks for a reinstall, then the new config and a reload. Answers 409 with the plan when a person must supply something first |
 | `GET /api/integrations/:id/runs` | signed-in user, own installation | `WorkflowRun` history, newest first (`workflowId`, `status`, `before`, `limit`) |
@@ -598,7 +600,7 @@ installation. Each integration with triggers gets one function, `{integration}Tr
 distinct tick (and one per `at` trigger); at each tick it pages through the ENABLED installations and queues
 `{ event: 'FRIGG_TRIGGER_RUN', data: { integrationId, trigger, scheduledFor } }` for each one that is due. A disabled
 or deleted installation is not due, a config change or an upgrade applies at the next tick, and there is nothing for
-ADR-032 to clean up. Recurring jobs are not specific to data-defined integrations, so the mechanism is in core and a
+ADR-032 to clean up. Recurring jobs are not specific to integrations published as definitions, so the mechanism is in core and a
 hand-written integration declares the same thing:
 
 ```js
@@ -612,9 +614,9 @@ static Definition = {
 };
 ```
 
-A data-defined definition says it on the trigger (`{ "type": "schedule", "cron" | "every", "timezone", "configurable" }`)
+A definition says it on the trigger (`{ "type": "schedule", "cron" | "every", "timezone", "configurable" }`)
 or on a polling sync (`ongoing: { "mode": "poll", "every", "configurable" }`). `compile` turns both into the same
-trigger entries (`compiled.triggers`), and the data-defined class resolves them per installation: it declares
+trigger entries (`compiled.triggers`), and the integration runtime class resolves them per installation: it declares
 `Definition.instanceTriggers: { tick: '5m' }`, and its static `triggersFor({ config })` compiles the installation's
 pinned definition with its config at each tick. Each entry's handler runs its compiled event.
 The shared class's tick also covers the integration types it provides (`static triggerTypes()`): a published
@@ -632,7 +634,7 @@ schedule-triggered workflows or polling syncs.
 | Provisioning | `TriggerBuilder` (runs when any integration declares triggers): the function, a `rate()` schedule event per tick with its firing time as input, and a `method: scheduler` event per `at` trigger. No runtime scheduler IAM | `devtools/.../scheduler/trigger-builder.js` |
 
 The installation's choice lives in its config: `config.triggers.<name>` for a hand-written integration, and
-`workflows.<id>.schedule` / `syncs.<id>.schedule` for a data-defined one, offered in the configure form only where
+`workflows.<id>.schedule` / `syncs.<id>.schedule` for a definition-published one, offered in the configure form only where
 the definition allows it. A choice the definition does not allow, or one under the floor, keeps the default timing
 and `onUpdate` adds a warning message saying why. An interval runs on whole multiples of the tick (a 20-minute
 choice on a 15-minute tick runs every 30 minutes), and a cron runs on the first tick after it fires, so its delay is
@@ -648,7 +650,7 @@ proposed as its "Amendment (ADR-063)".
 `sync-engine.js` keeps records on two modules as copies of each other. Its I/O is the ports (Api calls through the
 manifest, links over `IntegrationMapping`) and a state store, so tests drive it against in-memory APIs.
 
-**Relation to ADR-044.** [ADR-044](./044-sync-module-revitalization.md) is the canonical spec for Frigg's sync engine. This engine is its first implementation of Tier 2 and Tier 3 (ADR-044 §2): the per-link hash of mapped values is Tier 2's `dataHash`, and the known values kept per side, with a master and a conflict rule, are Tier 3's shadow. It sits in `packages/core/integrations/data-defined/` today. It should move to `packages/core/syncs/`, where ADR-044 places the engine, and be reached from there by both authoring forms. Until it moves, this section describes the engine as built and ADR-044 decides what it becomes.
+**Relation to ADR-044.** [ADR-044](./044-sync-module-revitalization.md) is the canonical spec for Frigg's sync engine. This engine is its first implementation of Tier 2 and Tier 3 (ADR-044 §2): the per-link hash of mapped values is Tier 2's `dataHash`, and the known values kept per side, with a master and a conflict rule, are Tier 3's shadow. It sits in `packages/core/integrations/definitions/` today. It should move to `packages/core/syncs/`, where ADR-044 places the engine, and be reached from there by both authoring forms. Until it moves, this section describes the engine as built and ADR-044 decides what it becomes.
 
 **How an object is read and written is the manifest's, not the definition's.** Paging, the id path and the payload
 shape are facts about an API, so each syncable object declares them once. A definition only says what to copy:
@@ -752,7 +754,7 @@ A UI extension is a `query` plus a `view`. The view is a tree of a **fixed compo
 
 **Preview renderers are not host renderers.** v0.1 has *preview* renderers (`renderers/`): they turn a resolved tree into Slack blocks, a HubSpot tree or HTML, and dry-run a workflow, so an author can see in the editor what an integration will show in the apps it connects. They run inside this app, over sample or real records, and nothing deploys them to a host. The *host* renderer described above, the one deployed card or panel inside each host that calls `POST /api/integrations/:id/actions/UI_<SURFACE>` and draws the answer, is not in v0.1.
 
-### 17. Versioning (answers ADR-030 for data-defined integrations)
+### 17. Versioning (answers ADR-030 for integrations published as definitions)
 
 `versioning.js` computes the change level from the two documents, so nobody has to remember the rules.
 
@@ -782,10 +784,10 @@ A UI extension is a `query` plus a `view`. The view is a tree of a **fixed compo
 
 This is ADR-030's Path D, "version as a routing dimension outside the class", for the cost of one column.
 
-**ADR-030's serverless concerns, answered for data-defined integrations.** ADR-030 itself stays undecided for
+**ADR-030's serverless concerns, answered for integrations published as definitions.** ADR-030 itself stays undecided for
 code-defined classes; this is the answer only where the class is the shared interpreter.
 
-| ADR-030 concern | Data-defined answer (v0.1) |
+| ADR-030 concern | Definition answer (v0.1) |
 |---|---|
 | Lambda module-scope caching | Nothing version-specific is read at module scope. The definition is fetched when an installation is hydrated for an event and cached by `id@version`, so one warm Lambda serves several versions at once and a publish needs no deploy |
 | In-flight SQS jobs | Every message carries `definitionVersion`, and `dispatch` runs it on that version: ADR-030's "dispatch by the payload's declared version" |
@@ -796,7 +798,7 @@ code-defined classes; this is the answer only where the class is the shared inte
 | Encryption schema | Unchanged: credentials stay in the module's entity and credential rows. A definition never holds a secret, and `$.install.accounts` exposes only fields a manifest declares |
 
 **Relation to [ADR-013](./013-integration-version-migrations.md).** ADR-013 transforms persisted records between
-versions; it explicitly deferred the version model to ADR-030. For data-defined integrations the version model is
+versions; it explicitly deferred the version model to ADR-030. For integrations published as definitions the version model is
 the above, and the record migrations ADR-013 describes reduce to two things: `planUpgrade` rewrites
 `Integration.config` (settings dropped or added, workflows enabled or offered, the pin moved), and an identity change
 rebuilds `link:` / `idx:` rows. v0.1 performs the first and reports the second as `relink` / `reindex` actions; it
@@ -806,7 +808,7 @@ does not rebuild the rows itself.
 
 A hosted multi-tenant deployment runs on AWS, one sub-account per tenant, using **Shape B**. Each
 tenant's stack is constant-size: one HTTP function, one webhook function, one queue worker and one queue for every
-data-defined integration. Netlify was considered for the HTTP side and rejected as the primary host for this case. [ADR-028](./028-multi-provider-support.md) (multi-provider support) is the route to a Netlify provider where that is wanted:
+integration published as a definition. Netlify was considered for the HTTP side and rejected as the primary host for this case. [ADR-028](./028-multi-provider-support.md) (multi-provider support) is the route to a Netlify provider where that is wanted:
 - function time and size limits;
 - no native queue;
 - no per-tenant isolation boundary to match "one sub-account per tenant".
@@ -859,7 +861,7 @@ Api property, a failed run keeping its claim, …), and every one makes the suit
 **Code map.** `expressions.js`, `transforms.js` and `steps.js` define the vocabulary. `interpreter.js` runs a step
 list and produces the trace. `validate.js`, `manifests.js` and `compile.js` are the compile side. `runtime.js` holds
 the ports, `runWorkflow`, `runQuery`, `renderSurface`, `runLifecycle`, `resolveOptions` and `installContext`.
-`versioning.js` and `canonical.js` handle publishing. `data-defined-integration.js` is the bridge to
+`versioning.js` and `canonical.js` handle publishing. `integration-runtime.js` is the bridge to
 `IntegrationBase`. The schemas are in `schema/` and the tests in `tests/`. Run the tests from that directory with
 `jest --config '{}' --rootDir . tests`.
 
@@ -912,7 +914,7 @@ So "Frigg in Rust" splits into options with very different costs:
 
 ### Positive
 
-- **Infrastructure stops scaling with integration count** for data-defined integrations; a product that lists many pairs fits in one stack.
+- **Infrastructure stops scaling with integration count** for integrations published as definitions; a product that lists many pairs fits in one stack.
 - **Adding or changing an integration is a publish, not a deploy**, with the same review and checks a code change gets.
 - **Agents and the canvas author something they can validate**, and a failing check is a schema error, not a runtime surprise.
 - **Per-workspace custom integrations are safe** without per-tenant process isolation.
@@ -948,7 +950,7 @@ So "Frigg in Rust" splits into options with very different costs:
 - [ADR-021](./021-ontology.md): agent context for authoring definitions (not a field vocabulary)
 - [ADR-027](./027-ssm-parameter-offload-and-env-scoping.md): per-function environment, relevant once many integrations share functions
 - [ADR-013](./013-integration-version-migrations.md): record migrations between versions; §17 says what they reduce to here
-- [ADR-030](./030-integration-versioning.md): versioning, which the definition store makes concrete (§17 answers its serverless concerns for data-defined integrations)
+- [ADR-030](./030-integration-versioning.md): versioning, which the definition store makes concrete (§17 answers its serverless concerns for integrations published as definitions)
 - [ADR-057](./057-canonical-schema.md) (PR #676): data-only mappings this format reuses
 - [ADR-059](./059-app-level-entity-registry.md), open question 1: named registry entries are the closest existing proposal for more than one instance of a module in an app. The `modules.*.instance` key in the sketch depends on how that is resolved and is not decided here
 - [ADR-056](./056-app-profiles-tenancy-entity-scopes.md): owner, `organizationId`, `visible(context)` and binding scope for workspace-specific definitions (follow-up, §5)

@@ -210,7 +210,7 @@ function createIntegrationRouter() {
         getPossibleIntegrations,
     });
     // Integration versions, run history, sync progress and approvals (ADR-063): mounted when the app registers the integration runtime.
-    require('./data-defined/router').setDataDefinedRoutes(router, authenticateUser, {
+    require('./definitions/router').setIntegrationRuntimeRoutes(router, authenticateUser, {
         getIntegrationInstance,
         integrationClasses,
     });

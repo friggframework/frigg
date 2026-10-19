@@ -1,0 +1,369 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "slack",
+  "label": "Slack",
+  "package": "@friggframework/api-module-slack",
+  "version": "2.0.0",
+  "auth": "oauth2",
+  "objects": {
+    "message": {
+      "label": "Message",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "channel",
+          "type": "string"
+        },
+        {
+          "name": "text",
+          "type": "text"
+        },
+        {
+          "name": "user",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "thread_ts",
+          "type": "string"
+        },
+        {
+          "name": "blocks",
+          "type": "json"
+        },
+        {
+          "name": "metadata.event_type",
+          "type": "string"
+        },
+        {
+          "name": "metadata.event_payload",
+          "type": "json"
+        }
+      ]
+    },
+    "channel": {
+      "label": "Channel",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "tag": "channel.name"
+        },
+        {
+          "name": "is_private",
+          "type": "boolean"
+        },
+        {
+          "name": "is_archived",
+          "type": "boolean",
+          "readOnly": true
+        },
+        {
+          "name": "num_members",
+          "type": "number",
+          "readOnly": true
+        }
+      ]
+    },
+    "user": {
+      "label": "User",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "real_name",
+          "type": "string",
+          "tag": "person.fullName"
+        },
+        {
+          "name": "profile.display_name",
+          "type": "string"
+        },
+        {
+          "name": "profile.email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "profile.phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "tz",
+          "type": "string",
+          "tag": "person.timezone"
+        },
+        {
+          "name": "is_bot",
+          "type": "boolean",
+          "readOnly": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "interaction.block_actions": {
+      "delivery": "webhook",
+      "object": "message",
+      "description": "Interactivity request (block_actions) from a button in a message the app posted. App-level: Frigg routes it to the installation by team.id; no per-install subscription.",
+      "payload": {
+        "type": "block_actions",
+        "trigger_id": "8171092340291.5283910.ab4c1f",
+        "team": {
+          "id": "T09B191G5HA",
+          "domain": "acme"
+        },
+        "user": {
+          "id": "U04A8KX2P1Q",
+          "username": "dana",
+          "name": "dana"
+        },
+        "channel": {
+          "id": "D06QX0B7Z3L",
+          "name": "directmessage"
+        },
+        "message": {
+          "type": "message",
+          "ts": "1760800000.001200",
+          "channel": "D06QX0B7Z3L",
+          "text": "Due today: Send renewal quote to Acme",
+          "metadata": {
+            "event_type": "hubspot_task",
+            "event_payload": {
+              "taskId": "94512"
+            }
+          }
+        },
+        "actions": [
+          {
+            "action_id": "frigg.mark-task-done",
+            "block_id": "frigg",
+            "value": "94512",
+            "type": "button",
+            "action_ts": "1760800042.112233"
+          }
+        ]
+      },
+      "record": "message",
+      "idPath": "trigger_id"
+    },
+    "app_mention": {
+      "delivery": "webhook",
+      "object": "message",
+      "description": "Events API app_mention. App-level, routed by team_id.",
+      "payload": {
+        "token": "example-verification-token",
+        "team_id": "T09B191G5HA",
+        "api_app_id": "A0AS07TUM6H",
+        "event": {
+          "type": "app_mention",
+          "user": "U04A8KX2P1Q",
+          "text": "<@U0LAN0Z89> what closes this week?",
+          "ts": "1760800100.000300",
+          "channel": "C08SALES01",
+          "event_ts": "1760800100.000300"
+        },
+        "type": "event_callback",
+        "event_id": "Ev08MFMKH6",
+        "event_time": 1760800100
+      },
+      "record": "event",
+      "idPath": "event_id"
+    }
+  },
+  "webhook": {
+    "scope": "app",
+    "unwrap": "payload",
+    "topic": [
+      "{{body.event.type}}",
+      "interaction.{{body.type}}"
+    ],
+    "eventId": [
+      "{{body.event_id}}",
+      "{{body.trigger_id}}"
+    ],
+    "account": [
+      "{{body.team_id}}",
+      "{{body.team.id}}"
+    ],
+    "verify": "verifyWebhookSignature",
+    "handshake": {
+      "when": "$.body.type == 'url_verification'",
+      "status": 200,
+      "body": {
+        "challenge": "$.body.challenge"
+      }
+    },
+    "note": "Slack signing secret: v0 HMAC over v0:timestamp:raw body, 5 minutes. Implemented in api-module-library 659b90d; needs the module release that includes it."
+  },
+  "capabilities": {
+    "message.post": {
+      "kind": "write",
+      "method": "postMessage",
+      "label": "chat.postMessage",
+      "input": {
+        "channel": {
+          "type": "string",
+          "required": true
+        },
+        "text": {
+          "type": "string",
+          "required": true
+        },
+        "blocks": {
+          "type": "array"
+        },
+        "thread_ts": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "unfurl_links": {
+          "type": "boolean"
+        }
+      },
+      "output": "message"
+    },
+    "message.update": {
+      "kind": "write",
+      "method": "updateMessage",
+      "label": "chat.update",
+      "input": {
+        "channel": {
+          "type": "string",
+          "required": true
+        },
+        "ts": {
+          "type": "string",
+          "required": true
+        },
+        "text": {
+          "type": "string",
+          "required": true
+        },
+        "blocks": {
+          "type": "array"
+        }
+      },
+      "output": "message"
+    },
+    "message.postEphemeral": {
+      "kind": "write",
+      "method": "postEphemeral",
+      "label": "chat.postEphemeral",
+      "input": {
+        "channel": {
+          "type": "string",
+          "required": true
+        },
+        "user": {
+          "type": "string",
+          "required": true
+        },
+        "text": {
+          "type": "string",
+          "required": true
+        },
+        "blocks": {
+          "type": "array"
+        }
+      },
+      "output": "message"
+    },
+    "message.permalink": {
+      "kind": "read",
+      "method": "getMessagePermalink",
+      "label": "chat.getPermalink",
+      "input": {
+        "channel": {
+          "type": "string",
+          "required": true
+        },
+        "message_ts": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "string"
+    },
+    "channel.list": {
+      "kind": "read",
+      "method": "listChannels",
+      "label": "conversations.list",
+      "input": {
+        "types": {
+          "type": "string"
+        },
+        "exclude_archived": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "channel[]"
+    },
+    "user.list": {
+      "kind": "read",
+      "method": "listUsers",
+      "label": "users.list",
+      "input": {
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "user[]",
+      "status": "unimplemented",
+      "note": "Api has lookupUserByEmail, getUserById and getUserProfileById, but no user listing."
+    },
+    "user.lookupByEmail": {
+      "kind": "read",
+      "method": "lookupUserByEmail",
+      "label": "users.lookupByEmail",
+      "input": {
+        "email": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "user",
+      "args": [
+        "email"
+      ]
+    }
+  },
+  "options": {
+    "channel": {
+      "capability": "channel.list",
+      "label": "#{{item.name}}",
+      "value": "$.item.id"
+    },
+    "user": {
+      "capability": "user.list",
+      "label": "{{item.real_name}}",
+      "value": "$.item.id"
+    }
+  },
+  "ui": {
+    "placements": [
+      "message.actions",
+      "app.home",
+      "modal"
+    ],
+    "renderer": "frigg-slack-blocks"
+  }
+}

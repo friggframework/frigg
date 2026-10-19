@@ -46,6 +46,26 @@ const constantsToBeMigrated = {
     },
 };
 
+/**
+ * The facts about a webhook request that signature checks need, small enough to travel in the queue message: the
+ * method, the public URL the vendor called, and the raw body (up to 96 KB; beyond that it is left out and a check that
+ * needs it fails closed, because SQS messages are capped at 256 KB and the parsed body travels too).
+ */
+const RAW_BODY_LIMIT = 96 * 1024;
+function webhookRequestFacts(req) {
+    const h = req.headers || {};
+    const proto = String(h['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const host = h['x-forwarded-host'] || h.host;
+    const url = host ? `${proto}://${host}${req.originalUrl || req.url || ''}` : undefined;
+    const raw = req.rawBody;
+    const rawBody = raw == null ? undefined : (Buffer.isBuffer(raw) ? raw.toString('utf8') : String(raw));
+    return {
+        method: req.method,
+        ...(url ? { url } : {}),
+        ...(rawBody !== undefined && Buffer.byteLength(rawBody) <= RAW_BODY_LIMIT ? { rawBody } : {}),
+    };
+}
+
 class IntegrationBase {
     // todo: maybe we can pass this as Dependency Injection in the sub-class constructor
     integrationRepository = createIntegrationRepository();
@@ -552,7 +572,7 @@ class IntegrationBase {
     /**
      * The recurring triggers declared for one installation (ADR-055): `Definition.triggers`, each with its `name`.
      * Static so the tick can read them from a record without hydrating the installation; a class whose triggers
-     * depend on the installation (data-defined integrations, `Definition.instanceTriggers`) overrides it.
+     * depend on the installation (integrations published as definitions, `Definition.instanceTriggers`) overrides it.
      * @param {{ config?: Object, record?: Object }} [installation]
      * @returns {Promise<Array<Object>>}
      */
@@ -699,6 +719,7 @@ class IntegrationBase {
             body,
             headers: req.headers,
             query: req.query,
+            ...webhookRequestFacts(req),
         });
 
         res.status(200).json({ received: true });
@@ -706,6 +727,15 @@ class IntegrationBase {
 
     async onWebhook({ data }) {
         // Default: no-op, integrations override this
+    }
+
+    /**
+     * What a module's verifyWebhookSignature needs about a queued delivery (onWebhookReceived put it there): the
+     * headers, the parsed body, the raw body exactly as received, and the method and public URL some vendors sign
+     * (HubSpot v3). Call as `this.<module>.api.verifyWebhookSignature(this.webhookVerificationInput(data))`.
+     */
+    webhookVerificationInput(data = {}) {
+        return { headers: data.headers || {}, body: data.body, query: data.query || {}, rawBody: data.rawBody, method: data.method, url: data.url };
     }
 
     /**

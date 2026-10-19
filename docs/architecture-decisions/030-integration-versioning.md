@@ -231,7 +231,7 @@ Enumerated to make the failure modes concrete. Any chosen path must handle each 
 - **Punt to per-adopter.** Rejected. Each adopter would build a slightly different version story, and ADR-013's migration runner needs a shared version contract to key off.
 - **Fold this into ADR-013.** Rejected in ADR-013 itself. Migration and versioning are distinct concerns with distinct lifecycles.
 
-## Note: data-defined integrations (ADR-063)
+## Note: integrations published as definitions (ADR-063)
 
 [ADR-063](./063-integration-definitions-as-data.md) adds a second authoring form, in which an integration is a JSON
 definition run by one shared interpreter class. **For that form only**, Path D is taken: an installation pins an
@@ -269,6 +269,6 @@ Explicit follow-ups Sean called out for further investigation before landing a d
 - [ADR-006: Integration Router v2](./006-integration-router-v2.md): current routing surface any versioning scheme must integrate with.
 - [ADR-012: Database Schema Migrations](./012-database-schema-migrations.md): schema evolution, distinct from record versioning.
 - [ADR-013: Integration Version Migrations](./013-integration-version-migrations.md): record transformation between versions. This ADR provides the version contract ADR-013 keys off.
-- [ADR-063: Integration Definitions as Data](./063-integration-definitions-as-data.md): takes Path D for data-defined integrations only (see the note above).
+- [ADR-063: Integration Definitions as Data](./063-integration-definitions-as-data.md): takes Path D for integrations published as definitions only (see the note above).
 - [ADR-004: Project Structure Migration Tool](./004-migration-tool-design.md): project-scaffold migration; distinct from all of the above.
 - Implementation surface: `packages/core/integrations/integration-base.js` (`Definition.version`, `supportedVersions`, `getCurrentVersion`), `packages/core/prisma-postgresql/schema.prisma` (`Integration.version`), `packages/core/integrations/repositories/integration-repository-*.js`.

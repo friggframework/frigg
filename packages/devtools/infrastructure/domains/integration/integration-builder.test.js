@@ -625,7 +625,7 @@ describe('IntegrationBuilder', () => {
                 integrations: [
                     { Definition: { name: 'stripe', webhooks: true } },
                     {
-                        Definition: { name: 'data-defined', webhooks: { enabled: true } },
+                        Definition: { name: 'integration-runtime', webhooks: { enabled: true } },
                         IntegrationProvider: { resolve: async () => null, list: async () => [] },
                     },
                 ],
@@ -633,9 +633,9 @@ describe('IntegrationBuilder', () => {
 
             const result = await integrationBuilder.build(appDefinition, {});
 
-            expect(result.functions['data-definedWebhook'].events.map((e) => e.httpApi.path)).toEqual([
-                '/api/data-defined-integration/webhooks',
-                '/api/data-defined-integration/webhooks/{integrationId}',
+            expect(result.functions['integration-runtimeWebhook'].events.map((e) => e.httpApi.path)).toEqual([
+                '/api/integration-runtime-integration/webhooks',
+                '/api/integration-runtime-integration/webhooks/{integrationId}',
                 '/api/{integrationType}/webhooks',
                 '/api/{integrationType}/webhooks/{integrationId}',
             ]);

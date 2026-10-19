@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://friggframework.org/schemas/installation/v0.1.json",
+  "title": "Installation config v0.1",
+  "description": "What one customer chose, stored as Integration.config. The definition says what is possible; this says what is on.",
+  "type": "object",
+  "required": [
+    "definition"
+  ],
+  "properties": {
+    "definition": {
+      "type": "object",
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "checksum": {
+          "type": "string"
+        }
+      }
+    },
+    "settings": {
+      "type": "object"
+    },
+    "syncs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "mapping": {
+            "type": "array",
+            "description": "Full replacement mapping when the customer overrides the default."
+          },
+          "schedule": {
+            "$ref": "#/$defs/scheduleChoice"
+          }
+        }
+      }
+    },
+    "workflows": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "settings": {
+            "type": "object"
+          },
+          "schedule": {
+            "$ref": "#/$defs/scheduleChoice"
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Owned by the runtime, not the customer. installed: each onInstall step's result by step id (webhook subscriptions), read by onUninstall as $.install.runtime.installed.<id>. Sync cursors join it with the sync engine.",
+      "additionalProperties": false,
+      "properties": {
+        "installed": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "scheduleChoice": {
+      "description": "The installation's timing for a schedule trigger or polling sync the definition marks configurable: every, or cron with an optional time zone. Honoured only within the definition's minimum; otherwise the definition's timing runs. The integration's shared trigger tick reads it (ADR-055); nothing is scheduled per installation.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "every": {
+          "type": "string",
+          "pattern": "^\\d+\\s*(m|h|d)$"
+        },
+        "cron": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "every"
+          ],
+          "not": {
+            "required": [
+              "cron"
+            ]
+          }
+        },
+        {
+          "required": [
+            "cron"
+          ],
+          "not": {
+            "required": [
+              "every"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

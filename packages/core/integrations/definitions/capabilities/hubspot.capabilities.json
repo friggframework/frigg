@@ -1,0 +1,793 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "hubspot",
+  "label": "HubSpot",
+  "package": "@friggframework/api-module-hubspot",
+  "version": "1.4.0",
+  "auth": "oauth2",
+  "account": {
+    "description": "Values about the connected account, persisted by the module (apiPropertiesToPersist). Definitions read them as $.install.accounts.<module key>.<name>.",
+    "fields": [
+      {
+        "name": "portalId",
+        "type": "string",
+        "description": "HubSpot portal (hub) id"
+      }
+    ]
+  },
+  "objects": {
+    "contact": {
+      "label": "Contact",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "properties.firstname",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "properties.lastname",
+          "type": "string",
+          "tag": "person.familyName"
+        },
+        {
+          "name": "properties.phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "properties.mobilephone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "properties.company",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "properties.lifecyclestage",
+          "type": "enum",
+          "tag": "contact.lifecycleStage",
+          "values": [
+            "subscriber",
+            "lead",
+            "marketingqualifiedlead",
+            "salesqualifiedlead",
+            "opportunity",
+            "customer"
+          ]
+        },
+        {
+          "name": "properties.hubspot_owner_id",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "properties.notes_last_contacted",
+          "type": "datetime",
+          "tag": "activity.lastContactedAt",
+          "readOnly": true
+        },
+        {
+          "name": "properties.phone_last_call",
+          "type": "datetime",
+          "custom": true
+        },
+        {
+          "name": "properties.jobtitle",
+          "type": "string",
+          "tag": "person.jobTitle"
+        },
+        {
+          "name": "properties.city",
+          "type": "string",
+          "tag": "address.locality"
+        },
+        {
+          "name": "properties.hs_lead_status",
+          "type": "enum",
+          "tag": "contact.leadStatus",
+          "values": [
+            "NEW",
+            "OPEN",
+            "IN_PROGRESS",
+            "OPEN_DEAL",
+            "UNQUALIFIED",
+            "ATTEMPTED_TO_CONTACT",
+            "CONNECTED",
+            "BAD_TIMING"
+          ]
+        },
+        {
+          "name": "properties.hs_email_optout",
+          "type": "boolean",
+          "tag": "contact.emailOptOut",
+          "readOnly": true
+        }
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "updatedAt",
+        "list": {
+          "capability": "contact.list",
+          "cursor": "after",
+          "limit": "limit",
+          "since": "updatedSince",
+          "items": "results",
+          "next": "paging.next.after"
+        },
+        "get": {
+          "capability": "contact.get",
+          "id": "id"
+        },
+        "search": {
+          "capability": "contact.search"
+        },
+        "create": {
+          "capability": "contact.create"
+        },
+        "update": {
+          "capability": "contact.update",
+          "id": "id"
+        }
+      }
+    },
+    "deal": {
+      "label": "Deal",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.dealname",
+          "type": "string",
+          "tag": "deal.name"
+        },
+        {
+          "name": "properties.amount",
+          "type": "number",
+          "tag": "deal.amount"
+        },
+        {
+          "name": "properties.dealstage",
+          "type": "enum",
+          "tag": "deal.stage",
+          "values": "dealStage"
+        },
+        {
+          "name": "properties.closedate",
+          "type": "date",
+          "tag": "deal.closeDate"
+        },
+        {
+          "name": "properties.hubspot_owner_id",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "properties.pipeline",
+          "type": "string",
+          "tag": "deal.pipeline"
+        },
+        {
+          "name": "properties.hs_next_step",
+          "type": "text",
+          "tag": "deal.nextStep"
+        }
+      ]
+    },
+    "company": {
+      "label": "Company",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.name",
+          "type": "string",
+          "tag": "organization.name"
+        },
+        {
+          "name": "properties.domain",
+          "type": "string",
+          "tag": "organization.domain"
+        }
+      ]
+    },
+    "task": {
+      "label": "Task",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.hs_task_subject",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "properties.hs_task_body",
+          "type": "text"
+        },
+        {
+          "name": "properties.hs_timestamp",
+          "type": "datetime",
+          "required": true
+        },
+        {
+          "name": "properties.hubspot_owner_id",
+          "type": "string"
+        },
+        {
+          "name": "properties.hs_task_status",
+          "type": "enum",
+          "tag": "task.status",
+          "values": [
+            "NOT_STARTED",
+            "IN_PROGRESS",
+            "WAITING",
+            "COMPLETED",
+            "DEFERRED"
+          ]
+        },
+        {
+          "name": "properties.hs_task_priority",
+          "type": "enum",
+          "tag": "task.priority",
+          "values": [
+            "LOW",
+            "MEDIUM",
+            "HIGH"
+          ]
+        }
+      ]
+    },
+    "call": {
+      "label": "Call engagement",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.hs_call_title",
+          "type": "string"
+        },
+        {
+          "name": "properties.hs_call_body",
+          "type": "text"
+        },
+        {
+          "name": "properties.hs_call_duration",
+          "type": "number"
+        },
+        {
+          "name": "properties.hs_call_direction",
+          "type": "enum",
+          "values": [
+            "INBOUND",
+            "OUTBOUND"
+          ]
+        },
+        {
+          "name": "properties.hs_call_recording_url",
+          "type": "string"
+        },
+        {
+          "name": "properties.hs_timestamp",
+          "type": "datetime",
+          "required": true
+        }
+      ]
+    },
+    "note": {
+      "label": "Note",
+      "fields": [
+        {
+          "name": "id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "properties.hs_note_body",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "properties.hs_timestamp",
+          "type": "datetime",
+          "required": true
+        }
+      ]
+    }
+  },
+  "events": {
+    "contact.created": {
+      "delivery": "webhook",
+      "object": "contact",
+      "description": "App-level subscription; Frigg routes it to the installation by portalId.",
+      "payload": [
+        {
+          "portalId": 12345678,
+          "objectId": "51",
+          "subscriptionType": "contact.creation",
+          "occurredAt": 1760800000000,
+          "eventId": 9001
+        }
+      ],
+      "match": "contact.creation",
+      "recordId": "objectId"
+    },
+    "contact.propertyChange": {
+      "delivery": "webhook",
+      "object": "contact",
+      "payload": [
+        {
+          "portalId": 12345678,
+          "objectId": "51",
+          "propertyName": "phone",
+          "propertyValue": "+15125550142",
+          "occurredAt": 1760800000000,
+          "eventId": 9002,
+          "subscriptionType": "contact.propertyChange"
+        }
+      ],
+      "recordId": "objectId"
+    },
+    "deal.propertyChange": {
+      "delivery": "webhook",
+      "object": "deal",
+      "payload": [
+        {
+          "portalId": 12345678,
+          "objectId": "880",
+          "propertyName": "dealstage",
+          "propertyValue": "closedwon",
+          "occurredAt": 1760800000000,
+          "eventId": 9003,
+          "subscriptionType": "deal.propertyChange"
+        }
+      ]
+    },
+    "deal.created": {
+      "delivery": "webhook",
+      "object": "deal",
+      "payload": [
+        {
+          "portalId": 12345678,
+          "objectId": "881",
+          "occurredAt": 1760800000000,
+          "eventId": 9004,
+          "subscriptionType": "deal.creation"
+        }
+      ],
+      "match": "deal.creation"
+    }
+  },
+  "webhook": {
+    "scope": "app",
+    "batch": "body",
+    "topic": "{{item.subscriptionType}}",
+    "eventId": "{{item.eventId}}",
+    "account": "{{item.portalId}}",
+    "verify": "verifyWebhookSignature",
+    "note": "HubSpot v3: X-HubSpot-Signature-v3 over method + URL + raw body + timestamp, 5 minutes. Needs the public URL and method (the runtime passes them). Implemented in api-module-library 659b90d; needs the module release that includes it."
+  },
+  "capabilities": {
+    "contact.get": {
+      "kind": "read",
+      "method": "getContactById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "contact",
+      "args": [
+        "id"
+      ],
+      "note": "Api.getContactById(id) always requests the portal's full property list; a properties argument is not supported."
+    },
+    "contact.search": {
+      "kind": "search",
+      "method": "searchContacts",
+      "input": {
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "lastContactedBefore": {
+          "type": "string"
+        }
+      },
+      "output": "contact[]",
+      "status": "unimplemented",
+      "note": "Api has no contact search (searchCompanies, searchDeals, searchCustomObjects and searchLists only)."
+    },
+    "contact.list": {
+      "kind": "read",
+      "method": "listContacts",
+      "input": {
+        "after": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "updatedSince": {
+          "type": "string"
+        }
+      },
+      "output": "page<contact>",
+      "note": "Api.listContacts({ after, limit, properties }) has no modified-since filter, so updatedSince is ignored and a poll re-lists every contact."
+    },
+    "contact.create": {
+      "kind": "write",
+      "method": "createContact",
+      "input": {
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "contact",
+      "args": [
+        "properties"
+      ]
+    },
+    "contact.update": {
+      "kind": "write",
+      "method": "updateContact",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "contact",
+      "args": [
+        "id",
+        "properties"
+      ]
+    },
+    "deal.get": {
+      "kind": "read",
+      "method": "getDealById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "deal",
+      "args": [
+        "id"
+      ]
+    },
+    "deal.listForContact": {
+      "kind": "read",
+      "method": "listDealsForContact",
+      "input": {
+        "contactId": {
+          "type": "string",
+          "required": true
+        },
+        "open": {
+          "type": "boolean"
+        }
+      },
+      "output": "deal[]",
+      "status": "unimplemented",
+      "note": "Api has no per-contact deal listing; associations come from getBatchAssociations(from, to, inputs)."
+    },
+    "deal.contacts": {
+      "kind": "read",
+      "method": "listContactsForDeal",
+      "input": {
+        "dealId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "contact[]",
+      "status": "unimplemented",
+      "note": "Api has no per-deal contact listing; associations come from getBatchAssociations(from, to, inputs)."
+    },
+    "task.create": {
+      "kind": "write",
+      "method": "createTask",
+      "input": {
+        "properties": {
+          "type": "object",
+          "required": true
+        },
+        "contactId": {
+          "type": "string"
+        }
+      },
+      "output": "task",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
+    },
+    "call.create": {
+      "kind": "write",
+      "method": "createCallEngagement",
+      "input": {
+        "properties": {
+          "type": "object",
+          "required": true
+        },
+        "contactId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "call",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
+    },
+    "note.create": {
+      "kind": "write",
+      "method": "createNote",
+      "input": {
+        "properties": {
+          "type": "object",
+          "required": true
+        },
+        "contactId": {
+          "type": "string"
+        },
+        "dealId": {
+          "type": "string"
+        }
+      },
+      "output": "note",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
+    },
+    "owner.list": {
+      "kind": "read",
+      "method": "listOwners",
+      "input": {},
+      "output": "owner[]",
+      "status": "unimplemented",
+      "note": "Api has getOwnerById only."
+    },
+    "pipeline.stages": {
+      "kind": "read",
+      "method": "listDealStages",
+      "input": {
+        "pipelineId": {
+          "type": "string"
+        }
+      },
+      "output": "stage[]",
+      "status": "unimplemented",
+      "note": "Api.getPipelineDetails(objType) returns every pipeline for an object type, not the stages of one pipeline."
+    },
+    "contact.upsertByEmail": {
+      "kind": "write",
+      "method": "upsertContactByEmail",
+      "label": "Batch upsert with idProperty=email",
+      "input": {
+        "email": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "contact",
+      "status": "unimplemented",
+      "note": "Api has no upsert and no contact search to build one from."
+    },
+    "deal.update": {
+      "kind": "write",
+      "method": "updateDeal",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "deal",
+      "status": "unimplemented",
+      "note": "Api.updateDeal({ dealId, properties }) reads this.URLs.getDealById, which is not defined (the table has dealById), so it throws before sending. Fixed upstream (api-module-library 5961c9a); unimplemented here until a release carries it."
+    },
+    "deal.search": {
+      "kind": "search",
+      "method": "searchDeals",
+      "input": {
+        "open": {
+          "type": "boolean"
+        },
+        "closeDateBefore": {
+          "type": "string"
+        },
+        "closeDateAfter": {
+          "type": "string"
+        },
+        "minAmount": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "deal[]",
+      "status": "unimplemented",
+      "note": "Api.searchDeals takes HubSpot filterGroups, sorts, props, limit and after, not open/closeDate/amount filters."
+    },
+    "task.get": {
+      "kind": "read",
+      "method": "getTaskById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "array"
+        }
+      },
+      "output": "task",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
+    },
+    "task.update": {
+      "kind": "write",
+      "method": "updateTask",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "properties": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "task",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
+    },
+    "task.search": {
+      "kind": "search",
+      "method": "searchTasks",
+      "input": {
+        "dueBefore": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        }
+      },
+      "output": "task[]",
+      "status": "unimplemented",
+      "note": "Api has no engagement or task methods."
+    },
+    "owner.get": {
+      "kind": "read",
+      "method": "getOwnerById",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "owner",
+      "args": [
+        "id"
+      ]
+    },
+    "owner.findByEmail": {
+      "kind": "search",
+      "method": "getOwnerByEmail",
+      "input": {
+        "email": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "owner",
+      "status": "unimplemented",
+      "note": "Api has getOwnerById only."
+    },
+    "subscription.definitions": {
+      "kind": "read",
+      "method": "listSubscriptionDefinitions",
+      "input": {},
+      "output": "subscriptionDefinition[]",
+      "status": "unimplemented",
+      "note": "Api has no email subscription methods."
+    },
+    "subscription.unsubscribe": {
+      "kind": "write",
+      "method": "unsubscribeEmail",
+      "label": "Communication preferences API; hs_email_optout itself is read-only",
+      "input": {
+        "emailAddress": {
+          "type": "string",
+          "required": true
+        },
+        "subscriptionId": {
+          "type": "string",
+          "required": true
+        },
+        "legalBasis": {
+          "type": "string"
+        },
+        "legalBasisExplanation": {
+          "type": "string"
+        }
+      },
+      "output": "subscriptionStatus",
+      "status": "unimplemented",
+      "note": "Api has no email subscription methods."
+    }
+  },
+  "options": {
+    "owner": {
+      "capability": "owner.list",
+      "label": "{{item.firstName}} {{item.lastName}}",
+      "value": "$.item.id"
+    },
+    "dealStage": {
+      "capability": "pipeline.stages",
+      "label": "$.item.label",
+      "value": "$.item.id"
+    },
+    "subscriptionType": {
+      "capability": "subscription.definitions",
+      "label": "{{item.name}}",
+      "value": "$.item.id"
+    }
+  },
+  "ui": {
+    "placements": [
+      "crm.record.sidebar",
+      "crm.record.tab",
+      "crm.record.preview"
+    ],
+    "renderer": "left-hook-hubspot-app/frigg-card"
+  }
+}

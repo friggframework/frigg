@@ -102,7 +102,7 @@ describe('one installation', () => {
         expect(resolveTrigger('fixed', fixed, { triggers: { fixed: { every: '30m' } } })).toMatchObject({ recurrence: { every: '1h' }, problems: ['This trigger is not configurable'] });
     });
 
-    it('a choice handed in by the caller (data-defined: workflows.<id>.schedule) wins over config.triggers', () => {
+    it('a choice handed in by the caller (a published definition: workflows.<id>.schedule) wins over config.triggers', () => {
         expect(resolveTrigger('wf', { ...sync, choice: { every: '2h' } }, { triggers: { wf: { every: '30m' } } }).recurrence).toEqual({ every: '2h' });
     });
 

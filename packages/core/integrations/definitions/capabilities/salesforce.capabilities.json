@@ -1,0 +1,553 @@
+{
+  "$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json",
+  "module": "salesforce",
+  "label": "Salesforce",
+  "package": "@friggframework/api-module-salesforce",
+  "version": "3.0.2",
+  "auth": "oauth2",
+  "objects": {
+    "lead": {
+      "label": "Lead",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "FirstName",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "LastName",
+          "type": "string",
+          "tag": "person.familyName",
+          "required": true
+        },
+        {
+          "name": "Email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "Phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "Company",
+          "type": "string",
+          "tag": "organization.name",
+          "required": true
+        },
+        {
+          "name": "Title",
+          "type": "string",
+          "tag": "person.jobTitle"
+        },
+        {
+          "name": "LeadSource",
+          "type": "string",
+          "tag": "marketing.source"
+        },
+        {
+          "name": "Status",
+          "type": "enum",
+          "tag": "contact.leadStatus",
+          "values": [
+            "Open - Not Contacted",
+            "Working - Contacted",
+            "Closed - Converted",
+            "Closed - Not Converted"
+          ]
+        },
+        {
+          "name": "OwnerId",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "Description",
+          "type": "text"
+        },
+        {
+          "name": "IsConverted",
+          "type": "boolean",
+          "readOnly": true
+        }
+      ]
+    },
+    "contact": {
+      "label": "Contact",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "FirstName",
+          "type": "string",
+          "tag": "person.givenName"
+        },
+        {
+          "name": "LastName",
+          "type": "string",
+          "tag": "person.familyName",
+          "required": true
+        },
+        {
+          "name": "Email",
+          "type": "email",
+          "tag": "contact.email"
+        },
+        {
+          "name": "Phone",
+          "type": "phone",
+          "tag": "contact.phone"
+        },
+        {
+          "name": "AccountId",
+          "type": "string"
+        },
+        {
+          "name": "OwnerId",
+          "type": "string",
+          "tag": "record.owner"
+        }
+      ]
+    },
+    "event": {
+      "label": "Event",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "Subject",
+          "type": "string",
+          "tag": "meeting.title"
+        },
+        {
+          "name": "StartDateTime",
+          "type": "datetime",
+          "tag": "meeting.start"
+        },
+        {
+          "name": "EndDateTime",
+          "type": "datetime",
+          "tag": "meeting.end"
+        },
+        {
+          "name": "Location",
+          "type": "string",
+          "tag": "meeting.joinUrl"
+        },
+        {
+          "name": "Description",
+          "type": "text"
+        },
+        {
+          "name": "WhoId",
+          "type": "string"
+        },
+        {
+          "name": "WhatId",
+          "type": "string"
+        },
+        {
+          "name": "OwnerId",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "ShowAs",
+          "type": "enum",
+          "values": [
+            "Busy",
+            "OutOfOffice",
+            "Free"
+          ]
+        },
+        {
+          "name": "Calendly_Event_URI__c",
+          "type": "string",
+          "tag": "record.externalId",
+          "custom": true
+        }
+      ]
+    },
+    "opportunity": {
+      "label": "Opportunity",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "Name",
+          "type": "string",
+          "tag": "deal.name"
+        },
+        {
+          "name": "StageName",
+          "type": "enum",
+          "tag": "deal.stage",
+          "values": [
+            "Prospecting",
+            "Qualification",
+            "Needs Analysis",
+            "Value Proposition",
+            "Proposal/Price Quote",
+            "Negotiation/Review",
+            "Closed Won",
+            "Closed Lost"
+          ]
+        },
+        {
+          "name": "Amount",
+          "type": "number",
+          "tag": "deal.amount"
+        },
+        {
+          "name": "CloseDate",
+          "type": "date",
+          "tag": "deal.closeDate"
+        },
+        {
+          "name": "NextStep",
+          "type": "string"
+        },
+        {
+          "name": "AccountId",
+          "type": "string"
+        },
+        {
+          "name": "OwnerId",
+          "type": "string",
+          "tag": "record.owner"
+        }
+      ]
+    },
+    "task": {
+      "label": "Task",
+      "fields": [
+        {
+          "name": "Id",
+          "type": "id",
+          "readOnly": true
+        },
+        {
+          "name": "Subject",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "Status",
+          "type": "enum",
+          "values": [
+            "Not Started",
+            "In Progress",
+            "Completed",
+            "Waiting on someone else",
+            "Deferred"
+          ]
+        },
+        {
+          "name": "Priority",
+          "type": "enum",
+          "values": [
+            "High",
+            "Normal",
+            "Low"
+          ]
+        },
+        {
+          "name": "ActivityDate",
+          "type": "date"
+        },
+        {
+          "name": "WhoId",
+          "type": "string"
+        },
+        {
+          "name": "WhatId",
+          "type": "string"
+        },
+        {
+          "name": "OwnerId",
+          "type": "string",
+          "tag": "record.owner"
+        },
+        {
+          "name": "Description",
+          "type": "text"
+        }
+      ]
+    }
+  },
+  "events": {
+    "opportunity.changed": {
+      "delivery": "webhook",
+      "object": "opportunity",
+      "description": "Change Data Capture (OpportunityChangeEvent) relayed through the Pub/Sub API subscriber; routed by organization id.",
+      "payload": {
+        "id": "0WS8c000000abcdGAA",
+        "schema": "IeRuaY6cbI_HsV8Rv1Mc5g",
+        "payload": {
+          "ChangeEventHeader": {
+            "entityName": "Opportunity",
+            "recordIds": [
+              "0068c00000ABCDeAAP"
+            ],
+            "changeType": "UPDATE",
+            "changedFields": [
+              "StageName"
+            ],
+            "commitTimestamp": 1760958061000
+          },
+          "StageName": "Negotiation/Review"
+        }
+      },
+      "record": "payload",
+      "match": "Opportunity.UPDATE"
+    }
+  },
+  "webhook": {
+    "scope": "installation",
+    "topic": "{{body.payload.ChangeEventHeader.entityName}}.{{body.payload.ChangeEventHeader.changeType}}",
+    "eventId": "{{body.id}}",
+    "verify": "verifyWebhookSignature",
+    "status": "unimplemented",
+    "note": "Not a webhook: change-data-capture events arrive over the Pub/Sub or CometD stream the module opens itself, and Salesforce Outbound Messages are unsigned (check OrganizationId plus an IP allowlist). Stays unimplemented, so a delivery here is rejected, never accepted unchecked."
+  },
+  "capabilities": {
+    "lead.get": {
+      "kind": "read",
+      "method": "get",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "lead",
+      "args": [
+        {
+          "value": "Lead"
+        },
+        "id"
+      ]
+    },
+    "lead.create": {
+      "kind": "write",
+      "method": "create",
+      "input": {
+        "fields": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "lead",
+      "args": [
+        {
+          "value": "Lead"
+        },
+        "fields"
+      ]
+    },
+    "lead.update": {
+      "kind": "write",
+      "method": "updateLead",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "fields": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "void",
+      "status": "unimplemented",
+      "note": "Api.update(object, data) needs the record id inside data (data.Id); the capability passes the id separately, so there is no way to call it."
+    },
+    "person.searchByEmail": {
+      "kind": "search",
+      "method": "searchPeopleByEmail",
+      "label": "SOSL across Lead and Contact",
+      "input": {
+        "email": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "{ leads: lead[], contacts: contact[] }",
+      "status": "unimplemented",
+      "note": "Api.find(object, filter) searches one sObject at a time; searching Lead and Contact together would need two calls."
+    },
+    "event.create": {
+      "kind": "write",
+      "method": "create",
+      "input": {
+        "fields": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "event",
+      "args": [
+        {
+          "value": "Event"
+        },
+        "fields"
+      ]
+    },
+    "event.update": {
+      "kind": "write",
+      "method": "updateEvent",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "fields": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "void",
+      "status": "unimplemented",
+      "note": "Api.update(object, data) needs the record id inside data (data.Id); the capability passes the id separately, so there is no way to call it."
+    },
+    "opportunity.get": {
+      "kind": "read",
+      "method": "get",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "opportunity",
+      "args": [
+        {
+          "value": "Opportunity"
+        },
+        "id"
+      ]
+    },
+    "opportunity.update": {
+      "kind": "write",
+      "method": "updateOpportunity",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "fields": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "void",
+      "status": "unimplemented",
+      "note": "Api.update(object, data) needs the record id inside data (data.Id); the capability passes the id separately, so there is no way to call it."
+    },
+    "task.create": {
+      "kind": "write",
+      "method": "create",
+      "input": {
+        "fields": {
+          "type": "object",
+          "required": true
+        }
+      },
+      "output": "task",
+      "args": [
+        {
+          "value": "Task"
+        },
+        "fields"
+      ]
+    },
+    "file.attach": {
+      "kind": "write",
+      "method": "createContentVersion",
+      "input": {
+        "title": {
+          "type": "string",
+          "required": true
+        },
+        "pathOnClient": {
+          "type": "string",
+          "required": true
+        },
+        "versionData": {
+          "type": "string",
+          "required": true
+        },
+        "firstPublishLocationId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "contentVersion",
+      "status": "unimplemented",
+      "note": "Api has the generic create(object, data) only; ContentVersion field names differ from this capability's inputs."
+    },
+    "note.create": {
+      "kind": "write",
+      "method": "createContentNote",
+      "input": {
+        "title": {
+          "type": "string",
+          "required": true
+        },
+        "content": {
+          "type": "string",
+          "required": true
+        },
+        "linkedEntityId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "contentNote",
+      "status": "unimplemented",
+      "note": "Api has the generic create(object, data) only; ContentNote field names differ from this capability's inputs."
+    },
+    "user.list": {
+      "kind": "read",
+      "method": "listUsers",
+      "input": {
+        "activeOnly": {
+          "type": "boolean"
+        }
+      },
+      "output": "user[]",
+      "status": "unimplemented",
+      "note": "Api has find(object, filter) but no user listing with an activeOnly filter."
+    }
+  },
+  "options": {
+    "user": {
+      "capability": "user.list",
+      "label": "{{item.Name}}",
+      "value": "$.item.Id"
+    }
+  },
+  "ui": {
+    "placements": [
+      "lightning.record.sidebar",
+      "lightning.record.tab",
+      "lightning.utility-bar"
+    ],
+    "renderer": "frigg-lwc-host"
+  }
+}

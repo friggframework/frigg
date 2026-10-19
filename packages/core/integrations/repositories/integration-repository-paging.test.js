@@ -3,9 +3,9 @@
  * findIntegrations({ type, status, limit, after }) against real databases, through every adapter, and a tick run
  * over it end to end.
  *
- * Skipped unless a database URL is set (the data-defined persistence convention):
- * - DATA_DEFINED_POSTGRES_URL  a PostgreSQL database migrated with prisma-postgresql/migrations
- * - DATA_DEFINED_MONGO_URL     a MongoDB replica set with prisma-mongodb pushed (also runs the DocumentDB adapter)
+ * Skipped unless a database URL is set (the integration definitions persistence convention):
+ * - INTEGRATION_DEFINITIONS_POSTGRES_URL  a PostgreSQL database migrated with prisma-postgresql/migrations
+ * - INTEGRATION_DEFINITIONS_MONGO_URL     a MongoDB replica set with prisma-mongodb pushed (also runs the DocumentDB adapter)
  */
 jest.mock('../../database/config', () => ({ DB_TYPE: 'mongodb', getDatabaseType: () => 'mongodb', PRISMA_LOG_LEVEL: 'error,warn' }));
 
@@ -15,9 +15,9 @@ const { IntegrationRepositoryDocumentDB } = require('./integration-repository-do
 const { RunTriggerTick } = require('../use-cases/run-trigger-tick');
 
 const LEGS = [
-    ['postgresql', process.env.DATA_DEFINED_POSTGRES_URL, () => require('../../generated/prisma-postgresql'), IntegrationRepositoryPostgres],
-    ['mongodb', process.env.DATA_DEFINED_MONGO_URL, () => require('../../generated/prisma-mongodb'), IntegrationRepositoryMongo],
-    ['documentdb (on mongodb)', process.env.DATA_DEFINED_MONGO_URL, () => require('../../generated/prisma-mongodb'), IntegrationRepositoryDocumentDB],
+    ['postgresql', process.env.INTEGRATION_DEFINITIONS_POSTGRES_URL, () => require('../../generated/prisma-postgresql'), IntegrationRepositoryPostgres],
+    ['mongodb', process.env.INTEGRATION_DEFINITIONS_MONGO_URL, () => require('../../generated/prisma-mongodb'), IntegrationRepositoryMongo],
+    ['documentdb (on mongodb)', process.env.INTEGRATION_DEFINITIONS_MONGO_URL, () => require('../../generated/prisma-mongodb'), IntegrationRepositoryDocumentDB],
 ].filter(([, url]) => url);
 
 const describeLegs = LEGS.length ? describe.each(LEGS) : describe.skip.each([['no database URL set', null]]);

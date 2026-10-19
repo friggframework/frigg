@@ -436,7 +436,7 @@ model UsageCounter {
   @@index([metric, integrationType, window])
 }
 
-// Data-defined integrations (ADR-063): one immutable row per published definition version.
+// Integrations published as definitions (ADR-063): one immutable row per published definition version.
 enum DefinitionStatus {
   DRAFT
   PUBLISHED
@@ -467,7 +467,7 @@ model IntegrationDefinitionVersion {
   @@index([workspaceId, status])
 }
 
-// One row per data-defined workflow run. trace holds step ids, statuses, timings and error messages, never request or
+// One row per workflow run. trace holds step ids, statuses, timings and error messages, never request or
 // response bodies.
 model WorkflowRun {
   id                Int         @id @default(autoincrement())
