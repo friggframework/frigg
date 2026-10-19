@@ -1,6 +1,12 @@
+> To be folded into ADR-052 §4/§5 on PR #668 (`adr/052-053-management-api`) and then
+> deleted. This is a draft of that text, not a separate ADR: it claims no ADR number, and it
+> is not decided ahead of ADR-052 itself. It lives under `pending/`, outside the numbered
+> register, so the ADR number check (ADR-014 amendment) does not read it as a second claim
+> on 052.
+
 # ADR-052 Amendment 1: Named proxy base URLs
 
-**Status**: Accepted
+**Status**: Proposed
 **Date**: 2026-10-18
 **Amends**: ADR-052, Entity Proxy Security (§4 target, §5 allow-list)
 
@@ -32,6 +38,12 @@ so one Google entity could reach none of Docs, Sheets, GA Data or Ads.
 - A redirect is followed only if the same base's rules allow its target (§8 already
   limits it to the base's origin and path).
 - `PROXY_NOT_ALLOWED` carries `details.base`, and its message names the base when the module declares more than one (single-base messages are unchanged); the audit record carries `base`, including for `PROXY_UNKNOWN_BASE` denials.
+
+**Not the other "more than one" axes.** `base` means one thing only: several hosts behind one
+credential and one entity. It is not ADR-059's open question (one module registered as several
+named entries in the entity registry), and it is not a future per-app module-instances ADR
+(several separately configured instances of one module); either of those needs its own term, not
+`base`.
 
 **Consequences.** One entity (one credential) can reach every host its provider
 needs, each with its own allow-list. Existing modules are unaffected: `baseUrl`

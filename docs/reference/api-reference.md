@@ -162,7 +162,7 @@ POST /api/v2/entities/7/proxy
   A malformed `base` is `400 INVALID_PROXY_REQUEST`, an undeclared one
   `400 PROXY_UNKNOWN_BASE` (the message lists the module's names). Bad
   `baseUrls`, or a rule naming an undeclared base, stop the app at load
-  ([ADR-052 amendment 1](../architecture-decisions/052-amendment-1-named-proxy-bases.md)).
+  ([ADR-052 amendment 1](../architecture-decisions/pending/adr-052-amendment-1-named-proxy-bases.md); to be folded into ADR-052 §4/§5).
 - `query` values are strings, numbers, booleans or arrays of strings. An array
   is sent comma-separated (`"ids": ["1", "2"]` → `ids=1,2`), except under a key
   ending in `[]`, which is repeated once per value
@@ -175,6 +175,20 @@ POST /api/v2/entities/7/proxy
   Refusals: `400 INVALID_PROXY_REQUEST` / `PROXY_UNKNOWN_BASE`, `403 PROXY_NOT_ALLOWED`, `413`, `415`.
 - Every call writes a `frigg.api.proxy.request` audit record and counts
   `frigg.api.proxy.requests`.
+
+### Entity proxy changes
+
+There is no separate OpenAPI changelog; changes to the beta proxy contract are
+recorded here.
+
+- **Named bases (additive).** `POST /api/v2/entities/:entityId/proxy` takes an
+  optional `base` field naming one of the module's `proxy.baseUrls`. Omitting it
+  keeps the old behaviour (`default`), so existing callers are unaffected. New
+  refusal: `400 PROXY_UNKNOWN_BASE`.
+- **`[]` query keys.** A `query` key ending in `[]` is now sent once per array
+  value (`fields[]=a&fields[]=b`) instead of comma-separated. Keys without `[]`
+  are unchanged. A caller that relied on `"fields[]": ["a", "b"]` arriving as
+  `fields[]=a,b` will see the repeated form.
 
 ## Migrating from v1
 
