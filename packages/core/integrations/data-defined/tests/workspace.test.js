@@ -1,5 +1,5 @@
 /**
- * Integrations a workspace builds (The Integrator's "build your own"): published by a signed-in user into their own
+ * Integrations a workspace builds: published by a signed-in user into their own
  * workspace, listed and installable there like any other, invisible to everyone else, and read back for the editor.
  */
 const express = require('express');
@@ -38,7 +38,7 @@ class CodeOne extends FakeBase { static Definition = { name: 'code-one', modules
 function setup() {
     const repository = memoryRepository();
     const catalog = d.createDefinitionCatalog({ repository });
-    const Host = d.defineSharedIntegrationClass({ definitions: catalog, manifests, modules: { quo: {}, hubspot: {}, github: {}, linear: {}, slack: {} }, IntegrationBase: FakeBase, runs: false });
+    const Host = d.defineSharedIntegrationClass({ definitions: catalog, manifests, modules: { phone: {}, hubspot: {}, github: {}, linear: {}, slack: {} }, IntegrationBase: FakeBase, runs: false });
     const classes = [CodeOne, Host];
     const app = (userId) => {
         const a = express();
@@ -55,14 +55,14 @@ const own = (over = {}) => ({ ...example('github-linear'), id: 'acme-issues', ve
 describe("a workspace's own integrations", () => {
     it('a signed-in user publishes one into their workspace; it then lists and installs there like any other', async () => {
         const { app, classes, repository } = setup();
-        await new d.PublishDefinitionVersion({ repository, manifests }).execute({ document: example('quo-hubspot') });   // the app's catalogue
+        await new d.PublishDefinitionVersion({ repository, manifests }).execute({ document: example('phone-hubspot') });   // the app's catalogue
         const r = await request(app('u-acme')).post('/api/integration-definitions').send({ document: own() });
         expect(r.status).toBe(201);
         expect(r.body.version).toMatchObject({ definitionId: 'acme-issues', workspaceId: 'u-acme', createdBy: 'u-acme', status: 'PUBLISHED' });
         expect(r.body.version.document).toBeUndefined();
 
         const mine = (await listIntegrationClasses(classes, { workspaceId: 'u-acme' })).map((c) => c.getOptionDetails());
-        expect(mine.map((o) => [o.type, Boolean(o.editable)])).toEqual([['code-one', false], ['acme-issues', true], ['quo-hubspot', false]]);
+        expect(mine.map((o) => [o.type, Boolean(o.editable)])).toEqual([['code-one', false], ['acme-issues', true], ['phone-hubspot', false]]);
         expect((await resolveIntegrationClass(classes, 'acme-issues', { workspaceId: 'u-acme' })).Definition.name).toBe('acme-issues');
     });
 
@@ -101,7 +101,7 @@ describe("a workspace's own integrations", () => {
 
     it("an id has one owner: not another workspace's, not the app's catalogue, not a code integration's", async () => {
         const { app, repository } = setup();
-        await new d.PublishDefinitionVersion({ repository, manifests }).execute({ document: example('quo-hubspot') });
+        await new d.PublishDefinitionVersion({ repository, manifests }).execute({ document: example('phone-hubspot') });
         await request(app('u-acme')).post('/api/integration-definitions').send({ document: own() });
         const taken = async (userId, document) => { const r = await request(app(userId)).post('/api/integration-definitions').send({ document }); return [r.status, r.body.code]; };
         // Another workspace's id answers as a miss (it must not confirm the id exists), the same as reading it does.
@@ -110,7 +110,7 @@ describe("a workspace's own integrations", () => {
         const foreignRead = await request(app('u-other')).get('/api/integration-definitions/acme-issues');
         expect([foreignPublish.status, foreignPublish.body]).toEqual([foreignRead.status, foreignRead.body]);
         expect(JSON.stringify(foreignPublish.body)).not.toMatch(/already|taken|another/i);
-        expect(await taken('u-acme', { ...example('quo-hubspot'), version: '9.0.0' })).toEqual([409, 'ID_TAKEN']);
+        expect(await taken('u-acme', { ...example('phone-hubspot'), version: '9.0.0' })).toEqual([409, 'ID_TAKEN']);
         expect(await taken('u-acme', own({ id: 'code-one' }))).toEqual([409, 'ID_TAKEN']);
         expect(await taken('u-acme', own({ version: '1.0.1' }))).toEqual([201, undefined]);   // its own next version is fine
     });

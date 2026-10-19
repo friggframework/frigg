@@ -87,8 +87,8 @@ A hand-written `IntegrationBase` subclass can embed a definition and get everyth
 workflows with delay and approval pauses, syncs, UI surfaces, the generated configure form, and run history.
 
 ```js
-class QuoReports extends IntegrationBase { static Definition = { name: 'quo-reports', modules, … }; async notifyTeam(args) { … } }
-module.exports = extendIntegrationClass(QuoReports, { definition: require('./quo-reports.definition.json'), manifests });
+class PhoneReports extends IntegrationBase { static Definition = { name: 'phone-reports', modules, … }; async notifyTeam(args) { … } }
+module.exports = extendIntegrationClass(PhoneReports, { definition: require('./phone-reports.definition.json'), manifests });
 ```
 
 - The class keeps its name, modules, routes, schedules, lifecycle and handlers; the definition's id must be its name.
@@ -113,9 +113,9 @@ const DataDefined = defineSharedIntegrationClass({ definitions: createDefinition
 
 | Route | Auth | |
 |---|---|---|
-| `POST /api/admin/integrations/versions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
-| `GET /api/admin/integrations/:id/versions` | admin key | Version history |
-| `POST /api/admin/integrations/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
+| `POST /admin/integrations/versions` `{ document, notes?, publish?, strict? }` | admin key | Validate (both layers) and publish, or save a draft with `publish: false` |
+| `GET /admin/integrations/:id/versions` | admin key | Version history |
+| `POST /admin/integrations/:id/versions/:v/deprecate` | admin key | Stop new installs of a version |
 | `GET /api/integrations` | user | What can be installed: code and published integrations in one list of options |
 | `GET /api/data-defined/definitions` | user | The published ones, with their counts |
 | `POST /api/integrations` with `config: { type: '<id>' }` | user | Install; pins the latest published version and its checksum (`{ type: 'data-defined', definition: { id } }` still works) |

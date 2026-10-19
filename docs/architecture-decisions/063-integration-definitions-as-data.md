@@ -548,9 +548,14 @@ to move to, never a 404 for being code.
 | `POST /api/integrations/:id/runs/:runId/decision` `{ decision, note? }` | the run's approvers, or the owner when it names none | Decide a paused approval (§15c). Answers 202 and carries the run on through the queue. An approver need not own the installation; anyone else gets a 404 |
 | `POST /api/integration-definitions` `{ document, notes?, publish? }` | signed-in user | Publish (or draft) an integration of the user's own workspace: listed and installable there, invisible elsewhere. 409 `ID_TAKEN` for an id owned by the app's catalogue or a code integration (both public); an id owned by another workspace answers 404 `NOT_FOUND`, identical to reading it, so ids cannot be probed (ADR-052 §3) |
 | `GET /api/integration-definitions/:id` | signed-in user, own workspace | Every version (drafts too) and the newest document, for the editor; 404 for anyone else |
-| `POST /api/admin/integrations/versions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
-| `GET /api/admin/integrations/:id/versions` | admin key | Every version, without documents |
-| `POST /api/admin/integrations/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
+| `POST /admin/integrations/versions` `{ document, notes?, publish?, strict? }` | `x-frigg-admin-api-key` | Validate and publish (or save a draft). 201 created, 200 for an identical republish, 400 invalid, 409 refused |
+| `GET /admin/integrations/:id/versions` | admin key | Every version, without documents |
+| `POST /admin/integrations/:id/versions/:version/deprecate` | admin key | `PUBLISHED` → `DEPRECATED` |
+
+The admin routes live in core's existing `/admin/*` namespace, beside `/admin/scripts` and `/admin/db-migrate`, behind the same
+`validateAdminApiKey` middleware (`handlers/middleware/admin-auth`); `/api/admin` would have been a third namespace. The user routes
+stay where they are until the `/api/v2` route registry (PR #671) lands. Every route the router serves is listed once, with method,
+path and auth, in the exported `DEFINITION_ROUTES`, so that move is a data change.
 
 **Follow-up: these routes move to `/api/v2`.** The paths above are v0.1's. [ADR-053](./053-management-api-versioning.md) puts every new Management API resource under `/api/v2/`, and the route registry in #671 is how they get there. Moving them is a separate change, and the paths in this table will change with it.
 

@@ -8,7 +8,7 @@ const request = require('supertest');
 const d = require('..');
 const { setDataDefinedRoutes } = require('../router');
 const { IntegrationEventDispatcher } = require('../../../handlers/integration-event-dispatcher');
-const { hubspotApi, quoApi } = require('./helpers-fake-crm');
+const { hubspotApi, phoneApi } = require('./helpers-fake-crm');
 
 const manifests = d.loadManifests();
 const example = (id) => JSON.parse(JSON.stringify(d.loadExamples().find((x) => x.id === id)));
@@ -31,8 +31,8 @@ class FakeBase {
 }
 
 /** The hand-written integration: its own queued event, webhook handling, form and trigger. */
-class QuoReports extends FakeBase {
-    static Definition = { name: 'quo-reports', version: '2.0.0', modules: { quo: { definition: {} }, hubspot: { definition: {} } }, display: { label: 'Quo reports' }, triggers: { NIGHTLY: { every: '1d', handler: 'nightly' } } };
+class PhoneReports extends FakeBase {
+    static Definition = { name: 'phone-reports', version: '2.0.0', modules: { phone: { definition: {} }, hubspot: { definition: {} } }, display: { label: 'Phone reports' }, triggers: { NIGHTLY: { every: '1d', handler: 'nightly' } } };
     constructor(p) {
         super(p);
         this.events = { NIGHTLY: { type: 'QUEUE', handler: async ({ data }) => this.nightly(data) }, BROKEN: { type: 'QUEUE', handler: async () => { throw new Error('boom'); } } };
@@ -46,8 +46,8 @@ class QuoReports extends FakeBase {
 
 /** An embedded definition: one button workflow that waits for an approval, then calls a method of the class. */
 function embeddedDefinition(over = {}) {
-    const def = example('quo-hubspot');
-    def.id = 'quo-reports';
+    const def = example('phone-hubspot');
+    def.id = 'phone-reports';
     def.version = '1.0.0';
     def.syncs = []; def.ui = []; def.queries = []; def.lifecycle = {}; def.settings = {};
     def.workflows = [{ id: 'escalate', label: 'Escalate', default: 'on', trigger: { type: 'userAction', label: 'Escalate' }, steps: [
@@ -71,24 +71,24 @@ function runStore() {
 
 function setup(def = embeddedDefinition()) {
     const runs = runStore();
-    const Cls = d.extendIntegrationClass(QuoReports, { definition: def, manifests, runs });
-    const inst = new Cls({ id: 'int1', config: { type: 'quo-reports', settings: { fromNumber: '+15125550100' } } });
+    const Cls = d.extendIntegrationClass(PhoneReports, { definition: def, manifests, runs });
+    const inst = new Cls({ id: 'int1', config: { type: 'phone-reports', settings: { fromNumber: '+15125550100' } } });
     inst.hubspot = { api: hubspotApi() };
-    inst.quo = { api: quoApi() };
+    inst.phone = { api: phoneApi() };
     return { Cls, inst, runs };
 }
 
 describe('a code integration embedding a definition', () => {
     it('keeps its identity: name, modules, triggers, display, and its own events beside the compiled ones', async () => {
         const { Cls, inst } = setup();
-        expect(Cls.Definition).toMatchObject({ name: 'quo-reports', version: '2.0.0', triggers: { NIGHTLY: { every: '1d', handler: 'nightly' } }, display: { label: 'Quo reports' } });
-        expect(Cls.Definition.modules).toBe(QuoReports.Definition.modules);
-        expect(Cls.getDeploymentName?.() ?? Cls.Definition.name).toBe('quo-reports');
+        expect(Cls.Definition).toMatchObject({ name: 'phone-reports', version: '2.0.0', triggers: { NIGHTLY: { every: '1d', handler: 'nightly' } }, display: { label: 'Phone reports' } });
+        expect(Cls.Definition.modules).toBe(PhoneReports.Definition.modules);
+        expect(Cls.getDeploymentName?.() ?? Cls.Definition.name).toBe('phone-reports');
         await inst.initialize();
         expect(Object.keys(inst.events).sort()).toEqual(['BROKEN', 'NIGHTLY', 'WF_ESCALATE']);
         expect((await inst.triggerDeclarations()).map((t) => t.name)).toEqual(['NIGHTLY']);
         expect(Cls.Definition.instanceTriggers).toBeUndefined();   // the embedded definition has no recurring work
-        expect(inst instanceof QuoReports).toBe(true);
+        expect(inst instanceof PhoneReports).toBe(true);
     });
 
     it('a scheduled workflow in the embedded definition is a per-installation trigger beside the code\'s own', async () => {
@@ -96,7 +96,7 @@ describe('a code integration embedding a definition', () => {
         def.workflows.push({ id: 'digest', label: 'Digest', default: 'on', trigger: { type: 'schedule', every: '1h' }, steps: [{ id: 'tell', use: 'code', with: { ref: '#notifyTeam', with: { who: 'team' } } }] });
         const { Cls, inst } = setup(def);
         expect(Cls.Definition).toMatchObject({ triggers: { NIGHTLY: { every: '1d' } }, instanceTriggers: { tick: '5m' } });
-        expect((await Cls.triggersFor({ config: { type: 'quo-reports' } })).map((t) => t.name)).toEqual(['NIGHTLY', 'WF_DIGEST']);
+        expect((await Cls.triggersFor({ config: { type: 'phone-reports' } })).map((t) => t.name)).toEqual(['NIGHTLY', 'WF_DIGEST']);
         await inst.initialize();
         const triggers = await inst.triggerDeclarations();
         expect(triggers.map((t) => t.name)).toEqual(['NIGHTLY', 'WF_DIGEST']);
@@ -150,17 +150,17 @@ describe('a code integration embedding a definition', () => {
 
     it('runs the version deployed with the code, whatever an installation pinned before', async () => {
         const { Cls } = setup(embeddedDefinition({ version: '1.1.0' }));
-        const inst = new Cls({ id: 'int1', config: { type: 'quo-reports', definition: { id: 'quo-reports', version: '1.0.0' } } });
+        const inst = new Cls({ id: 'int1', config: { type: 'phone-reports', definition: { id: 'phone-reports', version: '1.0.0' } } });
         await inst.initialize();
         expect(inst.def.version).toBe('1.1.0');
         expect(inst.config.definition.version).toBe('1.1.0');
     });
 
     it('refuses a definition with another id, an invalid one, or a #method the class does not have; a published definition cannot call #methods', () => {
-        expect(() => d.extendIntegrationClass(QuoReports, { definition: { ...embeddedDefinition(), id: 'other' }, manifests })).toThrow('must have the id "quo-reports"');
+        expect(() => d.extendIntegrationClass(PhoneReports, { definition: { ...embeddedDefinition(), id: 'other' }, manifests })).toThrow('must have the id "phone-reports"');
         const bad = embeddedDefinition();
         bad.workflows[0].steps[1].with.ref = '#noSuchMethod';
-        expect(() => d.extendIntegrationClass(QuoReports, { definition: bad, manifests })).toThrow('no method "noSuchMethod"');
+        expect(() => d.extendIntegrationClass(PhoneReports, { definition: bad, manifests })).toThrow('no method "noSuchMethod"');
         expect(d.validate(embeddedDefinition(), manifests).errors.map((e) => e.message).join()).toContain('only a definition embedded in one can');
     });
 

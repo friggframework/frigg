@@ -183,10 +183,10 @@ describe('Integration Webhook Routers', () => {
             );
 
         it("receives a provided type's webhooks at that type's own URL", async () => {
-            const withId = await post('/api/quo-hubspot-integration/webhooks/int-5');
+            const withId = await post('/api/phone-hubspot-integration/webhooks/int-5');
             expect(withId.statusCode).toBe(200);
-            expect(JSON.parse(withId.body)).toEqual({ receivedBy: 'runtime-host', integrationId: 'int-5', type: 'quo-hubspot-integration' });
-            const appLevel = await post('/api/quo-hubspot-integration/webhooks');
+            expect(JSON.parse(withId.body)).toEqual({ receivedBy: 'runtime-host', integrationId: 'int-5', type: 'phone-hubspot-integration' });
+            const appLevel = await post('/api/phone-hubspot-integration/webhooks');
             expect(JSON.parse(appLevel.body)).toMatchObject({ receivedBy: 'runtime-host', integrationId: null });
         });
 

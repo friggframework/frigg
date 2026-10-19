@@ -52,7 +52,7 @@ async function setup({ adminKey = 'admin-secret' } = {}) {
     expect(setDataDefinedRoutes(app, authenticateUser, { getIntegrationInstance, integrationClasses: [Cls] })).toBe(true);
     app.use((err, req, res, next) => res.status(err.status || 500).json({ error: err.message })); // eslint-disable-line no-unused-vars
     const install = (id, userId, config, apis = {}) => { const inst = new Cls({ id, config: { type: 'data-defined', ...config } }); Object.assign(inst, apis); installations.set(id, { inst, userId }); return inst; };
-    const publishAs = (document, key = adminKey) => request(app).post('/api/admin/integrations/versions').set('x-frigg-admin-api-key', key).send({ document });
+    const publishAs = (document, key = adminKey) => request(app).post('/admin/integrations/versions').set('x-frigg-admin-api-key', key).send({ document });
     return { app, repository, catalog, runStore, install, publishAs, Cls };
 }
 
@@ -84,11 +84,11 @@ describe('admin routes: publishing', () => {
     it('history and deprecation', async () => {
         const { app, publishAs } = await setup();
         await publishAs(example('phone-hubspot'));
-        const h = await request(app).get('/api/admin/integrations/phone-hubspot/versions').set('x-frigg-admin-api-key', 'admin-secret');
+        const h = await request(app).get('/admin/integrations/phone-hubspot/versions').set('x-frigg-admin-api-key', 'admin-secret');
         expect(h.body.versions.map((x) => x.version)).toEqual(['1.4.0']);
-        const dep = await request(app).post('/api/admin/integrations/phone-hubspot/versions/1.4.0/deprecate').set('x-frigg-admin-api-key', 'admin-secret');
+        const dep = await request(app).post('/admin/integrations/phone-hubspot/versions/1.4.0/deprecate').set('x-frigg-admin-api-key', 'admin-secret');
         expect(dep.body.version.status).toBe('DEPRECATED');
-        expect((await request(app).post('/api/admin/integrations/phone-hubspot/versions/1.4.0/deprecate').set('x-frigg-admin-api-key', 'admin-secret')).status).toBe(409);
+        expect((await request(app).post('/admin/integrations/phone-hubspot/versions/1.4.0/deprecate').set('x-frigg-admin-api-key', 'admin-secret')).status).toBe(409);
     });
 });
 
