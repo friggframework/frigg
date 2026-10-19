@@ -490,6 +490,8 @@ whose account is its own.
 - Within a retried run, steps are **at-least-once**. If step 3 wrote to HubSpot and step 4 failed, the retry writes
   step 3 again. Idempotent capabilities (upserts, `links.find` before create) are the v0.1 answer.
 - Per-step checkpointing comes after v0.1.
+- A webhook is **verified against the exact bytes the vendor signed, and fails closed**. The HTTP app keeps `req.rawBody`. `onWebhookReceived` queues the method, the public URL (from `x-forwarded-proto`, the host and the original URL) and the raw body, **up to 96 KB**. SQS messages are capped at 256 KB, so a larger body is left out of the message rather than truncated, and a verifier that needs it fails: the delivery is dropped, never accepted unchecked. The same holds when the manifest's `verify` returns anything but `true`, throws, or is marked unimplemented (a delivery to a provider whose signature cannot be checked is rejected, not accepted).
+- **One verification input.** `webhookVerificationInput(data)` gives a code integration's module the same facts the runtime passes to a manifest's `verify`: `headers`, `body`, `query`, `rawBody`, `method` and `url`. It should be the one input for [ADR-054](./054-one-file-integrations.md) contract-2 verifiers (`verify: (req) => { valid, reason }`) too, so that a module's verification code reads one shape on every path and a contract-2 `verify` does not get a second, different request object.
 
 **A schedule fires.** `CRON` → `WF_STALE_CONTACTS`, with no event id, so there is no claim. Steps such as
 `hubspot.contact.search` followed by `foreach` run in the same interpreter.
