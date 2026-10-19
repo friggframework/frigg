@@ -306,8 +306,7 @@
     "topic": "{{body.type}}",
     "eventId": "{{body.id}}",
     "verify": "verifyWebhookSignature",
-    "status": "unimplemented",
-    "note": "The quo Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
+    "note": "Standard Webhooks (current) or the legacy openphone-signature scheme, chosen by header. Implemented in api-module-library 659b90d; needs the module release that includes it."
   },
   "capabilities": {
     "contact.get": {

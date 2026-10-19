@@ -183,8 +183,7 @@
     ],
     "account": "{{body.organizationId}}",
     "verify": "verifyWebhookSignature",
-    "status": "unimplemented",
-    "note": "The linear Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
+    "note": "Linear-Signature HMAC of the raw body, webhookTimestamp within 60 s. Implemented in api-module-library 659b90d; needs the module release that includes it."
   },
   "capabilities": {
     "issue.get": {

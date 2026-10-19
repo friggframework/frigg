@@ -150,6 +150,21 @@ describe('on the shared deployment', () => {
     });
 });
 
+describe('verifying a delivery', () => {
+    it("hands the module's verify the raw body, method and URL the delivery carried, and rejects when it says no", async () => {
+        const Cls = await resolveIntegrationClass([host()], 'quo-hubspot');
+        const inst = new Cls({ id: 'int9', config: { type: 'quo-hubspot', definition: { id: 'quo-hubspot', version: '1.4.0' } } });
+        const seen = [];
+        inst.hubspot = { api: { verifyWebhookSignature: async (input) => { seen.push(input); return false; } }, entity: { externalId: '1944396' } };
+        inst.quo = { api: {} };
+        await inst.initialize();
+        const out = await inst.onWebhook({ data: { body: [{ portalId: 1944396, objectId: 5, subscriptionType: 'contact.creation' }], rawBody: '[{"portalId":1944396}]', method: 'POST', url: 'https://x/api/quo-hubspot-integration/webhooks/int9?module=hubspot', headers: { 'x-hubspot-signature-v3': 's' }, query: { module: 'hubspot' } } });
+        expect(out).toMatchObject({ rejected: true, routed: 0 });
+        expect(seen[0]).toMatchObject({ rawBody: '[{"portalId":1944396}]', method: 'POST', url: 'https://x/api/quo-hubspot-integration/webhooks/int9?module=hubspot', headers: { 'x-hubspot-signature-v3': 's' } });
+        expect(inst.queue).toEqual([]);
+    });
+});
+
 describe('the same routes for every integration', () => {
     function app(inst) {
         const a = express();

@@ -12,8 +12,11 @@ const log = getLogger('frigg.http');
 const createApp = (applyMiddleware) => {
     const app = express();
 
-    app.use(bodyParser.json({ limit: '10mb' }));
-    app.use(bodyParser.urlencoded({ extended: true }));
+    // Keep the bytes as received: webhook signatures (HubSpot, Slack, Stripe, Linear…) are computed over the exact
+    // raw body, which re-serialising the parsed body does not reproduce. A reference to the buffer, not a copy.
+    const keepRaw = (req, res, buf) => { req.rawBody = buf; };
+    app.use(bodyParser.json({ limit: '10mb', verify: keepRaw }));
+    app.use(bodyParser.urlencoded({ extended: true, verify: keepRaw }));
     app.use(
         cors({
             origin: '*',

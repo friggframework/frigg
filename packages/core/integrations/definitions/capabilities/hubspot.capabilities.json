@@ -388,8 +388,7 @@
     "eventId": "{{item.eventId}}",
     "account": "{{item.portalId}}",
     "verify": "verifyWebhookSignature",
-    "status": "unimplemented",
-    "note": "The hubspot Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
+    "note": "HubSpot v3: X-HubSpot-Signature-v3 over method + URL + raw body + timestamp, 5 minutes. Needs the public URL and method (the runtime passes them). Implemented in api-module-library 659b90d; needs the module release that includes it."
   },
   "capabilities": {
     "contact.get": {

@@ -242,8 +242,7 @@
       "{{body.meta.entity}}:{{body.data.id}}:{{body.meta.timestamp}}"
     ],
     "verify": "verifyWebhookSignature",
-    "status": "unimplemented",
-    "note": "The pipedrive Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
+    "note": "Pipedrive does not sign bodies: HTTP Basic credentials configured on the webhook are checked. Implemented in api-module-library 659b90d; needs the module release that includes it."
   },
   "capabilities": {
     "person.get": {

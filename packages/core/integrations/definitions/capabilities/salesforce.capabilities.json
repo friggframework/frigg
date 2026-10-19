@@ -323,7 +323,7 @@
     "eventId": "{{body.id}}",
     "verify": "verifyWebhookSignature",
     "status": "unimplemented",
-    "note": "The salesforce Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
+    "note": "Not a webhook: change-data-capture events arrive over the Pub/Sub or CometD stream the module opens itself, and Salesforce Outbound Messages are unsigned (check OrganizationId plus an IP allowlist). Stays unimplemented, so a delivery here is rejected, never accepted unchecked."
   },
   "capabilities": {
     "lead.get": {

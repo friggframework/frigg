@@ -247,7 +247,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             if (embedded && !ownsWebhooks(this.def)) return super.onWebhook(params);
             const { data = {} } = params || {};
             if (data.module && data.topic) return this.routeEvents(data.module, [{ topic: data.topic, event: data.body, eventId: data.eventId || data.body?.id || null }]);
-            const delivery = { body: data.body, headers: data.headers || {}, query: data.query || {} };
+            const delivery = { body: data.body, headers: data.headers || {}, query: data.query || {}, rawBody: data.rawBody, method: data.method, url: data.url };
             // No installation yet (an app-level webhook): find the ones it is for.
             if (!this.id || !this.def) return this.fanOutAppWebhook(delivery);
 
@@ -257,7 +257,8 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             const manifest = manifests[this.def.modules[key].module];
             if (manifest.webhook?.verify) {
                 let ok = false;
-                try { ok = await this.moduleFor(key).api[manifest.webhook.verify]({ headers: delivery.headers, body: delivery.body, query: delivery.query }); } catch { ok = false; }
+                // The raw body, method and URL travel from receipt (IntegrationBase.onWebhookReceived): vendors sign bytes.
+                try { ok = await this.moduleFor(key).api[manifest.webhook.verify]({ headers: delivery.headers, body: delivery.body, query: delivery.query, rawBody: delivery.rawBody, method: delivery.method, url: delivery.url }); } catch { ok = false; }
                 if (ok !== true) { this.logWebhook('webhook.rejected', { module: key }); return { routed: 0, rejected: true }; }
             }
             const own = this.accountOf(key);
@@ -284,7 +285,7 @@ function makeClass({ name, defaultId, definitions, manifests, runCode, Integrati
             let queued = 0;
             for (const account of accounts) {
                 for (const integrationId of await findInstallations(account, moduleName, this.constructor)) {
-                    await this.queueWebhook({ integrationId, body: delivery.body, headers: delivery.headers, query: delivery.query });
+                    await this.queueWebhook({ integrationId, body: delivery.body, headers: delivery.headers, query: delivery.query, rawBody: delivery.rawBody, method: delivery.method, url: delivery.url });
                     queued += 1;
                 }
             }

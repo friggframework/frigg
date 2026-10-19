@@ -143,8 +143,7 @@
     "topic": "meeting.ready",
     "eventId": "{{body.recording_id}}",
     "verify": "verifyWebhookSignature",
-    "status": "unimplemented",
-    "note": "The fathom Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
+    "note": "Standard Webhooks: webhook-id, webhook-timestamp, webhook-signature (v1), 300 s. Implemented in api-module-library 659b90d; needs the module release that includes it."
   },
   "capabilities": {
     "meeting.list": {

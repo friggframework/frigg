@@ -152,8 +152,7 @@
         "X-Hook-Secret": "$.headers.x-hook-secret"
       }
     },
-    "status": "unimplemented",
-    "note": "The asana Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
+    "note": "X-Hook-Signature: HMAC-SHA256 of the raw body keyed with the handshake secret (per installation). Implemented in api-module-library 659b90d; needs the module release that includes it."
   },
   "capabilities": {
     "task.get": {

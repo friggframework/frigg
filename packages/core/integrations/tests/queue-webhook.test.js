@@ -107,3 +107,42 @@ describe('IntegrationBase.queueWebhook', () => {
         expect(message.data).toEqual({ integrationId: 'int-1' });
     });
 });
+
+describe('IntegrationBase.onWebhookReceived: what a signature check needs travels with the delivery', () => {
+    beforeEach(() => { mockSend.mockReset(); mockSend.mockResolvedValue({}); process.env.TEST_INTEGRATION_QUEUE_URL = 'https://sqs/test'; });
+    const res = () => ({ status: jest.fn().mockReturnThis(), json: jest.fn() });
+    const req = (over = {}) => ({
+        method: 'POST', originalUrl: '/api/test-integration/webhooks/int-1?module=hubspot', params: { integrationId: 'int-1' }, query: { module: 'hubspot' },
+        headers: { host: 'api.example.com', 'x-forwarded-proto': 'https', 'x-hubspot-signature-v3': 'sig' }, body: [{ objectId: 5 }],
+        rawBody: Buffer.from('[ {"objectId":5} ]'), ...over,
+    });
+
+    it('queues the raw body exactly as received, the method and the public URL', async () => {
+        await new TestIntegration().onWebhookReceived({ req: req(), res: res() });
+        const [message] = mockSend.mock.calls[0];
+        expect(message.data).toMatchObject({ integrationId: 'int-1', body: [{ objectId: 5 }], method: 'POST', url: 'https://api.example.com/api/test-integration/webhooks/int-1?module=hubspot', rawBody: '[ {"objectId":5} ]' });
+    });
+
+    it('leaves out a raw body over 96 KB (the queue message limit), so a check that needs it fails closed', async () => {
+        const big = 'x'.repeat(96 * 1024 + 1);
+        await new TestIntegration().onWebhookReceived({ req: req({ rawBody: Buffer.from(big), headers: { host: 'h' } }), res: res() });
+        const [message] = mockSend.mock.calls[0];
+        expect(message.data.rawBody).toBeUndefined();
+        expect(message.data.url).toBe('https://h/api/test-integration/webhooks/int-1?module=hubspot');   // https unless told otherwise
+    });
+
+    it('webhookVerificationInput hands a module exactly those facts', () => {
+        expect(new TestIntegration().webhookVerificationInput({ headers: { a: 1 }, body: { b: 2 }, rawBody: 'r', method: 'POST', url: 'u' })).toEqual({ headers: { a: 1 }, body: { b: 2 }, query: {}, rawBody: 'r', method: 'POST', url: 'u' });
+    });
+});
+
+describe('the HTTP app keeps the raw body for webhook checks', () => {
+    it('req.rawBody holds the bytes as sent, beside the parsed body', async () => {
+        const request = require('supertest');
+        const { createApp } = require('../../handlers/app-handler-helpers');
+        let seen;
+        const app = createApp((a) => a.post('/hook', (r, s) => { seen = { raw: r.rawBody?.toString('utf8'), body: r.body }; s.json({}); }));
+        await request(app).post('/hook').set('content-type', 'application/json').send('{ "a" :1 }');
+        expect(seen).toEqual({ raw: '{ "a" :1 }', body: { a: 1 } });
+    });
+});

@@ -29,7 +29,8 @@ the Api's methods can be read. Roots are searched in order and the first module 
   `runtime.js` `argumentsFor` spreads them. An input that is declared but never passed is refused by the manifest check,
   because it would be accepted and silently dropped.
 - **Webhook verification.** Every manifest names `verifyWebhookSignature`. No real module has it (only clio, which has no
-  manifest). Each real module's `webhook` block is marked `"status": "unimplemented"`, and a workflow that triggers on
+  manifest). Each real module's `webhook` block was marked `"status": "unimplemented"`; since api-module-library
+  659b90d eight of them verify signatures (Salesforce has no signed webhook and stays unimplemented), and a workflow that triggers on
   its events validates with a warning: every delivery would fail signature verification.
 
 ## Summary
@@ -81,7 +82,7 @@ Checked against `~/api-module-library/packages/v1-ready/asana` (@friggframework/
 | `workspace.list` | `listWorkspaces` | ok | `listWorkspaces()` | (method was `getWorkspaces`) |
 | `webhook.create` | `createWebhook` | unimplemented | none | Api has no webhook methods. |
 | `webhook.delete` | `deleteWebhook` | unimplemented | none | Api has no webhook methods. |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The asana Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## Calendly (`calendly`)
 
@@ -121,7 +122,7 @@ Checked against `~/api-module-library/packages/v1-ready/fathom` (@friggframework
 | `meeting.transcript` | `getTranscript` | ok | `getTranscript(recordingId, params = {})` | (method was `getRecordingTranscript`; called with one object; now positional) |
 | `webhook.create` | `createWebhook` | ok | `createWebhook(data)` |  |
 | `webhook.delete` | `deleteWebhook` | unimplemented | none | Api has createWebhook but no deleteWebhook. |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The fathom Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## GitHub (`github`)
 
@@ -166,7 +167,7 @@ Checked against `~/api-module-library/packages/v1-ready/hubspot` (@friggframewor
 | `owner.findByEmail` | `getOwnerByEmail` | unimplemented | none | Api has getOwnerById only. |
 | `subscription.definitions` | `listSubscriptionDefinitions` | unimplemented | none | Api has no email subscription methods. |
 | `subscription.unsubscribe` | `unsubscribeEmail` | unimplemented | none | Api has no email subscription methods. |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The hubspot Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## Jira Cloud (`jira`)
 
@@ -225,7 +226,7 @@ Checked against `~/api-module-library/packages/v1-ready/linear` (@friggframework
 | `attachment.link` | `attachmentLinkURL` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
 | `team.list` | `teams` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
 | `workflowState.list` | `workflowStates` | unimplemented | none | Api exposes getClient() (a @linear/sdk LinearClient) plus getUsers, getProjects and getUserIssues; issues, comments, attachments, teams and workflow states are reached through the SDK client, not Api methods. |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The linear Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## NetSuite (`netsuite`)
 
@@ -280,7 +281,7 @@ Checked against `~/quo--frigg/backend/node_modules/@friggframework/api-module-pi
 | `user.list` | `listUsers` | ok | `listUsers()` | (method was `getUsers`) |
 | `webhook.create` | `createWebhook` | ok | `createWebhook(params)` | (method was `addWebhook`) |
 | `webhook.delete` | `deleteWebhook` | ok | `deleteWebhook(webhookId)` | (called with one object; now positional) |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The pipedrive Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## QuickBooks Online (`quickbooks`)
 
@@ -323,7 +324,7 @@ Checked against `~/quo--frigg/backend/src/api-modules/quo` (@lefthook/api-module
 | `user.list` | `listUsers` | ok | `listUsers(params = {})` |  |
 | `webhook.create` | `createUnifiedWebhook` | ok | `createUnifiedWebhook(data)` | (method was `createWebhook`) |
 | `webhook.delete` | `deleteWebhook` | ok | `deleteWebhook(id)` | (called with one object; now positional) |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The quo Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## Salesforce (`salesforce`)
 
@@ -343,7 +344,7 @@ Checked against `~/api-module-library/packages/v1-ready/salesforce` (@friggframe
 | `file.attach` | `createContentVersion` | unimplemented | none | Api has the generic create(object, data) only; ContentVersion field names differ from this capability's inputs. |
 | `note.create` | `createContentNote` | unimplemented | none | Api has the generic create(object, data) only; ContentNote field names differ from this capability's inputs. |
 | `user.list` | `listUsers` | unimplemented | none | Api has find(object, filter) but no user listing with an activeOnly filter. |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The salesforce Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | Not a webhook: CDC arrives over the Pub/Sub or CometD stream; Outbound Messages are unsigned (OrganizationId + IP allowlist). Deliveries are rejected. |
 
 ## Shopify (`shopify`)
 
@@ -381,7 +382,7 @@ Checked against `~/api-module-library/packages/needs-updating/slack` (@friggfram
 | `channel.list` | `listChannels` | ok | `listChannels(query)` | (method was `listConversations`) |
 | `user.list` | `listUsers` | unimplemented | none | Api has lookupUserByEmail, getUserById and getUserProfileById, but no user listing. |
 | `user.lookupByEmail` | `lookupUserByEmail` | ok | `lookupUserByEmail(email)` | (called with one object; now positional) |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The slack Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## Stripe (`stripe`)
 
@@ -398,7 +399,7 @@ Checked against `~/api-module-library/packages/v1-ready/stripe` (@friggframework
 | `refund.get` | `retrieveRefund` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
 | `payout.list` | `listPayouts` | unimplemented | none | Api wraps balance transactions, charges, accounts and webhook endpoints only; customers, payment intents, refunds and payouts are not exposed. |
 | `balanceTransaction.list` | `getBalanceTransactions` | ok | `getBalanceTransactions(params)` | (method was `listBalanceTransactions`) |
-| `webhook.verify` | `verifyWebhookSignature` | unimplemented | | The stripe Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one. |
+| `webhook.verify` | `verifyWebhookSignature` | ok (unreleased) | `verifyWebhookSignature({ headers, body, rawBody, method?, url?, now? })` | Implemented in api-module-library 659b90d per the vendor's signing docs; needs the release that includes it. |
 
 ## Tidewater (`tidewater`)
 

@@ -207,8 +207,7 @@
         "challenge": "$.body.challenge"
       }
     },
-    "status": "unimplemented",
-    "note": "The slack Api has no verifyWebhookSignature method; webhook signatures cannot be checked until the module adds one."
+    "note": "Slack signing secret: v0 HMAC over v0:timestamp:raw body, 5 minutes. Implemented in api-module-library 659b90d; needs the module release that includes it."
   },
   "capabilities": {
     "message.post": {

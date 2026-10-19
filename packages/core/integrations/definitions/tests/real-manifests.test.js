@@ -117,15 +117,17 @@ describe('unimplemented capabilities are a warning in the definition, never an e
 
     it('a trigger on a module whose webhook verification is unimplemented warns once per trigger', () => {
         const def = example('quo-hubspot');
-        const w = warningsOf(def).filter((x) => /fails signature verification|fail signature verification/.test(x));
+        // Mark HubSpot's verification unimplemented in a copy: the bundled manifests now verify (api-module-library).
+        const unverified = clone(manifests);
+        unverified.hubspot.webhook.status = 'unimplemented';
+        unverified.hubspot.webhook.note = 'The hubspot Api has no verifyWebhookSignature method; webhook signatures cannot be checked.';
+        const w = d.validate(def, unverified).warnings.map((x) => x.message).filter((x) => /fail(s)? signature verification/.test(x));
         expect(w.length).toBeGreaterThan(0);
         expect(w[0]).toMatch(/verifyWebhookSignature method, so every delivery fails signature verification/);
-        // A manifest that does verify has no such warning.
-        const ok = clone(manifests);
-        delete ok.quo.webhook.status;
-        delete ok.quo.webhook.note;
-        const quoOnly = d.validate(def, ok).warnings.filter((x) => /signature verification/.test(x.message) && /quo/.test(x.message));
-        expect(quoOnly).toEqual([]);
+        // The bundled manifests verify both modules: no such warning.
+        expect(d.validate(def, manifests).warnings.filter((x) => /signature verification/.test(x.message))).toEqual([]);
+        // Salesforce has no signed webhook and stays unimplemented, so a delivery there is rejected, never accepted.
+        expect(manifests.salesforce.webhook.status).toBe('unimplemented');
     });
 
     it('every bundled manifest validates, and every unimplemented one says why', () => {
