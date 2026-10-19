@@ -550,7 +550,7 @@ had no `runtime`, so a query reading an install result silently got nothing.
 
 Schedule-triggered workflows and polling syncs run on a host schedule of their own, one per installation. Recurring
 jobs are not specific to data-defined integrations, so the mechanism is in core and a hand-written integration uses
-the same one (Quo's crons, for example, which are set by hand per integration today):
+the same one (the crons that some integrations set by hand today, for example):
 
 ```js
 static Definition = {
@@ -582,6 +582,8 @@ integration's queue, so the existing queue worker hydrates the installation and 
 tick runs once, because `tick:<event>:<scheduledFor>` is the workflow's dedupe id. Taking configurability away is a
 major change. An upgrade keeps a choice only where the new version still allows it, and otherwise reports a
 `reschedule` action.
+
+**This design is being reworked to follow ADR-055.** The review of this change requires [ADR-055](./055-recurring-triggers.md) to govern recurring work. ADR-055 declares recurrence as `Definition.triggers`, provisions one schedule per integration, and has the framework fan out at each tick to the `ENABLED` installations that are due. No per-installation schedule exists. This section does the opposite on that last point: one host schedule per installation, reconciled by `syncSchedules()`. The rework changes the declaration (`Definition.triggers`) and replaces the per-installation host schedules with a tick and a due check. The Port, Adapters, Commands and Lifecycle rows above describe what this change builds, not the target, and the schedule names and `config.runtime.schedules` record may change with it. The code change is a separate task. A definition's `schedule` triggers and polling syncs reach the same mechanism, so they follow ADR-055 as well.
 
 Ticks for an installation that is not `ENABLED` are discarded by the queue worker, as one-time jobs already are.
 Pausing the host schedule when the status changes is not done yet. Changing status does not go through `onUpdate`,
@@ -639,7 +641,7 @@ code-defined classes; this is the answer only where the class is the shared inte
 |---|---|
 | Lambda module-scope caching | Nothing version-specific is read at module scope. The definition is fetched when an installation is hydrated for an event and cached by `id@version`, so one warm Lambda serves several versions at once and a publish needs no deploy |
 | In-flight SQS jobs | Every message carries `definitionVersion`, and `dispatch` runs it on that version: ADR-030's "dispatch by the payload's declared version" |
-| EventBridge Scheduler entries | The rule: a scheduled run carries no version and runs on the installation's current pin, because a schedule belongs to the installation, not to the version that created it. `compile` produces each installation's `schedules`, so an upgrade that changes a cron yields a different list. **Registering that list is not built in v0.1** (§19), so this row is the contract for when it is |
+| EventBridge Scheduler entries | The rule: a scheduled run carries no version and runs on the installation's current pin, because a schedule belongs to the installation, not to the version that created it. `compile` produces each installation's `schedules`, so an upgrade that changes a cron yields a different list. **Registering that list is built here** (§15a): one host schedule per installation, reconciled on create, update and delete. This row is how an upgrade interacts with it |
 | Signed webhook URLs | URLs are per installation, not per version, so an upgrade re-registers nothing. Only a change to `lifecycle.onInstall` re-runs install, and `planUpgrade` lists that as a `reinstall` action |
 | Rollback | Moving the pin back is a config write (ADR-030's Path C behaviour). An identity change still needs links rebuilt in both directions, and `planUpgrade` says so |
 | Global routing / edge | Unchanged: routing is by installation id, and the version is resolved at the origin from the record |
