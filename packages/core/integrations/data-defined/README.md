@@ -26,6 +26,7 @@ installation (Integration.config)         ─┘                          │
 | `validate.js` | Structure + cross-references against the manifests (steps, templates, views, settings, `$.install`) |
 | `manifests.js` | `validateManifest`: the manifests themselves (kinds, option lists, account fields) |
 | `compile.js` | Definition + installation → events, webhook routes, recurring triggers, user actions |
+| `sync-engine.js` | Syncs: link → identity → search → create/update, master rules, backfill pages, polls |
 | `runtime.js` | Ports (Api calls, link store), `runWorkflow`, `runQuery`, `renderSurface`, `runLifecycle`, `resolveOptions`, `installContext` |
 | `versioning.js` | `diff`, `checkBump`, `planUpgrade` |
 | `data-defined-integration.js` | `defineIntegrationClass`: the IntegrationBase subclass that runs it all |
@@ -96,6 +97,13 @@ different document at the same version is refused. So is a version that is not n
 semver bump smaller than the changes. Publishing goes through a conditional write, so two concurrent publishes of one
 version cannot both win. With `memoryDefinitions()` (definitions bundled in the app) the admin routes answer 501.
 
+## Syncs
+
+`sync-engine.js` runs `syncs`: backfill (a button or `onInstall`, one queued page per message, progress at
+`GET /api/integrations/:id/syncs`), webhook or polling updates, both directions for `two_way`, per-field `master`
+rules, and echo suppression. How each object is listed, fetched, searched and written is declared once in its
+manifest (`objects.<obj>.sync`); ADR-063 §15b has the rules.
+
 ## Schedules
 
 A schedule-triggered workflow or a polling sync is a recurring trigger (ADR-055), the same mechanism hand-written
@@ -105,9 +113,13 @@ every ENABLED installation's pinned definition with its config and queues the ru
 `configurable` to let installations pick their own timing, optionally with a floor:
 
 ```json
-"trigger": { "type": "schedule", "cron": "0 16 * * 1-5", "timezone": "America/New_York", "configurable": { "min": "1h" } }
-"ongoing": { "mode": "poll", "every": "15m", "configurable": true }
+{
+  "trigger": { "type": "schedule", "cron": "0 16 * * 1-5", "timezone": "America/New_York", "configurable": { "min": "1h" } },
+  "ongoing": { "mode": "poll", "every": "15m", "configurable": true }
+}
 ```
+
+(`trigger` belongs to a workflow, `ongoing` to a sync.)
 
 The choice goes in `workflows.<id>.schedule` / `syncs.<id>.schedule` (the configure form offers the field). An
 interval runs on whole multiples of the 5-minute tick; a cron runs on the first tick after it fires. Create, update,
@@ -116,7 +128,12 @@ upgrade and delete need no scheduler call: the next tick reads the new state. A 
 
 ## Steps (v0.1)
 
-Built-ins: `links.find`, `links.upsert`, `map`, `merge`, `template`, `set`, `stop`, `foreach` (≤1000), `branch`, `code`.
+Built-ins: `links.find`, `links.upsert`, `map`, `merge`, `template`, `set`, `stop`, `foreach` (≤1000), `branch`, `code`,
+and the pausing steps `delay` and `approval`.
+
+- `delay` (`for: '2h'` or `until`) and `approval` (`prompt`, `approvers`, `timeout`, `onTimeout`) end the run for now with
+  status `waiting` and carry it on later from the next step (ADR-063 §15c). Top level of a workflow only. Decide with
+  `POST /api/integrations/:id/runs/:runId/decision`; pending ones are `GET …/runs?status=waiting`.
 
 - `map` rows read a `source` field or write a fixed `value` (`{ "target": "Line[0].DetailType", "value": "SalesItemLineDetail" }`).
 - `merge` deep-merges objects (later wins, lists replaced).
@@ -178,8 +195,7 @@ CLI as a child process; it fails, rather than skips, if `ajv` is missing. Core's
 
 ## Not in v0.1
 
-- The sync engine (backfill pages, ongoing deltas, two-way master rules) — specified by the schema, to be executed by
-  the existing `SYNC_PAGE` pattern. `runSync` throws until then.
-- `delay` / wait steps, approvals that pause a run, and per-tenant rate limits.
+- Per-module rate limits.
 - The host renderers (the HubSpot app extension and Phone panel that draw `renderSurface` output).
-- Rebuilding `link:` / `idx:` rows after an identity change; `planUpgrade` reports it as `relink` / `reindex`.
+- Rebuilding a link set's (`links`, not a sync's) identity index after its keys change: it has no backfill to
+  rebuild from, so `planUpgrade` reports `reindex`. A sync's `relink` is done by a backfill.

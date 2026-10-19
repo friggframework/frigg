@@ -7,6 +7,7 @@ const { prisma } = require('../../../database/prisma');
 class WorkflowRunRepositoryMongo {
     constructor({ client } = {}) { this.prisma = client || prisma; }
     toId(id) { return String(id); }
+    toRowId(id) { return String(id); }
     toRow(r) { return r ? { ...r, id: String(r.id), integrationId: String(r.integrationId) } : null; }
 
     async createRun(run) {
@@ -15,9 +16,24 @@ class WorkflowRunRepositoryMongo {
                 integrationId: this.toId(run.integrationId), definitionId: run.definitionId, definitionVersion: run.definitionVersion,
                 workflowId: run.workflowId, triggerType: run.triggerType, eventId: run.eventId ?? null, status: run.status,
                 reason: run.reason ?? null, error: run.error ?? null, retryable: Boolean(run.retryable), trace: run.trace || [],
+                runKey: run.runKey ?? null, waitingFor: run.waitingFor ?? null, resumeAt: run.resumeAt ? new Date(run.resumeAt) : null,
                 startedAt: new Date(run.startedAt), endedAt: run.endedAt ? new Date(run.endedAt) : null,
             },
         }));
+    }
+
+    /** One run of an installation, by the runtime's run id. */
+    async findRun(integrationId, runKey) {
+        return this.toRow(await this.prisma.workflowRun.findFirst({ where: { integrationId: this.toId(integrationId), runKey: String(runKey) }, orderBy: { startedAt: 'desc' } }));
+    }
+
+    /** Update a run by its row id (a paused run finishing, or pausing again). Only the given fields change. */
+    async updateRun(id, data) {
+        const fields = {};
+        for (const k of ['status', 'reason', 'error', 'retryable', 'trace', 'waitingFor']) if (k in data) fields[k] = data[k] ?? (k === 'trace' ? [] : null);
+        if ('resumeAt' in data) fields.resumeAt = data.resumeAt ? new Date(data.resumeAt) : null;
+        if ('endedAt' in data) fields.endedAt = data.endedAt ? new Date(data.endedAt) : null;
+        return this.toRow(await this.prisma.workflowRun.update({ where: { id: this.toRowId(id) }, data: fields }));
     }
 
     /** Newest first. `before` pages by startedAt. */
@@ -41,6 +57,11 @@ class WorkflowRunRepositoryPostgres extends WorkflowRunRepositoryMongo {
     toId(id) {
         const n = Number.parseInt(id, 10);
         if (Number.isNaN(n)) throw new Error(`Invalid integration id: ${id}`);
+        return n;
+    }
+    toRowId(id) {
+        const n = Number.parseInt(id, 10);
+        if (Number.isNaN(n)) throw new Error(`Invalid run id: ${id}`);
         return n;
     }
 }

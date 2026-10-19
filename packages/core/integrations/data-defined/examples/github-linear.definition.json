@@ -127,7 +127,13 @@
       "ongoing": {
         "mode": "webhook"
       },
-      "default": "on"
+      "default": "on",
+      "args": {
+        "github": {
+          "owner": "{{install.repo | split: '/' | first}}",
+          "repo": "{{install.repo | split: '/' | last}}"
+        }
+      }
     }
   ],
   "workflows": [

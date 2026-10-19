@@ -232,6 +232,13 @@
               "off"
             ],
             "default": "on"
+          },
+          "args": {
+            "type": "object",
+            "description": "Extra arguments for every call to a side's module, by module key: { \"github\": { \"owner\": \"$.install.owner\", \"repo\": \"$.install.repo\" } }. Values read only $.install.",
+            "additionalProperties": {
+              "type": "object"
+            }
           }
         }
       }
@@ -520,7 +527,7 @@
         },
         "use": {
           "type": "string",
-          "description": "A built-in (links.find, links.upsert, map, merge, template, set, stop, foreach, branch, code) or <moduleKey>.<object>.<verb> declared by that module's capability manifest."
+          "description": "A built-in (links.find, links.upsert, map, merge, template, set, stop, foreach, branch, code, and the pausing steps delay and approval, which only a workflow's top level may use) or <moduleKey>.<object>.<verb> declared by that module's capability manifest."
         },
         "with": {
           "type": "object",

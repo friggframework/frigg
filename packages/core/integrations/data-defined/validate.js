@@ -10,10 +10,10 @@
  * @param {Record<string, object>} manifests  manifest name -> manifest (capabilities/*.capabilities.json)
  * @returns {{ valid: boolean, errors: Array<{path:string,message:string}>, warnings: Array<{path:string,message:string}> }}
  */
-const { BUILTINS, isBuiltin, splitCapability } = require('./steps');
+const { BUILTINS, PAUSING, isBuiltin, splitCapability } = require('./steps');
 const { parseCondition, referencedPaths, templateTags, FILTERS } = require('./expressions');
 const { TRANSFORMS: TRANSFORM_FNS } = require('./transforms');
-const { validateRecurrence } = require('../../infrastructure/scheduler/recurrence');
+const { validateRecurrence, parseEvery } = require('../../infrastructure/scheduler/recurrence');
 
 const ID = /^[a-z][a-z0-9-]*$/;
 const SEMVER = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
@@ -163,6 +163,30 @@ function validate(def, manifests = {}) {
             const hasEvents = (k, o) => Object.values(manifestOf[k]?.events || {}).some((e) => e.object === o);
             if (manifestOf[src.k] && !hasEvents(src.k, src.o)) warn(`${p}.ongoing`, `${s.source} declares no webhook events; ongoing sync will need polling`);
         }
+        // What the sync engine needs from each side's manifest (objects.<obj>.sync).
+        const specOf = (r) => manifestOf[r.k]?.objects?.[r.o]?.sync;
+        const sides = s.direction === 'two_way' ? [[src, tgt, s.source], [tgt, src, s.target]] : [[src, tgt, s.source]];
+        for (const [from, to, fromName] of sides) {
+            const fs = specOf(from), ts = specOf(to);
+            if (!manifestOf[from.k] || !manifestOf[to.k]) continue;
+            const toName = `${to.k}.${to.o}`;
+            if (!fs) { err(`${p}.${from === src ? 'source' : 'target'}`, `${fromName} declares no sync block (objects.${from.o}.sync), so it cannot be read`); continue; }
+            if (!ts) { err(`${p}.${to === tgt ? 'target' : 'source'}`, `${toName} declares no sync block (objects.${to.o}.sync), so it cannot be written`); continue; }
+            if (!ts.create && !ts.update) err(`${p}.${to === tgt ? 'target' : 'source'}`, `${toName} has neither sync.create nor sync.update`);
+            if ((s.backfill?.trigger || 'none') !== 'none' && !fs.list && from === src) err(`${p}.backfill`, `A backfill pages through ${fromName}, which has no sync.list`);
+            // A two-way backfill also reads the target when it can list; when it cannot, it reads only the source.
+            if (s.ongoing?.mode === 'poll' && !fs.list?.since) err(`${p}.ongoing`, `Polling ${fromName} needs sync.list with a modified-since argument`);
+            if (s.ongoing?.mode === 'webhook') {
+                for (const [topic, e] of Object.entries(manifestOf[from.k].events || {})) if (e.object === from.o && e.recordId && !fs.get) err(`${p}.ongoing`, `${from.k} event "${topic}" carries only an id and ${fromName} has no sync.get`);
+            }
+        }
+        for (const [k, args] of Object.entries(s.args || {})) {
+            if (k !== src.k && k !== tgt.k) err(`${p}.args.${k}`, `"${k}" is neither side of this sync`);
+            for (const [a, v] of Object.entries(args || {})) {
+                if (referencedPaths(v).some((r) => !r.startsWith('$.install'))) err(`${p}.args.${k}.${a}`, 'A sync argument can read only $.install (integration settings and accounts)');
+                else checkRefs(v, `${p}.args.${k}.${a}`, null);
+            }
+        }
         if (s.ongoing?.mode === 'poll') checkSchedule({ every: s.ongoing.every || '15m' }, s.ongoing.configurable, `${p}.ongoing`);
         else if (s.ongoing?.configurable) err(`${p}.ongoing.configurable`, 'Only a polling sync has an interval to configure');
         if (s.filter) checkCondition(s.filter, `${p}.filter`);
@@ -220,17 +244,31 @@ function validate(def, manifests = {}) {
             const args = st.with || {};
             if (st.use === 'foreach') {
                 checkRefs(args.over, `${p}.with.over`, scope);
-                const inner = { ...scope, steps: new Set(scope.steps), declared: new Set(), inLoop: true };
+                const inner = { ...scope, steps: new Set(scope.steps), declared: new Set(), inLoop: true, canPause: false };
                 if (args.where) { checkCondition(args.where, `${p}.with.where`); checkRefs(args.where, `${p}.with.where`, inner); }
                 if (!st.do && !('collect' in args)) err(p, 'foreach needs do steps, collect, or both');
                 if (st.do) checkSteps(st.do, `${p}.do`, inner);
                 if ('collect' in args) checkRefs(args.collect, `${p}.with.collect`, inner);
                 if (args.max != null && !(Number.isInteger(args.max) && args.max > 0 && args.max <= 1000)) err(`${p}.with.max`, 'A whole number from 1 to 1000');
             } else if (st.use === 'branch') {
-                (st.cases || []).forEach((c, j) => { checkCondition(c.when, `${p}.cases[${j}].when`); checkRefs(c.when, `${p}.cases[${j}].when`, scope); checkSteps(c.do, `${p}.cases[${j}].do`, { ...scope, steps: new Set(scope.steps) }); });
-                if (st.else) checkSteps(st.else, `${p}.else`, { ...scope, steps: new Set(scope.steps) });
+                (st.cases || []).forEach((c, j) => { checkCondition(c.when, `${p}.cases[${j}].when`); checkRefs(c.when, `${p}.cases[${j}].when`, scope); checkSteps(c.do, `${p}.cases[${j}].do`, { ...scope, steps: new Set(scope.steps), canPause: false }); });
+                if (st.else) checkSteps(st.else, `${p}.else`, { ...scope, steps: new Set(scope.steps), canPause: false });
             } else if (isBuiltin(st.use)) {
                 checkRefs(args, `${p}.with`, scope);
+                if (PAUSING.has(st.use)) {
+                    // A pause is a checkpoint at a step index, so it lives at the top level of a workflow only.
+                    if (!scope.canPause) err(p, `${st.use} can only be a top-level step of a workflow (not inside foreach or branch, a query or a lifecycle hook)`);
+                    if (!st.id) err(p, `${st.use} needs an id: later steps read its result as $.steps.<id>`);
+                    const literalDuration = (v, q) => { if (typeof v === 'string' && !v.includes('$.') && !v.includes('{{') && parseEvery(v) === null) err(q, `"${v}" is not a duration (15m, 2h, 3d)`); };
+                    if (st.use === 'delay') {
+                        if (('for' in args) === ('until' in args)) err(`${p}.with`, 'delay takes for (a duration) or until (a time), exactly one');
+                        literalDuration(args.for, `${p}.with.for`);
+                    } else {
+                        literalDuration(args.timeout, `${p}.with.timeout`);
+                        if (args.onTimeout !== undefined && !['reject', 'approve', 'stop'].includes(args.onTimeout)) err(`${p}.with.onTimeout`, 'reject, approve or stop');
+                        if (!args.prompt) err(`${p}.with.prompt`, 'Say what is being approved');
+                    }
+                }
                 if (st.use.startsWith('links.')) {
                     const isLink = 'link' in args;
                     if (isLink === ('sync' in args)) err(`${p}.with`, `${st.use} names a link set (link) or a sync (sync), exactly one`);
@@ -292,7 +330,7 @@ function validate(def, manifests = {}) {
         if (t.type === 'syncRecord' && !syncs[t.sync]) err(`${p}.trigger.sync`, `Unknown sync "${t.sync}"`);
         if (t.filter) checkCondition(t.filter, `${p}.trigger.filter`);
         if (!w.steps?.length) err(`${p}.steps`, 'At least one step');
-        checkSteps(w.steps, `${p}.steps`, newScope(w.settings));
+        checkSteps(w.steps, `${p}.steps`, { ...newScope(w.settings), canPause: true });
     });
 
     // ---------- queries ----------

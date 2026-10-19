@@ -144,7 +144,7 @@ Because a definition can only compose allow-listed, versioned code, a workspace-
 ## Implementation (v0.1)
 
 The decision above was written before any code existed. v0.1 is a working implementation in
-`packages/core/integrations/data-defined/`, with 137 tests (the persistence suite runs against real PostgreSQL and
+`packages/core/integrations/data-defined/`, with 173 tests (the persistence suite runs against real PostgreSQL and
 MongoDB). It runs 16 example definitions (a phone-to-CRM definition is the
 reference: seven workflows, one two-way sync, two UI surfaces) against fake API modules, and checks 21 capability
 manifests. This section records how it works, where it changed the sketch above, and what it does not do yet. File
@@ -595,6 +595,100 @@ keeps a choice only where the new version still allows it, and otherwise reports
 The two additions to ADR-055 (`configurable` floors, and `cron` calendar triggers that differ per installation) are
 proposed as its "Amendment (ADR-063)".
 
+### 15b. The sync engine
+
+`sync-engine.js` keeps records on two modules as copies of each other. Its I/O is the ports (Api calls through the
+manifest, links over `IntegrationMapping`) and a state store, so tests drive it against in-memory APIs.
+
+**Relation to ADR-044.** [ADR-044](./044-sync-module-revitalization.md) is the canonical spec for Frigg's sync engine. This engine is its first implementation of Tier 2 and Tier 3 (ADR-044 §2): the per-link hash of mapped values is Tier 2's `dataHash`, and the known values kept per side, with a master and a conflict rule, are Tier 3's shadow. It sits in `packages/core/integrations/data-defined/` today. It should move to `packages/core/syncs/`, where ADR-044 places the engine, and be reached from there by both authoring forms. Until it moves, this section describes the engine as built and ADR-044 decides what it becomes.
+
+**How an object is read and written is the manifest's, not the definition's.** Paging, the id path and the payload
+shape are facts about an API, so each syncable object declares them once. A definition only says what to copy:
+
+```json
+"objects": { "contact": { "sync": {
+  "id": "id", "updatedAt": "updatedAt",
+  "list":   { "capability": "contact.list", "cursor": "after", "limit": "limit", "since": "updatedSince", "items": "results", "next": "paging.next.after" },
+  "get":    { "capability": "contact.get", "id": "id" },
+  "search": { "capability": "contact.search" },
+  "create": { "capability": "contact.create" },
+  "update": { "capability": "contact.update", "id": "id" }
+} } }
+```
+
+Lists page by `cursor` (read from the response), `offset` or `page`. A write sends the mapped record. It is wrapped
+in one argument when the capability takes it that way (`"body": "customer"` for Shopify), and trimmed to the
+arguments the capability accepts. An event that carries only an id (`"recordId": "objectId"`, HubSpot) is fetched
+with `get`. A definition adds per-module arguments with `sync.args` (`{ "github": { "owner": "{{install.repo |
+split: '/' | first}}" } }`). Validation refuses a sync whose sides cannot do what it asks: no list for a backfill, no
+modified-since list for a poll, no get for an id-only event, neither create nor update on the side written to.
+
+**One record, one direction.**
+1. **Find the other side.** First its link. Then the identity index. Then the other side's search, by the identity
+   keys its search accepts, using values normalised the way the index stores them (`onAmbiguous`: skip, first or
+   create). Otherwise it creates the record.
+2. **Map.** A create applies every row flowing that way. An update applies a row only when its `master` is the side
+   the change came from. The default is the source. `newest` applies unless the other side was seen changing later
+   (a late webhook or a delayed poll cannot overwrite a newer edit).
+3. **Write only what changed.** Each link carries a short hash of every mapped value known on each side. An update
+   sends only the fields whose value the other side does not already hold, so it cannot clobber a concurrent edit to
+   another field. A payload with nothing new is not sent at all. That is also what ends the echo: our write comes
+   back as the other side's webhook, maps to values already known, and stops.
+4. **Link.** Both ids and both sides' identity keys are written to `link:` / `idx:` rows, with what is now known
+   (`known`, `seen`).
+
+**Backfill.** `SYNC_<ID>_BACKFILL` (a button, or `onInstall`) writes a progress row (`sync:<id>:backfill`: run id,
+side, cursor, pages, counts by outcome, the last 20 errors) and queues `SYNC_<ID>_PAGE`. Each page queues the next,
+then the target side of a two-way sync that can list. One backfill runs at a time; a page of an older run is dropped,
+and a record that fails is counted without stopping the page. `GET /api/integrations/:id/syncs` returns the progress.
+A long backfill re-enqueues many times. On AWS that needs the same Lambda recursion override `BaseCRMIntegration`
+needs (the detector stops a chain at depth 16). **That override is interim.** It stays until the orchestrator and worker queue of [ADR-047](./047-orchestrator-worker-queue-pattern.md) exists, because ADR-047 removes the cause rather than the alarm: its orchestrator never publishes to the queue it consumes, so the detector stays enabled and never fires. A backfill here that re-enqueues its own next page is exactly the pattern ADR-047 replaces, and its progress row (`sync:<id>:backfill`) is the kind of run state the orchestrator would own.
+
+**Ongoing.** Webhook mode routes the object's events to `SYNC_<ID>_ONGOING`. Poll mode is a recurring trigger
+(§15a): each tick that finds it due queues `SYNC_<ID>_ONGOING` for the installation. The first poll only sets a mark. Later polls read what changed since (at most ten pages
+per side, the rest from the saved cursor next tick) and move the mark to the newest `updatedAt` seen.
+
+**Relink.** An upgrade whose plan says `relink` starts a backfill with reason `relink`, which rewrites every link with
+the new identity keys and creates nothing that already links.
+
+**syncRecord workflows** run per synced record whose outcome (`created`, `updated`, `linked`) they listen for. A
+create or link is once per record, so its run carries a dedupe id; updates do not.
+
+### 15c. Paused runs: delay and approval
+
+**`WorkflowRun` is an ADR-047 Tier-3 instance row.** [ADR-047](./047-orchestrator-worker-queue-pattern.md) §3 grades workflow state in three tiers; Tier 3 is "machine definition + versioned instance row", for long-running multi-step workflows with an inspectable history. A run that pauses is that case: one `WorkflowRun` row per run, with a status (`waiting` while paused, otherwise one of the final statuses in §7) and the step trace as its history. A run that never pauses is written once, after it finishes, and needs nothing more. What this engine does not have is ADR-047's declared machine and single reducer: the allowed transitions are in the interpreter, not in a machine definition. When the orchestrator exists, a paused run should become one of its Tier-3 machines, with `WorkflowRun` as the persisted instance.
+
+Two built-in steps end a run for now and carry it on later:
+
+```json
+{ "id": "cool-off", "use": "delay", "with": { "for": "2h" } }
+{ "id": "ok", "use": "approval", "with": { "prompt": "Refund {{event.amount | from_cents}}?", "approvers": ["user-42"], "timeout": "2d", "onTimeout": "reject" } }
+```
+
+A pause is a checkpoint at a step index. That is why a pausing step must be at the top level of a workflow, never
+inside `foreach` or `branch`, a query or a lifecycle hook. Validation refuses it there, and so does the interpreter.
+
+- **Pausing.** The run's status becomes `waiting`. The `WorkflowRun` row gets `runKey`, `waitingFor` (step id, kind,
+  until, and an approval's prompt, approvers and onTimeout) and `resumeAt`. It never holds data from the event. The
+  checkpoint (step index, `$.steps`, `$.vars`, the event and the trace so far) is an `IntegrationMapping` row
+  `wait:<runKey>`, which is encrypted at rest. It is saved before anything else. If it cannot be saved, the event's
+  dedupe claim is given back and the error thrown, so the queue runs the event again rather than losing it. A
+  one-time scheduler job books the resume for the delay's end or the approval's timeout.
+- **Resuming.** There are three triggers: the delay ends, the approval times out, or someone decides (`POST
+  /api/integrations/:id/runs/:runId/decision`, `{ decision: approve|reject, note? }`, answered 202 and carried out
+  through the queue). The first to claim `resume:<runKey>:<index>` resumes the run, and the rest are no-ops. A
+  message for an earlier pause, or the wrong kind of trigger, is ignored. The run continues on the definition version
+  it started on, from the next step, with the pausing step's result in `$.steps.<id>`. A delay gives `{ resumedAt,
+  until }`. An approval gives `{ decision: approved|rejected, by, note, at }`, where `by` is `timeout` when the
+  timeout decided. `onTimeout: stop` ends the run there instead. A step that fails after a resume gives the claim back
+  so the queue's retry resumes again.
+- **One row.** A run that pauses more than once is still one `WorkflowRun` row, updated at every pause and at the end,
+  and its trace lists every step. `GET /api/integrations/:id/runs?status=waiting` is the list of pending approvals.
+
+Default approvers are whoever can open the installation (the route is scoped to its owner). A named list restricts it. **Follow-up:** deciding an approval should require `manage` access to the installation under [ADR-056](./056-app-profiles-tenancy-entity-scopes.md), not only the ability to open it. ADR-056's permission rules (Decision §3) cover entities today; extending them to integrations and to this route is a separate change.
+Without a configured scheduler (local stages without the mock), nothing books the resume. An approval can still be
+decided, but a delay waits until its job is run by hand.
+
 ### 16. UI surfaces
 
 A UI extension is a `query` plus a `view`. The view is a tree of a **fixed component set**: `Stack`, `Heading`,
@@ -676,9 +770,7 @@ work kept apart from bulk work.
 
 | Missing | Why it matters | Plan |
 |---|---|---|
-| **Sync engine**: backfill pages, ongoing deltas, two-way master and conflict rules | `SYNC_*` events compile, but `runSync` throws "not implemented in v0.1" | Reuse the existing `SYNC_PAGE` and `Process` patterns from `BaseCRMIntegration` |
-| `delay`, approvals, per-module rate limits | Common in workflows; each needs durable state between steps | With step checkpointing |
-| Rebuilding links after an identity change | `planUpgrade` reports `relink` / `reindex`; nothing performs it | With the sync engine, which owns backfill |
+| Per-module rate limits | Bursts (a backfill, a webhook storm) hit provider limits; today a 429 fails the step and the queue retries | A token bucket per module and installation, in the ports |
 | Host renderers (HubSpot card, Phone panel) | `renderSurface` returns trees that nothing draws yet | Per host |
 | Real manifests | `capabilities/*.json` are mocks written to match the Api classes | Generated from, or checked against, each module's `Api` |
 

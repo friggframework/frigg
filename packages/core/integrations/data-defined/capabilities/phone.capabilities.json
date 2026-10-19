@@ -48,7 +48,32 @@
           "name": "source",
           "type": "string"
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "updatedAt",
+        "list": {
+          "capability": "contact.list",
+          "cursor": "pageToken",
+          "limit": "maxResults",
+          "items": "data",
+          "next": "nextPageToken"
+        },
+        "get": {
+          "capability": "contact.get",
+          "id": "id"
+        },
+        "search": {
+          "capability": "contact.search"
+        },
+        "create": {
+          "capability": "contact.create"
+        },
+        "update": {
+          "capability": "contact.update",
+          "id": "id"
+        }
+      }
     },
     "call": {
       "label": "Call",

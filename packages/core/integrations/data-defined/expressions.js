@@ -52,6 +52,8 @@ const FILTERS = {
     join: (v, arg) => (Array.isArray(v) ? v.filter((x) => x != null && x !== '').join(arg ?? ', ') : v),
     size: (v) => (Array.isArray(v) || typeof v === 'string' ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0),
     first: (v) => (Array.isArray(v) ? v[0] : v),
+    last: (v) => (Array.isArray(v) ? v[v.length - 1] : v),
+    split: (v, arg) => (typeof v === 'string' ? v.split(arg ?? ',') : v),
     // arithmetic
     plus: arith((a, b) => a + b),
     minus: arith((a, b) => a - b),

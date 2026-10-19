@@ -81,11 +81,14 @@ model WorkflowRun {
   workflowId        String
   triggerType       String                     // webhook | schedule | userAction | syncRecord
   eventId           String?                    // provider event id (dedupe key)
-  status            String                     // completed | stopped | filtered | duplicate | failed
+  status            String                     // completed | stopped | filtered | duplicate | failed | waiting
   reason            String?                    // why it stopped
   error             String?
   attempt           Int      @default(1)
   trace             Json                       // [{ id, use, status, ms, error? }] — no payload bodies
+  runKey            String?                    // the runtime's run id: how routes and resume jobs address a run
+  waitingFor        Json?                      // a paused run: { stepId, kind: delay|approval, until, prompt?, approvers?, onTimeout? }
+  resumeAt          DateTime?
   startedAt         DateTime
   endedAt           DateTime?
 
@@ -93,6 +96,10 @@ model WorkflowRun {
   @@index([integrationId, status])
 }
 ```
+
+A paused run (a `delay` or `approval` step) is one row from its first step to its last: it is updated when it
+resumes. Its checkpoint (the step index and the earlier steps' results) is not on the row; it is an
+`IntegrationMapping` row `wait:<runKey>`, encrypted at rest like every mapping, deleted when the run ends.
 
 Retention: keep `failed` runs 30 days and the rest 7 by default. `trace` holds step ids, timings and error messages,
 never request or response bodies (those can hold customer data; the existing logging rules apply).

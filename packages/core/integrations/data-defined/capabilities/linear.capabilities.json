@@ -99,7 +99,23 @@
           "tag": "record.updatedAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "updatedAt",
+        "get": {
+          "capability": "issue.get",
+          "id": "id"
+        },
+        "create": {
+          "capability": "issue.create"
+        },
+        "update": {
+          "capability": "issue.update",
+          "id": "id",
+          "body": "input"
+        }
+      }
     }
   },
   "events": {

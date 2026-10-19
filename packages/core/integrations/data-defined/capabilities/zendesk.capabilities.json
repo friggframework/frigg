@@ -114,7 +114,20 @@
           "tag": "record.updatedAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "updated_at",
+        "get": {
+          "capability": "ticket.get",
+          "id": "id"
+        },
+        "update": {
+          "capability": "ticket.update",
+          "id": "id",
+          "body": "ticket"
+        }
+      }
     },
     "user": {
       "label": "User",

@@ -110,7 +110,32 @@
           "tag": "record.updatedAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "updated_at",
+        "list": {
+          "capability": "customer.list",
+          "cursor": "page_info",
+          "limit": "limit",
+          "since": "updated_at_min",
+          "items": "customers",
+          "next": "nextPageInfo"
+        },
+        "get": {
+          "capability": "customer.get",
+          "id": "id"
+        },
+        "create": {
+          "capability": "customer.create",
+          "body": "customer"
+        },
+        "update": {
+          "capability": "customer.update",
+          "id": "id",
+          "body": "customer"
+        }
+      }
     },
     "order": {
       "label": "Order",
@@ -257,7 +282,28 @@
           "name": "source_name",
           "type": "string"
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "updated_at",
+        "list": {
+          "capability": "order.list",
+          "cursor": "page_info",
+          "limit": "limit",
+          "since": "updated_at_min",
+          "items": "orders",
+          "next": "nextPageInfo"
+        },
+        "get": {
+          "capability": "order.get",
+          "id": "id"
+        },
+        "update": {
+          "capability": "order.update",
+          "id": "id",
+          "body": "order"
+        }
+      }
     },
     "fulfillment": {
       "label": "Fulfillment",

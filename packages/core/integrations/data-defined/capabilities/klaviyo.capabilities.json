@@ -107,7 +107,35 @@
           "tag": "record.updatedAt",
           "readOnly": true
         }
-      ]
+      ],
+      "sync": {
+        "id": "id",
+        "updatedAt": "attributes.updated",
+        "list": {
+          "capability": "profile.list",
+          "cursor": "pageCursor",
+          "limit": "pageSize",
+          "since": "updatedSince",
+          "items": "data",
+          "next": "links.next"
+        },
+        "get": {
+          "capability": "profile.get",
+          "id": "id"
+        },
+        "search": {
+          "capability": "profile.search"
+        },
+        "create": {
+          "capability": "profile.create",
+          "body": "attributes"
+        },
+        "update": {
+          "capability": "profile.update",
+          "id": "id",
+          "body": "attributes"
+        }
+      }
     },
     "list": {
       "label": "List",

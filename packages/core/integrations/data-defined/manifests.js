@@ -42,9 +42,43 @@ function validateManifest(m) {
         for (const [arg, spec] of Object.entries(c?.input || {})) if (!spec?.type) err(`${p}.input.${arg}`, 'Input needs a type');
     }
 
+    // How a sync reads and writes an object (sync-engine.js). Each operation names a capability of the right kind on
+    // that object; list says how pages work; a write may wrap the mapped record in one argument (body).
+    const OPS = { list: READS, get: READS, search: new Set(['search']), create: new Set(['write']), update: new Set(['write']) };
+    const ARG_RE = /^[A-Za-z_][\w]*$/;
+    for (const [o, def] of Object.entries(objects)) {
+        const sy = def.sync;
+        if (!sy) continue;
+        const p = `objects.${o}.sync`;
+        for (const [op, kinds] of Object.entries(OPS)) {
+            const spec = sy[op];
+            if (spec === undefined) continue;
+            const c = caps[spec?.capability];
+            if (!c) { err(`${p}.${op}.capability`, `"${spec?.capability}" is not a capability of this module`); continue; }
+            if (spec.capability.split('.')[0] !== o) err(`${p}.${op}.capability`, `${spec.capability} belongs to another object`);
+            if (!kinds.has(c.kind)) err(`${p}.${op}.capability`, `${op} needs a ${[...kinds].join(' or ')} capability; ${spec.capability} is ${c.kind}`);
+            for (const argKey of ['id', 'body', 'cursor', 'limit', 'since']) {
+                const arg = spec[argKey];
+                if (arg === undefined) continue;
+                if (!ARG_RE.test(arg)) err(`${p}.${op}.${argKey}`, 'The name of one argument');
+                else if (!(arg in (c.input || {}))) err(`${p}.${op}.${argKey}`, `${spec.capability} takes no argument "${arg}"`);
+            }
+        }
+        if (sy.get && !sy.get.id) err(`${p}.get.id`, 'Which argument carries the record id');
+        if (sy.update && !sy.update.id) err(`${p}.update.id`, 'Which argument carries the record id');
+        if (sy.list) {
+            const mode = sy.list.paging || 'cursor';
+            if (!['cursor', 'offset', 'page'].includes(mode)) err(`${p}.list.paging`, 'cursor (the next cursor is in the response), offset or page');
+            if (mode === 'cursor' && sy.list.cursor && !sy.list.next) err(`${p}.list.next`, 'Where the response puts the next cursor');
+            if (mode !== 'cursor' && !sy.list.limit) err(`${p}.list.limit`, `${mode} paging needs the page size argument`);
+        }
+        for (const k of ['id', 'updatedAt']) if (sy[k] !== undefined && typeof sy[k] !== 'string') err(`${p}.${k}`, 'A path in the record');
+    }
+
     for (const [topic, e] of Object.entries(m.events || {})) {
         const p = `events.${topic}`;
         if (e.object && !objects[e.object]) err(`${p}.object`, `"${e.object}" is not an object of this module`);
+        if (e.recordId !== undefined && !objects[e.object]?.sync?.get) err(`${p}.recordId`, 'An event that carries only an id needs its object\'s sync.get to fetch the record');
         if (e.payload && (e.delivery || 'webhook') === 'webhook' && m.webhook) {
             // The example is a real delivery (body, plus headers when the topic is in one): it must route to this event
             // through the same code a live webhook goes through, and its record path must find something.
