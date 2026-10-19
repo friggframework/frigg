@@ -558,6 +558,8 @@ so it needs a hook of its own.
 `sync-engine.js` keeps records on two modules as copies of each other. Its I/O is the ports (Api calls through the
 manifest, links over `IntegrationMapping`) and a state store, so tests drive it against in-memory APIs.
 
+**Relation to ADR-044.** [ADR-044](./044-sync-module-revitalization.md) is the canonical spec for Frigg's sync engine. This engine is its first implementation of Tier 2 and Tier 3 (ADR-044 §2): the per-link hash of mapped values is Tier 2's `dataHash`, and the known values kept per side, with a master and a conflict rule, are Tier 3's shadow. It sits in `packages/core/integrations/data-defined/` today. It should move to `packages/core/syncs/`, where ADR-044 places the engine, and be reached from there by both authoring forms. Until it moves, this section describes the engine as built and ADR-044 decides what it becomes.
+
 **How an object is read and written is the manifest's, not the definition's.** Paging, the id path and the payload
 shape are facts about an API, so each syncable object declares them once. A definition only says what to copy:
 
@@ -598,7 +600,7 @@ side, cursor, pages, counts by outcome, the last 20 errors) and queues `SYNC_<ID
 then the target side of a two-way sync that can list. One backfill runs at a time; a page of an older run is dropped,
 and a record that fails is counted without stopping the page. `GET /api/integrations/:id/syncs` returns the progress.
 A long backfill re-enqueues many times. On AWS that needs the same Lambda recursion override `BaseCRMIntegration`
-needs (the detector stops a chain at depth 16), until Frigg's orchestrator queue lands.
+needs (the detector stops a chain at depth 16). **That override is interim.** It stays until the orchestrator and worker queue of [ADR-047](./047-orchestrator-worker-queue-pattern.md) exists, because ADR-047 removes the cause rather than the alarm: its orchestrator never publishes to the queue it consumes, so the detector stays enabled and never fires. A backfill here that re-enqueues its own next page is exactly the pattern ADR-047 replaces, and its progress row (`sync:<id>:backfill`) is the kind of run state the orchestrator would own.
 
 **Ongoing.** Webhook mode routes the object's events to `SYNC_<ID>_ONGOING`. Poll mode runs on the installation's
 recurring schedule (§15a). The first poll only sets a mark. Later polls read what changed since (at most ten pages
@@ -611,6 +613,8 @@ the new identity keys and creates nothing that already links.
 create or link is once per record, so its run carries a dedupe id; updates do not.
 
 ### 15c. Paused runs: delay and approval
+
+**`WorkflowRun` is an ADR-047 Tier-3 instance row.** [ADR-047](./047-orchestrator-worker-queue-pattern.md) §3 grades workflow state in three tiers; Tier 3 is "machine definition + versioned instance row", for long-running multi-step workflows with an inspectable history. A run that pauses is that case: one `WorkflowRun` row per run, with a status (`waiting` while paused, otherwise one of the final statuses in §7) and the step trace as its history. A run that never pauses is written once, after it finishes, and needs nothing more. What this engine does not have is ADR-047's declared machine and single reducer: the allowed transitions are in the interpreter, not in a machine definition. When the orchestrator exists, a paused run should become one of its Tier-3 machines, with `WorkflowRun` as the persisted instance.
 
 Two built-in steps end a run for now and carry it on later:
 
@@ -639,7 +643,7 @@ inside `foreach` or `branch`, a query or a lifecycle hook. Validation refuses it
 - **One row.** A run that pauses more than once is still one `WorkflowRun` row, updated at every pause and at the end,
   and its trace lists every step. `GET /api/integrations/:id/runs?status=waiting` is the list of pending approvals.
 
-Default approvers are whoever can open the installation (the route is scoped to its owner). A named list restricts it.
+Default approvers are whoever can open the installation (the route is scoped to its owner). A named list restricts it. **Follow-up:** deciding an approval should require `manage` access to the installation under [ADR-056](./056-app-profiles-tenancy-entity-scopes.md), not only the ability to open it. ADR-056's permission rules (Decision §3) cover entities today; extending them to integrations and to this route is a separate change.
 Without a configured scheduler (local stages without the mock), nothing books the resume. An approval can still be
 decided, but a delay waits until its job is run by hand.
 
