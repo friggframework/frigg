@@ -6,8 +6,9 @@ const {
 /**
  * Attaches entities to an existing integration, e.g. when a user grants
  * access to more accounts after the integration was created. Every entity
- * must exist and belong to the integration's user. Entities that are already
- * attached are left as they are.
+ * must exist, belong to the integration's user, and be of a module the
+ * integration already holds (so hydration can load it). Entities that are
+ * already attached are left as they are.
  * @class AddEntitiesToIntegration
  */
 class AddEntitiesToIntegration {
@@ -57,6 +58,23 @@ class AddEntitiesToIntegration {
                     .join(', ')}`
             );
             error.code = 'ENTITY_USER_MISMATCH';
+            throw error;
+        }
+
+        const attached = await this.moduleRepository.findEntitiesByIds(
+            integration.entitiesIds ?? []
+        );
+        const heldModules = new Set(attached.map((e) => e.moduleName));
+        const otherModules = entities.filter(
+            (e) => !heldModules.has(e.moduleName)
+        );
+        if (otherModules.length > 0) {
+            const error = new Error(
+                `Entities belong to a module the integration does not hold: ${otherModules
+                    .map((e) => `${e.id} (${e.moduleName})`)
+                    .join(', ')}`
+            );
+            error.code = 'ENTITY_MODULE_MISMATCH';
             throw error;
         }
 

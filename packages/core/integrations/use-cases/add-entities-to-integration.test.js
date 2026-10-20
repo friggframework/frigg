@@ -31,21 +31,26 @@ function makeUseCase({ integrations = {}, entities = [] } = {}) {
     };
 }
 
-const owner = { id: 'i1', userId: 'u1', entitiesIds: ['e1'] };
+const owner = { id: 'i1', userId: 'u1', entitiesIds: ['quo', 'e1'] };
+const attached = [
+    { id: 'quo', userId: 'u1', moduleName: 'quo' },
+    { id: 'e1', userId: 'u1', moduleName: 'pages' },
+];
 
 describe('AddEntitiesToIntegration', () => {
     it('attaches entities owned by the integration user', async () => {
         const { useCase } = makeUseCase({
             integrations: { i1: { ...owner } },
             entities: [
-                { id: 'e2', userId: 'u1' },
-                { id: 'e3', userId: 'u1' },
+                ...attached,
+                { id: 'e2', userId: 'u1', moduleName: 'pages' },
+                { id: 'e3', userId: 'u1', moduleName: 'pages' },
             ],
         });
 
         const result = await useCase.execute('i1', ['e2', 'e3']);
 
-        expect(result.entitiesIds).toEqual(['e1', 'e2', 'e3']);
+        expect(result.entitiesIds).toEqual(['quo', 'e1', 'e2', 'e3']);
     });
 
     it('throws INTEGRATION_NOT_FOUND for an unknown integration', async () => {
@@ -59,7 +64,10 @@ describe('AddEntitiesToIntegration', () => {
     it('throws ENTITIES_NOT_FOUND and attaches nothing when an entity does not exist', async () => {
         const { useCase, integrationRepository } = makeUseCase({
             integrations: { i1: { ...owner } },
-            entities: [{ id: 'e2', userId: 'u1' }],
+            entities: [
+                ...attached,
+                { id: 'e2', userId: 'u1', moduleName: 'pages' },
+            ],
         });
 
         await expect(
@@ -73,11 +81,31 @@ describe('AddEntitiesToIntegration', () => {
     it("throws ENTITY_USER_MISMATCH and attaches nothing for another user's entity", async () => {
         const { useCase, integrationRepository } = makeUseCase({
             integrations: { i1: { ...owner } },
-            entities: [{ id: 'e2', userId: 'someone-else' }],
+            entities: [
+                ...attached,
+                { id: 'e2', userId: 'someone-else', moduleName: 'pages' },
+            ],
         });
 
         await expect(useCase.execute('i1', ['e2'])).rejects.toMatchObject({
             code: 'ENTITY_USER_MISMATCH',
+        });
+        expect(
+            integrationRepository.addEntitiesToIntegration
+        ).not.toHaveBeenCalled();
+    });
+
+    it('throws ENTITY_MODULE_MISMATCH and attaches nothing for a module the integration does not hold', async () => {
+        const { useCase, integrationRepository } = makeUseCase({
+            integrations: { i1: { ...owner } },
+            entities: [
+                ...attached,
+                { id: 'e2', userId: 'u1', moduleName: 'some-other-module' },
+            ],
+        });
+
+        await expect(useCase.execute('i1', ['e2'])).rejects.toMatchObject({
+            code: 'ENTITY_MODULE_MISMATCH',
         });
         expect(
             integrationRepository.addEntitiesToIntegration

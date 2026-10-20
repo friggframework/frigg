@@ -49,6 +49,8 @@ const ERROR_CODE_MAP = {
     INVALID_INTEGRATION_DATA: 400,
     ENTITIES_NOT_FOUND: 404,
     ENTITY_USER_MISMATCH: 403,
+    ENTITY_MODULE_MISMATCH: 400,
+    LAST_ENTITY_OF_MODULE: 409,
 };
 
 function mapErrorToResponse(error) {
@@ -180,6 +182,7 @@ function createIntegrationCommands({ integrationClass } = {}) {
     const removeEntitiesFromIntegrationUseCase =
         new RemoveEntitiesFromIntegration({
             integrationRepository,
+            moduleRepository,
         });
 
     return {
@@ -328,8 +331,9 @@ function createIntegrationCommands({ integrationClass } = {}) {
 
         /**
          * Attach entities to an existing integration. Every entity must
-         * exist and belong to the integration's user; entities that are
-         * already attached are left as they are.
+         * exist, belong to the integration's user, and be of a module the
+         * integration already holds; entities that are already attached are
+         * left as they are.
          * @param {Object} params
          * @param {string} params.integrationId - Integration ID
          * @param {Array<string>} params.entityIds - Entity IDs to attach
@@ -348,7 +352,8 @@ function createIntegrationCommands({ integrationClass } = {}) {
 
         /**
          * Detach entities from an integration. Entities that are not
-         * attached are ignored; detached entities are not deleted.
+         * attached are ignored; detached entities are not deleted. Each
+         * module must keep at least one entity.
          * @param {Object} params
          * @param {string} params.integrationId - Integration ID
          * @param {Array<string>} params.entityIds - Entity IDs to detach

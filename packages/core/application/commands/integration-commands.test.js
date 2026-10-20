@@ -323,6 +323,8 @@ describe('integration commands', () => {
             ['INVALID_INTEGRATION_DATA', 400],
             ['ENTITIES_NOT_FOUND', 404],
             ['ENTITY_USER_MISMATCH', 403],
+            ['ENTITY_MODULE_MISMATCH', 400],
+            ['LAST_ENTITY_OF_MODULE', 409],
         ])('maps %s to status %s', async (code, status) => {
             const error = new Error('nope');
             error.code = code;

@@ -315,6 +315,52 @@ describe('CreateIntegration Use-Case', () => {
             expect(second.id).not.toBe(first.id);
         });
 
+        it('reuses an integration whose entity set contains the requested entities (entities attached after create)', async () => {
+            const userId = 'user-dedupe-superset';
+            const config = { type: 'dummy' };
+
+            const first = await createIntegration.execute(
+                ['quo-1', 'page-1', 'page-2'],
+                userId,
+                config
+            );
+            const second = await createIntegration.execute(
+                ['quo-1', 'page-1'],
+                userId,
+                config
+            );
+
+            expect(second.id).toBe(first.id);
+            const stored = await integrationRepository.findIntegrationsByUserId(
+                userId
+            );
+            expect(stored).toHaveLength(1);
+        });
+
+        it('prefers an exact entity-set match over a superset', async () => {
+            const userId = 'user-dedupe-exact-first';
+            const config = { type: 'dummy' };
+
+            await createIntegration.execute(
+                ['quo-1', 'page-1', 'page-2'],
+                userId,
+                config
+            );
+            const exact = await integrationRepository.createIntegration(
+                ['quo-1', 'page-1'],
+                userId,
+                config
+            );
+
+            const reused = await createIntegration.execute(
+                ['page-1', 'quo-1'],
+                userId,
+                config
+            );
+
+            expect(reused.id).toBe(exact.id);
+        });
+
         it('creates a new integration when the userId differs', async () => {
             const entities = ['entity-1'];
             const config = { type: 'dummy' };
