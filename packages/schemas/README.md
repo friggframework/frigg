@@ -146,7 +146,8 @@ Defines the structure for Frigg API modules.
 **Key Properties:**
 - `moduleName` (required): Module identifier
 - `getName` (required): Function returning module name
-- `requiredAuthMethods` (required): Authentication configuration
+- `requiredAuthMethods` (required): Authentication configuration (includes optional `getAuthorizationRequirements` and `setAuthParams` for API-key modules)
+- `modelName`: Entity/credential model name used by the Module runtime
 - `env`: Environment variable configuration
 - `config`: Module-specific configuration
 
