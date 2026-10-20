@@ -62,7 +62,7 @@ class CreateIntegration {
 
         // A concurrent request may have created a matching row between the
         // lookup above and this insert; re-check before any side effects run.
-        const survivor = await this._findDuplicate(
+        const survivor = await this._findSurvivor(
             userId,
             config?.type,
             entities
@@ -135,30 +135,68 @@ class CreateIntegration {
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }
 
-    async _findDuplicate(userId, type, entityIds) {
+    async _findMatches(userId, type, entityIds) {
         const candidates =
             await this.integrationRepository.findIntegrationsByUserId(userId);
-        const target = [...(entityIds ?? [])].map(String).sort();
+        const target = new Set((entityIds ?? []).map(String));
 
-        const matches = candidates.filter((integration) => {
-            // An IN_DELETION row is either mid-teardown or a zombie left
-            // behind by a failed deleteIntegrationById call — never a live
-            // integration. Treating it as a duplicate would hand a reinstall
-            // attempt a row nothing will ever move out of IN_DELETION,
-            // silently discarded by the queue worker forever. Let a fresh
-            // create proceed instead; the zombie is cleaned up out-of-band,
-            // matching how teardown failures are already handled here.
-            if (integration.status === 'IN_DELETION') return false;
-            if (integration.config?.type !== type) return false;
-            const current = [...(integration.entitiesIds ?? [])]
-                .map(String)
-                .sort();
+        const live = candidates.filter(
+            (integration) =>
+                // An IN_DELETION row is either mid-teardown or a zombie left
+                // behind by a failed deleteIntegrationById call — never a live
+                // integration. Treating it as a duplicate would hand a
+                // reinstall attempt a row nothing will ever move out of
+                // IN_DELETION, silently discarded by the queue worker forever.
+                // Let a fresh create proceed instead; the zombie is cleaned up
+                // out-of-band, matching how teardown failures are already
+                // handled here.
+                integration.status !== 'IN_DELETION' &&
+                integration.config?.type === type
+        );
+        const entitySet = (integration) =>
+            new Set((integration.entitiesIds ?? []).map(String));
+
+        const exact = live.filter((integration) => {
+            const current = entitySet(integration);
             return (
-                current.length === target.length &&
-                current.every((id, index) => id === target[index])
+                current.size === target.size &&
+                [...target].every((id) => current.has(id))
             );
         });
 
+        // Entities may have been attached after create (addEntitiesToIntegration),
+        // so a reconnect that sends the original entities must still find the
+        // integration that now holds them, instead of creating a second one
+        // that would share those entities.
+        const supersets = live.filter((integration) => {
+            const current = entitySet(integration);
+            return [...target].every((id) => current.has(id));
+        });
+        return { exact, supersets: target.size ? supersets : [] };
+    }
+
+    async _findDuplicate(userId, type, entityIds) {
+        const { exact, supersets } = await this._findMatches(
+            userId,
+            type,
+            entityIds
+        );
+        if (exact.length) return this._pickOldest(exact);
+        return supersets.length ? this._pickOldest(supersets) : null;
+    }
+
+    // After an insert the new row is itself an exact match, so the survivor
+    // is the oldest of every exact or superset match (the new row included):
+    // an older integration that already holds these entities always wins.
+    async _findSurvivor(userId, type, entityIds) {
+        const { exact, supersets } = await this._findMatches(
+            userId,
+            type,
+            entityIds
+        );
+        // supersets includes the exact matches; it is empty only for an
+        // empty entity set, where exact matching alone applies.
+        const matches = supersets.length ? supersets : exact;
         return matches.length ? this._pickOldest(matches) : null;
     }
 

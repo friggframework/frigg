@@ -315,6 +315,52 @@ describe('CreateIntegration Use-Case', () => {
             expect(second.id).not.toBe(first.id);
         });
 
+        it('reuses an integration whose entity set contains the requested entities (entities attached after create)', async () => {
+            const userId = 'user-dedupe-superset';
+            const config = { type: 'dummy' };
+
+            const first = await createIntegration.execute(
+                ['quo-1', 'page-1', 'page-2'],
+                userId,
+                config
+            );
+            const second = await createIntegration.execute(
+                ['quo-1', 'page-1'],
+                userId,
+                config
+            );
+
+            expect(second.id).toBe(first.id);
+            const stored = await integrationRepository.findIntegrationsByUserId(
+                userId
+            );
+            expect(stored).toHaveLength(1);
+        });
+
+        it('prefers an exact entity-set match over a superset', async () => {
+            const userId = 'user-dedupe-exact-first';
+            const config = { type: 'dummy' };
+
+            await createIntegration.execute(
+                ['quo-1', 'page-1', 'page-2'],
+                userId,
+                config
+            );
+            const exact = await integrationRepository.createIntegration(
+                ['quo-1', 'page-1'],
+                userId,
+                config
+            );
+
+            const reused = await createIntegration.execute(
+                ['page-1', 'quo-1'],
+                userId,
+                config
+            );
+
+            expect(reused.id).toBe(exact.id);
+        });
+
         it('creates a new integration when the userId differs', async () => {
             const entities = ['entity-1'];
             const config = { type: 'dummy' };
@@ -659,6 +705,30 @@ describe('CreateIntegration Use-Case', () => {
             );
             expect(stored).toHaveLength(1);
             expect(stored[0].id).toBe(first.id);
+        });
+
+        it('deletes the just-created row and returns an older superset integration when the initial lookup was stale', async () => {
+            const userId = 'user-race-superset';
+            const config = { type: 'dummy' };
+            const superset = await integrationRepository.createIntegration(
+                ['quo-1', 'page-1', 'page-2'],
+                userId,
+                config
+            );
+            superset.createdAt = new Date(Date.now() - 60_000);
+            makeFirstLookupStale(integrationRepository);
+
+            const result = await createIntegration.execute(
+                ['quo-1', 'page-1'],
+                userId,
+                config
+            );
+
+            expect(result.id).toBe(superset.id);
+            const stored = await integrationRepository.findIntegrationsByUserId(
+                userId
+            );
+            expect(stored.map((i) => i.id)).toEqual([superset.id]);
         });
 
         it('fires ON_CREATE exactly once across both racers', async () => {

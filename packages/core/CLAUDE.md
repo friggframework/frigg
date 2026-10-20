@@ -206,11 +206,51 @@ packages/core/
 - `delete-integration-for-user.js` - Remove integration
 - `get-integration-instance.js` - Load integration with modules
 - `load-integration-context.js` - Full integration context loading
+- `add-entities-to-integration.js` / `remove-entities-from-integration.js` - Attach or detach entities on an existing integration
 
 **Repositories**:
 - `integration-repository-factory.js` - Creates database-specific repositories
 - `integration-repository-mongo.js` - MongoDB implementation
 - `integration-repository-postgres.js` - PostgreSQL implementation
+- `addEntitiesToIntegration(integrationId, entityIds)` /
+  `removeEntitiesFromIntegration(integrationId, entityIds)` change the entity
+  set of an existing integration (all three adapters; `null` for an unknown
+  integration). Reach them through the `addEntitiesToIntegration` /
+  `removeEntitiesFromIntegration` commands. The add use case
+  (`add-entities-to-integration.js`) rejects unknown entities
+  (`ENTITIES_NOT_FOUND`, 404), entities of another user
+  (`ENTITY_USER_MISMATCH`, 403) and entities of a module the integration does
+  not already hold (`ENTITY_MODULE_MISMATCH`, 400). The remove use case
+  (`remove-entities-from-integration.js`) refuses to leave a module with no
+  entity (`LAST_ENTITY_OF_MODULE`, 409). Re-adding an attached entity or
+  removing a detached one changes nothing; a detached entity is not deleted.
+  `integration-repository-entities-parity.test.js` runs every adapter against
+  real databases when `INTEGRATION_ENTITIES_PARITY_MONGO_URL` /
+  `INTEGRATION_ENTITIES_PARITY_POSTGRES_URL` are set. The DocumentDB adapter
+  writes only `Integration.entityIds` (as its `createIntegration` does), not
+  `Entity.integrationIds`.
+  **One credential, many accounts**: when one credential covers several
+  provider accounts, give each account its own entity (externalId = account
+  id) and attach them all to one integration; webhooks then route with
+  `findIntegrationByEntityExternalId`. Traps:
+  (1) `IntegrationBase` keys modules by module name, so `this.<moduleKey>`
+  holds only one entity's module, and on the queue/webhook path
+  (`get-integration-instance.js`) `this.entities` holds entity **ids**, not
+  records. For per-account work (a webhook for one account, teardown of every
+  account in `onDelete`), load
+  `this.commands.loadIntegrationContextById(this.id)` and use
+  `context.modules`: one module per entity, each with its record on
+  `module.entity` (pick by `module.entity.externalId`).
+  (2) `findIntegrationByEntityExternalId` counts every entity with that
+  externalId, attached or not, across users: reuse an existing entity
+  (`findEntity`) when an account comes back, or delete it when it is revoked,
+  never create a second one.
+  (3) `createIntegration` reuses an existing integration of the same user
+  and type whose entities include all requested ones (an exact match wins),
+  so a reconnect that sends the original entities finds the integration that
+  now holds more.
+  (4) Every module's delegate is the integration: an auth failure on any
+  account marks the shared credential invalid and the integration ERROR.
 - `integration-mapping-repository-*.js` - Mapping data persistence.
   `queryMappings(integrationId, { where, orderBy, skip, take, omit })`
   returns `{ mappings, total }`: one filtered, ordered page of an
