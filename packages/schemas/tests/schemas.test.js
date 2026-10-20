@@ -379,6 +379,86 @@ describe('@friggframework/schemas', () => {
             const result = validateApiModuleDefinition(apiModuleDef);
             expect(result.valid).toBe(true);
         });
+
+        test('accepts modelName and API-key auth methods (getAuthorizationRequirements, setAuthParams)', () => {
+            const apiModuleDef = {
+                moduleName: 'fathom',
+                modelName: 'Fathom',
+                getName: { type: 'function' },
+                requiredAuthMethods: {
+                    getAuthorizationRequirements: { type: 'function' },
+                    setAuthParams: { type: 'function', async: true },
+                    getEntityDetails: { type: 'function', async: true },
+                    getCredentialDetails: { type: 'function', async: true },
+                    testAuthRequest: { type: 'function', async: true },
+                    apiPropertiesToPersist: {
+                        credential: ['api_key'],
+                        entity: [],
+                    },
+                },
+            };
+
+            const result = validateApiModuleDefinition(apiModuleDef);
+            expect(result.valid).toBe(true);
+        });
+
+        test('validates the Fathom Definition fixture (real functions + modelName)', () => {
+            const { Definition } = require('./fixtures/fathom-definition');
+            const result = validateApiModuleDefinition(Definition);
+            expect(result.valid).toBe(true);
+            expect(result.errors).toBe(null);
+            expect(result.data).toBe(Definition);
+        });
+
+        test('rejects unknown requiredAuthMethods keys (additionalProperties: false)', () => {
+            const apiModuleDef = {
+                moduleName: 'test-module',
+                getName: { type: 'function' },
+                requiredAuthMethods: {
+                    apiPropertiesToPersist: {
+                        credential: ['access_token'],
+                        entity: [],
+                    },
+                    notARealMethod: { type: 'function' },
+                },
+            };
+
+            const result = validateApiModuleDefinition(apiModuleDef);
+            expect(result.valid).toBe(false);
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        keyword: 'additionalProperties',
+                        params: { additionalProperty: 'notARealMethod' },
+                    }),
+                ])
+            );
+        });
+
+        test('rejects unknown top-level keys (additionalProperties: false)', () => {
+            const apiModuleDef = {
+                moduleName: 'test-module',
+                getName: { type: 'function' },
+                requiredAuthMethods: {
+                    apiPropertiesToPersist: {
+                        credential: ['access_token'],
+                        entity: [],
+                    },
+                },
+                totallyUnknown: true,
+            };
+
+            const result = validateApiModuleDefinition(apiModuleDef);
+            expect(result.valid).toBe(false);
+            expect(result.errors).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        keyword: 'additionalProperties',
+                        params: { additionalProperty: 'totallyUnknown' },
+                    }),
+                ])
+            );
+        });
     });
 
     describe('Error Formatting', () => {

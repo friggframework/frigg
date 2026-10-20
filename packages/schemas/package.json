@@ -39,6 +39,7 @@
     "validators/",
     "mocks/",
     "middleware/",
+    "api-module-definition.js",
     "index.js"
   ]
 }
