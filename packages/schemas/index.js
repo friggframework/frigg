@@ -16,6 +16,9 @@ const {
     applyAppDefinitionDefaults,
     toAppDefinitionSchemaView,
 } = require('./app-definition');
+const {
+    toApiModuleDefinitionSchemaView,
+} = require('./api-module-definition');
 
 // Initialize AJV with formats
 const ajv = new Ajv({ 
@@ -99,12 +102,18 @@ function validateIntegrationDefinition(integrationDefinition) {
 }
 
 /**
- * Validate API Module Definition
- * @param {object} apiModuleDefinition - API module definition object to validate  
+ * Validate API Module Definition.
+ * Real Definitions carry classes and functions; validate the serialisable
+ * view and return the original definition.
+ * @param {object} apiModuleDefinition - API module definition object to validate
  * @returns {object} - Validation result
  */
 function validateApiModuleDefinition(apiModuleDefinition) {
-    return validate('api-module-definition', apiModuleDefinition);
+    const result = validate(
+        'api-module-definition',
+        toApiModuleDefinitionSchemaView(apiModuleDefinition)
+    );
+    return { ...result, data: apiModuleDefinition };
 }
 
 /**
@@ -369,6 +378,7 @@ module.exports = {
     validateAppDefinition,
     applyAppDefinitionDefaults,
     toAppDefinitionSchemaView,
+    toApiModuleDefinitionSchemaView,
     validateIntegrationDefinition,
     validateApiModuleDefinition,
     validateServerlessConfig,
