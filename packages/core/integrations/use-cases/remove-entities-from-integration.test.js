@@ -87,9 +87,9 @@ describe('RemoveEntitiesFromIntegration', () => {
     it('throws INTEGRATION_NOT_FOUND for an unknown integration', async () => {
         const { useCase } = makeUseCase();
 
-        await expect(useCase.execute('missing', ['e1'])).rejects.toMatchObject(
-            { code: 'INTEGRATION_NOT_FOUND' }
-        );
+        await expect(useCase.execute('missing', ['e1'])).rejects.toMatchObject({
+            code: 'INTEGRATION_NOT_FOUND',
+        });
     });
 
     it.each([
