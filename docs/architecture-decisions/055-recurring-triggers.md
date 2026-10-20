@@ -158,8 +158,9 @@ need no trigger work:
 - The tick reads every ENABLED instance of the integration on each tick. For 10,000 instances
   with a 5-minute tick, that is 20 pages of 500 each time, plus one SQS message for each due
   run. This is cheap, but it is not free, and it is a DB read even when nothing is due.
-- Per-instance cadence is limited to multiples of the tick. Arbitrary per-instance calendar
-  times are not supported (an `at` trigger is the same for all instances).
+- Per-instance cadence is limited to multiples of the tick. Per-instance calendar times run off
+  the tick with a delay of at most one tick (see the amendment below); an `at` trigger is the
+  same for all instances.
 - The `overlap: 'skip'` check relies on Process heartbeats. A handler that never updates its
   Process record for longer than `2 × tick` can overlap with the next run.
 
@@ -230,3 +231,38 @@ About 480 LOC:
 - CLI and local: ~60
 
 Tests are about 1.2 times the code.
+
+## Amendment (ADR-063)
+
+ADR-063 (PR #692) builds integrations from documents, and its recurring work (PR #694) follows
+this ADR. Four additions keep that inside one tick per integration, with no schedule per
+instance.
+
+**Configurable timing.** An `every` or `cron` trigger may declare `configurable: true | { min }`.
+An instance then chooses its own timing at `config.triggers.<name>`: `{ every }`,
+`{ cron, timezone }`, or `{ enabled: false }` to pause it. A document-built integration keeps the
+choice at `workflows.<id>.schedule` / `syncs.<id>.schedule`. A choice is honoured only when it
+never fires more often than `min`, measured by what the expression really does. A trigger that is
+not configurable, or a choice under the floor, keeps the declared timing, and the integration gets
+a warning message on update. A chosen interval still rounds up to whole ticks. A configurable
+trigger's default tick is its floor (5 minutes without one), so the fastest allowed choice can run.
+
+**Per-instance calendar triggers.** Besides `at` (one schedule, the same time for every instance),
+a trigger may give a five-field `cron` with a `timezone`, which may differ per instance (declared or
+chosen). It runs off the shared tick: it is due when a firing falls in (previous tick, this tick],
+evaluated in its time zone, and `scheduledFor` is that firing. This is stateless: a missed tick is
+not replayed, and the same tick delivered twice decides the same runs. Its delay is at most one
+tick, and its default tick is 5 minutes or less. Real instants are walked, so a wall-clock time a
+DST change skips does not fire, and one it repeats fires twice.
+
+**Per-instance trigger sets.** A class whose triggers depend on the instance declares
+`Definition.instanceTriggers: { tick }` and a static `triggersFor({ config, record })`. Devtools
+provisions that tick, and the tick resolves each instance's triggers from its record alone.
+Document-built integrations use this: each instance's pinned document is compiled with its config.
+A class that provides several integration types (published documents) lists them in
+`triggerTypes()`, and the tick pages each type.
+
+**Run identity.** `scheduledFor` is the slot start for `every` and the firing for `cron` and `at`,
+so (trigger, scheduledFor) identifies a run for dedupe. `overlap: 'skip'` reuses one Process record
+per (instance, trigger), of type `TRIGGER:<name>`, rather than creating one per run. A failed run
+marks it ERROR, so its own retry is not skipped. `overlap: 'allow'` keeps no record.
