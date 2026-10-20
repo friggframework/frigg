@@ -113,12 +113,18 @@ program
     .action(startCommand);
 
 program
-    .command('validate')
-    .description('Validate the app definition (index.js) against the schema and the runtime rules')
+    .command('validate [target]')
+    .description(
+        'Validate the app definition (index.js), or an API module Definition with --module / module'
+    )
+    .option(
+        '--module',
+        'validate an API module Definition in the current directory (also: frigg validate module)'
+    )
     .option('-s, --stage <stage>', 'also run the checks for this stage (encryption, deploy-time environment)')
     .option('--json', 'print the report as JSON')
     .option('-v, --verbose', 'enable verbose output')
-    .action(validateCommand);
+    .action((target, options) => validateCommand({ ...options, target }));
 
 program
     .command('build')

@@ -112,20 +112,28 @@ Found 5 modules matching "crm"
 
 #### `frigg validate [options]`
 
-Validate the app definition (`index.js`) before you build or deploy it (ADR-051).
+Validate the app definition (`index.js`) before you build or deploy it (ADR-051), or validate an API module Definition from a module directory.
 
 **Usage:**
 ```bash
-frigg validate                 # schema + runtime checks
+frigg validate                 # schema + runtime checks (app mode)
 frigg validate --stage prod    # also the stage checks (encryption, deploy-time environment)
 frigg validate --json          # machine-readable report for CI
+frigg validate --module        # API module mode (from the module directory)
+frigg validate module          # same as --module
 ```
 
-**What it does:**
+**What it does (app mode):**
 1. Loads `index.js` the way `frigg build` does (current directory, or the nearest `backend/`)
 2. Validates it against the app-definition schema: unknown keys (with "did you mean"), types, and the values the infrastructure builders accept
 3. Checks what the schema cannot: integration classes (static `Definition` with a valid, unique `name`, `version`, `modules`, and API module definitions that pass core's checks), an enabled database, management settings that conflict or lack ids, encryption (`aes` keys in `environment`, KMS key source, stages that never encrypt), a user config with which login works, `'ssm'` entries without `ssm.enable`, and keys that have no effect
 4. Prints each problem with its JSON pointer and a fix; exits `1` when there are errors
+
+**What it does (module mode):**
+1. Loads `{ Definition }` from `./index.js` in the current directory
+2. Validates it with `validateApiModuleDefinition` (api-module-definition schema)
+3. Runs the structural checks from `checkModuleDefinition` (API class, required auth methods as functions)
+4. Supports `--json` and `-v` like app mode; exits `1` listing JSON field paths on failure
 
 **Example output:**
 ```

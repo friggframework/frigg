@@ -21,15 +21,17 @@ function formatIssue(issue) {
  */
 function formatReport(report) {
     const { errors, warnings, source, stage } = report;
+    const noun =
+        report.kind === 'module' ? 'module definition' : 'app definition';
     const lines = [];
-    const header = `Validating ${source || 'the app definition'}${
+    const header = `Validating ${source || `the ${noun}`}${
         stage ? ` (stage: ${stage})` : ''
     }`;
     lines.push(chalk.bold(header));
     for (const issue of errors) lines.push(formatIssue(issue));
     for (const issue of warnings) lines.push(formatIssue(issue));
     if (errors.length === 0 && warnings.length === 0) {
-        lines.push(chalk.green('  ✓ The app definition is valid.'));
+        lines.push(chalk.green(`  ✓ The ${noun} is valid.`));
     } else {
         const summary = `${errors.length} error(s), ${warnings.length} warning(s)`;
         lines.push(

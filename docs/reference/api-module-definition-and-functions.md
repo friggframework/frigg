@@ -416,20 +416,24 @@ module.exports = { Definition, ProcurementExpressApi };
 
 ## Validation
 
-Validate a module definition against the schema with `validateApiModuleDefinition` from `@friggframework/schemas`. Real Definitions (classes and functions) are accepted via a schema view; `additionalProperties` remains `false`.
+From an API module directory (one that exports `{ Api, Definition }` from `index.js`), validate the module definition against the schema and the runtime structural checks:
 
-```javascript
-const { validateApiModuleDefinition } = require('@friggframework/schemas');
-const { Definition } = require('./definition');
-
-const { valid, errors } = validateApiModuleDefinition(Definition);
+```bash
+frigg validate --module
+# or
+frigg validate module
 ```
+
+Both accept `--json` and `-v` / `--verbose` like app-mode `frigg validate`. Exit code is non-zero when there are errors; each issue includes a JSON field path (`pointer`).
+
+You can also validate programmatically with `validateApiModuleDefinition` from `@friggframework/schemas` (real Definitions with classes/functions are accepted via a schema view).
 
 The validator checks:
 - Required properties are present
 - Property types match schema (functions and the API class are accepted via a schema view)
 - `env` properties use correct naming (snake_case)
 - No additional properties on strict objects (`additionalProperties: false`)
+- Structural checks from `checkModuleDefinition` (API class, required auth methods as functions)
 
 ## Best Practices
 

@@ -104,7 +104,7 @@ function validateIntegrationDefinition(integrationDefinition) {
 /**
  * Validate API Module Definition.
  * Real Definitions carry classes and functions; validate the serialisable
- * view and return the original definition.
+ * view and return the original definition (same pattern as validateAppDefinition).
  * @param {object} apiModuleDefinition - API module definition object to validate
  * @returns {object} - Validation result
  */
