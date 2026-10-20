@@ -62,7 +62,7 @@ class CreateIntegration {
 
         // A concurrent request may have created a matching row between the
         // lookup above and this insert; re-check before any side effects run.
-        const survivor = await this._findDuplicate(
+        const survivor = await this._findSurvivor(
             userId,
             config?.type,
             entities
@@ -135,7 +135,7 @@ class CreateIntegration {
         return mapIntegrationClassToIntegrationDTO(integrationInstance);
     }
 
-    async _findDuplicate(userId, type, entityIds) {
+    async _findMatches(userId, type, entityIds) {
         const candidates =
             await this.integrationRepository.findIntegrationsByUserId(userId);
         const target = new Set((entityIds ?? []).map(String));
@@ -163,7 +163,6 @@ class CreateIntegration {
                 [...target].every((id) => current.has(id))
             );
         });
-        if (exact.length) return this._pickOldest(exact);
 
         // Entities may have been attached after create (addEntitiesToIntegration),
         // so a reconnect that sends the original entities must still find the
@@ -173,9 +172,32 @@ class CreateIntegration {
             const current = entitySet(integration);
             return [...target].every((id) => current.has(id));
         });
-        return target.size && supersets.length
-            ? this._pickOldest(supersets)
-            : null;
+        return { exact, supersets: target.size ? supersets : [] };
+    }
+
+    async _findDuplicate(userId, type, entityIds) {
+        const { exact, supersets } = await this._findMatches(
+            userId,
+            type,
+            entityIds
+        );
+        if (exact.length) return this._pickOldest(exact);
+        return supersets.length ? this._pickOldest(supersets) : null;
+    }
+
+    // After an insert the new row is itself an exact match, so the survivor
+    // is the oldest of every exact or superset match (the new row included):
+    // an older integration that already holds these entities always wins.
+    async _findSurvivor(userId, type, entityIds) {
+        const { exact, supersets } = await this._findMatches(
+            userId,
+            type,
+            entityIds
+        );
+        // supersets includes the exact matches; it is empty only for an
+        // empty entity set, where exact matching alone applies.
+        const matches = supersets.length ? supersets : exact;
+        return matches.length ? this._pickOldest(matches) : null;
     }
 
     _pickOldest(records) {

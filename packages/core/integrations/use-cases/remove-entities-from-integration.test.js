@@ -84,6 +84,19 @@ describe('RemoveEntitiesFromIntegration', () => {
         }
     );
 
+    it('lets a repository failure other than not-found propagate', async () => {
+        const { useCase, integrationRepository } = makeUseCase({
+            i1: integration(),
+        });
+        integrationRepository.findIntegrationById = async () => {
+            throw new Error('connection reset');
+        };
+
+        await expect(useCase.execute('i1', ['e2'])).rejects.toThrow(
+            'connection reset'
+        );
+    });
+
     it('throws INTEGRATION_NOT_FOUND for an unknown integration', async () => {
         const { useCase } = makeUseCase();
 

@@ -213,6 +213,22 @@ describeLegs('integration entities on %s', (_, makeClient, Repository) => {
         expect([...updated.entitiesIds].sort()).toEqual([first, second].sort());
     });
 
+    it('removing an entity id that does not exist changes nothing', async () => {
+        const [first, second] = entityIds;
+        const integration = await createIntegration([first, second]);
+        const missingEntityId =
+            Repository === IntegrationRepositoryPostgres
+                ? '999999999'
+                : '0123456789abcdef01234567';
+
+        const updated = await repo.removeEntitiesFromIntegration(
+            integration.id,
+            [missingEntityId]
+        );
+
+        expect([...updated.entitiesIds].sort()).toEqual([first, second].sort());
+    });
+
     it('removeEntitiesFromIntegration returns null for an unknown integration', async () => {
         const unknownId = unknownIntegrationId();
 

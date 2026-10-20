@@ -20,4 +20,23 @@ function integrationNotFound(integrationId) {
     return error;
 }
 
-module.exports = { assertEntityIdsInput, integrationNotFound };
+/**
+ * Loads an integration, mapping the repositories' "not found" error to
+ * INTEGRATION_NOT_FOUND. Any other failure (connection, invalid id) is
+ * rethrown unchanged.
+ * @param {Object} integrationRepository
+ * @param {string} integrationId
+ * @returns {Promise<Object>} The integration record.
+ */
+async function loadIntegration(integrationRepository, integrationId) {
+    try {
+        return await integrationRepository.findIntegrationById(integrationId);
+    } catch (error) {
+        if (/^Integration with id .* not found$/.test(error?.message)) {
+            throw integrationNotFound(integrationId);
+        }
+        throw error;
+    }
+}
+
+module.exports = { assertEntityIdsInput, integrationNotFound, loadIntegration };

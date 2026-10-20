@@ -707,6 +707,30 @@ describe('CreateIntegration Use-Case', () => {
             expect(stored[0].id).toBe(first.id);
         });
 
+        it('deletes the just-created row and returns an older superset integration when the initial lookup was stale', async () => {
+            const userId = 'user-race-superset';
+            const config = { type: 'dummy' };
+            const superset = await integrationRepository.createIntegration(
+                ['quo-1', 'page-1', 'page-2'],
+                userId,
+                config
+            );
+            superset.createdAt = new Date(Date.now() - 60_000);
+            makeFirstLookupStale(integrationRepository);
+
+            const result = await createIntegration.execute(
+                ['quo-1', 'page-1'],
+                userId,
+                config
+            );
+
+            expect(result.id).toBe(superset.id);
+            const stored = await integrationRepository.findIntegrationsByUserId(
+                userId
+            );
+            expect(stored.map((i) => i.id)).toEqual([superset.id]);
+        });
+
         it('fires ON_CREATE exactly once across both racers', async () => {
             const sendEvents = [];
             class SendTrackingIntegration extends DummyIntegration {

@@ -1,6 +1,7 @@
 const {
     assertEntityIdsInput,
     integrationNotFound,
+    loadIntegration,
 } = require('../utils/assert-entity-ids-input');
 
 /**
@@ -29,10 +30,10 @@ class RemoveEntitiesFromIntegration {
     async execute(integrationId, entityIds) {
         assertEntityIdsInput(integrationId, entityIds);
 
-        const integration = await this.integrationRepository
-            .findIntegrationById(integrationId)
-            .catch(() => null);
-        if (!integration) throw integrationNotFound(integrationId);
+        const integration = await loadIntegration(
+            this.integrationRepository,
+            integrationId
+        );
 
         const removing = new Set(entityIds.map(String));
         const attached = await this.moduleRepository.findEntitiesByIds(
