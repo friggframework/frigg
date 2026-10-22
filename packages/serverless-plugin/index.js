@@ -122,12 +122,11 @@ class FriggServerlessPlugin {
       });
   }
 
-  /**
-   * SQS client for LocalStack, used by `serverless offline` (`frigg start`)
-   * to create the app's queues locally. The aggregated AWS SDK v3 `SQS`
-   * client also accepts Node-style callbacks, which LocalStackQueueService
-   * uses.
-   */
+  // osls calls asyncInit() on every plugin while loading them, so this runs on
+  // every `frigg start`. It used to load SDK v2 (aws-sdk), which this package
+  // never declared and which resolved only because osls 3 shipped SDK v2
+  // (ADR-050). The v3 aggregated client keeps the callback-style createQueue
+  // that LocalStackQueueService calls.
   createLocalStackSQSClient() {
     const { SQS } = require('@aws-sdk/client-sqs');
 

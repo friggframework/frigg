@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "Plugin to help dynamically load frigg resources",
   "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.588.0"
+  },
   "scripts": {
     "test": "jest"
   },

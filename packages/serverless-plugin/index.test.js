@@ -384,3 +384,72 @@ describe('FriggServerlessPlugin', () => {
     });
   });
 });
+
+describe('FriggServerlessPlugin.createLocalStackSQSClient (ADR-050)', () => {
+  const FriggPlugin = jest.requireActual('./index');
+  const ENV_KEYS = ['AWS_REGION', 'AWS_ENDPOINT', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'];
+  let savedEnv;
+
+  beforeEach(() => {
+    savedEnv = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
+    ENV_KEYS.forEach((k) => delete process.env[k]);
+  });
+
+  afterEach(() => {
+    for (const [k, v] of Object.entries(savedEnv)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  const build = () =>
+    new FriggPlugin(
+      {
+        config: { servicePath: '/test/path' },
+        cli: { log: jest.fn() },
+        service: { custom: {}, provider: { environment: {} } },
+        processedInput: { commands: ['offline'] },
+        getProvider: jest.fn().mockReturnValue({}),
+        extendConfiguration: jest.fn(),
+      },
+      {}
+    );
+
+  it('builds a declared AWS SDK v3 SQS client, not SDK v2', async () => {
+    const { SQS } = jest.requireActual('@aws-sdk/client-sqs');
+    const client = build().createLocalStackSQSClient();
+
+    expect(client).toBeInstanceOf(SQS);
+    expect(typeof client.createQueue).toBe('function');
+    expect(await client.config.region()).toBe('us-east-1');
+    const endpoint = await client.config.endpoint();
+    expect(`${endpoint.protocol}//${endpoint.hostname}:${endpoint.port}`).toBe(
+      'http://localhost:4566'
+    );
+    const credentials = await client.config.credentials();
+    expect(credentials).toMatchObject({ accessKeyId: 'root', secretAccessKey: 'root' });
+  });
+
+  it('honours AWS_REGION, AWS_ENDPOINT and the LocalStack credentials from the environment', async () => {
+    process.env.AWS_REGION = 'eu-west-1';
+    process.env.AWS_ENDPOINT = 'http://127.0.0.1:4567';
+    process.env.AWS_ACCESS_KEY_ID = 'local';
+    process.env.AWS_SECRET_ACCESS_KEY = 'secret';
+
+    const client = build().createLocalStackSQSClient();
+
+    expect(await client.config.region()).toBe('eu-west-1');
+    const endpoint = await client.config.endpoint();
+    expect(endpoint.hostname).toBe('127.0.0.1');
+    expect(String(endpoint.port)).toBe('4567');
+    expect(await client.config.credentials()).toMatchObject({
+      accessKeyId: 'local',
+      secretAccessKey: 'secret',
+    });
+  });
+
+  it('does not require the undeclared SDK v2 package', () => {
+    const source = require('fs').readFileSync(require.resolve('./index'), 'utf8');
+    expect(source).not.toMatch(/require\(['"]aws-sdk['"]\)/);
+  });
+});
