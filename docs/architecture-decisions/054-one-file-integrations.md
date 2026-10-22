@@ -8,7 +8,8 @@
 > stable/experimental split are decided (see *Decisions so far*); the exact
 > names and shapes of `defineIntegration`, `use`, contract 2 and `ctx` are what
 > this PR asks to be reviewed. Per ADR-043 (open PR #646) it stays a draft PR
-> until accepted.
+> until accepted. The [Amendment (2026-10-22)](#amendment-2026-10-22-one-runtime-two-front-doors) records
+> what the build on Stack B settled (#703).
 
 ## Context
 
@@ -494,6 +495,60 @@ amendments are listed here only.
 6. What exactly is `ctx.integration`: a read-only record (id, status, user/org, entity ids), or
    an object with methods such as `setStatus` and `addMessage` that today live on the
    `IntegrationBase` instance?
+
+## Amendment (2026-10-22): one runtime, two front doors
+
+Built in [#703](https://github.com/friggframework/frigg/pull/703) on Stack B's runtime (#693–#700), with the HubSpot
+extension on contract 2 in [api-module-library#237](https://github.com/friggframework/api-module-library/pull/237).
+This amendment records what the build settled. The rest of this ADR stands.
+
+**One runtime, two front doors.** An ADR-063 integration document and `defineIntegration` both compile to
+`static Definition` plus `this.events` on `IntegrationBase` (ADR-063 §12). The builders, routers, queue worker,
+ADR-055 tick and management API read only that target. Neither front door is a serialisation of the other. They
+compose: a `defineIntegration` class can embed a document, and both kinds of trigger come out of one `triggersFor`
+list.
+
+**Names.**
+
+| Collision | Decision |
+|---|---|
+| `defineIntegrationClass` beside `defineIntegration` | `defineIntegration` is the code front door. The document door is `fromDefinitionDocument` (was `defineIntegrationClass`), `definitionDocumentHost` (was `defineSharedIntegrationClass`) and `embedDefinitionDocument` (was `extendIntegrationClass`). |
+| "Definition" means three things | In this ADR, `Definition` is only the class static (the compile target). The ADR-063 JSON is an *integration document*, and `config.definition` is the installation's *document pin*. |
+| workflow `trigger` vs `triggers` | One registry, `Definition.triggers` (ADR-055). `defineIntegration`'s `triggers` is that key. Extension triggers merge as `<moduleKey>.<name>`, and dotted names are reserved for them. A document's `workflows[].trigger` is a workflow's start condition, not a registry; its `schedule` kind compiles into the same list. |
+| Webhook facts in contract 2 and in capability manifests | Declared once, by the module. Verification is an Api method (`verifyWebhookSignature(input)`, where `input` is `webhookVerificationInput()` from #699: headers, body, raw body, method, URL). Contract 2's `verify` may name that method, as a manifest's `webhook.verify` does. Emitted names, account resolution and the subscription set live in the contract-2 extension, and a manifest's `webhook`/`events` blocks are generated from it. `use()` options reference these facts and never restate them. |
+
+**Changes to §1–§4.**
+
+1. **Module keys cannot name an `IntegrationBase` member** (`config`, `events`, `send`, `id`, …). §1 said any
+   identifier works. Inside `ctx.modules` that is true, but `IntegrationBase` also attaches each module to the
+   instance as `this[key]`, so such a key would overwrite the member. `defineIntegration` rejects these keys.
+2. **`ctx.integration` is a read-only record**: `id`, `name`, `status`, `userId`, `entities`, `version` (open
+   question 6, lean taken).
+3. **Config fields are a module export (`module.fields`), not an extension key.** A module bound without an
+   extension still offers them, as Slack does in target (a). A field is `{ module, schema, required, ui, options(api,
+   { config }) }`. If a module is bound twice, the author picks the binding with `{ ...field, from: '<key>' }`.
+4. **A contract-2 route needs no `event`; core receives it.** The pipeline is: receipt (handshake, verify, receive;
+   no database) → RESOLVE (worker, dry) → DISPATCH (worker, hydrated: `normalize`, then the `on` handler).
+   `resolve: { module }` fans out to every installation of the integration type that is connected to the account.
+   It no longer throws when two match, which matches Stack B's app-level webhooks. A bundle may keep its contract-1
+   face (`routes[].event`, `events`) for integrations that bind it by hand; `defineIntegration` ignores it. That is
+   how the HubSpot module moves to contract 2 without a major version.
+5. **`use()` options are checked when the class is defined.** Options that are functions of instance config are
+   checked again once they are resolved for an installation.
+6. **App-scope subscriptions**: `reconcileAppSubscriptions()` is the engine (union, list, create, remove). Its
+   invokers are the deploy post-step, the admin script and the daily trigger. The ADR-055 tick decides per
+   installation, so the daily reconcile needs an app-level trigger kind (one with no installation). Until that
+   exists, the post-step and the script are the invokers.
+
+**Not in #703 (still 2.0.1 stable scope):** the §5 lifecycle dispatcher, extension `scripts`, the reconcile
+invokers, ADR-027 `env` scoping and `frigg validate`, the Slack module promotion, and generated manifest webhook
+blocks.
+
+**Open questions added.** (7) Pruning app-scope subscriptions when two stages share one provider developer app.
+(8) Where verification runs: contract 2 verifies at receipt, and Stack B verifies manifest webhooks in the worker.
+Lean: at receipt when the secret is app-scope, in the worker when it is per installation. (9) Event names: the
+HubSpot manifest uses provider topics (`deal.propertyChange`) and contract 2 uses normalized names (`deal.changed`).
+Lean: manifest keys take the contract-2 names, with the provider topic in `match`.
 
 ## Appendix A: Target Files
 
