@@ -122,7 +122,7 @@ function compileTriggers(name, triggers = {}, extensionBindings) {
             // An extension trigger gets the extension ctx (its own api and options), not the integration's.
             add(`${b.moduleKey}.${n}`, t, (fn) => function runExtensionTrigger(payload) {
                 const config = this.resolvedConfig();
-                return fn(payload, { ...this.handlerContext(), api: this[b.moduleKey]?.api, options: resolveOptions(b, config) });
+                return fn(payload, this.handlerContext({ api: this[b.moduleKey]?.api, options: resolveOptions(b, config) }));
             });
         }
     }
@@ -213,9 +213,10 @@ function defineIntegration(spec = {}) {
 
         /**
          * The context every handler gets (ADR-054 §1). Built per dispatch, frozen. `integration` is a read-only
-         * record (ADR-054 open question 6, lean: read-only); `commands` is created on first use.
+         * record (ADR-054 open question 6, lean: read-only); `commands` is created on first use. `extra` adds the
+         * extension keys (`api`, `options`) for an extension's own handlers.
          */
-        handlerContext() {
+        handlerContext(extra = {}) {
             const self = this;
             const modules = {};
             for (const b of plan.bindings) {
@@ -236,6 +237,7 @@ function defineIntegration(spec = {}) {
                 log: this.logger,
                 telemetry: this.telemetry,
                 integration,
+                ...extra,
             };
             Object.defineProperty(ctx, 'commands', {
                 enumerable: true,

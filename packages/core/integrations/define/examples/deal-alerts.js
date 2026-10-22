@@ -1,7 +1,8 @@
 // =====================================================================================
 // (a) ONE-WAY, EVENT-DRIVEN: a HubSpot deal enters a chosen stage -> post to Slack.
-// This is the WHOLE app: backend/index.js. Target DX for 2.0.1 (see ADR-054).
+// This is the WHOLE app: backend/index.js (ADR-054 Appendix A, unchanged except these notes).
 // App code: ~70 lines. Nothing else in the repo but package.json and infrastructure.js.
+// Runs end to end in tests/example-deal-alerts.test.js (HubSpot and Slack nock'd).
 // =====================================================================================
 const { defineApp, defineIntegration, use } = require('@friggframework/core');
 const hubspot = require('@friggframework/api-module-hubspot');
@@ -97,6 +98,9 @@ module.exports = defineApp({
 // @friggframework/core
 //   defineIntegration -> an IntegrationBase subclass with a static Definition, so every
 //     existing builder, router, worker and the management API work unchanged.
+//   modules -> Definition.modules; use(hubspot, { webhooks }) -> Definition.extensions['crm-webhooks'],
+//     the contract-1 binding next already deploys (route /crm-webhooks/webhooks, function
+//     deal-alerts__crmwebhooks). The same compile target as an ADR-063 integration document.
 //   on/actions -> this.events (LIFE_CYCLE_EVENT / USER_ACTION), handler(payload, ctx),
 //     ctx = { modules: { crm, chat }, config, log, telemetry, commands, integration }.
 //     No `this`. The keys inside ctx.modules are this file's; the rest are core's.
@@ -112,12 +116,13 @@ module.exports = defineApp({
 //     route POST /webhooks, useDatabase: false, verify: HubSpot v3 HMAC + 5 min skew
 //     resolve: portalId -> integration (the RESOLVE hop the extension does by hand today)
 //     subscriptions: scope 'app' (HubSpot v3 subscriptions are per developer app);
-//       desired set = union of every installed binding's `subscribe`; reconciled by the
-//       framework on deploy and by a daily trigger; teardown when no binding needs it.
+//       desired set = union of every installed binding's `subscribe`; reconcileAppSubscriptions()
+//       creates what is missing and removes what no binding needs. (Invoked by the deploy
+//       post-step and a daily trigger: follow-up, see the PR checklist.)
 //     emits: deal.created | deal.changed {deal, changes} | deal.deleted (+ contact.*, company.*)
 //     hydrate: batch-reads the object with the listed properties before dispatch.
 //     env: HUBSPOT_CLIENT_SECRET, HUBSPOT_APP_ID, HUBSPOT_DEVELOPER_API_KEY (ADR-027 scoping).
-//     scripts: hubspot.reconcile-subscriptions, hubspot.replay-webhook (admin scripts).
+//     scripts: hubspot.reconcile-subscriptions, hubspot.replay-webhook (admin scripts; follow-up).
 //
 // @friggframework/api-module-slack
 //   Definition: OAuth2 bot install, team_id = externalId.
@@ -128,6 +133,6 @@ module.exports = defineApp({
 //
 // Provisioned by devtools from the Definition (no infrastructure code in the app):
 //   deal-alerts (HTTP catch-all), deal-alerts__crmwebhooks (receiver, no Prisma layer),
-//   deal-alerts QueueWorker + queue + DLQ, the daily frigg.subscriptions.reconcile trigger (ADR-055), and the
-//   admin-script functions for the module-shipped scripts.
+//   deal-alerts QueueWorker + queue + DLQ. (Follow-up: the daily frigg.subscriptions.reconcile
+//   trigger and the admin-script functions for module-shipped scripts.)
 // =====================================================================================
