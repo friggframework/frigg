@@ -292,8 +292,8 @@ const appDefinition = {
     never read the shell value.
   - An unknown level fails the build.
   - Lambda stays on its default `Text` log format for now. The Lambda JSON
-    `LoggingConfig` (`provider.logs.lambda`, `frameworkVersion >=3.58.0`)
-    waits for the ADR-048 Phase 0 checks; `FRIGG_LOG_LEVEL` filters in
+    `LoggingConfig` (`provider.logs.lambda`; covered by Frigg's single
+    `frameworkVersion: ^4.4.0`, ADR-050) waits for the ADR-048 Phase 0 checks; `FRIGG_LOG_LEVEL` filters in
     process until then. When it is on, do not set a function-level `logs`
     block: it replaces the provider block, it does not merge with it.
 - **`retentionInDays`** sets `provider.logRetentionInDays` for every Lambda

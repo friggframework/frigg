@@ -24,17 +24,15 @@ describe('frigg-cli dependencies', () => {
             expect(oslsVersion).toMatch(/^[\^~]?\d+\.\d+\.\d+/);
         });
 
-        it('should use osls version 3.40.1 or higher', () => {
+        it('should use osls 4.4.0 or higher within major 4 (ADR-050)', () => {
             const oslsVersion = packageJson.dependencies.osls;
 
             // Extract version number (remove ^ or ~ prefix)
             const versionNumber = oslsVersion.replace(/^[\^~]/, '');
             const [major, minor] = versionNumber.split('.').map(Number);
 
-            expect(major).toBeGreaterThanOrEqual(3);
-            if (major === 3) {
-                expect(minor).toBeGreaterThanOrEqual(40);
-            }
+            expect(major).toBe(4);
+            expect(minor).toBeGreaterThanOrEqual(4);
         });
     });
 
