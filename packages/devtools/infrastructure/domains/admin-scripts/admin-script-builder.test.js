@@ -285,11 +285,11 @@ describe('AdminScriptBuilder', () => {
                 result.functions.adminScriptExecutor,
                 result.functions.adminScriptRouter,
             ]) {
-                expect(fn.package.exclude).toEqual(
+                expect(fn.package.patterns).toEqual(
                     expect.arrayContaining([
-                        'node_modules/aws-sdk/**',
-                        'node_modules/@aws-sdk/**',
-                        'node_modules/@prisma/**',
+                        '!node_modules/aws-sdk/**',
+                        '!node_modules/@aws-sdk/**',
+                        '!node_modules/@prisma/**',
                     ])
                 );
             }
@@ -1029,7 +1029,7 @@ describe('AdminScriptBuilder nested node_modules (lambda.keepNestedNodeModules)'
         const result = await new AdminScriptBuilder().build(appDefinition(), {});
 
         for (const fn of executorAndRouter(result)) {
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
+            expect(fn.package.patterns).toContain('!node_modules/**/node_modules/**');
         }
     });
 
@@ -1040,8 +1040,47 @@ describe('AdminScriptBuilder nested node_modules (lambda.keepNestedNodeModules)'
         );
 
         for (const fn of executorAndRouter(result)) {
-            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+            expect(fn.package.patterns).not.toContain('!node_modules/**/node_modules/**');
+            expect(fn.package.patterns).toContain('!node_modules/**/node_modules/@friggframework/**');
         }
+    });
+});
+
+describe('AdminScriptBuilder function package patterns (ADR-050)', () => {
+    it('emits package.patterns, never include/exclude, on every skipEsbuild function', async () => {
+        const result = await new AdminScriptBuilder().build(
+            {
+                adminScripts: [{ Definition: { name: 'test-script' } }],
+                reports: [{ Definition: { name: 'test-report' } }],
+            },
+            {}
+        );
+
+        const packaged = Object.entries(result.functions).filter(([, fn]) => fn.package);
+        expect(packaged.map(([name]) => name)).toEqual(
+            expect.arrayContaining(['adminScriptExecutor', 'adminScriptRouter'])
+        );
+        for (const [, fn] of packaged) {
+            expect(fn.package).not.toHaveProperty('include');
+            expect(fn.package).not.toHaveProperty('exclude');
+            expect(fn.package.patterns.every((p) => p.startsWith('!'))).toBe(true);
+            expect(fn.package.patterns).toEqual(
+                expect.arrayContaining(['!node_modules/aws-sdk/**', '!.env', '!test/**'])
+            );
+        }
+    });
+
+    it('re-adds the DocumentDB CA file after every exclude', async () => {
+        const result = await new AdminScriptBuilder().build(
+            {
+                adminScripts: [{ Definition: { name: 'test-script' } }],
+                database: { documentDB: { tlsCAFile: './global-bundle.pem' } },
+            },
+            {}
+        );
+
+        const { patterns } = result.functions.adminScriptExecutor.package;
+        expect(patterns[patterns.length - 1]).toBe('global-bundle.pem');
+        expect(patterns.slice(0, -1).every((p) => p.startsWith('!'))).toBe(true);
     });
 });

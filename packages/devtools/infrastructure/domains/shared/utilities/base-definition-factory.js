@@ -9,6 +9,7 @@
 
 const { buildEnvironment } = require('../environment-builder');
 const { nestedNodeModulesExcludes } = require('./nested-node-modules');
+const { toPackagePatterns } = require('./package-patterns');
 const { buildLoggingProviderConfig } = require('./logging-config');
 
 /**
@@ -37,132 +38,83 @@ function createBaseDefinition(
     const loggingConfig = buildLoggingProviderConfig(AppDefinition.logging);
 
     // Package config for handlers that skip esbuild (need node_modules dependencies)
-    // Include backend src/ and index.js since handlers load the app definition
+    // Include backend src/ and index.js since handlers load the app definition.
+    // osls 4 only reads package.patterns (ADR-050): excludes first, then includes.
     const skipEsbuildPackageConfig = {
-        // Explicitly include project files that handlers need
-        include: [
-            // Include DocumentDB TLS certificate if configured
-            ...(AppDefinition.database?.documentDB?.tlsCAFile 
-                ? [AppDefinition.database.documentDB.tlsCAFile.replace(/^\.\//, '')] 
-                : []),
-        ],
-        exclude: [
-            // Exclude Prisma (provided via Lambda Layer)
-            ...(usePrismaLayer ? [
-                'node_modules/@prisma/**',
-                'node_modules/.prisma/**',
-                'node_modules/prisma/**',
-                'node_modules/@friggframework/core/generated/**',
-            ] : []),
+        patterns: toPackagePatterns({
+            // Explicitly include project files that handlers need
+            include: [
+                // Include DocumentDB TLS certificate if configured
+                ...(AppDefinition.database?.documentDB?.tlsCAFile 
+                    ? [AppDefinition.database.documentDB.tlsCAFile.replace(/^\.\//, '')] 
+                    : []),
+            ],
+            exclude: [
+                // Exclude Prisma (provided via Lambda Layer)
+                ...(usePrismaLayer ? [
+                    'node_modules/@prisma/**',
+                    'node_modules/.prisma/**',
+                    'node_modules/prisma/**',
+                    'node_modules/@friggframework/core/generated/**',
+                ] : []),
 
-            // Exclude AWS SDK (provided by Lambda runtime)
-            'node_modules/aws-sdk/**',
-            'node_modules/@aws-sdk/**',
+                // Exclude AWS SDK (provided by Lambda runtime)
+                'node_modules/aws-sdk/**',
+                'node_modules/@aws-sdk/**',
 
-            // Exclude dev/test dependencies
-            'node_modules/@friggframework/test/**',
-            'node_modules/@friggframework/eslint-config/**',
-            'node_modules/@friggframework/prettier-config/**',
-            'node_modules/jest/**',
-            'node_modules/prettier/**',
-            'node_modules/eslint/**',
+                // Exclude dev/test dependencies
+                'node_modules/@friggframework/test/**',
+                'node_modules/@friggframework/eslint-config/**',
+                'node_modules/@friggframework/prettier-config/**',
+                'node_modules/jest/**',
+                'node_modules/prettier/**',
+                'node_modules/eslint/**',
 
-            ...nestedNodeModulesExcludes(AppDefinition, usePrismaLayer),
+                ...nestedNodeModulesExcludes(AppDefinition, usePrismaLayer),
 
-            // Exclude build tools (not needed at runtime)
-            'node_modules/esbuild/**',
-            'node_modules/@esbuild/**',
-            'node_modules/typescript/**',
-            'node_modules/webpack/**',
-            'node_modules/osls/**',
-            'node_modules/serverless-esbuild/**',
-            'node_modules/serverless-jetpack/**',
-            'node_modules/serverless-offline/**',
-            'node_modules/serverless-offline-sqs/**',
-            'node_modules/serverless-dotenv-plugin/**',
-            'node_modules/serverless-kms-grants/**',
-            // Note: DO NOT exclude serverless-http - it's a runtime dependency!
+                // Exclude build tools (not needed at runtime)
+                'node_modules/esbuild/**',
+                'node_modules/@esbuild/**',
+                'node_modules/typescript/**',
+                'node_modules/webpack/**',
+                'node_modules/osls/**',
+                'node_modules/serverless-esbuild/**',
+                'node_modules/serverless-jetpack/**',
+                'node_modules/serverless-offline/**',
+                'node_modules/serverless-offline-sqs/**',
+                'node_modules/serverless-dotenv-plugin/**',
+                'node_modules/serverless-kms-grants/**',
+                // Note: DO NOT exclude serverless-http - it's a runtime dependency!
 
-            // Exclude local dev files and environment files (NEVER deploy .env files!)
-            '.env',
-            '.env.*',
-            '.env.local',
-            '.env.*.local',
-            '**/.env',
-            '**/.env.*',
-            'deploy.log',
-            '.env.backup',
-            'docker-compose.yml',
-            'jest.config.js',
-            'jest.unit.config.js',
-            '.eslintrc.json',
-            '.prettierrc',
-            '.prettierignore',
-            '.markdownlintignore',
-            'package-lock.json',
+                // Exclude local dev files and environment files (NEVER deploy .env files!)
+                '.env',
+                '.env.*',
+                '.env.local',
+                '.env.*.local',
+                '**/.env',
+                '**/.env.*',
+                'deploy.log',
+                '.env.backup',
+                'docker-compose.yml',
+                'jest.config.js',
+                'jest.unit.config.js',
+                '.eslintrc.json',
+                '.prettierrc',
+                '.prettierignore',
+                '.markdownlintignore',
+                'package-lock.json',
 
-            // Exclude test files and layers (keep src/ - needed for app definition and integrations)
-            'test/**',
-            'layers/**',
-            'coverage/**',
-            // Note: DO NOT exclude src/** - handlers need src/integrations and src/api-modules at runtime
-            '**/*.test.js',
-            '**/*.spec.js',
-            '**/.claude-flow/**',
-            '**/.swarm/**',
-        ],
-    };
-
-    // Function-level package config to exclude Prisma and AWS SDK
-    const functionPackageConfig = {
-        exclude: [
-            // Exclude AWS SDK (already in Lambda runtime or externalized by esbuild)
-            'node_modules/aws-sdk/**',
-            'node_modules/@aws-sdk/**',
-
-            // Exclude Prisma (provided via Lambda Layer)
-            ...(usePrismaLayer ? [
-                'node_modules/@prisma/**',
-                'node_modules/.prisma/**',
-                'node_modules/prisma/**',
-                'node_modules/@friggframework/core/generated/**',
-            ] : []),
-
-            // Exclude nested node_modules from symlinked frigg packages (for npm link development)
-            'node_modules/@friggframework/core/node_modules/**',
-            'node_modules/@friggframework/devtools/node_modules/**',
-
-            // Exclude environment files (NEVER deploy .env files!)
-            '.env',
-            '.env.*',
-            '.env.local',
-            '.env.*.local',
-            '**/.env',
-            '**/.env.*',
-
-            // Exclude development/test files from backend project
-            'coverage/**',
-            'test/**',
-            'src/**',
-            'layers/**',
-            '**/*.test.js',
-            '**/*.spec.js',
-            '.git/**',
-            '.github/**',
-
-            // Exclude AI assistant and development artifacts
-            '**/.claude-flow/**',
-            '**/.swarm/**',
-            '**/CLAUDE.md',
-            '**/README.md',
-            '**/*.md',
-
-            // Exclude config and meta files from core
-            'node_modules/@friggframework/core/.eslintrc.json',
-            'node_modules/@friggframework/core/.gitignore',
-            'node_modules/@friggframework/core/jest.config.js',
-            'node_modules/@friggframework/core/CHANGELOG.md',
-        ],
+                // Exclude test files and layers (keep src/ - needed for app definition and integrations)
+                'test/**',
+                'layers/**',
+                'coverage/**',
+                // Note: DO NOT exclude src/** - handlers need src/integrations and src/api-modules at runtime
+                '**/*.test.js',
+                '**/*.spec.js',
+                '**/.claude-flow/**',
+                '**/.swarm/**',
+            ],
+        }),
     };
 
     return {
@@ -172,8 +124,9 @@ function createBaseDefinition(
             individually: true,
         },
         // Only use .env for local development (offline mode)
-        // Production deployments should use environment vars from infrastructure
-        useDotenv: process.argv.includes('offline'),
+        // Production deployments should use environment vars from infrastructure.
+        // Emitted only when true: osls 4 accepts `useDotenv: true` or no key (ADR-050).
+        ...(process.argv.includes('offline') && { useDotenv: true }),
         provider: {
             name: AppDefinition.provider || 'aws',
             ...(process.env.AWS_PROFILE && { profile: process.env.AWS_PROFILE }),
