@@ -30,7 +30,7 @@ installation (Integration.config)         ─┘                          │
 | `sync-engine.js` | Syncs: link → identity → search → create/update, master rules, backfill pages, polls |
 | `runtime.js` | Ports (Api calls, link store), `runWorkflow`, `runQuery`, `renderSurface`, `runLifecycle`, `resolveOptions`, `installContext` |
 | `versioning.js` | `diff`, `checkBump`, `planUpgrade` |
-| `integration-runtime.js` | `defineIntegrationClass`: the IntegrationBase subclass that runs it all |
+| `integration-runtime.js` | `fromDefinitionDocument` (was `defineIntegrationClass`), `definitionDocumentHost`, `embedDefinitionDocument`: the IntegrationBase subclasses that run it all. `defineIntegration` (`../define`) is the code front door to the same compile target. |
 | `use-cases/definition-use-cases.js` | Publish, deprecate, catalogue, history, upgrade plan; `createDefinitionCatalog()` (the store the runtime reads) |
 | `repositories/` | `IntegrationDefinitionVersion` and `WorkflowRun` rows (MongoDB, PostgreSQL, DocumentDB) |
 | `router.js` | The publish, catalogue, upgrade and run-history routes |
@@ -89,7 +89,7 @@ workflows with delay and approval pauses, syncs, UI surfaces, the generated conf
 
 ```js
 class PhoneReports extends IntegrationBase { static Definition = { name: 'phone-reports', modules, … }; async notifyTeam(args) { … } }
-module.exports = extendIntegrationClass(PhoneReports, { definition: require('./phone-reports.definition.json'), manifests });
+module.exports = embedDefinitionDocument(PhoneReports, { definition: require('./phone-reports.definition.json'), manifests });
 ```
 
 - The class keeps its name, modules, routes, schedules, lifecycle and handlers; the definition's id must be its name.
@@ -107,9 +107,9 @@ Definitions live in the `IntegrationDefinitionVersion` table (Prisma models in b
 `20261018000000_add_data_defined_integrations`), and runs in `WorkflowRun`. Point the class at the store:
 
 ```js
-const { defineSharedIntegrationClass, createDefinitionCatalog } = require('@friggframework/core/integrations/definitions');
+const { definitionDocumentHost, createDefinitionCatalog } = require('@friggframework/core/integrations/definitions');
 // A database store is read asynchronously, so it goes with the shared class (one class, every definition).
-const IntegrationRuntime = defineSharedIntegrationClass({ definitions: createDefinitionCatalog(), manifests, modules });
+const IntegrationRuntime = definitionDocumentHost({ definitions: createDefinitionCatalog(), manifests, modules });
 ```
 
 | Route | Auth | |
