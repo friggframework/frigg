@@ -105,9 +105,19 @@ describe('namespacing (ADR-054 §3)', () => {
         const ext = (over) => ({ Definition: { moduleName: 'm' }, extensions: { x: { name: 'x', contract: 2, ...over } } });
         expect(() => defineIntegration(base({ modules: { m: use(ext({ requires: { core: '>=3' } }), { x: {} }) } }))).toThrow(/requires @friggframework\/core >=3/);
         expect(() => defineIntegration(base({ modules: { m: use(ext({ subscriptions: { scope: 'instance' } }), { x: {} }) } }))).toThrow(/experimental/);
-        expect(() => defineIntegration(base({ modules: { m: use(ext({ routes: [{ path: '/w', method: 'POST', event: 'E' }] }), { x: {} }) } }))).toThrow(/contract-2 route is received by core/);
+        expect(() => defineIntegration(base({ modules: { m: use(ext({ routes: [{ path: '/w', method: 'POST', event: 'E' }], receive: () => [], resolve: { module: 'm' } }), { x: {} }) } }))).toThrow(/names event "E", which is not in "events"/);
         expect(() => defineExtension({ name: 'y', fields: {} })).toThrow(/config fields are a module export/);
         expect(defineExtension({ name: 'y', emits: { 'a.b': {} } })).toMatchObject({ contract: 2, name: 'y' });
+    });
+
+    it('a dual bundle (contract 2 plus its contract-1 face) compiles without its contract-1 events or route events', () => {
+        const legacyHandler = jest.fn();
+        const dual = { ...hubspot.extensions.webhooks, routes: [{ path: '/webhooks', method: 'POST', event: 'HUBSPOT_WEBHOOK_RECEIVED' }], events: { HUBSPOT_WEBHOOK_RECEIVED: { handler: legacyHandler } } };
+        const mod = { ...hubspot, extensions: { webhooks: dual } };
+        const Cls = defineIntegration(base({ modules: { crm: use(mod, { webhooks: { subscribe: ['deal.creation'] } }) } }));
+        const compiled = Cls.Definition.extensions['crm-webhooks'].extension;
+        expect(compiled.routes).toEqual([{ path: '/webhooks', method: 'POST', event: 'CRM__WEBHOOKS__RECEIVED' }]);
+        expect(Object.keys(compiled.events)).not.toContain('HUBSPOT_WEBHOOK_RECEIVED');
     });
 
     it('binds a contract-1 bundle as today under the derived key', () => {

@@ -37,7 +37,7 @@ honoured by `integration-types`, the document-door names below as aliases).
 
 ## 3. API (as built)
 
-```js
+```text
 defineIntegration({ name, version, display, usage, modules: { <key>: use(module, { <ext>: opts }) },
                     config, on, triggers, actions, visible, webhooks?, routes? })   // -> IntegrationBase subclass
 defineApp({ name, integrations, ...appDefinition })                                 // -> { Definition }
@@ -79,7 +79,10 @@ routes under `/api/<integration>-integration/crm-webhooks`, and the queue worker
 4. **Subscriptions, app scope**: `reconcileAppSubscriptions` takes the union of `desired(options)` over every class
    that binds the extension (per ENABLED installation when an option is a function of config), lists what the
    provider has, creates what is missing and removes what no binding needs.
-5. **Options**: `use()` options are checked against the extension's `options` schema when the class is defined;
+5. **One bundle, both contracts**: a contract-2 bundle may keep its contract-1 face (`events` and `routes[].event`),
+   which a class binding it by hand through `Definition.extensions` (or an older core) runs. `defineIntegration`
+   ignores both. That is how the HubSpot module moves `extensions.webhooks` to contract 2 without a major version.
+6. **Options**: `use()` options are checked against the extension's `options` schema when the class is defined;
    function values are resolved with the installation's config and checked again.
 
 Not in this PR (checklist on the PR): extension `scripts` and `lifecycle` hooks (§5 dispatcher), the deploy

@@ -18,8 +18,13 @@
  *         normalize: async (batch, ctx) => [{ name: 'deal.changed', payload }],   // in the worker, with the installation's api
  *         subscriptions: { scope: 'app', desired, list, create, remove, key },
  *         triggers: {},                                                      // ADR-055 shape, merged as `<moduleKey>.<name>`
- *         events: {},                                                        // contract-1 escape hatch
+ *         events: {},                                                        // the contract-1 face (see below)
  *     });
+ *
+ * One bundle can serve both contracts: `events` and `routes[].event` are what a class that binds the bundle by hand
+ * through `Definition.extensions` runs (and what an older core runs), and `defineIntegration` ignores both, because
+ * core receives a contract-2 route itself and never adds bare event names. A module can therefore move its
+ * extension to contract 2 without breaking the integrations that bind it the contract-1 way.
  *
  * `input` is the delivery as signature checks need it, the same object Stack B's runtime passes to a capability
  * manifest's `webhook.verify` (IntegrationBase#webhookVerificationInput): `{ headers, body, query, rawBody, method, url }`.
@@ -114,7 +119,11 @@ function validateExtension(ext, { coreVersion = CORE_VERSION, where } = {}) {
     for (const r of routes) {
         if (!r || typeof r.path !== 'string' || !r.path.startsWith('/')) fail('has a route without a "/path"');
         if (typeof r.method !== 'string' || !METHODS.has(r.method.toLowerCase())) fail(`route ${r.path} has an unsupported method`);
-        if (r.event !== undefined) fail(`route ${r.path} names an "event": a contract-2 route is received by core (receive/verify/resolve), not by an event`);
+        // A route's `event` is the bundle's contract-1 face: a class that binds the bundle by hand through
+        // Definition.extensions (or an older core) dispatches it. defineIntegration ignores it: core receives.
+        if (r.event !== undefined && !Object.prototype.hasOwnProperty.call(ext.events || {}, r.event)) {
+            fail(`route ${r.path} names event "${r.event}", which is not in "events" (a contract-2 route needs no event: core receives it)`);
+        }
     }
     if (routes.length && typeof ext.receive !== 'function') fail('has routes but no "receive"');
     if (routes.length && !ext.resolve) fail('has routes but no "resolve"');
