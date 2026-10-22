@@ -6,8 +6,8 @@ const RETENTION_DAYS = [
     2192, 2557, 2922, 3288, 3653,
 ];
 
-// First osls version that compiles provider.logs.lambda into LoggingConfig.
-const LOGGING_CONFIG_FRAMEWORK_VERSION = '>=3.58.0';
+// provider.logs.lambda compiles to LoggingConfig from osls 3.58.0; the base
+// definition's single frameworkVersion (^4.4.0, ADR-050) already covers it.
 
 // ADR-048 Open question 3: off until the Phase 0 spike proves Lambda JSON mode
 // keeps direct fd 1 lines intact. Until then Lambda stays on Text and
@@ -39,7 +39,7 @@ function validateRetentionInDays(retentionInDays) {
  *
  * @param {Object} [logging] - appDefinition.logging
  * @param {{ lambdaJson?: boolean }} [options]
- * @returns {{ frameworkVersion?: string, provider?: Object }}
+ * @returns {{ provider?: Object }}
  */
 function buildLoggingProviderConfig(
     logging,
@@ -53,7 +53,6 @@ function buildLoggingProviderConfig(
     if (logging.level !== undefined) {
         const level = normalizeLogLevel(logging.level);
         if (lambdaJson) {
-            result.frameworkVersion = LOGGING_CONFIG_FRAMEWORK_VERSION;
             provider.logs = {
                 lambda: {
                     logFormat: 'JSON',

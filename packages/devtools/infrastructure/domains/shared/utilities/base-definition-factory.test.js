@@ -5,6 +5,7 @@
  */
 
 const { createBaseDefinition } = require('./base-definition-factory');
+const { OSLS_FRAMEWORK_VERSION } = require('./framework-version');
 
 describe('Base Definition Factory', () => {
     beforeEach(() => {
@@ -23,7 +24,7 @@ describe('Base Definition Factory', () => {
             const result = createBaseDefinition(appDefinition, appEnvironmentVars, discoveredResources);
 
             expect(result.service).toBe('test-app');
-            expect(result.frameworkVersion).toBe('>=3.17.0');
+            expect(result.frameworkVersion).toBe(OSLS_FRAMEWORK_VERSION);
             expect(result.provider.name).toBe('aws');
             expect(result.provider.runtime).toBe('nodejs22.x');
             expect(result.provider.timeout).toBe(29);
@@ -411,14 +412,14 @@ describe('logging (ADR-048)', () => {
 
         expect(result.provider.logs).toBeUndefined();
         expect(result.provider.logRetentionInDays).toBeUndefined();
-        expect(result.frameworkVersion).toBe('>=3.17.0');
+        expect(result.frameworkVersion).toBe(OSLS_FRAMEWORK_VERSION);
     });
 
     it('validates logging.level but leaves the Lambda log format and frameworkVersion alone by default', () => {
         const result = build({ level: 'warn' });
 
         expect(result.provider.logs).toBeUndefined();
-        expect(result.frameworkVersion).toBe('>=3.17.0');
+        expect(result.frameworkVersion).toBe(OSLS_FRAMEWORK_VERSION);
     });
 
     it.each(['verbose', 'warning', '', 3])('throws on unknown level %p', (level) => {
@@ -430,7 +431,12 @@ describe('logging (ADR-048)', () => {
 
         expect(result.provider.logRetentionInDays).toBe(30);
         expect(result.provider.logs).toBeUndefined();
-        expect(result.frameworkVersion).toBe('>=3.17.0');
+        expect(result.frameworkVersion).toBe(OSLS_FRAMEWORK_VERSION);
+    });
+
+    it('keeps the single osls frameworkVersion even when the Lambda LoggingConfig is on (ADR-050)', () => {
+        const result = build({ level: 'warn' });
+        expect(result.frameworkVersion).toBe('^4.4.0');
     });
 
     it('accepts 1096, which CloudWatch allows but the osls schema omits', () => {

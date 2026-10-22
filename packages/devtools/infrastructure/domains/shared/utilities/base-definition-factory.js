@@ -11,6 +11,7 @@ const { buildEnvironment } = require('../environment-builder');
 const { nestedNodeModulesExcludes } = require('./nested-node-modules');
 const { toPackagePatterns } = require('./package-patterns');
 const { buildLoggingProviderConfig } = require('./logging-config');
+const { OSLS_FRAMEWORK_VERSION } = require('./framework-version');
 
 /**
  * Create base serverless definition with core functions and resources
@@ -118,7 +119,7 @@ function createBaseDefinition(
     };
 
     return {
-        frameworkVersion: loggingConfig.frameworkVersion || '>=3.17.0',
+        frameworkVersion: OSLS_FRAMEWORK_VERSION,
         service: AppDefinition.name || 'create-frigg-app',
         package: {
             individually: true,

@@ -185,7 +185,7 @@ Defines the structure for Serverless Framework configuration used in AWS deploym
 **Example:**
 ```javascript
 const serverlessConfig = {
-    frameworkVersion: ">=3.17.0",
+    frameworkVersion: "^4.4.0",
     service: "frigg-backend",
     provider: {
         name: "aws",

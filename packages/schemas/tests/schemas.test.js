@@ -434,6 +434,16 @@ describe('@friggframework/schemas', () => {
             expect(result.valid).toBe(true);
         });
 
+        test('accepts the caret frameworkVersion Frigg emits for osls 4 (ADR-050)', () => {
+            const config = {
+                frameworkVersion: "^4.4.0",
+                service: "frigg-backend",
+                provider: { name: "aws", runtime: "nodejs22.x" }
+            };
+
+            expect(validateServerlessConfig(config).valid).toBe(true);
+        });
+
         test('should validate complete serverless config', () => {
             const config = {
                 frameworkVersion: ">=3.17.0",
