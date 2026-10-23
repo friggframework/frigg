@@ -535,16 +535,34 @@ list.
    how the HubSpot module moves to contract 2 without a major version.
 5. **`use()` options are checked when the class is defined.** Options that are functions of instance config are
    checked again once they are resolved for an installation.
-6. **App-scope subscriptions**: `reconcileAppSubscriptions()` is the engine (union, list, create, remove). Its
-   invokers are the deploy post-step, the admin script and the daily trigger. The ADR-055 tick decides per
-   installation, so the daily reconcile needs an app-level trigger kind (one with no installation). Until that
-   exists, the post-step and the script are the invokers.
+6. **App-scope subscriptions** (maintainer, 2026-10-23). `reconcileAppSubscriptions()` is the engine.
+   - **Add-only by default.** It creates what the union of bindings needs and removes nothing unless it is called
+     with `prune: true`. It never prunes a group whose installations it could not read. A dry run reports `create`
+     and `remove` (what pruning would do) and writes nothing.
+   - **When it runs.** There is no recurring trigger, so the daily reconcile is dropped. It runs at three points:
+     (a) after `frigg deploy`, add-only and without a database (`--prune-subscriptions` prunes,
+     `--skip-subscriptions` skips it, and a failure never fails the deploy);
+     (b) on installation lifecycle, for bindings whose `use()` options are functions of installation config: on
+     create and config update it adds what that installation needs, and on delete it removes nothing, because
+     removal needs the whole app's union. The call sites are `onCreate`/`onUpdate`/`onDelete` until the §5
+     dispatcher exists;
+     (c) from the module's admin script (`hubspot.reconcile-subscriptions`, which takes `prune` and `dryRun`, or
+     `--prune` and `--dry-run`), which `defineApp` registers.
+   - **Supported setup: one provider developer app per stage.** Subscriptions are shared app-wide, so stages that
+     share a developer app would see, and when pruning remove, each other's subscriptions.
 
-**Not in #703 (still 2.0.1 stable scope):** the §5 lifecycle dispatcher, extension `scripts`, the reconcile
-invokers, ADR-027 `env` scoping and `frigg validate`, the Slack module promotion, and generated manifest webhook
-blocks.
+**Alternative under evaluation: HubSpot Webhooks Journal API** (GA, version 2026-09). It supports per-portal
+subscriptions (`POST /webhooks-journal/subscriptions/2026-09` with `portalId`, object type id, actions, properties
+and filters), authenticated by a client-credentials app token. Delivery is pull-only, from a 3-day journal read by
+offset. Subscriptions would become installation-scoped: created on install and deleted with
+`DELETE …/portals/{portalId}`, with no shared app-wide set to prune. The cost is a polling consumer. In contract-2
+terms that is `subscriptions.scope: 'installation'` plus a journal-poll trigger (ADR-055) that reads the journal
+and feeds `normalize`. It is not implemented.
 
-**Open questions added.** (7) Pruning app-scope subscriptions when two stages share one provider developer app.
+**Not in #703 (still 2.0.1 stable scope):** the §5 lifecycle dispatcher, extension `lifecycle` hooks, ADR-027
+`env` scoping and `frigg validate`, the Slack module promotion, and generated manifest webhook blocks.
+
+**Open questions added.** (7) *(Decided: add-only, `prune` on request, one developer app per stage; see item 6.)*
 (8) Where verification runs: contract 2 verifies at receipt, and Stack B verifies manifest webhooks in the worker.
 Lean: at receipt when the secret is app-scope, in the worker when it is per installation. (9) Event names: the
 HubSpot manifest uses provider topics (`deal.propertyChange`) and contract 2 uses normalized names (`deal.changed`).
