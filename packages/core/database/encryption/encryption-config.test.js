@@ -26,6 +26,9 @@ const OFFLINE = { ...LAMBDA, IS_OFFLINE: 'true' };
 const INVOKE_LOCAL = { ...LAMBDA, IS_LOCAL: 'true' };
 const JEST = { JEST_WORKER_ID: '1', NODE_ENV: 'test' };
 const SCRIPT = {}; // plain `node script.js` on a laptop
+// A deployed Netlify function: no AWS Lambda variables are relied on, only the
+// FRIGG_PROVIDER that provider-netlify's generated entry points set.
+const NETLIFY = { FRIGG_PROVIDER: 'netlify' };
 
 describe('isDeployedRuntime', () => {
     it.each([
@@ -61,6 +64,22 @@ describe('isDeployedRuntime', () => {
             { ...LAMBDA, IS_OFFLINE: 'false' },
             true,
         ],
+        ['a deployed Netlify function', NETLIFY, true],
+        [
+            'a deployed Netlify function, provider name in another case',
+            { FRIGG_PROVIDER: ' Netlify ' },
+            true,
+        ],
+        ['`netlify dev`', { ...NETLIFY, NETLIFY_DEV: 'true' }, false],
+        ['Jest with FRIGG_PROVIDER=netlify', { ...NETLIFY, ...JEST }, false],
+        // Build-time variables only: a laptop with them set is still local.
+        [
+            "Netlify's build-time variables without FRIGG_PROVIDER",
+            { NETLIFY: 'true', SITE_ID: 'abc', CONTEXT: 'production' },
+            false,
+        ],
+        ['FRIGG_PROVIDER=aws outside Lambda', { FRIGG_PROVIDER: 'aws' }, false],
+        ['an empty FRIGG_PROVIDER', { FRIGG_PROVIDER: '  ' }, false],
     ])('%s → %p', (_label, env, expected) => {
         expect(isDeployedRuntime(env)).toBe(expected);
     });
@@ -195,6 +214,43 @@ describe('resolveEncryptionConfig', () => {
                 optedOut: false,
                 optOutIgnored: true,
             });
+        });
+    });
+
+    describe('deployed on Netlify: the same rule as Lambda', () => {
+        it.each(['dev', 'test', 'local', 'production'])(
+            'STAGE=%p with no key → error, not plaintext',
+            (STAGE) => {
+                const config = resolveEncryptionConfig({ ...NETLIFY, STAGE });
+                expect(config).toMatchObject({
+                    enabled: false,
+                    runtime: 'deployed',
+                    bypassed: false,
+                });
+                expect(config.error).toMatch(/No field-level encryption key/);
+            }
+        );
+
+        it('STAGE=dev with AES_KEY_ID + AES_KEY → AES', () => {
+            expect(
+                resolveEncryptionConfig({ ...NETLIFY, ...AES, STAGE: 'dev' })
+            ).toMatchObject({ enabled: true, method: 'aes', runtime: 'deployed' });
+        });
+
+        it('`netlify dev` with STAGE=dev is a local run and skips encryption', () => {
+            expect(
+                resolveEncryptionConfig({
+                    ...NETLIFY,
+                    NETLIFY_DEV: 'true',
+                    STAGE: 'dev',
+                })
+            ).toMatchObject({ runtime: 'local', bypassed: true, error: null });
+        });
+
+        it('getEncryptionConfig throws for a deployed dev stage with no key', () => {
+            expect(() =>
+                getEncryptionConfig({ ...NETLIFY, STAGE: 'dev' })
+            ).toThrow(EncryptionConfigurationError);
         });
     });
 

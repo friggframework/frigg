@@ -40,29 +40,42 @@ function isTrue(value) {
 }
 
 /**
- * True when the process runs in AWS Lambda for real. The Lambda runtime sets
- * AWS_LAMBDA_FUNCTION_NAME, LAMBDA_TASK_ROOT and AWS_EXECUTION_ENV
- * (AWS_Lambda_<runtime>). serverless-offline sets the first two as well, so
- * IS_OFFLINE, IS_LOCAL and Jest mark a local run. Other AWS hosts (CloudShell,
- * CodeBuild, ECS) set AWS_EXECUTION_ENV to other values and count as local:
- * Frigg deploys its handlers to Lambda only, and CLI commands run from CI must
- * not trip the deployed-stage check.
+ * True when the process runs as a deployed function, on AWS Lambda or on
+ * another provider's platform.
+ *
+ * - AWS Lambda sets AWS_LAMBDA_FUNCTION_NAME, LAMBDA_TASK_ROOT and
+ *   AWS_EXECUTION_ENV (AWS_Lambda_<runtime>). Other AWS hosts (CloudShell,
+ *   CodeBuild, ECS) set AWS_EXECUTION_ENV to other values and count as local:
+ *   CLI commands run from CI must not trip the deployed-stage check.
+ * - Other providers: FRIGG_PROVIDER names a non-AWS provider. Frigg's
+ *   generated function entry points for that provider set it (provider-netlify
+ *   sets 'netlify'), so it is present in every deployed function. Netlify
+ *   exposes SITE_ID, CONTEXT and NETLIFY at build time only, so they cannot
+ *   tell a running function from a laptop.
+ *
+ * A local run is never deployed: serverless-offline and `serverless invoke
+ * local` (which set the Lambda variables themselves) mark IS_OFFLINE /
+ * IS_LOCAL, `netlify dev` marks NETLIFY_DEV, and Jest marks JEST_WORKER_ID.
  *
  * @param {Object} [env=process.env]
  * @returns {boolean}
  */
 function isDeployedRuntime(env = process.env) {
+    const localRun =
+        isTrue(env.IS_OFFLINE) ||
+        isTrue(env.IS_LOCAL) ||
+        isTrue(env.NETLIFY_DEV) ||
+        isSet(env.JEST_WORKER_ID);
+    if (localRun) return false;
+
     const onAwsRuntime =
         isSet(env.AWS_LAMBDA_FUNCTION_NAME) ||
         isSet(env.LAMBDA_TASK_ROOT) ||
         String(env.AWS_EXECUTION_ENV ?? '').startsWith('AWS_Lambda_');
-    if (!onAwsRuntime) return false;
+    if (onAwsRuntime) return true;
 
-    const localRun =
-        isTrue(env.IS_OFFLINE) ||
-        isTrue(env.IS_LOCAL) ||
-        isSet(env.JEST_WORKER_ID);
-    return !localRun;
+    const provider = String(env.FRIGG_PROVIDER ?? '').trim().toLowerCase();
+    return provider !== '' && provider !== 'aws';
 }
 
 function missingKeyMessage(stage) {

@@ -290,7 +290,7 @@ FRIGG_ENCRYPTION_DISABLED=true
 
 **When encryption runs** — decided by where the code runs, not by the stage name:
 
-- **Deployed** (in AWS Lambda: `AWS_LAMBDA_FUNCTION_NAME` / `LAMBDA_TASK_ROOT` / `AWS_EXECUTION_ENV=AWS_Lambda_*`, and not `IS_OFFLINE` / `IS_LOCAL` / Jest): a key encrypts; no key throws `EncryptionConfigurationError` at Prisma client creation unless `FRIGG_ENCRYPTION_DISABLED=true`.
+- **Deployed** (in AWS Lambda: `AWS_LAMBDA_FUNCTION_NAME` / `LAMBDA_TASK_ROOT` / `AWS_EXECUTION_ENV=AWS_Lambda_*`; or on another provider: `FRIGG_PROVIDER` other than `aws`, which provider-netlify's functions set; and not `IS_OFFLINE` / `IS_LOCAL` / `NETLIFY_DEV` / Jest): a key encrypts; no key throws `EncryptionConfigurationError` at Prisma client creation unless `FRIGG_ENCRYPTION_DISABLED=true`.
 - **Local** (`frigg start` via serverless-offline, Jest, scripts): `STAGE` dev/test/local skips encryption; any other stage encrypts when a key is set and stays plaintext (with a warning) when not.
 
 **Encrypted Fields** (defined in `encryption-schema-registry.js`):

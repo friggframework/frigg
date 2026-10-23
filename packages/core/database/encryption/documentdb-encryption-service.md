@@ -290,7 +290,7 @@ class DocumentDBEncryptionService {
 
 **Environment Variables Used** (see "When Encryption Runs" in README.md):
 
--   `AWS_LAMBDA_FUNCTION_NAME` / `LAMBDA_TASK_ROOT` / `AWS_EXECUTION_ENV=AWS_Lambda_*`, minus `IS_OFFLINE` / `IS_LOCAL` / `JEST_WORKER_ID`: deployed or local run
+-   `AWS_LAMBDA_FUNCTION_NAME` / `LAMBDA_TASK_ROOT` / `AWS_EXECUTION_ENV=AWS_Lambda_*`, or a non-`aws` `FRIGG_PROVIDER`, minus `IS_OFFLINE` / `IS_LOCAL` / `NETLIFY_DEV` / `JEST_WORKER_ID`: deployed or local run
 -   `STAGE` or `NODE_ENV`: dev/test/local skip encryption on local runs only
 -   `KMS_KEY_ARN`: AWS KMS key ARN (enables KMS encryption)
 -   `AES_KEY_ID`: AES key identifier (enables AES encryption)

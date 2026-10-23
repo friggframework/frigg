@@ -111,7 +111,7 @@ STAGE=production  # or development, staging, etc.
 
 The rule lives in `encryption-config.js` and is shared by the Prisma client, the DocumentDB encryption service, the integration-mapping helpers and the `/health/detailed` check. It depends on **where the code runs**, not on the stage name.
 
-A process is **deployed** when it runs in AWS Lambda (`AWS_LAMBDA_FUNCTION_NAME` or `LAMBDA_TASK_ROOT` is set, or `AWS_EXECUTION_ENV` starts with `AWS_Lambda_`) and is **not** a local run (`IS_OFFLINE=true` from serverless-offline / `frigg start`, `IS_LOCAL=true` from `serverless invoke local`, or `JEST_WORKER_ID` from Jest). Everything else is **local**.
+A process is **deployed** when it runs in AWS Lambda (`AWS_LAMBDA_FUNCTION_NAME` or `LAMBDA_TASK_ROOT` is set, or `AWS_EXECUTION_ENV` starts with `AWS_Lambda_`) or on another provider's platform (`FRIGG_PROVIDER` names a provider other than `aws`; provider-netlify's generated functions set `FRIGG_PROVIDER=netlify`), and is **not** a local run (`IS_OFFLINE=true` from serverless-offline / `frigg start`, `IS_LOCAL=true` from `serverless invoke local`, `NETLIFY_DEV=true` from `netlify dev`, or `JEST_WORKER_ID` from Jest). Everything else is **local**. Netlify's `SITE_ID`, `CONTEXT` and `NETLIFY` are build-time variables, so they are not used.
 
 | Runtime | Key configured | `FRIGG_ENCRYPTION_DISABLED=true` | Result |
 | --- | --- | --- | --- |
