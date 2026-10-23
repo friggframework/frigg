@@ -71,6 +71,7 @@ const {
     use,
     defineExtension,
     reconcileAppSubscriptions,
+    createReconcileSubscriptionsScript,
 } = require('./integrations/index');
 const {
     ReportBase,
@@ -165,6 +166,7 @@ module.exports = {
     use,
     defineExtension,
     reconcileAppSubscriptions,
+    createReconcileSubscriptionsScript,
     CreateProcess,
     UpdateProcessState,
     UpdateProcessMetrics,

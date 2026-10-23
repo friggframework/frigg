@@ -56,7 +56,7 @@ function isReservedModuleKey(key) {
         for (let p = IntegrationBase.prototype; p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {
             for (const n of Object.getOwnPropertyNames(p)) reservedKeys.add(n);
         }
-        for (const n of ['handlerContext', 'resolvedConfig', 'runEmitted']) reservedKeys.add(n);
+        for (const n of ['handlerContext', 'resolvedConfig', 'runEmitted', 'syncInstallationSubscriptions']) reservedKeys.add(n);
     }
     return reservedKeys.has(key) || key.startsWith('_');
 }
@@ -270,6 +270,49 @@ function defineIntegration(spec = {}) {
             }
             await handler(payload, this.handlerContext());
             return 'handled';
+        }
+
+        /*
+         * Lifecycle invoker for app-scope subscriptions (ADR-054 §2, amended): after the base hook, an installation
+         * whose binding options are functions of its config gets the subscriptions it needs, add-only. A failure is
+         * a warning on the installation, never a failed create or update.
+         * TODO(ADR-054 §5): move these call sites into the lifecycle dispatcher when it lands.
+         */
+        async onCreate(params) {
+            await super.onCreate(params);
+            await this.syncInstallationSubscriptions('create');
+        }
+
+        async onUpdate(params) {
+            await super.onUpdate(params);
+            await this.syncInstallationSubscriptions('update');
+        }
+
+        async onDelete(params) {
+            await super.onDelete(params);
+            await this.syncInstallationSubscriptions('delete');
+        }
+
+        async syncInstallationSubscriptions(event) {
+            const { ensureInstallationSubscriptions, hasFunctionOption } = require('./subscriptions');
+            const bindings = plan.extensionBindings.filter((b) => b.ext.subscriptions?.scope === 'app' && hasFunctionOption(b));
+            if (!bindings.length) return [];
+            if (event === 'delete') {
+                // Add-only: nothing to create for an installation that is going away, and removing needs the whole
+                // app's union, so its subscriptions stay until a reconcile runs with prune.
+                this.logger.info('Subscriptions kept on delete; a pruning reconcile removes the ones no installation needs', { eventName: 'frigg.subscriptions.kept_on_delete', extensions: bindings.map((b) => b.ext.name) });
+                return [];
+            }
+            if (this.status && this.status !== 'ENABLED') return [];
+            try {
+                return await ensureInstallationSubscriptions(this);
+            } catch (error) {
+                this.logger.warn('Webhook subscriptions not created', { eventName: 'frigg.subscriptions.ensure_failed', event, error });
+                try {
+                    await this.updateIntegrationMessages?.execute(this.id, 'warnings', 'Webhook subscriptions not created', 'The provider subscriptions this installation needs could not be created. They are retried on the next config save or reconcile.', Date.now());
+                } catch { /* a report, never a failure */ }
+                return [];
+            }
         }
 
         async getConfigOptions() {

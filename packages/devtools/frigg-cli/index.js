@@ -125,6 +125,8 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .option('-f, --force', 'force deployment (bypasses caching for layers and functions)')
     .option('--skip-doctor', 'skip post-deployment health check')
+    .option('--prune-subscriptions', 'after deploy, also remove app-scope webhook subscriptions no integration needs (one provider developer app per stage only)')
+    .option('--skip-subscriptions', 'skip the post-deploy webhook subscription reconcile')
     .action(deployCommand);
 
 program

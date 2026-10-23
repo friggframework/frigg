@@ -21,6 +21,7 @@ const {
     use,
     defineExtension,
     reconcileAppSubscriptions,
+    createReconcileSubscriptionsScript,
 } = require('./define');
 
 module.exports = {
@@ -38,4 +39,5 @@ module.exports = {
     use,
     defineExtension,
     reconcileAppSubscriptions,
+    createReconcileSubscriptionsScript,
 };

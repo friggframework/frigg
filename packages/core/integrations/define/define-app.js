@@ -8,10 +8,11 @@
  * (through `@friggframework/schemas`, when the app has it installed; the schema treats each integration as an
  * object, so the classes are checked here and summarised for it).
  *
- * Not yet (follow-ups): appending the admin scripts that extensions contribute, and the deploy post-step that runs
- * the app-scope subscription reconcile (`reconcileAppSubscriptions`).
+ * It also appends the admin scripts the bound modules export (`module.scripts`, e.g. HubSpot's
+ * `hubspot.reconcile-subscriptions`) to `adminScripts`, once each by name; a script the app lists itself wins.
  */
 const { IntegrationBase } = require('../integration-base');
+const { planOf } = require('./define-integration');
 
 function loadSchemas() {
     try {
@@ -46,7 +47,20 @@ function defineApp(appDefinition = {}, { schemas = loadSchemas() } = {}) {
             throw new Error(`${where}: the app definition does not match app-definition.schema.json: ${errors.join('; ')}`);
         }
     }
-    return { Definition: { ...appDefinition, integrations: [...integrations] } };
+    const adminScripts = [...(appDefinition.adminScripts || [])];
+    const named = new Set(adminScripts.map((S) => S?.Definition?.name));
+    for (const Cls of integrations) {
+        for (const binding of planOf(Cls)?.bindings || []) {
+            const scripts = binding.module.scripts;
+            for (const Script of Array.isArray(scripts) ? scripts : Object.values(scripts || {})) {
+                const scriptName = Script?.Definition?.name;
+                if (!scriptName || named.has(scriptName)) continue;
+                named.add(scriptName);
+                adminScripts.push(Script);
+            }
+        }
+    }
+    return { Definition: { ...appDefinition, integrations: [...integrations], ...(adminScripts.length ? { adminScripts } : {}) } };
 }
 
 module.exports = { defineApp };

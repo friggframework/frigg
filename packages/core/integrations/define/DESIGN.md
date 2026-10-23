@@ -43,7 +43,8 @@ defineIntegration({ name, version, display, usage, modules: { <key>: use(module,
 defineApp({ name, integrations, ...appDefinition })                                 // -> { Definition }
 use(module, extensionOptions?)                                                      // core's, not the module's
 defineExtension(bundle)                                                             // optional; a plain object works
-reconcileAppSubscriptions({ integrations, listInstallations?, dryRun? })            // app-scope subscription engine
+reconcileAppSubscriptions({ integrations, listInstallations?, prune?, dryRun? })   // app-scope subscriptions, add-only unless prune
+createReconcileSubscriptionsScript({ name, extension })                           // the admin script (prune, dryRun inputs)
 ```
 
 - Handlers are `(payload, ctx)`, called without `this`. `ctx = { modules, config, log, telemetry, commands,
@@ -78,25 +79,38 @@ routes under `/api/<integration>-integration/crm-webhooks`, and the queue worker
    (`frigg.extension.event_unhandled`). `CRM__WEBHOOKS__DEAL_CHANGED` etc. exist for replays.
 4. **Subscriptions, app scope**: `reconcileAppSubscriptions` takes the union of `desired(options)` over every class
    that binds the extension (per ENABLED installation when an option is a function of config), lists what the
-   provider has, creates what is missing and removes what no binding needs.
+   provider has and creates what is missing. **Add-only by default**: it removes what no binding needs only with
+   `prune: true`, and only when it could read every installation's config (otherwise it reports `pruneSkipped`). A
+   dry run reports `create` and `remove` and writes nothing. **Supported setup: one provider developer app per
+   stage**, because subscriptions are app-wide; stages sharing one developer app would see, and with `prune` remove,
+   each other's. It runs at three points, with no recurring trigger:
+   - (a) **after deploy**: `frigg deploy` runs it add-only with no database (`--prune-subscriptions` prunes groups
+     whose options are all static; `--skip-subscriptions` skips it). A failure is reported, never a failed deploy.
+   - (b) **installation lifecycle**: on create and config update, an ENABLED installation whose binding options are
+     functions of its config gets the subscriptions it needs (`ensureInstallationSubscriptions`, add-only). On delete
+     nothing is called: removal needs the whole app's union, so it is a pruning reconcile's job. A failure is a
+     warning on the installation. The call sites are `onCreate`/`onUpdate`/`onDelete` overrides until the §5
+     dispatcher exists.
+   - (c) **admin script**: `createReconcileSubscriptionsScript(...)` with `prune` and `dryRun` inputs, run in the
+     stack where installations can be read. `defineApp` appends scripts that bound modules export (`module.scripts`);
+     the HubSpot module exports `hubspot.reconcile-subscriptions`.
 5. **One bundle, both contracts**: a contract-2 bundle may keep its contract-1 face (`events` and `routes[].event`),
    which a class binding it by hand through `Definition.extensions` (or an older core) runs. `defineIntegration`
    ignores both. That is how the HubSpot module moves `extensions.webhooks` to contract 2 without a major version.
 6. **Options**: `use()` options are checked against the extension's `options` schema when the class is defined;
    function values are resolved with the installation's config and checked again.
 
-Not in this PR (checklist on the PR): extension `scripts` and `lifecycle` hooks (§5 dispatcher), the deploy
-post-step and daily `frigg.subscriptions.reconcile` trigger that invoke the reconcile engine, ADR-027 `env` scoping
+Not in this PR (checklist on the PR): extension `lifecycle` hooks and the §5 dispatcher (the subscription call sites
+move there), ADR-027 `env` scoping
 in devtools and `frigg validate`, `instance`-scope subscriptions (experimental), the Slack module promotion, and
 generating capability-manifest webhook blocks from contract 2.
 
 ## 5. Open questions
 
-1. **App-scope reconcile has no installation.** The ADR-055 tick decides per installation, so a daily app-wide job
-   needs an app-level trigger kind (no `integrationId`) or lives only in the deploy post-step and an admin script.
-2. **Pruning shared provider subscriptions.** HubSpot subscriptions belong to the developer app. Two stages (or two
-   apps) sharing one developer app would remove each other's subscriptions. Prune only when the app owns the
-   developer app, or default `remove` off per stage?
+1. *(Decided: no recurring reconcile. It runs after deploy, on installation lifecycle, and from the admin script.)*
+2. *(Decided: add-only by default, `prune` on request; one developer app per stage is the supported setup.)*
+   Alternative under evaluation: HubSpot's Webhooks Journal API makes subscriptions per portal (installation scope),
+   at the cost of a polling consumer. See the ADR-054 amendment.
 3. **Where verification runs.** Contract 2 verifies at receipt (no database, app-scope secret from env). Stack B
    verifies manifest webhooks in the worker (raw body carried in the message, #699). One place for both doors? Lean:
    receipt when the secret is app-scope, the worker when it is per installation.

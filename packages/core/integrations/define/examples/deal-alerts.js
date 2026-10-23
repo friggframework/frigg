@@ -117,12 +117,14 @@ module.exports = defineApp({
 //     resolve: portalId -> integration (the RESOLVE hop the extension does by hand today)
 //     subscriptions: scope 'app' (HubSpot v3 subscriptions are per developer app);
 //       desired set = union of every installed binding's `subscribe`; reconcileAppSubscriptions()
-//       creates what is missing and removes what no binding needs. (Invoked by the deploy
-//       post-step and a daily trigger: follow-up, see the PR checklist.)
+//       creates what is missing (add-only; `prune` removes what no binding needs). Runs after
+//       `frigg deploy`, on installation create/update when options depend on config, and from
+//       the admin script. One HubSpot developer app per stage.
 //     emits: deal.created | deal.changed {deal, changes} | deal.deleted (+ contact.*, company.*)
 //     hydrate: batch-reads the object with the listed properties before dispatch.
 //     env: HUBSPOT_CLIENT_SECRET, HUBSPOT_APP_ID, HUBSPOT_DEVELOPER_API_KEY (ADR-027 scoping).
-//     scripts: hubspot.reconcile-subscriptions, hubspot.replay-webhook (admin scripts; follow-up).
+//     scripts: hubspot.reconcile-subscriptions (prune, dryRun), appended by defineApp;
+//       hubspot.replay-webhook is a follow-up.
 //
 // @friggframework/api-module-slack
 //   Definition: OAuth2 bot install, team_id = externalId.
@@ -133,6 +135,6 @@ module.exports = defineApp({
 //
 // Provisioned by devtools from the Definition (no infrastructure code in the app):
 //   deal-alerts (HTTP catch-all), deal-alerts__crmwebhooks (receiver, no Prisma layer),
-//   deal-alerts QueueWorker + queue + DLQ. (Follow-up: the daily frigg.subscriptions.reconcile
-//   trigger and the admin-script functions for module-shipped scripts.)
+//   deal-alerts QueueWorker + queue + DLQ, and the admin-script functions that run
+//   hubspot.reconcile-subscriptions.
 // =====================================================================================
