@@ -18,6 +18,9 @@
  */
 
 const { logger } = require('./logger');
+const {
+    isDeployedRuntime: isDeployedProviderRuntime,
+} = require('../../providers/runtime-detection');
 
 const LOCAL_BYPASS_STAGES = ['dev', 'test', 'local'];
 const OPT_OUT_VAR = 'FRIGG_ENCRYPTION_DISABLED';
@@ -40,42 +43,18 @@ function isTrue(value) {
 }
 
 /**
- * True when the process runs as a deployed function, on AWS Lambda or on
- * another provider's platform.
- *
- * - AWS Lambda sets AWS_LAMBDA_FUNCTION_NAME, LAMBDA_TASK_ROOT and
- *   AWS_EXECUTION_ENV (AWS_Lambda_<runtime>). Other AWS hosts (CloudShell,
- *   CodeBuild, ECS) set AWS_EXECUTION_ENV to other values and count as local:
- *   CLI commands run from CI must not trip the deployed-stage check.
- * - Other providers: FRIGG_PROVIDER names a non-AWS provider. Frigg's
- *   generated function entry points for that provider set it (provider-netlify
- *   sets 'netlify'), so it is present in every deployed function. Netlify
- *   exposes SITE_ID, CONTEXT and NETLIFY at build time only, so they cannot
- *   tell a running function from a laptop.
- *
- * A local run is never deployed: serverless-offline and `serverless invoke
- * local` (which set the Lambda variables themselves) mark IS_OFFLINE /
- * IS_LOCAL, `netlify dev` marks NETLIFY_DEV, and Jest marks JEST_WORKER_ID.
+ * True when the process runs as a deployed function, on AWS Lambda or on the
+ * active provider's platform (provider-netlify: FRIGG_PROVIDER=netlify, set by
+ * its generated entry points), and not under a local emulator or test runner.
+ * One rule for encryption and queue authentication: core/providers/
+ * runtime-detection asks the provider's detect(), and fails closed when a
+ * named non-AWS provider cannot be loaded.
  *
  * @param {Object} [env=process.env]
  * @returns {boolean}
  */
 function isDeployedRuntime(env = process.env) {
-    const localRun =
-        isTrue(env.IS_OFFLINE) ||
-        isTrue(env.IS_LOCAL) ||
-        isTrue(env.NETLIFY_DEV) ||
-        isSet(env.JEST_WORKER_ID);
-    if (localRun) return false;
-
-    const onAwsRuntime =
-        isSet(env.AWS_LAMBDA_FUNCTION_NAME) ||
-        isSet(env.LAMBDA_TASK_ROOT) ||
-        String(env.AWS_EXECUTION_ENV ?? '').startsWith('AWS_Lambda_');
-    if (onAwsRuntime) return true;
-
-    const provider = String(env.FRIGG_PROVIDER ?? '').trim().toLowerCase();
-    return provider !== '' && provider !== 'aws';
+    return isDeployedProviderRuntime(env);
 }
 
 function missingKeyMessage(stage) {
