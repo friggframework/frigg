@@ -10,29 +10,68 @@ The Frigg CLI provides tools for building, deploying, and managing serverless in
 
 ### Core Commands
 
-#### `frigg init [options]`
+#### `frigg init [projectName] [options]`
 
-**Status:** To be documented (command may not be merged yet)
-
-Initialize a new Frigg application with scaffolding and configuration.
+Scaffold a new Frigg backend application that installs and runs out of the box.
 
 **Usage:**
+
 ```bash
-frigg init
-frigg init my-app
-frigg init --template typescript
+frigg init my-app                         # interactive (when stdin is a TTY)
+frigg init my-app --yes                   # accept every default, no prompts
+frigg init my-app --yes --mode standalone --no-install --no-git
+frigg init my-app --mode embedded         # add to an existing project (./frigg-integration)
+npx @friggframework/devtools init my-app --yes   # without a global install
 ```
 
 **What it does:**
-- TBD - Full documentation pending implementation merge
+
+1. Validates the project name and `--mode`, and checks that the target directory is
+   empty (only `.git`, `.gitignore`, `README.md` and `.DS_Store` may exist) before asking anything else
+2. Copies the backend template: `index.js` (app definition, named after the project),
+   `infrastructure.js`, `README.md`, `.gitignore`, `.env.example` (also seeded into `.env`)
+3. Writes `package.json` with:
+    - scripts: `start` (`frigg start`), `build` (`frigg build`), `deploy` (`frigg deploy`),
+      `db:setup` (`frigg db:setup`), `test` (`jest --passWithNoTests`)
+    - dependencies: `@friggframework/core`, `@prisma/client`, `prisma`
+    - devDependencies: `@friggframework/devtools`, `@friggframework/serverless-plugin`,
+      `osls`, and the serverless plugins the composed definition loads
+    - Frigg package versions match the devtools that ran `init` (a prerelease is pinned exactly)
+4. Validates the generated app definition against the app-definition schema (problems
+   are printed as warnings; `frigg start`, `build` and `deploy` do not validate)
+5. Optionally initializes git and runs `npm install`
+6. Prints next steps. API modules picked in the interactive prompt are not wired in
+   automatically; the next steps list a `frigg install <module>` command for each
+
+In `embedded` mode the backend is written to `./frigg-integration` inside the target
+directory, which may already contain your application. Git is not initialized.
 
 **Options:**
-- TBD
 
-**Example Output:**
-- TBD
+-   `-n, --name <name>` - Project name (alternative to the positional argument)
+-   `-m, --mode <mode>` - `standalone` (default) or `embedded`
+-   `-y, --yes` - Accept the default for every prompt. Implied when stdin is not a TTY
+-   `--no-install` - Skip `npm install`
+-   `--no-git` - Skip `git init` and the initial commit
+-   `-f, --force` - Scaffold into a non-empty directory and overwrite an existing `README.md`/`.gitignore`
+-   `-v, --verbose` - Verbose output
 
-> **Note**: This command may be part of an upcoming release. Documentation will be updated once the implementation is merged to the main branch.
+**Next steps after `init`:**
+
+```bash
+cd my-app
+docker run --name frigg-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
+npm run db:setup
+npm start
+```
+
+The scaffolded app deploys nothing that bills by the hour, so it costs near $0 while
+idle: no VPC, NAT gateway or database cluster (`vpc: { enable: false }`,
+`database.postgres.management: 'external'`), field-level encryption with a per-stage
+KMS key ($1/month, about $3/month after its first two yearly rotations), 14-day log
+retention, and the app connecting to a PostgreSQL you host through `DATABASE_URL`.
+`frigg deploy` reads `DATABASE_URL` from the shell that runs it, not from `.env`. The
+generated `README.md` lists every resource, the security model and the other options.
 
 ---
 
@@ -47,28 +86,36 @@ frigg install salesforce
 frigg install stripe
 ```
 
+Run it in the app directory (the one with `package.json` and `index.js`).
+
 **What it does:**
-- Searches the api-module-library for the specified integration
-- Installs the npm package (@friggframework/api-module-{name})
-- Adds integration to your app definition
-- Configures OAuth flows and webhooks if applicable
-- Creates integration-specific environment variable placeholders
+- Searches npm for `@friggframework/api-module-<name>` and lets you pick the
+  packages to install (with no terminal to prompt on, it takes the exact match)
+- Runs `npm install` in the app directory. An app on a Frigg 2.x prerelease
+  (what `frigg init` scaffolds today) gets the module's `@next` release, because
+  most modules' `latest` is still a 1.x release built for Frigg 1.x
+- Resolves the installed module from the app directory and writes
+  `src/integrations/<Label>Integration.js`: an `IntegrationBase` subclass whose
+  `Definition.modules` wraps the module (an existing file is kept)
+- Registers the class in your app definition: in `index.js` it adds the
+  `require` and the first entry of the `integrations` array. When it cannot do
+  that safely (no single `integrations: [...]` array literal, or the file does not
+  parse) it changes nothing and prints the two lines to add by hand. Older apps
+  with a `backend.js` are updated there instead
+- Commits the files it changed (`git commit -- <files>`, so nothing else you have
+  staged is included) when the app is in a git repository; otherwise leaves them
+  in the working tree
+- Lists the environment variables the module reads (from its `definition.js`)
+  that are not in `.env`, and offers to add them when run in a terminal
 
 **Options:**
-- None currently (could add `--version`, `--registry` in future)
+- None
 
-**Example Output:**
-```
-🔍 Finding integration module: hubspot
-✓ Found @friggframework/api-module-hubspot@2.0.5
-📦 Installing package...
-✓ Package installed successfully
-🔧 Configuring integration in app definition...
-✓ Integration configured
-⚙️  Next steps:
-   1. Set HUBSPOT_CLIENT_ID in your environment
-   2. Set HUBSPOT_CLIENT_SECRET in your environment
-   3. Run 'frigg start' to test locally
+**Example:**
+```bash
+cd my-app
+npx frigg install hubspot
+# -> src/integrations/HubSpotIntegration.js, listed in index.js's integrations
 ```
 
 ---

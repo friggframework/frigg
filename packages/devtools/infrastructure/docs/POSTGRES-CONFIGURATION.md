@@ -11,9 +11,29 @@ Frigg Framework supports automatic provisioning of Amazon Aurora Serverless v2 P
 - **Aurora Serverless v2**: Cost-efficient auto-scaling database (0.5-1.0 ACU default)
 - **VPC Integration**: Deployed in same private subnets as Lambda functions
 - **Secrets Manager**: Automatic credential management and rotation
-- **Three Management Modes**: discover, create-new, use-existing
+- **Management Modes**: discover, create-new, use-existing, external (bring your own `DATABASE_URL`)
 - **Security**: Private subnet deployment with security group isolation
 - **High Availability**: Multi-AZ deployment with automatic failover
+
+### Bring your own PostgreSQL (`management: 'external'`)
+
+To connect to a PostgreSQL that Frigg does not manage (any hosted provider, or
+a database you run yourself), set `management: 'external'`. Frigg then creates
+and discovers no database resources (no RDS/Aurora, no Secrets Manager secret)
+and needs no VPC for the database; the app connects through `DATABASE_URL`.
+This check takes precedence over a top-level `managementMode`. The migration
+infrastructure is still composed, so migrations run against `DATABASE_URL`.
+
+```javascript
+const appDefinition = {
+    vpc: { enable: false },
+    database: { postgres: { enable: true, management: 'external' } },
+    environment: { DATABASE_URL: true }, // read from the shell that runs `frigg deploy` (not .env)
+};
+```
+
+Use `sslmode=require` in the URL. This is the default for apps scaffolded by
+`frigg init`.
 
 ---
 

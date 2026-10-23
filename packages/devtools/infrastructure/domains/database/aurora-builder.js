@@ -64,7 +64,18 @@ class AuroraBuilder extends InfrastructureBuilder {
             return false;
         }
 
-        return appDefinition.database?.postgres?.enable === true;
+        const postgres = appDefinition.database?.postgres;
+
+        // management='external': the app brings its own PostgreSQL (any
+        // provider) and connects through DATABASE_URL. Frigg creates and
+        // discovers no database resources and needs no VPC for it. This
+        // check precedes managementMode, which otherwise always manages
+        // Aurora. Migrations still run (MigrationBuilder) against DATABASE_URL.
+        if (postgres?.management === 'external') {
+            return false;
+        }
+
+        return postgres?.enable === true;
     }
 
     getDependencies() {
@@ -82,7 +93,7 @@ class AuroraBuilder extends InfrastructureBuilder {
         const dbConfig = appDefinition.database.postgres;
 
         // Validate management mode
-        const validModes = ['discover', 'managed', 'use-existing'];
+        const validModes = ['discover', 'managed', 'use-existing', 'external'];
         const management = dbConfig.management || 'discover';
         if (!validModes.includes(management)) {
             result.addError(`Invalid database.postgres.management: "${management}"`);
