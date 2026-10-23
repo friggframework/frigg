@@ -4,6 +4,7 @@ const {
     getFieldsToEncryptOnWrite,
     loadCustomEncryptionSchema,
 } = require('./encryption/encryption-schema-registry');
+const { getEncryptionConfig } = require('./encryption/encryption-config');
 
 /**
  * Encryption service specifically for DocumentDB repositories
@@ -41,43 +42,29 @@ class DocumentDBEncryptionService {
     }
 
     /**
-     * Initialize Cryptor with environment-based configuration.
-     * Matches the logic from @friggframework/core/database/prisma.js
+     * Initialize Cryptor with environment-based configuration, using the
+     * same rule as the Prisma client (see encryption/encryption-config.js).
      *
-     * Encryption is bypassed in dev/test/local stages.
-     * Production uses AWS KMS (if available) or AES encryption.
+     * Local runs skip encryption on the dev, test and local stages. A
+     * deployed runtime with no key throws instead of writing plaintext.
      *
      * @private
+     * @throws {EncryptionConfigurationError} deployed with no usable key
      */
     _initializeCryptor() {
         // Load custom encryption schema from app definition BEFORE checking configuration
         // This ensures custom fields (like User.username) are registered before any encryption operations
         loadCustomEncryptionSchema();
 
-        // Match logic from packages/core/database/prisma.js
-        const stage = process.env.STAGE || process.env.NODE_ENV || 'development';
-        const bypassEncryption = ['dev', 'test', 'local'].includes(stage.toLowerCase());
+        const config = getEncryptionConfig();
 
-        if (bypassEncryption) {
+        if (!config.enabled) {
             this.cryptor = null;
             this.enabled = false;
             return;
         }
 
-        // Determine encryption method (ensure boolean values)
-        const hasKMS = !!(process.env.KMS_KEY_ARN && process.env.KMS_KEY_ARN.trim() !== '');
-        const hasAES = !!(process.env.AES_KEY_ID && process.env.AES_KEY_ID.trim() !== '');
-
-        if (!hasKMS && !hasAES) {
-            console.warn('[DocumentDBEncryptionService] No encryption keys configured. Encryption disabled.');
-            this.cryptor = null;
-            this.enabled = false;
-            return;
-        }
-
-        // KMS takes precedence over AES
-        const shouldUseAws = hasKMS;
-        this.cryptor = new Cryptor({ shouldUseAws });
+        this.cryptor = new Cryptor({ shouldUseAws: config.method === 'kms' });
         this.enabled = true;
     }
 
