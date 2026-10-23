@@ -1,4 +1,4 @@
-const { getEncryptionConfig } = require('../prisma');
+const { getEncryptionConfig } = require('./encryption-config');
 const { Cryptor } = require('../../encrypt/Cryptor');
 const {
     getFieldsToDecryptOnRead,

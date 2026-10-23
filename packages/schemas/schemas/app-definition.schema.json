@@ -311,8 +311,8 @@
       "properties": {
         "fieldLevelEncryptionMethod": {
           "type": "string",
-          "description": "Method for field-level encryption",
-          "enum": ["kms", "aes"],
+          "description": "Method for field-level encryption. 'kms' creates or discovers a KMS key and sets KMS_KEY_ARN; 'aes' expects AES_KEY_ID and AES_KEY in the Lambda environment; 'none' sets FRIGG_ENCRYPTION_DISABLED=true and stores sensitive fields in plaintext. A deployed stage with no key and no 'none' opt-out refuses to start.",
+          "enum": ["kms", "aes", "none"],
           "default": "aes"
         },
         "createResourceIfNoneFound": {
