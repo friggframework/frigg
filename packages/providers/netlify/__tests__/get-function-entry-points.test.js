@@ -82,6 +82,45 @@ describe('getFunctionEntryPoints', () => {
         }
     });
 
+    describe("fieldLevelEncryptionMethod: 'none' becomes FRIGG_ENCRYPTION_DISABLED, as on AWS", () => {
+        const vm = require('vm');
+
+        // Run the generated preamble alone, with a stub require for the backend.
+        function runPreamble(definition, env = {}) {
+            const content = getFunctionEntryPoints({ name: 'test' })['health.js'];
+            const preamble = content.slice(0, content.indexOf('/**'));
+            const processEnv = { ...env };
+            vm.runInNewContext(preamble, {
+                process: { env: processEnv },
+                require: (id) =>
+                    id.endsWith('/index.js')
+                        ? { Definition: definition }
+                        : { setAppDefinition: () => {} },
+            });
+            return processEnv;
+        }
+
+        test("'none' sets FRIGG_ENCRYPTION_DISABLED=true", () => {
+            const env = runPreamble({ encryption: { fieldLevelEncryptionMethod: 'none' } });
+            expect(env.FRIGG_ENCRYPTION_DISABLED).toBe('true');
+        });
+
+        test.each([
+            ['kms', { encryption: { fieldLevelEncryptionMethod: 'kms' } }],
+            ['no encryption block', {}],
+        ])('%s leaves it unset', (_label, definition) => {
+            expect(runPreamble(definition).FRIGG_ENCRYPTION_DISABLED).toBeUndefined();
+        });
+
+        test('an explicit site value wins', () => {
+            const env = runPreamble(
+                { encryption: { fieldLevelEncryptionMethod: 'none' } },
+                { FRIGG_ENCRYPTION_DISABLED: 'false' }
+            );
+            expect(env.FRIGG_ENCRYPTION_DISABLED).toBe('false');
+        });
+    });
+
     test('preamble appears before the template content', () => {
         const entryPoints = getFunctionEntryPoints({ name: 'test' });
 

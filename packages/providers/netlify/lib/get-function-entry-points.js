@@ -53,6 +53,12 @@ function buildPreamble(backendPath) {
         `const { setAppDefinition } = require('${backendPath}/node_modules/@friggframework/core/handlers/app-definition-loader');`,
         `const { Definition: _friggAppDef } = require('${backendPath}/index.js');`,
         'setAppDefinition(_friggAppDef);',
+        "// encryption.fieldLevelEncryptionMethod: 'none' is the explicit plaintext opt-out.",
+        '// On AWS the environment builder turns it into FRIGG_ENCRYPTION_DISABLED; a deployed',
+        '// function with no key would otherwise refuse to start.',
+        "if (_friggAppDef?.encryption?.fieldLevelEncryptionMethod === 'none' && process.env.FRIGG_ENCRYPTION_DISABLED === undefined) {",
+        "    process.env.FRIGG_ENCRYPTION_DISABLED = 'true';",
+        '}',
         '',
     ].join('\n');
 }

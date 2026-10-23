@@ -98,6 +98,13 @@ set), and this package's `detect()` returns true for it (or for `NETLIFY`).
 `netlify dev` (`NETLIFY_DEV=true`), serverless-offline and Jest count as local
 runs.
 
+A deployed function therefore follows core's fail-closed field-level encryption
+rule: with no `KMS_KEY_ARN` or `AES_KEY_ID` + `AES_KEY` it refuses to start,
+whatever `STAGE` says. `encryption: { fieldLevelEncryptionMethod: 'none' }` in the
+app definition is the explicit plaintext opt-out: the preamble turns it into
+`FRIGG_ENCRYPTION_DISABLED=true` (unless the site sets that variable), as the AWS
+environment builder does.
+
 ## Environment variables
 
 | Variable | |
