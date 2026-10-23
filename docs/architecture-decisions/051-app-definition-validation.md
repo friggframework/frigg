@@ -252,12 +252,130 @@ the matrix also includes ownership-based definitions that skip translation.
 - **TypeScript types for the definition.** Useful later for editors, but most
   Frigg apps are JavaScript and the builders need a runtime check.
 
+## Amendment (2026-10-23): Hosted schemas
+
+This ADR makes the schema the single source of truth for the app definition.
+That only holds if every reader means the same file when it names a schema,
+so this amendment fixes how Frigg schemas are named, versioned and published.
+
+### Context
+
+- `@friggframework/schemas` used two unversioned `$id` styles:
+  `https://friggframework.org/schemas/<name>.json` (the four `api-*`
+  schemas) and `https://schemas.friggframework.org/<name>.schema.json` (the
+  other six). Neither URL resolved, and `schemas.friggframework.org` does not
+  exist.
+- The integration-definition work (ADR-063) uses
+  `https://friggframework.org/schemas/<name>/v0.1.json` for
+  `capability-manifest`, `installation` and `integration-definition`, and the
+  API module manifests (`*.capabilities.json`) already reference
+  `https://friggframework.org/schemas/capability-manifest/v0.1.json` in
+  `$schema`. That URL returned 404, so editors could not use it.
+- ADR-063 itself shows a third host:
+  `https://schemas.friggframework.org/integration-document/v0.1.json`.
+- Nothing in the runtime fetches a schema URL: the package reads its files and
+  registers them with `ajv.addSchema`.
+
+### Decision
+
+1. **One URL pattern.** Every Frigg JSON Schema has the `$id`
+
+   ```
+   https://friggframework.org/schemas/<name>/v<major>.<minor>.json
+   ```
+
+   `<name>` is lower-case kebab-case and names one document family; the
+   `$id` is exactly the URL the file is served from. There is no other host
+   (`schemas.friggframework.org` is not used) and no unversioned alias on the
+   website. A name is used by one family only: `integration-definition` is the
+   schema of an integration class's static `Definition` (this package); the
+   declarative document of ADR-063 is `integration-document`.
+
+2. **Versions are immutable.** Once a stable (non-prerelease) release of the
+   package that owns a schema ships a version, the file at that URL never
+   changes. A backward-compatible change (a new optional key, a new enum value)
+   is a new minor version; a breaking change (a removed key, a narrowed type, a
+   new required key) is a new major version. Until a stable release ships it,
+   a version is a draft and may still change in prereleases.
+   `0.x` versions mark schemas that are still experimental; `1.0` and later
+   mark supported contracts.
+
+   The ten schemas in `@friggframework/schemas` start at **v1.0**. They have
+   shipped in every 2.0 prerelease, `frigg validate`, `frigg build` and
+   `frigg deploy` enforce `app-definition`, and the `api-*` schemas describe
+   the management API that 2.0 ships, so they are supported contracts, not
+   experiments. v1.0 is frozen when 2.0.1 ships, including the changes this
+   ADR makes to `app-definition`. The ADR-063 schemas stay at v0.1 until that
+   work is stable.
+
+3. **Hosting.** friggframework.org is published by Netlify from `website/`.
+   The schema files are copied, byte for byte, to
+   `website/schemas/<name>/v<x.y>.json` by
+   `packages/schemas/scripts/sync-hosted-schemas.js`, which reads each
+   schema's `$id` to choose the path. The copies are committed, not generated
+   during the Netlify build, because:
+   - the site's Netlify base directory is `website/`, which builds only when
+     `website/` changes; committed copies make a schema change a website
+     change, with no build command or ignore rule to maintain;
+   - an old version stays in `website/schemas/` after its schema moves on, so
+     every published URL keeps resolving; a build-time copy of the current
+     files would drop it;
+   - the published bytes are reviewed in the pull request that changes them.
+
+   A unit test in `@friggframework/schemas` fails when a copy is missing or
+   differs from its source, or when a file in `website/schemas/` does not sit
+   at the path its `$id` names. `website/_headers` serves `/schemas/*` with
+   `Content-Type: application/schema+json` and
+   `Access-Control-Allow-Origin: *`, so editors and browser tools can fetch
+   them.
+
+4. **Validation stays offline.** The `$id` is a name, not a location the
+   runtime reads. `frigg validate`, `frigg build`, the CLI and the Lambda
+   runtime resolve every `$id` (and every `$ref` between schemas) from the
+   installed package, never from the network, and never configure Ajv's
+   `loadSchema`. A test loads the package with `http`, `https` and `fetch`
+   stubbed to throw and resolves every `$id` and alias. Validation therefore
+   works without network access and cannot change behaviour when the website
+   changes.
+
+5. **`$schema` in manifests and documents.** JSON files that Frigg reads
+   (API module `*.capabilities.json`, integration documents) put the schema
+   URL in `$schema`, e.g.
+   `"$schema": "https://friggframework.org/schemas/capability-manifest/v0.1.json"`.
+   Editors use it for completion and inline validation. Frigg's validators
+   use it only to check the version: a URL off the pattern, or a version the
+   installed package does not have, is a validation error that names the
+   installed versions. They validate against the installed file, never the
+   fetched one. A package keeps the previous major version of a schema during
+   that major's deprecation window, so documents that declare it keep
+   validating.
+
+6. **Migration of the old ids.** The ten schemas in `@friggframework/schemas`
+   move to `https://friggframework.org/schemas/<name>/v1.0.json`. Lookups by
+   name (`validate('app-definition', ...)`) are unchanged; `getSchema` and
+   `validate` also accept the `$id`. Code may have passed an old id to
+   `validate`, `getSchema` or the exported Ajv instance, so the package
+   registers each old id as an alias of the new schema for one release
+   (2.0.1) and removes the aliases in the next. The old URLs never resolved
+   over HTTP, so the website does not redirect them.
+
+### Consequences
+
+- The capability-manifest URL that the API module manifests already use
+  resolves once the ADR-063 schemas land on `next` and are synced; the sync
+  script already reads their directory, so the hosted-copy test fails until
+  they are published.
+- Changing a schema now means also running `npm run sync:hosted` and, after a
+  stable release, bumping its version; reviewers see both in the diff.
+- `website/schemas/` grows with every version; the files are small.
+
 ## Related
 
 - [ADR-027](./027-ssm-parameter-offload-and-env-scoping.md) (`environment: 'ssm'`, `ssm.*`)
 - [ADR-048](./048-structured-logging.md) (`logging.*`)
 - [ADR-011](./011-integration-telemetry-and-usage-tracking.md) (`telemetry.*`)
 - [ADR-005](./005-admin-script-runner.md), [ADR-010](./010-reporting-as-admin-operation.md) (`admin`, `adminScripts`, `reports`)
+- ADR-063, PR #692 (integration documents and capability manifests; the schemas the hosted-schema amendment also covers)
 - PR #639 (`database.postgres.management: 'external'` and the `frigg init`
   backend template), PR #663 (`fieldLevelEncryptionMethod: 'none'`),
   PR #656 (module `rateLimit`)
