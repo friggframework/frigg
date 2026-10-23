@@ -10,6 +10,12 @@
 
 const { logger } = require('./logger');
 const { registerDeniedKeys } = require('../../logs/denied-keys');
+const { getLogger } = require('../../logs');
+const {
+    getModulesDefinitionFromIntegrationClasses,
+} = require('../../integrations/utils/map-integration-dto');
+
+const log = getLogger('frigg.database.encryption');
 
 /**
  * Core encryption schema (immutable - cannot be overridden by custom schemas)
@@ -105,7 +111,8 @@ function validateCustomSchema(schema) {
 
 /**
  * Registers a custom encryption schema from integration developer.
- * Merges with core schema, prevents overriding core fields.
+ * Merges per model with core and previously registered schemas, prevents
+ * overriding core fields.
  * @throws {Error} If schema validation fails
  */
 function registerCustomSchema(schema) {
@@ -120,7 +127,13 @@ function registerCustomSchema(schema) {
         );
     }
 
-    customSchema = { ...schema };
+    for (const [modelName, config] of Object.entries(schema)) {
+        const existingFields = customSchema[modelName]?.fields || [];
+        customSchema[modelName] = {
+            ...config,
+            fields: [...new Set([...existingFields, ...config.fields])],
+        };
+    }
     registerDeniedKeys(Object.values(schema).flatMap((config) => config.fields));
     logger.info(
         `Registered custom encryption schema for models: ${Object.keys(customSchema).join(', ')}`
@@ -174,10 +187,13 @@ function loadModuleEncryptionSchemas(integrations) {
         return;
     }
 
-    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
-
-    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);
-    const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
+    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(
+        integrations.filter((integration) => integration?.Definition?.modules)
+    );
+    const coreFields = new Set(CORE_ENCRYPTION_SCHEMA.Credential.fields);
+    const credentialFields = extractCredentialFieldsFromModules(
+        moduleDefinitions
+    ).filter((field) => !coreFields.has(field));
 
     if (credentialFields.length === 0) {
         return;
@@ -243,7 +259,18 @@ function loadCustomEncryptionSchema() {
         // Load module-level encryption schemas from integrations
         const integrations = appDefinition.integrations;
         if (integrations && Array.isArray(integrations)) {
-            loadModuleEncryptionSchemas(integrations);
+            try {
+                loadModuleEncryptionSchemas(integrations);
+            } catch (error) {
+                log.warn(
+                    'Module credential fields not registered for encryption',
+                    {
+                        eventName:
+                            'frigg.database.encryption.module_schema_load_failed',
+                        error,
+                    }
+                );
+            }
         }
     } catch (error) {
         // Silently ignore errors - custom schema is optional

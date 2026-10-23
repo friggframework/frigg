@@ -200,8 +200,9 @@ const Definition = {
 **How it works**:
 1. Module declares `encryption.credentialFields` array
 2. Framework automatically adds `data.` prefix: `['api_key']` → `['data.api_key']`
-3. Fields are merged with core encryption schema on app startup
+3. Fields are merged with the core schema and the app-level `encryption.schema` on app startup (fields already in the core schema stay there)
 4. All modules across all integrations are scanned and combined
+5. If module fields cannot be registered, a WARN record with `eventName: 'frigg.database.encryption.module_schema_load_failed'` is logged
 
 **Benefits**:
 - ✅ Module authors control their own security requirements

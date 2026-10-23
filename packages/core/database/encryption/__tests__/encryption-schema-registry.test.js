@@ -1,3 +1,13 @@
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+jest.mock('../../../utils', () => ({
+    findNearestBackendPackageJson: jest.fn(),
+}));
+
+const { findNearestBackendPackageJson } = require('../../../utils');
+const { createMemorySink } = require('../../../logs');
 const {
     CORE_ENCRYPTION_SCHEMA,
     getEncryptedFields,
@@ -557,6 +567,123 @@ describe('encryption-schema-registry', () => {
             const credentialFields = getEncryptedFields('Credential');
             expect(credentialFields).toContain('data.custom_field'); // From custom schema
             expect(credentialFields).toContain('data.api_key'); // From module schema
+        });
+
+        it('registers credential fields declared by a module on an integration class', () => {
+            class TokenIntegration {
+                static Definition = {
+                    name: 'token-integration',
+                    modules: {
+                        tokenModule: {
+                            definition: {
+                                moduleName: 'tokenModule',
+                                encryption: {
+                                    credentialFields: ['some_token'],
+                                },
+                            },
+                        },
+                    },
+                };
+            }
+
+            loadModuleEncryptionSchemas([TokenIntegration]);
+
+            expect(getEncryptedFields('Credential')).toContain(
+                'data.some_token'
+            );
+        });
+    });
+
+    describe('loadCustomEncryptionSchema with a backend app definition', () => {
+        const dirs = [];
+
+        function writeBackend(indexSource) {
+            const dir = fs.mkdtempSync(
+                path.join(os.tmpdir(), 'frigg-encryption-')
+            );
+            fs.writeFileSync(
+                path.join(dir, 'package.json'),
+                '{"name":"backend"}'
+            );
+            fs.writeFileSync(path.join(dir, 'index.js'), indexSource);
+            findNearestBackendPackageJson.mockReturnValue(
+                path.join(dir, 'package.json')
+            );
+            dirs.push(dir);
+        }
+
+        function backendWithModuleFields(credentialFields, appSchema) {
+            const fields = JSON.stringify(credentialFields);
+            return `
+                class TokenIntegration {
+                    static Definition = {
+                        name: 'token-integration',
+                        modules: {
+                            tokenModule: {
+                                definition: {
+                                    moduleName: 'tokenModule',
+                                    encryption: { credentialFields: ${fields} },
+                                },
+                            },
+                        },
+                    };
+                }
+                module.exports = {
+                    Definition: {
+                        integrations: [TokenIntegration],
+                        encryption: { schema: ${JSON.stringify(appSchema)} },
+                    },
+                };
+            `;
+        }
+
+        afterEach(() => {
+            findNearestBackendPackageJson.mockReset();
+            for (const dir of dirs.splice(0)) {
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+
+        it('keeps the app schema when module credential fields are registered', () => {
+            writeBackend(
+                backendWithModuleFields(['some_token'], {
+                    Credential: { fields: ['data.app_field'] },
+                    SomeModel: { fields: ['x'] },
+                })
+            );
+
+            loadCustomEncryptionSchema();
+
+            const credentialFields = getEncryptedFields('Credential');
+            expect(credentialFields).toContain('data.access_token');
+            expect(credentialFields).toContain('data.app_field');
+            expect(credentialFields).toContain('data.some_token');
+            expect(getEncryptedFields('SomeModel')).toEqual(['x']);
+        });
+
+        it('logs a warning when module credential fields cannot be registered', () => {
+            const sink = createMemorySink();
+            writeBackend(backendWithModuleFields([42], {}));
+
+            loadCustomEncryptionSchema();
+
+            expect(
+                sink.records.filter(
+                    (r) =>
+                        r.level === 'WARN' &&
+                        r.eventName ===
+                            'frigg.database.encryption.module_schema_load_failed'
+                )
+            ).toHaveLength(1);
+        });
+
+        it('stays silent when no backend is found', () => {
+            const sink = createMemorySink();
+            findNearestBackendPackageJson.mockReturnValue(null);
+
+            loadCustomEncryptionSchema();
+
+            expect(sink.records.filter((r) => r.level === 'WARN')).toEqual([]);
         });
     });
 });
