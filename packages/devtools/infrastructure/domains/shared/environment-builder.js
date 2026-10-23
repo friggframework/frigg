@@ -72,6 +72,16 @@ function addLoggingEnv(appDefinition, envVars) {
     envVars.FRIGG_LOG_LEVEL = normalized;
 }
 
+// Field-level encryption fails closed in a deployed stage with no key (core's
+// encryption-config.js). `fieldLevelEncryptionMethod: 'none'` is the explicit,
+// documented way to run a stage in plaintext; core logs a warning on every
+// cold start while it is set.
+function addEncryptionEnv(appDefinition, envVars) {
+    if (appDefinition?.encryption?.fieldLevelEncryptionMethod === 'none') {
+        envVars.FRIGG_ENCRYPTION_DISABLED = 'true';
+    }
+}
+
 /**
  * Get environment variables from AppDefinition
  *
@@ -149,6 +159,7 @@ function getAppEnvironmentVars(appDefinition) {
     }
 
     addLoggingEnv(appDefinition, envVars);
+    addEncryptionEnv(appDefinition, envVars);
 
     if (envKeys.length > 0) {
         console.log(
@@ -187,7 +198,7 @@ function getAppEnvironmentVars(appDefinition) {
 function buildEnvironment(appEnvironmentVars, discoveredResources) {
     const environment = {
         ...appEnvironmentVars,
-        STAGE: '${self:provider.stage}', // Used by encryption bypass logic
+        STAGE: '${self:provider.stage}', // Read by core: e.g. the local-only encryption bypass
         FRIGG_STACK: '${self:service}',
         FRIGG_STAGE: '${self:provider.stage}',
         FRIGG_REGION: '${self:provider.region}',
