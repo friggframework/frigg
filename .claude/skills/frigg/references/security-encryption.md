@@ -17,22 +17,25 @@ Field-level encryption protects sensitive data at the application layer (databas
 4. Cryptor performs the actual encryption via AWS KMS or AES (envelope pattern: a per-operation Data Encryption Key wrapped by a master key; format `keyId:encryptedText:encryptedKey`)
 5. The database stores encrypted data
 
-Auto-bypassed in dev/test/local stages.
+Fails closed: a deployed stage (running in AWS, not under `frigg start`/serverless-offline or Jest) with no key refuses to start with `EncryptionConfigurationError`, whatever the stage name. Only local runs on dev/test/local stages skip encryption. The rule lives in `database/encryption/encryption-config.js`.
 
 ## Environment Configuration
 
 ```bash
-# Production (AWS KMS - recommended)
+# AWS KMS (recommended): set automatically on every stage, dev included, when
+# the app definition has encryption: { fieldLevelEncryptionMethod: 'kms' }
 KMS_KEY_ARN=arn:aws:kms:...
-STAGE=production
 
-# AES Encryption (any environment)
-AES_KEY_ID=local-dev-key
+# AES encryption (any environment); both required when deployed
+AES_KEY_ID=my-key-id
 AES_KEY=your-32-char-key
-STAGE=production
 
-# Bypass (dev/test/local stages)
-STAGE=dev
+# Explicit plaintext opt-out for a deployed stage with no key. Warns on every
+# cold start. Also set by fieldLevelEncryptionMethod: 'none'. Never a default.
+FRIGG_ENCRYPTION_DISABLED=true
+
+# Local runs only (frigg start, tests): these stages skip encryption
+STAGE=dev   # or test, local
 ```
 
 ## Encrypted Fields
