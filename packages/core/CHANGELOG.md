@@ -4,7 +4,7 @@
 
 - `credentialFields` declared in an API module's `encryption` config (for example `Definition.encryption.credentialFields`) were never registered for encryption: `loadModuleEncryptionSchemas` required a path that does not exist and the error was swallowed. They are now registered, for modules bound by integrations and for modules registered in `appDefinition.entities` (ADR-059).
 - Existing rows are not rewritten. A credential saved before this release stays plaintext until it is next written, and is read as stored.
-- Reads now tolerate plaintext: a value is only treated as ciphertext when it has the exact `keyId:iv:ciphertext:encryptedKey` shape (previously any string with three or more colons, such as `https://user:pw@host:443`), and a value that fails to decrypt is returned as stored with a warning instead of failing the whole read.
+- Reads now tolerate plaintext: a value is only treated as ciphertext when it has the exact `keyId:iv:ciphertext:encryptedKey` shape (previously any string with three or more colons, such as `https://user:pw@host:443`), and a value with that shape that fails to decrypt throws `FieldDecryptionError` in a deployed runtime (any stage, AWS Lambda or Netlify) and is returned as stored with a warning on a local run.
 - An app's own `encryption.schema` is no longer replaced when module fields are added to it.
 
 ---

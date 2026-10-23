@@ -5,6 +5,19 @@
  * Handles nested JSON paths (e.g., 'data.access_token') and bulk operations.
  */
 const { logger } = require('./logger');
+const { isDeployedRuntime } = require('./encryption-config');
+
+/**
+ * Thrown when a value that looks like ciphertext cannot be decrypted in a
+ * deployed runtime (a wrong, rotated or missing key). Returning the stored
+ * ciphertext would hand it to API modules as if it were a token.
+ */
+class FieldDecryptionError extends Error {
+    constructor(message, options) {
+        super(message, options);
+        this.name = 'FieldDecryptionError';
+    }
+}
 
 // Cryptor.encrypt() returns `${keyId}:${iv}:${ciphertext}:${encryptedKey}`:
 // keyId and encryptedKey are base64, iv is 16 bytes of hex, ciphertext is hex.
@@ -15,7 +28,17 @@ const IV_PART = /^[0-9a-f]{32}$/i;
 const CIPHERTEXT_PART = /^(?:[0-9a-f]{2})+$/i;
 
 class FieldEncryptionService {
-    constructor({ cryptor, schema }) {
+    /**
+     * @param {Object} params
+     * @param {Object} params.cryptor
+     * @param {Object} params.schema
+     * @param {() => boolean} [params.failClosedOnDecryptError] - whether a
+     *   ciphertext-shaped value that fails to decrypt throws. Defaults to
+     *   "running deployed" (encryption-config's isDeployedRuntime), read on
+     *   each failure. Locally such a value is returned as stored, with a
+     *   warning.
+     */
+    constructor({ cryptor, schema, failClosedOnDecryptError }) {
         if (!cryptor) {
             throw new Error('Cryptor instance required');
         }
@@ -25,6 +48,10 @@ class FieldEncryptionService {
 
         this.cryptor = cryptor;
         this.schema = schema;
+        this.failClosedOnDecryptError =
+            typeof failClosedOnDecryptError === 'function'
+                ? failClosedOnDecryptError
+                : () => isDeployedRuntime();
     }
 
     /**
@@ -115,9 +142,19 @@ class FieldEncryptionService {
                 const deserializedValue = this._deserializeAfterDecryption(decryptedValue);
                 return { fieldPath, decryptedValue: deserializedValue };
             } catch (error) {
-                // A value that looks like ciphertext but is not (or was written
-                // before the field was encrypted) is read as it is stored. One
-                // such field must not fail the whole read, findMany included.
+                // Deployed: a ciphertext-shaped value under a wrong, rotated or
+                // missing key fails the read rather than reaching an API
+                // module as a token. Legacy plaintext never gets here: it does
+                // not look like ciphertext (_isEncrypted).
+                if (this.failClosedOnDecryptError()) {
+                    throw new FieldDecryptionError(
+                        `Could not decrypt ${modelName}.${fieldPath}`,
+                        { cause: error }
+                    );
+                }
+                // Local: a value that looks like ciphertext but is not is read
+                // as it is stored. One such field must not fail the whole
+                // read, findMany included.
                 logger.warn(
                     `Could not decrypt ${modelName}.${fieldPath}; returning the stored value`,
                     { errorName: error?.name }
@@ -278,4 +315,4 @@ class FieldEncryptionService {
     }
 }
 
-module.exports = { FieldEncryptionService };
+module.exports = { FieldEncryptionService, FieldDecryptionError };

@@ -1,4 +1,7 @@
-const { FieldEncryptionService } = require('./field-encryption-service');
+const {
+    FieldEncryptionService,
+    FieldDecryptionError,
+} = require('./field-encryption-service');
 const { fakeCiphertext, fakePlaintext } = require('./test-support/fake-ciphertext');
 
 describe('FieldEncryptionService', () => {
@@ -512,6 +515,105 @@ describe('FieldEncryptionService', () => {
 
             expect(mockCryptor.encrypt).toHaveBeenCalledWith(colonPlaintext.url);
             expect(result.data.access_token).toBe(fakeCiphertext(colonPlaintext.url));
+        });
+    });
+
+    describe('deployed: a ciphertext-shaped value that fails to decrypt fails the read', () => {
+        const ciphertext = fakeCiphertext('secret');
+        let deployed;
+
+        beforeEach(() => {
+            deployed = new FieldEncryptionService({
+                cryptor: mockCryptor,
+                schema: mockSchema,
+                failClosedOnDecryptError: () => true,
+            });
+        });
+
+        it('decryptFields throws FieldDecryptionError, with the cause, instead of returning ciphertext', async () => {
+            const cause = new Error('bad key');
+            mockCryptor.decrypt.mockRejectedValueOnce(cause);
+
+            const read = deployed.decryptFields('Credential', {
+                data: { access_token: ciphertext },
+            });
+
+            await expect(read).rejects.toBeInstanceOf(FieldDecryptionError);
+            await expect(read).rejects.toMatchObject({
+                message: 'Could not decrypt Credential.data.access_token',
+                cause,
+            });
+        });
+
+        it('decryptFieldsInBulk fails too', async () => {
+            mockCryptor.decrypt.mockRejectedValueOnce(new Error('bad key'));
+
+            await expect(
+                deployed.decryptFieldsInBulk('Credential', [
+                    { data: { access_token: ciphertext } },
+                ])
+            ).rejects.toBeInstanceOf(FieldDecryptionError);
+        });
+
+        it('legacy plaintext is still read as stored: it never reaches the cryptor', async () => {
+            const result = await deployed.decryptFields('Credential', {
+                data: { access_token: 'plain-legacy-token' },
+            });
+
+            expect(result.data.access_token).toBe('plain-legacy-token');
+            expect(mockCryptor.decrypt).not.toHaveBeenCalled();
+        });
+
+        it('a value that decrypts is returned decrypted', async () => {
+            const result = await deployed.decryptFields('Credential', {
+                data: { access_token: ciphertext },
+            });
+
+            expect(result.data.access_token).toBe('secret');
+        });
+    });
+
+    describe('fail-closed default follows the runtime', () => {
+        const saved = {};
+        const keys = ['JEST_WORKER_ID', 'FRIGG_PROVIDER', 'NETLIFY_DEV'];
+
+        beforeEach(() => {
+            for (const key of keys) saved[key] = process.env[key];
+            jest.spyOn(console, 'warn').mockImplementation(() => {});
+        });
+        afterEach(() => {
+            for (const key of keys) {
+                if (saved[key] === undefined) delete process.env[key];
+                else process.env[key] = saved[key];
+            }
+            console.warn.mockRestore();
+        });
+
+        const readFailing = () => {
+            mockCryptor.decrypt.mockRejectedValueOnce(new Error('bad key'));
+            return new FieldEncryptionService({
+                cryptor: mockCryptor,
+                schema: mockSchema,
+            }).decryptFields('Credential', {
+                data: { access_token: fakeCiphertext('secret') },
+            });
+        };
+
+        it('throws in a deployed Netlify function', async () => {
+            delete process.env.JEST_WORKER_ID;
+            delete process.env.NETLIFY_DEV;
+            process.env.FRIGG_PROVIDER = 'netlify';
+
+            await expect(readFailing()).rejects.toBeInstanceOf(FieldDecryptionError);
+        });
+
+        it('returns the stored value under `netlify dev`', async () => {
+            delete process.env.JEST_WORKER_ID;
+            process.env.FRIGG_PROVIDER = 'netlify';
+            process.env.NETLIFY_DEV = 'true';
+
+            const result = await readFailing();
+            expect(result.data.access_token).toBe(fakeCiphertext('secret'));
         });
     });
 
