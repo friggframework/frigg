@@ -2,9 +2,9 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 
 // mongodb-memory-server 8 defaults to MongoDB 5.0.19, whose Linux build links
 // libcrypto.so.1.1. Ubuntu 24.04 (GitHub's ubuntu-latest since Oct 2026) ships
-// only OpenSSL 3, so that mongod cannot start. 7.0 publishes Ubuntu 24.04
+// only OpenSSL 3, so that mongod cannot start. 8.0 publishes Ubuntu 24.04
 // builds. MONGOMS_VERSION still overrides it.
-const MONGODB_VERSION = '7.0.14';
+const MONGODB_VERSION = '8.0.4';
 
 class TestMongo {
     #mongoServer;
