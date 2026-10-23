@@ -760,4 +760,20 @@ function memoryDefinitions(docs) {
     };
 }
 
-module.exports = { defineIntegrationClass, defineSharedIntegrationClass, extendIntegrationClass, memoryDefinitions };
+/*
+ * Names (ADR-054 amendment, "One runtime, two front doors"): `defineIntegration` is the code front door, so the
+ * document front door is named for documents. The first names stay as aliases until Stack B merges, then go.
+ *   fromDefinitionDocument   (was defineIntegrationClass)       one class per integration document (Shape A)
+ *   definitionDocumentHost   (was defineSharedIntegrationClass) one class hosting every published document (Shape B)
+ *   embedDefinitionDocument  (was extendIntegrationClass)       a code class (hand-written or defineIntegration) plus a document
+ */
+const fromDefinitionDocument = defineIntegrationClass;
+const definitionDocumentHost = defineSharedIntegrationClass;
+const embedDefinitionDocument = extendIntegrationClass;
+
+module.exports = {
+    fromDefinitionDocument, definitionDocumentHost, embedDefinitionDocument, memoryDefinitions,
+    /** @deprecated use fromDefinitionDocument */ defineIntegrationClass,
+    /** @deprecated use definitionDocumentHost */ defineSharedIntegrationClass,
+    /** @deprecated use embedDefinitionDocument */ extendIntegrationClass,
+};

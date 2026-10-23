@@ -15,6 +15,14 @@ const {
     getExtensionRoutes,
     getExtensionWorkers,
 } = require('./extension');
+const {
+    defineIntegration,
+    defineApp,
+    use,
+    defineExtension,
+    reconcileAppSubscriptions,
+    createReconcileSubscriptionsScript,
+} = require('./define');
 
 module.exports = {
     IntegrationBase,
@@ -26,4 +34,10 @@ module.exports = {
     validateExtensionBinding,
     getExtensionRoutes,
     getExtensionWorkers,
+    defineIntegration,
+    defineApp,
+    use,
+    defineExtension,
+    reconcileAppSubscriptions,
+    createReconcileSubscriptionsScript,
 };

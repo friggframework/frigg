@@ -66,6 +66,12 @@ const {
     checkRequiredParams,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
+    defineIntegration,
+    defineApp,
+    use,
+    defineExtension,
+    reconcileAppSubscriptions,
+    createReconcileSubscriptionsScript,
 } = require('./integrations/index');
 const {
     ReportBase,
@@ -154,6 +160,13 @@ module.exports = {
     createIntegrationRouter,
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
+    // one-file integrations (ADR-054)
+    defineIntegration,
+    defineApp,
+    use,
+    defineExtension,
+    reconcileAppSubscriptions,
+    createReconcileSubscriptionsScript,
     CreateProcess,
     UpdateProcessState,
     UpdateProcessMetrics,

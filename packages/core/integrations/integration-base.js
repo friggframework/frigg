@@ -1096,4 +1096,4 @@ class IntegrationBase {
     }
 }
 
-module.exports = { IntegrationBase };
+module.exports = { IntegrationBase, webhookRequestFacts };

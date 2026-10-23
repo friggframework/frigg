@@ -4,6 +4,7 @@ const fs = require('fs');
 
 // Import doctor command for post-deployment health check
 const { doctorCommand } = require('../doctor-command');
+const { reconcileSubscriptionsAfterDeploy } = require('./subscriptions-step');
 
 // Configuration constants
 const PATHS = {
@@ -327,6 +328,8 @@ async function deployCommand(options) {
     }
 
     console.log('\n✓ Deployment completed successfully!');
+
+    await reconcileSubscriptionsAfterDeploy(appDefinition, options);
 
     const skipHealthCheck = options.skipDoctor || appDefinition?.deployment?.skipPostDeploymentHealthCheck;
 

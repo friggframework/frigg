@@ -35,13 +35,22 @@ function warnShadowed(name, provider) {
 async function resolveIntegrationClass(integrationClasses, type, context) {
     if (!type) return null;
     const registered = integrationClasses.find((c) => c?.Definition?.name === type);
-    if (registered) return registered;
+    if (registered) return (await isVisible(registered, context)) ? registered : null;
     for (const c of integrationClasses) {
         if (!c?.IntegrationProvider) continue;
         const provided = await c.IntegrationProvider.resolve(type, context);
         if (provided) return provided;
     }
     return null;
+}
+
+/**
+ * Whether a registered class is offered to whoever is asking: `static visible(context)` (defineIntegration's
+ * `visible`, ADR-063 §4). Without a context (hydrating an installation that exists) every class is visible.
+ */
+async function isVisible(IntegrationClass, context) {
+    if (!context || typeof IntegrationClass?.visible !== 'function') return true;
+    return Boolean(await IntegrationClass.visible(context));
 }
 
 /**
@@ -52,7 +61,7 @@ async function listIntegrationClasses(integrationClasses, context) {
     const registered = new Set(integrationClasses.map((c) => c?.Definition?.name));
     const out = [];
     for (const c of integrationClasses) {
-        if (!c?.IntegrationProvider) { out.push(c); continue; }
+        if (!c?.IntegrationProvider) { if (await isVisible(c, context)) out.push(c); continue; }
         for (const provided of await c.IntegrationProvider.list(context)) {
             if (registered.has(provided.Definition.name)) warnShadowed(provided.Definition.name, c);
             else out.push(provided);

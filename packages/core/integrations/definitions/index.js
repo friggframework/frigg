@@ -9,7 +9,7 @@ const { compile, routeWebhook, eventName } = require('./compile');
 const { execute } = require('./interpreter');
 const { makePorts, runWorkflow, runQuery, renderSurface, resolveView, runLifecycle, resolveOptions } = require('./runtime');
 const { diff, checkBump, planUpgrade } = require('./versioning');
-const { defineIntegrationClass, defineSharedIntegrationClass, extendIntegrationClass, memoryDefinitions } = require('./integration-runtime');
+const { fromDefinitionDocument, definitionDocumentHost, embedDefinitionDocument, defineIntegrationClass, defineSharedIntegrationClass, extendIntegrationClass, memoryDefinitions } = require('./integration-runtime');
 const { BUILTINS } = require('./steps');
 const { TRANSFORMS, applyMapping } = require('./transforms');
 const { FILTERS } = require('./expressions');
@@ -37,7 +37,10 @@ module.exports = {
     validate, validateManifest, checkDefinition, checkManifest, checkInstallation, compile, routeWebhook, eventName, execute,
     makePorts, runWorkflow, runQuery, renderSurface, resolveView, runLifecycle,
     diff, checkBump, planUpgrade,
-    defineIntegrationClass, defineSharedIntegrationClass, extendIntegrationClass, memoryDefinitions,
+    // the document front door (ADR-063); `defineIntegration` (../define) is the code front door. Same compile target.
+    fromDefinitionDocument, definitionDocumentHost, embedDefinitionDocument, memoryDefinitions,
+    // deprecated aliases, removed before Stack B merges
+    defineIntegrationClass, defineSharedIntegrationClass, extendIntegrationClass,
     BUILTINS, TRANSFORMS, FILTERS, applyMapping, resolveOptions,
     loadManifests, loadExamples,
     viewToSlack, escapeMrkdwn, viewToHubSpot, viewToHtml, slackMessageToHtml, previewSurface, previewWorkflow, recordingPorts, decodeAction,
