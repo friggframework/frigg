@@ -98,6 +98,16 @@ set), and this package's `detect()` returns true for it (or for `NETLIFY`).
 `netlify dev` (`NETLIFY_DEV=true`), serverless-offline and Jest count as local
 runs.
 
+**A hand-written function entry point must set it too.** Only the generated
+entry points set `FRIGG_PROVIDER=netlify`. A function you write yourself that
+loads Frigg without that preamble, and without `NETLIFY` in its runtime
+environment, is treated as local: unsigned queue messages are accepted when
+`FRIGG_QUEUE_ALLOW_UNSIGNED=true` and `STAGE` is `dev`, and field-level
+encryption is skipped on a `dev`/`test`/`local` stage. Set
+`process.env.FRIGG_PROVIDER ??= 'netlify'` before requiring Frigg, or set
+`FRIGG_PROVIDER=netlify` in the site's environment variables, which covers
+every function at once.
+
 A deployed function therefore follows core's fail-closed field-level encryption
 rule: with no `KMS_KEY_ARN` or `AES_KEY_ID` + `AES_KEY` it refuses to start,
 whatever `STAGE` says. `encryption: { fieldLevelEncryptionMethod: 'none' }` in the
