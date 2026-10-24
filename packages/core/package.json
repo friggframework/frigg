@@ -68,6 +68,7 @@
     "scripts": {
         "lint:fix": "prettier --write --loglevel error . && eslint . --fix",
         "test": "jest --passWithNoTests # TODO",
+        "test:db": "jest --config jest.db.config.js --runInBand",
         "prisma:generate:mongo": "npx prisma generate --schema ./prisma-mongodb/schema.prisma",
         "prisma:generate:postgres": "npx prisma generate --schema ./prisma-postgresql/schema.prisma",
         "prisma:generate": "npm run prisma:generate:mongo && npm run prisma:generate:postgres",

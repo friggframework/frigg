@@ -11,7 +11,7 @@
 
 // Set up test environment for PostgreSQL with encryption
 process.env.DB_TYPE = 'postgresql';
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/frigg?schema=public';
+process.env.DATABASE_URL = process.env.FRIGG_TEST_POSTGRES_URL || 'postgresql://postgres:postgres@localhost:5432/frigg?schema=public';
 process.env.STAGE = 'integration-test';
 process.env.AES_KEY_ID = 'test-key-id';
 process.env.AES_KEY = 'test-aes-key-32-characters-long!';

@@ -10,7 +10,7 @@
  */
 
 process.env.DB_TYPE = 'mongodb';
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'mongodb://localhost:27017/frigg?replicaSet=rs0';
+process.env.DATABASE_URL = process.env.FRIGG_TEST_MONGODB_URL || 'mongodb://localhost:27017/frigg?replicaSet=rs0';
 process.env.STAGE = 'integration-test';
 process.env.AES_KEY_ID = 'test-key-id';
 process.env.AES_KEY = 'test-aes-key-32-characters-long!';

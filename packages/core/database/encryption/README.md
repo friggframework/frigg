@@ -508,9 +508,9 @@ return entities.map((e) => ({
 
 **Verified:**
 
--   ✅ `postgres-relation-decryption.test.js` - Proves the bug exists
--   ✅ `postgres-decryption-fix-verification.test.js` - Verifies separate queries work
--   ✅ `mongo-decryption-fix-verification.test.js` - Verifies fix for MongoDB
+-   ✅ `postgres-relation-decryption.db.test.js` - Proves the bug exists
+-   ✅ `postgres-decryption-fix-verification.db.test.js` - Verifies separate queries work
+-   ✅ `mongo-decryption-fix-verification.db.test.js` - Verifies fix for MongoDB
 
 **Implementation Examples:**
 
