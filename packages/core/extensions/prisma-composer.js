@@ -203,9 +203,27 @@ function composeExtensionPrisma({
         }
 
         const extensionSchemas = getExtensionSchemaPaths(extensions, dbType);
-        // Nothing to compose and nothing composed before: leave core untouched.
+        // Migrations do not depend on a schema: an extension may ship only
+        // SQL (a table it reads with raw queries), and it must still be applied.
+        const migrations =
+            dbType === 'postgresql'
+                ? copyExtensionMigrations(
+                      extensions,
+                      path.join(schemaDir, 'migrations')
+                  )
+                : [];
+        if (migrations.length > 0) {
+            log(`[Frigg] Added extension migrations: ${migrations.join(', ')}`);
+        }
+
+        // No schema to compose and none composed before: the schema and the
+        // client stay exactly as core shipped them.
         if (extensionSchemas.length === 0 && !fs.existsSync(basePath)) {
-            results.push({ dbType, changed: false, migrations: [] });
+            results.push({
+                dbType,
+                changed: migrations.length > 0,
+                migrations,
+            });
             continue;
         }
 
@@ -217,14 +235,6 @@ function composeExtensionPrisma({
         const current = fs.readFileSync(schemaPath, 'utf-8');
         const schemaChanged = current !== target;
         if (schemaChanged) fs.writeFileSync(schemaPath, target, 'utf-8');
-
-        const migrations =
-            dbType === 'postgresql'
-                ? copyExtensionMigrations(
-                      extensions,
-                      path.join(schemaDir, 'migrations')
-                  )
-                : [];
 
         const clientPath = path.join(
             corePath,
@@ -242,10 +252,6 @@ function composeExtensionPrisma({
             );
             generate({ schemaPath, corePath, dbType });
         }
-        if (migrations.length > 0) {
-            log(`[Frigg] Added extension migrations: ${migrations.join(', ')}`);
-        }
-
         results.push({
             dbType,
             changed: schemaChanged || clientStale || migrations.length > 0,

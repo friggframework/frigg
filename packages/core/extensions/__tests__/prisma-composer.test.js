@@ -231,6 +231,30 @@ describe('composeExtensionPrisma', () => {
         expect(calls).toEqual(['postgresql', 'postgresql']);
     });
 
+    it('copies the migrations of an extension that ships no schema, without touching the schema or regenerating', () => {
+        const result = composeExtensionPrisma({
+            appDefinition: appWith(fixture.extDir, { schema: undefined }),
+            corePath: fixture.corePath,
+            generate: fakeGenerate(calls),
+            log: quiet,
+        });
+        expect(result.changed).toBe(true);
+        expect(result.results[0].migrations).toEqual([
+            '20261024000000_oauth_app_credential',
+        ]);
+        expect(calls).toEqual([]);
+        expect(schemaOf()).toBe(BASE_PG);
+        expect(
+            fs.existsSync(
+                path.join(
+                    fixture.corePath,
+                    'prisma-postgresql',
+                    'schema.base.prisma'
+                )
+            )
+        ).toBe(false);
+    });
+
     it('leaves core untouched when no extension declares a schema', () => {
         const result = composeExtensionPrisma({
             appDefinition: {
