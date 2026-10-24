@@ -1,5 +1,5 @@
 {
-  "count": 31,
+  "count": 33,
   "adrs": [
     {
       "num": 1,
@@ -310,6 +310,26 @@
       "theme": "Observability & ops",
       "summary": "Replaces ad-hoc console logging with one Frigg-owned logger port in core that writes one redacted JSON record per line to stdout, with a fixed field set, six levels, ADR-011 correlation and trace ids, and redaction by construction. JSON is the only output format, in every stage; other destinations connect as sinks that only translate and send, the upgrade changes need maintainer ratification, and the Lambda log format and retention in devtools are opt-in.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/048-structured-logging.md"
+    },
+    {
+      "num": 52,
+      "id": "052",
+      "title": "Entity Proxy Security",
+      "status": "Accepted",
+      "date": "2026-10-03",
+      "theme": "Agent tooling",
+      "summary": "Ships the Management API entity proxy (POST /api/v2/entities/:id/proxy) in 2.0.1, locked down: off by default behind managementApi.proxy, same user auth plus an ownership check, path-only input pinned to the module's own base URL with no cross-host redirects, a deny-by-default allow-list declared by the API module (app-level override), header allow-lists, size and timeout limits, the Requester for refresh, rate limits and redaction, and one audit record and usage counter per call. The credential-level proxy is deferred.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/052-entity-proxy-security.md"
+    },
+    {
+      "num": 53,
+      "id": "053",
+      "title": "Management API Versioning",
+      "status": "Accepted",
+      "date": "2026-10-03",
+      "theme": "Developer experience",
+      "summary": "Versions the Management API by a coarse path major: everything new lives under /api/v2, and today's unprefixed routes are frozen as v1. Lifecycle follows core semver (additive in minors, removal only in a core major; v1 goes no earlier than core 3.0 and 12 months after v2 is stable). Adds unauthenticated GET /api/meta discovery with capability flags, a Frigg-API-Version response header, RFC 9745/8594 deprecation signals on v1, one OpenAPI document per major, and one route registry that generates the router, the spec and the API Gateway routes. Where /api/v2/reports belongs is left open.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/053-management-api-versioning.md"
     }
   ]
 }
