@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trail hero demo · Frigg</title>
+    <meta name="robots" content="noindex">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Hanken+Grotesk:wght@400..600&family=JetBrains+Mono:wght@400;500&display=swap">
+    <script>
+        /* ?theme=dark | ?theme=light pins the theme, as the site's toggle does. */
+        (function () {
+            var t = new URLSearchParams(location.search).get('theme');
+            if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <style>
+        /* Mirrors the hero rules of website/index.html so the trail can be reviewed in isolation. */
+        @font-face{font-family:'Bricolage Grotesque';font-style:normal;font-weight:500 700;font-display:swap;src:url("../../fonts/webfonts/bricolage-grotesque.woff2") format("woff2");}
+        @font-face{font-family:'Hanken Grotesk';font-style:normal;font-weight:400 600;font-display:swap;src:url("../../fonts/webfonts/hanken-grotesk.woff2") format("woff2");}
+        @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400 500;font-display:swap;src:url("../../fonts/webfonts/jetbrains-mono.woff2") format("woff2");}
+
+        :root{
+            --paper:#f4f6f1;--surface:#ffffff;--surface-2:#ecefe7;--ink:#14201b;--ink-soft:#3c4b44;
+            --mist:#69796f;--line:#dbe1d6;--line-strong:#c6cfc0;--falcon:#71a087;--falcon-ink:#2c704f;
+            --dawn:#e0530a;--glow:rgba(113,160,135,0.14);
+            --shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.28);
+            --code-bg:#10201a;--code-ink:#dfeee7;color-scheme:light;
+        }
+        @media (prefers-color-scheme: dark){
+            :root:not([data-theme="light"]){
+                --paper:#0c1310;--surface:#111b16;--surface-2:#16221c;--ink:#e8f1ea;--ink-soft:#b7c6bd;
+                --mist:#7d8f84;--line:#20302a;--line-strong:#2b3d35;--falcon:#84b39b;--falcon-ink:#a9d1bc;
+                --dawn:#ff6a1a;--glow:rgba(132,179,155,0.16);
+                --shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);
+                --code-bg:#0a1310;--code-ink:#d7e8df;color-scheme:dark;
+            }
+        }
+        :root[data-theme="dark"]{
+            --paper:#0c1310;--surface:#111b16;--surface-2:#16221c;--ink:#e8f1ea;--ink-soft:#b7c6bd;
+            --mist:#7d8f84;--line:#20302a;--line-strong:#2b3d35;--falcon:#84b39b;--falcon-ink:#a9d1bc;
+            --dawn:#ff6a1a;--glow:rgba(132,179,155,0.16);
+            --shadow:0 1px 2px rgba(0,0,0,.4),0 24px 60px -28px rgba(0,0,0,.85);
+            --code-bg:#0a1310;--code-ink:#d7e8df;color-scheme:dark;
+        }
+
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        html{max-width:100%;overflow-x:clip}
+        body{background:var(--paper);color:var(--ink);font-family:'Hanken Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+            font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;max-width:100%;overflow-x:hidden;transition:background .4s ease,color .4s ease}
+        h1{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:600;line-height:1.04;letter-spacing:-.02em;text-wrap:balance;color:var(--ink)}
+        a{color:inherit;text-decoration:none}
+        .wrap{width:min(1180px,calc(100% - 2.6rem));max-width:100%;margin-inline:auto}
+        .eyebrow{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.24em;text-transform:uppercase;color:var(--falcon-ink)}
+
+        header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--paper) 82%,transparent);backdrop-filter:saturate(1.4) blur(12px)}
+        .bar{display:flex;align-items:center;gap:1rem;height:68px}
+        .brand{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:1.32rem;letter-spacing:-.03em}
+        .demo-note{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--mist)}
+        .theme-toggle{display:flex;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;background:var(--surface)}
+        .theme-toggle button{background:none;border:0;cursor:pointer;padding:.42rem .6rem;color:var(--mist);font:500 .72rem 'JetBrains Mono',monospace}
+        .theme-toggle button[aria-pressed="true"]{background:var(--surface-2);color:var(--falcon-ink)}
+
+        .btn{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.83rem;font-weight:500;
+            padding:.62rem .95rem;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);white-space:nowrap}
+        .btn.primary{background:var(--falcon);border-color:var(--falcon);color:#04140d}
+        .btn svg{width:15px;height:15px}
+
+        .hero{position:relative;padding:clamp(3rem,7vw,6rem) 0 clamp(2.5rem,5vw,4rem);overflow:hidden}
+        .hero-grid{display:grid;min-width:0;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(2rem,4vw,4rem);align-items:center}
+        .hero-copy,.hero-visual{min-width:0}
+        .hero h1{font-size:clamp(2.5rem,5.4vw,4.5rem);font-weight:700;margin:1.1rem 0 0}
+        .hero h1 .thread{color:var(--falcon);position:relative;white-space:nowrap}
+        .hero h1 .own{font-style:normal;background:linear-gradient(120deg,var(--dawn),var(--falcon));-webkit-background-clip:text;background-clip:text;color:transparent}
+        .lede{font-size:clamp(1.05rem,1.5vw,1.28rem);color:var(--ink-soft);max-width:37ch;margin-top:1.3rem}
+        .hero-cta{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.9rem}
+        .hero-meta{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;margin-top:1.7rem;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--mist)}
+        .hero-meta b{color:var(--ink);font-weight:500}
+        .hero-visual{position:relative;min-height:420px}
+        .term{position:relative;width:100%;background:var(--code-bg);border:1px solid var(--line-strong);border-radius:14px;box-shadow:var(--shadow);
+            font-family:'JetBrains Mono',monospace;font-size:.83rem;line-height:1.75;color:var(--code-ink);overflow:hidden;z-index:2}
+        .term-head{display:flex;align-items:center;gap:.5rem;padding:.6rem .85rem;border-bottom:1px solid rgba(255,255,255,.08)}
+        .term-head .dot{width:11px;height:11px;border-radius:50%;background:#2d4038}
+        .term-head .tt{margin-left:.4rem;font-size:.72rem;color:#6f8a7e;letter-spacing:.04em}
+        .term-body{padding:1rem 1.1rem 1.15rem;min-height:232px}
+        .term .ln{white-space:pre-wrap;word-break:break-word}
+        .term .p{color:var(--falcon)} .term .cmd{color:#eef6f1} .term .out{color:#8fae9f} .term .amb{color:var(--dawn)}
+        @media (max-width:900px){
+            .hero-grid{grid-template-columns:minmax(0,1fr)}
+            .hero-visual{min-height:360px;order:-1}
+        }
+        @media (max-width:680px){ .wrap{width:calc(100% - 1.5rem)} }
+        .after{padding:4rem 0;border-top:1px solid var(--line);background:var(--surface);color:var(--mist);font-family:'JetBrains Mono',monospace;font-size:.8rem}
+
+        /* ---- Trail integration (the same rules go into index.html) ---- */
+        .hero > .hero-grid{position:relative;z-index:1;pointer-events:none}
+        .hero .hero-copy,.hero .term{pointer-events:auto}
+        @media (max-width:1279px){ .hero{padding-bottom:calc(clamp(2.5rem,5vw,4rem) + 3.25rem)} }
+        @media (max-width:900px){ .hero{padding-top:4.75rem} .hero-visual{min-height:0} }
+    </style>
+    <link rel="stylesheet" href="trail.css">
+</head>
+<body>
+    <header>
+        <div class="wrap bar">
+            <span class="brand">Frigg</span>
+            <span class="demo-note">trail backdrop demo</span>
+            <div class="theme-toggle" role="group" aria-label="Theme">
+                <button data-set="light">light</button><button data-set="system">system</button><button data-set="dark">dark</button>
+            </div>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="hero-trail" id="heroTrail"></div>
+        <div class="wrap hero-grid">
+            <div class="hero-copy">
+                <span class="eyebrow">Open source · serverless · yours</span>
+                <h1>Integrations,<br><span class="thread">woven by agents.</span><br><span class="own">Owned by you.</span></h1>
+                <p class="lede">Frigg is the open-source, serverless framework where an agent scaffolds a real, tested integration in an afternoon. Every integration it builds is also an MCP tool your own agents can call.</p>
+                <div class="hero-cta">
+                    <a class="btn primary" href="#">See how it ships
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                    </a>
+                    <a class="btn" href="#">Star on GitHub</a>
+                </div>
+                <div class="hero-meta">
+                    <span><b>MIT</b> + commercial</span>
+                    <span>Runs on <b>your cloud</b></span>
+                    <span><b>200+</b> APIs charted</span>
+                    <span>v2.0.0-next</span>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="term" role="img" aria-label="Terminal showing an agent scaffolding a Frigg integration">
+                    <div class="term-head">
+                        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                        <span class="tt">frigg · agent session</span>
+                    </div>
+                    <div class="term-body">
+                        <div class="ln"><span class="p">$</span> <span class="cmd">frigg init acme-integrations</span></div>
+                        <div class="ln out">✓ scaffolded serverless app · handlers · infra-as-code</div>
+                        <div class="ln"><span class="p">$</span> <span class="cmd">frigg install hubspot</span></div>
+                        <div class="ln out">✓ module added · auth, endpoints &amp; webhooks mapped</div>
+                        <div class="ln amb">agent: build "notify Slack when a deal closes"</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="after"><div class="wrap">Next section. The trail pauses when the hero scrolls out of view.</div></section>
+
+    <script src="icons.js"></script>
+    <script src="trail.js"></script>
+    <script>
+        (function () {
+            var trail = window.FriggTrail.mount(document.getElementById('heroTrail'), {
+                avoid: ['.hero-copy', { selector: '.term', well: false }],
+                trackEvent: 'hero_logo_tap'
+            });
+            window.__trail = trail;
+            var root = document.documentElement;
+            var toggle = document.querySelector('.theme-toggle');
+            function sync() {
+                var m = root.getAttribute('data-theme') || 'system';
+                toggle.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.set === m)); });
+            }
+            toggle.addEventListener('click', function (e) {
+                var b = e.target.closest('button'); if (!b) return;
+                if (b.dataset.set === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', b.dataset.set);
+                sync();
+                requestAnimationFrame(function () { if (window.__weaveRecolor) window.__weaveRecolor(); });
+            });
+            sync();
+        })();
+    </script>
+</body>
+</html>
