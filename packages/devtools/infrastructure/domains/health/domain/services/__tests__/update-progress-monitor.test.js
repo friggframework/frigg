@@ -302,9 +302,14 @@ describe('UpdateProgressMonitor', () => {
                 onProgress: onProgressCallback,
             });
 
+            // Attach the rejection handler before advancing the fake clock: the
+            // monitor rejects while the timers run, and an unobserved rejection
+            // fails the test under Jest 30.
+            const assertion = expect(monitorPromise).rejects.toThrow('Update operation failed and rolled back');
+
             await jest.advanceTimersByTimeAsync(2000);
 
-            await expect(monitorPromise).rejects.toThrow('Update operation failed and rolled back');
+            await assertion;
         });
     });
 
@@ -334,10 +339,15 @@ describe('UpdateProgressMonitor', () => {
                 onProgress: onProgressCallback,
             });
 
+            // Attach the rejection handler before advancing the fake clock: the
+            // monitor rejects while the timers run, and an unobserved rejection
+            // fails the test under Jest 30.
+            const assertion = expect(monitorPromise).rejects.toThrow('Update operation timed out');
+
             // Advance past 5 minute timeout (300000ms)
             await jest.advanceTimersByTimeAsync(300000 + 2000);
 
-            await expect(monitorPromise).rejects.toThrow('Update operation timed out');
+            await assertion;
         });
     });
 

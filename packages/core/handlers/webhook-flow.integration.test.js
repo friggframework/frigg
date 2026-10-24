@@ -8,18 +8,12 @@ const { IntegrationBase } = require('../integrations/integration-base');
 const { IntegrationEventDispatcher } = require('./integration-event-dispatcher');
 const { QueuerUtil } = require('../queues');
 
-// Mock AWS SQS
-jest.mock('aws-sdk', () => {
-    const mockSQS = {
-        sendMessage: jest.fn((params, callback) => {
-            callback(null, { MessageId: 'mock-message-id-123' });
-        }),
-    };
-    return {
-        SQS: jest.fn(() => mockSQS),
-        config: { update: jest.fn() },
-    };
-});
+// Mock AWS SQS (QueuerUtil uses the AWS SDK v3 SQSClient)
+const { mockClient } = require('aws-sdk-client-mock');
+const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
+const sqsMock = mockClient(SQSClient);
+const sentMessages = () =>
+    sqsMock.commandCalls(SendMessageCommand).map((call) => call.args[0].input);
 
 class WebhookTestIntegration extends IntegrationBase {
     static Definition = {
@@ -43,7 +37,8 @@ class WebhookTestIntegration extends IntegrationBase {
         }
 
         await this.queueWebhook({
-            integrationId: req.params.integrationId,
+            // Same normalisation as IntegrationBase.onWebhookReceived
+            integrationId: req.params.integrationId || null,
             body: req.body,
             headers: req.headers,
             query: req.query,
@@ -63,6 +58,10 @@ describe('Webhook Flow Integration Test', () => {
     describe('End-to-End Webhook Flow', () => {
         beforeEach(() => {
             jest.clearAllMocks();
+            sqsMock.reset();
+            sqsMock
+                .on(SendMessageCommand)
+                .resolves({ MessageId: 'mock-message-id-123' });
             process.env.WEBHOOK_TEST_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
         });
 
@@ -95,11 +94,9 @@ describe('Webhook Flow Integration Test', () => {
             expect(res.json).toHaveBeenCalledWith({ received: true, verified: false });
 
             // Verify message was queued
-            const AWS = require('aws-sdk');
-            const mockSQS = new AWS.SQS();
-            expect(mockSQS.sendMessage).toHaveBeenCalled();
+            expect(sentMessages()).toHaveLength(1);
 
-            const queueCall = mockSQS.sendMessage.mock.calls[0][0];
+            const queueCall = sentMessages()[0];
             expect(queueCall.QueueUrl).toBe(process.env.WEBHOOK_TEST_QUEUE_URL);
 
             const queuedMessage = JSON.parse(queueCall.MessageBody);
@@ -195,9 +192,7 @@ describe('Webhook Flow Integration Test', () => {
             });
 
             // Should queue with integrationId: null
-            const AWS = require('aws-sdk');
-            const mockSQS = new AWS.SQS();
-            const queuedMessage = JSON.parse(mockSQS.sendMessage.mock.calls[0][0].MessageBody);
+            const queuedMessage = JSON.parse(sentMessages()[0].MessageBody);
 
             expect(queuedMessage.data.integrationId).toBeNull();
         });
@@ -227,9 +222,7 @@ describe('Webhook Flow Integration Test', () => {
                 next: jest.fn(),
             });
 
-            const AWS = require('aws-sdk');
-            const mockSQS = new AWS.SQS();
-            const queuedMessage = JSON.parse(mockSQS.sendMessage.mock.calls[0][0].MessageBody);
+            const queuedMessage = JSON.parse(sentMessages()[0].MessageBody);
 
             expect(queuedMessage.data.headers).toEqual(req.headers);
             expect(queuedMessage.data.query).toEqual(req.query);
@@ -277,8 +270,6 @@ describe('Webhook Flow Integration Test', () => {
         });
 
         it('should use default ON_WEBHOOK handler if not overridden', async () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
             class DefaultWebhookIntegration extends IntegrationBase {
                 static Definition = {
                     name: 'default-webhook-worker',
@@ -293,26 +284,22 @@ describe('Webhook Flow Integration Test', () => {
 
             const webhookData = { body: { test: 'data' } };
 
-            await dispatcher.dispatchJob({
-                event: 'ON_WEBHOOK',
-                data: webhookData,
-                context: {},
-            });
-
-            // Default handler logs the data
-            expect(consoleSpy).toHaveBeenCalledWith('Webhook received:', webhookData);
-
-            consoleSpy.mockRestore();
+            // The base ON_WEBHOOK handler is a no-op that integrations
+            // override; dispatching to it must succeed without side effects.
+            await expect(
+                dispatcher.dispatchJob({
+                    event: 'ON_WEBHOOK',
+                    data: webhookData,
+                    context: {},
+                })
+            ).resolves.toBeUndefined();
         });
     });
 
     describe('Error Handling', () => {
         it('should handle queueing errors gracefully', async () => {
-            const AWS = require('aws-sdk');
-            const mockSQS = new AWS.SQS();
-            mockSQS.sendMessage.mockImplementation((params, callback) => {
-                callback(new Error('Queue is full'), null);
-            });
+            sqsMock.reset();
+            sqsMock.on(SendMessageCommand).rejects(new Error('Queue is full'));
 
             process.env.WEBHOOK_TEST_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue';
 

@@ -9,7 +9,9 @@ const cacheReport = (pattern) => `
 `;
 
 function runProbe(script, env = {}) {
-    const result = spawnSync(process.execPath, ['-e', script], {
+    // --no-warnings: the probe reports on stderr, and Node runtime warnings
+    // (e.g. DEP0040 punycode on Node 22) would otherwise be mixed into it.
+    const result = spawnSync(process.execPath, ['--no-warnings', '-e', script], {
         cwd: CORE_DIR,
         encoding: 'utf8',
         env: { PATH: process.env.PATH, ...env },

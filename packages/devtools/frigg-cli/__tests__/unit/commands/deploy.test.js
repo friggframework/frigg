@@ -14,8 +14,16 @@ jest.mock('child_process', () => ({
   spawn: jest.fn()
 }));
 
+// Partial mock: only existsSync is stubbed, the rest of fs stays real (a
+// bare { existsSync } mock breaks any dependency that reads fs.constants).
 jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
   existsSync: jest.fn()
+}));
+
+// The post-deployment health check calls the doctor command (real AWS).
+jest.mock('../../../doctor-command', () => ({
+  doctorCommand: jest.fn().mockResolvedValue(undefined)
 }));
 
 // Require after mocks
@@ -28,6 +36,8 @@ describe('CLI Command: deploy', () => {
   let consoleWarnSpy;
   let consoleErrorSpy;
   let mockChildProcess;
+  let childOutcome;
+  let exitSpy;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -37,10 +47,18 @@ describe('CLI Command: deploy', () => {
     consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-    // Mock child process
+    // Mock child process. deployCommand awaits the child's exit, so the mock
+    // emits `childOutcome` (default: a clean exit) once its handler is wired.
+    childOutcome = { event: 'close', value: 0 };
     mockChildProcess = {
-      on: jest.fn()
+      on: jest.fn((event, handler) => {
+        if (event === childOutcome.event) {
+          setImmediate(() => handler(childOutcome.value));
+        }
+        return mockChildProcess;
+      })
     };
+    exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {});
 
     // Mock successful spawn by default
     spawn.mockReturnValue(mockChildProcess);
@@ -53,6 +71,7 @@ describe('CLI Command: deploy', () => {
     consoleLogSpy.mockRestore();
     consoleWarnSpy.mockRestore();
     consoleErrorSpy.mockRestore();
+    exitSpy.mockRestore();
   });
 
   describe('Success Cases', () => {
@@ -278,43 +297,30 @@ describe('CLI Command: deploy', () => {
   });
 
   describe('Error Handling', () => {
-    it('should log error when spawn fails', async () => {
-      const testError = new Error('Spawn failed');
+    it('should log and reject when spawn fails', async () => {
+      childOutcome = { event: 'error', value: new Error('Spawn failed') };
 
-      await deployCommand({ stage: 'dev' });
-
-      // Simulate error event
-      const errorHandler = mockChildProcess.on.mock.calls.find(
-        call => call[0] === 'error'
-      )[1];
-      errorHandler(testError);
+      await expect(deployCommand({ stage: 'dev' })).rejects.toThrow('Spawn failed');
 
       expect(consoleErrorSpy).toHaveBeenCalledWith('Error executing command: Spawn failed');
     });
 
-    it('should log when child process exits with non-zero code', async () => {
+    it('should log and exit with the code when child process exits non-zero', async () => {
+      childOutcome = { event: 'close', value: 1 };
+
       await deployCommand({ stage: 'dev' });
 
-      // Simulate close event with error code
-      const closeHandler = mockChildProcess.on.mock.calls.find(
-        call => call[0] === 'close'
-      )[1];
-      closeHandler(1);
-
       expect(consoleLogSpy).toHaveBeenCalledWith('Child process exited with code 1');
+      expect(exitSpy).toHaveBeenCalledWith(1);
     });
 
     it('should NOT log when child process exits with zero code', async () => {
       await deployCommand({ stage: 'dev' });
 
-      // Simulate close event with success code
-      const closeHandler = mockChildProcess.on.mock.calls.find(
-        call => call[0] === 'close'
-      )[1];
-      closeHandler(0);
-
       // Should not log exit message for success
       expect(consoleLogSpy).not.toHaveBeenCalledWith('Child process exited with code 0');
+      expect(exitSpy).not.toHaveBeenCalled();
+      expect(consoleLogSpy).toHaveBeenCalledWith('\n✓ Deployment completed successfully!');
     });
   });
 });

@@ -1,23 +1,28 @@
 const { createEncryptionExtension } = require('./prisma-encryption-extension');
 
+const MOCK_KEY_ID = Buffer.from('mock-key-id').toString('base64');
+const MOCK_IV = 'aabbccddeeff00112233445566778899';
+const MOCK_ENC_KEY = Buffer.from('mock-encrypted-data-key').toString('base64');
+const enc = (plaintext) =>
+    `${MOCK_KEY_ID}:${MOCK_IV}:${Buffer.from(plaintext).toString(
+        'base64'
+    )}:${MOCK_ENC_KEY}`;
+// Values are JSON-encoded before encryption, strings included.
+const encValue = (value) => enc(JSON.stringify(value));
+
 describe('Prisma Encryption Extension', () => {
     let mockCryptor;
     let mockQuery;
 
     beforeEach(() => {
-        // Mock Cryptor
+        // Mock Cryptor emitting the real envelope shape
+        // (keyId:iv:ciphertext:encryptedKey), plaintext as base64 ciphertext.
         mockCryptor = {
-            encrypt: jest
-                .fn()
-                .mockImplementation(
-                    (value) => `encrypted:${value}:iv:enckey`
-                ),
-            decrypt: jest
-                .fn()
-                .mockImplementation((value) => {
-                    const parts = value.split(':');
-                    return parts[1]; // Extract original value
-                }),
+            encrypt: jest.fn().mockImplementation((value) => enc(value)),
+            decrypt: jest.fn().mockImplementation((value) => {
+                const parts = value.split(':');
+                return Buffer.from(parts[2], 'base64').toString();
+            }),
         };
 
         // Mock Prisma query function
@@ -83,7 +88,7 @@ describe('Prisma Encryption Extension', () => {
                     },
                     mockResult: {
                         id: '1',
-                        data: { access_token: 'encrypted:secret123:iv:enckey' },
+                        data: { access_token: encValue('secret123') },
                     },
                 };
 
@@ -94,9 +99,9 @@ describe('Prisma Encryption Extension', () => {
                     query: mockQuery,
                 });
 
-                expect(mockCryptor.encrypt).toHaveBeenCalledWith('secret123');
+                expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('secret123'));
                 expect(args.data.data.access_token).toBe(
-                    'encrypted:secret123:iv:enckey'
+                    encValue('secret123')
                 );
             });
 
@@ -105,7 +110,7 @@ describe('Prisma Encryption Extension', () => {
                     data: { data: { access_token: 'secret123' } },
                     mockResult: {
                         id: '1',
-                        data: { access_token: 'encrypted:secret123:iv:enckey' },
+                        data: { access_token: encValue('secret123') },
                     },
                 };
 
@@ -117,7 +122,7 @@ describe('Prisma Encryption Extension', () => {
                 });
 
                 expect(mockCryptor.decrypt).toHaveBeenCalledWith(
-                    'encrypted:secret123:iv:enckey'
+                    encValue('secret123')
                 );
                 expect(result.data.access_token).toBe('secret123');
             });
@@ -156,13 +161,13 @@ describe('Prisma Encryption Extension', () => {
                     query: mockQuery,
                 });
 
-                expect(mockCryptor.encrypt).toHaveBeenCalledWith('secret1');
-                expect(mockCryptor.encrypt).toHaveBeenCalledWith('secret2');
+                expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('secret1'));
+                expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('secret2'));
                 expect(args.data[0].data.access_token).toBe(
-                    'encrypted:secret1:iv:enckey'
+                    encValue('secret1')
                 );
                 expect(args.data[1].data.access_token).toBe(
-                    'encrypted:secret2:iv:enckey'
+                    encValue('secret2')
                 );
             });
 
@@ -179,7 +184,7 @@ describe('Prisma Encryption Extension', () => {
                     query: mockQuery,
                 });
 
-                expect(mockCryptor.encrypt).toHaveBeenCalledWith('secret');
+                expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('secret'));
             });
         });
 
@@ -189,7 +194,7 @@ describe('Prisma Encryption Extension', () => {
                     data: { data: { access_token: 'newsecret' } },
                     mockResult: {
                         id: '1',
-                        data: { access_token: 'encrypted:newsecret:iv:enckey' },
+                        data: { access_token: encValue('newsecret') },
                     },
                 };
 
@@ -200,7 +205,7 @@ describe('Prisma Encryption Extension', () => {
                     query: mockQuery,
                 });
 
-                expect(mockCryptor.encrypt).toHaveBeenCalledWith('newsecret');
+                expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('newsecret'));
             });
 
             it('should decrypt result after update', async () => {
@@ -208,7 +213,7 @@ describe('Prisma Encryption Extension', () => {
                     data: { data: { access_token: 'newsecret' } },
                     mockResult: {
                         id: '1',
-                        data: { access_token: 'encrypted:newsecret:iv:enckey' },
+                        data: { access_token: encValue('newsecret') },
                     },
                 };
 
@@ -230,7 +235,7 @@ describe('Prisma Encryption Extension', () => {
                     update: { data: { access_token: 'updatesecret' } },
                     mockResult: {
                         id: '1',
-                        data: { access_token: 'encrypted:createsecret:iv:enckey' },
+                        data: { access_token: encValue('createsecret') },
                     },
                 };
 
@@ -241,8 +246,8 @@ describe('Prisma Encryption Extension', () => {
                     query: mockQuery,
                 });
 
-                expect(mockCryptor.encrypt).toHaveBeenCalledWith('createsecret');
-                expect(mockCryptor.encrypt).toHaveBeenCalledWith('updatesecret');
+                expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('createsecret'));
+                expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('updatesecret'));
             });
         });
 
@@ -252,7 +257,7 @@ describe('Prisma Encryption Extension', () => {
                     where: { id: '1' },
                     mockResult: {
                         id: '1',
-                        data: { access_token: 'encrypted:secret:iv:enckey' },
+                        data: { access_token: encValue('secret') },
                     },
                 };
 
@@ -264,7 +269,7 @@ describe('Prisma Encryption Extension', () => {
                 });
 
                 expect(mockCryptor.decrypt).toHaveBeenCalledWith(
-                    'encrypted:secret:iv:enckey'
+                    encValue('secret')
                 );
                 expect(result.data.access_token).toBe('secret');
             });
@@ -293,11 +298,11 @@ describe('Prisma Encryption Extension', () => {
                     mockResult: [
                         {
                             id: '1',
-                            data: { access_token: 'encrypted:secret1:iv:enckey' },
+                            data: { access_token: encValue('secret1') },
                         },
                         {
                             id: '2',
-                            data: { access_token: 'encrypted:secret2:iv:enckey' },
+                            data: { access_token: encValue('secret2') },
                         },
                     ],
                 };
@@ -336,7 +341,7 @@ describe('Prisma Encryption Extension', () => {
                     where: { id: '1' },
                     mockResult: {
                         id: '1',
-                        data: { access_token: 'encrypted:secret:iv:enckey' },
+                        data: { access_token: encValue('secret') },
                     },
                 };
 
@@ -411,8 +416,8 @@ describe('Prisma Encryption Extension', () => {
                 mockResult: {
                     id: '123',
                     data: {
-                        access_token: 'encrypted:secret:iv:enckey',
-                        refresh_token: 'encrypted:refresh:iv:enckey',
+                        access_token: encValue('secret'),
+                        refresh_token: encValue('refresh'),
                         other: 'public',
                     },
                 },
@@ -426,8 +431,8 @@ describe('Prisma Encryption Extension', () => {
             });
 
             // Verify encryption was called for encrypted fields
-            expect(mockCryptor.encrypt).toHaveBeenCalledWith('secret');
-            expect(mockCryptor.encrypt).toHaveBeenCalledWith('refresh');
+            expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('secret'));
+            expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('refresh'));
             // 'other' should not be encrypted
 
             // Verify decryption in result

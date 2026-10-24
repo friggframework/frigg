@@ -224,7 +224,7 @@ packages/core/
   (`remove-entities-from-integration.js`) refuses to leave a module with no
   entity (`LAST_ENTITY_OF_MODULE`, 409). Re-adding an attached entity or
   removing a detached one changes nothing; a detached entity is not deleted.
-  `integration-repository-entities-parity.test.js` runs every adapter against
+  `integration-repository-entities-parity.db.test.js` runs every adapter against
   real databases when `INTEGRATION_ENTITIES_PARITY_MONGO_URL` /
   `INTEGRATION_ENTITIES_PARITY_POSTGRES_URL` are set. The DocumentDB adapter
   writes only `Integration.entityIds` (as its `createIntegration` does), not
@@ -266,7 +266,7 @@ packages/core/
   mapping keys to leave out of the rows; never write such rows back. Path
   segments must match `^[A-Za-z_][A-Za-z0-9_]*$`. The PostgreSQL, MongoDB and
   DocumentDB adapters give the same pages and totals;
-  `integration-mapping-repository-query-parity.test.js` checks that against
+  `integration-mapping-repository-query-parity.db.test.js` checks that against
   real databases when `QUERY_MAPPINGS_PARITY_MONGO_URL` /
   `QUERY_MAPPINGS_PARITY_POSTGRES_URL` are set. Two orderings still differ:
   strings compare by the database collation on PostgreSQL and by code point

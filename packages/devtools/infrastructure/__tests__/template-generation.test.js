@@ -5,6 +5,17 @@
  * valid, consistent CloudFormation templates.
  */
 
+// Never touch AWS or the real Prisma layer from a unit test: discovery returns
+// nothing (a fresh account), and the layer build (npm install into
+// layers/prisma) is stubbed out.
+jest.mock('../domains/shared/resource-discovery', () => ({
+    ...jest.requireActual('../domains/shared/resource-discovery'),
+    gatherDiscoveredResources: jest.fn().mockResolvedValue({}),
+}));
+jest.mock('../domains/shared/utilities/prisma-layer-manager', () => ({
+    ensurePrismaLayerExists: jest.fn().mockResolvedValue(undefined),
+}));
+
 const { composeServerlessDefinition } = require('../infrastructure-composer');
 
 describe('CloudFormation Template Generation', () => {
@@ -86,11 +97,16 @@ describe('CloudFormation Template Generation', () => {
 
             // Framework-generated resources (created by Serverless Framework, not our builders)
             const frameworkResources = ['HttpApi', 'HttpApiLogGroup'];
+            // Serverless names each function's resource `<Name>LambdaFunction`
+            // (e.g. dbMigrationWorker -> DbMigrationWorkerLambdaFunction).
+            const functionResources = Object.keys(result.functions || {}).map(
+                (name) => `${name.charAt(0).toUpperCase()}${name.slice(1)}LambdaFunction`
+            );
 
-            // Verify all Refs point to existing resources, layers, or framework resources
+            // Verify all Refs point to existing resources, layers, functions or framework resources
             refs.forEach(ref => {
                 if (!frameworkResources.includes(ref)) {
-                    expect(allIds).toContain(ref);
+                    expect([...allIds, ...functionResources]).toContain(ref);
                 }
             });
         });
@@ -123,7 +139,9 @@ describe('CloudFormation Template Generation', () => {
                 integrations: [
                     { Definition: { name: 'slack' } }
                 ],
-                vpc: { enable: true },
+                // Discovery is stubbed to an empty account, so the VPC must be
+                // created explicitly; `auto` with no VPC found is a hard error.
+                vpc: { enable: true, management: 'create-new' },
                 encryption: { fieldLevelEncryptionMethod: 'kms' }
             };
 
@@ -251,7 +269,9 @@ describe('CloudFormation Template Generation', () => {
         it('should create VPC resources when enabled', async () => {
             const appDefinition = {
                 name: 'test-app',
-                vpc: { enable: true },
+                // Discovery is stubbed to an empty account, so the VPC must be
+                // created explicitly; `auto` with no VPC found is a hard error.
+                vpc: { enable: true, management: 'create-new' },
                 integrations: []
             };
 
@@ -264,7 +284,9 @@ describe('CloudFormation Template Generation', () => {
         it('should create subnets in VPC', async () => {
             const appDefinition = {
                 name: 'test-app',
-                vpc: { enable: true },
+                // Discovery is stubbed to an empty account, so the VPC must be
+                // created explicitly; `auto` with no VPC found is a hard error.
+                vpc: { enable: true, management: 'create-new' },
                 integrations: []
             };
 
@@ -277,7 +299,9 @@ describe('CloudFormation Template Generation', () => {
         it('should create security group in VPC', async () => {
             const appDefinition = {
                 name: 'test-app',
-                vpc: { enable: true },
+                // Discovery is stubbed to an empty account, so the VPC must be
+                // created explicitly; `auto` with no VPC found is a hard error.
+                vpc: { enable: true, management: 'create-new' },
                 integrations: []
             };
 
@@ -290,7 +314,9 @@ describe('CloudFormation Template Generation', () => {
         it('should configure Lambda functions with VPC', async () => {
             const appDefinition = {
                 name: 'test-app',
-                vpc: { enable: true },
+                // Discovery is stubbed to an empty account, so the VPC must be
+                // created explicitly; `auto` with no VPC found is a hard error.
+                vpc: { enable: true, management: 'create-new' },
                 integrations: [
                     { Definition: { name: 'slack' } }
                 ]
@@ -427,7 +453,9 @@ describe('CloudFormation Template Generation', () => {
                     { Definition: { name: 'slack' } },
                     { Definition: { name: 'hubspot' } }
                 ],
-                vpc: { enable: true },
+                // Discovery is stubbed to an empty account, so the VPC must be
+                // created explicitly; `auto` with no VPC found is a hard error.
+                vpc: { enable: true, management: 'create-new' },
                 encryption: { useDefaultKMSForFieldLevelEncryption: true },
                 database: {
                     type: 'postgresql',

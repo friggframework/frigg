@@ -20,4 +20,8 @@ module.exports = {
     globalTeardown: './jest-teardown.js',
 
     setupFilesAfterEnv: ['./logs/jest-logger-setup.js'],
+
+    // `*.db.test.js` suites talk to a real MongoDB replica set / PostgreSQL
+    // and run separately via `npm run test:db` (jest.db.config.js).
+    testPathIgnorePatterns: ['/node_modules/', '\\.db\\.test\\.js$'],
 };

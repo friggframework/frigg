@@ -81,14 +81,20 @@ describe('HealthCheckRepositoryPostgreSQL', () => {
         });
 
         it('should measure actual response time', async () => {
-            mockPrismaClient.$queryRaw.mockImplementation(() => 
-                new Promise(resolve => setTimeout(() => resolve([{ '?column?': 1 }]), 30))
-            );
+            // Control the clock instead of sleeping: a 30 ms setTimeout can
+            // measure as 29 ms with Date.now(), which made this flaky.
+            const nowSpy = jest
+                .spyOn(Date, 'now')
+                .mockReturnValueOnce(1_000)
+                .mockReturnValueOnce(1_030);
+            mockPrismaClient.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
 
-            const responseTime = await repository.pingDatabase(2000);
-
-            expect(responseTime).toBeGreaterThanOrEqual(30);
-            expect(responseTime).toBeLessThan(150); // Allow some buffer
+            try {
+                const responseTime = await repository.pingDatabase(2000);
+                expect(responseTime).toBe(30);
+            } finally {
+                nowSpy.mockRestore();
+            }
         });
     });
 });

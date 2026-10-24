@@ -109,12 +109,14 @@ describe('integration commands', () => {
             integrationClass: DummyIntegration,
         });
 
-        const result = await commands.findIntegrationContextByExternalEntityId(
-            'ext-1',
-        );
+        const result = await commands.findIntegrationContextByExternalEntityId({
+            externalId: 'ext-1',
+            type: 'dummy',
+        });
 
         expect(mockFindExecute).toHaveBeenCalledWith({
-            externalEntityId: 'ext-1',
+            externalId: 'ext-1',
+            type: 'dummy',
         });
         expect(result).toEqual({ context: expectedContext });
     });
@@ -128,9 +130,10 @@ describe('integration commands', () => {
             integrationClass: DummyIntegration,
         });
 
-        const result = await commands.findIntegrationContextByExternalEntityId(
-            'ext-1',
-        );
+        const result = await commands.findIntegrationContextByExternalEntityId({
+            externalId: 'ext-1',
+            type: 'dummy',
+        });
 
         expect(result).toEqual({
             error: 401,
@@ -161,11 +164,13 @@ describe('integration commands', () => {
 
         const result = await findIntegrationContextByExternalEntityId({
             integrationClass: DummyIntegration,
-            externalEntityId: 'ext-2',
+            externalId: 'ext-2',
+            type: 'dummy',
         });
 
         expect(mockFindExecute).toHaveBeenCalledWith({
-            externalEntityId: 'ext-2',
+            externalId: 'ext-2',
+            type: 'dummy',
         });
         expect(result).toEqual({ context: expectedContext });
     });

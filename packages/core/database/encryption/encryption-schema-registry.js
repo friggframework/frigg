@@ -146,6 +146,16 @@ function extractCredentialFieldsFromModules(moduleDefinitions) {
         }
 
         for (const field of credentialFields) {
+            // Validate entry by entry: one bad entry must not drop the
+            // module's (or any other module's) valid fields.
+            if (typeof field !== 'string' || field.trim() === '') {
+                logger.warn(
+                    `Ignoring invalid encryption.credentialFields entry ${JSON.stringify(field)} ` +
+                        `in module "${moduleDef.moduleName || moduleDef.name || 'unknown'}" ` +
+                        '(expected a non-empty string)'
+                );
+                continue;
+            }
             const prefixedField = field.startsWith('data.') ? field : `data.${field}`;
             fields.push(prefixedField);
         }
@@ -174,26 +184,46 @@ function loadModuleEncryptionSchemas(integrations) {
         return;
     }
 
-    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
+    const { getModulesDefinitionFromIntegrationClasses } = require('../../integrations/utils/map-integration-dto');
 
-    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);
-    const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
+    // Integrations without modules contribute no credential fields.
+    const integrationsWithModules = integrations.filter(
+        (integration) => integration?.Definition?.modules
+    );
+    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(
+        integrationsWithModules
+    );
+
+    // Fields the core schema already encrypts (e.g. data.api_key) are
+    // covered; registering them again would fail validation and drop every
+    // other module field with them.
+    const coreCredentialFields = CORE_ENCRYPTION_SCHEMA.Credential.fields;
+    const credentialFields = extractCredentialFieldsFromModules(
+        moduleDefinitions
+    ).filter((field) => !coreCredentialFields.includes(field));
 
     if (credentialFields.length === 0) {
         return;
     }
 
-    const moduleSchema = {
+    // Merge with whatever custom schema the app already registered rather
+    // than replacing it (registerCustomSchema overwrites).
+    const existingCredentialFields = customSchema.Credential?.fields || [];
+    const mergedSchema = {
+        ...customSchema,
         Credential: {
-            fields: credentialFields
-        }
+            ...customSchema.Credential,
+            fields: [
+                ...new Set([...existingCredentialFields, ...credentialFields]),
+            ],
+        },
     };
 
     logger.info(
         `Registering module-level encryption for ${credentialFields.length} credential fields`
     );
 
-    registerCustomSchema(moduleSchema);
+    registerCustomSchema(mergedSchema);
 }
 
 /**
@@ -205,7 +235,40 @@ function loadModuleEncryptionSchemas(integrations) {
  *
  * Used by both Prisma (MongoDB/PostgreSQL) and DocumentDB encryption services.
  */
+/**
+ * Raised when an app's encryption configuration is invalid. In deployed
+ * stages this fails startup instead of silently writing plaintext.
+ */
+class EncryptionSchemaError extends Error {
+    constructor(message, { cause } = {}) {
+        super(message, { cause });
+        this.name = 'EncryptionSchemaError';
+    }
+}
+
+/** Stages where field-level encryption is bypassed (see prisma.js). */
+function isLocalStage() {
+    const stage = process.env.STAGE || process.env.NODE_ENV || 'development';
+    return ['dev', 'test', 'local'].includes(stage.toLowerCase());
+}
+
+/**
+ * An app definition was found but part of its encryption configuration
+ * could not be applied. Deployed stages fail closed; local stages warn and
+ * carry on so development isn't blocked.
+ */
+function reportInvalidEncryptionConfig(what, error) {
+    const message = `Invalid ${what}: ${error.message}`;
+    if (isLocalStage()) {
+        logger.warn(`${message} (ignored in local stage)`);
+        return;
+    }
+    logger.error(message);
+    throw new EncryptionSchemaError(message, { cause: error });
+}
+
 function loadCustomEncryptionSchema() {
+    let appDefinition;
     try {
         // Lazy require to avoid circular dependency issues
         const path = require('node:path');
@@ -220,38 +283,54 @@ function loadCustomEncryptionSchema() {
         const backendIndexPath = path.join(backendDir, 'index.js');
 
         const backendModule = require(backendIndexPath);
-        const appDefinition = backendModule?.Definition;
-
-        if (!appDefinition) {
-            return; // No app definition found
-        }
-
-        // Load app-level custom schema
-        const customSchema = appDefinition.encryption?.schema;
-        if (customSchema && Object.keys(customSchema).length > 0) {
-            registerCustomSchema(customSchema);
-        }
-
-        // Load app-level encryption opt-out — apps can declare fields they
-        // don't want encrypted on write (decryption on read still works,
-        // so legacy data remains readable).
-        const disable = appDefinition.encryption?.disable;
-        if (disable && Object.keys(disable).length > 0) {
-            registerEncryptionOptOut(disable);
-        }
-
-        // Load module-level encryption schemas from integrations
-        const integrations = appDefinition.integrations;
-        if (integrations && Array.isArray(integrations)) {
-            loadModuleEncryptionSchemas(integrations);
-        }
+        appDefinition = backendModule?.Definition;
     } catch (error) {
-        // Silently ignore errors - custom schema is optional
-        // This handles cases like:
-        // - Backend package.json not found (tests, standalone usage)
-        // - No appDefinition defined
-        // - No custom encryption schema specified
+        // No loadable backend (tests, standalone usage): custom schema is
+        // optional, so this stays at debug level.
         logger.debug('Could not load custom encryption schema:', error.message);
+        return;
+    }
+
+    if (!appDefinition) {
+        return; // No app definition found
+    }
+
+    // From here an app definition exists, so failures are configuration
+    // errors and must be visible.
+
+    // Load app-level custom schema
+    const customSchema = appDefinition.encryption?.schema;
+    if (customSchema && Object.keys(customSchema).length > 0) {
+        try {
+            registerCustomSchema(customSchema);
+        } catch (error) {
+            reportInvalidEncryptionConfig('app encryption.schema', error);
+        }
+    }
+
+    // Load app-level encryption opt-out — apps can declare fields they
+    // don't want encrypted on write (decryption on read still works,
+    // so legacy data remains readable).
+    const disable = appDefinition.encryption?.disable;
+    if (disable && Object.keys(disable).length > 0) {
+        try {
+            registerEncryptionOptOut(disable);
+        } catch (error) {
+            reportInvalidEncryptionConfig('app encryption.disable', error);
+        }
+    }
+
+    // Load module-level encryption schemas from integrations
+    const integrations = appDefinition.integrations;
+    if (integrations && Array.isArray(integrations)) {
+        try {
+            loadModuleEncryptionSchemas(integrations);
+        } catch (error) {
+            reportInvalidEncryptionConfig(
+                'module encryption.credentialFields',
+                error
+            );
+        }
     }
 }
 
@@ -386,6 +465,7 @@ function resetCustomSchema() {
 }
 
 module.exports = {
+    EncryptionSchemaError,
     CORE_ENCRYPTION_SCHEMA,
     getEncryptedFields,
     getFieldsToEncryptOnWrite,

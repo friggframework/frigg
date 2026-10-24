@@ -33,6 +33,17 @@ const {
 } = require('../../../utils/repo-detection');
 const { uiCommand } = require('../../../ui-command');
 
+// uiCommand waits 2 s for the dev servers and opens the browser 1 s later.
+// Drive those timers with fake time instead of sleeping for real (the real
+// waits made this suite take ~40 s and tripped the 5 s default timeout).
+const STARTUP_AND_BROWSER_DELAY_MS = 3100;
+
+async function runUi(options) {
+  const done = uiCommand(options);
+  await jest.advanceTimersByTimeAsync(STARTUP_AND_BROWSER_DELAY_MS);
+  return done;
+}
+
 describe('CLI Command: ui', () => {
   let consoleLogSpy;
   let consoleErrorSpy;
@@ -43,6 +54,7 @@ describe('CLI Command: ui', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
 
     // Mock console methods
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
@@ -75,6 +87,7 @@ describe('CLI Command: ui', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     consoleLogSpy.mockRestore();
     consoleErrorSpy.mockRestore();
     processExitSpy.mockRestore();
@@ -84,7 +97,7 @@ describe('CLI Command: ui', () => {
 
   describe('Repository Detection', () => {
     it('should use specified repo path when provided', async () => {
-      await uiCommand({ repo: '/custom/repo', port: 3001, open: false });
+      await runUi({ repo: '/custom/repo', port: 3001, open: false });
 
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining('Using specified repository')
@@ -92,7 +105,7 @@ describe('CLI Command: ui', () => {
     });
 
     it('should detect current Frigg repository', async () => {
-      await uiCommand({ port: 3001, open: false });
+      await runUi({ port: 3001, open: false });
 
       expect(getCurrentRepositoryInfo).toHaveBeenCalled();
       expect(consoleLogSpy).toHaveBeenCalledWith(
@@ -107,7 +120,7 @@ describe('CLI Command: ui', () => {
         currentSubPath: 'packages/backend'
       });
 
-      await uiCommand({ port: 3001, open: false });
+      await runUi({ port: 3001, open: false });
 
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining('Currently in subdirectory: packages/backend')
@@ -121,7 +134,7 @@ describe('CLI Command: ui', () => {
         { path: '/repos/frigg-2', name: 'frigg-2' }
       ]);
 
-      await uiCommand({ port: 3001, open: false });
+      await runUi({ port: 3001, open: false });
 
       expect(discoverFriggRepositories).toHaveBeenCalled();
       expect(consoleLogSpy).toHaveBeenCalledWith(
@@ -133,7 +146,7 @@ describe('CLI Command: ui', () => {
       getCurrentRepositoryInfo.mockResolvedValue(null);
       discoverFriggRepositories.mockResolvedValue([]);
 
-      await uiCommand({ port: 3001, open: false });
+      await runUi({ port: 3001, open: false });
 
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining('No Frigg repositories found')
@@ -144,7 +157,7 @@ describe('CLI Command: ui', () => {
 
   describe('Development Mode', () => {
     it('should spawn backend and frontend in dev mode', async () => {
-      await uiCommand({ port: 3001, open: false, dev: true });
+      await runUi({ port: 3001, open: false, dev: true });
 
       expect(mockProcessManager.spawnProcess).toHaveBeenCalledTimes(2);
       expect(mockProcessManager.spawnProcess).toHaveBeenCalledWith(
@@ -168,7 +181,7 @@ describe('CLI Command: ui', () => {
     });
 
     it('should use default port 3001', async () => {
-      await uiCommand({ open: false, dev: true });
+      await runUi({ open: false, dev: true });
 
       expect(mockProcessManager.spawnProcess).toHaveBeenCalledWith(
         expect.any(String),
@@ -181,7 +194,7 @@ describe('CLI Command: ui', () => {
     });
 
     it('should use custom port when specified', async () => {
-      await uiCommand({ port: 4000, open: false, dev: true });
+      await runUi({ port: 4000, open: false, dev: true });
 
       expect(mockProcessManager.spawnProcess).toHaveBeenCalledWith(
         expect.any(String),
@@ -197,10 +210,7 @@ describe('CLI Command: ui', () => {
     });
 
     it('should print status with correct URLs', async () => {
-      await uiCommand({ port: 3001, open: false, dev: true });
-
-      // Wait for startup delay (testing async behavior, not mocks)
-      await new Promise(resolve => setTimeout(resolve, 2100));
+      await runUi({ port: 3001, open: false, dev: true });
 
       // Verify printStatus called with exact URLs
       expect(mockProcessManager.printStatus).toHaveBeenCalledWith(
@@ -211,20 +221,14 @@ describe('CLI Command: ui', () => {
     });
 
     it('should open browser when open=true', async () => {
-      await uiCommand({ port: 3001, open: true, dev: true });
-
-      // Wait for startup + browser delay (testing async behavior, not mocks)
-      await new Promise(resolve => setTimeout(resolve, 3100));
+      await runUi({ port: 3001, open: true, dev: true });
 
       // Verify browser opened with correct URL
       expect(open).toHaveBeenCalledWith('http://localhost:5173');
     });
 
     it('should NOT open browser when open=false', async () => {
-      await uiCommand({ port: 3001, open: false, dev: true });
-
-      // Wait for startup delay (testing async behavior, not mocks)
-      await new Promise(resolve => setTimeout(resolve, 3100));
+      await runUi({ port: 3001, open: false, dev: true });
 
       // Verify browser was not opened
       expect(open).not.toHaveBeenCalled();
@@ -237,7 +241,7 @@ describe('CLI Command: ui', () => {
         currentSubPath: null
       });
 
-      await uiCommand({ port: 3001, open: false, dev: true });
+      await runUi({ port: 3001, open: false, dev: true });
 
       expect(mockProcessManager.spawnProcess).toHaveBeenCalledWith(
         expect.any(String),
@@ -252,7 +256,7 @@ describe('CLI Command: ui', () => {
     });
 
     it('should set REPOSITORY_INFO as JSON string with correct structure', async () => {
-      await uiCommand({ port: 3001, open: false, dev: true });
+      await runUi({ port: 3001, open: false, dev: true });
 
       const call = mockProcessManager.spawnProcess.mock.calls[0];
       const env = call[3].env;
@@ -275,7 +279,7 @@ describe('CLI Command: ui', () => {
         { path: '/repos/frigg-1', name: 'frigg-1' }
       ]);
 
-      await uiCommand({ port: 3001, open: false, dev: true });
+      await runUi({ port: 3001, open: false, dev: true });
 
       const call = mockProcessManager.spawnProcess.mock.calls[0];
       const env = call[3].env;
@@ -299,7 +303,7 @@ describe('CLI Command: ui', () => {
         throw error;
       });
 
-      await uiCommand({ port: 3001, open: false, dev: true });
+      await runUi({ port: 3001, open: false, dev: true });
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to start Management UI'),
@@ -316,7 +320,7 @@ describe('CLI Command: ui', () => {
         throw new Error('Generic startup error');
       });
 
-      await uiCommand({ port: 3001, open: false, dev: true });
+      await runUi({ port: 3001, open: false, dev: true });
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to start Management UI'),
@@ -328,16 +332,13 @@ describe('CLI Command: ui', () => {
 
   describe('Process Management', () => {
     it('should create ProcessManager instance', async () => {
-      await uiCommand({ port: 3001, open: false, dev: true });
+      await runUi({ port: 3001, open: false, dev: true });
 
       expect(ProcessManager).toHaveBeenCalled();
     });
 
     it('should keep process running with stdin.resume', async () => {
-      await uiCommand({ port: 3001, open: false, dev: true });
-
-      // Wait for startup delay (testing async behavior, not mocks)
-      await new Promise(resolve => setTimeout(resolve, 2100));
+      await runUi({ port: 3001, open: false, dev: true });
 
       // Verify stdin.resume called to keep process alive
       expect(stdinResumeSpy).toHaveBeenCalled();

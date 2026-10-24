@@ -143,14 +143,35 @@ describe('getMigrationsPackages()', () => {
 });
 
 describe('getMigrationSourcePath()', () => {
-    it('should return correct source path for database type', () => {
-        const searchPaths = ['/workspace/packages/core'];
-        const dbType = 'postgresql';
+    // getMigrationSourcePath() returns the first search path whose
+    // prisma-<dbType>/migrations directory exists on disk, so the test needs a
+    // real directory rather than a made-up absolute path.
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    let tmpRoot;
 
-        const sourcePath = getMigrationSourcePath(searchPaths, dbType);
-        expect(sourcePath).toBe(
-            '/workspace/packages/core/prisma-postgresql/migrations'
-        );
+    beforeEach(() => {
+        tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'frigg-prisma-layer-'));
+    });
+
+    afterEach(() => {
+        fs.rmSync(tmpRoot, { recursive: true, force: true });
+    });
+
+    it('should return the migrations path of the first search path that has one', () => {
+        const missing = path.join(tmpRoot, 'missing');
+        const core = path.join(tmpRoot, 'packages', 'core');
+        const expected = path.join(core, 'prisma-postgresql', 'migrations');
+        fs.mkdirSync(expected, { recursive: true });
+
+        const sourcePath = getMigrationSourcePath([missing, core], 'postgresql');
+        expect(sourcePath).toBe(expected);
+    });
+
+    it('should return null when no search path has migrations for the database type', () => {
+        const sourcePath = getMigrationSourcePath([tmpRoot], 'postgresql');
+        expect(sourcePath).toBeNull();
     });
 });
 

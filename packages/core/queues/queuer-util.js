@@ -97,16 +97,17 @@ const QueuerUtil = {
                 Id: uuid(),
                 MessageBody: JSON.stringify(entry),
             });
-            // Sends 10, then purges the buffer
+            // Sends 10, then starts a fresh buffer. Each command gets its own
+            // array: clearing the shared buffer in place would also empty the
+            // Entries of a command that was already sent.
             if (buffer.length === batchSize) {
+                const batch = buffer.splice(0, buffer.length);
                 const command = new SendMessageBatchCommand({
-                    Entries: buffer,
+                    Entries: batch,
                     QueueUrl: queueUrl,
                 });
                 const result = await sqs.send(command);
-                inspectBatchResult(result, queueUrl, buffer);
-                // Purge the buffer
-                buffer.splice(0, buffer.length);
+                inspectBatchResult(result, queueUrl, batch);
             }
         }
 

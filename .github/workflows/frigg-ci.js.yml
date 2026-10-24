@@ -5,47 +5,42 @@ name: Frigg CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, next]
     paths-ignore:
       - docs/**
   pull_request:
     branches: ["**"]
+
+# A newer push to the same PR supersedes its running check. Pushes to
+# main/next are never cancelled: release.yml publishes every push to next,
+# so each published commit must keep its own CI result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Read-only token for every job: CI no longer pushes commits.
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [22.x]
+        # The Node lines 2.0.1 supports.
+        node-version: [22.x, 24.x]
 
     steps:
       - name: Check Out Code ⤵️
         uses: actions/checkout@v4
-        with:
-          # Full git history is needed to get a proper list of changed files within `super-linter`
-          fetch-depth: 0
 
       - name: Use Node.js ${{ matrix.node-version }} 🛠
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-
-      - name: Use correct NPM version 🛠
-        run: npm run use:npm
-
-      - name: Cache node modules 📦
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-node-modules
-        with:
-          # npm cache files are stored in `~/.npm` on Linux/macOS
-          path: ~/.npm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          cache: npm
 
       - name: Install Dependencies 🛠
         run: npm ci
@@ -59,11 +54,138 @@ jobs:
         run: npm run test:all
         timeout-minutes: 10
 
-      # NOTE: Linter steps should run last.  If the linter auto-fixes files and pushes the fixes, the result is that any errors that may occur in previous steps may be hidden in the pull request because tests will not be run on the auto-fix commits.
+      # CLI smoke test (from the retired test-cli.yml). `frigg --help` loads
+      # every command module (index.js requires them eagerly), and each
+      # expected command must be listed: `frigg <unknown> --help` exits 0, so
+      # per-command --help calls couldn't catch a dropped or renamed command.
+      - name: CLI smoke test 🧰
+        run: |
+          help="$(npx --no-install frigg --help)"
+          echo "$help"
+          for cmd in init install start build deploy generate-iam ui db:setup doctor repair ssm auth; do
+            if ! grep -qE "^  ${cmd}( |\$)" <<<"$help"; then
+              echo "::error::frigg --help no longer lists the '${cmd}' command"
+              exit 1
+            fi
+          done
 
-      - name: Linter 🔍
-        run: npm run lint:fix --workspaces
+  db:
+    # Opt-in database integration suites (`*.db.test.js`, `npm run test:db`).
+    # They are excluded from test:all so unit runs never need a database.
+    # The Postgres service also serves the tenant-isolation suite
+    # (FRIGG_TEST_POSTGRES_URL) once it lands on next.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway database reachable only from this job: trust auth, so the
+          # workflow carries no password for secret scanners to flag.
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: frigg
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      FRIGG_TEST_MONGODB_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
+      FRIGG_TEST_POSTGRES_URL: postgresql://postgres@localhost:5432/frigg?schema=public
+      # Repository parity suites: every adapter (MongoDB, DocumentDB-on-Mongo,
+      # PostgreSQL) against the same cases.
+      INTEGRATION_ENTITIES_PARITY_MONGO_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
+      INTEGRATION_ENTITIES_PARITY_POSTGRES_URL: postgresql://postgres@localhost:5432/frigg?schema=public
+      QUERY_MAPPINGS_PARITY_MONGO_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
+      QUERY_MAPPINGS_PARITY_POSTGRES_URL: postgresql://postgres@localhost:5432/frigg?schema=public
+      MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.cache/mongodb-binaries
+    steps:
+      - name: Check Out Code ⤵️
+        uses: actions/checkout@v4
 
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      # Prisma needs a replica set for MongoDB writes, and service containers
+      # can't take the --replSet argument, so start it directly.
+      - name: Start MongoDB replica set 🍃
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:8.0 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do
+            docker exec mongo mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' && break
+            sleep 1
+          done
+          docker exec mongo mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
+          primary=false
+          for i in $(seq 1 30); do
+            if [ "$(docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary')" = "true" ]; then
+              primary=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$primary" != true ]; then
+            echo "::error::MongoDB replica set did not elect a primary within 30s"
+            docker logs mongo | tail -50
+            exit 1
+          fi
+
+      - name: Use Node.js 22.x 🛠
+        uses: actions/setup-node@v4
         with:
-          commit_message: ✨ Apply lint auto-fixes
+          node-version: 22.x
+          cache: npm
+
+      - name: Install Dependencies 🛠
+        run: npm ci
+
+      - name: Cache mongodb-memory-server binaries 📦
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('packages/test/mongodb.js') }}
+
+      - name: Prepare databases 🗄
+        working-directory: packages/core
+        run: |
+          npm run prisma:generate
+          DATABASE_URL="$FRIGG_TEST_POSTGRES_URL" npx --no-install prisma migrate deploy --schema prisma-postgresql/schema.prisma
+          DATABASE_URL="$FRIGG_TEST_MONGODB_URL" npx --no-install prisma db push --skip-generate --schema prisma-mongodb/schema.prisma
+
+      - name: DB tests 🧪
+        run: npm run test:db --workspaces --if-present
+        timeout-minutes: 10
+
+  lint:
+    # Read-only lint check: reports prettier/eslint problems, never rewrites
+    # files or pushes commits. Non-blocking for now because the tree has a
+    # large existing backlog (e.g. core: ~390 files need prettier, 96 eslint
+    # errors); make the step blocking once that backlog is cleared.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Code ⤵️
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x 🛠
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install Dependencies 🛠
+        run: npm ci
+
+      - name: Lint (check only) 🔍
+        continue-on-error: true
+        run: |
+          status=0
+          for ws in packages/*/; do
+            # Packages that define lint:fix are the ones with a lint setup.
+            node -e "process.exit(require('./${ws}package.json').scripts?.['lint:fix'] ? 0 : 1)" || continue
+            echo "::group::${ws}"
+            (cd "$ws" && npx --no-install prettier --check --loglevel warn . && npx --no-install eslint .) || status=1
+            echo "::endgroup::"
+          done
+          exit $status
