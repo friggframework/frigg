@@ -4,7 +4,10 @@ const path = require('path');
 /**
  * Find the backend directory the way `frigg build` and core's
  * findNearestBackendPackageJson do: the current directory when it holds
- * package.json and index.js, else the nearest ancestor's `backend/`.
+ * package.json and index.js, else the nearest ancestor's `backend/` that
+ * holds a package.json. Like core, the search stops at that nearest
+ * `backend/` even when it has no index.js (loadAppDefinition reports it), so
+ * validation never passes on a farther app that build would not load.
  *
  * @param {string} cwd
  * @returns {string|null}
@@ -19,10 +22,7 @@ function resolveBackendDir(cwd = process.cwd()) {
     let dir = cwd;
     while (dir !== path.parse(dir).root) {
         const candidate = path.join(dir, 'backend');
-        if (
-            fs.existsSync(path.join(candidate, 'package.json')) &&
-            fs.existsSync(path.join(candidate, 'index.js'))
-        ) {
+        if (fs.existsSync(path.join(candidate, 'package.json'))) {
             return candidate;
         }
         dir = path.dirname(dir);
@@ -56,6 +56,18 @@ function loadAppDefinition({ cwd = process.cwd() } = {}) {
     }
 
     const indexPath = path.join(backendDir, 'index.js');
+    if (!fs.existsSync(indexPath)) {
+        return {
+            ok: false,
+            issue: {
+                severity: 'error',
+                code: 'index-not-found',
+                pointer: '',
+                message: `${backendDir} has a package.json but no index.js. Build and deploy use this directory (the nearest backend/), so they would fail too.`,
+                hint: 'Add index.js exporting { Definition }, or run the command in the backend directory you meant.',
+            },
+        };
+    }
     let backend;
     try {
         backend = require(indexPath);

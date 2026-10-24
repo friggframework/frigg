@@ -79,6 +79,25 @@ describe('@friggframework/schemas', () => {
             expect(validateAppDefinition(appDef).valid).toBe(true);
         });
 
+        test.each(['kms', 'aes', 'none'])(
+            "accepts fieldLevelEncryptionMethod '%s'",
+            (fieldLevelEncryptionMethod) => {
+                expect(
+                    validateAppDefinition({
+                        integrations: [],
+                        encryption: { fieldLevelEncryptionMethod },
+                    }).valid
+                ).toBe(true);
+            }
+        );
+
+        test('applies no default fieldLevelEncryptionMethod', () => {
+            const method =
+                getSchema('app-definition').properties.encryption.properties
+                    .fieldLevelEncryptionMethod;
+            expect(method.default).toBeUndefined();
+        });
+
         test('should reject an unknown PostgreSQL management mode', () => {
             const appDef = {
                 integrations: [],
@@ -181,19 +200,31 @@ describe('@friggframework/schemas', () => {
                 expect(formatErrors(result.errors)).toContain('algorithm');
             });
 
-            test('should require jwtConfig.secret when jwtConfig present', () => {
+            test('accepts jwtConfig.secret read from an env var that is unset here', () => {
+                // `secret: process.env.JWT_SECRET` is undefined wherever
+                // JWT_SECRET is unset (build and deploy validate before .env
+                // is loaded). The schema cannot tell that from a missing key;
+                // `frigg validate` errors on a missing key and warns on an
+                // empty value (ADR-051).
                 const appDef = {
                     integrations: [],
                     user: {
                         authModes: { adopterJwt: true },
-                        jwtConfig: {
-                            // Missing required secret
-                            userIdClaim: 'sub',
-                        },
+                        jwtConfig: { secret: undefined, userIdClaim: 'sub' },
                     },
                 };
 
-                const result = validateAppDefinition(appDef);
+                expect(validateAppDefinition(appDef).valid).toBe(true);
+            });
+
+            test('rejects a non-string jwtConfig.secret', () => {
+                const result = validateAppDefinition({
+                    integrations: [],
+                    user: {
+                        authModes: { adopterJwt: true },
+                        jwtConfig: { secret: 42 },
+                    },
+                });
                 expect(result.valid).toBe(false);
                 expect(formatErrors(result.errors)).toContain('secret');
             });

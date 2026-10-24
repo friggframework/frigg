@@ -154,7 +154,9 @@ frigg validate [--stage <stage>] [--json] [--verbose]
 
 1. Loads the backend's `index.js` the way build does (the current directory
    when it holds `package.json` and `index.js`, else the nearest
-   `backend/` above it). A load error is reported, not thrown.
+   `backend/` above it that holds a `package.json`, as core's
+   `findNearestBackendPackageJson` does, even when it has no `index.js`).
+   A load error is reported, not thrown.
 2. Validates it against the schema (keys, types, enums) and maps Ajv errors
    to issues with a JSON pointer, a message and a fix hint (closest known key
    for typos, allowed values for enums).
@@ -162,10 +164,16 @@ frigg validate [--stage <stage>] [--json] [--verbose]
    express: integration classes (section 3); a database is enabled; management
    values versus other settings (`use-existing` without ids, `managed` with
    legacy VPC keys that the VPC builder still applies, `managed` without
-   `vpcIsolation`, a private Aurora cluster with Lambdas outside a VPC);
+   `vpcIsolation`, a private Aurora cluster with Lambdas outside a VPC,
+   including `use-existing` under `managementMode` `managed`/`existing`,
+   which the Aurora builder ignores);
    encryption (`aes` without `AES_KEY_ID`/`AES_KEY` in `environment`, the KMS
    key fallback, no method on a deployed stage, stages `dev`/`test`/`local`
-   that never encrypt); a user config with which login works; `'ssm'`
+   that never encrypt; `'none'` is an explicit opt-out and is not warned
+   about); a user config with which login works (`authModes.adopterJwt`
+   without a `jwtConfig.secret` key is an error, an empty value only a
+   warning, since `secret: process.env.JWT_SECRET` is unset wherever build
+   and deploy validate before `.env` is loaded); `'ssm'`
    environment entries without `ssm.enable`; deprecated keys. `--stage` adds
    the stage-dependent checks.
 4. Prints errors, then warnings; `--json` prints
@@ -392,13 +400,13 @@ so this amendment fixes how Frigg schemas are named, versioned and published.
 | `vpc.natGateway.management` | acts on `createAndManage` only | `discover\|create-new\|existing` | adds `createAndManage`; old values warn |
 | `vpc.selfHeal` | translated only when set; `config.selfHeal !== false` | default `false` | no default |
 | `vpc.shareAcrossStages`, `vpc.ownership.*`, `vpc.external.*`, `vpc.config.*` | read by `vpc-builder.js`, `vpc-resolver.js` | missing | added |
-| `database.postgres.management` | `discover\|managed\|use-existing` (`aurora-builder.js`) | `discover\|create-new\|existing` | builder values, no default |
+| `database.postgres.management` | `discover\|managed\|use-existing\|external` (`aurora-builder.js`; `external` skips the builder in every mode) | `discover\|create-new\|existing` | builder values, no default |
 | `database.postgres.enable` | Aurora `=== true`; migrations and Prisma layer `!== false` | default `false` | no default (omission documented) |
 | `database.postgres.maxCapacity` | default 4 | default 1 | default 4 |
 | `database.postgres.engineVersion`, `.ownership.*`, `.external.*`, `.clusterId`, `.instanceId` | `aurora-builder.js`, `aurora-resolver.js`, discovery | missing | added |
 | `database.postgres.selfHeal`, `database.uri`, `database.mongoDB.uri` | not read | described | deprecated |
 | `database.dynamodb.enable` | `vpc-resolver.js` (DynamoDB endpoint) | missing | added |
-| `encryption.fieldLevelEncryptionMethod` | only `=== 'kms'` acts; omitted = no key; core reads env, not this key | default `aes` | no default; description says what omission does |
+| `encryption.fieldLevelEncryptionMethod` | only `=== 'kms'` acts; omitted = no key; core reads env, not this key | `kms\|aes`, default `aes` | `kms\|aes\|none` (`none`: explicit opt-out, PR #663), no default; description says what omission does |
 | `encryption.createResourceIfNoneFound` | undefined ≠ false (env-var fallback) | default `false` | no default |
 | `encryption.ownership.key`, `.kmsKeyAlias`, `.keyAlias`, `.disable` | `kms-builder.js`, `kms-resolver.js`, discovery, encryption registry | missing | added |
 | `user.*` defaults | not applied (`userConfig` passed through, `null` when absent) | declared | applied by the loader; `usePassword` default `false`, `authModes.sharedSecret` default `true` (code behaviour) |

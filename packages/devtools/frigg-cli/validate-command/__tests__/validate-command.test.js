@@ -167,6 +167,27 @@ describe('frigg validate', () => {
         );
     });
 
+    it('stops at the nearest backend/ like core does, even without index.js', () => {
+        // Core's findNearestBackendPackageJson stops at the nearest
+        // backend/package.json, so build would fail there; validation must
+        // not pass by loading a farther app instead.
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'frigg-root-'));
+        dirs.push(root);
+        fs.mkdirSync(path.join(root, 'backend'));
+        fs.writeFileSync(path.join(root, 'backend', 'package.json'), '{}');
+        fs.writeFileSync(path.join(root, 'backend', 'index.js'), GOOD_INDEX);
+        const nested = path.join(root, 'apps', 'child');
+        fs.mkdirSync(path.join(nested, 'backend'), { recursive: true });
+        fs.writeFileSync(path.join(nested, 'backend', 'package.json'), '{}');
+
+        expect(runValidation({ cwd: nested }).errors).toEqual([
+            expect.objectContaining({
+                code: 'index-not-found',
+                message: expect.stringContaining(path.join(nested, 'backend')),
+            }),
+        ]);
+    });
+
     it('reports an index.js without a Definition', () => {
         const dir = backend('module.exports = {};');
         dirs.push(dir);

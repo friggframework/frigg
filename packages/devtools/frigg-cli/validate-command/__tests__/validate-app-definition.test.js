@@ -43,8 +43,7 @@ const scaffold = (overrides = {}) => ({
     database: {
         postgres: {
             enable: true,
-            management: 'use-existing',
-            endpoint: 'db.example.com',
+            management: 'external',
         },
     },
     environment: { DATABASE_URL: true },
@@ -68,10 +67,35 @@ describe('validateDefinition', () => {
                     env: {},
                 })
             )
-        ).toEqual({
-            errors: [],
-            warnings: ['no-effect /database/postgres/management'],
-        });
+        ).toEqual({ errors: [], warnings: [] });
+    });
+
+    it('passes the definition `frigg init` generates, on a deployed stage', () => {
+        const { Definition } = require('../../templates/backend/index.js');
+
+        expect(
+            summary(
+                validateDefinition({
+                    definition: Definition,
+                    stage: 'prod',
+                    env: {},
+                })
+            )
+        ).toEqual({ errors: [], warnings: ['no-integrations /integrations'] });
+    });
+
+    it("accepts database.postgres.management 'external' and fieldLevelEncryptionMethod 'none'", () => {
+        expect(
+            summary(
+                validateDefinition({
+                    definition: scaffold({
+                        encryption: { fieldLevelEncryptionMethod: 'none' },
+                    }),
+                    stage: 'prod',
+                    env: {},
+                })
+            )
+        ).toEqual({ errors: [], warnings: [] });
     });
 
     it('reports schema errors with JSON pointers and fix hints', () => {
@@ -197,6 +221,25 @@ describe('semantic checks', () => {
             );
         });
 
+        it("does not warn about plaintext when 'none' opts out explicitly", () => {
+            const result = run(
+                { encryption: { fieldLevelEncryptionMethod: 'none' } },
+                { stage: 'prod' }
+            );
+            expect(result.errors).toEqual([]);
+            expect(result.warnings).not.toContain(
+                'no-field-encryption /encryption/fieldLevelEncryptionMethod'
+            );
+            expect(
+                run(
+                    { encryption: { fieldLevelEncryptionMethod: 'none' } },
+                    { stage: 'dev' }
+                ).warnings
+            ).not.toContain(
+                'encryption-bypassed /encryption/fieldLevelEncryptionMethod'
+            );
+        });
+
         it('warns that stage dev never encrypts', () => {
             expect(run({}, { stage: 'dev' }).warnings).toContain(
                 'encryption-bypassed /encryption/fieldLevelEncryptionMethod'
@@ -239,6 +282,43 @@ describe('semantic checks', () => {
             expect(
                 run({ user: { authModes: { adopterJwt: true } } }).errors
             ).toEqual(['missing-key /user/jwtConfig/secret']);
+            expect(
+                run({
+                    user: {
+                        authModes: { adopterJwt: true },
+                        jwtConfig: { userIdClaim: 'sub' },
+                    },
+                }).errors
+            ).toEqual(['missing-key /user/jwtConfig/secret']);
+        });
+
+        it('only warns when jwtConfig.secret comes from an env var unset in this shell', () => {
+            // `secret: process.env.JWT_SECRET` with JWT_SECRET unset: build and
+            // deploy validate before .env is loaded, and the Lambda may still
+            // receive it at runtime.
+            const result = run({
+                user: {
+                    authModes: { adopterJwt: true },
+                    jwtConfig: { secret: undefined },
+                },
+            });
+            expect(result.errors).toEqual([]);
+            expect(result.warnings).toContain(
+                'missing-env-value /user/jwtConfig/secret'
+            );
+        });
+
+        it('accepts adopterJwt with a secret', () => {
+            const result = run({
+                user: {
+                    authModes: { adopterJwt: true },
+                    jwtConfig: { secret: 's3cret' },
+                },
+            });
+            expect(result.errors).toEqual([]);
+            expect(result.warnings).not.toContain(
+                'missing-env-value /user/jwtConfig/secret'
+            );
         });
 
         it('warns that user.password is the old spelling of usePassword', () => {
@@ -306,6 +386,43 @@ describe('semantic checks', () => {
                     },
                 }).warnings
             ).toContain('unreachable-database /vpc/enable');
+        });
+
+        it.each(['managed', 'existing'])(
+            "warns about the unreachable cluster under managementMode '%s', which ignores 'use-existing'",
+            (managementMode) => {
+                expect(
+                    run({
+                        managementMode,
+                        database: {
+                            postgres: {
+                                enable: true,
+                                management: 'use-existing',
+                                endpoint: 'db.example.com',
+                            },
+                        },
+                    }).warnings
+                ).toContain('unreachable-database /vpc/enable');
+            }
+        );
+
+        it("does not warn when 'use-existing' is honoured, or for 'external'", () => {
+            expect(
+                run({
+                    managementMode: undefined,
+                    vpcIsolation: undefined,
+                    database: {
+                        postgres: {
+                            enable: true,
+                            management: 'use-existing',
+                            endpoint: 'db.example.com',
+                        },
+                    },
+                }).warnings
+            ).not.toContain('unreachable-database /vpc/enable');
+            expect(run({}).warnings).not.toContain(
+                'unreachable-database /vpc/enable'
+            );
         });
     });
 

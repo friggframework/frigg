@@ -206,10 +206,14 @@ function checkManagement({ raw }) {
             )
         );
     }
+    // 'external' is honoured in every mode (the Aurora builder checks it
+    // first). Under managementMode 'managed' or 'existing' the builder ignores
+    // 'use-existing' and still provisions or attaches a private cluster.
+    const postgresManagementIgnored = mode === 'managed' || mode === 'existing';
     const provisionsAurora =
         postgres.enable === true &&
-        postgres.management !== 'use-existing' &&
-        postgres.management !== 'external';
+        postgres.management !== 'external' &&
+        (postgresManagementIgnored || postgres.management !== 'use-existing');
     if (
         provisionsAurora &&
         vpc.enable !== true &&
@@ -221,7 +225,9 @@ function checkManagement({ raw }) {
                 'unreachable-database',
                 '/vpc/enable',
                 'Frigg provisions or discovers a private Aurora cluster, but the Lambda functions run outside a VPC and cannot reach it.',
-                "Set vpc.enable: true, or use database.postgres.management: 'use-existing' with a reachable endpoint."
+                postgresManagementIgnored
+                    ? `Set vpc.enable: true, or use database.postgres.management: 'external' with a reachable DATABASE_URL (managementMode '${mode}' ignores 'use-existing').`
+                    : "Set vpc.enable: true, or use database.postgres.management: 'use-existing' with a reachable endpoint (or 'external' with DATABASE_URL)."
             )
         );
     }
@@ -314,12 +320,13 @@ function checkEncryption({ raw, stage, env }) {
                 'no-field-encryption',
                 '/encryption/fieldLevelEncryptionMethod',
                 `No field-level encryption method: stage '${stage}' stores credentials and tokens unencrypted.`,
-                "Set encryption.fieldLevelEncryptionMethod to 'kms' (Frigg creates the key) or 'aes'."
+                "Set encryption.fieldLevelEncryptionMethod to 'kms' (Frigg creates the key) or 'aes', or to 'none' to store them unencrypted on purpose."
             )
         );
     }
     if (
         method !== undefined &&
+        method !== 'none' &&
         stage &&
         ENCRYPTION_BYPASS_STAGES.includes(stage)
     ) {
@@ -336,6 +343,43 @@ function checkEncryption({ raw, stage, env }) {
         );
     }
     return issues;
+}
+
+/**
+ * authModes.adopterJwt verifies tokens with user.jwtConfig.secret. The
+ * documented pattern is `secret: process.env.JWT_SECRET`, and build and
+ * deploy validate before `.env` is loaded, so an empty value only means the
+ * variable is unset in this shell; the Lambda may still receive it. A key
+ * missing from the definition is an error: nothing can supply it at runtime.
+ */
+function checkJwtSecret(jwtConfig) {
+    const declared =
+        jwtConfig !== null &&
+        typeof jwtConfig === 'object' &&
+        Object.prototype.hasOwnProperty.call(jwtConfig, 'secret');
+    if (!declared) {
+        return [
+            issue(
+                'error',
+                'missing-key',
+                '/user/jwtConfig/secret',
+                'authModes.adopterJwt needs user.jwtConfig.secret to verify tokens.',
+                'Set user.jwtConfig: { secret: process.env.JWT_SECRET }.'
+            ),
+        ];
+    }
+    if (!jwtConfig.secret) {
+        return [
+            issue(
+                'warning',
+                'missing-env-value',
+                '/user/jwtConfig/secret',
+                'user.jwtConfig.secret is empty here (its environment variable is not set in this shell). It must be set at runtime, or every adopter JWT is rejected.',
+                'Make sure the variable (e.g. JWT_SECRET) reaches the deployed Lambdas: list it in `environment` and set it where you deploy.'
+            ),
+        ];
+    }
+    return [];
 }
 
 function checkUser({ definition, raw }) {
@@ -387,16 +431,8 @@ function checkUser({ definition, raw }) {
                 )
             );
         }
-        if (authModes.adopterJwt === true && !user.jwtConfig?.secret) {
-            issues.push(
-                issue(
-                    'error',
-                    'missing-key',
-                    '/user/jwtConfig/secret',
-                    'authModes.adopterJwt needs user.jwtConfig.secret to verify tokens.',
-                    'Set user.jwtConfig: { secret: process.env.JWT_SECRET }.'
-                )
-            );
+        if (authModes.adopterJwt === true) {
+            issues.push(...checkJwtSecret(raw.user?.jwtConfig));
         }
         if (
             raw.user?.authModes?.sharedSecret === true &&

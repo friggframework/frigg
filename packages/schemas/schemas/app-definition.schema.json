@@ -191,7 +191,7 @@
           "properties": {
             "secret": {
               "type": "string",
-              "description": "JWT secret key for signature validation (should be set via environment variable)"
+              "description": "JWT secret key for signature validation, usually `process.env.JWT_SECRET`. Required when authModes.adopterJwt is true; `frigg validate` errors when the key is missing from the definition and warns when its value is empty in the shell that runs it (build and deploy validate before `.env` is loaded)."
             },
             "userIdClaim": {
               "type": "string",
@@ -210,7 +210,6 @@
               "default": "HS256"
             }
           },
-          "required": ["secret"],
           "additionalProperties": false
         },
         "fields": {
@@ -433,8 +432,8 @@
       "properties": {
         "fieldLevelEncryptionMethod": {
           "type": "string",
-          "description": "Field-level encryption key. 'kms': Frigg creates or discovers a KMS key and sets KMS_KEY_ARN. 'aes': the app supplies AES_KEY_ID and AES_KEY (list both in `environment`). Omitted: no key is provisioned and deployed stages store sensitive fields unencrypted (core logs a warning). Stages dev, test and local never encrypt.",
-          "enum": ["kms", "aes"]
+          "description": "Field-level encryption key. 'kms': Frigg creates or discovers a KMS key and sets KMS_KEY_ARN. 'aes': the app supplies AES_KEY_ID and AES_KEY (list both in `environment`). 'none': no field-level encryption, chosen explicitly; no key is provisioned and deployed stages store sensitive fields unencrypted. Omitted: no key is provisioned and deployed stages store sensitive fields unencrypted (core logs a warning). Stages dev, test and local never encrypt.",
+          "enum": ["kms", "aes", "none"]
         },
         "createResourceIfNoneFound": {
           "type": "boolean",

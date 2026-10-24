@@ -279,6 +279,28 @@ const MATRIX = {
         lambda: { scopedEnvironment: true, keepNestedNodeModules: false },
         usePrismaLambdaLayer: true,
     }),
+    'frigg init scaffold (external db, no vpc)': () => ({
+        ...base(),
+        user: {
+            usePassword: true,
+            primary: 'individual',
+            individualUserRequired: true,
+            organizationUserRequired: false,
+        },
+        encryption: { fieldLevelEncryptionMethod: 'kms' },
+        managementMode: 'managed',
+        vpcIsolation: 'isolated',
+        vpc: { enable: false },
+        database: { postgres: { enable: true, management: 'external' } },
+        logging: { retentionInDays: 14 },
+        ssm: { enable: false },
+    }),
+    'external db, encryption none': () => ({
+        ...base(),
+        vpc: { enable: false },
+        database: { postgres: { enable: true, management: 'external' } },
+        encryption: { fieldLevelEncryptionMethod: 'none' },
+    }),
     'vpc discover + aurora discover + kms create': () => ({
         ...base(),
         integrations: [WebhookIntegration, PlainIntegration],
