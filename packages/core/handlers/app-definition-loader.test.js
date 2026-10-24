@@ -13,6 +13,7 @@ const { OwnershipConfigError } = require('../modules/entity-scope');
 const {
     ManagementApiConfigError,
 } = require('../management-api/management-api-config');
+const { ProxyConfigError } = require('../modules/proxy/proxy-errors');
 const { isDeniedKey } = require('../logs/redact');
 const { createMemorySink } = require('../logs');
 
@@ -106,6 +107,51 @@ describe('loadAppDefinition', () => {
             const managementApi = { proxy: { enable: true, scopes: ['individual', 'organization'] } };
             dirs.push(writeBackend({ integrations: [], managementApi }));
             expect(loadAppDefinition().managementApi).toEqual(managementApi);
+        });
+    });
+
+    describe('named proxy bases (ADR-052 amendment)', () => {
+        const google = (proxy) => ({
+            moduleName: 'google',
+            proxy,
+        });
+        const appWith = (definition, managementApi = {}) => ({
+            integrations: [],
+            entities: { google: { definition } },
+            managementApi,
+        });
+        afterEach(() => setAppDefinition(null));
+
+        it('loads a module with several bases and per-base rules', () => {
+            setAppDefinition(
+                appWith(
+                    google({
+                        baseUrls: { default: 'https://www.googleapis.com', docs: 'https://docs.googleapis.com' },
+                    }),
+                    { proxy: { enable: true, modules: { google: { allow: [{ method: 'GET', path: '/v1/documents/:id', base: 'docs' }] } } } }
+                )
+            );
+            expect(() => loadAppDefinition()).not.toThrow();
+        });
+
+        it.each([
+            ['both baseUrl and baseUrls', { baseUrl: 'https://a.example.com', baseUrls: { docs: 'https://b.example.com' } }, /both proxy\.baseUrl and proxy\.baseUrls/],
+            ['an http base', { baseUrls: { docs: 'http://docs.example.com' } }, /must use https/],
+            ['a bad base name', { baseUrls: { 'Docs!': 'https://docs.example.com' } }, /invalid name/],
+        ])('stops the app at load for %s', (_label, proxy, message) => {
+            setAppDefinition(appWith(google(proxy)));
+            expect(() => loadAppDefinition()).toThrow(ProxyConfigError);
+            expect(() => loadAppDefinition()).toThrow(message);
+        });
+
+        it('stops the app at load for an allow rule naming a base the module does not declare', () => {
+            setAppDefinition(
+                appWith(google({ baseUrls: { default: 'https://www.googleapis.com' } }), {
+                    proxy: { modules: { google: { allow: [{ method: 'GET', path: '/x', base: 'docs' }] } } },
+                })
+            );
+            expect(() => loadAppDefinition()).toThrow(ProxyConfigError);
+            expect(() => loadAppDefinition()).toThrow(/google.*"docs"|"docs".*google/);
         });
     });
 

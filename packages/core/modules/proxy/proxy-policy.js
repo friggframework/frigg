@@ -1,4 +1,5 @@
 const { ProxyRequestError } = require('./proxy-errors');
+const { isValidBaseName } = require('./proxy-bases');
 
 /**
  * What the entity proxy accepts and returns (ADR-052 §5-§7). Pure functions:
@@ -52,6 +53,13 @@ const REMOVED_RESPONSE_HEADERS = [
 const invalid = (message, details) =>
     new ProxyRequestError('INVALID_PROXY_REQUEST', message, details);
 
+/**
+ * A query key ending in `[]` is sent as one `key=value` pair per array
+ * element; the requester applies the same rule (see
+ * `_rawRequest` in requester.js).
+ */
+const isRepeatedQueryKey = (key) => key.endsWith('[]');
+
 const isPlainObject = (value) =>
     value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -61,7 +69,7 @@ const isPlainObject = (value) =>
  *
  * @param {unknown} request
  * @param {{ maxRequestBytes: number }} limits
- * @returns {{ method: string, path: string, query?: Object, headers: Object, body?: string, requestBytes: number, bodyIsJson: boolean }}
+ * @returns {{ method: string, path: string, base?: string, query?: Object, headers: Object, body?: string, requestBytes: number, bodyIsJson: boolean }}
  */
 function validateProxyRequest(request, { maxRequestBytes }) {
     if (!isPlainObject(request)) throw invalid('The proxy request must be a JSON object');
@@ -71,6 +79,19 @@ function validateProxyRequest(request, { maxRequestBytes }) {
     }
     if (typeof request.path !== 'string') {
         throw invalid('path is required', { field: 'path' });
+    }
+
+    // `base` is a name, never a URL or host; anything else is refused before
+    // a module is looked up. Omitted means `default` (the caller applies it).
+    let base;
+    if (request.base !== undefined && request.base !== null) {
+        if (typeof request.base !== 'string' || !isValidBaseName(request.base)) {
+            throw invalid(
+                'base must be the name of one of the module\'s base URLs (lower case letters, digits and -), not a URL or host',
+                { field: 'base' }
+            );
+        }
+        base = request.base;
     }
 
     let query;
@@ -85,8 +106,13 @@ function validateProxyRequest(request, { maxRequestBytes }) {
                     field: `query.${key}`,
                 });
             }
-            // The requester sends one value per key; arrays go comma-separated.
-            query[key] = list ? value.join(',') : value;
+            // A key ending in `[]` (`fields[]`) is sent once per value, as
+            // Airtable and Fathom expect; every other array goes comma-separated.
+            if (list) {
+                query[key] = isRepeatedQueryKey(key) ? [...value] : value.join(',');
+            } else {
+                query[key] = value;
+            }
         }
     }
 
@@ -121,16 +147,19 @@ function validateProxyRequest(request, { maxRequestBytes }) {
             `The proxied request body is larger than ${maxRequestBytes} bytes`
         );
     }
-    return { method, path: request.path, query, headers, body, bodyIsJson, requestBytes };
+    return { method, path: request.path, ...(base !== undefined && { base }), query, headers, body, bodyIsJson, requestBytes };
 }
 
 const isWildcardRule = (rule) => rule?.method === '*' || rule?.path === '/**';
 
+// A rule's `base` is checked against the module's declared bases at load, by
+// assertProxyConfig (proxy-bases.js); here only its shape is.
 const isValidRule = (rule) =>
     isPlainObject(rule) &&
     typeof rule.method === 'string' &&
     typeof rule.path === 'string' &&
-    rule.path.startsWith('/');
+    rule.path.startsWith('/') &&
+    (rule.base === undefined || isValidBaseName(rule.base));
 
 /**
  * The allow-list in force for a module: the app definition's list for it when

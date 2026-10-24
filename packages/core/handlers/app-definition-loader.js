@@ -12,6 +12,7 @@ const {
     getEntityTypeDefinitions,
 } = require('../modules/entity-type-registry');
 const { resolveOwnershipConfig } = require('../modules/entity-scope');
+const { assertProxyConfig } = require('../modules/proxy/proxy-bases');
 const {
     resolveManagementApiConfig,
 } = require('../management-api/management-api-config');
@@ -108,6 +109,7 @@ function discoverAppDefinition() {
  * @throws {Error} Throws error if user.authModes.adopterJwt is enabled without a usable user.jwtConfig.
  * @throws {OwnershipConfigError} Throws if an ownership or scope setting is invalid (ADR-056 §3.1).
  * @throws {ManagementApiConfigError} Throws if `managementApi.proxy.scopes` is invalid (ADR-056 §3.5).
+ * @throws {ProxyConfigError} Throws if a module's `proxy.baseUrls` or an allow rule's `base` is invalid (ADR-052).
  * @throws {ScheduleConfigError} Throws if an integration's `Definition.schedule` is invalid.
  * @example
  * const { integrations, userConfig, telemetry } = loadAppDefinition();
@@ -148,7 +150,12 @@ function resolveAppDefinition(appDefinition) {
     // And for the Management API: `managementApi.proxy.scopes` decides whose
     // credentials the entity proxy may act through (ADR-056 §3.5), so an
     // unknown scope stops the app here rather than being read as a default.
-    resolveManagementApiConfig(managementApi);
+    const managementApiConfig = resolveManagementApiConfig(managementApi);
+
+    // Named proxy bases (ADR-052 amendment): a module that declares both
+    // `baseUrl` and `baseUrls`, a bad base URL or name, or an allow rule for a
+    // base the module lacks, stops the app here.
+    assertProxyConfig(moduleDefinitions, managementApiConfig.proxy);
 
     // And for each integration's `Definition.schedule`: a mistyped scope would
     // otherwise tick ONGOING_SYNC per class when per installation was meant.

@@ -139,13 +139,56 @@ POST /api/v2/entities/7/proxy
 
 - `path` is relative to the module's base URL. The host always comes from the
   module; absolute URLs, `//`, `..`, encoded separators, `?` and `#` are refused.
+- A module whose API spans several hosts declares named bases instead of one
+  `baseUrl` (declare one or the other, not both):
+
+  ```js
+  proxy: {
+      baseUrls: {
+          default: 'https://www.googleapis.com',
+          docs: 'https://docs.googleapis.com',
+          sheets: 'https://sheets.googleapis.com',
+      },
+      allow: [
+          { method: 'GET', path: '/drive/v3/files' },                       // default
+          { method: 'GET', path: '/v1/documents/:id', base: 'docs' },      // docs only
+      ],
+  },
+  ```
+
+  The request picks a base by name: `{ "method": "GET", "path": "/v1/documents/abc", "base": "docs" }`.
+  `base` is a name the module declared, never a URL or host; omitted means
+  `default`. Allow rules (module or app level) match only their own `base`.
+  A malformed `base` is `400 INVALID_PROXY_REQUEST`, an undeclared one
+  `400 PROXY_UNKNOWN_BASE` (the message lists the module's names). Bad
+  `baseUrls`, or a rule naming an undeclared base, stop the app at load
+  ([ADR-052 amendment 1](../architecture-decisions/pending/adr-052-amendment-1-named-proxy-bases.md); to be folded into ADR-052 §4/§5).
+- `query` values are strings, numbers, booleans or arrays of strings. An array
+  is sent comma-separated (`"ids": ["1", "2"]` → `ids=1,2`), except under a key
+  ending in `[]`, which is repeated once per value
+  (`"fields[]": ["a", "b"]` → `fields%5B%5D=a&fields%5B%5D=b`, as Airtable and
+  Fathom expect; an empty array sends nothing).
 - The call goes through the module's Requester, so token refresh applies.
   API-key and basic-auth modules work the same as OAuth2.
 - The response status follows the upstream status. Upstream 5xx is
   `502 UPSTREAM_ERROR`, 429 keeps `Retry-After`, a timeout is `504 TIMEOUT`.
-  Refusals: `400 INVALID_PROXY_REQUEST`, `403 PROXY_NOT_ALLOWED`, `413`, `415`.
+  Refusals: `400 INVALID_PROXY_REQUEST` / `PROXY_UNKNOWN_BASE`, `403 PROXY_NOT_ALLOWED`, `413`, `415`.
 - Every call writes a `frigg.api.proxy.request` audit record and counts
   `frigg.api.proxy.requests`.
+
+### Entity proxy changes
+
+There is no separate OpenAPI changelog; changes to the beta proxy contract are
+recorded here.
+
+- **Named bases (additive).** `POST /api/v2/entities/:entityId/proxy` takes an
+  optional `base` field naming one of the module's `proxy.baseUrls`. Omitting it
+  keeps the old behaviour (`default`), so existing callers are unaffected. New
+  refusal: `400 PROXY_UNKNOWN_BASE`.
+- **`[]` query keys.** A `query` key ending in `[]` is now sent once per array
+  value (`fields[]=a&fields[]=b`) instead of comma-separated. Keys without `[]`
+  are unchanged. A caller that relied on `"fields[]": ["a", "b"]` arriving as
+  `fields[]=a,b` will see the repeated form.
 
 ## Migrating from v1
 

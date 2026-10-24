@@ -35,6 +35,26 @@ describe('entity proxy policy (ADR-052 §5-§7)', () => {
             });
         });
 
+        it('omits the `base` key when not supplied', () => {
+            expect('base' in validateProxyRequest({ method: 'GET', path: '/x' }, limits)).toBe(false);
+            expect('base' in validateProxyRequest({ method: 'GET', path: '/x', base: null }, limits)).toBe(false);
+        });
+
+        it('leaves `base` undefined when omitted and keeps a valid name', () => {
+            expect(validateProxyRequest({ method: 'GET', path: '/x' }, limits).base).toBeUndefined();
+            expect(validateProxyRequest({ method: 'GET', path: '/x', base: null }, limits).base).toBeUndefined();
+            expect(validateProxyRequest({ method: 'GET', path: '/x', base: 'docs-v2' }, limits).base).toBe('docs-v2');
+        });
+
+        it.each(['https://evil.example', 'evil.example', '../x', 'default/../x', '', 'Docs', 7, {}])(
+            'refuses base %j: it is a name, never a URL or host',
+            (base) => {
+                expect(codeOf(() => validateProxyRequest({ method: 'GET', path: '/x', base }, limits))).toBe(
+                    'INVALID_PROXY_REQUEST'
+                );
+            }
+        );
+
         it('accepts scalar and string-array query values', () => {
             const { query } = validateProxyRequest(
                 { method: 'GET', path: '/x', query: { a: 'b', n: 2, f: false, ids: ['1', '2'] } },
@@ -42,6 +62,35 @@ describe('entity proxy policy (ADR-052 §5-§7)', () => {
             );
             expect(query).toEqual({ a: 'b', n: 2, f: false, ids: '1,2' });
         });
+
+        it('keeps a []-suffixed key as a list so it is sent once per value', () => {
+            const input = ['name', 'email'];
+            const { query } = validateProxyRequest(
+                { method: 'GET', path: '/x', query: { 'fields[]': input, ids: ['1', '2'] } },
+                limits
+            );
+            expect(query).toEqual({ 'fields[]': ['name', 'email'], ids: '1,2' });
+            expect(query['fields[]']).not.toBe(input);
+        });
+
+        it('keeps a single-value and an empty []-suffixed list as lists', () => {
+            const { query } = validateProxyRequest(
+                { method: 'GET', path: '/x', query: { 'a[]': ['one'], 'b[]': [] } },
+                limits
+            );
+            expect(query).toEqual({ 'a[]': ['one'], 'b[]': [] });
+        });
+
+        it.each([[['a', 1]], [[{ b: 1 }]], [[null]]])(
+            'rejects a []-suffixed key whose list holds a non-string (%j)',
+            (value) => {
+                expect(
+                    codeOf(() =>
+                        validateProxyRequest({ method: 'GET', path: '/x', query: { 'fields[]': value } }, limits)
+                    )
+                ).toBe('INVALID_PROXY_REQUEST');
+            }
+        );
 
         it.each([
             [null],

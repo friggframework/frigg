@@ -106,7 +106,12 @@
             "required": ["method", "path"],
             "properties": {
               "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
-              "path": { "type": "string", "pattern": "^/" }
+              "path": { "type": "string", "pattern": "^/" },
+              "base": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "description": "Which of the module's named bases (baseUrls) the rule applies to. Default 'default'. Must be declared by the module (checked at load)."
+              }
             },
             "additionalProperties": false
           }
@@ -117,8 +122,15 @@
           "items": { "type": "string" }
         },
         "baseUrl": {
-          "description": "Proxy base URL (https). A string, or a function of the Api instance for tenant hosts. Defaults to the Api's baseUrl.",
+          "description": "Proxy base URL (https). A string, or a function of the Api instance for tenant hosts. Means { default: baseUrl }. Defaults to the Api's baseUrl. Declare this or baseUrls, not both.",
           "type": ["string", "object"]
+        },
+        "baseUrls": {
+          "type": "object",
+          "description": "Named proxy base URLs for a module whose API spans several hosts (ADR-052, amendment 1). The proxy request names one in `base`; omitted means 'default'. Strings only, absolute https URLs with no credentials, query or fragment (checked at load). Declare this or baseUrl, not both.",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+          "additionalProperties": { "type": "string", "pattern": "^https://" }
         },
         "binary": {
           "type": "boolean",
@@ -126,6 +138,7 @@
           "description": "Return binary upstream bodies base64-encoded instead of refusing them (415)"
         }
       },
+      "not": { "required": ["baseUrl", "baseUrls"] },
       "additionalProperties": false
     },
     "env": {

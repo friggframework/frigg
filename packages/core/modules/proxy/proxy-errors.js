@@ -17,4 +17,15 @@ class ProxyRequestError extends Error {
     }
 }
 
-module.exports = { ProxyRequestError };
+/**
+ * A module definition or the app's proxy settings are wrong. Thrown at load,
+ * so the app stops starting instead of failing on the first proxied call.
+ */
+class ProxyConfigError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'ProxyConfigError';
+    }
+}
+
+module.exports = { ProxyRequestError, ProxyConfigError };

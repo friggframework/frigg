@@ -20,6 +20,11 @@
           "pattern": "^/",
           "minLength": 1
         },
+        "base": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Name of one of the module's base URLs (ADR-052 amendment); 'default' when omitted. A name the module declares in proxy.baseUrls, never a URL or host. An unknown name is 400 PROXY_UNKNOWN_BASE; a value that is not shaped like a name is 400 INVALID_PROXY_REQUEST."
+        },
         "query": {
           "type": "object",
           "description": "Query parameters to include in the request as key-value pairs",
@@ -177,6 +182,7 @@
               "enum": [
                 "INVALID_PROXY_REQUEST",
                 "PROXY_NOT_ALLOWED",
+                "PROXY_UNKNOWN_BASE",
                 "PROXY_NOT_CONFIGURED",
                 "PAYLOAD_TOO_LARGE",
                 "UNSUPPORTED_MEDIA_TYPE",

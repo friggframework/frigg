@@ -165,11 +165,11 @@ const V2_OPERATIONS = {
     proxyEntityRequest: {
         summary: "Call the entity's API through Frigg (beta)",
         description:
-            "ADR-052. Off unless the app sets managementApi.proxy.enable. Path-only input relative to the module's base URL; deny by default, only operations in the module's (or the app's) allow-list. ADR-056 §3.5: the caller needs use access to the entity in the active organization (an entity they cannot see there is 404), and the entity's scope must be in managementApi.proxy.scopes (default individual only; 403 PROXY_NOT_ALLOWED with details.reason 'scope', or 'access' for view-only access). The HTTP status follows the upstream status; upstream 5xx is 502 UPSTREAM_ERROR, 429 keeps Retry-After.",
+            "ADR-052. Off unless the app sets managementApi.proxy.enable. Path-only input relative to the module's base URL; `base` optionally names one of the module's several base URLs (default `default`; a name, never a URL), and allow-list rules match per base. Deny by default, only operations in the module's (or the app's) allow-list. ADR-056 §3.5: the caller needs use access to the entity in the active organization (an entity they cannot see there is 404), and the entity's scope must be in managementApi.proxy.scopes (default individual only; 403 PROXY_NOT_ALLOWED with details.reason 'scope', or 'access' for view-only access). The HTTP status follows the upstream status; upstream 5xx is 502 UPSTREAM_ERROR, 429 keeps Retry-After.",
         requestBody: body(ref('ProxyRequest')),
         responses: {
             200: ok('Upstream answer (the status mirrors the upstream status)', ref('ProxyResponse')),
-            400: ok('INVALID_PROXY_REQUEST', ref('ProxyError')),
+            400: ok('INVALID_PROXY_REQUEST, or PROXY_UNKNOWN_BASE (`base` is not one of the module\'s base names; the message lists them)', ref('ProxyError')),
             401: ok('INVALID_CREDENTIALS or unauthenticated', ref('ProxyError')),
             403: ok("PROXY_NOT_ALLOWED: not in the allow-list, or details.reason 'scope' / 'access'", ref('ProxyError')),
             404: ok('Entity not found, or not visible in the active organization', ref('Error')),

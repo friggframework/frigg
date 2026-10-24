@@ -40,7 +40,7 @@ const errorBody = {
                 code: {
                     type: 'string',
                     description:
-                        'Machine-readable code, e.g. VALIDATION_ERROR, NOT_FOUND, ENTITY_NOT_FOUND, AUTHORIZATION_SESSION_NOT_FOUND, PROXY_NOT_ALLOWED. New codes may be added.',
+                        'Machine-readable code, e.g. VALIDATION_ERROR, NOT_FOUND, ENTITY_NOT_FOUND, AUTHORIZATION_SESSION_NOT_FOUND, PROXY_NOT_ALLOWED, PROXY_UNKNOWN_BASE. New codes may be added.',
                 },
                 message: { type: 'string' },
                 details: { description: 'Optional structured details' },
@@ -287,7 +287,13 @@ const SCHEMAS = {
                 type: 'string',
                 pattern: '^/',
                 description:
-                    "Path relative to the module's base URL. No //, backslashes, ? or #, dot segments, encoded separators or double encoding. The host always comes from the module.",
+                    "Path relative to the module's base URL (the one named by `base`). No //, backslashes, ? or #, dot segments, encoded separators or double encoding. The host always comes from the module.",
+            },
+            base: {
+                type: 'string',
+                pattern: '^[a-z][a-z0-9-]*$',
+                description:
+                    "Name of one of the module's base URLs (ADR-052 amendment); default when omitted. A name the module declares, never a URL or host. An unknown name is 400 PROXY_UNKNOWN_BASE.",
             },
             query: {
                 type: 'object',
@@ -299,7 +305,8 @@ const SCHEMAS = {
                         { type: 'array', items: { type: 'string' } },
                     ],
                 },
-                description: 'Array values are sent comma-separated',
+                description:
+                    'Array values are sent comma-separated (`ids: ["1","2"]` → `ids=1,2`), except under a key ending in `[]`, which is sent once per value (`"fields[]": ["a","b"]` → `fields%5B%5D=a&fields%5B%5D=b`; an empty array sends nothing).',
             },
             headers: {
                 type: 'object',

@@ -135,6 +135,31 @@ describe('entity proxy path rules (ADR-052 §4)', () => {
             expect(matchAllowRule(rules, method, path)).toBeNull();
         });
 
+        describe('per named base (ADR-052 amendment)', () => {
+            const based = [
+                { method: 'GET', path: '/files' },
+                { method: 'GET', path: '/documents/:id', base: 'docs' },
+                { method: '*', path: '/ping', base: 'default' },
+            ];
+
+            it('matches a rule with no base only on default', () => {
+                expect(matchAllowRule(based, 'GET', '/files')?.path).toBe('/files');
+                expect(matchAllowRule(based, 'GET', '/files', 'default')?.path).toBe('/files');
+                expect(matchAllowRule(based, 'GET', '/files', 'docs')).toBeNull();
+            });
+
+            it('matches a rule with a base only on that base', () => {
+                expect(matchAllowRule(based, 'GET', '/documents/1', 'docs')?.base).toBe('docs');
+                expect(matchAllowRule(based, 'GET', '/documents/1')).toBeNull();
+                expect(matchAllowRule(based, 'GET', '/documents/1', 'sheets')).toBeNull();
+            });
+
+            it('treats an explicit "default" like an absent base', () => {
+                expect(matchAllowRule(based, 'POST', '/ping')?.path).toBe('/ping');
+                expect(matchAllowRule(based, 'POST', '/ping', 'docs')).toBeNull();
+            });
+        });
+
         it('denies everything with no rules', () => {
             expect(matchAllowRule(undefined, 'GET', '/x')).toBeNull();
             expect(matchAllowRule([], 'GET', '/x')).toBeNull();

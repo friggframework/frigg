@@ -28,7 +28,8 @@ const MAX_REDIRECTS = 3;
  * @param {Object} [params.query]
  * @param {Object} [params.headers] - already filtered by the caller's policy
  * @param {string|Buffer} [params.body] - already serialised
- * @param {string} [params.baseUrl] - module-declared proxy base URL; falls
+ * @param {string} [params.baseUrl] - the module-declared URL of the base the
+ *   caller named (ADR-052 amendment; resolved by the use case); falls
  *   back to the requester's `proxyBaseUrl`, `baseUrl` or `baseURL`
  * @param {number} params.timeoutMs - budget for the whole call
  * @param {number} params.maxResponseBytes
