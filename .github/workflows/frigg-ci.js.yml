@@ -48,6 +48,15 @@ jobs:
         run: npm run test:all
         timeout-minutes: 10
 
+      # CLI smoke test (from the retired test-cli.yml): the `frigg` bin
+      # resolves and every command loads far enough to print its help.
+      - name: CLI smoke test 🧰
+        run: |
+          npx frigg --help
+          for cmd in init install start build deploy generate-iam ui db:setup doctor repair ssm auth; do
+            npx frigg "$cmd" --help > /dev/null
+          done
+
   db:
     # Opt-in database integration suites (`*.db.test.js`, `npm run test:db`).
     # They are excluded from test:all so unit runs never need a database.
