@@ -1,4 +1,4 @@
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryServer } = require('mongodb-memory-server-core');
 
 // Pin the MongoDB binary instead of relying on the library default. The old
 // default (5.0.19) only ships Ubuntu 20.04 builds that link against OpenSSL
