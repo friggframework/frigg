@@ -130,7 +130,7 @@ class MyIntegration extends Delegate {
 ### Lambda Handler Lifecycle
 1. **Pre-Execution Setup**:
    ```javascript
-   runInvocationScope({ requestId, handlerName, method, route, invocation }, …); // Logger scope for the invocation
+   runInvocationScope({ requestId, handlerName, method, route, invocation }, …); // Logger scope + invocation deadline (remainingInvocationMs())
    log.info('Handler invoked', { eventName: 'frigg.handler.invoked' });
    await secretsToEnv();                     // Secrets Manager injection
    await parametersToEnv();                  // SSM Parameter Store fetch (only when SSM_PARAMETER_PREFIX + FRIGG_SSM_OFFLOADED_KEYS are set)
@@ -226,6 +226,8 @@ const handler = createHandler({
    - Logs error but returns success
    - Prevents infinite retries for known issues
    - Used for graceful degradation scenarios
+   - The queue worker sets it on a 4xx except 408, 429 and errors with
+     `isRateLimited` (a provider limit signalled with 403 clears with time)
 
 ### Logging Strategy
 ```javascript

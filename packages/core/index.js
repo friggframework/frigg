@@ -12,6 +12,8 @@ const {
     loadInstalledModules,
     createHandler,
     runInvocationScope,
+    runWithInvocationDeadline,
+    remainingInvocationMs,
 } = require('./core/index');
 const {
     prisma,
@@ -55,6 +57,7 @@ const {
     BaseError,
     FetchError,
     HaltError,
+    RateLimitError,
     RequiredPropertyError,
     ParameterTypeError,
     MappingAlreadyExistsError,
@@ -101,6 +104,12 @@ const {
     ModuleConstants,
     ModuleFactory,
 } = require('./modules/index');
+const {
+    classifyRateLimit,
+    parseRetryAfter,
+    parseResetHeaders,
+    parseIetfRateLimit,
+} = require('./modules/requester/rate-limit');
 const application = require('./application');
 const utils = require('./utils');
 
@@ -121,6 +130,8 @@ module.exports = {
     loadInstalledModules,
     createHandler,
     runInvocationScope,
+    runWithInvocationDeadline,
+    remainingInvocationMs,
 
     // database
     prisma,
@@ -143,9 +154,16 @@ module.exports = {
     BaseError,
     FetchError,
     HaltError,
+    RateLimitError,
     RequiredPropertyError,
     ParameterTypeError,
     MappingAlreadyExistsError,
+
+    // rate limit
+    classifyRateLimit,
+    parseRetryAfter,
+    parseResetHeaders,
+    parseIetfRateLimit,
 
     // integrations
     IntegrationBase,

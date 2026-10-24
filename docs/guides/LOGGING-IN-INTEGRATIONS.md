@@ -189,7 +189,8 @@ try {
   error)` also works (the logger moves it to `error`), but `{ error }` is the
   standard form.
 - The logger writes the error as `{ type, message, code, status, stack,
-  cause }`, redacted. The `cause` chain is kept to 3 levels. Other own
+  cause }`, redacted, plus `retryAt` and `reason` for a `RateLimitError`.
+  The `cause` chain is kept to 3 levels. Other own
   properties of the error (for example axios `config`, `request`,
   `response`) are not written, because they often hold tokens.
 - A `FetchError` from an API module already has a safe message:
