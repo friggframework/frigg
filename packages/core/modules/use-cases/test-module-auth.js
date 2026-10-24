@@ -1,4 +1,7 @@
 const { Module } = require('../module');
+const {
+    findModuleDefinitionForEntity,
+} = require('../utils/find-module-definition');
 
 class TestModuleAuth {
     /**
@@ -45,11 +48,10 @@ class TestModuleAuth {
         }
 
         const entityType = entity.moduleName;
-        const moduleDefinition = this.moduleDefinitions.find((def) => {
-            const modelName =
-                Module.getEntityModelFromDefinition(def).modelName;
-            return entityType === modelName;
-        });
+        const moduleDefinition = findModuleDefinitionForEntity(
+            this.moduleDefinitions,
+            entity
+        );
 
         if (!moduleDefinition) {
             throw new Error(
