@@ -691,8 +691,11 @@ class VpcBuilder extends InfrastructureBuilder {
             result.vpcConfig.securityGroupIds = [{ Ref: 'FriggLambdaSecurityGroup' }];
             console.log('  ✅ Security Group added to template');
         } else if (decision.ownership === ResourceOwnership.EXTERNAL) {
-            // Use external security group IDs
-            const sgIds = Array.isArray(decision.physicalId) ? decision.physicalId : [decision.physicalId];
+            // Use external security group IDs. createExternalDecision keeps the
+            // full list in physicalIds; physicalId is only the first of them.
+            const sgIds = decision.physicalIds?.length
+                ? decision.physicalIds
+                : Array.isArray(decision.physicalId) ? decision.physicalId : [decision.physicalId];
             result.vpcConfig.securityGroupIds = sgIds;
             console.log(`  ✓ Using external security group(s): ${sgIds.join(', ')}`);
         }
