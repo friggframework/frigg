@@ -163,9 +163,11 @@ const appDefinition = {
     enableVPCEndpoints: true    // Optional: create VPC endpoints
   },
 
-  // KMS encryption
+  // Field-level encryption. 'kms' wires KMS_KEY_ARN on every stage (dev too).
+  // A deployed stage with no key refuses to start; 'none' is the explicit
+  // plaintext opt-out (sets FRIGG_ENCRYPTION_DISABLED=true).
   encryption: {
-    fieldLevelEncryptionMethod: 'kms',
+    fieldLevelEncryptionMethod: 'kms',   // 'kms' | 'aes' | 'none'
     createResourceIfNoneFound: true
   },
 

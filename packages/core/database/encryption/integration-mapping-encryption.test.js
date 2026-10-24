@@ -18,7 +18,7 @@ const {
 } = require('./integration-mapping-encryption');
 
 describe('getMappingFieldsEncryptedOnWrite', () => {
-    const ENV_KEYS = ['STAGE', 'NODE_ENV', 'AES_KEY_ID', 'KMS_KEY_ARN'];
+    const ENV_KEYS = ['STAGE', 'NODE_ENV', 'AES_KEY_ID', 'AES_KEY', 'KMS_KEY_ARN'];
     let savedEnv;
 
     beforeEach(() => {
@@ -45,6 +45,7 @@ describe('getMappingFieldsEncryptedOnWrite', () => {
     const enableEncryption = () => {
         process.env.STAGE = 'production';
         process.env.AES_KEY_ID = 'test-key';
+        process.env.AES_KEY = '0123456789abcdef0123456789abcdef';
         delete process.env.KMS_KEY_ARN;
     };
 
@@ -100,6 +101,7 @@ describe('getMappingFieldsEncryptedOnWrite', () => {
         (stage) => {
             process.env.STAGE = stage;
             process.env.AES_KEY_ID = 'test-key';
+            process.env.AES_KEY = '0123456789abcdef0123456789abcdef';
 
             expect(getMappingFieldsEncryptedOnWrite()).toEqual([]);
         }
@@ -140,7 +142,7 @@ describe('getMappingFieldsEncryptedOnWrite', () => {
 });
 
 describe('decryptQueriedMappings', () => {
-    const ENV_KEYS = ['STAGE', 'NODE_ENV', 'AES_KEY_ID', 'KMS_KEY_ARN'];
+    const ENV_KEYS = ['STAGE', 'NODE_ENV', 'AES_KEY_ID', 'AES_KEY', 'KMS_KEY_ARN'];
     const rows = [{ id: '1', mapping: { externalId: '1' } }];
     let savedEnv;
 
@@ -173,6 +175,7 @@ describe('decryptQueriedMappings', () => {
     it('hands back the same rows when the schema lists nothing besides mapping', async () => {
         process.env.STAGE = 'production';
         process.env.AES_KEY_ID = 'test-key';
+        process.env.AES_KEY = '0123456789abcdef0123456789abcdef';
         delete process.env.KMS_KEY_ARN;
         registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
 

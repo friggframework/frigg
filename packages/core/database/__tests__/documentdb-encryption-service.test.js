@@ -375,4 +375,66 @@ describe('DocumentDBEncryptionService', () => {
             );
         });
     });
+
+    describe('configuration from the environment', () => {
+        const ENV_KEYS = [
+            'AWS_LAMBDA_FUNCTION_NAME',
+            'LAMBDA_TASK_ROOT',
+            'AWS_EXECUTION_ENV',
+            'IS_OFFLINE',
+            'IS_LOCAL',
+            'JEST_WORKER_ID',
+            'STAGE',
+            'NODE_ENV',
+            'KMS_KEY_ARN',
+            'AES_KEY_ID',
+            'AES_KEY',
+            'FRIGG_ENCRYPTION_DISABLED',
+        ];
+        let savedEnv;
+
+        beforeEach(() => {
+            savedEnv = Object.fromEntries(
+                ENV_KEYS.map((key) => [key, process.env[key]])
+            );
+            for (const key of ENV_KEYS) delete process.env[key];
+        });
+
+        afterEach(() => {
+            for (const [key, value] of Object.entries(savedEnv)) {
+                if (value === undefined) delete process.env[key];
+                else process.env[key] = value;
+            }
+        });
+
+        it('refuses to construct when deployed with no key, even on STAGE=dev', () => {
+            process.env.AWS_LAMBDA_FUNCTION_NAME = 'my-app-dev-auth';
+            process.env.STAGE = 'dev';
+
+            expect(() => new DocumentDBEncryptionService()).toThrow(
+                /No field-level encryption key/
+            );
+        });
+
+        it('encrypts when deployed with a KMS key on STAGE=dev', () => {
+            process.env.AWS_LAMBDA_FUNCTION_NAME = 'my-app-dev-auth';
+            process.env.STAGE = 'dev';
+            process.env.KMS_KEY_ARN = 'arn:aws:kms:us-east-1:123456789012:key/abc';
+
+            const envService = new DocumentDBEncryptionService();
+
+            expect(envService.enabled).toBe(true);
+            expect(envService.cryptor.shouldUseAws).toBe(true);
+        });
+
+        it('stays disabled under frigg start on STAGE=dev', () => {
+            process.env.AWS_LAMBDA_FUNCTION_NAME = 'my-app-dev-auth';
+            process.env.IS_OFFLINE = 'true';
+            process.env.STAGE = 'dev';
+
+            const envService = new DocumentDBEncryptionService();
+
+            expect(envService.enabled).toBe(false);
+        });
+    });
 });

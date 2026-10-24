@@ -99,7 +99,9 @@ developers and their agents:
 - Packaging/deploy: Serverless Framework fork (osls) + esbuild, generating
   serverless.yml and CloudFormation.
 - Database: PostgreSQL OR MongoDB, via Prisma (two schemas ship).
-- Encryption: field-level, AWS KMS OR AES-256 (auto-bypassed in dev/test/local).
+- Encryption: field-level, AWS KMS OR AES-256. Skipped only on local runs
+  (frigg start, tests) with STAGE dev/test/local; a deployed stage with no key
+  refuses to start unless FRIGG_ENCRYPTION_DISABLED=true opts out.
 - Async: AWS SQS queues; EventBridge Scheduler + cron for scheduled jobs.
 - Config/secrets: SSM Parameter Store + Secrets Manager.
 - HTTP: Express via serverless-http.

@@ -1,3 +1,17 @@
+# Unreleased
+
+#### Behaviour change: module credential fields are now encrypted
+
+- `credentialFields` declared in an API module's `encryption` config (for example `Definition.encryption.credentialFields`) were never registered for encryption: `loadModuleEncryptionSchemas` required a path that does not exist and the error was swallowed. They are now registered, for modules bound by integrations and for modules registered in `appDefinition.entities` (ADR-059).
+- Existing rows are not rewritten. A credential saved before this release stays plaintext until it is next written, and is read as stored.
+- Reads now tolerate plaintext: a value is only treated as ciphertext when it has the exact `keyId:iv:ciphertext:encryptedKey` shape (previously any string with three or more colons, such as `https://user:pw@host:443`), and a value with that shape that fails to decrypt throws `FieldDecryptionError` in a deployed runtime (any stage, AWS Lambda or Netlify) and is returned as stored with a warning on a local run.
+- An app's own `encryption.schema` is no longer replaced when module fields are added to it.
+- A schema the app declares (`encryption.schema`, `encryption.disable`, module `credentialFields`) that cannot be registered no longer leaves those fields in plaintext silently: a deployed function refuses to start, and a local run logs a warning (it was a debug line).
+- A local run now needs both `AES_KEY_ID` and `AES_KEY` to encrypt with AES, as a deployed one already did; `AES_KEY_ID` alone keeps the run plaintext and warns that `AES_KEY` is missing.
+- The DocumentDB decrypt error no longer logs the first characters of the ciphertext.
+
+---
+
 # v1.2.2 (Fri Aug 09 2024)
 
 #### 🐛 Bug Fix
