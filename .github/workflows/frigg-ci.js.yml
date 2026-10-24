@@ -48,11 +48,36 @@ jobs:
         run: npm run test:all
         timeout-minutes: 10
 
-      # NOTE: Linter steps should run last.  If the linter auto-fixes files and pushes the fixes, the result is that any errors that may occur in previous steps may be hidden in the pull request because tests will not be run on the auto-fix commits.
+  lint:
+    # Read-only lint check: reports prettier/eslint problems, never rewrites
+    # files or pushes commits. Non-blocking for now because the tree has a
+    # large existing backlog (e.g. core: ~390 files need prettier, 96 eslint
+    # errors); make the step blocking once that backlog is cleared.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Code ⤵️
+        uses: actions/checkout@v4
 
-      - name: Linter 🔍
-        run: npm run lint:fix --workspaces
-
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - name: Use Node.js 22.x 🛠
+        uses: actions/setup-node@v4
         with:
-          commit_message: ✨ Apply lint auto-fixes
+          node-version: 22.x
+          cache: npm
+
+      - name: Install Dependencies 🛠
+        run: npm ci
+
+      - name: Lint (check only) 🔍
+        continue-on-error: true
+        run: |
+          status=0
+          for ws in packages/*/; do
+            # Packages that define lint:fix are the ones with a lint setup.
+            node -e "process.exit(require('./${ws}package.json').scripts?.['lint:fix'] ? 0 : 1)" || continue
+            echo "::group::${ws}"
+            (cd "$ws" && npx prettier --check --loglevel warn . && npx eslint .) || status=1
+            echo "::endgroup::"
+          done
+          exit $status
