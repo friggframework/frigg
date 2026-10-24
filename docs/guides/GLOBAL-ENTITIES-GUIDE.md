@@ -1,5 +1,9 @@
 # Global Entities Guide
 
+{% hint style="warning" %}
+Design proposal, not shipped. As of `next`, `@friggframework/core` has no `global` entity flag, `isGlobal` field, or `/api/admin/entities` route. This page is not in the table of contents.
+{% endhint %}
+
 This guide explains when and how to use Global Entities in Frigg.
 
 ## What Are Global Entities?
