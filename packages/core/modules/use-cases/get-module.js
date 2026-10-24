@@ -1,9 +1,16 @@
 const { Module } = require('../module');
+const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
+const {
+    findModuleDefinitionForEntity,
+} = require('../utils/find-module-definition');
+const { toPublicEntity } = require('../utils/public-entity');
 
 class GetModule {
-    constructor({ moduleRepository, moduleDefinitions }) {
+    constructor({ moduleRepository, moduleDefinitions, scopePolicy }) {
         this.moduleRepository = moduleRepository;
         this.moduleDefinitions = moduleDefinitions;
+        // Who may load an entity follows its scope (ADR-056 §3.6).
+        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
     }
 
     /**
@@ -32,7 +39,7 @@ class GetModule {
         // If User object provided, use ownsUserId to check linked users
         // Otherwise fall back to simple equality check
         const isOwned = typeof userIdOrUser === 'object' && userIdOrUser?.ownsUserId
-            ? userIdOrUser.ownsUserId(entity.userId)
+            ? this.scopePolicy.canUseEntity(userIdOrUser, entity)
             : entity.userId?.toString() === userId?.toString();
 
         if (!isOwned) {
@@ -42,10 +49,10 @@ class GetModule {
         }
 
         const entityType = entity.moduleName;
-        const moduleDefinition = this.moduleDefinitions.find((def) => {
-            const modelName = Module.getEntityModelFromDefinition(def).modelName;
-            return entityType === modelName;
-        });
+        const moduleDefinition = findModuleDefinitionForEntity(
+            this.moduleDefinitions,
+            entity
+        );
 
         if (!moduleDefinition) {
             throw new Error(
@@ -53,21 +60,30 @@ class GetModule {
             );
         }
 
+        // Built for the entity's OWNER, not the caller: a caller may use an
+        // organization's entity, and a token refresh during this call must
+        // update the owner's credential, not create one under the caller.
         const module = new Module({
-            userId,
+            userId: entity.userId ?? userId,
             entity,
             definition: moduleDefinition,
         });
 
-        // todo: this properties should be methods in the Module class
+        // The credential (tokens, API keys) never leaves the server: the
+        // response names it and says whether it still works.
+        const { credentialId, authIsValid } = toPublicEntity({
+            ...module.entity,
+            credential: module.credential,
+        });
         return {
             id: module.entity.id,
             name: module.entity.name,
             moduleName: module.entity.moduleName,
-            credential: module.credential,
+            credentialId,
+            authIsValid,
             externalId: module.entity.externalId,
-            userId: module.entity.user.toString(),
-        }
+            userId: toPublicEntity(module.entity).userId,
+        };
     }
 }
 

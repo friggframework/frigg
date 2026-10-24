@@ -1,4 +1,5 @@
 const Boom = require('@hapi/boom');
+const { LIST_OWNERS } = require('../../modules/scope-visibility');
 
 /** The JSON body as an object, or a 400 VALIDATION_ERROR. */
 function objectBody(req) {
@@ -51,4 +52,34 @@ function optionalString(value, name) {
     return value;
 }
 
-module.exports = { objectBody, requireFields, parseStep, optionalString };
+const LIST_SCOPES = ['individual', 'organization'];
+
+/**
+ * `?scope=individual|organization` and `?owner=me|org` on a list (ADR-056
+ * §3.4). Anything else is a 400.
+ */
+function parseListFilters(query = {}) {
+    const scope = optionalString(query.scope, 'scope');
+    const owner = optionalString(query.owner, 'owner');
+    if (scope !== undefined && !LIST_SCOPES.includes(scope)) {
+        throw Boom.badRequest(`scope must be one of ${LIST_SCOPES.join(', ')}`, {
+            code: 'VALIDATION_ERROR',
+            details: { field: 'scope' },
+        });
+    }
+    if (owner !== undefined && !Object.hasOwn(LIST_OWNERS, owner)) {
+        throw Boom.badRequest('owner must be me or org', {
+            code: 'VALIDATION_ERROR',
+            details: { field: 'owner' },
+        });
+    }
+    return { scope, owner };
+}
+
+module.exports = {
+    objectBody,
+    requireFields,
+    parseStep,
+    optionalString,
+    parseListFilters,
+};

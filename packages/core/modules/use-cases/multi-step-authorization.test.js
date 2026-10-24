@@ -1,6 +1,8 @@
 const { FetchError } = require('../../errors/fetch-error');
 const { ClientSafeError } = require('../../errors/client-safe-error');
 const { GetAuthorizationRequirements } = require('./get-authorization-requirements');
+const { AuthorizeEntityForUser } = require('./authorize-entity-for-user');
+const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
 const { GetAuthorizationStep, SubmitAuthorizationStep } = require('./multi-step-authorization');
 const {
     InMemoryAuthorizationSessionRepository,
@@ -57,13 +59,17 @@ function setup() {
         moduleDefinitions: definitions,
         getAuthorizationRequirements,
         authorizationSessionRepository: sessions,
-        processAuthorizationCallback,
+        authorizeEntityForUser: new AuthorizeEntityForUser({
+            scopePolicy: DEFAULT_SCOPE_POLICY,
+            processAuthorizationCallback,
+        }),
         moduleRepository,
         credentialRepository,
         createModule,
     };
     return {
         ...deps,
+        processAuthorizationCallback,
         sessions,
         otp: definitions[0],
         getStep: new GetAuthorizationStep(deps),
@@ -80,7 +86,10 @@ describe('multi-step authorization', () => {
 
         const result = await t.submit.execute({ user: user(), entityType: 'simple', data: { code: 'abc' } });
         expect(result.status).toBe('complete');
-        expect(t.processAuthorizationCallback.execute).toHaveBeenCalledWith('u1', 'simple', { code: 'abc' });
+        expect(t.processAuthorizationCallback.execute).toHaveBeenCalledWith(
+            'u1', 'simple', { code: 'abc' },
+            { scope: 'individual', organizationId: null, legacyOrgId: null }
+        );
         expect(t.sessions.rows.size).toBe(0);
     });
 
@@ -108,9 +117,10 @@ describe('multi-step authorization', () => {
         expect(done.status).toBe('complete');
         expect(done.entity).toMatchObject({ id: 'e1' });
         expect(done.credential).toMatchObject({ id: 'c1', type: 'otp', entityIds: ['e1'] });
-        expect(t.processAuthorizationCallback.execute).toHaveBeenCalledWith('u1', 'otp', {
-            email: 'a@example.com', token: 'issued',
-        });
+        expect(t.processAuthorizationCallback.execute).toHaveBeenCalledWith(
+            'u1', 'otp', { email: 'a@example.com', token: 'issued' },
+            { scope: 'individual', organizationId: null, legacyOrgId: null }
+        );
         expect(t.otp.processAuthorizationStep).toHaveBeenLastCalledWith(
             expect.objectContaining({ kind: 'api' }), 2, { otp: '123456' }, { email: 'a@example.com' }
         );

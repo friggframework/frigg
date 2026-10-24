@@ -1,4 +1,7 @@
-const { GetIntegrationsForUser } = require('./get-integrations-for-user');
+const {
+    GetIntegrationsForUser,
+    GetIntegrationsByUserId,
+} = require('./get-integrations-for-user');
 const { DeleteIntegrationForUser } = require('./delete-integration-for-user');
 const { CreateIntegration } = require('./create-integration');
 const { GetIntegration } = require('./get-integration');
@@ -9,6 +12,7 @@ const { GetProcess } = require('./get-process');
 
 module.exports = {
     GetIntegrationsForUser,
+    GetIntegrationsByUserId,
     DeleteIntegrationForUser,
     CreateIntegration,
     GetIntegration,

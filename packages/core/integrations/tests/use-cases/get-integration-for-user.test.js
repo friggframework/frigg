@@ -50,7 +50,7 @@ describe('GetIntegrationForUser Use-Case', () => {
             const record = await integrationRepository.createIntegration([entity1.id, entity2.id], 'user-1', { type: 'dummy' });
 
             const dto = await useCase.execute(record.id, 'user-1');
-            expect(dto.entities).toEqual([entity1, entity2]);
+            expect(dto.entities.map((e) => e.id)).toEqual(['entity-1', 'entity-2']);
         });
 
         it('returns integration with complex config', async () => {

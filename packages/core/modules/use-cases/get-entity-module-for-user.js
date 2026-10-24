@@ -1,8 +1,13 @@
 const Boom = require('@hapi/boom');
+const { describeRecord } = require('../scope-visibility');
+const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
 
 /**
  * True when `user` may act on records owned by `ownerId`. Uses the User
  * domain object's rule (individual or organisation user model) when present.
+ * This is the owner-only rule: it ignores the organization a record belongs
+ * to, so it no longer decides access to an entity or an integration
+ * (modules/scope-visibility.js does). Credentials still use it.
  * @param {Object} user - authenticated User (or a plain { getId } double)
  * @param {string|number} ownerId
  */
@@ -30,8 +35,11 @@ class GetEntityModuleForUser {
      * @param {import('../repositories/module-repository-interface').ModuleRepositoryInterface} params.moduleRepository
      * @param {Array<Object>} params.moduleDefinitions
      * @param {Function} [params.createModule] - builds a Module; injectable for tests.
+     * @param {Object} [params.scopePolicy] - from createScopePolicy; with none the
+     *   app configures nothing (ADR-056 §3.1).
      */
-    constructor({ moduleRepository, moduleDefinitions, createModule }) {
+    constructor({ moduleRepository, moduleDefinitions, createModule, scopePolicy }) {
+        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
         this.moduleRepository = moduleRepository;
         this.moduleDefinitions = moduleDefinitions || [];
         this.createModule = createModule || defaultCreateModule;
@@ -61,7 +69,11 @@ class GetEntityModuleForUser {
         return { entity, definition, module };
     }
 
-    /** The entity record, or a 404 when it is missing or not the caller's. */
+    /**
+     * The entity record, or a 404 when it is missing or the caller may not use
+     * it: not theirs, or paired with another organization (ADR-056 §3.6). A
+     * `global` entity is never the tenant's to load.
+     */
     async loadOwnedEntity(entityId, user) {
         let entity = null;
         try {
@@ -74,12 +86,20 @@ class GetEntityModuleForUser {
                 throw error;
             }
         }
-        if (!entity || !userOwns(user, entity.userId)) {
+        if (!entity || !this.describe(entity, user)) {
             throw Boom.notFound(`Entity ${entityId} not found`, {
                 code: 'ENTITY_NOT_FOUND',
             });
         }
         return entity;
+    }
+
+    /**
+     * `{ scope, owner, organizationId, access }` of an entity to this caller,
+     * or null when they may not see it (§3.4).
+     */
+    describe(entity, user) {
+        return describeRecord(entity, this.scopePolicy.accessContext(user), 'entity');
     }
 }
 

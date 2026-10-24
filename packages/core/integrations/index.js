@@ -21,6 +21,7 @@ module.exports = {
     Options,
     createIntegrationRouter,
     checkRequiredParams,
+    // Deprecated (ADR-059): a wrapper over getEntityTypeRegistry.
     getModulesDefinitionFromIntegrationClasses,
     LoadIntegrationContextUseCase,
     validateExtensionBinding,

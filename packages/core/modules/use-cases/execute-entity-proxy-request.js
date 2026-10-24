@@ -98,9 +98,24 @@ class ExecuteEntityProxyRequest {
             audit.requestBytes = validated.requestBytes;
             const path = normalizeProxyPath(validated.path);
 
+            // Access is `use` in the active organization (ADR-056 §3.5, §3.6): the
+            // owner's entity there, or the organization's. A `global` entity is
+            // never the tenant's.
             const { entity, definition, module } =
                 await this.getEntityModuleForUser.execute(entityId, user);
             audit.module = definition.moduleName;
+            // Narrowest by default (§3.5): proxying through a shared credential
+            // lets any member act on the organization's account, so only an
+            // individual entity may be proxied until `managementApi.proxy.scopes`
+            // lets an app opt in to `organization`.
+            // TODO(F6): read proxy.scopes here instead of refusing outright.
+            if (this.getEntityModuleForUser.describe(entity, user)?.scope !== 'individual') {
+                throw new ProxyRequestError(
+                    'PROXY_NOT_ALLOWED',
+                    'The entity proxy only accepts individual entities; organization-level entities are not proxied',
+                    { module: definition.moduleName, reason: 'scope' }
+                );
+            }
             const credentialRef = entity.credential;
             const credentialId =
                 credentialRef && typeof credentialRef === 'object'

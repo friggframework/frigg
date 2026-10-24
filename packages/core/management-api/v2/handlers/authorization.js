@@ -63,6 +63,7 @@ function createAuthorizationHandlers(useCases) {
                 data: body.data,
                 step,
                 sessionId,
+                scope: optionalString(body.scope, 'scope'),
             });
             res.json(toAuthorizationResponse(result));
         },

@@ -114,6 +114,7 @@ describe('IntegrationRepositoryPostgres.patchIntegrationConfig', () => {
             id: '7',
             entitiesIds: ['62'],
             userId: '1',
+            organizationId: null,
             config: { type: 'attio', attioWebhookId: 'wh_1' },
             version: '0.0.0',
             status: 'ENABLED',

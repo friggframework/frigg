@@ -263,10 +263,61 @@
           "definition": {
             "type": "object",
             "description": "The API module definition (e.g., from @friggframework/api-module-*)"
+          },
+          "scope": {
+            "description": "The scope this binding accepts (ADR-056 §3.1): an entity bound here must have it. Overrides ownership.scope.",
+            "oneOf": [
+              { "type": "string", "enum": ["individual", "organization", "global"] },
+              {
+                "type": "object",
+                "properties": {
+                  "default": { "type": "string", "enum": ["individual", "organization", "global"] },
+                  "allow": {
+                    "type": "array",
+                    "items": { "type": "string", "enum": ["individual", "organization", "global"] },
+                    "minItems": 1,
+                    "uniqueItems": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "additionalProperties": true
       }
+    },
+    "ownership": {
+      "type": "object",
+      "description": "Who owns this integration and what scope its bindings accept (ADR-056 §3.1, §3.3).",
+      "properties": {
+        "scope": {
+          "description": "One scope, or a default plus the scopes a request may choose from.",
+          "oneOf": [
+            { "type": "string", "enum": ["individual", "organization", "global"] },
+            {
+              "type": "object",
+              "properties": {
+                "default": { "type": "string", "enum": ["individual", "organization", "global"] },
+                "allow": {
+                  "type": "array",
+                  "items": { "type": "string", "enum": ["individual", "organization", "global"] },
+                  "minItems": 1,
+                  "uniqueItems": true
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "owner": {
+          "type": "string",
+          "enum": ["derive", "individual", "organization"],
+          "default": "derive",
+          "description": "`derive` (default): the organization when every entity it uses is organization-scoped, otherwise the person. An organization-owned integration cannot bind an individual entity."
+        }
+      },
+      "additionalProperties": false
     },
     "hasUserConfig": {
       "type": "boolean",

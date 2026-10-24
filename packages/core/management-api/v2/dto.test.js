@@ -1,4 +1,4 @@
-const { maskCredential, maskValue, toEntityDto } = require('./dto');
+const { maskCredential, maskValue, toEntityDto, toIntegrationDto } = require('./dto');
 
 describe('v2 DTOs', () => {
     it('masks every provider field of a credential', () => {
@@ -63,5 +63,24 @@ describe('v2 DTOs', () => {
             userId: '2',
             authIsValid: false,
         });
+    });
+});
+
+describe('toIntegrationDto', () => {
+    it('never carries an entity record’s credential, whatever the use case handed it', () => {
+        const dto = toIntegrationDto({
+            id: 'i1',
+            entities: [
+                'e0',
+                {
+                    id: 'e1',
+                    moduleName: 'acme',
+                    credential: { id: 'c1', authIsValid: true, access_token: 'AT-1', data: { refresh_token: 'RT-1' } },
+                },
+            ],
+        });
+        expect(dto.entities[0]).toBe('e0');
+        expect(dto.entities[1]).toMatchObject({ id: 'e1', credentialId: 'c1', authIsValid: true });
+        expect(JSON.stringify(dto)).not.toMatch(/AT-1|RT-1|access_token|refresh_token/);
     });
 });

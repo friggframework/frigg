@@ -3,6 +3,7 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
+const { integrationNotFoundError } = require('./integration-not-found');
 const { strictIntId } = require('./report-id');
 
 /**
@@ -51,12 +52,32 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
             ...integration,
             id: integration.id?.toString(),
             userId: integration.userId?.toString(),
+            organizationId: integration.organizationId?.toString() ?? null,
             entities: integration.entities?.map(e => ({
                 ...e,
                 id: e.id?.toString(),
                 userId: e.userId?.toString(),
                 credentialId: e.credentialId?.toString()
             }))
+        };
+    }
+
+    /**
+     * The one place a converted integration row becomes the record the
+     * application sees (string ids, ids of its entities, its organization).
+     * @private
+     */
+    _mapIntegration(converted) {
+        return {
+            id: converted.id,
+            entitiesIds: converted.entities.map((e) => e.id),
+            userId: converted.userId,
+            organizationId: converted.organizationId,
+            config: converted.config,
+            version: converted.version,
+            status: converted.status,
+            messages: converted.messages,
+            createdAt: converted.createdAt,
         };
     }
 
@@ -78,16 +99,35 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         // Map to domain objects with string IDs
         return integrations.map((integration) => {
             const converted = this._convertIntegrationIds(integration);
-            return {
-                id: converted.id,
-                entitiesIds: converted.entities.map((e) => e.id),
-                userId: converted.userId,
-                config: converted.config,
-                version: converted.version,
-                status: converted.status,
-                messages: converted.messages,
-                createdAt: converted.createdAt,
-            };
+            return this._mapIntegration(converted);
+        });
+    }
+
+    /**
+     * Find integrations matching any of the owner/organization pairs, in one
+     * query. `organizationId: null` matches rows with no organization. The
+     * caller (a use case) decides which pairs; this only runs them.
+     *
+     * @param {Array<{userId: string, organizationId: (string|null)}>} clauses
+     * @returns {Promise<Array>} Array of integration objects with string IDs
+     */
+    async findIntegrationsByOwnership(clauses) {
+        if (!Array.isArray(clauses) || clauses.length === 0) return [];
+        const integrations = await this.prisma.integration.findMany({
+            where: {
+                OR: clauses.map(({ userId, organizationId }) => ({
+                    userId: this._convertId(userId),
+                    organizationId: this._convertId(organizationId),
+                })),
+            },
+            include: {
+                entities: true,
+            },
+        });
+
+        return integrations.map((integration) => {
+            const converted = this._convertIntegrationIds(integration);
+            return this._mapIntegration(converted);
         });
     }
 
@@ -117,16 +157,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
 
         return integrations.map((integration) => {
             const converted = this._convertIntegrationIds(integration);
-            return {
-                id: converted.id,
-                entitiesIds: converted.entities.map((e) => e.id),
-                userId: converted.userId,
-                config: converted.config,
-                version: converted.version,
-                status: converted.status,
-                messages: converted.messages,
-                createdAt: converted.createdAt,
-            };
+            return this._mapIntegration(converted);
         });
     }
 
@@ -209,15 +240,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         }
 
         const converted = this._convertIntegrationIds(integration);
-        return {
-            id: converted.id,
-            entitiesIds: converted.entities.map((e) => e.id),
-            userId: converted.userId,
-            config: converted.config,
-            version: converted.version,
-            status: converted.status,
-            messages: converted.messages,
-        };
+        return this._mapIntegration(converted);
     }
 
     /**
@@ -236,19 +259,11 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         });
 
         if (!integration) {
-            throw new Error(`Integration with id ${id} not found`);
+            throw integrationNotFoundError(id);
         }
 
         const converted = this._convertIntegrationIds(integration);
-        return {
-            id: converted.id,
-            entitiesIds: converted.entities.map((e) => e.id),
-            userId: converted.userId,
-            config: converted.config,
-            version: converted.version,
-            status: converted.status,
-            messages: converted.messages,
-        };
+        return this._mapIntegration(converted);
     }
 
     /**
@@ -328,12 +343,15 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
      * @param {Array<string>} entities - Array of entity IDs (strings from application layer)
      * @param {string} userId - User ID (string from application layer)
      * @param {Object} config - Integration configuration
+     * @param {{organizationId?: (string|null)}} [tenancy] - the organization the
+     *   integration is created in (ADR-056 §3.6)
      * @returns {Promise<Object>} Created integration object with string IDs
      */
-    async createIntegration(entities, userId, config) {
+    async createIntegration(entities, userId, config, tenancy = {}) {
         const data = {
             config,
             version: '0.0.0',
+            organizationId: this._convertId(tenancy.organizationId ?? null),
         };
 
         // PostgreSQL: use nested relations with ID conversion
@@ -354,15 +372,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         });
 
         const converted = this._convertIntegrationIds(integration);
-        return {
-            id: converted.id,
-            entitiesIds: converted.entities.map((e) => e.id),
-            userId: converted.userId,
-            config: converted.config,
-            version: converted.version,
-            status: converted.status,
-            messages: converted.messages,
-        };
+        return this._mapIntegration(converted);
     }
 
     /**
@@ -385,15 +395,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         }
 
         const converted = this._convertIntegrationIds(integration);
-        return {
-            id: converted.id,
-            entitiesIds: converted.entities.map((e) => e.id),
-            userId: converted.userId,
-            config: converted.config,
-            version: converted.version,
-            status: converted.status,
-            messages: converted.messages,
-        };
+        return this._mapIntegration(converted);
     }
 
     /**
@@ -418,15 +420,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
         });
 
         const converted = this._convertIntegrationIds(integration);
-        return {
-            id: converted.id,
-            entitiesIds: converted.entities.map((e) => e.id),
-            userId: converted.userId,
-            config: converted.config,
-            version: converted.version,
-            status: converted.status,
-            messages: converted.messages,
-        };
+        return this._mapIntegration(converted);
     }
 
     /**
@@ -476,15 +470,7 @@ class IntegrationRepositoryPostgres extends IntegrationRepositoryInterface {
 
         return integrations.map((integration) => {
             const converted = this._convertIntegrationIds(integration);
-            return {
-                id: converted.id,
-                entitiesIds: converted.entities.map((e) => e.id),
-                userId: converted.userId,
-                config: converted.config,
-                version: converted.version,
-                status: converted.status,
-                messages: converted.messages,
-            };
+            return this._mapIntegration(converted);
         });
     }
 }

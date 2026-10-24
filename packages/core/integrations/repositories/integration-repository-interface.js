@@ -11,6 +11,20 @@
  */
 class IntegrationRepositoryInterface {
     /**
+     * Find integrations matching any of the owner/organization pairs, in one
+     * query (ADR-056 §3.6). `organizationId: null` matches rows with no
+     * organization. Which pairs is decided by the caller
+     * (modules/entity-scope.js), not here.
+     *
+     * @param {Array<{userId: string|number, organizationId: (string|number|null)}>} clauses
+     * @returns {Promise<Array>} Array of integration objects
+     * @abstract
+     */
+    async findIntegrationsByOwnership(clauses) {
+        throw new Error('Method findIntegrationsByOwnership must be implemented by subclass');
+    }
+
+    /**
      * Find all integrations for a user
      *
      * @param {string|number} userId - User ID
@@ -123,10 +137,12 @@ class IntegrationRepositoryInterface {
      * @param {Array<string|number>} entities - Array of entity IDs
      * @param {string|number} userId - User ID
      * @param {Object} config - Integration configuration
+     * @param {{organizationId?: (string|number|null)}} [tenancy] - the organization the
+     *   integration is created in (ADR-056 §3.6)
      * @returns {Promise<Object>} Created integration object
      * @abstract
      */
-    async createIntegration(entities, userId, config) {
+    async createIntegration(entities, userId, config, tenancy) {
         throw new Error('Method createIntegration must be implemented by subclass');
     }
 

@@ -4,13 +4,13 @@ jest.mock('../../../database/config', () => ({
     PRISMA_LOG_LEVEL: 'error,warn',
 }));
 
-const { GetIntegrationsForUser } = require('../../use-cases/get-integrations-for-user');
+const { GetIntegrationsByUserId } = require('../../use-cases/get-integrations-for-user');
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 const { TestModuleFactory } = require('../../../modules/tests/doubles/test-module-factory');
 const { TestModuleRepository } = require('../../../modules/tests/doubles/test-module-repository');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
 
-describe('GetIntegrationsForUser Use-Case', () => {
+describe('GetIntegrationsByUserId Use-Case (app-level commands, no request)', () => {
     let integrationRepository;
     let moduleRepository;
     let moduleFactory;
@@ -20,7 +20,7 @@ describe('GetIntegrationsForUser Use-Case', () => {
         integrationRepository = new TestIntegrationRepository();
         moduleRepository = new TestModuleRepository();
         moduleFactory = new TestModuleFactory();
-        useCase = new GetIntegrationsForUser({
+        useCase = new GetIntegrationsByUserId({
             integrationRepository,
             integrationClasses: [DummyIntegration],
             moduleFactory,
@@ -104,7 +104,7 @@ describe('GetIntegrationsForUser Use-Case', () => {
 
     describe('error cases', () => {
         it('throws error when integration class not found', async () => {
-            const useCaseWithoutClasses = new GetIntegrationsForUser({
+            const useCaseWithoutClasses = new GetIntegrationsByUserId({
                 integrationRepository,
                 integrationClasses: [],
                 moduleFactory,
@@ -169,7 +169,7 @@ describe('GetIntegrationsForUser Use-Case', () => {
             await integrationRepository.createIntegration([entity1.id, entity2.id, entity3.id], 'user-1', { type: 'dummy' });
 
             const list = await useCase.execute('user-1');
-            expect(list[0].entities).toEqual([entity1, entity2, entity3]);
+            expect(list[0].entities.map((e) => e.id)).toEqual(['entity-1', 'entity-2', 'entity-3']);
         });
     });
 }); 

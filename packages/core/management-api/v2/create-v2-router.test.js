@@ -43,7 +43,13 @@ describe('Management API v2 router: integrations and entities', () => {
             expect(res.body.integrations[0]).toEqual({
                 id: 'i1', entities: ['e1'], status: 'ENABLED', config: { type: 'sync' }, version: null, messages: {},
             });
-            expect(deps.getIntegrationsForUser.execute).toHaveBeenCalledWith('user-1');
+            // The use case gets the User, not an id: it needs the active
+            // organization too (ADR-056 §3.6). No ?scope / ?owner filter was sent.
+            expect(deps.getIntegrationsForUser.execute).toHaveBeenCalledWith(
+                expect.objectContaining({ getId: expect.any(Function) }),
+                { scope: undefined, owner: undefined }
+            );
+            expect(deps.getIntegrationsForUser.execute.mock.calls[0][0].getId()).toBe('user-1');
         });
 
         it('lists the integration types this app offers', async () => {

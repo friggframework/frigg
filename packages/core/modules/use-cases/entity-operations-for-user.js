@@ -1,4 +1,10 @@
 const Boom = require('@hapi/boom');
+const {
+    describeRecord,
+    visibilityClauses,
+    matchesListFilters,
+} = require('../scope-visibility');
+const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
 
 /**
  * Management API v2 entity operations. Each one starts from
@@ -6,29 +12,55 @@ const Boom = require('@hapi/boom');
  * (missing or foreign entity = 404).
  */
 
-/** The caller's connected entities. */
+/**
+ * The entities the caller may see in the active organization (ADR-056 §3.4,
+ * §3.6): the organization's own, and the caller's individual ones by the
+ * visibility rule. Each carries `tenancy` ({scope, owner, organizationId,
+ * access}); the stored entity is otherwise untouched.
+ */
 class ListEntitiesForUser {
-    constructor({ moduleRepository }) {
+    constructor({ moduleRepository, scopePolicy }) {
         this.moduleRepository = moduleRepository;
+        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
     }
 
-    /** @param {Object} user - authenticated User */
-    async execute(user) {
-        const entities = await this.moduleRepository.findEntitiesByUserId(
-            user.getId()
+    /**
+     * @param {Object} user - authenticated User
+     * @param {{scope?: string, owner?: string}} [filters] - `?scope=` and `?owner=`
+     */
+    async execute(user, filters = {}) {
+        const ctx = this.scopePolicy.accessContext(user);
+        const entities = await this.moduleRepository.findEntitiesByOwnership(
+            visibilityClauses(ctx, 'entity')
         );
-        return Array.isArray(entities) ? entities : [];
+        const listed = [];
+        for (const entity of Array.isArray(entities) ? entities : []) {
+            // The query is the filter; this is the same rule applied again,
+            // so a repository that returns too much cannot widen the list.
+            const tenancy = describeRecord(entity, ctx, 'entity');
+            if (tenancy && matchesListFilters(tenancy, filters)) {
+                listed.push({ ...entity, tenancy });
+            }
+        }
+        return listed;
     }
 }
 
-/** One entity the caller owns. */
+/** One entity the caller may use, with its `tenancy`. */
 class GetEntityForUser {
     constructor({ getEntityModuleForUser }) {
         this.getEntityModuleForUser = getEntityModuleForUser;
     }
 
     async execute(entityId, user) {
-        return this.getEntityModuleForUser.loadOwnedEntity(entityId, user);
+        const entity = await this.getEntityModuleForUser.loadOwnedEntity(
+            entityId,
+            user
+        );
+        return {
+            ...entity,
+            tenancy: this.getEntityModuleForUser.describe(entity, user),
+        };
     }
 }
 
@@ -79,7 +111,7 @@ class RefreshEntityOptionsForUser {
 }
 
 /**
- * Deletes an entity the caller owns. Refuses with 409 while integrations
+ * Deletes an entity the caller may use. Refuses with 409 while integrations
  * still use it, so an integration never points at a missing entity. The
  * credential is left alone (others may share it); delete it through
  * /api/v2/credentials.

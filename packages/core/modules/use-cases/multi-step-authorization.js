@@ -3,6 +3,8 @@ const { FetchError } = require('../../errors/fetch-error');
 const { getLogger } = require('../../logs');
 const { AuthorizationSession } = require('../domain/authorization-session');
 const { findDefinition, getAuthStepCount } = require('./entity-types');
+const { describeRecord } = require('../scope-visibility');
+const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
 
 const log = getLogger('frigg.api.authorize');
 
@@ -144,21 +146,28 @@ class SubmitAuthorizationStep {
         moduleDefinitions,
         getAuthorizationRequirements,
         authorizationSessionRepository,
-        processAuthorizationCallback,
+        authorizeEntityForUser,
         moduleRepository,
         credentialRepository,
         createModule,
+        scopePolicy,
     }) {
+        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
         this.moduleDefinitions = moduleDefinitions || [];
         this.getAuthorizationRequirements = getAuthorizationRequirements;
         this.sessions = authorizationSessionRepository;
-        this.processAuthorizationCallback = processAuthorizationCallback;
+        this.authorizeEntityForUser = authorizeEntityForUser;
         this.moduleRepository = moduleRepository;
         this.credentialRepository = credentialRepository;
         this.createModule = createModule || defaultCreateModule;
     }
 
-    async execute({ user, entityType, data, step = 1, sessionId, credentialId = null }) {
+    /**
+     * @param {Object} params
+     * @param {string} [params.scope] - the scope the caller asks for, from the
+     *   deciding level's allow list (ADR-056 §3.1). Never `global`.
+     */
+    async execute({ user, entityType, data, step = 1, sessionId, credentialId = null, scope }) {
         if (!data || typeof data !== 'object' || Array.isArray(data)) {
             throw Boom.badRequest('data must be an object', {
                 code: 'VALIDATION_ERROR',
@@ -166,7 +175,15 @@ class SubmitAuthorizationStep {
             });
         }
         const definition = findDefinition(this.moduleDefinitions, entityType);
+        // `userId` binds a session to the caller and is what GET /authorize
+        // computes too. The owner of the entity this creates is decided by
+        // scope (§3.2), not by user.primary, and is `ownership.ownerId`.
         const userId = user.getId();
+        const ownership = this.authorizeEntityForUser.resolveOwnership({
+            user,
+            entityType,
+            scope,
+        });
 
         if (!isMultiStep(definition)) {
             if (step !== 1) {
@@ -174,7 +191,7 @@ class SubmitAuthorizationStep {
                     code: 'INVALID_STEP',
                 });
             }
-            return this.complete({ userId, entityType, params: data, credentialId });
+            return this.complete({ ownership, user, entityType, params: data, credentialId });
         }
 
         const totalSteps = getAuthStepCount(definition);
@@ -205,7 +222,7 @@ class SubmitAuthorizationStep {
             );
         }
 
-        const module = this.createModule({ userId, definition });
+        const module = this.createModule({ userId: ownership.ownerId, definition });
         let result;
         try {
             result = await definition.processAuthorizationStep(
@@ -224,7 +241,8 @@ class SubmitAuthorizationStep {
             session.markComplete();
             await this.sessions.update(session);
             const outcome = await this.complete({
-                userId,
+                ownership,
+                user,
                 entityType,
                 params: result.authData || {},
                 credentialId,
@@ -261,14 +279,15 @@ class SubmitAuthorizationStep {
         };
     }
 
-    async complete({ userId, entityType, params, credentialId }) {
+    async complete({ ownership, user, entityType, params, credentialId }) {
         let callback;
         try {
-            callback = await this.processAuthorizationCallback.execute(
-                userId,
+            ({ result: callback } = await this.authorizeEntityForUser.execute({
+                user,
                 entityType,
-                params
-            );
+                data: params,
+                ownership,
+            }));
         } catch (error) {
             throw toAuthorizationError(error);
         }
@@ -276,13 +295,18 @@ class SubmitAuthorizationStep {
             this.moduleRepository.findEntityById(callback.entity_id),
             this.credentialRepository.findCredentialById(callback.credential_id),
         ]);
+        // What the new entity is to this caller (§3.4), so a client need not list again.
+        const tenancy = entity
+            ? describeRecord(entity, this.scopePolicy.accessContext(user), 'entity')
+            : null;
         const outcome = {
             status: 'complete',
-            entity,
+            entity: entity && tenancy ? { ...entity, tenancy } : entity,
             credential: credential && {
                 ...credential,
                 type: entityType,
                 entityIds: entity ? [String(entity.id)] : [],
+                ...(tenancy && { tenancy }),
             },
         };
         if (credentialId && String(callback.credential_id) !== String(credentialId)) {

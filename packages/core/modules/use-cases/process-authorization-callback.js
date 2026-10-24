@@ -1,5 +1,16 @@
 const { Module } = require('../module');
 const { ModuleConstants } = require('../ModuleConstants');
+const { pickExistingEntity } = require('../scope-resolution');
+
+/**
+ * What an entity belongs to when the caller says nothing: the person's own,
+ * outside any organization.
+ */
+const DEFAULT_TENANCY = Object.freeze({
+    scope: 'individual',
+    organizationId: null,
+    legacyOrgId: null,
+});
 const { getLogger } = require('../../logs');
 
 const log = getLogger('frigg.modules.authorization_callback');
@@ -30,7 +41,17 @@ class ProcessAuthorizationCallback {
         this.integrationRepository = integrationRepository;
     }
 
-    async execute(userId, entityType, params) {
+    /**
+     * @param {string} userId - the OWNER of what this creates (ADR-056 §3.2): the
+     *   person for `individual`, the organization's user for `organization`.
+     *   Not necessarily the caller; callers resolve it from the scope.
+     * @param {string} entityType
+     * @param {Object} params - what the module's authorization needs
+     * @param {{scope: string, organizationId: (string|null), legacyOrgId: (string|null)}} [tenancy]
+     *   the entity's scope and organization (§3.6); default: the person's own,
+     *   with no organization
+     */
+    async execute(userId, entityType, params, tenancy = DEFAULT_TENANCY) {
         log.debug('Authorization callback started', {
             eventName: `${log.name}.started`,
             userId,
@@ -57,10 +78,7 @@ class ProcessAuthorizationCallback {
                 userId,
                 entityType
             );
-        const existingEntity =
-            existingEntities && existingEntities.length > 0
-                ? existingEntities[0]
-                : null;
+        const existingEntity = pickExistingEntity(existingEntities, tenancy);
 
         if (existingEntity) {
             log.debug('Existing entity found', {
@@ -156,7 +174,8 @@ class ProcessAuthorizationCallback {
         const persistedEntity = await this.findOrCreateEntity(
             entityDetails,
             entityType,
-            module.credential.id
+            module.credential.id,
+            tenancy
         );
         log.debug('Authorization callback completed', {
             eventName: `${log.name}.completed`,
@@ -233,7 +252,12 @@ class ProcessAuthorizationCallback {
         module.credential = persisted;
     }
 
-    async findOrCreateEntity(entityDetails, moduleName, credentialId) {
+    async findOrCreateEntity(
+        entityDetails,
+        moduleName,
+        credentialId,
+        tenancy = DEFAULT_TENANCY
+    ) {
         const { identifiers, details } = entityDetails;
 
         // Support both 'user' and 'userId' field names from module definitions
@@ -247,11 +271,16 @@ class ProcessAuthorizationCallback {
             );
         }
 
-        const existingEntity = await this.moduleRepository.findEntity({
-            externalId: identifiers.externalId,
-            user: userId,
-            moduleName: moduleName,
-        });
+        // The same provider account in two organizations is two entities
+        // (ADR-056 §3.6), so the match is per organization.
+        const existingEntity = pickExistingEntity(
+            await this.moduleRepository.findEntities({
+                externalId: identifiers.externalId,
+                user: userId,
+                moduleName: moduleName,
+            }),
+            tenancy
+        );
 
         if (existingEntity) {
             // Repoint the entity's credentialId when re-auth produced a
@@ -282,12 +311,17 @@ class ProcessAuthorizationCallback {
             return existingEntity;
         }
 
-        return await this.moduleRepository.createEntity({
-            ...identifiers,
-            ...details,
-            moduleName: moduleName,
-            credential: credentialId,
-        });
+        // `organizationId` is not part of the entity data: that carries provider
+        // fields, and one that happens to be called organizationId is theirs.
+        return await this.moduleRepository.createEntity(
+            {
+                ...identifiers,
+                ...details,
+                moduleName: moduleName,
+                credential: credentialId,
+            },
+            { organizationId: tenancy.organizationId ?? null }
+        );
     }
 }
 

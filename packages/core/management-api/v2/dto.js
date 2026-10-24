@@ -4,6 +4,8 @@
  * does (see maskCredential).
  */
 
+const { toPublicEntities } = require('../../modules/utils/public-entity');
+
 const idOf = (value) => {
     if (value === undefined || value === null) return null;
     if (typeof value === 'object') {
@@ -12,6 +14,20 @@ const idOf = (value) => {
     }
     return String(value);
 };
+
+/**
+ * `{ scope, owner, organizationId, access }` (ADR-056 §3.4): whose a record is
+ * and what the caller may do with it. Empty when the use case did not say.
+ */
+function tenancyFields(tenancy) {
+    if (!tenancy) return {};
+    return {
+        scope: tenancy.scope,
+        owner: tenancy.owner,
+        organizationId: tenancy.organizationId ?? null,
+        access: tenancy.access,
+    };
+}
 
 /** An entity (connected account). */
 function toEntityDto(entity) {
@@ -30,6 +46,7 @@ function toEntityDto(entity) {
             typeof credential?.authIsValid === 'boolean'
                 ? credential.authIsValid
                 : null,
+        ...tenancyFields(entity.tenancy),
     };
 }
 
@@ -37,11 +54,13 @@ function toEntityDto(entity) {
 function toIntegrationDto(integration) {
     return {
         id: String(integration.id),
-        entities: integration.entities ?? [],
+        // Entity records carry the decrypted credential; never send them as is.
+        entities: toPublicEntities(integration.entities),
         status: integration.status ?? null,
         config: integration.config ?? {},
         version: integration.version ?? null,
         messages: integration.messages ?? {},
+        ...tenancyFields(integration.tenancy),
     };
 }
 
@@ -115,6 +134,7 @@ function maskCredential(credential) {
 }
 
 module.exports = {
+    tenancyFields,
     toEntityDto,
     toIntegrationDto,
     maskCredential,

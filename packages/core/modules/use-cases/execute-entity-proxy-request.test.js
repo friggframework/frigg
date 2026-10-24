@@ -28,7 +28,7 @@ function upstream(status, data, headers = {}) {
     };
 }
 
-function setup({ entity, def = definition, proxyRequest, overrides } = {}) {
+function setup({ entity, def = definition, proxyRequest, overrides, entityScope = 'individual' } = {}) {
     const api = {
         api_key_name: 'X-Crm-Key',
         _proxyRequest: jest.fn(proxyRequest || (async () => upstream(200, { id: '7', name: 'Ada' }))),
@@ -42,6 +42,8 @@ function setup({ entity, def = definition, proxyRequest, overrides } = {}) {
                 module: { api },
             };
         }),
+        // The scope the real GetEntityModuleForUser reads from the owner.
+        describe: jest.fn(() => ({ scope: entityScope })),
     };
     const telemetry = { count: jest.fn() };
     const config = resolveManagementApiConfig({ proxy: { enable: true, ...(overrides || {}) } });
@@ -138,6 +140,19 @@ describe('ExecuteEntityProxyRequest (ADR-052)', () => {
         expect(api._proxyRequest).not.toHaveBeenCalled();
         expect(audits()[0]).toMatchObject({ level: 'WARN', outcome: 'denied', reason: 'PROXY_NOT_ALLOWED' });
     });
+
+    it.each(['organization', 'global', null])(
+        'fails closed for an entity of scope %s until proxy.scopes lets an app opt in (ADR-056 §3.5)',
+        async (entityScope) => {
+            const { useCase, api } = setup({ entityScope });
+            const error = await useCase.execute('e1', user, { method: 'GET', path: '/contacts/7' }).catch((e) => e);
+            expect(error.output.statusCode).toBe(403);
+            expect(error.data).toMatchObject({ code: 'PROXY_NOT_ALLOWED', details: { reason: 'scope' } });
+            // Refused before the module is asked about the call, and nothing went upstream.
+            expect(api._proxyRequest).not.toHaveBeenCalled();
+            expect(audits()[0]).toMatchObject({ outcome: 'denied', reason: 'PROXY_NOT_ALLOWED' });
+        }
+    );
 
     it('denies a method or path the module does not list', async () => {
         const { useCase, api } = setup();

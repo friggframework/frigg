@@ -8,6 +8,27 @@ const ref = (name) => ({ $ref: `#/components/schemas/${name}` });
 
 const nullable = (schema) => ({ ...schema, nullable: true });
 
+// Whose a record is and what the caller may do with it (ADR-056 §3.4). Added to
+// entities, credentials and integrations by the list and get use cases.
+const tenancyProperties = {
+    scope: { type: 'string', enum: ['individual', 'organization'], description: 'Whose it is. `global` records are not shown to tenants.' },
+    owner: {
+        type: 'object',
+        properties: { type: { type: 'string', enum: ['individual', 'organization'] }, id: { type: 'string' } },
+        description: "The user that owns it: the person, or the organization's user",
+    },
+    organizationId: nullable({
+        type: 'string',
+        description:
+            'The organization it belongs to. Null for an individual entity connected outside an organization, or under ownership.individualAcross "all".',
+    }),
+    access: {
+        type: 'string',
+        enum: ['manage', 'use', 'view'],
+        description: 'manage (create, reauthorize, delete), use (bind it, proxy through it) or view (metadata only)',
+    },
+};
+
 const errorBody = {
     type: 'object',
     required: ['error'],
@@ -69,6 +90,7 @@ const SCHEMAS = {
             config: { type: 'object', additionalProperties: true },
             version: nullable({ type: 'string' }),
             messages: { type: 'object', additionalProperties: true },
+            ...tenancyProperties,
         },
     },
     ListIntegrationsResponse: {
@@ -129,6 +151,7 @@ const SCHEMAS = {
             credentialId: nullable({ type: 'string' }),
             userId: nullable({ type: 'string' }),
             authIsValid: nullable({ type: 'boolean' }),
+            ...tenancyProperties,
         },
     },
     ListEntitiesResponse: {
@@ -138,15 +161,31 @@ const SCHEMAS = {
     },
     EntityType: {
         type: 'object',
-        required: ['type', 'name', 'authType', 'isMultiStep', 'stepCount'],
+        required: ['type', 'name', 'authType', 'isMultiStep', 'stepCount', 'usedBy'],
         properties: {
             type: { type: 'string' },
             name: { type: 'string' },
             description: { type: 'string' },
+            usedBy: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                    'Names of the integrations that bind this entity type. Empty for a type registered only in appDefinition.entities.',
+            },
             authType: { type: 'string', description: 'oauth2, oauth1, api-key, basic or custom' },
             isMultiStep: { type: 'boolean' },
             stepCount: { type: 'integer', minimum: 1 },
             capabilities: {},
+            scope: {
+                type: 'object',
+                description:
+                    'The scope a new connection of this type gets and the scopes a request may choose (ADR-056 §3.1). `global` is never offered.',
+                properties: {
+                    default: { type: 'string', enum: ['individual', 'organization', 'global'] },
+                    allow: { type: 'array', items: { type: 'string', enum: ['individual', 'organization'] } },
+                    source: { type: 'string', enum: ['binding', 'integration', 'entityType', 'app', 'default'] },
+                },
+            },
         },
     },
     ListEntityTypesResponse: {
@@ -191,6 +230,12 @@ const SCHEMAS = {
             data: { type: 'object', additionalProperties: true, description: 'OAuth callback params or step form data' },
             step: { type: 'integer', minimum: 1, default: 1 },
             sessionId: { type: 'string', description: 'Required for step 2 and later' },
+            scope: {
+                type: 'string',
+                enum: ['individual', 'organization'],
+                description:
+                    "The scope to connect at, from the entity type's allow list (ADR-056 §3.1). Omit to take the type's default. `global` is refused (403).",
+            },
         },
     },
     ReauthorizeRequest: {
