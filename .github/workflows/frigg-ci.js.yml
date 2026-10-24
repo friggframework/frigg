@@ -11,10 +11,12 @@ on:
   pull_request:
     branches: ["**"]
 
-# A newer push to the same branch/PR supersedes the running check.
+# A newer push to the same PR supersedes its running check. Pushes to
+# main/next are never cancelled: release.yml publishes every push to next,
+# so each published commit must keep its own CI result.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
