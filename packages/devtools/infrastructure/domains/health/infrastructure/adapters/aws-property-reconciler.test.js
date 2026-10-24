@@ -447,7 +447,9 @@ describe('AWSPropertyReconciler', () => {
             );
 
             expect(strategy.supportsTemplateUpdate).toBe(true);
-            expect(strategy.supportsResourceUpdate).toBe(false);
+            // Lambda supports direct resource-mode reconciliation
+            // (UpdateFunctionConfiguration) since 6a0bba7b; template is still preferred.
+            expect(strategy.supportsResourceUpdate).toBe(true);
             expect(strategy.recommendedMode).toBe('template');
             expect(strategy.limitations).toContain(
                 'VpcConfig changes may take several minutes to propagate'
@@ -659,7 +661,7 @@ describe('AWSPropertyReconciler', () => {
 
                 expect(strategy).toEqual({
                     supportsTemplateUpdate: true,
-                    supportsResourceUpdate: false,
+                    supportsResourceUpdate: true, // resource mode via UpdateFunctionConfiguration
                     recommendedMode: 'template',
                     limitations: expect.arrayContaining([
                         'VpcConfig changes may take several minutes to propagate',
