@@ -46,6 +46,7 @@ jest.mock('../../modules/repositories/module-repository-factory', () => ({
                     (filter.moduleName === undefined || e.moduleName === filter.moduleName) &&
                     (filter.externalId === undefined || e.externalId === filter.externalId)
             ),
+        findEntitiesByUserId: async (userId) => mockState.entities.filter((e) => mockSame(e.userId, userId)),
         findEntity: async () => null,
         createEntity: async (data, tenancy = {}) => {
             const { user, credential, ...rest } = data;
@@ -83,7 +84,10 @@ jest.mock('../../credential/repositories/credential-repository-factory', () => (
             mockState.credentials.push(row);
             return row;
         },
-        deleteCredentialById: async () => true,
+        deleteCredentialById: async (id) => {
+            mockState.credentials = mockState.credentials.filter((c) => String(c.id) !== String(id));
+            return true;
+        },
     }),
 }));
 jest.mock('../../integrations/repositories/integration-repository-factory', () => ({
@@ -189,8 +193,12 @@ class SyncIntegration extends IntegrationBase {
 const syncIntegration = SyncIntegration;
 
 let currentUser;
-const caller = ({ individual = { id: '7', organizationId: null }, org = null } = {}) =>
-    new User(individual, org ? { id: String(org) } : null, false, 'individual', true, false);
+const caller = ({ individual = { id: '7', organizationId: null }, org = null, source = 'shared-secret', role } = {}) => {
+    const user = new User(individual, org ? { id: String(org) } : null, false, 'individual', true, false);
+    user.setAuthSource(source);
+    if (role) user.setOrgRole(role);
+    return user;
+};
 
 function appFor(appDefinition) {
     const entityTypeRegistry = getEntityTypeRegistry(appDefinition);
@@ -386,6 +394,143 @@ describe('ownership by scope at the v2 API (ADR-056 §3)', () => {
             ]);
             const filtered = await request(app(), { path: '/api/v2/integrations?owner=org', headers: AUTH });
             expect(filtered.body.integrations.map((i) => i.id)).toEqual(['i3']);
+        });
+    });
+
+    describe('organization roles', () => {
+        const asToken = (role) => caller({ org: 17, source: 'adopter-jwt', role });
+        const authorizeSlack = () =>
+            request(app(), {
+                method: 'POST', path: '/api/v2/authorize', headers: AUTH,
+                body: { entityType: 'slack', data: { key: 'k' } },
+            });
+
+        it('a member cannot connect an organization-level account: 403 ORG_ADMIN_REQUIRED, nothing created', async () => {
+            for (const role of ['MEMBER', undefined]) {
+                currentUser = asToken(role);
+                const res = await authorizeSlack();
+                expect(res.status).toBe(403);
+                expect(res.body.error.code).toBe('ORG_ADMIN_REQUIRED');
+            }
+            expect(mockState.entities).toHaveLength(0);
+            expect(mockState.credentials).toHaveLength(0);
+        });
+
+        it('an admin token and a header (shared-secret) caller can', async () => {
+            currentUser = asToken('ADMIN');
+            expect((await authorizeSlack()).status).toBe(200);
+            currentUser = caller({ org: 17 });
+            expect((await authorizeSlack()).status).toBe(200);
+            // the same account: the second connect reuses the organization's entity
+            expect(mockState.entities).toHaveLength(1);
+        });
+
+        it('the configured admin roles are honoured', async () => {
+            currentUser = asToken('OWNER');
+            const res = await request(app({ user: { orgAdminRoles: ['owner'] } }), {
+                method: 'POST', path: '/api/v2/authorize', headers: AUTH,
+                body: { entityType: 'slack', data: { key: 'k' } },
+            });
+            expect(res.status).toBe(200);
+        });
+
+        it('a member lists and uses the organization entity but cannot delete it; an admin can', async () => {
+            mockState.entities = [entityRow('3', 17, 17)];
+            currentUser = asToken('MEMBER');
+            const list = await request(app(), { method: 'GET', path: '/api/v2/entities', headers: AUTH });
+            expect(list.status).toBe(200);
+            expect(JSON.stringify(list.body)).toContain('"access":"use"');
+            const refused = await request(app(), { method: 'DELETE', path: '/api/v2/entities/3', headers: AUTH });
+            expect(refused.status).toBe(403);
+            expect(refused.body.error.code).toBe('ORG_ADMIN_REQUIRED');
+            expect(mockState.entities).toHaveLength(1);
+            currentUser = asToken('ADMIN');
+            const ok = await request(app(), { method: 'DELETE', path: '/api/v2/entities/3', headers: AUTH });
+            expect(ok.status).toBeLessThan(300);
+            expect(mockState.entities).toHaveLength(0);
+        });
+    });
+
+    describe('organization credentials (the organization-primary caller owns them)', () => {
+        const orgPrimary = (role, source = 'adopter-jwt') => {
+            const user = new User({ id: '7', type: 'INDIVIDUAL' }, { id: '17' }, false, 'organization', true, true);
+            user.setAuthSource(source);
+            if (role) user.setOrgRole(role);
+            return user;
+        };
+        const remove = (extra) =>
+            request(app(extra), { method: 'DELETE', path: '/api/v2/credentials/c17', headers: AUTH });
+        beforeEach(() => {
+            mockState.credentials = [{ id: 'c17', userId: '17', authIsValid: true }];
+        });
+
+        it('a member cannot delete it (403), an admin can, and the configured roles apply', async () => {
+            currentUser = orgPrimary('MEMBER');
+            const refused = await remove();
+            expect(refused.status).toBe(403);
+            expect(refused.body.error.code).toBe('ORG_ADMIN_REQUIRED');
+            expect(mockState.credentials).toHaveLength(1);
+
+            currentUser = orgPrimary('ADMIN');
+            expect((await remove()).status).toBeLessThan(300);
+            expect(mockState.credentials).toHaveLength(0);
+
+            // user.orgAdminRoles reaches the credential gate through the app definition
+            mockState.credentials = [{ id: 'c17', userId: '17', authIsValid: true }];
+            currentUser = orgPrimary('OWNER');
+            expect((await remove({ user: { orgAdminRoles: ['owner'] } })).status).toBeLessThan(300);
+            expect(mockState.credentials).toHaveLength(0);
+        });
+    });
+
+    describe('wiring: the one scope policy, with the app admin roles, reaches every manage gate', () => {
+        it('credential delete and re-authorize hold the app policy, not the default', () => {
+            const { buildV2Dependencies } = require('./dependencies');
+            const definition = {
+                integrations: [syncIntegration],
+                entities: { slack: { definition: slack, scope: 'organization' } },
+                user: { orgAdminRoles: ['owner'] },
+            };
+            const entityTypeRegistry = getEntityTypeRegistry(definition);
+            const deps = buildV2Dependencies({
+                appDefinition: {
+                    ...definition,
+                    entityTypeRegistry,
+                    ownership: resolveOwnershipConfig(definition, entityTypeRegistry),
+                },
+                config: resolveManagementApiConfig(undefined),
+            });
+            expect(deps.deleteCredentialForUser.scopePolicy.orgAdminRoles).toEqual(['owner']);
+            expect(deps.reauthorizeCredentialForUser.scopePolicy.orgAdminRoles).toEqual(['owner']);
+        });
+    });
+
+    describe('re-authorizing an organization credential', () => {
+        const orgPrimary = (role) => {
+            const user = new User({ id: '7', type: 'INDIVIDUAL' }, { id: '17' }, false, 'organization', true, true);
+            user.setAuthSource('adopter-jwt');
+            user.setOrgRole(role);
+            return user;
+        };
+        beforeEach(() => {
+            mockState.credentials = [{ id: 'c17', userId: '17', authIsValid: true }];
+            mockState.entities = [entityRow('3', 17, 17, { credentialId: 'c17' })];
+        });
+        const reauthorize = (extra) =>
+            request(app(extra), {
+                method: 'POST', path: '/api/v2/credentials/c17/reauthorize', headers: AUTH,
+                body: { data: { key: 'k' } },
+            });
+
+        it('403s a member, and honours user.orgAdminRoles: ADMIN is refused once the app says only OWNER manages', async () => {
+            currentUser = orgPrimary('MEMBER');
+            const member = await reauthorize();
+            expect(member.status).toBe(403);
+            expect(member.body.error.code).toBe('ORG_ADMIN_REQUIRED');
+            currentUser = orgPrimary('ADMIN');
+            const admin = await reauthorize({ user: { orgAdminRoles: ['owner'] } });
+            expect(admin.status).toBe(403);
+            expect(admin.body.error.code).toBe('ORG_ADMIN_REQUIRED');
         });
     });
 

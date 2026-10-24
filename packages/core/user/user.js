@@ -1,6 +1,21 @@
 const bcrypt = require('bcryptjs');
 
 /**
+ * How the request that produced a `User` proved who it is. Set by
+ * AuthenticateUser, never inferred from a missing value. Organization roles
+ * (ADR-056 §3, §3.6) depend on it: a shared-secret caller is the app's own
+ * backend and is trusted to manage; a Frigg bearer token keeps its pre-roles
+ * behaviour unless the app opts in (`user.orgAdminGateBearerTokens`); an
+ * adopter token has the role it carries, else the stored membership role,
+ * else `MEMBER`.
+ */
+const AUTH_SOURCES = Object.freeze({
+    SHARED_SECRET: 'shared-secret',
+    ADOPTER_JWT: 'adopter-jwt',
+    BEARER_TOKEN: 'bearer-token',
+});
+
+/**
  * Represents a user in the system. The User class is a domain entity,
  * @class User
  */
@@ -18,9 +33,14 @@ class User {
         this.individualUser = individualUser;
         this.organizationUser = organizationUser;
         this.usePassword = usePassword;
-        // Organization role from an adopter token claim (ADR-056 §2). Per request:
-        // the role stored on a membership is only what the first token carried.
+        // Organization role from an adopter token claim (ADR-056 §2), per
+        // request. When present it wins over the stored membership role.
         this.orgRole = null;
+        // The role stored on the person's membership of the active organization
+        // (OrganizationMembership.orgRole); used when the token carries none.
+        this.membershipRole = null;
+        // How this request authenticated (one of AUTH_SOURCES); null until AuthenticateUser says.
+        this.authSource = null;
 
         this.config = {
             primary,
@@ -84,12 +104,28 @@ class User {
         return this.config.individualUserRequired;
     }
 
+    getAuthSource() {
+        return this.authSource;
+    }
+
+    setAuthSource(authSource) {
+        this.authSource = authSource ?? null;
+    }
+
     getOrgRole() {
         return this.orgRole;
     }
 
     setOrgRole(orgRole) {
         this.orgRole = orgRole ?? null;
+    }
+
+    getMembershipRole() {
+        return this.membershipRole;
+    }
+
+    setMembershipRole(membershipRole) {
+        this.membershipRole = membershipRole ?? null;
     }
 
     getIndividualUser() {
@@ -149,4 +185,4 @@ class User {
     }
 }
 
-module.exports = { User }; 
+module.exports = { User, AUTH_SOURCES }; 

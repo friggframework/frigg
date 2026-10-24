@@ -252,6 +252,7 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
             credentialRepository,
             moduleRepository,
             getCredentialForUser,
+            scopePolicy,
         }),
         getCredentialReauthorization: new GetCredentialReauthorization({
             getCredentialForUser,
@@ -260,6 +261,7 @@ function buildV2Dependencies({ appDefinition, config, entityTypeRegistry }) {
         reauthorizeCredentialForUser: new ReauthorizeCredentialForUser({
             getCredentialForUser,
             submitAuthorizationStep,
+            scopePolicy,
         }),
 
         // Authorization (multi-step)

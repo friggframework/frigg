@@ -25,6 +25,9 @@ const INDIVIDUAL_ACROSS_VALUES = Object.freeze(['organization', 'all']);
 const OWNER_RULES = Object.freeze(['derive', 'individual', 'organization']);
 const ACCESS = Object.freeze({ MANAGE: 'manage', USE: 'use', VIEW: 'view' });
 
+/** The organization roles that may manage organization-level things unless `user.orgAdminRoles` says. */
+const DEFAULT_ORG_ADMIN_ROLES = Object.freeze(['ADMIN']);
+
 /** Raised at app-definition load for an invalid ownership setting. */
 class OwnershipConfigError extends BaseError {
     constructor(message, options) {
@@ -180,6 +183,11 @@ const MISSING_ORGANIZATION =
 const missing = (message, field) =>
     Boom.badRequest(message, { code: 'IDENTITY_REQUIRED', details: { field } });
 
+const adminRequired = (what) =>
+    Boom.forbidden(`only an organization admin can ${what}`, {
+        code: 'ORG_ADMIN_REQUIRED',
+    });
+
 /**
  * The owner and organization for a new entity of `scope` (§3.2):
  *
@@ -200,6 +208,7 @@ function resolveOwnerForScope(scope, ctx) {
     }
     if (scope === SCOPES.ORGANIZATION) {
         if (!ctx.activeOrgId) throw missing(MISSING_ORGANIZATION, 'x-frigg-apporgid');
+        if (!ctx.canManageOrg) throw adminRequired('connect an organization-level account');
         return { scope, ownerId: ctx.activeOrgId, organizationId: ctx.activeOrgId };
     }
     throw Boom.forbidden(
@@ -229,6 +238,7 @@ function integrationOwnerKind(entityScopes, rule = 'derive') {
 function resolveIntegrationOwner(kind, ctx) {
     if (kind === SCOPES.ORGANIZATION) {
         if (!ctx.activeOrgId) throw missing(MISSING_ORGANIZATION, 'x-frigg-apporgid');
+        if (!ctx.canManageOrg) throw adminRequired('create an organization-level integration');
         return { ownerId: ctx.activeOrgId, organizationId: ctx.activeOrgId };
     }
     if (!ctx.callerId) throw missing(MISSING_INDIVIDUAL, 'x-frigg-appuserid');
@@ -263,6 +273,7 @@ module.exports = {
     INDIVIDUAL_ACROSS_VALUES,
     OWNER_RULES,
     ACCESS,
+    DEFAULT_ORG_ADMIN_ROLES,
     OwnershipConfigError,
     configError,
     isPlainObject,

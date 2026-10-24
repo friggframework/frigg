@@ -1,4 +1,6 @@
 const Boom = require('@hapi/boom');
+const { DEFAULT_SCOPE_POLICY } = require('../../modules/scope-policy');
+const { assertCanManage } = require('../../modules/use-cases/manage-access');
 
 /**
  * Re-authorization of a credential the caller owns (Management API v2). It
@@ -14,7 +16,11 @@ async function credentialEntityType(getCredentialForUser, credentialId, user) {
             { code: 'CREDENTIAL_TYPE_UNKNOWN' }
         );
     }
-    return { entityType: credential.type, credentialId: String(credential.id) };
+    return {
+        entityType: credential.type,
+        credentialId: String(credential.id),
+        ownerId: credential.userId,
+    };
 }
 
 /** GET /api/v2/credentials/:credentialId/reauthorize */
@@ -25,7 +31,7 @@ class GetCredentialReauthorization {
     }
 
     async execute(credentialId, user, { step = 1, sessionId, state } = {}) {
-        const binding = await credentialEntityType(
+        const { ownerId, ...binding } = await credentialEntityType(
             this.getCredentialForUser,
             credentialId,
             user
@@ -42,17 +48,21 @@ class GetCredentialReauthorization {
 
 /** POST /api/v2/credentials/:credentialId/reauthorize */
 class ReauthorizeCredentialForUser {
-    constructor({ getCredentialForUser, submitAuthorizationStep }) {
+    constructor({ getCredentialForUser, submitAuthorizationStep, scopePolicy }) {
+        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
         this.getCredentialForUser = getCredentialForUser;
         this.submitAuthorizationStep = submitAuthorizationStep;
     }
 
     async execute(credentialId, user, { data, step = 1, sessionId } = {}) {
-        const binding = await credentialEntityType(
+        const { ownerId, ...binding } = await credentialEntityType(
             this.getCredentialForUser,
             credentialId,
             user
         );
+        // A credential an organization owns: the organization's admins only.
+        const access = this.scopePolicy.accessToOwnedBy(user, ownerId);
+        if (access !== null) assertCanManage(access, `credential ${credentialId}`);
         return this.submitAuthorizationStep.execute({
             user,
             ...binding,

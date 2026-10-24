@@ -6,6 +6,8 @@ const user = (orgId) => ({
     getId: () => '7',
     getIndividualUser: () => ({ id: '7', organizationId: '99' }),
     getActiveOrganizationId: () => orgId,
+    getAuthSource: () => 'shared-secret',
+    getOrgRole: () => null,
 });
 
 const build = (registry) => {

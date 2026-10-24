@@ -295,9 +295,11 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
     } = useCases;
 
     // The owner of an integration the caller may reach (404 otherwise), which is
-    // what the id-and-owner use cases below expect.
-    const ownerOf = async (integrationId, user) =>
-        (await getOwnedIntegrationRecord.execute(integrationId, user)).userId;
+    // what the id-and-owner use cases below expect. `manage: true` is for
+    // changing or deleting: an organization's integration needs an admin (403).
+    const ownerOf = async (integrationId, user, options) =>
+        (await getOwnedIntegrationRecord.execute(integrationId, user, options))
+            .userId;
 
     router.route('/api/integrations').get(
         catchAsyncError(async (req, res) => {
@@ -349,7 +351,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
 
             const integration = await updateIntegration.execute(
                 req.params.integrationId,
-                await ownerOf(req.params.integrationId, user),
+                await ownerOf(req.params.integrationId, user, { manage: true }),
                 params.config
             );
             res.json(integration);
@@ -362,7 +364,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
             const params = checkRequiredParams(req.params, ['integrationId']);
             await deleteIntegrationForUser.execute(
                 params.integrationId,
-                await ownerOf(params.integrationId, user)
+                await ownerOf(params.integrationId, user, { manage: true })
             );
             res.status(204).json({});
         })

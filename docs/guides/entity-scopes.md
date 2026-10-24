@@ -109,7 +109,38 @@ delete, actions, test-auth) reach it through the same rule.
 
 `/entities` and `/integrations` carry `scope`, `owner: { type, id }`, `organizationId` and `access` on every record,
 and take `?scope=individual|organization` and `?owner=me|org` (a bad value is 400). `access` is `manage` for the
-person's own and the organization's (there are no organization roles yet) and `use` where only use is possible.
+person's own, and for the organization's when the caller is an organization admin (see Organization roles); it is
+`use` where only use is possible.
+
+## Organization roles
+
+Anyone in an organization may **use** its entities and integrations; only an organization **admin** may create,
+change or delete them. Creating an organization-owned entity or integration, deleting an organization entity,
+PATCH/DELETE of an organization integration, and re-authorizing or deleting an organization-owned credential are 403
+`ORG_ADMIN_REQUIRED` for anyone else. A person always manages what they own themselves, whatever their role.
+
+Who counts as an admin depends on how the caller authenticated (`user.getAuthSource()`):
+
+| Auth source | Manages the organization |
+|---|---|
+| `shared-secret` (the `x-frigg-*` headers; the adopter's backend vouches for the caller) | always |
+| `bearer-token` (Frigg's own `/user/login` token) | always, as before organization roles existed, unless the app sets `user.orgAdminGateBearerTokens: true`; then it is judged as `adopter-jwt` below, and since it carries no role and no membership role is read for it, it is a `MEMBER` |
+| `adopter-jwt` | when its role is one of `user.orgAdminRoles`. The role is the token's role claim; when the token carries none, the `orgRole` stored on the caller's `OrganizationMembership` for the active organization (a legacy-pointer membership counts as `MEMBER`); when there is none, `MEMBER` |
+
+**The token's role wins when it carries one**, so an IdP that demotes someone takes effect at once. The stored role
+matters for tokens without a role claim: the row keeps the role the person's first token in that organization carried
+(`MEMBER` if none), and an adopter may change it in the database. **A missing role is a `MEMBER`, never an admin.**
+
+Why bearer tokens are not gated by default: a Frigg bearer token never carries a role, and in an organization-primary
+app (whose default scope is `organization`) a gate would leave Frigg-UI users unable to connect anything, which was
+not true before this change. Bearer tokens in an organization-primary app are minted for the organization user itself,
+so treating them as the organization is the old meaning. An app that wants them gated opts in, knowing they will then
+be members.
+
+`user.orgAdminRoles` (default `['ADMIN']`, compared case-insensitively) is validated when the app definition
+loads: a non-empty array of non-empty strings. Entities and integrations take their access from `describeRecord`;
+credentials, which carry no organization of their own, from `scopePolicy.accessToOwnedBy(user, ownerId)`. Every gate
+goes through one check, `assertCanManage` in `modules/use-cases/manage-access.js`.
 
 **Credentials are not scoped in this change.** `/api/v2/credentials` still lists and fetches by owner, as before,
 so a credential owned by an organization user is not listed to an individual-primary caller. Listing credentials
@@ -187,7 +218,7 @@ both.
 ## Deferred
 
 - `managementApi.proxy.scopes` and the real-Postgres isolation suite (F6).
-- Organization roles (who may create, change or delete organization-level things), credential scoping, and the
+- Credential scoping, and the
   `ORPHANED` status with removing a member.
 - `GET /api/v2/me/organizations`, the org-admin `view` of members' individual entities.
 - Integrations that use global entities or both scopes, binding resolution at integration create (picking the entity

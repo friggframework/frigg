@@ -1,5 +1,7 @@
 const Boom = require('@hapi/boom');
 const { userOwns } = require('../../modules/use-cases/get-entity-module-for-user');
+const { DEFAULT_SCOPE_POLICY } = require('../../modules/scope-policy');
+const { assertCanManage } = require('../../modules/use-cases/manage-access');
 
 /**
  * Management API v2 credential operations. A credential has no module name
@@ -90,7 +92,8 @@ class GetCredentialForUserV2 {
  * than disappearing from integrations.
  */
 class DeleteCredentialForUser {
-    constructor({ credentialRepository, moduleRepository, getCredentialForUser }) {
+    constructor({ credentialRepository, moduleRepository, getCredentialForUser, scopePolicy }) {
+        this.scopePolicy = scopePolicy || DEFAULT_SCOPE_POLICY;
         this.credentialRepository = credentialRepository;
         this.moduleRepository = moduleRepository;
         this.getCredentialForUser = getCredentialForUser;
@@ -101,6 +104,11 @@ class DeleteCredentialForUser {
             credentialId,
             user
         );
+        // A credential an organization owns: the organization's admins only.
+        // (null: not the person's or the active organization's, which the
+        // owner check above already decided.)
+        const access = this.scopePolicy.accessToOwnedBy(user, credential.userId);
+        if (access !== null) assertCanManage(access, `credential ${credential.id}`);
         for (const entityId of credential.entityIds) {
             await this.moduleRepository.unsetCredential(entityId);
         }

@@ -115,6 +115,18 @@
           "description": "DEPRECATED alias of strictMembership; its meaning changed.",
           "default": false
         },
+        "orgAdminRoles": {
+          "type": "array",
+          "description": "Organization roles that may manage organization-level things: connect or delete an organization-level account, re-authorize or delete its credential, create, change or delete an organization-owned integration (ADR-056 §3). The role is the adopter token's role claim; when the token carries none, the role stored on the caller's membership of the active organization (OrganizationMembership.orgRole); when there is none, MEMBER, never admin. A shared-secret (x-frigg header) caller needs no role, and so does a Frigg bearer token unless orgAdminGateBearerTokens is true. Compared case-insensitively.",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "default": ["ADMIN"]
+        },
+        "orgAdminGateBearerTokens": {
+          "type": "boolean",
+          "description": "Judge Frigg bearer-token callers (/user/login) by organization role like adopter-token callers. Default false: a bearer token carries no role and keeps its behaviour from before organization roles, so it may manage the organization it acts in.",
+          "default": false
+        },
         "authModes": {
           "type": "object",
           "description": "Authentication mode configuration - enables multiple authentication strategies. x-frigg-appUserId and x-frigg-appOrgId headers are automatically supported for user identification with any auth mode.",

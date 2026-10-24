@@ -21,7 +21,7 @@ describe('AuthenticateUser logs (ADR-048)', () => {
         consoleSpies = ['log', 'info', 'warn', 'error', 'debug'].map((m) =>
             jest.spyOn(console, m).mockImplementation(() => {})
         );
-        user = { getAppUserId: () => 'app-user-1', getAppOrgId: () => null };
+        user = { getAppUserId: () => 'app-user-1', getAppOrgId: () => null, setAuthSource: () => {} };
         deps = {
             getUserFromBearerToken: {
                 execute: jest.fn().mockResolvedValue(user),
