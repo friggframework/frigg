@@ -384,6 +384,6 @@ The validator checks:
 
 ## Related Documentation
 
-- [JSON Schema](/packages/schemas/schemas/api-module-definition.schema.json) - Canonical schema definition
-- [Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md) - Sync, queue, and webhook patterns
-- [Encryption README](/packages/core/database/encryption/README.md) - Field-level encryption details
+- [JSON Schema](https://github.com/friggframework/frigg/blob/next/packages/schemas/schemas/api-module-definition.schema.json) - Canonical schema definition
+- [Integration Patterns Guide](../guides/INTEGRATION-PATTERNS.md) - Sync, queue, and webhook patterns
+- [Encryption README](https://github.com/friggframework/frigg/blob/next/packages/core/database/encryption/README.md) - Field-level encryption details
