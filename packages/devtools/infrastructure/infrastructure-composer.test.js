@@ -35,7 +35,28 @@ jest.mock('./domains/shared/resource-discovery', () => {
     };
 });
 
+// The Prisma layer build runs `npm install` into packages/devtools/layers/prisma;
+// a unit test must never do that (it took ~40 s and rewrote tracked files).
+jest.mock('./domains/shared/utilities/prisma-layer-manager', () => ({
+    ensurePrismaLayerExists: jest.fn().mockResolvedValue(undefined),
+}));
+
 const { gatherDiscoveredResources } = require('./domains/shared/resource-discovery');
+
+// The orchestrator logs each builder's validation errors, then throws one
+// summary error; assert both.
+async function expectValidationError(appDefinition, message) {
+    const logSpy = jest.spyOn(console, 'log');
+    try {
+        await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
+            'Infrastructure validation failed'
+        );
+        const logged = logSpy.mock.calls.map((args) => args.join(' ')).join('\n');
+        expect(logged).toContain(message);
+    } finally {
+        logSpy.mockRestore();
+    }
+}
 
 describe('composeServerlessDefinition', () => {
     let mockIntegration;
@@ -65,21 +86,11 @@ describe('composeServerlessDefinition', () => {
         process.argv = ['node', 'test'];
     });
 
+    // Whether discovery actually talks to AWS (no features need it, or
+    // FRIGG_SKIP_AWS_DISCOVERY=true) is decided inside gatherDiscoveredResources
+    // by shouldRunDiscovery(); see domains/shared/resource-discovery.test.js.
+    // The composer always calls it, so these tests only check the call happens.
     describe('AWS discovery gating', () => {
-        it('should skip AWS discovery when no features require it', async () => {
-            gatherDiscoveredResources.mockClear();
-
-            const appDefinition = {
-                integrations: [],
-                vpc: { enable: false },
-                encryption: { fieldLevelEncryptionMethod: 'aes' },
-                ssm: { enable: false },
-            };
-
-            await composeServerlessDefinition(appDefinition);
-
-            expect(gatherDiscoveredResources).not.toHaveBeenCalled();
-        });
 
         it('should run AWS discovery when VPC features are enabled', async () => {
             gatherDiscoveredResources.mockClear();
@@ -92,22 +103,6 @@ describe('composeServerlessDefinition', () => {
             await composeServerlessDefinition(appDefinition);
 
             expect(gatherDiscoveredResources).toHaveBeenCalledTimes(1);
-        });
-
-        it('should skip AWS discovery when FRIGG_SKIP_AWS_DISCOVERY is set to true', async () => {
-            gatherDiscoveredResources.mockClear();
-            process.env.FRIGG_SKIP_AWS_DISCOVERY = 'true';
-
-            const appDefinition = {
-                integrations: [],
-                vpc: { enable: true },
-                encryption: { fieldLevelEncryptionMethod: 'kms' },
-                ssm: { enable: true },
-            };
-
-            await composeServerlessDefinition(appDefinition);
-
-            expect(gatherDiscoveredResources).not.toHaveBeenCalled();
         });
 
         it('should run AWS discovery when FRIGG_SKIP_AWS_DISCOVERY is not set', async () => {
@@ -420,11 +415,15 @@ describe('composeServerlessDefinition', () => {
         });
 
         it('should respect provided security group IDs when supplied', async () => {
+            // User-supplied security groups are honoured for an existing VPC
+            // (vpc.management 'use-existing'); every ID is attached, not just the first.
             const appDefinition = {
                 vpc: {
                     enable: true,
-                    management: 'discover',
+                    management: 'use-existing',
+                    vpcId: 'vpc-123456',
                     securityGroupIds: ['sg-custom-1', 'sg-custom-2'],
+                    subnets: { ids: ['subnet-123456', 'subnet-789012'] },
                 },
                 integrations: [],
             };
@@ -438,27 +437,25 @@ describe('composeServerlessDefinition', () => {
         });
 
         it('should throw when discover mode finds no subnets and self-heal is disabled', async () => {
-            const discoveryInstance = {
-                discoverResources: jest.fn().mockResolvedValue(
-                    createDiscoveryResponse({
-                        privateSubnetId1: null,
-                        privateSubnetId2: null,
-                    })
-                ),
-            };
-            AWSDiscovery.mockImplementation(() => discoveryInstance);
+            gatherDiscoveredResources.mockResolvedValue(
+                createDiscoveryResponse({
+                    privateSubnetId1: null,
+                    privateSubnetId2: null,
+                })
+            );
 
             const appDefinition = {
                 vpc: {
                     enable: true,
                     management: 'discover',
+                    selfHeal: false,
                     subnets: { management: 'discover' },
                 },
                 integrations: [],
             };
 
             await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
-                'No subnets discovered and subnets.management is "discover". Either enable vpc.selfHeal, set subnets.management to "create", or provide subnet IDs.'
+                'No subnets discovered. Enable vpc.selfHeal, set subnets.management to "create", or provide subnet IDs.'
             );
         });
 
@@ -492,6 +489,11 @@ describe('composeServerlessDefinition', () => {
         });
 
         it('should create route tables for subnets even without NAT Gateway management', async () => {
+            // A fresh account: nothing to reuse, so the stack builds its own routing.
+            gatherDiscoveredResources.mockResolvedValue(
+                createDiscoveryResponse({ existingNatGatewayId: null })
+            );
+
             const appDefinition = {
                 vpc: {
                     enable: true,
@@ -510,7 +512,7 @@ describe('composeServerlessDefinition', () => {
             expect(result.resources.Resources.FriggLambdaRouteTable).toBeDefined();
 
             // Verify subnet associations
-            expect(result.resources.Resources.FriggPublicSubnetRouteTableAssociation).toBeDefined();
+            expect(result.resources.Resources.FriggPublicSubnet1RouteTableAssociation).toBeDefined();
             expect(result.resources.Resources.FriggPrivateSubnet1RouteTableAssociation).toBeDefined();
             expect(result.resources.Resources.FriggPrivateSubnet2RouteTableAssociation).toBeDefined();
         });
@@ -524,8 +526,9 @@ describe('composeServerlessDefinition', () => {
                 integrations: []
             };
 
-            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
-                'VPC management is set to "use-existing" but no vpcId was provided'
+            await expectValidationError(
+                appDefinition,
+                'vpc.vpcId is required when management="use-existing"'
             );
         });
 
@@ -553,9 +556,11 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            expect(result.resources.Resources.VPCEndpointS3).toBeDefined();
-            expect(result.resources.Resources.VPCEndpointS3.Type).toBe('AWS::EC2::VPCEndpoint');
-            expect(result.resources.Resources.VPCEndpointS3.Properties.VpcId).toBe('vpc-123456');
+            const s3Endpoint = result.resources.Resources.FriggS3VPCEndpoint;
+            expect(s3Endpoint).toBeDefined();
+            expect(s3Endpoint.Type).toBe('AWS::EC2::VPCEndpoint');
+            expect(s3Endpoint.Properties.VpcId).toBe('vpc-123456');
+            expect(s3Endpoint.Properties.VpcEndpointType).toBe('Gateway');
         });
 
         it('should skip creating VPC endpoints when disabled explicitly', async () => {
@@ -570,9 +575,9 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            expect(result.resources.Resources.VPCEndpointS3).toBeUndefined();
-            expect(result.resources.Resources.VPCEndpointKMS).toBeUndefined();
-            expect(result.resources.Resources.VPCEndpointSecretsManager).toBeUndefined();
+            expect(result.resources.Resources.FriggS3VPCEndpoint).toBeUndefined();
+            expect(result.resources.Resources.FriggKMSVPCEndpoint).toBeUndefined();
+            expect(result.resources.Resources.FriggSecretsManagerVPCEndpoint).toBeUndefined();
         });
 
         it('should add Secrets Manager endpoint only when enabled', async () => {
@@ -588,7 +593,8 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            expect(result.resources.Resources.VPCEndpointSecretsManager).toBeDefined();
+            expect(result.resources.Resources.FriggSecretsManagerVPCEndpoint).toBeDefined();
+            expect(result.resources.Resources.FriggKMSVPCEndpoint).toBeDefined();
         });
 
         it('should allow Lambda security group access for VPC endpoints when security group is discovered', async () => {
@@ -602,7 +608,7 @@ describe('composeServerlessDefinition', () => {
             };
 
             const result = await composeServerlessDefinition(appDefinition);
-            const endpointSg = result.resources.Resources.VPCEndpointSecurityGroup;
+            const endpointSg = result.resources.Resources.FriggVPCEndpointSecurityGroup;
 
             expect(endpointSg).toBeDefined();
             expect(endpointSg.Properties.SecurityGroupIngress).toEqual([
@@ -611,81 +617,39 @@ describe('composeServerlessDefinition', () => {
                     FromPort: 443,
                     ToPort: 443,
                     SourceSecurityGroupId: 'sg-123456',
-                    Description: 'HTTPS from Lambda security group'
+                    Description: 'HTTPS from Lambda'
                 }
             ]);
         });
 
-        it('should fall back to VPC CIDR when Lambda security group identifier cannot be resolved', async () => {
-            AWSDiscovery.mockImplementation(() => ({
-                discoverResources: jest
-                    .fn()
-                    .mockResolvedValue(createDiscoveryResponse()),
-            }));
-
+        it('should pass an imported Lambda security group through to the endpoint ingress rule', async () => {
+            // CloudFormation resolves Fn::ImportValue to the group ID at deploy
+            // time, so the endpoint SG can reference it directly (the old
+            // VPC-CIDR fallback for unresolvable groups is no longer needed).
+            const importedSg = { 'Fn::ImportValue': 'shared-lambda-security-group' };
             const appDefinition = {
                 vpc: {
                     enable: true,
-                    management: 'discover',
-                    securityGroupIds: [
-                        {
-                            'Fn::ImportValue': 'shared-lambda-security-group',
-                        },
-                    ],
+                    management: 'use-existing',
+                    vpcId: 'vpc-123456',
+                    securityGroupIds: [importedSg],
+                    subnets: { ids: ['subnet-123456', 'subnet-789012'] },
                 },
                 encryption: { fieldLevelEncryptionMethod: 'kms' },
                 integrations: [],
             };
 
             const result = await composeServerlessDefinition(appDefinition);
-            const endpointSg = result.resources.Resources.VPCEndpointSecurityGroup;
+            const endpointSg = result.resources.Resources.FriggVPCEndpointSecurityGroup;
 
-            expect(endpointSg).toBeDefined();
+            expect(result.provider.vpc.securityGroupIds).toEqual([importedSg]);
             expect(endpointSg.Properties.SecurityGroupIngress).toEqual([
                 {
                     IpProtocol: 'tcp',
                     FromPort: 443,
                     ToPort: 443,
-                    CidrIp: '172.31.0.0/16',
-                    Description: 'HTTPS from VPC CIDR (fallback)',
-                },
-            ]);
-        });
-
-        it('should fall back to default private ranges when neither Lambda security group nor VPC CIDR is available', async () => {
-            AWSDiscovery.mockImplementation(() => ({
-                discoverResources: jest
-                    .fn()
-                    .mockResolvedValue(
-                        createDiscoveryResponse({ vpcCidr: null })
-                    ),
-            }));
-
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    management: 'discover',
-                    securityGroupIds: [
-                        {
-                            'Fn::ImportValue': 'shared-lambda-security-group',
-                        },
-                    ],
-                },
-                encryption: { fieldLevelEncryptionMethod: 'kms' },
-                integrations: [],
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-            const endpointSg = result.resources.Resources.VPCEndpointSecurityGroup;
-
-            expect(endpointSg).toBeDefined();
-            expect(endpointSg.Properties.SecurityGroupIngress).toEqual([
-                {
-                    IpProtocol: 'tcp',
-                    FromPort: 443,
-                    ToPort: 443,
-                    CidrIp: '172.31.0.0/16',
-                    Description: 'HTTPS from default VPC range',
+                    SourceSecurityGroupId: importedSg,
+                    Description: 'HTTPS from Lambda',
                 },
             ]);
         });
@@ -710,14 +674,7 @@ describe('composeServerlessDefinition', () => {
                     FromPort: 443,
                     ToPort: 443,
                     SourceSecurityGroupId: { Ref: 'FriggLambdaSecurityGroup' },
-                    Description: 'HTTPS from Lambda security group'
-                },
-                {
-                    IpProtocol: 'tcp',
-                    FromPort: 443,
-                    ToPort: 443,
-                    CidrIp: '10.0.0.0/16',
-                    Description: 'HTTPS from VPC CIDR (fallback)'
+                    Description: 'HTTPS from Lambda'
                 }
             ]);
         });
@@ -731,7 +688,7 @@ describe('composeServerlessDefinition', () => {
             const result = await composeServerlessDefinition(appDefinition);
 
             expect(result.provider.vpc).toBeUndefined();
-            expect(result.resources.Resources.VPCEndpointS3).toBeUndefined();
+            expect(result.resources.Resources.FriggS3VPCEndpoint).toBeUndefined();
         });
 
         it('should not add VPC configuration when vpc is not defined', async () => {
@@ -745,116 +702,87 @@ describe('composeServerlessDefinition', () => {
         });
     });
 
+    // NAT placement rules (never reuse a NAT in a private subnet, self-heal,
+    // EIP reuse, route-table association repair) are VpcBuilder decisions and
+    // are covered in domains/networking/vpc-builder.test.js ('NAT Gateway
+    // handling') and vpc-resolver.test.js. These check the composed template.
     describe('NAT Gateway behaviour', () => {
-        it('should reuse discovered NAT gateway in discover mode without creating new resources', async () => {
-            const discoveryInstance = {
-                discoverResources: jest.fn().mockResolvedValue(
-                    createDiscoveryResponse({
-                        existingNatGatewayId: 'nat-existing123',
-                        natGatewayInPrivateSubnet: false,
-                    })
-                ),
-            };
-            AWSDiscovery.mockImplementation(() => discoveryInstance);
+        it('should route through a discovered NAT gateway without creating a new one', async () => {
+            gatherDiscoveredResources.mockResolvedValue(
+                createDiscoveryResponse({
+                    existingNatGatewayId: 'nat-existing123',
+                    natGatewayInPrivateSubnet: false,
+                })
+            );
 
-            const appDefinition = {
+            const result = await composeServerlessDefinition({
                 vpc: {
                     enable: true,
                     management: 'discover',
                     natGateway: { management: 'discover' },
                 },
                 integrations: [],
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
+            });
 
             expect(result.resources.Resources.FriggNATGateway).toBeUndefined();
-            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
+            expect(result.resources.Resources.FriggPrivateRoute.Properties).toEqual({
+                RouteTableId: { Ref: 'FriggLambdaRouteTable' },
+                DestinationCidrBlock: '0.0.0.0/0',
+                NatGatewayId: 'nat-existing123',
+            });
         });
 
-        it('should reference provided NAT gateway when management set to useExisting', async () => {
-            const discoveryInstance = {
-                discoverResources: jest.fn().mockResolvedValue(
-                    createDiscoveryResponse({ existingNatGatewayId: null })
-                ),
-            };
-            AWSDiscovery.mockImplementation(() => discoveryInstance);
+        it('should route through a provided NAT gateway ID', async () => {
+            gatherDiscoveredResources.mockResolvedValue(
+                createDiscoveryResponse({ existingNatGatewayId: null })
+            );
 
-            const appDefinition = {
+            const result = await composeServerlessDefinition({
                 vpc: {
                     enable: true,
                     management: 'discover',
                     natGateway: { management: 'useExisting', id: 'nat-custom-001' },
                 },
                 integrations: [],
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
+            });
 
             expect(result.resources.Resources.FriggNATGateway).toBeUndefined();
-            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId).toBe('nat-custom-001');
-        });
-
-        it('should reuse existing elastic IP allocation when creating managed NAT', async () => {
-            const discoveryInstance = {
-                discoverResources: jest.fn().mockResolvedValue(
-                    createDiscoveryResponse({
-                        existingNatGatewayId: null,
-                        existingElasticIpAllocationId: 'eip-alloc-123',
-                    })
-                ),
-            };
-            AWSDiscovery.mockImplementation(() => discoveryInstance);
-
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    management: 'discover',
-                    natGateway: { management: 'createAndManage' },
-                    selfHeal: true,
-                },
-                integrations: [],
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            expect(result.resources.Resources.FriggNATGatewayEIP).toBeUndefined();
-            expect(result.resources.Resources.FriggNATGateway.Properties.AllocationId).toBe(
-                'eip-alloc-123'
+            expect(result.resources.Resources.FriggPrivateRoute.Properties.NatGatewayId).toBe(
+                'nat-custom-001'
             );
         });
 
-        it('should create a public subnet when discovery provides none', async () => {
-            const discoveryInstance = {
-                discoverResources: jest.fn().mockResolvedValue(
-                    createDiscoveryResponse({
-                        publicSubnetId: null,
-                        internetGatewayId: null,
-                        existingNatGatewayId: null,
-                    })
-                ),
-            };
-            AWSDiscovery.mockImplementation(() => discoveryInstance);
+        it('should create a retained NAT gateway in a public subnet with createAndManage', async () => {
+            gatherDiscoveredResources.mockResolvedValue(
+                createDiscoveryResponse({ existingNatGatewayId: null })
+            );
 
-            const appDefinition = {
+            const result = await composeServerlessDefinition({
                 vpc: {
                     enable: true,
                     management: 'discover',
                     natGateway: { management: 'createAndManage' },
-                    selfHeal: true,
                 },
                 integrations: [],
-            };
+            });
 
-            const result = await composeServerlessDefinition(appDefinition);
-
-            expect(result.resources.Resources.FriggPublicSubnet).toBeDefined();
-            expect(result.resources.Resources.FriggPublicRouteTable).toBeDefined();
+            const resources = result.resources.Resources;
+            expect(resources.FriggNATGateway.Type).toBe('AWS::EC2::NatGateway');
+            expect(resources.FriggNATGateway.DeletionPolicy).toBe('Retain');
+            expect(resources.FriggNATGateway.UpdateReplacePolicy).toBe('Retain');
+            expect(resources.FriggNATGateway.Properties.SubnetId).toBe('subnet-public-1');
+            expect(resources.FriggNATGatewayEIP).toBeDefined();
+            expect(resources.FriggPublicRoute).toBeDefined();
+            expect(resources.FriggPrivateRoute.Properties.NatGatewayId).toEqual({
+                Ref: 'FriggNATGateway',
+            });
         });
     });
 
     describe('KMS Configuration', () => {
         it('should add KMS configuration when encryption is enabled and key is found', async () => {
+            const keyArn =
+                'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012';
             const appDefinition = {
                 encryption: { fieldLevelEncryptionMethod: 'kms' },
                 integrations: []
@@ -862,7 +790,8 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            // Check IAM permissions
+            // IAM: the Lambda role uses the discovered key directly (no
+            // serverless-kms-grants plugin, which KmsBuilder no longer uses).
             const kmsPermission = result.provider.iamRoleStatements.find(
                 statement => statement.Action.includes('kms:GenerateDataKey')
             );
@@ -870,49 +799,26 @@ describe('composeServerlessDefinition', () => {
                 Effect: 'Allow',
                 Action: [
                     'kms:GenerateDataKey',
-                    'kms:Decrypt'
+                    'kms:Decrypt',
+                    'kms:Encrypt',
+                    'kms:DescribeKey'
                 ],
-                Resource: ['arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012']
+                Resource: keyArn
             });
 
-            // Check environment variable
-            expect(result.provider.environment.KMS_KEY_ARN).toBe('arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012');
-
-            // Check plugin
-            expect(result.plugins).toContain('serverless-kms-grants');
-
-            // Check custom configuration
-            expect(result.custom.kmsGrants).toEqual({
-                kmsKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012'
-            });
-
-            // Check KMS Alias resource is created for discovered key
-            expect(result.resources.Resources.FriggKMSKeyAlias).toBeDefined();
-            expect(result.resources.Resources.FriggKMSKeyAlias).toEqual({
-                Type: 'AWS::KMS::Alias',
-                DeletionPolicy: 'Retain',
-                Properties: {
-                    AliasName: 'alias/${self:service}-${self:provider.stage}-frigg-kms',
-                    TargetKeyId: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012'
-                }
-            });
+            expect(result.provider.environment.KMS_KEY_ARN).toBe(keyArn);
+            expect(result.plugins).not.toContain('serverless-kms-grants');
+            expect(result.custom.kmsGrants).toBeUndefined();
+            // A discovered key is referenced, not re-declared in the stack.
+            expect(result.resources.Resources.FriggKMSKey).toBeUndefined();
         });
 
         it('should create new KMS key when encryption is enabled, no key found, and createResourceIfNoneFound is true', async () => {
-            // Mock AWS discovery to return no KMS key
-            const { AWSDiscovery } = require('./aws-discovery');
-            const mockDiscoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-123456',
-                privateSubnetId2: 'subnet-789012',
-                publicSubnetId: 'subnet-public',
-                defaultRouteTableId: 'rtb-123456',
-                defaultKmsKeyId: null // No KMS key found
-            });
-            AWSDiscovery.mockImplementation(() => ({
-                discoverResources: mockDiscoverResources
-            }));
+            // Key policy, rotation and alias details are covered in
+            // domains/security/kms-builder.test.js.
+            gatherDiscoveredResources.mockResolvedValue(
+                createDiscoveryResponse({ defaultKmsKeyId: null })
+            );
 
             const appDefinition = {
                 encryption: {
@@ -924,116 +830,25 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            // Check that KMS key resource was created with DeletionPolicy
-            expect(result.resources.Resources.FriggKMSKey).toEqual({
-                Type: 'AWS::KMS::Key',
-                DeletionPolicy: 'Retain',
-                UpdateReplacePolicy: 'Retain',
-                Properties: {
-                    EnableKeyRotation: true,
-                    Description: 'Frigg KMS key for field-level encryption',
-                    KeyPolicy: {
-                        Version: '2012-10-17',
-                        Statement: [
-                            {
-                                Sid: 'AllowRootAccountAdmin',
-                                Effect: 'Allow',
-                                Principal: {
-                                    AWS: {
-                                        'Fn::Sub': 'arn:aws:iam::${AWS::AccountId}:root'
-                                    }
-                                },
-                                Action: 'kms:*',
-                                Resource: '*'
-                            },
-                            {
-                                Sid: 'AllowLambdaService',
-                                Effect: 'Allow',
-                                Principal: {
-                                    Service: 'lambda.amazonaws.com'
-                                },
-                                Action: [
-                                    'kms:GenerateDataKey',
-                                    'kms:Decrypt',
-                                    'kms:DescribeKey'
-                                ],
-                                Resource: '*',
-                                Condition: {
-                                    StringEquals: {
-                                        'kms:ViaService': 'lambda.us-east-1.amazonaws.com'
-                                    }
-                                }
-                            }
-                        ]
-                    },
-                    Tags: [
-                        {
-                            Key: 'Name',
-                            Value: '${self:service}-${self:provider.stage}-frigg-kms-key'
-                        },
-                        {
-                            Key: 'ManagedBy',
-                            Value: 'Frigg'
-                        },
-                        {
-                            Key: 'Purpose',
-                            Value: 'Field-level encryption for Frigg application'
-                        }
-                    ]
-                }
-            });
+            const key = result.resources.Resources.FriggKMSKey;
+            expect(key.Type).toBe('AWS::KMS::Key');
+            expect(key.DeletionPolicy).toBe('Retain');
+            expect(key.Properties.EnableKeyRotation).toBe(true);
 
-            // Check KMS Alias resource is created for the new key
-            expect(result.resources.Resources.FriggKMSKeyAlias).toBeDefined();
-            expect(result.resources.Resources.FriggKMSKeyAlias).toEqual({
-                Type: 'AWS::KMS::Alias',
-                DeletionPolicy: 'Retain',
-                Properties: {
-                    AliasName: 'alias/${self:service}-${self:provider.stage}-frigg-kms',
-                    TargetKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }
-                }
-            });
-
-            // Check IAM permissions for the new key
+            const keyRef = { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] };
             const kmsPermission = result.provider.iamRoleStatements.find(
                 statement => statement.Action.includes('kms:GenerateDataKey')
             );
-            expect(kmsPermission).toEqual({
-                Effect: 'Allow',
-                Action: ['kms:GenerateDataKey', 'kms:Decrypt'],
-                Resource: [{ 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }]
-            });
-
-            // Check environment variable
-            expect(result.provider.environment.KMS_KEY_ARN).toEqual({
-                'Fn::GetAtt': ['FriggKMSKey', 'Arn']
-            });
-
-            // Check plugin
-            expect(result.plugins).toContain('serverless-kms-grants');
-
-            // Check custom configuration
-            // When creating a new key, it should reference the CloudFormation resource
-            expect(result.custom.kmsGrants).toEqual({
-                kmsKeyId: { 'Fn::GetAtt': ['FriggKMSKey', 'Arn'] }
-            });
+            expect(kmsPermission.Resource).toEqual(keyRef);
+            expect(result.provider.environment.KMS_KEY_ARN).toEqual(keyRef);
         });
 
-        it('should throw error when encryption is enabled, no key found, and createResourceIfNoneFound is false', async () => {
-            // Mock AWS discovery to return no KMS key
-            const { AWSDiscovery } = require('./aws-discovery');
-            const mockDiscoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-123456',
-                privateSubnetId2: 'subnet-789012',
-                publicSubnetId: 'subnet-public',
-                defaultRouteTableId: 'rtb-123456',
-                defaultKmsKeyId: null // No KMS key found
-            });
-            AWSDiscovery.mockImplementation(() => ({
-                discoverResources: mockDiscoverResources
-            }));
+        it('should fall back to the AWS_DISCOVERY_KMS_KEY_ID env reference when encryption is enabled, no key found, and createResourceIfNoneFound is false', async () => {
+            // KmsBuilder no longer fails the build: it points the app at the
+            // key ID the deploy environment provides (AWS_DISCOVERY_KMS_KEY_ID).
+            gatherDiscoveredResources.mockResolvedValue(
+                createDiscoveryResponse({ defaultKmsKeyId: null })
+            );
 
             const appDefinition = {
                 encryption: {
@@ -1043,27 +858,22 @@ describe('composeServerlessDefinition', () => {
                 integrations: []
             };
 
-            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
-                'KMS field-level encryption is enabled but no KMS key was found. ' +
-                'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
+            const result = await composeServerlessDefinition(appDefinition);
+
+            // An explicit `false` keeps the legacy raw env reference (see
+            // kms-builder.test.js 'Error handling').
+            expect(result.resources.Resources.FriggKMSKey).toBeUndefined();
+            expect(result.provider.environment.KMS_KEY_ARN).toBe(
+                '${env:AWS_DISCOVERY_KMS_KEY_ID}'
             );
         });
 
-        it('should throw error when encryption is enabled, no key found, and createResourceIfNoneFound is not specified', async () => {
-            // Mock AWS discovery to return no KMS key
-            const { AWSDiscovery } = require('./aws-discovery');
-            const mockDiscoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-123456',
-                privateSubnetId2: 'subnet-789012',
-                publicSubnetId: 'subnet-public',
-                defaultRouteTableId: 'rtb-123456',
-                defaultKmsKeyId: null // No KMS key found
-            });
-            AWSDiscovery.mockImplementation(() => ({
-                discoverResources: mockDiscoverResources
-            }));
+        it('should fall back to the AWS_DISCOVERY_KMS_KEY_ID env reference when encryption is enabled, no key found, and createResourceIfNoneFound is not specified', async () => {
+            // KmsBuilder no longer fails the build: it points the app at the
+            // key ID the deploy environment provides (AWS_DISCOVERY_KMS_KEY_ID).
+            gatherDiscoveredResources.mockResolvedValue(
+                createDiscoveryResponse({ defaultKmsKeyId: null })
+            );
 
             const appDefinition = {
                 encryption: {
@@ -1073,10 +883,12 @@ describe('composeServerlessDefinition', () => {
                 integrations: []
             };
 
-            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
-                'KMS field-level encryption is enabled but no KMS key was found. ' +
-                'Either provide an existing KMS key or set encryption.createResourceIfNoneFound to true to create a new key.'
-            );
+            const result = await composeServerlessDefinition(appDefinition);
+
+            const fallbackArn =
+                'arn:aws:kms:${self:provider.region}:${aws:accountId}:key/${env:AWS_DISCOVERY_KMS_KEY_ID}';
+            expect(result.resources.Resources.FriggKMSKey).toBeUndefined();
+            expect(result.provider.environment.KMS_KEY_ARN).toBe(fallbackArn);
         });
 
         it('should not add KMS configuration when encryption is disabled', async () => {
@@ -1234,8 +1046,9 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            // Check integration function
-            expect(result.functions.testIntegration).toEqual({
+            // Check integration function (packaging/layers are covered by the
+            // base-definition and integration-builder tests)
+            expect(result.functions.testIntegration).toEqual(expect.objectContaining({
                 handler: 'node_modules/@friggframework/core/handlers/routers/integration-defined-routers.handlers.testIntegration.handler',
                 events: [{
                     httpApi: {
@@ -1243,7 +1056,7 @@ describe('composeServerlessDefinition', () => {
                         method: 'ANY'
                     }
                 }]
-            });
+            }));
 
             // Check SQS Queue
             expect(result.resources.Resources.TestIntegrationQueue).toEqual({
@@ -1262,7 +1075,7 @@ describe('composeServerlessDefinition', () => {
             });
 
             // Check Queue Worker
-            expect(result.functions.testIntegrationQueueWorker).toEqual({
+            expect(result.functions.testIntegrationQueueWorker).toEqual(expect.objectContaining({
                 handler: 'node_modules/@friggframework/core/handlers/workers/integration-defined-workers.handlers.testIntegration.queueWorker',
                 reservedConcurrency: 20,
                 events: [{
@@ -1274,8 +1087,9 @@ describe('composeServerlessDefinition', () => {
                         functionResponseType: 'ReportBatchItemFailures'
                     }
                 }],
-                timeout: 600
-            });
+                // Lambda maximum; the queue's VisibilityTimeout stays above it
+                timeout: 900
+            }));
 
             // Check environment variable
             expect(result.provider.environment.TESTINTEGRATION_QUEUE_URL).toEqual({
@@ -1312,146 +1126,20 @@ describe('composeServerlessDefinition', () => {
         const fs = require('fs');
         const path = require('path');
 
-        it('should rewrite handler paths in offline mode', async () => {
+        it('should keep node_modules handler paths in offline mode', async () => {
+            // serverless-offline resolves node_modules from the working
+            // directory, so handler paths are no longer rewritten to ../node_modules.
             process.argv = ['node', 'test', 'offline'];
-            const existsSpy = jest.spyOn(fs, 'existsSync');
-            const fallbackNodeModules = path.resolve(process.cwd(), '..', 'node_modules');
-            existsSpy.mockImplementation((p) => p === fallbackNodeModules);
 
-            const appDefinition = { integrations: [] };
+            const result = await composeServerlessDefinition({ integrations: [] });
 
-            const result = await composeServerlessDefinition(appDefinition);
-
-            expect(existsSpy).toHaveBeenCalled();
-            expect(result.functions.auth.handler.startsWith('../node_modules/')).toBe(true);
-
-            existsSpy.mockRestore();
+            expect(result.functions.auth.handler).toBe(
+                'node_modules/@friggframework/core/handlers/routers/auth.handler'
+            );
         });
     });
 
     describe('NAT Gateway Management', () => {
-        it('should handle NAT Gateway with createAndManage mode', async () => {
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    management: 'discover',
-                    natGateway: {
-                        management: 'createAndManage'
-                    }
-                },
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            expect(result.resources.Resources.FriggLambdaRouteTable).toBeDefined();
-            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
-        });
-
-        it('should mark managed NAT Gateway resources for retention', async () => {
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    management: 'discover',
-                    natGateway: { management: 'createAndManage' },
-                    selfHeal: true,
-                },
-                integrations: [],
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            expect(result.resources.Resources.FriggNATGateway).toBeDefined();
-            expect(result.resources.Resources.FriggNATGateway.DeletionPolicy).toBe('Retain');
-            expect(result.resources.Resources.FriggNATGateway.UpdateReplacePolicy).toBe('Retain');
-        });
-
-        it('should handle NAT Gateway with discover mode', async () => {
-            // Mock discovery to return existing NAT Gateway
-            const { AWSDiscovery } = require('./aws-discovery');
-            const mockDiscoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-123456',
-                privateSubnetId2: 'subnet-789012',
-                publicSubnetId: 'subnet-public',
-                defaultRouteTableId: 'rtb-123456',
-                defaultKmsKeyId: null,
-                existingNatGatewayId: 'nat-existing123'
-            });
-            AWSDiscovery.mockImplementation(() => ({
-                discoverResources: mockDiscoverResources
-            }));
-
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    management: 'discover',
-                    natGateway: {
-                        management: 'discover'
-                    }
-                },
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
-            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId).toBe('nat-existing123');
-        });
-
-        it('should handle NAT Gateway with useExisting mode and provided ID', async () => {
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    management: 'discover',
-                    natGateway: {
-                        management: 'useExisting',
-                        id: 'nat-custom456'
-                    }
-                },
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
-            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId).toBe('nat-custom456');
-        });
-
-        it('should throw error when NAT Gateway not found in discover mode', async () => {
-            // Mock discovery to return no NAT Gateway
-            const { AWSDiscovery } = require('./aws-discovery');
-            const mockDiscoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-123456',
-                privateSubnetId2: 'subnet-789012',
-                publicSubnetId: 'subnet-public',
-                defaultRouteTableId: 'rtb-123456',
-                defaultKmsKeyId: null,
-                existingNatGatewayId: null // No NAT Gateway
-            });
-            AWSDiscovery.mockImplementation(() => ({
-                discoverResources: mockDiscoverResources
-            }));
-
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    management: 'discover',
-                    natGateway: {
-                        management: 'discover'
-                    }
-                },
-                integrations: []
-            };
-
-            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow(
-                'No existing NAT Gateway found in discovery mode'
-            );
-        });
-
         it('should enable self-healing when selfHeal is true', async () => {
             const appDefinition = {
                 vpc: {
@@ -1489,15 +1177,13 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            // VPC
+            // VPC (plus the interface endpoints KMS needs from private subnets)
             expect(result.provider.vpc).toBeDefined();
-            // custom.vpc doesn't exist in the serverless template
-            expect(result.resources.Resources.VPCEndpointS3).toBeDefined();
+            expect(result.resources.Resources.FriggS3VPCEndpoint).toBeDefined();
+            expect(result.resources.Resources.FriggKMSVPCEndpoint).toBeDefined();
 
             // KMS
-            expect(result.plugins).toContain('serverless-kms-grants');
             expect(result.provider.environment.KMS_KEY_ARN).toBeDefined();
-            expect(result.custom.kmsGrants).toBeDefined();
 
             // SSM (enabled without offload markers -> broad grant only, no offload env vars)
             const ssmPermission = result.provider.iamRoleStatements.find(
@@ -1510,14 +1196,12 @@ describe('composeServerlessDefinition', () => {
             expect(result.functions.testIntegration).toBeDefined();
             expect(result.resources.Resources.TestIntegrationQueue).toBeDefined();
 
-            // All plugins should be present
+            // No feature adds a Serverless plugin of its own
             expect(result.plugins).toEqual([
-                'serverless-jetpack',
-                'serverless-dotenv-plugin',
+                'serverless-esbuild',
                 'serverless-offline-sqs',
                 'serverless-offline',
                 '@friggframework/serverless-plugin',
-                'serverless-kms-grants'
             ]);
         });
 
@@ -1538,10 +1222,13 @@ describe('composeServerlessDefinition', () => {
 
             // VPC and KMS should be present
             expect(result.provider.vpc).toBeDefined();
-            expect(result.custom.kmsGrants).toBeDefined();
+            expect(result.provider.environment.KMS_KEY_ARN).toBeDefined();
 
             // SSM should not be present
-            expect(result.provider.layers).toBeUndefined();
+            const ssmPermission = result.provider.iamRoleStatements.find(
+                statement => statement.Action && statement.Action.includes('ssm:GetParameter')
+            );
+            expect(ssmPermission).toBeUndefined();
             expect(result.provider.environment.SSM_PARAMETER_PREFIX).toBeUndefined();
         });
     });
@@ -1565,10 +1252,14 @@ describe('composeServerlessDefinition', () => {
             expect(result.functions.user).toBeDefined();
             expect(result.functions.health).toBeDefined();
 
-            // Check default plugins
-            expect(result.plugins).toContain('serverless-jetpack');
-            expect(result.plugins).toContain('serverless-dotenv-plugin');
-            expect(result.plugins).toContain('@friggframework/serverless-plugin');
+            // Check default plugins (esbuild replaced serverless-jetpack; env
+            // vars come from the app definition, not serverless-dotenv-plugin)
+            expect(result.plugins).toEqual([
+                'serverless-esbuild',
+                'serverless-offline-sqs',
+                'serverless-offline',
+                '@friggframework/serverless-plugin',
+            ]);
         });
 
         it('should always include default IAM permissions', async () => {
@@ -1598,8 +1289,14 @@ describe('composeServerlessDefinition', () => {
 
             const result = await composeServerlessDefinition(appDefinition);
 
-            expect(result.provider.environment.STAGE).toBe('${opt:stage, "dev"}');
-            expect(result.provider.environment.AWS_NODEJS_CONNECTION_REUSE_ENABLED).toBe(1);
+            expect(result.provider.environment).toEqual(
+                expect.objectContaining({
+                    STAGE: '${self:provider.stage}',
+                    FRIGG_STAGE: '${self:provider.stage}',
+                    FRIGG_STACK: '${self:service}',
+                    FRIGG_REGION: '${self:provider.region}',
+                })
+            );
         });
     });
 
@@ -1656,306 +1353,77 @@ describe('composeServerlessDefinition', () => {
         });
     });
 
-    describe('CRITICAL: NAT Gateway MUST be in PUBLIC Subnet', () => {
-        it('should NEVER reuse NAT Gateway in private subnet - throw error when selfHeal disabled', async () => {
-            // Mock NAT Gateway found in PRIVATE subnet (the original bug)
-            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
-            const mockInstance = new mockDiscovery();
-            mockInstance.discoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-private1',
-                privateSubnetId2: 'subnet-private2',
-                publicSubnetId: 'subnet-public',
-                existingNatGatewayId: 'nat-in-private',
-                natGatewayInPrivateSubnet: true, // CRITICAL: NAT is in WRONG subnet
-                existingElasticIpAllocationId: 'eipalloc-123'
-            });
-            mockDiscovery.mockImplementation(() => mockInstance);
+    // 'CRITICAL: NAT Gateway MUST be in PUBLIC Subnet' scenarios moved with the
+    // NAT logic into VpcBuilder: see domains/networking/vpc-builder.test.js
+    // ('NAT Gateway handling': 'should create new NAT when existing is in
+    // private subnet', 'should reuse existing elastic IP allocation', ...).
 
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    natGateway: { management: 'createAndManage' },
-                    selfHeal: false
-                },
-                integrations: []
-            };
-
-            // Should throw error because NAT is in private subnet
-            await expect(composeServerlessDefinition(appDefinition))
-                .rejects
-                .toThrow('CRITICAL: NAT Gateway is in PRIVATE subnet');
-        });
-
-        it('should create NEW NAT in PUBLIC subnet when existing NAT is in private subnet with selfHeal', async () => {
-            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
-            const mockInstance = new mockDiscovery();
-            mockInstance.discoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-private1',
-                privateSubnetId2: 'subnet-private2',
-                publicSubnetId: 'subnet-public',
-                existingNatGatewayId: 'nat-in-private',
-                natGatewayInPrivateSubnet: true, // NAT is in WRONG subnet
-                existingElasticIpAllocationId: 'eipalloc-123'
-            });
-            mockDiscovery.mockImplementation(() => mockInstance);
-
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    natGateway: { management: 'createAndManage' },
-                    selfHeal: true
-                },
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            // MUST create new NAT Gateway (not reuse the one in private subnet)
-            expect(result.resources.Resources.FriggNATGateway).toBeDefined();
-
-            // MUST be placed in PUBLIC subnet
-            const natSubnet = result.resources.Resources.FriggNATGateway.Properties.SubnetId;
-            expect(natSubnet).toEqual('subnet-public');
-
-            // MUST create new EIP (cannot reuse the one associated with wrong NAT)
-            expect(result.resources.Resources.FriggNATGatewayEIP).toBeDefined();
-        });
-
-        it('should create public subnet for NAT when none exists', async () => {
-            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
-            const mockInstance = new mockDiscovery();
-            mockInstance.discoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-private1',
-                privateSubnetId2: 'subnet-private2',
-                publicSubnetId: null, // NO PUBLIC SUBNET EXISTS
-                existingNatGatewayId: null
-            });
-            mockDiscovery.mockImplementation(() => mockInstance);
-
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    natGateway: { management: 'createAndManage' },
-                    selfHeal: true
-                },
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            // MUST create public subnet
-            expect(result.resources.Resources.FriggPublicSubnet).toBeDefined();
-            expect(result.resources.Resources.FriggPublicSubnet.Properties.MapPublicIpOnLaunch).toBe(true);
-
-            // NAT Gateway MUST be in the newly created public subnet
-            expect(result.resources.Resources.FriggNATGateway.Properties.SubnetId)
-                .toEqual({ Ref: 'FriggPublicSubnet' });
-        });
-
-        it('should reuse CORRECTLY placed NAT Gateway in public subnet', async () => {
-            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
-            const mockInstance = new mockDiscovery();
-            mockInstance.discoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-private1',
-                privateSubnetId2: 'subnet-private2',
-                publicSubnetId: 'subnet-public',
-                existingNatGatewayId: 'nat-good',
-                natGatewayInPrivateSubnet: false, // NAT is CORRECTLY in public subnet
-                existingElasticIpAllocationId: 'eipalloc-123'
-            });
-            mockDiscovery.mockImplementation(() => mockInstance);
-
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    natGateway: { management: 'createAndManage' },
-                    selfHeal: true
-                },
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            // Should NOT create new NAT Gateway (reuse the good one)
-            expect(result.resources.Resources.FriggNATGateway).toBeUndefined();
-            expect(result.resources.Resources.FriggNATGatewayEIP).toBeUndefined();
-
-            // Should use existing NAT in routes
-            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId)
-                .toEqual('nat-good');
-        });
-
-        it('should fix route table associations to prevent NAT misconfiguration', async () => {
-            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
-            const mockInstance = new mockDiscovery();
-            mockInstance.discoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-private1',
-                privateSubnetId2: 'subnet-private2',
-                publicSubnetId: 'subnet-public',
-                existingNatGatewayId: 'nat-good',
-                natGatewayInPrivateSubnet: false
-            });
-            mockDiscovery.mockImplementation(() => mockInstance);
-
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    natGateway: { management: 'discover' },
-                    selfHeal: true
-                },
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            // Should create route table to fix associations
-            expect(result.resources.Resources.FriggLambdaRouteTable).toBeDefined();
-
-            // Should create NAT route pointing to good NAT
-            expect(result.resources.Resources.FriggNATRoute).toBeDefined();
-            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId)
-                .toEqual('nat-good');
-
-            // Should associate private subnets with correct route table
-            expect(result.resources.Resources.FriggSubnet1RouteAssociation).toBeDefined();
-            expect(result.resources.Resources.FriggSubnet2RouteAssociation).toBeDefined();
-        });
-
-        it('should handle EIP already associated error by reusing existing NAT', async () => {
-            const mockDiscovery = require('./aws-discovery').AWSDiscovery;
-            const mockInstance = new mockDiscovery();
-            mockInstance.discoverResources = jest.fn().mockResolvedValue({
-                defaultVpcId: 'vpc-123456',
-                defaultSecurityGroupId: 'sg-123456',
-                privateSubnetId1: 'subnet-private1',
-                privateSubnetId2: 'subnet-private2',
-                publicSubnetId: 'subnet-public',
-                existingNatGatewayId: 'nat-existing',
-                natGatewayInPrivateSubnet: false, // NAT is correctly placed
-                existingElasticIpAllocationId: 'eipalloc-inuse',
-                elasticIpAlreadyAssociated: true // EIP is already in use
-            });
-            mockDiscovery.mockImplementation(() => mockInstance);
-
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    natGateway: { management: 'createAndManage' },
-                    selfHeal: true
-                },
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            // Should NOT create new NAT or EIP (reuse existing)
-            expect(result.resources.Resources.FriggNATGateway).toBeUndefined();
-            expect(result.resources.Resources.FriggNATGatewayEIP).toBeUndefined();
-
-            // Should use existing NAT
-            expect(result.resources.Resources.FriggNATRoute.Properties.NatGatewayId)
-                .toEqual('nat-existing');
-        });
-    });
-
+    // The single manually-invoked dbMigrate function was replaced by an async
+    // migration pipeline (3bae110e): dbMigrationRouter (HTTP) queues jobs on
+    // DbMigrationQueue for dbMigrationWorker. Details: migration-builder.test.js.
     describe('Database Migration Lambda', () => {
-        it('should include dbMigrate function in all deployments', async () => {
-            const appDefinition = {
-                name: 'test-app',
-                integrations: []
-            };
+        it('should include the migration router and worker in all deployments', async () => {
+            const result = await composeServerlessDefinition({ integrations: [] });
 
-            const result = await composeServerlessDefinition(appDefinition);
-
-            // Check dbMigrate function exists
-            expect(result.functions.dbMigrate).toBeDefined();
-            expect(result.functions.dbMigrate.handler).toBe(
+            expect(result.functions.dbMigrationRouter.handler).toBe(
+                'node_modules/@friggframework/core/handlers/routers/db-migration.handler'
+            );
+            expect(result.functions.dbMigrationWorker.handler).toBe(
                 'node_modules/@friggframework/core/handlers/workers/db-migration.handler'
+            );
+            expect(result.resources.Resources.DbMigrationQueue).toBeDefined();
+            expect(result.resources.Resources.FriggMigrationStatusBucket).toBeDefined();
+        });
+
+        it('should run migrations one at a time from the queue', async () => {
+            const result = await composeServerlessDefinition({ integrations: [] });
+            const worker = result.functions.dbMigrationWorker;
+
+            expect(worker.reservedConcurrency).toBe(1);
+            expect(worker.timeout).toBe(900);
+            expect(worker.events).toEqual([
+                {
+                    sqs: {
+                        arn: { 'Fn::GetAtt': ['DbMigrationQueue', 'Arn'] },
+                        batchSize: 1,
+                    },
+                },
+            ]);
+        });
+
+        it('should expose the router under /admin/db-migrate', async () => {
+            const result = await composeServerlessDefinition({ integrations: [] });
+            const paths = result.functions.dbMigrationRouter.events.map(
+                (e) => `${e.httpApi.method} ${e.httpApi.path}`
+            );
+
+            expect(paths).toEqual(
+                expect.arrayContaining([
+                    'POST /admin/db-migrate',
+                    'GET /admin/db-migrate/status',
+                ])
             );
         });
 
-        it('should configure dbMigrate with correct settings', async () => {
-            const appDefinition = {
-                integrations: []
-            };
+        it('should include the migration functions with VPC enabled', async () => {
+            const result = await composeServerlessDefinition({
+                vpc: { enable: true },
+                integrations: [],
+            });
 
-            const result = await composeServerlessDefinition(appDefinition);
-
-            const dbMigrate = result.functions.dbMigrate;
-
-            // Check timeout (5 minutes for long migrations)
-            expect(dbMigrate.timeout).toBe(300);
-
-            // Check memory allocation (extra for Prisma CLI)
-            expect(dbMigrate.memorySize).toBe(512);
-
-            // Check description
-            expect(dbMigrate.description).toContain('database migrations');
-            expect(dbMigrate.description).toContain('Prisma');
-        });
-
-        it('should not have HTTP events (manual invocation only)', async () => {
-            const appDefinition = {
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            const dbMigrate = result.functions.dbMigrate;
-
-            // Should have no events (manually invoked via AWS CLI)
-            expect(dbMigrate.events).toBeUndefined();
-        });
-
-        it('should include dbMigrate even with VPC enabled', async () => {
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    management: 'discover'
-                },
-                integrations: []
-            };
-
-            const result = await composeServerlessDefinition(appDefinition);
-
-            // dbMigrate should exist with VPC configuration
-            expect(result.functions.dbMigrate).toBeDefined();
-
-            // Should have same VPC access as other functions
+            expect(result.functions.dbMigrationWorker).toBeDefined();
+            expect(result.functions.dbMigrationRouter).toBeDefined();
             expect(result.provider.vpc).toBeDefined();
         });
 
-        it('should include dbMigrate with database configuration', async () => {
-            const appDefinition = {
-                vpc: {
-                    enable: true,
-                    management: 'discover'
-                },
-                database: {
-                    postgres: {
-                        enable: true,
-                        management: 'discover'
-                    }
-                },
-                integrations: []
-            };
+        it('should omit the migration pipeline when postgres is explicitly disabled', async () => {
+            const result = await composeServerlessDefinition({
+                database: { postgres: { enable: false }, mongoDB: { enable: true } },
+                integrations: [],
+            });
 
-            const result = await composeServerlessDefinition(appDefinition);
-
-            // dbMigrate should exist alongside database configuration
-            expect(result.functions.dbMigrate).toBeDefined();
-            expect(result.provider.environment.DB_TYPE).toBe('postgresql');
-            expect(result.provider.environment.DATABASE_URL).toBeDefined();
+            expect(result.functions.dbMigrationWorker).toBeUndefined();
+            expect(result.functions.dbMigrationRouter).toBeUndefined();
         });
     });
 
@@ -1984,7 +1452,10 @@ describe('composeServerlessDefinition', () => {
                 integrations: [invalidIntegration]
             };
 
-            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow('Invalid integration: missing Definition or name');
+            await expectValidationError(
+                appDefinition,
+                'Integration at index 0 is missing Definition or name'
+            );
         });
 
         it('should handle integration with missing name', async () => {
@@ -1995,7 +1466,10 @@ describe('composeServerlessDefinition', () => {
                 integrations: [invalidIntegration]
             };
 
-            await expect(composeServerlessDefinition(appDefinition)).rejects.toThrow('Invalid integration: missing Definition or name');
+            await expectValidationError(
+                appDefinition,
+                'Integration at index 0 is missing Definition or name'
+            );
         });
     });
 });
