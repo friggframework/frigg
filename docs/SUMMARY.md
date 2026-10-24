@@ -20,10 +20,16 @@
 * [Cooking with Frigg](guides/cooking-with-frigg.md)
 * [Logging](guides/LOGGING.md)
   * [Logging in an Integration](guides/LOGGING-IN-INTEGRATIONS.md)
+* [Store and Query Integration Mappings](guides/integration-mappings.md)
+* [Add or Remove Entities on an Integration](guides/attach-entities-to-integration.md)
+* [Handle the Last Queue Retry](guides/handle-the-last-queue-retry.md)
+* [Use Integration Extensions](guides/use-integration-extensions.md)
+* [Run Admin Scripts Locally](guides/run-admin-scripts-locally.md)
 
 ## 💭 Explanation (Understanding) <a href="#explanation" id="explanation"></a>
 
 * [The "Why" of Frigg Technical Decisions](explanation/the-why-of-frigg-technical-decisions.md)
+* [Single-Flight Token Refresh](explanation/single-flight-token-refresh.md)
 
 ## 📖 Reference (Information) <a href="#reference" id="reference"></a>
 
@@ -31,6 +37,7 @@
 * [API Module Definition and Functions](reference/api-module-definition-and-functions.md)
 * [Architecture](reference/architecture.md)
 * [Data Model](reference/data-model.md)
+* [Integration Mapping API](reference/integration-mapping-api.md)
 * [Encryption and Security](reference/encryption-and-security.md)
 * [VPC Configuration](reference/vpc-configuration.md)
 * [SSM Configuration](reference/ssm-configuration.md)
