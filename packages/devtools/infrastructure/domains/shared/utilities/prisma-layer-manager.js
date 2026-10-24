@@ -153,7 +153,17 @@ async function ensurePrismaLayerExists(databaseConfig = {}) {
     }
 }
 
+/**
+ * Forces the next ensurePrismaLayerExists() to rebuild the layer, e.g. after
+ * the Prisma client it copies was regenerated.
+ */
+function invalidatePrismaLayer() {
+    const marker = path.join(process.cwd(), 'layers/prisma', '.build-complete');
+    fs.rmSync(marker, { force: true });
+}
+
 module.exports = {
+    invalidatePrismaLayer,
     ensurePrismaLayerExists,
 };
 

@@ -3,7 +3,9 @@
  * c8705715).
  *
  * Instead of the serverless/CloudFormation pipeline, the provider plugin
- * (resolved from appDefinition.provider) does the build:
+ * (resolved from appDefinition.provider) does the build. First, core
+ * extensions' Prisma models are composed into the backend's Prisma client
+ * (compose-extension-prisma.js), since the functions bundle that client:
  *   1. validate(appDefinition)              - errors abort, warnings print
  *   2. generateConfig(appDefinition)        - e.g. netlify.toml
  *   3. getFunctionEntryPoints(appDefinition) - written to <project>/netlify/functions
@@ -19,6 +21,7 @@
  */
 const path = require('path');
 const fs = require('fs');
+const { composeAppExtensionPrisma } = require('./compose-extension-prisma');
 
 const CONFIG_FILE_NAMES = { netlify: 'netlify.toml' };
 
@@ -29,6 +32,7 @@ const CONFIG_FILE_NAMES = { netlify: 'netlify.toml' };
  * @param {Object} [params.provider] - resolved plugin; defaults to resolveProvider(appDefinition)
  * @param {boolean} [params.verbose]
  * @param {Function} [params.exit] - called with 1 on validation errors (default process.exit)
+ * @param {Function} [params.composePrisma] - extension Prisma composition (injected in tests)
  * @returns {{ projectDir: string, written: string[] }}
  */
 function buildWithProvider({
@@ -37,6 +41,7 @@ function buildWithProvider({
     provider,
     verbose = false,
     exit = (code) => process.exit(code),
+    composePrisma = composeAppExtensionPrisma,
 }) {
     const providerName = appDefinition.provider;
     const plugin =
@@ -63,6 +68,8 @@ function buildWithProvider({
             console.warn(`  Warning: ${warning}`);
         }
     }
+
+    composePrisma({ appDefinition, backendDir });
 
     const write = (filePath, content) => {
         fs.mkdirSync(path.dirname(filePath), { recursive: true });

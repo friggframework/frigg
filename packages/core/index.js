@@ -268,6 +268,7 @@ module.exports = {
     extensions,
     loadExtensions: extensions.loadExtensions,
     composeSchemas: extensions.composeSchemas,
+    composeExtensionPrisma: extensions.composeExtensionPrisma,
     mountExtensionRoutes: extensions.mountExtensionRoutes,
     createExtensionRoutesRouter: extensions.createExtensionRoutesRouter,
     runExtensionBootstraps: extensions.runExtensionBootstraps,
