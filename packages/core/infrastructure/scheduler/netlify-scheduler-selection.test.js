@@ -62,9 +62,19 @@ describe('scheduleJob queue target', () => {
         });
         await commands.scheduleJob({ ...job, queueUrl: 'https://sqs.us-east-1.amazonaws.com/1/q' });
         await commands.scheduleJob({ ...job, queueUrl: '/.netlify/functions/other-background' });
+        for (const queueUrl of [
+            '//evil.example/x',
+            '/.netlify/functions/../x-background',
+            '/.netlify/functions/admin',
+        ]) {
+            await commands.scheduleJob({ ...job, queueUrl });
+        }
         expect(repository.save.mock.calls.map(([d]) => d.queueResourceId)).toEqual([
             DEFAULT_WORKER_PATH,
             '/.netlify/functions/other-background',
+            DEFAULT_WORKER_PATH,
+            DEFAULT_WORKER_PATH,
+            DEFAULT_WORKER_PATH,
         ]);
     });
 

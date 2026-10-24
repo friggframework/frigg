@@ -36,6 +36,43 @@ const {
     readRawBody,
 } = require('../queue-message-auth');
 
+// A queue target is a background function on this site, named by path and
+// nothing else: no scheme, no host, no '//', no '..', no query. Anything
+// else would let a stored or configured queue id send a signed message to
+// another host (a protocol-relative '//host/x' when the base URL is empty)
+// or to a function that is not a queue worker.
+const BACKGROUND_FUNCTION_PATH = /^\/\.netlify\/functions\/[A-Za-z0-9][A-Za-z0-9_-]*-background$/;
+
+function isBackgroundFunctionPath(queueId) {
+    return typeof queueId === 'string' && BACKGROUND_FUNCTION_PATH.test(queueId);
+}
+
+/**
+ * The URL a message for `queueId` is POSTed to, or a thrown error.
+ * The base must be an absolute http(s) origin; the path must be a
+ * background function (see BACKGROUND_FUNCTION_PATH).
+ */
+function backgroundFunctionUrl(baseUrl, queueId) {
+    if (!isBackgroundFunctionPath(queueId)) {
+        throw new Error(
+            `Refusing to send to queue id ${JSON.stringify(String(queueId))}: ` +
+                "a Netlify queue id must be '/.netlify/functions/<name>-background'"
+        );
+    }
+    let base;
+    try {
+        base = new URL(baseUrl);
+    } catch {
+        throw new Error(
+            'NetlifyBackgroundProvider needs an absolute site URL (options.baseUrl or the URL environment variable)'
+        );
+    }
+    if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password) {
+        throw new Error('NetlifyBackgroundProvider site URL must be http(s) with no credentials');
+    }
+    return `${base.origin}${queueId}`;
+}
+
 class NetlifyBackgroundProvider extends QueueProvider {
     /**
      * @param {Object} [options]
@@ -68,7 +105,7 @@ class NetlifyBackgroundProvider extends QueueProvider {
      * @param {string} queueId - Background function path (e.g., '/.netlify/functions/worker-background')
      */
     async send(message, queueId) {
-        const url = `${this.baseUrl}${queueId}`;
+        const url = backgroundFunctionUrl(this.baseUrl, queueId);
         const body = JSON.stringify(message);
         const headers = { 'Content-Type': 'application/json' };
 
@@ -147,4 +184,4 @@ class NetlifyBackgroundProvider extends QueueProvider {
     }
 }
 
-module.exports = { NetlifyBackgroundProvider };
+module.exports = { NetlifyBackgroundProvider, isBackgroundFunctionPath, backgroundFunctionUrl };

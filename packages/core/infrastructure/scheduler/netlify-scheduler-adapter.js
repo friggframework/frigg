@@ -23,6 +23,9 @@
  */
 
 const { SchedulerServiceInterface } = require('./scheduler-service-interface');
+const {
+    isBackgroundFunctionPath,
+} = require('../../queues/providers/netlify-background-provider');
 
 // The one queue worker every Netlify deployment has (provider-netlify's
 // worker-background function); it dispatches by integrationName.
@@ -58,16 +61,17 @@ class NetlifySchedulerAdapter extends SchedulerServiceInterface {
 
     /**
      * Where a due job is sent. Netlify has no per-integration queues, so an
-     * SQS-style queue URL (often unset here) maps to the worker function;
-     * a function path is kept as given.
+     * SQS-style queue URL (often unset here) maps to the worker function.
+     * A background function path ('/.netlify/functions/<name>-background')
+     * is kept; any other value, including '//host/x' or a path with '..',
+     * maps to the worker too, so a stored job can only ever reach a
+     * background function on this site.
      *
      * @param {string} [queueUrl]
      * @returns {string} a path NetlifyBackgroundProvider.send() accepts
      */
     toQueueResourceId(queueUrl) {
-        return typeof queueUrl === 'string' && queueUrl.startsWith('/')
-            ? queueUrl
-            : DEFAULT_WORKER_PATH;
+        return isBackgroundFunctionPath(queueUrl) ? queueUrl : DEFAULT_WORKER_PATH;
     }
 
     async scheduleOneTime({

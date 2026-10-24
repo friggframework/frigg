@@ -233,7 +233,7 @@ describe('NetlifyBackgroundProvider without a signing secret', () => {
     it('in production: send() throws instead of posting an unsigned message', async () => {
         global.fetch = jest.fn();
         const p = provider({ env: prodEnv() });
-        await expect(p.send({ x: 1 }, '/w')).rejects.toThrow(/FRIGG_QUEUE_SIGNING_SECRET/);
+        await expect(p.send({ x: 1 }, '/.netlify/functions/worker-background')).rejects.toThrow(/FRIGG_QUEUE_SIGNING_SECRET/);
         expect(global.fetch).not.toHaveBeenCalled();
     });
 
@@ -290,5 +290,49 @@ describe('isProductionEnvironment / allowsUnsignedMessages', () => {
         expect(
             allowsUnsignedMessages({ STAGE: 'dev', FRIGG_PROVIDER: 'not-an-installed-provider', FRIGG_QUEUE_ALLOW_UNSIGNED: 'true' })
         ).toBe(false);
+    });
+});
+
+describe('queue target allow-list', () => {
+    const realFetch = global.fetch;
+    afterEach(() => {
+        global.fetch = realFetch;
+    });
+
+    it.each([
+        ['//evil.example/x'],
+        ['https://evil.example/.netlify/functions/worker-background'],
+        ['/.netlify/functions/../functions/worker-background'],
+        ['/.netlify/functions/admin'],
+        ['/.netlify/functions/worker-background?x=1'],
+        ['/.netlify/functions//evil.example/x-background'],
+        ['worker-background'],
+        [undefined],
+    ])('refuses %p and sends nothing', async (queueId) => {
+        global.fetch = jest.fn();
+        await expect(provider().send({ x: 1 }, queueId)).rejects.toThrow(/queue id/);
+        expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it.each([[''], ['not a url'], ['ftp://site.example'], ['https://u:p@site.example']])(
+        'refuses site URL %p and sends nothing',
+        async (baseUrl) => {
+            global.fetch = jest.fn();
+            await expect(
+                provider({ baseUrl }).send({ x: 1 }, '/.netlify/functions/worker-background')
+            ).rejects.toThrow(/site URL/);
+            expect(global.fetch).not.toHaveBeenCalled();
+        }
+    );
+
+    it('posts to the site origin, ignoring any path on the site URL', async () => {
+        global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 202 });
+        await provider({ baseUrl: 'https://site.example/some/path' }).send(
+            { x: 1 },
+            '/.netlify/functions/other-background'
+        );
+        expect(global.fetch.mock.calls[0][0]).toBe(
+            'https://site.example/.netlify/functions/other-background'
+        );
     });
 });

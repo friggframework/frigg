@@ -79,7 +79,7 @@ describe('NetlifyBackgroundProvider', () => {
     it('throws on a non-2xx, non-202 response', async () => {
         global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500, statusText: 'boom' });
         const provider = new NetlifyBackgroundProvider({ baseUrl: 'https://site.example', signingSecret: 's' });
-        await expect(provider.send({}, '/q')).rejects.toThrow(/500 boom/);
+        await expect(provider.send({}, '/.netlify/functions/worker-background')).rejects.toThrow(/500 boom/);
     });
 
     it('parses a string or object body into one message', () => {

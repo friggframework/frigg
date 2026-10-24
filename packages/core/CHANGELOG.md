@@ -1,5 +1,10 @@
 # Unreleased
 
+#### Netlify queue targets are allow-listed
+
+- `NetlifyBackgroundProvider.send()` now accepts only a background function path on the site (`/.netlify/functions/<name>-background`) and an absolute http(s) site URL without credentials. Anything else (`//host/x`, an absolute URL, `..`, a query, an empty `URL`) throws before any request. Previously the queue id was appended to the site URL as given, so an empty site URL and a stored `//host/x` sent a signed message to another host.
+- `NetlifySchedulerAdapter` maps any queue URL that is not such a path to the worker function, as it already did for SQS URLs.
+
 #### Behaviour change: module credential fields are now encrypted
 
 - `credentialFields` declared in an API module's `encryption` config (for example `Definition.encryption.credentialFields`) were never registered for encryption: `loadModuleEncryptionSchemas` required a path that does not exist and the error was swallowed. They are now registered, for modules bound by integrations and for modules registered in `appDefinition.entities` (ADR-059).
