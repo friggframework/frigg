@@ -439,8 +439,14 @@ class VpcBuilder extends InfrastructureBuilder {
             translated.vpc.ownership.subnets = 'external';
         }
 
+        // Legacy options that warnIgnoredOptions() reports as ignored under
+        // managementMode='managed' must really be ignored: applying them would
+        // undo the ownership chosen above (e.g. vpc.management='discover' turning
+        // managed+isolated's ownership.vpc='stack' back into 'auto').
+        const honorLegacyModes = globalMode !== 'managed';
+
         // Handle legacy vpc.management modes
-        const vpcManagement = appDefinition.vpc?.management;
+        const vpcManagement = honorLegacyModes ? appDefinition.vpc?.management : undefined;
         if (vpcManagement === 'create-new') {
             translated.vpc.ownership.vpc = 'stack';
             translated.vpc.ownership.securityGroup = 'stack';
@@ -466,7 +472,7 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         // Handle legacy shareAcrossStages
-        if (appDefinition.vpc?.shareAcrossStages !== undefined) {
+        if (honorLegacyModes && appDefinition.vpc?.shareAcrossStages !== undefined) {
             if (appDefinition.vpc.shareAcrossStages) {
                 // Shared VPC - discover and reuse
                 translated.vpc.ownership.vpc = 'auto';
@@ -481,7 +487,7 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         // Handle legacy NAT Gateway management
-        if (appDefinition.vpc?.natGateway?.management === 'createAndManage') {
+        if (honorLegacyModes && appDefinition.vpc?.natGateway?.management === 'createAndManage') {
             // Use 'auto' to allow discovering and reusing properly placed external NAT Gateways
             // The resolver will check if there's a good external NAT Gateway and reuse it,
             // or create a new one if needed (or if the existing one is misplaced)
@@ -493,9 +499,10 @@ class VpcBuilder extends InfrastructureBuilder {
         }
 
         // Handle legacy subnet management
-        if (appDefinition.vpc?.subnets?.management === 'create') {
+        const subnetManagement = honorLegacyModes ? appDefinition.vpc?.subnets?.management : undefined;
+        if (subnetManagement === 'create') {
             translated.vpc.ownership.subnets = 'stack';
-        } else if (appDefinition.vpc?.subnets?.management === 'use-existing' && appDefinition.vpc.subnets.ids) {
+        } else if (subnetManagement === 'use-existing' && appDefinition.vpc.subnets.ids) {
             translated.vpc.ownership.subnets = 'external';
             translated.vpc.external.subnetIds = appDefinition.vpc.subnets.ids;
         }
