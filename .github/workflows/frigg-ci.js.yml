@@ -81,6 +81,12 @@ jobs:
     env:
       FRIGG_TEST_MONGODB_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
       FRIGG_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/frigg?schema=public
+      # Repository parity suites: every adapter (MongoDB, DocumentDB-on-Mongo,
+      # PostgreSQL) against the same cases.
+      INTEGRATION_ENTITIES_PARITY_MONGO_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
+      INTEGRATION_ENTITIES_PARITY_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/frigg?schema=public
+      QUERY_MAPPINGS_PARITY_MONGO_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
+      QUERY_MAPPINGS_PARITY_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/frigg?schema=public
       MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.cache/mongodb-binaries
     steps:
       - name: Check Out Code ⤵️

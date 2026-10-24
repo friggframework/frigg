@@ -10,6 +10,8 @@
  *   - PostgreSQL with the prisma-postgresql migrations applied:
  *     FRIGG_TEST_POSTGRES_URL, default
  *     postgresql://postgres:postgres@localhost:5432/frigg?schema=public
+ * The repository parity suites skip themselves unless their own URLs are
+ * set (INTEGRATION_ENTITIES_PARITY_* / QUERY_MAPPINGS_PARITY_*).
  */
 const base = require('./jest.config');
 
