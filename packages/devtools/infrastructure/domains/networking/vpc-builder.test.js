@@ -293,10 +293,10 @@ describe('VpcBuilder', () => {
             ]);
             expect(result.resources.FriggPrivateSubnet1).toBeDefined();
             expect(result.resources.FriggPrivateSubnet2).toBeDefined();
-            // In discover mode, we create FriggLambdaSecurityGroup in the discovered VPC
-            expect(result.vpcConfig.securityGroupIds).toEqual([{ Ref: 'FriggLambdaSecurityGroup' }]);
-            expect(result.resources.FriggLambdaSecurityGroup).toBeDefined();
-            expect(result.resources.FriggLambdaSecurityGroup.Properties.VpcId).toBe('vpc-discovered');
+            // In discover mode with no stack-managed Lambda SG, the resolver reuses
+            // the discovered default security group instead of creating one (37a354e8)
+            expect(result.vpcConfig.securityGroupIds).toEqual(['sg-discovered']);
+            expect(result.resources.FriggLambdaSecurityGroup).toBeUndefined();
         });
 
         it('should allow sharing discovered subnets when explicitly configured', async () => {
@@ -330,6 +330,8 @@ describe('VpcBuilder', () => {
                     management: 'discover',
                     selfHeal: true,
                 },
+                // The DynamoDB gateway endpoint is opt-in since 37a354e8
+                database: { dynamodb: { enable: true } },
             };
 
             const discoveredResources = {
@@ -462,6 +464,8 @@ describe('VpcBuilder', () => {
             const appDefinition = {
                 vpc: { enable: true },
                 encryption: { fieldLevelEncryptionMethod: 'kms' },
+                // The DynamoDB gateway endpoint is opt-in since 37a354e8
+                database: { dynamodb: { enable: true } },
             };
             
             // Structured discovery from CloudFormation
@@ -522,6 +526,8 @@ describe('VpcBuilder', () => {
             const appDefinition = {
                 vpc: { enable: true, enableVPCEndpoints: true, selfHeal: true },
                 encryption: { fieldLevelEncryptionMethod: 'kms' },
+                // The DynamoDB gateway endpoint is opt-in since 37a354e8
+                database: { dynamodb: { enable: true } },
             };
             const discoveredResources = {
                 defaultVpcId: 'vpc-123',
@@ -815,7 +821,9 @@ describe('VpcBuilder', () => {
             };
 
             const discoveredResources = {
-                vpcId: 'vpc-123',
+                // Discovery reports the VPC as defaultVpcId (e6fc7c76); with no VPC
+                // the resolver refuses to create one implicitly (37a354e8).
+                defaultVpcId: 'vpc-123',
                 privateSubnetId1: 'subnet-existing-1',
                 privateSubnetId2: 'subnet-existing-2',
                 natGatewayId: 'nat-existing',
@@ -825,9 +833,15 @@ describe('VpcBuilder', () => {
 
             const result = await vpcBuilder.build(appDefinition, discoveredResources);
 
+            // The builder always emits the new association logical IDs, even when
+            // the stack still has the old FriggSubnetNRouteAssociation ones, so
+            // CloudFormation replaces drifted associations (see createNatGatewayRouting).
+            expect(result.resources.FriggSubnet1RouteAssociation).toBeUndefined();
+            expect(result.resources.FriggSubnet2RouteAssociation).toBeUndefined();
+
             // Verify associations have UpdateReplacePolicy to force recreation
-            expect(result.resources.FriggSubnet1RouteAssociation.UpdateReplacePolicy).toBe('Delete');
-            expect(result.resources.FriggSubnet2RouteAssociation.UpdateReplacePolicy).toBe('Delete');
+            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation.UpdateReplacePolicy).toBe('Delete');
+            expect(result.resources.FriggPrivateSubnet2RouteTableAssociation.UpdateReplacePolicy).toBe('Delete');
             
             // This forces CloudFormation to delete old associations and create new ones
             // instead of trying to update them in-place (which doesn't work)
@@ -1522,7 +1536,7 @@ describe('VpcBuilder', () => {
         });
 
         it('should use OLD logical IDs for backwards compatibility (FriggNATRoute, VPCEndpointS3 pattern)', async () => {
-            // CRITICAL TEST: Real Frontify production stack uses OLD naming convention
+            // CRITICAL TEST: A real production stack uses OLD naming convention
             // Stack currently has: FriggNATRoute, VPCEndpointS3, VPCEndpointDynamoDB
             // We MUST use these same logical IDs to avoid AlreadyExists errors
             const appDefinition = {
@@ -1541,7 +1555,7 @@ describe('VpcBuilder', () => {
                 }
             };
             
-            // Discovery results matching ACTUAL Frontify production stack
+            // Discovery results matching an actual production stack
             const discoveredResources = {
                 fromCloudFormationStack: true,
                 stackName: 'create-frigg-app-production',
@@ -1589,10 +1603,13 @@ describe('VpcBuilder', () => {
             expect(result.resources.FriggNATRoute.Type).toBe('AWS::EC2::Route');
             expect(result.resources.FriggPrivateRoute).toBeUndefined();  // Should NOT create new ID
 
-            expect(result.resources.FriggSubnet1RouteAssociation).toBeDefined();
-            expect(result.resources.FriggSubnet2RouteAssociation).toBeDefined();
-            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation).toBeUndefined();
-            expect(result.resources.FriggPrivateSubnet2RouteTableAssociation).toBeUndefined();
+            // Subnet associations are the exception: the builder deliberately moves
+            // them to the new logical IDs (with UpdateReplacePolicy: Delete) so
+            // drifted associations are recreated rather than updated in place.
+            expect(result.resources.FriggSubnet1RouteAssociation).toBeUndefined();
+            expect(result.resources.FriggSubnet2RouteAssociation).toBeUndefined();
+            expect(result.resources.FriggPrivateSubnet1RouteTableAssociation).toBeDefined();
+            expect(result.resources.FriggPrivateSubnet2RouteTableAssociation).toBeDefined();
 
             expect(result.resources.VPCEndpointS3).toBeDefined();
             expect(result.resources.VPCEndpointS3.Type).toBe('AWS::EC2::VPCEndpoint');
@@ -1814,6 +1831,8 @@ describe('VpcBuilder', () => {
             const appDefinition = {
                 vpc: { enable: true },
                 encryption: { fieldLevelEncryptionMethod: 'kms' },
+                // The DynamoDB gateway endpoint is opt-in since 37a354e8
+                database: { dynamodb: { enable: true } },
             };
             
             const discoveredResources = {
