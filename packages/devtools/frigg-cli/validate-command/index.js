@@ -1,11 +1,16 @@
 /**
  * `frigg validate` and the validation step that `frigg build`, `frigg deploy`,
  * `frigg start` and `frigg init` run first (ADR-051).
+ *
+ * Module mode (`frigg validate --module` / `frigg validate module`) validates
+ * an API module Definition in the current directory; app mode is unchanged.
  */
 
 const chalk = require('chalk');
 const { loadAppDefinition } = require('./load-app-definition');
+const { loadModuleDefinition } = require('./load-module-definition');
 const { validateDefinition } = require('./validate-app-definition');
+const { validateModuleDefinition } = require('./validate-module-definition');
 const { formatReport, toJsonReport } = require('./format-report');
 
 /**
@@ -31,10 +36,33 @@ function runValidation({ cwd = process.cwd(), stage, env = process.env } = {}) {
 }
 
 /**
- * `frigg validate [--json] [--stage <stage>]`. Exits non-zero on errors.
+ * Load an API module Definition from `./index.js` and validate it.
+ *
+ * @param {object} [params]
+ * @param {string} [params.cwd]
+ * @returns {{ errors: object[], warnings: object[], source: string }}
  */
-async function validateCommand(options = {}) {
-    const report = runValidation({ stage: options.stage });
+function runModuleValidation({ cwd = process.cwd() } = {}) {
+    const loaded = loadModuleDefinition({ cwd });
+    if (!loaded.ok) {
+        return { errors: [loaded.issue], warnings: [], source: cwd };
+    }
+    const { errors, warnings } = validateModuleDefinition({
+        definition: loaded.definition,
+    });
+    return { errors, warnings, source: loaded.indexPath, kind: 'module' };
+}
+
+function isModuleMode(options = {}) {
+    return Boolean(options.module) || options.target === 'module';
+}
+
+/**
+ * Print a validation report and set exitCode on errors.
+ * @param {object} report
+ * @param {object} options
+ */
+function printReport(report, options = {}) {
     if (options.json) {
         console.log(JSON.stringify(toJsonReport(report), null, 2));
     } else {
@@ -45,6 +73,17 @@ async function validateCommand(options = {}) {
     if (report.errors.length > 0) {
         process.exitCode = 1;
     }
+}
+
+/**
+ * `frigg validate [--module] [module] [--json] [--stage <stage>]`.
+ * Exits non-zero on errors. Module mode does not change app-mode behavior.
+ */
+async function validateCommand(options = {}) {
+    const report = isModuleMode(options)
+        ? runModuleValidation({})
+        : runValidation({ stage: options.stage });
+    printReport(report, options);
     return report;
 }
 
@@ -104,4 +143,9 @@ function preflightValidation({ command, options = {}, failOnErrors }) {
     return true;
 }
 
-module.exports = { validateCommand, runValidation, preflightValidation };
+module.exports = {
+    validateCommand,
+    runValidation,
+    runModuleValidation,
+    preflightValidation,
+};
