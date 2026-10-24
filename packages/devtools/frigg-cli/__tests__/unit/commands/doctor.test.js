@@ -3,7 +3,9 @@
  * Tests stack listing, selection, and health check orchestration
  */
 
-const { describe, test, expect, jest, beforeEach } = require('@jest/globals');
+// `jest` is the injected global: destructuring it from @jest/globals collides
+// with the binding babel-plugin-jest-hoist (Jest 30) injects into the module.
+const { describe, test, expect, beforeEach } = require('@jest/globals');
 
 describe('Doctor Command - Stack Listing and Selection', () => {
     let mockCloudFormationClient;
@@ -138,25 +140,27 @@ describe('Doctor Command - Stack Listing and Selection', () => {
                 {
                     name: 'production-stack',
                     status: 'UPDATE_COMPLETE',
-                    createdTime: new Date('2024-01-15'),
-                    updatedTime: new Date('2024-10-20'),
+                    // Local-time dates: an ISO date string is UTC midnight,
+                    // which renders as the previous day west of UTC.
+                    createdTime: new Date(2024, 0, 15),
+                    updatedTime: new Date(2024, 9, 20),
                 },
                 {
                     name: 'dev-stack',
                     status: 'CREATE_COMPLETE',
-                    createdTime: new Date('2024-10-01'),
+                    createdTime: new Date(2024, 9, 1),
                     updatedTime: null,
                 },
             ];
 
             const expectedChoices = [
                 {
-                    name: '✓ production-stack (UPDATE_COMPLETE) - Updated: 10/20/2024',
+                    name: `✓ production-stack (UPDATE_COMPLETE) - Updated: ${mockStacks[0].updatedTime.toLocaleDateString()}`,
                     value: 'production-stack',
                     description: 'Status: UPDATE_COMPLETE',
                 },
                 {
-                    name: '✓ dev-stack (CREATE_COMPLETE) - Created: 10/1/2024',
+                    name: `✓ dev-stack (CREATE_COMPLETE) - Created: ${mockStacks[1].createdTime.toLocaleDateString()}`,
                     value: 'dev-stack',
                     description: 'Status: CREATE_COMPLETE',
                 },

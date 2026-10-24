@@ -621,6 +621,13 @@ describe('commitChanges', () => {
     it('commits only the given files and leaves other staged changes alone', () => {
         const dir = makeTmpDir();
         git(['init', '-q'], dir);
+        // commitChanges spawns git without an explicit env, so it sees the
+        // real process environment, not Jest's sandboxed process.env: the
+        // GIT_* identity set above never reaches it. Give the repo its own
+        // identity so the commit works on CI runners with no git user.
+        git(['config', 'user.name', 'Test'], dir);
+        git(['config', 'user.email', 'test@example.com'], dir);
+        git(['config', 'commit.gpgsign', 'false'], dir);
         fs.writeFileSync(path.join(dir, 'package.json'), '{}');
         fs.writeFileSync(path.join(dir, 'unrelated.txt'), 'wip');
         git(['add', 'unrelated.txt'], dir);
