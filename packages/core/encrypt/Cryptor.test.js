@@ -74,7 +74,7 @@ describe('Cryptor - AWS SDK v3', () => {
                 const cryptor = new Cryptor({ shouldUseAws: true });
                 
                 // First encrypt some data
-                const mockDataKey = Buffer.from('test-key-32-bytes-long-exactly');
+                const mockDataKey = Buffer.from('test-data-key-is-32-bytes-long!!');
                 kmsMock.on(GenerateDataKeyCommand).resolves({
                     KeyId: 'test-key-id',
                     Plaintext: mockDataKey,
@@ -108,7 +108,7 @@ describe('Cryptor - AWS SDK v3', () => {
 
     describe('Local Mode (shouldUseAws: false)', () => {
         beforeEach(() => {
-            process.env.AES_KEY = 'test-aes-key-32-bytes-long-123';
+            process.env.AES_KEY = 'test-aes-key-that-is-32-bytes!!!';
             process.env.AES_KEY_ID = 'local-key-id';
         });
 
@@ -135,7 +135,12 @@ describe('Cryptor - AWS SDK v3', () => {
             delete process.env.AES_KEY_ID;
 
             const cryptor = new Cryptor({ shouldUseAws: false });
-            const fakeEncrypted = 'unknown-key:data:key';
+            const fakeEncrypted = [
+                Buffer.from('unknown-key').toString('base64'),
+                'iv',
+                'data',
+                Buffer.from('key').toString('base64'),
+            ].join(':');
 
             await expect(cryptor.decrypt(fakeEncrypted)).rejects.toThrow('Encryption key not found');
         });
