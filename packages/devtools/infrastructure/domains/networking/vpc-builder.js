@@ -1178,7 +1178,7 @@ class VpcBuilder extends InfrastructureBuilder {
         const vpcId = result.vpcId;
         
         // Determine logical IDs based on what exists in stack for backwards compatibility
-        // CRITICAL: Frontify production uses OLD naming (VPCEndpointS3, not FriggS3VPCEndpoint)
+        // CRITICAL: older production stacks use OLD naming (VPCEndpointS3, not FriggS3VPCEndpoint)
         const existingLogicalIds = discoveredResources?.existingLogicalIds || [];
         
         
