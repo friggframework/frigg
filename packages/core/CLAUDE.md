@@ -775,6 +775,9 @@ Use test doubles from `@friggframework/test` package for consistent mocking.
 - `SECRET_ARN` - AWS Secrets Manager ARN for auto-injection
 - `FRIGG_LOG_LEVEL` - Minimum log level (`TRACE` … `FATAL`, default `INFO`; `DEBUG` on local runs)
 - `FRIGG_QUEUE_MAX_RECEIVE_COUNT` - Set by devtools on integration queue workers whose queue the stack owns; feeds `delivery.maxReceiveCount`
+- `FRIGG_QUEUE_SIGNING_SECRET` - Required for HTTP-delivered queues (Netlify Background Functions). `NetlifyBackgroundProvider` signs each message (HMAC-SHA256 over `timestamp.rawBody`, `x-frigg-queue-signature` / `x-frigg-queue-timestamp`) and `verifyEvent()` refuses anything unsigned, tampered, signed with another secret or older than 5 minutes. Unset → `send()` throws and every event is refused (`queues/queue-message-auth.js`)
+- `FRIGG_QUEUE_ALLOW_UNSIGNED` - `true` accepts unsigned queue messages when no secret is set, outside production only (`STAGE` dev/test/local, `NODE_ENV` development/test, or `NETLIFY_DEV`); ignored in production and in any deployed function, whatever `STAGE` says (`providers/runtime-detection.js` `isDeployedRuntime`: AWS Lambda variables, or the active provider's `detect()`, e.g. provider-netlify via `FRIGG_PROVIDER=netlify`)
+- `QSTASH_CURRENT_SIGNING_KEY` / `QSTASH_NEXT_SIGNING_KEY` - Required with the QStash queue: `QStashQueueProvider.verifyEvent()` checks the `Upstash-Signature` JWT with them
 
 ## Version Information
 

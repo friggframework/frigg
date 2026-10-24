@@ -10,6 +10,11 @@
 
 const { logger } = require('./logger');
 const { registerDeniedKeys } = require('../../logs/denied-keys');
+const {
+    getEntityTypeRegistry,
+    getEntityTypeDefinitions,
+    EntityRegistryError,
+} = require('../../modules/entity-type-registry');
 
 /**
  * Core encryption schema (immutable - cannot be overridden by custom schemas)
@@ -166,8 +171,9 @@ function extractCredentialFieldsFromModules(moduleDefinitions) {
  * Each module can declare credentialFields to encrypt in its encryption config.
  *
  * @param {Array} integrations - Array of integration classes with modules
+ * @param {object} [entities] - `appDefinition.entities` (ADR-059 registry)
  */
-function loadModuleEncryptionSchemas(integrations) {
+function loadModuleEncryptionSchemas(integrations, entities) {
     if (!integrations) {
         throw new Error('integrations parameter is required');
     }
@@ -176,34 +182,39 @@ function loadModuleEncryptionSchemas(integrations) {
         throw new Error('integrations must be an array');
     }
 
-    if (integrations.length === 0) {
+    // `entities` is the app definition's registry (ADR-059): a module an app
+    // registers without any integration still carries credentials to encrypt.
+    if (integrations.length === 0 && !entities) {
         return;
     }
 
-    // NOTE: this path does not exist ('../integrations' resolves to
-    // database/integrations), so today this function throws MODULE_NOT_FOUND,
-    // loadCustomEncryptionSchema swallows it, and module credentialFields are
-    // effectively NOT registered. Fixing it changes which fields are encrypted
-    // and needs a decrypt that tolerates plaintext, so it ships separately:
-    // branch claude/internal-mcp-03b-module-credential-encryption. Left as is
-    // here on purpose (ADR-059 must not change what gets encrypted).
-    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
-
-    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);
+    const moduleDefinitions = getEntityTypeDefinitions(
+        getEntityTypeRegistry({ integrations, entities })
+    );
     const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
 
-    if (credentialFields.length === 0) {
+    // Core fields are encrypted already and a custom schema may not repeat
+    // them. Everything the app registered itself stays: module fields are added
+    // to the custom schema, never substituted for it (other models included).
+    const coreFields = new Set(CORE_ENCRYPTION_SCHEMA.Credential?.fields || []);
+    const fields = [
+        ...new Set([
+            ...(customSchema.Credential?.fields || []),
+            ...credentialFields.filter((field) => !coreFields.has(field)),
+        ]),
+    ];
+
+    if (fields.length === 0) {
         return;
     }
 
     const moduleSchema = {
-        Credential: {
-            fields: credentialFields
-        }
+        ...customSchema,
+        Credential: { ...customSchema.Credential, fields },
     };
 
     logger.info(
-        `Registering module-level encryption for ${credentialFields.length} credential fields`
+        `Registering module-level encryption for ${fields.length} credential fields`
     );
 
     registerCustomSchema(moduleSchema);
@@ -218,22 +229,80 @@ function loadModuleEncryptionSchemas(integrations) {
  *
  * Used by both Prisma (MongoDB/PostgreSQL) and DocumentDB encryption services.
  */
-function loadCustomEncryptionSchema() {
-    try {
-        // Lazy require to avoid circular dependency issues
-        const path = require('node:path');
-        const { findNearestBackendPackageJson } = require('../../utils');
+/**
+ * Registers encryption schemas declared by app-level extensions
+ * (`appDefinition.coreExtensions[].encryption`), e.g. the db-credentials
+ * extension's `OAuthAppCredential.clientSecret`.
+ *
+ * @param {Array<Object>} extensions - Normalized extensions (extension-loader)
+ */
+function loadExtensionEncryptionSchemas(extensions) {
+    if (!extensions || !Array.isArray(extensions) || extensions.length === 0) {
+        return;
+    }
 
-        const backendPackagePath = findNearestBackendPackageJson();
-        if (!backendPackagePath) {
-            return; // No backend found, skip custom schema
+    for (const ext of extensions) {
+        if (!ext.encryption || typeof ext.encryption !== 'object') {
+            continue;
         }
 
-        const backendDir = path.dirname(backendPackagePath);
-        const backendIndexPath = path.join(backendDir, 'index.js');
+        const schema = {};
+        for (const [modelName, config] of Object.entries(ext.encryption)) {
+            if (config && Array.isArray(config.fields) && config.fields.length > 0) {
+                schema[modelName] = { fields: config.fields };
+            }
+        }
 
-        const backendModule = require(backendIndexPath);
-        const appDefinition = backendModule?.Definition;
+        if (Object.keys(schema).length > 0) {
+            logger.info(
+                `Registering encryption schema from extension "${ext.name}" for models: ${Object.keys(schema).join(', ')}`
+            );
+            // registerCustomSchema replaces the registered schema, so merge:
+            // an extension adds its models to the app's encryption.schema
+            // rather than dropping it.
+            const merged = { ...customSchema };
+            for (const [modelName, config] of Object.entries(schema)) {
+                const existing = merged[modelName]?.fields || [];
+                merged[modelName] = {
+                    ...merged[modelName],
+                    fields: [...new Set([...existing, ...config.fields])],
+                };
+            }
+            registerCustomSchema(merged);
+        }
+    }
+}
+
+function readAppDefinitionForEncryption() {
+    // Lazy require to avoid circular dependency issues
+    const {
+        getPresetAppDefinition,
+    } = require('../../handlers/app-definition-loader');
+    // A definition preset with setAppDefinition() (provider-netlify's
+    // preamble) wins: on Netlify process.cwd() cannot find the backend.
+    const preset = getPresetAppDefinition();
+    if (preset) {
+        return preset;
+    }
+
+    const path = require('node:path');
+    const { findNearestBackendPackageJson } = require('../../utils');
+
+    const backendPackagePath = findNearestBackendPackageJson();
+    if (!backendPackagePath) {
+        return null; // No backend found, skip custom schema
+    }
+
+    const backendDir = path.dirname(backendPackagePath);
+    const backendIndexPath = path.join(backendDir, 'index.js');
+
+    const backendModule = require(backendIndexPath);
+    return backendModule?.Definition || null;
+}
+
+function loadCustomEncryptionSchema() {
+    try {
+        const appDefinition = readAppDefinitionForEncryption();
 
         if (!appDefinition) {
             return; // No app definition found
@@ -253,12 +322,26 @@ function loadCustomEncryptionSchema() {
             registerEncryptionOptOut(disable);
         }
 
+        // Load app-level extension encryption schemas. Before the module
+        // schemas: loadModuleEncryptionSchemas currently throws (see the
+        // NOTE inside it) and the throw would skip anything after it.
+        const { loadExtensions } = require('../../extensions/extension-loader');
+        const extensions = loadExtensions(appDefinition);
+        if (extensions.length > 0) {
+            loadExtensionEncryptionSchemas(extensions);
+        }
+
         // Load module-level encryption schemas from integrations
         const integrations = appDefinition.integrations;
-        if (integrations && Array.isArray(integrations)) {
-            loadModuleEncryptionSchemas(integrations);
+        if (Array.isArray(integrations) || appDefinition.entities) {
+            loadModuleEncryptionSchemas(
+                Array.isArray(integrations) ? integrations : [],
+                appDefinition.entities
+            );
         }
     } catch (error) {
+        // A bad entity registry is a configuration error, not "no custom schema".
+        if (error instanceof EntityRegistryError) throw error;
         // Silently ignore errors - custom schema is optional
         // This handles cases like:
         // - Backend package.json not found (tests, standalone usage)
@@ -409,6 +492,7 @@ module.exports = {
     registerEncryptionOptOut,
     loadCustomEncryptionSchema,
     loadModuleEncryptionSchemas,
+    loadExtensionEncryptionSchemas,
     extractCredentialFieldsFromModules,
     validateCustomSchema,
     validateOptOut,

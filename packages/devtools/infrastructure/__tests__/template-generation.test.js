@@ -5,6 +5,13 @@
  * valid, consistent CloudFormation templates.
  */
 
+// Composing must not build the real Prisma layer: that runs npm install
+// under packages/devtools, and two workers doing it at once once pruned the
+// repository's root node_modules (test/npm-install-guard.js).
+jest.mock('../domains/shared/utilities/prisma-layer-manager', () => ({
+    ensurePrismaLayerExists: jest.fn(async () => {}),
+}));
+
 const { composeServerlessDefinition } = require('../infrastructure-composer');
 
 describe('CloudFormation Template Generation', () => {

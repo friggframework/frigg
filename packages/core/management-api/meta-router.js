@@ -6,7 +6,11 @@ const {
 } = require('./use-cases/get-management-api-meta');
 const { isValidAdminApiKey } = require('../handlers/middleware/admin-auth');
 const { version: coreVersion } = require('../package.json');
-const { MANAGEMENT_API_VERSIONS } = require('./route-registry');
+const {
+    MANAGEMENT_API_VERSIONS,
+    PREFERRED_API_VERSION,
+    DOCS_ROUTES,
+} = require('./route-registry');
 const { buildOpenApiDocument } = require('./openapi/build-openapi');
 
 /**
@@ -54,4 +58,19 @@ function createManagementApiMetaRouter({ appDefinition = {} } = {}) {
     return router;
 }
 
-module.exports = { createManagementApiMetaRouter };
+/**
+ * GET /api/docs (DOCS_ROUTES): a redirect to the current OpenAPI document,
+ * mounted next to the meta router on the DB-free health Lambda. Public, like
+ * /api/meta.
+ */
+function createDocsRedirectRouter() {
+    const router = Router();
+    for (const { path } of DOCS_ROUTES) {
+        router.get(path, (_req, res) =>
+            res.redirect(302, `/api/meta/openapi/v${PREFERRED_API_VERSION}.json`)
+        );
+    }
+    return router;
+}
+
+module.exports = { createManagementApiMetaRouter, createDocsRedirectRouter };

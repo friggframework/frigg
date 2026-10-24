@@ -1,3 +1,12 @@
+const {
+    resolveEncryptionConfig,
+    OPT_OUT_VAR,
+} = require('../encryption/encryption-config');
+
+/**
+ * Reports whether field-level encryption is on and working, using the same
+ * rule the Prisma client applies at startup (encryption/encryption-config.js).
+ */
 class CheckEncryptionHealthUseCase {
     constructor({ testEncryptionUseCase }) {
         this.testEncryptionUseCase = testEncryptionUseCase;
@@ -5,78 +14,60 @@ class CheckEncryptionHealthUseCase {
 
     async execute() {
         const config = this._getEncryptionConfiguration();
+        const summary = {
+            mode: config.mode,
+            bypassed: config.bypassed,
+            optedOut: config.optedOut,
+            runtime: config.runtime,
+            stage: config.stage,
+            debug: {
+                hasKMS: config.hasKMS,
+                hasAES: config.hasAES,
+            },
+        };
 
-        if (config.isBypassed || config.mode === 'none') {
-            const testResult = config.isBypassed
-                ? 'Encryption bypassed for this stage'
-                : 'No encryption keys configured';
+        if (config.error) {
+            return {
+                status: 'unhealthy',
+                ...summary,
+                testResult: config.error,
+                encryptionWorks: false,
+            };
+        }
 
+        if (!config.enabled) {
             return {
                 status: 'disabled',
-                mode: config.mode,
-                bypassed: config.isBypassed,
-                stage: config.stage,
-                testResult,
+                ...summary,
+                testResult: this._disabledReason(config),
                 encryptionWorks: false,
-                debug: {
-                    hasKMS: config.hasKMS,
-                    hasAES: config.hasAES,
-                },
             };
         }
 
         try {
             const testResults = await this.testEncryptionUseCase.execute();
-
-            return {
-                ...testResults,
-                mode: config.mode,
-                bypassed: config.isBypassed,
-                stage: config.stage,
-                debug: {
-                    hasKMS: config.hasKMS,
-                    hasAES: config.hasAES,
-                },
-            };
+            return { ...testResults, ...summary };
         } catch (error) {
             return {
                 status: 'unhealthy',
-                mode: config.mode,
-                bypassed: config.isBypassed,
-                stage: config.stage,
+                ...summary,
                 testResult: `Encryption test failed: ${error.message}`,
                 encryptionWorks: false,
-                debug: {
-                    hasKMS: config.hasKMS,
-                    hasAES: config.hasAES,
-                },
             };
         }
     }
 
+    _disabledReason(config) {
+        if (config.bypassed) return 'Encryption bypassed for this stage';
+        if (config.optedOut) {
+            return `Encryption explicitly disabled (${OPT_OUT_VAR}=true); sensitive fields are stored in plaintext`;
+        }
+        return 'No encryption keys configured';
+    }
+
     _getEncryptionConfiguration() {
-        const { STAGE, BYPASS_ENCRYPTION_STAGE, KMS_KEY_ARN, AES_KEY_ID } =
-            process.env;
-
-        const defaultBypassStages = ['dev', 'test', 'local'];
-        const useEnv = BYPASS_ENCRYPTION_STAGE !== undefined;
-        const bypassStages = useEnv
-            ? BYPASS_ENCRYPTION_STAGE.split(',').map((s) => s.trim())
-            : defaultBypassStages;
-
-        const isBypassed = bypassStages.includes(STAGE);
-        const hasAES = AES_KEY_ID && AES_KEY_ID.trim() !== '';
-        const hasKMS = KMS_KEY_ARN && KMS_KEY_ARN.trim() !== '';
-        // Prefer KMS over AES when both are configured (KMS is more secure)
-        const mode = hasKMS ? 'kms' : hasAES ? 'aes' : 'none';
-
-        return {
-            stage: STAGE || null,
-            isBypassed,
-            hasAES,
-            hasKMS,
-            mode,
-        };
+        const config = resolveEncryptionConfig(process.env);
+        return { ...config, stage: process.env.STAGE || null };
     }
 }
 

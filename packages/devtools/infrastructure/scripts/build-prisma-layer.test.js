@@ -168,3 +168,38 @@ describe('getMigrationDestinationPath()', () => {
         );
     });
 });
+
+
+describe('runLayerInstall', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const { runLayerInstall } = require('./build-prisma-layer');
+
+    it('refuses when the layer package.json is missing (npm would walk up into the workspace)', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'layer-'));
+        const exec = jest.fn();
+        try {
+            expect(() => runLayerInstall(dir, { exec })).toThrow(/Refusing to run npm install/);
+            expect(exec).not.toHaveBeenCalled();
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('pins npm to the layer directory and off any enclosing workspace', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'layer-'));
+        fs.writeFileSync(path.join(dir, 'package.json'), '{}');
+        const exec = jest.fn();
+        try {
+            runLayerInstall(dir, { exec, env: { X: '1' } });
+            const [command, options] = exec.mock.calls[0];
+            expect(command).toContain('npm install --omit=dev');
+            expect(command).toContain('--workspaces=false');
+            expect(command).toContain(`--prefix ${JSON.stringify(dir)}`);
+            expect(options).toMatchObject({ cwd: dir, env: { X: '1' } });
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+});

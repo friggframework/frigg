@@ -45,6 +45,18 @@ class ModuleFactory {
             );
         }
 
+        // definition.env may be an async function (e.g. the db-credentials
+        // extension's bootstrap loads OAuth app credentials from the
+        // database); resolve it first. A static env keeps the plain
+        // constructor, exactly as before.
+        if (typeof moduleDefinition.env === 'function') {
+            return await Module.create({
+                userId,
+                entity,
+                definition: moduleDefinition,
+            });
+        }
+
         return new Module({
             userId,
             entity,

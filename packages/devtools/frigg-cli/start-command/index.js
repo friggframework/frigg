@@ -37,6 +37,12 @@ async function startCommand(options) {
     console.log(chalk.green('✓ Database checks passed\n'));
     console.log('Starting backend and optional frontend...');
 
+    // A non-AWS provider runs its own local dev server (friggframework/frigg#545).
+    const providerResult = loadNonAwsProvider();
+    if (providerResult) {
+        return startWithProvider(providerResult, options);
+    }
+
     // Suppress AWS SDK warning message about maintenance mode
     process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
     // Skip AWS discovery for local development
@@ -144,6 +150,58 @@ async function performDatabaseChecks(verbose) {
     // the CLI code runs from tmp/frigg but the client is in backend/node_modules,
     // causing module resolution mismatches. The backend will test its own database
     // connection when it starts.
+}
+
+function loadNonAwsProvider() {
+    try {
+        const { loadProviderForCli } = require('../utils/provider-helper');
+        const result = loadProviderForCli();
+        return result && result.provider ? result : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Local dev server per provider: Netlify -> `netlify dev` (reads netlify.toml
+ * and serves the generated functions), run from the project root that holds
+ * backend/ and netlify.toml.
+ */
+function startWithProvider({ providerName, backendDir }, options = {}) {
+    const DEV_COMMANDS = {
+        netlify: { command: 'netlify', args: ['dev'] },
+    };
+    const devCmd = DEV_COMMANDS[providerName];
+    if (!devCmd) {
+        console.error(chalk.red(
+            `Provider '${providerName}' does not have a local dev server configured.\n` +
+            `  Supported providers for local dev: ${Object.keys(DEV_COMMANDS).join(', ')}, aws`
+        ));
+        process.exit(1);
+    }
+
+    const cwd = require('node:path').dirname(backendDir);
+    console.log(chalk.blue(`Starting local dev server (${providerName})...`));
+    if (options.verbose) {
+        console.log(`Executing command: ${devCmd.command} ${devCmd.args.join(' ')}`);
+        console.log(`Working directory: ${cwd}`);
+    }
+
+    const childProcess = spawn(devCmd.command, devCmd.args, {
+        cwd,
+        stdio: 'inherit',
+        env: { ...process.env },
+    });
+    childProcess.on('error', (error) => {
+        if (error.code === 'ENOENT') {
+            console.error(chalk.red(`'${devCmd.command}' not found. Install it with: npm install -g ${devCmd.command}-cli`));
+        } else {
+            console.error(`Error executing command: ${error.message}`);
+        }
+    });
+    childProcess.on('close', (code) => {
+        if (code !== 0) console.log(`Child process exited with code ${code}`);
+    });
 }
 
 module.exports = { startCommand };

@@ -11,6 +11,14 @@ const { SECRETS } = require('../../../logs/__fixtures__/secrets');
 
 const LOGGER = 'frigg.modules.authorization_callback';
 
+
+// The use cases build modules through the async Module.create (it resolves a
+// function env); route it to the mocked constructor.
+{
+    const { Module: MockedModule } = require('../../module');
+    MockedModule.create = async (params) => new MockedModule(params);
+}
+
 describe('ProcessAuthorizationCallback logs (ADR-048)', () => {
     let sink;
     let consoleSpies;

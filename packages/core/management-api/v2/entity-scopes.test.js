@@ -220,6 +220,14 @@ const entityRow = (id, userId, organizationId, extra = {}) => ({
     credential: extra.credentialId ? { id: extra.credentialId, authIsValid: true } : null,
 });
 
+
+// The use cases build modules through the async Module.create (it resolves a
+// function env); route it to the mocked constructor.
+{
+    const { Module: MockedModule } = require('../../modules/module');
+    MockedModule.create = async (params) => new MockedModule(params);
+}
+
 describe('ownership by scope at the v2 API (ADR-056 §3)', () => {
     const previousDbType = process.env.DB_TYPE;
     beforeAll(() => {

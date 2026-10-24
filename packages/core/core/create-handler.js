@@ -81,6 +81,15 @@ const createHandler = (optionByName = {}) => {
                     if (shouldUseDatabase) {
                         const { connectPrisma } = require('../database/prisma');
                         await connectPrisma();
+
+                        // Extension bootstraps (e.g. db-credentials swapping a
+                        // module's env for its DB loader) run once per
+                        // process, after the connect and before any request
+                        // builds a module. AWS and Netlify both reach here.
+                        const {
+                            initializeApp,
+                        } = require('../extensions/initialize-app');
+                        await initializeApp();
                     }
 
                     // Helps reuse the database connection.  Lowers response times.

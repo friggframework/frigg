@@ -36,7 +36,7 @@ class CreateEntityFromCredential {
         this.processAuthorizationCallback = processAuthorizationCallback;
         this.credentialRepository = credentialRepository;
         this.moduleDefinitions = moduleDefinitions || [];
-        this.createModule = createModule || ((params) => new Module(params));
+        this.createModule = createModule || ((params) => Module.create(params));
     }
 
     /**
@@ -78,7 +78,7 @@ class CreateEntityFromCredential {
         // API can call the provider and a token refresh during
         // getEntityDetails updates the owner's credential.
         const { id, userId, externalId, authIsValid, ...data } = credential;
-        const module = this.createModule({
+        const module = await this.createModule({
             userId: ownership.ownerId,
             definition,
             entity: {

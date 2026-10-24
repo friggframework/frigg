@@ -1,7 +1,22 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-async function buildCommand(options) {
+async function buildCommand(options = {}) {
+    // A non-AWS provider (appDefinition.provider) builds through its plugin:
+    // platform config + function entry points, no serverless package
+    // (friggframework/frigg#545).
+    const providerResult = loadProviderIfConfigured();
+    if (providerResult) {
+        const { buildWithProvider } = require('../../infrastructure/provider-build');
+        buildWithProvider({
+            appDefinition: providerResult.appDefinition,
+            backendDir: providerResult.backendDir,
+            provider: providerResult.provider,
+            verbose: options.verbose,
+        });
+        return;
+    }
+
     console.log('Building the serverless application...');
 
     // Suppress AWS SDK warning message about maintenance mode
@@ -61,6 +76,22 @@ async function buildCommand(options) {
     //         console.log(`Child process exited with code ${code}`);
     //     }
     // });
+}
+
+/**
+ * The resolved non-AWS provider, or null for AWS / no app definition found.
+ */
+function loadProviderIfConfigured() {
+    const { loadProviderForCli } = require('../utils/provider-helper');
+    let result;
+    try {
+        result = loadProviderForCli();
+    } catch (error) {
+        // A non-AWS provider whose package is missing: say so, don't build for AWS.
+        console.error(error.message);
+        process.exit(1);
+    }
+    return result && result.provider ? result : null;
 }
 
 module.exports = { buildCommand };

@@ -3,6 +3,7 @@
 **Status**: Proposed
 **Date**: 2026-06-09
 **Deciders**: Sean Matthews
+**Amended by**: [Amendment 1](./017-amendment-1-core-extensions-key.md) (runtime core extensions live on `appDefinition.coreExtensions`)
 
 ## Context
 

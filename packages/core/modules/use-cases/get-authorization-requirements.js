@@ -3,7 +3,7 @@ const { findDefinition, getAuthStepCount } = require('./entity-types');
 
 const defaultCreateModule = (params) => {
     const { Module } = require('../module');
-    return new Module(params);
+    return Module.create(params);
 };
 
 /**
@@ -80,7 +80,7 @@ class GetAuthorizationRequirements {
         if (typeof definition.getAuthRequirementsForStep === 'function') {
             raw = await definition.getAuthRequirementsForStep(step);
         } else {
-            const module = this.createModule({
+            const module = await this.createModule({
                 userId,
                 definition,
                 ...(state ? { state } : {}),

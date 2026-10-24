@@ -88,7 +88,7 @@ class ProcessAuthorizationCallback {
             });
         }
 
-        const module = new Module({
+        const module = await Module.create({
             userId,
             entity: existingEntity,
             definition: moduleDefinition,

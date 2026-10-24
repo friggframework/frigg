@@ -468,6 +468,26 @@ describe('Environment Builder', () => {
         });
     });
 
+    describe('field-level encryption opt-out', () => {
+        it("emits FRIGG_ENCRYPTION_DISABLED=true for fieldLevelEncryptionMethod: 'none'", () => {
+            const result = getAppEnvironmentVars({
+                encryption: { fieldLevelEncryptionMethod: 'none' },
+            });
+
+            expect(result.FRIGG_ENCRYPTION_DISABLED).toBe('true');
+        });
+
+        it.each([
+            ['kms', { fieldLevelEncryptionMethod: 'kms' }],
+            ['aes', { fieldLevelEncryptionMethod: 'aes' }],
+            ['no encryption block', undefined],
+        ])('does not opt out for %s', (_label, encryption) => {
+            const result = getAppEnvironmentVars({ encryption });
+
+            expect(result.FRIGG_ENCRYPTION_DISABLED).toBeUndefined();
+        });
+    });
+
     describe('buildEnvironment()', () => {
         it('should combine app vars with standard Frigg variables', () => {
             const appEnvironmentVars = {
