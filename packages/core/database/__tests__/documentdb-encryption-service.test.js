@@ -2,9 +2,22 @@ const {
     DocumentDBEncryptionService,
 } = require('../documentdb-encryption-service');
 const {
+    registerCustomSchema,
+    resetCustomSchema,
     registerEncryptionOptOut,
     resetEncryptionOptOut,
 } = require('../encryption/encryption-schema-registry');
+
+// The service only treats values in the Cryptor envelope format
+// (keyId:iv:ciphertext:encryptedKey, all base64, > 50 chars) as encrypted,
+// so the mock cryptor emits that shape with the plaintext as the ciphertext.
+const MOCK_KEY_ID = Buffer.from('mock-key-id').toString('base64');
+const MOCK_IV = Buffer.from('mock-iv-1234').toString('base64');
+const MOCK_ENC_KEY = Buffer.from('mock-encrypted-data-key').toString('base64');
+const enc = (plaintext) =>
+    `${MOCK_KEY_ID}:${MOCK_IV}:${Buffer.from(plaintext).toString(
+        'base64'
+    )}:${MOCK_ENC_KEY}`;
 
 describe('DocumentDBEncryptionService', () => {
     let service;
@@ -16,18 +29,27 @@ describe('DocumentDBEncryptionService', () => {
             encrypt: jest.fn(async (val) => {
                 const stringVal =
                     typeof val === 'string' ? val : JSON.stringify(val);
-                return `encrypted:${stringVal}`;
+                return enc(stringVal);
             }),
             decrypt: jest.fn(async (val) => {
-                if (!val.startsWith('encrypted:')) {
+                const parts = val.split(':');
+                if (parts.length !== 4 || parts[0] !== MOCK_KEY_ID) {
                     throw new Error('Invalid encrypted format');
                 }
-                return val.replace('encrypted:', '');
+                return Buffer.from(parts[2], 'base64').toString();
             }),
         };
 
+        // User.username is not a core field; apps opt in via
+        // appDefinition.encryption.schema, which these tests rely on.
+        registerCustomSchema({ User: { fields: ['username'] } });
+
         // Create service with mock cryptor
         service = new DocumentDBEncryptionService({ cryptor: mockCryptor });
+    });
+
+    afterEach(() => {
+        resetCustomSchema();
     });
 
     describe('encryptFields', () => {
@@ -36,7 +58,7 @@ describe('DocumentDBEncryptionService', () => {
 
             const encrypted = await service.encryptFields('User', doc);
 
-            expect(encrypted.username).toBe('encrypted:test@example.com');
+            expect(encrypted.username).toBe(enc('test@example.com'));
             expect(encrypted.type).toBe('INDIVIDUAL'); // Non-encrypted field unchanged
         });
 
@@ -45,7 +67,7 @@ describe('DocumentDBEncryptionService', () => {
 
             const encrypted = await service.encryptFields('User', doc);
 
-            expect(encrypted.hashword).toBe('encrypted:hashed_password');
+            expect(encrypted.hashword).toBe(enc('hashed_password'));
             expect(encrypted.type).toBe('INDIVIDUAL');
         });
 
@@ -58,8 +80,8 @@ describe('DocumentDBEncryptionService', () => {
 
             const encrypted = await service.encryptFields('User', doc);
 
-            expect(encrypted.username).toBe('encrypted:test@example.com');
-            expect(encrypted.hashword).toBe('encrypted:hashed');
+            expect(encrypted.username).toBe(enc('test@example.com'));
+            expect(encrypted.hashword).toBe(enc('hashed'));
             expect(encrypted.type).toBe('INDIVIDUAL');
         });
 
@@ -96,10 +118,8 @@ describe('DocumentDBEncryptionService', () => {
 
             const encrypted = await service.encryptFields('Credential', doc);
 
-            expect(encrypted.data.access_token).toBe('encrypted:secret_token');
-            expect(encrypted.data.refresh_token).toBe(
-                'encrypted:refresh_secret'
-            );
+            expect(encrypted.data.access_token).toBe(enc('secret_token'));
+            expect(encrypted.data.refresh_token).toBe(enc('refresh_secret'));
             expect(encrypted.data.other_field).toBe('not_encrypted');
             expect(encrypted.userId).toBe('12345');
         });
@@ -140,7 +160,7 @@ describe('DocumentDBEncryptionService', () => {
                 'YWVzLWtleS0x:TXlJVkhlcmU=:QWN0dWFsQ2lwaGVy:RW5jcnlwdGVk'
             );
             // Plain field should be encrypted
-            expect(encrypted.hashword).toBe('encrypted:plain_text');
+            expect(encrypted.hashword).toBe(enc('plain_text'));
         });
     });
 
@@ -166,7 +186,7 @@ describe('DocumentDBEncryptionService', () => {
     describe('decryptFields', () => {
         it('decrypts User.username (custom field)', async () => {
             const doc = {
-                username: 'encrypted:test@example.com',
+                username: enc('test@example.com'),
                 type: 'INDIVIDUAL',
             };
 
@@ -177,7 +197,7 @@ describe('DocumentDBEncryptionService', () => {
         });
 
         it('decrypts User.hashword (core field)', async () => {
-            const doc = { hashword: 'encrypted:hashed_password' };
+            const doc = { hashword: enc('hashed_password') };
 
             const decrypted = await service.decryptFields('User', doc);
 
@@ -201,8 +221,8 @@ describe('DocumentDBEncryptionService', () => {
             const doc = {
                 userId: '12345',
                 data: {
-                    access_token: 'encrypted:secret_token',
-                    refresh_token: 'encrypted:refresh_token',
+                    access_token: enc('secret_token'),
+                    refresh_token: enc('refresh_token'),
                 },
             };
 
@@ -213,7 +233,7 @@ describe('DocumentDBEncryptionService', () => {
         });
 
         it('does not mutate original document', async () => {
-            const doc = { username: 'encrypted:test@example.com' };
+            const doc = { username: enc('test@example.com') };
             const originalUsername = doc.username;
 
             await service.decryptFields('User', doc);
@@ -233,17 +253,17 @@ describe('DocumentDBEncryptionService', () => {
             disabledService.enabled = false;
             disabledService.cryptor = mockCryptor;
 
-            const doc = { username: 'encrypted:test@example.com' };
+            const doc = { username: enc('test@example.com') };
             const result = await disabledService.decryptFields('User', doc);
 
-            expect(result.username).toBe('encrypted:test@example.com'); // Not decrypted
+            expect(result.username).toBe(enc('test@example.com')); // Not decrypted
             expect(mockCryptor.decrypt).not.toHaveBeenCalled();
         });
 
         it('skips non-encrypted values', async () => {
             const doc = {
                 username: 'plain_text', // Not in encrypted format
-                hashword: 'encrypted:hashed',
+                hashword: enc('hashed'),
             };
 
             const decrypted = await service.decryptFields('User', doc);
@@ -314,7 +334,7 @@ describe('DocumentDBEncryptionService', () => {
 
             const encrypted = await service.encryptFields('User', doc);
 
-            expect(encrypted.username).toBe('encrypted:test@example.com');
+            expect(encrypted.username).toBe(enc('test@example.com'));
             expect(encrypted.createdAt).toEqual(date); // Date preserved
         });
 
@@ -345,7 +365,7 @@ describe('DocumentDBEncryptionService', () => {
 
             const encrypted = await service.encryptFields('User', doc);
 
-            expect(encrypted.username).toBe('encrypted:test@example.com');
+            expect(encrypted.username).toBe(enc('test@example.com'));
             expect(encrypted.tags).toEqual(['tag1', 'tag2']); // Array preserved
         });
     });
@@ -368,7 +388,7 @@ describe('DocumentDBEncryptionService', () => {
                 new Error('Decryption failed')
             );
 
-            const doc = { username: 'encrypted:test@example.com' };
+            const doc = { username: enc('test@example.com') };
 
             await expect(service.decryptFields('User', doc)).rejects.toThrow(
                 'Decryption failed'
