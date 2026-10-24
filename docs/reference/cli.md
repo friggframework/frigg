@@ -20,7 +20,7 @@ Looking for `frigg create`, `frigg add` or `frigg config`? Those are in the [CLI
 | [`frigg deploy`](#frigg-deploy) | Deploy the serverless application |
 | [`frigg generate-iam`](#frigg-generate-iam) | Generate IAM CloudFormation template based on app definition |
 | [`frigg ui`](#frigg-ui) | Launch the Frigg Management UI |
-| [`frigg db:setup`](#frigg-dbsetup) | Set up database schema and generate Prisma client |
+| [`frigg db:setup`](#frigg-db-setup) | Set up database schema and generate Prisma client |
 | [`frigg doctor [stackName]`](#frigg-doctor) | Run health check on deployed CloudFormation stack |
 | [`frigg repair <stackName>`](#frigg-repair) | Repair infrastructure issues (import orphaned resources, reconcile property drift) |
 | [`frigg ssm`](#frigg-ssm) | Manage SSM Parameter Store offloaded configuration |
