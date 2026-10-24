@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://friggframework.org/schemas/api-entities.json",
+  "$id": "https://friggframework.org/schemas/api-entities/v1.0.json",
   "title": "Frigg Entities API Schemas",
   "description": "JSON schemas for entities API requests and responses",
   "definitions": {
