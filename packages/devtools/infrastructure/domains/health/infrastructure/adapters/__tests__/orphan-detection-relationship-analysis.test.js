@@ -82,7 +82,14 @@ jest.mock('@aws-sdk/client-kms', () => ({
     ListAliasesCommand: jest.fn(),
 }));
 
-describe('Orphan Detection with Relationship Analysis (TDD)', () => {
+// SKIPPED: red-phase TDD spec for a feature that was never implemented.
+// AWSResourceDetector has no findOrphanedResourcesWithRelationships() or
+// _extractReferencedResourceIds(); the design is in
+// domains/health/docs/ORPHAN-DETECTION-ANALYSIS.md. (A template-based variant of
+// the reference analysis lives in RepairViaImportUseCase._extractReferencedIdsFromTemplate.)
+// Un-skip when the relationship analysis is implemented.
+// Tracked in https://github.com/friggframework/frigg/issues/709
+describe.skip('Orphan Detection with Relationship Analysis (TDD)', () => {
     let detector;
     let mockEC2Send;
     let mockRDSSend;
