@@ -1,0 +1,745 @@
+/**
+ * SQL-generation tests for IntegrationMappingRepositoryPostgres.queryMappings.
+ *
+ * These stub `prisma.$queryRawUnsafe` to capture the page SQL, and the
+ * fallback count SQL, with their bound parameters. The contract under test:
+ * the SQL text is fixed and every caller-supplied value, JSON paths included,
+ * reaches Postgres only as a bound parameter.
+ */
+
+jest.mock('../../database/encryption/encryption-schema-registry', () => ({
+    ...jest.requireActual(
+        '../../database/encryption/encryption-schema-registry'
+    ),
+    loadCustomEncryptionSchema: jest.fn(),
+}));
+
+const {
+    loadCustomEncryptionSchema,
+    registerCustomSchema,
+    registerEncryptionOptOut,
+    resetCustomSchema,
+    resetEncryptionOptOut,
+} = require('../../database/encryption/encryption-schema-registry');
+const { logger } = require('../../database/encryption/logger');
+const { Cryptor } = require('../../encrypt/Cryptor');
+const {
+    resetMappingEncryptionCheck,
+} = require('../../database/encryption/integration-mapping-encryption');
+const {
+    IntegrationMappingRepositoryPostgres,
+} = require('./integration-mapping-repository-postgres');
+const {
+    IntegrationMappingRepositoryInterface,
+} = require('./integration-mapping-repository-interface');
+const {
+    IntegrationMappingRepository,
+} = require('./integration-mapping-repository');
+
+const EMPTY_PAGE_ROW = {
+    id: null,
+    integrationId: null,
+    sourceId: null,
+    mapping: null,
+    createdAt: null,
+    updatedAt: null,
+};
+
+function makeRepo({ rows = [], total = rows.length } = {}) {
+    const repo = new IntegrationMappingRepositoryPostgres();
+    const calls = [];
+    repo.prisma = {
+        $queryRawUnsafe: jest.fn(async (sql, ...params) => {
+            calls.push({ sql, params });
+            const pageRows = rows.length > 0 ? rows : [EMPTY_PAGE_ROW];
+            return pageRows.map((row) => ({ ...row, __total: total }));
+        }),
+    };
+    return { repo, calls, page: () => calls[0] };
+}
+
+describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
+    it('binds the integration id as an int and returns string ids with the total', async () => {
+        const createdAt = new Date('2026-01-01T00:00:00Z');
+        const updatedAt = new Date('2026-01-02T00:00:00Z');
+        const { repo, page, calls } = makeRepo({
+            rows: [
+                {
+                    id: 5,
+                    integrationId: 12,
+                    sourceId: 'source:1',
+                    mapping: { externalId: '1' },
+                    createdAt,
+                    updatedAt,
+                },
+            ],
+            total: 7,
+        });
+
+        const result = await repo.queryMappings('12', { take: 10 });
+
+        expect(page().sql).toMatch(/"integrationId" = \$1::int/);
+        expect(page().params[0]).toBe(12);
+        expect(calls).toHaveLength(1);
+        expect(result).toEqual({
+            mappings: [
+                {
+                    id: '5',
+                    integrationId: '12',
+                    sourceId: 'source:1',
+                    mapping: { externalId: '1' },
+                    createdAt,
+                    updatedAt,
+                },
+            ],
+            total: 7,
+        });
+    });
+
+    it('only matches rows whose mapping is a JSON object, so ciphertext strings never match', async () => {
+        const { repo, page } = makeRepo();
+
+        await repo.queryMappings('12', { take: 10 });
+
+        expect(page().sql).toMatch(/jsonb_typeof\("mapping"\) = 'object'/);
+    });
+
+    describe('total', () => {
+        const row = (id) => ({
+            id,
+            integrationId: 12,
+            sourceId: `source:${id}`,
+            mapping: { externalId: String(id) },
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+            updatedAt: new Date('2026-01-01T00:00:00Z'),
+        });
+
+        it('counts the matched rows next to the page, in one statement', async () => {
+            const { repo, page, calls } = makeRepo({
+                rows: [row(1), row(2)],
+                total: 42,
+            });
+
+            const { total } = await repo.queryMappings('12', { take: 2 });
+
+            expect(normalize(page().sql)).toContain(
+                `(SELECT COUNT(*)::int FROM "matched") AS "__total" FROM (VALUES (1)) AS "one" LEFT JOIN "page" ON true`
+            );
+            expect(calls).toHaveLength(1);
+            expect(total).toBe(42);
+        });
+
+        it('leaves the count column out of the returned rows', async () => {
+            const { repo } = makeRepo({ rows: [row(1)], total: 1 });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings[0]).not.toHaveProperty('__total');
+        });
+
+        it('returns 0 and no rows when nothing matches', async () => {
+            const { repo, calls } = makeRepo({ total: 0 });
+
+            const result = await repo.queryMappings('12', { take: 10 });
+
+            expect(calls).toHaveLength(1);
+            expect(result).toEqual({ mappings: [], total: 0 });
+        });
+
+        it('returns the total for an empty page past the end, still in one statement', async () => {
+            const { repo, calls } = makeRepo({ total: 12 });
+
+            const result = await repo.queryMappings('12', {
+                skip: 50,
+                take: 10,
+            });
+
+            expect(calls).toHaveLength(1);
+            expect(result).toEqual({ mappings: [], total: 12 });
+        });
+    });
+
+    describe('conditions', () => {
+        it('exists binds the path and treats JSON null as absent', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', {
+                where: [{ path: 'mapping.outbound', op: 'exists' }],
+                take: 10,
+            });
+
+            expect(page().sql).toContain(
+                `COALESCE(jsonb_typeof("mapping" #> $2::text[]), 'null') <> 'null'`
+            );
+            expect(page().params[1]).toEqual(['outbound']);
+            expect(page().sql).not.toContain('outbound');
+        });
+
+        it('notExists is the exact negation of exists (missing or JSON null)', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', {
+                where: [{ path: 'mapping.externalId', op: 'notExists' }],
+                take: 10,
+            });
+
+            expect(page().sql).toContain(
+                `COALESCE(jsonb_typeof("mapping" #> $2::text[]), 'null') = 'null'`
+            );
+            expect(page().params[1]).toEqual(['externalId']);
+        });
+
+        it('in matches JSON strings against a bound text[] of values', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', {
+                where: [
+                    {
+                        path: 'mapping.outbound.status',
+                        op: 'in',
+                        value: ['failed', 'skipped'],
+                    },
+                ],
+                take: 10,
+            });
+
+            expect(page().sql).toContain(
+                `(jsonb_typeof("mapping" #> $2::text[]) = 'string' AND "mapping" #>> $2::text[] = ANY($3::text[]))`
+            );
+            expect(page().params.slice(1, 3)).toEqual([
+                ['outbound', 'status'],
+                ['failed', 'skipped'],
+            ]);
+            expect(page().sql).not.toMatch(/status|failed|skipped/);
+        });
+
+        it('notStartsWith binds the prefix and keeps rows with a NULL sourceId', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', {
+                where: [
+                    {
+                        path: 'sourceId',
+                        op: 'notStartsWith',
+                        value: "alias:'%_",
+                    },
+                ],
+                take: 10,
+            });
+
+            expect(page().sql).toContain(
+                `("sourceId" IS NULL OR NOT starts_with("sourceId", $2::text))`
+            );
+            expect(page().params[1]).toBe("alias:'%_");
+            expect(page().sql).not.toContain('alias');
+        });
+
+        it('ANDs top-level conditions and ORs an anyOf group inside parentheses', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', {
+                where: [
+                    { path: 'mapping.outbound', op: 'exists' },
+                    {
+                        anyOf: [
+                            {
+                                path: 'sourceId',
+                                op: 'notStartsWith',
+                                value: 'alias:',
+                            },
+                            { path: 'mapping.externalId', op: 'notExists' },
+                        ],
+                    },
+                ],
+                take: 10,
+            });
+
+            expect(normalize(page().sql)).toContain(
+                `WHERE "integrationId" = $1::int` +
+                    ` AND jsonb_typeof("mapping") = 'object'` +
+                    ` AND COALESCE(jsonb_typeof("mapping" #> $2::text[]), 'null') <> 'null'` +
+                    ` AND (("sourceId" IS NULL OR NOT starts_with("sourceId", $3::text))` +
+                    ` OR COALESCE(jsonb_typeof("mapping" #> $4::text[]), 'null') = 'null')`
+            );
+            expect(page().params.slice(0, 4)).toEqual([
+                12,
+                ['outbound'],
+                'alias:',
+                ['externalId'],
+            ]);
+        });
+    });
+
+    describe('ordering', () => {
+        it.each([
+            ['desc', 'DESC'],
+            ['asc', 'ASC'],
+        ])(
+            'orders %s by the bound path with nulls last and ties by id',
+            async (direction, sql) => {
+                const { repo, page } = makeRepo();
+
+                await repo.queryMappings('12', {
+                    orderBy: {
+                        path: 'mapping.outbound.attemptedAt',
+                        direction,
+                    },
+                    take: 10,
+                });
+
+                expect(normalize(page().sql)).toContain(
+                    `ORDER BY NULLIF("mapping" #> $2::text[], 'null'::jsonb) ${sql} NULLS LAST, "id" ${sql}`
+                );
+                expect(page().params[1]).toEqual(['outbound', 'attemptedAt']);
+                expect(page().sql).not.toContain('attemptedAt');
+            }
+        );
+
+        it('orders by id when no orderBy is given, so pages are stable', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', { take: 10 });
+
+            expect(normalize(page().sql)).toContain('ORDER BY "id" ASC');
+        });
+
+        it('orders the joined rows the same way, so the join cannot reorder the page', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', {
+                orderBy: {
+                    path: 'mapping.outbound.attemptedAt',
+                    direction: 'desc',
+                },
+                take: 10,
+            });
+
+            const orderBy = `ORDER BY NULLIF("mapping" #> $2::text[], 'null'::jsonb) DESC NULLS LAST, "id" DESC`;
+            expect(normalize(page().sql).split(orderBy)).toHaveLength(3);
+            expect(normalize(page().sql)).toMatch(
+                new RegExp(`${escapeRegExp(orderBy)}$`)
+            );
+        });
+    });
+
+    describe('paging and projection', () => {
+        it('binds skip and take as OFFSET and LIMIT', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', { skip: 40, take: 20 });
+
+            expect(normalize(page().sql)).toContain(
+                'OFFSET $2::bigint LIMIT $3::int'
+            );
+            expect(page().params.slice(1)).toEqual([40, 20]);
+        });
+
+        it('defaults OFFSET to 0', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', { take: 20 });
+
+            expect(page().params.slice(1)).toEqual([0, 20]);
+        });
+
+        it('subtracts omitted top-level keys from the returned mapping', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', {
+                omit: ['history', 'snapshot'],
+                take: 10,
+            });
+
+            expect(normalize(page().sql)).toContain(
+                `SELECT "id", "integrationId", "sourceId", "mapping" - $2::text[] AS "mapping", "createdAt", "updatedAt", (SELECT COUNT(*)`
+            );
+            expect(page().params[1]).toEqual(['history', 'snapshot']);
+            expect(page().sql).not.toContain('history');
+        });
+
+        it('selects the whole mapping when nothing is omitted', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', { take: 10 });
+
+            expect(normalize(page().sql)).toContain(
+                `SELECT "id", "integrationId", "sourceId", "mapping", "createdAt", "updatedAt", (SELECT COUNT(*)`
+            );
+        });
+    });
+
+    describe('a status-filtered page query', () => {
+        const pageQuery = {
+            where: [
+                { path: 'mapping.outbound', op: 'exists' },
+                {
+                    path: 'mapping.outbound.status',
+                    op: 'in',
+                    value: ['failed'],
+                },
+                {
+                    anyOf: [
+                        {
+                            path: 'sourceId',
+                            op: 'notStartsWith',
+                            value: 'alias:',
+                        },
+                        { path: 'mapping.externalId', op: 'notExists' },
+                    ],
+                },
+            ],
+            orderBy: {
+                path: 'mapping.outbound.attemptedAt',
+                direction: 'desc',
+            },
+            skip: 25,
+            take: 25,
+            omit: ['history', 'snapshot', 'extras'],
+        };
+
+        it('filters the table once, in the matched CTE', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', pageQuery);
+
+            const sql = normalize(page().sql);
+            expect(sql).toMatch(
+                /^WITH "matched" AS \(SELECT "id", "integrationId", "sourceId", "mapping", "createdAt", "updatedAt" FROM "IntegrationMapping" WHERE /
+            );
+            expect(sql.match(/"IntegrationMapping"/g)).toHaveLength(1);
+            expect(sql.match(/WHERE/g)).toHaveLength(1);
+            expect(page().params).toEqual([
+                12,
+                ['outbound'],
+                ['outbound', 'status'],
+                ['failed'],
+                'alias:',
+                ['externalId'],
+                ['outbound', 'attemptedAt'],
+                ['history', 'snapshot', 'extras'],
+                25,
+                25,
+            ]);
+        });
+
+        it('never puts a path segment or value into the SQL text', async () => {
+            const { repo, page } = makeRepo();
+
+            await repo.queryMappings('12', pageQuery);
+
+            expect(page().sql).not.toMatch(
+                /outbound|status|failed|alias|externalId|attemptedAt|history|snapshot|extras/
+            );
+            expect(page().sql).not.toMatch(/'\{/);
+        });
+    });
+
+    describe('input errors', () => {
+        it('rejects an invalid query before touching the database', async () => {
+            const { repo } = makeRepo();
+
+            await expect(
+                repo.queryMappings('12', {
+                    where: [{ path: "mapping.outbound'", op: 'exists' }],
+                    take: 10,
+                })
+            ).rejects.toThrow(/queryMappings: invalid path/);
+            expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            [
+                'more than 500 in values',
+                [
+                    {
+                        path: 'mapping.outbound.status',
+                        op: 'in',
+                        value: Array.from({ length: 501 }, (_, i) => `s${i}`),
+                    },
+                ],
+                /at most 500 strings/,
+            ],
+            [
+                'more than 20 conditions',
+                Array.from({ length: 21 }, (_, i) => ({
+                    path: `mapping.f${i}`,
+                    op: 'exists',
+                })),
+                /at most 20 conditions/,
+            ],
+        ])(
+            'rejects %s before touching the database',
+            async (_, where, message) => {
+                const { repo } = makeRepo();
+
+                await expect(
+                    repo.queryMappings('12', { where, take: 10 })
+                ).rejects.toThrow(message);
+                expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+            }
+        );
+
+        it('rejects a partially numeric integration id instead of truncating it', async () => {
+            const { repo } = makeRepo();
+
+            await expect(
+                repo.queryMappings('12abc', { take: 10 })
+            ).rejects.toThrow(/cannot be converted to integer/);
+            expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('encryption guard', () => {
+        const ENV_KEYS = ['STAGE', 'NODE_ENV', 'AES_KEY_ID', 'KMS_KEY_ARN'];
+        let savedEnv;
+
+        beforeEach(() => {
+            savedEnv = Object.fromEntries(
+                ENV_KEYS.map((key) => [key, process.env[key]])
+            );
+            loadCustomEncryptionSchema.mockReset();
+            resetEncryptionOptOut();
+            resetCustomSchema();
+            resetMappingEncryptionCheck();
+        });
+
+        afterEach(() => {
+            for (const [key, value] of Object.entries(savedEnv)) {
+                if (value === undefined) delete process.env[key];
+                else process.env[key] = value;
+            }
+            resetEncryptionOptOut();
+            resetCustomSchema();
+            resetMappingEncryptionCheck();
+        });
+
+        const enableEncryption = () => {
+            process.env.STAGE = 'production';
+            process.env.AES_KEY_ID = 'test-key';
+            delete process.env.KMS_KEY_ARN;
+        };
+
+        it('refuses to query while encryption is on and still encrypts mapping on write', async () => {
+            enableEncryption();
+            const { repo } = makeRepo();
+
+            await expect(
+                repo.queryMappings('12', { take: 10 })
+            ).rejects.toThrow(
+                "queryMappings: field-level encryption still encrypts IntegrationMapping.mapping on write, so it cannot be queried. Opt out by adding 'mapping' to appDefinition.encryption.disable.IntegrationMapping."
+            );
+            expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+        });
+
+        it('runs when the app opts mapping out of encryption in its definition', async () => {
+            enableEncryption();
+            loadCustomEncryptionSchema.mockImplementation(() =>
+                registerEncryptionOptOut({ IntegrationMapping: ['mapping'] })
+            );
+            const { repo } = makeRepo();
+
+            await expect(
+                repo.queryMappings('12', { take: 10 })
+            ).resolves.toEqual({ mappings: [], total: 0 });
+        });
+
+        it('names every nested mapping path that still needs an opt-out', async () => {
+            enableEncryption();
+            registerCustomSchema({
+                IntegrationMapping: { fields: ['mapping.secret'] },
+            });
+            registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
+            const { repo } = makeRepo();
+
+            await expect(
+                repo.queryMappings('12', { take: 10 })
+            ).rejects.toThrow(
+                /encrypts IntegrationMapping\.mapping\.secret on write.*adding 'mapping\.secret'/
+            );
+            expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+        });
+
+        it('runs on STAGE=dev, where encryption is off and the opt-out is never registered', async () => {
+            process.env.STAGE = 'dev';
+            process.env.AES_KEY_ID = 'test-key';
+            const { repo } = makeRepo();
+
+            await expect(
+                repo.queryMappings('12', { take: 10 })
+            ).resolves.toEqual({ mappings: [], total: 0 });
+        });
+
+        it('checks once per process, not once per repository', async () => {
+            process.env.STAGE = 'production';
+            delete process.env.AES_KEY_ID;
+            delete process.env.KMS_KEY_ARN;
+            const warn = jest
+                .spyOn(logger, 'warn')
+                .mockImplementation(() => {});
+
+            await makeRepo().repo.queryMappings('12', { take: 10 });
+            await makeRepo().repo.queryMappings('12', { take: 10 });
+
+            const noKeyWarnings = warn.mock.calls.filter(([message]) =>
+                /No encryption keys configured/.test(message)
+            );
+            expect(noKeyWarnings).toHaveLength(1);
+            warn.mockRestore();
+        });
+    });
+
+    describe('decryption on read', () => {
+        const ENV_KEYS = [
+            'STAGE',
+            'NODE_ENV',
+            'AES_KEY_ID',
+            'AES_KEY',
+            'KMS_KEY_ARN',
+        ];
+        let savedEnv;
+
+        beforeEach(() => {
+            savedEnv = Object.fromEntries(
+                ENV_KEYS.map((key) => [key, process.env[key]])
+            );
+            process.env.STAGE = 'production';
+            process.env.AES_KEY_ID = 'test-key';
+            process.env.AES_KEY = '12345678901234567890123456789012';
+            delete process.env.KMS_KEY_ARN;
+            loadCustomEncryptionSchema.mockReset();
+            resetEncryptionOptOut();
+            resetCustomSchema();
+            resetMappingEncryptionCheck();
+        });
+
+        afterEach(() => {
+            for (const [key, value] of Object.entries(savedEnv)) {
+                if (value === undefined) delete process.env[key];
+                else process.env[key] = value;
+            }
+            resetEncryptionOptOut();
+            resetCustomSchema();
+            resetMappingEncryptionCheck();
+            jest.restoreAllMocks();
+        });
+
+        const optOutOfNestedSecret = () => {
+            registerCustomSchema({
+                IntegrationMapping: { fields: ['mapping.apiSecret'] },
+            });
+            registerEncryptionOptOut({
+                IntegrationMapping: ['mapping', 'mapping.apiSecret'],
+            });
+        };
+        const row = (mapping) => ({
+            id: 5,
+            integrationId: 12,
+            sourceId: 'record:1',
+            mapping,
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+            updatedAt: new Date('2026-01-02T00:00:00Z'),
+        });
+
+        it('decrypts a nested path encrypted before the app opted it out, as findMappingsByIntegration does', async () => {
+            optOutOfNestedSecret();
+            const ciphertext = await new Cryptor({
+                shouldUseAws: false,
+            }).encrypt('plain-secret');
+            const { repo } = makeRepo({
+                rows: [row({ externalId: '1', apiSecret: ciphertext })],
+            });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings).toEqual([
+                {
+                    id: '5',
+                    integrationId: '12',
+                    sourceId: 'record:1',
+                    mapping: { externalId: '1', apiSecret: 'plain-secret' },
+                    createdAt: new Date('2026-01-01T00:00:00Z'),
+                    updatedAt: new Date('2026-01-02T00:00:00Z'),
+                },
+            ]);
+        });
+
+        it('leaves a row written after the opt-out untouched', async () => {
+            optOutOfNestedSecret();
+            const decrypt = jest.spyOn(Cryptor.prototype, 'decrypt');
+            const { repo } = makeRepo({
+                rows: [row({ externalId: '1', apiSecret: 'plain-secret' })],
+            });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings[0].mapping).toEqual({
+                externalId: '1',
+                apiSecret: 'plain-secret',
+            });
+            expect(decrypt).not.toHaveBeenCalled();
+        });
+
+        it('never calls the cryptor when the schema lists nothing inside mapping', async () => {
+            registerEncryptionOptOut({ IntegrationMapping: ['mapping'] });
+            const decrypt = jest.spyOn(Cryptor.prototype, 'decrypt');
+            const ciphertext = await new Cryptor({
+                shouldUseAws: false,
+            }).encrypt('plain-secret');
+            const { repo } = makeRepo({
+                rows: [row({ externalId: '1', apiSecret: ciphertext })],
+            });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings[0].mapping.apiSecret).toBe(ciphertext);
+            expect(decrypt).not.toHaveBeenCalled();
+        });
+
+        it('never calls the cryptor while encryption is off', async () => {
+            process.env.STAGE = 'dev';
+            optOutOfNestedSecret();
+            const ciphertext = await new Cryptor({
+                shouldUseAws: false,
+            }).encrypt('plain-secret');
+            const decrypt = jest.spyOn(Cryptor.prototype, 'decrypt');
+            const { repo } = makeRepo({
+                rows: [row({ externalId: '1', apiSecret: ciphertext })],
+            });
+
+            const { mappings } = await repo.queryMappings('12', { take: 10 });
+
+            expect(mappings[0].mapping.apiSecret).toBe(ciphertext);
+            expect(decrypt).not.toHaveBeenCalled();
+        });
+    });
+});
+
+describe.each([
+    ['IntegrationMappingRepository (legacy)', IntegrationMappingRepository],
+    [
+        'IntegrationMappingRepositoryInterface',
+        IntegrationMappingRepositoryInterface,
+    ],
+])('%s.queryMappings', (_, Repository) => {
+    it('is not supported yet and never touches the database', async () => {
+        const repo = new Repository();
+        repo.prisma = {
+            $queryRawUnsafe: jest.fn(),
+            $runCommandRaw: jest.fn(),
+            integrationMapping: { findMany: jest.fn() },
+        };
+
+        await expect(
+            repo.queryMappings('507f1f77bcf86cd799439011', { take: 10 })
+        ).rejects.toThrow(
+            'queryMappings is not supported by this database adapter yet'
+        );
+        expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+        expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
+        expect(repo.prisma.integrationMapping.findMany).not.toHaveBeenCalled();
+    });
+});
+
+const normalize = (sql) =>
+    sql.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')').trim();
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

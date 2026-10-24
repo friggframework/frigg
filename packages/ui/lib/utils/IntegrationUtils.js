@@ -24,12 +24,14 @@ const getActiveIntegrations = (integrationsData) => {
   const activeIntegrations = [];
   integrationsData.integrations.forEach((integration) => {
     const clone = { ...integration };
-    const secondaryId = clone.entities[1].id; // get 2nd element
-    const type = getTypeForId(secondaryId, integrationsData);
-    clone.type = type;
-    clone.display = getDisplayDataForType(type, integrationsData);
-    // clone.connected = true;
-    // clone['secondaryId'] = secondaryId;
+
+    if (clone.entities.length > 1) {
+      const secondaryId = clone.entities[1].id;
+      const type = getTypeForId(secondaryId, integrationsData);
+      clone.type = type;
+      clone.display = getDisplayDataForType(type, integrationsData);
+    }
+
     activeIntegrations.push(clone);
   });
 
@@ -67,14 +69,4 @@ const getDisplayDataForType = (type, integrationsData) => {
 const getPossibleIntegrations = (integrationsData) => {
   const options = integrationsData.entities.options;
   return options;
-
-  // exclude the primary
-  const possibleOptions = [];
-  options.forEach((opt) => {
-    if (opt.type !== integrationsData.entities.primary) {
-      // opt.connected = false;
-      possibleOptions.push(opt);
-    }
-  });
-  return possibleOptions;
 };
