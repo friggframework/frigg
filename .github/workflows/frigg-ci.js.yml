@@ -50,13 +50,19 @@ jobs:
         run: npm run test:all
         timeout-minutes: 10
 
-      # CLI smoke test (from the retired test-cli.yml): the `frigg` bin
-      # resolves and every command loads far enough to print its help.
+      # CLI smoke test (from the retired test-cli.yml). `frigg --help` loads
+      # every command module (index.js requires them eagerly), and each
+      # expected command must be listed: `frigg <unknown> --help` exits 0, so
+      # per-command --help calls couldn't catch a dropped or renamed command.
       - name: CLI smoke test 🧰
         run: |
-          npx --no-install frigg --help
+          help="$(npx --no-install frigg --help)"
+          echo "$help"
           for cmd in init install start build deploy generate-iam ui db:setup doctor repair ssm auth; do
-            npx --no-install frigg "$cmd" --help > /dev/null
+            if ! grep -qE "^  ${cmd}( |\$)" <<<"$help"; then
+              echo "::error::frigg --help no longer lists the '${cmd}' command"
+              exit 1
+            fi
           done
 
   db:
