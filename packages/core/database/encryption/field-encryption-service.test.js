@@ -1,41 +1,33 @@
 const { FieldEncryptionService } = require('./field-encryption-service');
 
+const MOCK_KEY_ID = Buffer.from('mock-key-id').toString('base64');
+const MOCK_IV = 'aabbccddeeff00112233445566778899';
+const MOCK_ENC_KEY = Buffer.from('mock-encrypted-data-key').toString('base64');
+const enc = (plaintext) =>
+    `${MOCK_KEY_ID}:${MOCK_IV}:${Buffer.from(plaintext).toString(
+        'base64'
+    )}:${MOCK_ENC_KEY}`;
+// Values are JSON-encoded before encryption, strings included.
+const encValue = (value) => enc(JSON.stringify(value));
+
 describe('FieldEncryptionService', () => {
     let mockCryptor;
     let mockSchema;
     let service;
 
     beforeEach(() => {
-        // Mock Cryptor
+        // Mock Cryptor emitting the real envelope shape
+        // (keyId:iv:ciphertext:encryptedKey) with the plaintext as base64
+        // ciphertext; only such envelopes are treated as encrypted.
         mockCryptor = {
-            encrypt: jest
-                .fn()
-                .mockImplementation(
-                    (value) => `encrypted:${value}:keydata:enckey`
-                ),
-            decrypt: jest
-                .fn()
-                .mockImplementation((value) => {
-                    // Handle multiple encrypted formats
-                    // Format 1: "encrypted:ORIGINAL:keydata:enckey"
-                    // Format 2: "keyId:ORIGINAL:iv:enckey"
-
-                    // Try format 1 (from our new tests)
-                    const prefix1 = 'encrypted:';
-                    const suffix1 = ':keydata:enckey';
-                    if (value.startsWith(prefix1) && value.endsWith(suffix1)) {
-                        return value.slice(prefix1.length, -suffix1.length);
-                    }
-
-                    // Try format 2 (from existing tests)
-                    const prefix2 = 'keyId:';
-                    const suffix2 = ':iv:enckey';
-                    if (value.startsWith(prefix2) && value.endsWith(suffix2)) {
-                        return value.slice(prefix2.length, -suffix2.length);
-                    }
-
-                    return value; // Fallback for non-standard format
-                }),
+            encrypt: jest.fn().mockImplementation((value) => enc(value)),
+            decrypt: jest.fn().mockImplementation((value) => {
+                const parts = value.split(':');
+                if (parts.length !== 4 || parts[0] !== MOCK_KEY_ID) {
+                    throw new Error('Invalid encrypted format');
+                }
+                return Buffer.from(parts[2], 'base64').toString();
+            }),
         };
 
         // Mock Schema Registry
@@ -99,13 +91,13 @@ describe('FieldEncryptionService', () => {
 
             const result = await service.encryptFields('Credential', document);
 
-            expect(mockCryptor.encrypt).toHaveBeenCalledWith('secret123');
-            expect(mockCryptor.encrypt).toHaveBeenCalledWith('refresh456');
+            expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('secret123'));
+            expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('refresh456'));
             expect(result.data.access_token).toBe(
-                'encrypted:secret123:keydata:enckey'
+                encValue('secret123')
             );
             expect(result.data.refresh_token).toBe(
-                'encrypted:refresh456:keydata:enckey'
+                encValue('refresh456')
             );
             expect(result.data.other).toBe('public'); // Not encrypted
         });
@@ -118,9 +110,9 @@ describe('FieldEncryptionService', () => {
 
             const result = await service.encryptFields('User', document);
 
-            expect(mockCryptor.encrypt).toHaveBeenCalledWith('password_hash');
+            expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('password_hash'));
             expect(result.hashword).toBe(
-                'encrypted:password_hash:keydata:enckey'
+                encValue('password_hash')
             );
             expect(result.id).toBe('123'); // Not encrypted
         });
@@ -145,7 +137,7 @@ describe('FieldEncryptionService', () => {
             await service.encryptFields('Credential', document);
 
             expect(mockCryptor.encrypt).toHaveBeenCalledTimes(1);
-            expect(mockCryptor.encrypt).toHaveBeenCalledWith('valid');
+            expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('valid'));
         });
 
         it('should skip undefined values', async () => {
@@ -159,7 +151,7 @@ describe('FieldEncryptionService', () => {
             await service.encryptFields('Credential', document);
 
             expect(mockCryptor.encrypt).toHaveBeenCalledTimes(1);
-            expect(mockCryptor.encrypt).toHaveBeenCalledWith('valid');
+            expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('valid'));
         });
 
         it('should skip empty strings', async () => {
@@ -173,13 +165,13 @@ describe('FieldEncryptionService', () => {
             await service.encryptFields('Credential', document);
 
             expect(mockCryptor.encrypt).toHaveBeenCalledTimes(1);
-            expect(mockCryptor.encrypt).toHaveBeenCalledWith('valid');
+            expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('valid'));
         });
 
         it('should skip already encrypted values', async () => {
             const document = {
                 data: {
-                    access_token: 'already:encrypted:data:key',
+                    access_token: enc('already'),
                     refresh_token: 'plain',
                 },
             };
@@ -187,7 +179,7 @@ describe('FieldEncryptionService', () => {
             await service.encryptFields('Credential', document);
 
             expect(mockCryptor.encrypt).toHaveBeenCalledTimes(1);
-            expect(mockCryptor.encrypt).toHaveBeenCalledWith('plain');
+            expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('plain'));
         });
 
         it('should not mutate original document', async () => {
@@ -231,7 +223,7 @@ describe('FieldEncryptionService', () => {
 
             // The encrypted value should be the JSON string encrypted
             expect(encrypted.mapping).toBe(
-                `encrypted:${JSON.stringify(mappingObject)}:keydata:enckey`
+                encValue(mappingObject)
             );
 
             // Now decrypt and verify object is restored
@@ -277,8 +269,8 @@ describe('FieldEncryptionService', () => {
             const document = {
                 id: '123',
                 data: {
-                    access_token: 'keyId:secret123:iv:enckey',
-                    refresh_token: 'keyId:refresh456:iv:enckey',
+                    access_token: enc('secret123'),
+                    refresh_token: enc('refresh456'),
                     other: 'public',
                 },
             };
@@ -286,10 +278,10 @@ describe('FieldEncryptionService', () => {
             const result = await service.decryptFields('Credential', document);
 
             expect(mockCryptor.decrypt).toHaveBeenCalledWith(
-                'keyId:secret123:iv:enckey'
+                enc('secret123')
             );
             expect(mockCryptor.decrypt).toHaveBeenCalledWith(
-                'keyId:refresh456:iv:enckey'
+                enc('refresh456')
             );
             expect(result.data.access_token).toBe('secret123');
             expect(result.data.refresh_token).toBe('refresh456');
@@ -299,13 +291,13 @@ describe('FieldEncryptionService', () => {
         it('should decrypt top-level fields', async () => {
             const document = {
                 id: '123',
-                hashword: 'keyId:password_hash:iv:enckey',
+                hashword: enc('password_hash'),
             };
 
             const result = await service.decryptFields('User', document);
 
             expect(mockCryptor.decrypt).toHaveBeenCalledWith(
-                'keyId:password_hash:iv:enckey'
+                enc('password_hash')
             );
             expect(result.hashword).toBe('password_hash');
         });
@@ -314,7 +306,7 @@ describe('FieldEncryptionService', () => {
             const document = {
                 data: {
                     access_token: 'plaintext', // Not encrypted format
-                    refresh_token: 'keyId:encrypted:iv:enckey',
+                    refresh_token: enc('encrypted'),
                 },
             };
 
@@ -322,13 +314,13 @@ describe('FieldEncryptionService', () => {
 
             expect(mockCryptor.decrypt).toHaveBeenCalledTimes(1);
             expect(mockCryptor.decrypt).toHaveBeenCalledWith(
-                'keyId:encrypted:iv:enckey'
+                enc('encrypted')
             );
         });
 
         it('should not mutate original document', async () => {
             const document = {
-                data: { access_token: 'keyId:secret:iv:enckey' },
+                data: { access_token: enc('secret') },
             };
             const original = JSON.parse(JSON.stringify(document));
 
@@ -344,8 +336,8 @@ describe('FieldEncryptionService', () => {
 
             const document = {
                 data: {
-                    access_token: 'keyId:secret:iv:enckey',
-                    refresh_token: 'keyId:valid:iv:enckey',
+                    access_token: enc('secret'),
+                    refresh_token: enc('valid'),
                 },
             };
 
@@ -369,10 +361,10 @@ describe('FieldEncryptionService', () => {
 
             expect(result).toHaveLength(2);
             expect(result[0].data.access_token).toBe(
-                'encrypted:secret1:keydata:enckey'
+                encValue('secret1')
             );
             expect(result[1].data.access_token).toBe(
-                'encrypted:secret2:keydata:enckey'
+                encValue('secret2')
             );
         });
 
@@ -394,8 +386,8 @@ describe('FieldEncryptionService', () => {
     describe('decryptFieldsInBulk', () => {
         it('should decrypt multiple documents', async () => {
             const documents = [
-                { data: { access_token: 'keyId:secret1:iv:enckey' } },
-                { data: { access_token: 'keyId:secret2:iv:enckey' } },
+                { data: { access_token: enc('secret1') } },
+                { data: { access_token: enc('secret2') } },
             ];
 
             const result = await service.decryptFieldsInBulk(
@@ -410,17 +402,22 @@ describe('FieldEncryptionService', () => {
     });
 
     describe('_isEncrypted', () => {
-        it('should detect encrypted format', () => {
-            expect(service._isEncrypted('keyId:data:iv:enckey')).toBe(true);
-            expect(
-                service._isEncrypted('keyId:longer:data:with:colons:enckey')
-            ).toBe(true);
+        it('should detect the Cryptor envelope format', () => {
+            expect(service._isEncrypted(enc('data'))).toBe(true);
         });
 
         it('should reject non-encrypted formats', () => {
             expect(service._isEncrypted('plaintext')).toBe(false);
             expect(service._isEncrypted('one:two:three')).toBe(false);
             expect(service._isEncrypted('one:two')).toBe(false);
+            // Plaintext with 3+ colons is not ciphertext
+            expect(service._isEncrypted('a:b:c:d')).toBe(false);
+            expect(
+                service._isEncrypted('https://user:pass@example.com:8443/x')
+            ).toBe(false);
+            expect(
+                service._isEncrypted('keyId:longer:data:with:colons:enckey')
+            ).toBe(false);
             expect(service._isEncrypted(null)).toBe(false);
             expect(service._isEncrypted(undefined)).toBe(false);
             expect(service._isEncrypted(123)).toBe(false);
@@ -575,7 +572,7 @@ describe('FieldEncryptionService', () => {
         });
 
         it('should still decrypt opted-out fields on read (legacy data)', async () => {
-            const encryptedBlob = 'encrypted:{"crmId":"abc"}:keydata:enckey';
+            const encryptedBlob = enc('{"crmId":"abc"}');
             const document = {
                 id: '123',
                 mapping: encryptedBlob,

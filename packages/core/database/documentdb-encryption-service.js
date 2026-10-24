@@ -1,4 +1,5 @@
 const { Cryptor } = require('../encrypt/Cryptor');
+const { isEncryptedEnvelope } = require('./encryption/ciphertext-format');
 const {
     getEncryptedFields,
     getFieldsToEncryptOnWrite,
@@ -295,39 +296,7 @@ class DocumentDBEncryptionService {
      * _isEncryptedValue({})  // false
      */
     _isEncryptedValue(value) {
-        // Must be string
-        if (typeof value !== 'string') {
-            return false;
-        }
-
-        // Must have exactly 4 colon-separated parts
-        const parts = value.split(':');
-        if (parts.length !== 4) {
-            return false;
-        }
-
-        // Enhanced validation: check for base64 pattern
-        // This prevents false positives on URLs, connection strings, etc.
-        const base64Pattern = /^[A-Za-z0-9+/=]+$/;
-
-        // All parts should be base64-encoded
-        if (!parts.every(part => base64Pattern.test(part))) {
-            return false;
-        }
-
-        // Encrypted values should be sufficiently long to be valid
-        // Real encrypted values from Cryptor are always >50 chars due to envelope encryption format:
-        // - keyId (base64): ~12 chars minimum
-        // - iv (base64): ~24 chars for 16-byte IV
-        // - ciphertext (base64): varies, minimum ~16 chars for small values
-        // - encryptedKey (base64): ~44 chars for 32-byte data key
-        // Total minimum: ~96 chars, so 50 is a safe lower bound
-        // This prevents false positives on non-encrypted strings that happen to have 4 colons
-        if (value.length < 50) {
-            return false;
-        }
-
-        return true;
+        return isEncryptedEnvelope(value);
     }
 }
 

@@ -1,3 +1,5 @@
+const { isEncryptedEnvelope } = require('./ciphertext-format');
+
 /**
  * Field Encryption Service
  *
@@ -147,12 +149,7 @@ class FieldEncryptionService {
     }
 
     _isEncrypted(value) {
-        if (typeof value !== 'string') {
-            return false;
-        }
-
-        const parts = value.split(':');
-        return parts.length >= 4;
+        return isEncryptedEnvelope(value);
     }
 
     _getNestedValue(obj, path) {
@@ -218,22 +215,22 @@ class FieldEncryptionService {
     }
 
     /**
-     * Serialize a value for encryption
-     * Objects/arrays are JSON stringified, primitives are converted to strings
+     * Serialize a value for encryption.
+     * Every value is JSON-encoded, strings included, so the type survives
+     * the round trip: '123456' is stored as "\"123456\"" and reads back as a
+     * string, 1234 reads back as a number.
      * @private
      */
     _serializeForEncryption(value) {
-        if (typeof value === 'object' && value !== null) {
-            // JSON.stringify for objects and arrays
-            return JSON.stringify(value);
-        }
-        // For primitives (string, number, boolean), convert to string
-        return String(value);
+        return JSON.stringify(value);
     }
 
     /**
-     * Deserialize a value after decryption
-     * Attempts to parse as JSON, returns string if parsing fails
+     * Deserialize a value after decryption.
+     * Parses the JSON written by _serializeForEncryption. Values encrypted by
+     * earlier versions stored strings raw: those that aren't valid JSON come
+     * back unchanged; a raw legacy string that is also valid JSON (e.g.
+     * '123456') still parses as it always did.
      * @private
      */
     _deserializeAfterDecryption(value) {
