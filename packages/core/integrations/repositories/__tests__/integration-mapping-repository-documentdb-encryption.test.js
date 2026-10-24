@@ -130,6 +130,7 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
             });
 
             const insertedId = new ObjectId();
+            let findCalls = 0;
             prisma.$runCommandRaw.mockImplementation((command) => {
                 if (command.insert) {
                     // Verify encrypted data goes to database
@@ -137,6 +138,14 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                     return Promise.resolve({ insertedId, n: 1, ok: 1 });
                 }
                 if (command.find) {
+                    findCalls += 1;
+                    // First lookup: no existing mapping, so upsert inserts.
+                    if (findCalls === 1) {
+                        return Promise.resolve({
+                            cursor: { firstBatch: [] },
+                            ok: 1,
+                        });
+                    }
                     return Promise.resolve({
                         cursor: {
                             firstBatch: [
@@ -289,10 +298,11 @@ describe('IntegrationMappingRepositoryDocumentDB - Encryption Integration', () =
                     });
                 }
                 if (command.update) {
+                    const { $set } = command.updates[0].u;
                     // Verify createdAt is NOT in update
-                    expect(command.update.$set.createdAt).toBeUndefined();
+                    expect($set.createdAt).toBeUndefined();
                     // Verify updatedAt IS in update
-                    expect(command.update.$set.updatedAt).toBeDefined();
+                    expect($set.updatedAt).toBeDefined();
                     return Promise.resolve({ nModified: 1, n: 1, ok: 1 });
                 }
             });
@@ -797,7 +807,17 @@ describe('IntegrationMappingRepositoryDocumentDB - Real Encryption Integration',
     });
 
     it('throws error when trying to decrypt corrupted ciphertext', async () => {
-        const corruptedCiphertext = 'keyId:invalid-iv:corrupted-cipher:bad-encKey';
+        // A well-formed envelope (so the service attempts decryption) whose
+        // key id no longer resolves to a key. Malformed strings such as
+        // 'keyId:invalid-iv:...' aren't recognised as ciphertext at all and
+        // are passed through as legacy plaintext.
+        const { mapping: validCiphertext } =
+            await realEncryptionService.encryptFields('IntegrationMapping', {
+                mapping: { secret: 'value' },
+            });
+        const [, iv, cipherText, encryptedKey] = validCiphertext.split(':');
+        const unknownKeyId = Buffer.from('rotated-out-key-id').toString('base64');
+        const corruptedCiphertext = [unknownKeyId, iv, cipherText, encryptedKey].join(':');
 
         await expect(
             realEncryptionService.decryptFields('IntegrationMapping', {
