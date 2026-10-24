@@ -174,26 +174,46 @@ function loadModuleEncryptionSchemas(integrations) {
         return;
     }
 
-    const { getModulesDefinitionFromIntegrationClasses } = require('../integrations/utils/map-integration-dto');
+    const { getModulesDefinitionFromIntegrationClasses } = require('../../integrations/utils/map-integration-dto');
 
-    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(integrations);
-    const credentialFields = extractCredentialFieldsFromModules(moduleDefinitions);
+    // Integrations without modules contribute no credential fields.
+    const integrationsWithModules = integrations.filter(
+        (integration) => integration?.Definition?.modules
+    );
+    const moduleDefinitions = getModulesDefinitionFromIntegrationClasses(
+        integrationsWithModules
+    );
+
+    // Fields the core schema already encrypts (e.g. data.api_key) are
+    // covered; registering them again would fail validation and drop every
+    // other module field with them.
+    const coreCredentialFields = CORE_ENCRYPTION_SCHEMA.Credential.fields;
+    const credentialFields = extractCredentialFieldsFromModules(
+        moduleDefinitions
+    ).filter((field) => !coreCredentialFields.includes(field));
 
     if (credentialFields.length === 0) {
         return;
     }
 
-    const moduleSchema = {
+    // Merge with whatever custom schema the app already registered rather
+    // than replacing it (registerCustomSchema overwrites).
+    const existingCredentialFields = customSchema.Credential?.fields || [];
+    const mergedSchema = {
+        ...customSchema,
         Credential: {
-            fields: credentialFields
-        }
+            ...customSchema.Credential,
+            fields: [
+                ...new Set([...existingCredentialFields, ...credentialFields]),
+            ],
+        },
     };
 
     logger.info(
         `Registering module-level encryption for ${credentialFields.length} credential fields`
     );
 
-    registerCustomSchema(moduleSchema);
+    registerCustomSchema(mergedSchema);
 }
 
 /**
