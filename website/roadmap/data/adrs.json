@@ -1,5 +1,5 @@
 {
-  "count": 31,
+  "count": 33,
   "adrs": [
     {
       "num": 1,
@@ -310,6 +310,26 @@
       "theme": "Observability & ops",
       "summary": "Replaces ad-hoc console logging with one Frigg-owned logger port in core that writes one redacted JSON record per line to stdout, with a fixed field set, six levels, ADR-011 correlation and trace ids, and redaction by construction. JSON is the only output format, in every stage; other destinations connect as sinks that only translate and send, the upgrade changes need maintainer ratification, and the Lambda log format and retention in devtools are opt-in.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/048-structured-logging.md"
+    },
+    {
+      "num": 54,
+      "id": "054",
+      "title": "One-File Integrations via Module Extensions",
+      "status": "Proposed",
+      "date": "2026-10-03",
+      "theme": "Extensions & plugins",
+      "summary": "Makes a production integration fit in one file: defineIntegration, defineApp and use() compose API modules whose extensions (contract 2) bring webhook verification, tenant resolution, namespaced events, subscription lifecycle, triggers, config fields, env and admin scripts. Handlers are (payload, ctx) with no this; module APIs sit under ctx.modules by author-chosen keys. The event-driven path ships stable in 2.0.1; the sync pieces (objects/pages, page runner, ctx.each/links, instance-scope subscriptions) ship under @friggframework/core/experimental.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/054-one-file-integrations.md"
+    },
+    {
+      "num": 55,
+      "id": "055",
+      "title": "Recurring Triggers",
+      "status": "Proposed",
+      "date": "2026-10-03",
+      "theme": "Infra & deploy",
+      "summary": "Adds recurring triggers declared on the integration Definition: devtools provisions one tick function per integration on a fixed schedule; each tick pages ENABLED instances and enqueues the due ones with a stateless slot-versus-hash check, skips overlapping runs through a Process record, and never replays missed ticks. Rejects per-instance EventBridge schedules, and supersedes the unimplemented type: 'CRON' event docs.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/055-recurring-triggers.md"
     }
   ]
 }

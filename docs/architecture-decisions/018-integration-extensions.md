@@ -126,6 +126,7 @@ Each is a candidate for a published extension package.
 - [INTEGRATION-TEMPLATES](./023-integration-templates.md): templates often pre-wire Integration Extensions for a category (a CRM sync template binds a sync-engine extension)
 - [CAPABILITIES](./020-capabilities.md): capabilities can be `implementedBy: { kind: 'extension', ref: 'extensions.webhooks' }`
 - Quick-start in code: [`packages/core/integrations/EXTENSIONS.md`](../../packages/core/integrations/EXTENSIONS.md) is authoritative for current shape
+- [ADR-054: One-File Integrations via Module Extensions](./054-one-file-integrations.md): amends this ADR. Adds extension contract 2 and module-carried binding; closes open questions 1, 3 and 4.
 
 ## Open questions and deferred items
 
