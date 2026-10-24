@@ -52,9 +52,9 @@ jobs:
       # resolves and every command loads far enough to print its help.
       - name: CLI smoke test 🧰
         run: |
-          npx frigg --help
+          npx --no-install frigg --help
           for cmd in init install start build deploy generate-iam ui db:setup doctor repair ssm auth; do
-            npx frigg "$cmd" --help > /dev/null
+            npx --no-install frigg "$cmd" --help > /dev/null
           done
 
   db:
@@ -69,7 +69,9 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_PASSWORD: postgres
+          # Throwaway database reachable only from this job: trust auth, so the
+          # workflow carries no password for secret scanners to flag.
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: frigg
         ports:
           - 5432:5432
@@ -80,13 +82,13 @@ jobs:
           --health-retries 10
     env:
       FRIGG_TEST_MONGODB_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
-      FRIGG_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/frigg?schema=public
+      FRIGG_TEST_POSTGRES_URL: postgresql://postgres@localhost:5432/frigg?schema=public
       # Repository parity suites: every adapter (MongoDB, DocumentDB-on-Mongo,
       # PostgreSQL) against the same cases.
       INTEGRATION_ENTITIES_PARITY_MONGO_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
-      INTEGRATION_ENTITIES_PARITY_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/frigg?schema=public
+      INTEGRATION_ENTITIES_PARITY_POSTGRES_URL: postgresql://postgres@localhost:5432/frigg?schema=public
       QUERY_MAPPINGS_PARITY_MONGO_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
-      QUERY_MAPPINGS_PARITY_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/frigg?schema=public
+      QUERY_MAPPINGS_PARITY_POSTGRES_URL: postgresql://postgres@localhost:5432/frigg?schema=public
       MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.cache/mongodb-binaries
     steps:
       - name: Check Out Code ⤵️
@@ -126,8 +128,8 @@ jobs:
         working-directory: packages/core
         run: |
           npm run prisma:generate
-          DATABASE_URL="$FRIGG_TEST_POSTGRES_URL" npx prisma migrate deploy --schema prisma-postgresql/schema.prisma
-          DATABASE_URL="$FRIGG_TEST_MONGODB_URL" npx prisma db push --skip-generate --schema prisma-mongodb/schema.prisma
+          DATABASE_URL="$FRIGG_TEST_POSTGRES_URL" npx --no-install prisma migrate deploy --schema prisma-postgresql/schema.prisma
+          DATABASE_URL="$FRIGG_TEST_MONGODB_URL" npx --no-install prisma db push --skip-generate --schema prisma-mongodb/schema.prisma
 
       - name: DB tests 🧪
         run: npm run test:db --workspaces --if-present
@@ -162,7 +164,7 @@ jobs:
             # Packages that define lint:fix are the ones with a lint setup.
             node -e "process.exit(require('./${ws}package.json').scripts?.['lint:fix'] ? 0 : 1)" || continue
             echo "::group::${ws}"
-            (cd "$ws" && npx prettier --check --loglevel warn . && npx eslint .) || status=1
+            (cd "$ws" && npx --no-install prettier --check --loglevel warn . && npx --no-install eslint .) || status=1
             echo "::endgroup::"
           done
           exit $status
