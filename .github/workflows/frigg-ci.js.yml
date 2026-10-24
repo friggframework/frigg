@@ -112,10 +112,19 @@ jobs:
             sleep 1
           done
           docker exec mongo mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
+          primary=false
           for i in $(seq 1 30); do
-            [ "$(docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary')" = "true" ] && break
+            if [ "$(docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary')" = "true" ]; then
+              primary=true
+              break
+            fi
             sleep 1
           done
+          if [ "$primary" != true ]; then
+            echo "::error::MongoDB replica set did not elect a primary within 30s"
+            docker logs mongo | tail -50
+            exit 1
+          fi
 
       - name: Use Node.js 22.x 🛠
         uses: actions/setup-node@v4
