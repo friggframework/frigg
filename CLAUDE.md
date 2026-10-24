@@ -337,10 +337,14 @@ Located in `packages/devtools/infrastructure/`:
 
 ```bash
 frigg install <module>        # Install and configure API modules
-frigg start                   # Local development server
-frigg deploy                  # Infrastructure deployment
+frigg validate                # Validate the app definition (index.js); --stage, --json
+frigg start                   # Local development server (validates, warns only)
+frigg build                   # Package the app (validates first; --skip-validate)
+frigg deploy                  # Infrastructure deployment (validates first; --skip-validate)
 frigg search <term>           # Search available API modules
 ```
+
+`frigg build` and `frigg deploy` stop when the app definition has errors (unknown keys, values the builders reject, broken integration classes, a user config that cannot log in). The app-definition schema describes what the runtime reads, and its defaults are applied by one loader step used by core and devtools (ADR-051).
 
 ### Frigg Authenticator
 

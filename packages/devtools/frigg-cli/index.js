@@ -87,6 +87,7 @@ const { doctorCommand } = require('./doctor-command');
 const { repairCommand } = require('./repair-command');
 const { authCommand } = require('./auth-command');
 const { ssmPushCommand } = require('./ssm-command');
+const { validateCommand } = require('./validate-command');
 
 const program = new Command();
 
@@ -113,7 +114,16 @@ program
     .description('Run the backend and optional frontend')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .option('-v, --verbose', 'enable verbose output')
+    .option('--skip-validate', 'skip app definition validation')
     .action(startCommand);
+
+program
+    .command('validate')
+    .description('Validate the app definition (index.js) against the schema and the runtime rules')
+    .option('-s, --stage <stage>', 'also run the checks for this stage (encryption, deploy-time environment)')
+    .option('--json', 'print the report as JSON')
+    .option('-v, --verbose', 'enable verbose output')
+    .action(validateCommand);
 
 program
     .command('build')
@@ -121,6 +131,7 @@ program
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .option('-v, --verbose', 'enable verbose output')
     .option('-p, --production', 'build for production (enables AWS discovery)')
+    .option('--skip-validate', 'skip app definition validation (not recommended)')
     .action(buildCommand);
 
 program
@@ -130,6 +141,7 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .option('-f, --force', 'force deployment (bypasses caching for layers and functions)')
     .option('--skip-doctor', 'skip post-deployment health check')
+    .option('--skip-validate', 'skip app definition validation (not recommended)')
     .action(deployCommand);
 
 program
@@ -225,4 +237,4 @@ authProgram
 
 program.parse(process.argv);
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand, ssmPushCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, validateCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand, ssmPushCommand };
