@@ -251,7 +251,6 @@ class DocumentDBEncryptionService {
             const errorContext = {
                 modelName,
                 fieldPath,
-                encryptedValuePrefix: encryptedValue.substring(0, 20),
                 errorMessage: error.message
             };
 

@@ -121,6 +121,10 @@ function resolveEncryptionConfig(env = process.env) {
     const runtime = isDeployedRuntime(env) ? 'deployed' : 'local';
     const hasKMS = isSet(env.KMS_KEY_ARN);
     const hasAES = isSet(env.AES_KEY_ID);
+    // AES needs the key as well as its id, locally too: a cryptor built from
+    // the id alone cannot encrypt, and a local run reads failed decrypts as
+    // stored values, so an incomplete pair would hand back blobs as tokens.
+    const hasCompleteAES = hasAES && isSet(env.AES_KEY);
     const optOutRequested = isTrue(env[OPT_OUT_VAR]);
 
     const base = {
@@ -141,14 +145,13 @@ function resolveEncryptionConfig(env = process.env) {
         if (LOCAL_BYPASS_STAGES.includes(String(stage).toLowerCase())) {
             return { ...base, bypassed: true };
         }
-        if (hasKMS || hasAES) {
+        if (hasKMS || hasCompleteAES) {
             const method = hasKMS ? 'kms' : 'aes';
             return { ...base, enabled: true, method, mode: method };
         }
         return base;
     }
 
-    const hasCompleteAES = hasAES && isSet(env.AES_KEY);
     if (hasKMS || hasCompleteAES) {
         const method = hasKMS ? 'kms' : 'aes';
         return {
@@ -212,7 +215,14 @@ function getEncryptionConfig(env = process.env) {
         );
     }
 
-    if (config.runtime === 'local' && !config.enabled && !config.bypassed) {
+    if (config.runtime === 'local' && !config.enabled && !config.bypassed && config.hasAES) {
+        warnOnce(
+            'local-incomplete-aes',
+            `AES_KEY_ID is set but AES_KEY is not for local stage "${config.stage}". ` +
+                'Field-level encryption disabled for this local run; set both to encrypt. ' +
+                'A deployed stage refuses to start without both.'
+        );
+    } else if (config.runtime === 'local' && !config.enabled && !config.bypassed) {
         warnOnce(
             'local-no-keys',
             `No encryption keys configured (KMS_KEY_ARN or AES_KEY_ID) for local stage "${config.stage}". ` +

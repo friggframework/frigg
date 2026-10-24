@@ -9,6 +9,7 @@
  */
 
 const { logger } = require('./logger');
+const { isDeployedRuntime } = require('./encryption-config');
 const { registerDeniedKeys } = require('../../logs/denied-keys');
 const {
     getEntityTypeRegistry,
@@ -230,6 +231,7 @@ function loadModuleEncryptionSchemas(integrations, entities) {
  * Used by both Prisma (MongoDB/PostgreSQL) and DocumentDB encryption services.
  */
 function loadCustomEncryptionSchema() {
+    let appDefinition;
     try {
         // Lazy require to avoid circular dependency issues
         const path = require('node:path');
@@ -244,12 +246,19 @@ function loadCustomEncryptionSchema() {
         const backendIndexPath = path.join(backendDir, 'index.js');
 
         const backendModule = require(backendIndexPath);
-        const appDefinition = backendModule?.Definition;
+        appDefinition = backendModule?.Definition;
+    } catch (error) {
+        // No app definition to read (tests, standalone usage): there is
+        // nothing to register, so nothing is lost by carrying on.
+        logger.debug('Could not load custom encryption schema:', error.message);
+        return;
+    }
 
-        if (!appDefinition) {
-            return; // No app definition found
-        }
+    if (!appDefinition) {
+        return; // No app definition found
+    }
 
+    try {
         // Load app-level custom schema
         const customSchema = appDefinition.encryption?.schema;
         if (customSchema && Object.keys(customSchema).length > 0) {
@@ -273,14 +282,16 @@ function loadCustomEncryptionSchema() {
             );
         }
     } catch (error) {
-        // A bad entity registry is a configuration error, not "no custom schema".
-        if (error instanceof EntityRegistryError) throw error;
-        // Silently ignore errors - custom schema is optional
-        // This handles cases like:
-        // - Backend package.json not found (tests, standalone usage)
-        // - No appDefinition defined
-        // - No custom encryption schema specified
-        logger.debug('Could not load custom encryption schema:', error.message);
+        // The app declared fields to encrypt and they could not be registered:
+        // carrying on would store them in plaintext. A bad entity registry is a
+        // configuration error anywhere; a deployed function refuses to start
+        // for any registration failure, and a local run says so loudly.
+        if (error instanceof EntityRegistryError || isDeployedRuntime()) {
+            throw error;
+        }
+        logger.warn(
+            `Encryption schema from the app definition could not be registered; those fields stay plaintext in this local run: ${error.message}`
+        );
     }
 }
 

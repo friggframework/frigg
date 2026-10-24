@@ -490,7 +490,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
     });
 
     describe('encryption guard', () => {
-        const ENV_KEYS = ['STAGE', 'NODE_ENV', 'AES_KEY_ID', 'KMS_KEY_ARN'];
+        const ENV_KEYS = ['STAGE', 'NODE_ENV', 'AES_KEY_ID', 'AES_KEY', 'KMS_KEY_ARN'];
         let savedEnv;
 
         beforeEach(() => {
@@ -516,6 +516,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
         const enableEncryption = () => {
             process.env.STAGE = 'production';
             process.env.AES_KEY_ID = 'test-key';
+            process.env.AES_KEY = '0123456789abcdef0123456789abcdef';
             delete process.env.KMS_KEY_ARN;
         };
 
@@ -562,6 +563,7 @@ describe('IntegrationMappingRepositoryPostgres.queryMappings', () => {
         it('runs on STAGE=dev, where encryption is off and the opt-out is never registered', async () => {
             process.env.STAGE = 'dev';
             process.env.AES_KEY_ID = 'test-key';
+            process.env.AES_KEY = '0123456789abcdef0123456789abcdef';
             const { repo } = makeRepo();
 
             await expect(

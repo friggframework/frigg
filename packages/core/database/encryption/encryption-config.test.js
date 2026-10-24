@@ -295,6 +295,20 @@ describe('resolveEncryptionConfig', () => {
             expect(config).toMatchObject({ enabled: true, method: 'aes' });
         });
 
+        it('a non-local stage with AES_KEY_ID but no AES_KEY stays plaintext', () => {
+            const config = resolveEncryptionConfig({
+                ...runtimeEnv,
+                AES_KEY_ID: AES.AES_KEY_ID,
+                STAGE: 'production',
+            });
+            expect(config).toMatchObject({
+                enabled: false,
+                method: undefined,
+                hasAES: true,
+                error: null,
+            });
+        });
+
         it('a non-local stage with no key stays plaintext, without error', () => {
             const config = resolveEncryptionConfig({
                 ...runtimeEnv,
@@ -352,6 +366,17 @@ describe('getEncryptionConfig', () => {
                 enabled: false,
             }
         );
+    });
+
+    it('warns locally that AES_KEY is missing when only AES_KEY_ID is set', () => {
+        const config = getEncryptionConfig({
+            ...OFFLINE,
+            AES_KEY_ID: AES.AES_KEY_ID,
+            STAGE: 'production',
+        });
+        expect(config.enabled).toBe(false);
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toMatch(/AES_KEY is not/);
     });
 
     it('warns once per process on opt-out', () => {

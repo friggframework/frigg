@@ -20,6 +20,7 @@ const {
 const {
     EntityRegistryError,
 } = require('../../../modules/entity-type-registry');
+const { logger } = require('../logger');
 
 const xero = {
     moduleName: 'xero',
@@ -170,6 +171,52 @@ describe('encryption schema and the entity registry (ADR-059)', () => {
         };
 
         expect(() => loadCustomEncryptionSchema()).toThrow(EntityRegistryError);
+    });
+
+    describe('a schema the app declares but that cannot be registered', () => {
+        const savedEnv = { ...process.env };
+        const badSchema = () => {
+            mockBackend.Definition = {
+                encryption: { schema: { Credential: { fields: 'data.secret' } } },
+                integrations: [],
+            };
+        };
+        let warn;
+
+        beforeEach(() => {
+            warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+        });
+
+        afterEach(() => {
+            warn.mockRestore();
+            process.env = { ...savedEnv };
+        });
+
+        it('refuses to start a deployed function, which would store those fields in plaintext', () => {
+            badSchema();
+            delete process.env.JEST_WORKER_ID;
+            process.env.AWS_LAMBDA_FUNCTION_NAME = 'app-prod-auth';
+
+            expect(() => loadCustomEncryptionSchema()).toThrow(
+                /Invalid custom encryption schema/
+            );
+        });
+
+        it('warns (not a debug line) on a local run', () => {
+            badSchema();
+
+            expect(() => loadCustomEncryptionSchema()).not.toThrow();
+            expect(warn).toHaveBeenCalledWith(
+                expect.stringMatching(/could not be registered; those fields stay plaintext/)
+            );
+        });
+
+        it('still carries on quietly when there is no app definition to read', () => {
+            mockBackend.Definition = null;
+
+            expect(() => loadCustomEncryptionSchema()).not.toThrow();
+            expect(warn).not.toHaveBeenCalled();
+        });
     });
 
     it('loadModuleEncryptionSchemas(integrations, entities) takes the registry directly', () => {
