@@ -1,5 +1,9 @@
 const { Module } = require('../module');
 const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
+const {
+    findModuleDefinitionForEntity,
+} = require('../utils/find-module-definition');
+const { toPublicEntity } = require('../utils/public-entity');
 
 class GetModule {
     constructor({ moduleRepository, moduleDefinitions, scopePolicy }) {
@@ -45,10 +49,10 @@ class GetModule {
         }
 
         const entityType = entity.moduleName;
-        const moduleDefinition = this.moduleDefinitions.find((def) => {
-            const modelName = Module.getEntityModelFromDefinition(def).modelName;
-            return entityType === modelName;
-        });
+        const moduleDefinition = findModuleDefinitionForEntity(
+            this.moduleDefinitions,
+            entity
+        );
 
         if (!moduleDefinition) {
             throw new Error(
@@ -65,15 +69,21 @@ class GetModule {
             definition: moduleDefinition,
         });
 
-        // todo: this properties should be methods in the Module class
+        // The credential (tokens, API keys) never leaves the server: the
+        // response names it and says whether it still works.
+        const { credentialId, authIsValid } = toPublicEntity({
+            ...module.entity,
+            credential: module.credential,
+        });
         return {
             id: module.entity.id,
             name: module.entity.name,
             moduleName: module.entity.moduleName,
-            credential: module.credential,
+            credentialId,
+            authIsValid,
             externalId: module.entity.externalId,
-            userId: module.entity.user.toString(),
-        }
+            userId: toPublicEntity(module.entity).userId,
+        };
     }
 }
 

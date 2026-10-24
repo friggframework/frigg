@@ -40,6 +40,10 @@ const {
 const { TestModuleAuth } = require('../modules/use-cases/test-module-auth');
 const { GetModule } = require('../modules/use-cases/get-module');
 const {
+    toPublicEntity,
+    toPublicEntities,
+} = require('../modules/utils/public-entity');
+const {
     GetEntityOptionsById,
 } = require('../modules/use-cases/get-entity-options-by-id');
 const {
@@ -487,7 +491,8 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
 
             res.json({
                 id: integration.id,
-                entities: integration.entities,
+                // Entity records carry the decrypted credential.
+                entities: toPublicEntities(integration.entities),
                 status: integration.status,
                 config: integration.config,
             });
@@ -621,13 +626,13 @@ function setEntityRoutes(router, authenticateUser, useCases) {
             checkRequiredParams(req.body.data, ['credential_id']);
 
             // The owner follows the entity type's scope, as /api/authorize.
-            res.json(
-                await createEntityFromCredential.execute({
-                    user,
-                    entityType: params.entityType,
-                    credentialId: params.data.credential_id,
-                })
-            );
+            const entity = await createEntityFromCredential.execute({
+                user,
+                entityType: params.entityType,
+                credentialId: params.data.credential_id,
+            });
+            // The persisted entity carries the decrypted credential.
+            res.json(toPublicEntity(entity));
         })
     );
 

@@ -142,7 +142,7 @@ describe('v1 routes follow the ownership rules', () => {
             data: { credential_id: 'c1' },
         });
         expect(res.status).toBe(200);
-        expect(res.body).toEqual({ id: 'e1' });
+        expect(res.body).toMatchObject({ id: 'e1', credentialId: null });
         expect(execute).toHaveBeenCalledWith({
             user: currentUser,
             entityType: 'acme',

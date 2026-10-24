@@ -1,5 +1,8 @@
 const { Module } = require('../module');
 const { DEFAULT_SCOPE_POLICY } = require('../scope-policy');
+const {
+    findModuleDefinitionForEntity,
+} = require('../utils/find-module-definition');
 
 class GetEntityOptionsById {
     /**
@@ -48,11 +51,10 @@ class GetEntityOptionsById {
         }
 
         const entityType = entity.moduleName;
-        const moduleDefinition = this.moduleDefinitions.find((def) => {
-            const modelName =
-                Module.getEntityModelFromDefinition(def).modelName;
-            return entityType === modelName;
-        });
+        const moduleDefinition = findModuleDefinitionForEntity(
+            this.moduleDefinitions,
+            entity
+        );
 
         if (!moduleDefinition) {
             throw new Error(

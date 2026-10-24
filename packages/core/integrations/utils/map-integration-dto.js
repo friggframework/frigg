@@ -1,3 +1,5 @@
+const { toPublicEntities } = require('../../modules/utils/public-entity');
+
 /**
  * @param {import('../integration').Integration} integration
  * Convert an Integration domain instance to a plain DTO suitable for JSON responses.
@@ -9,7 +11,8 @@ function mapIntegrationClassToIntegrationDTO(integration) {
     return {
         id: integration.id,
         userId: integration.userId,
-        entities: integration.entities,
+        // Entity records carry the decrypted credential; never send them as is.
+        entities: toPublicEntities(integration.entities),
         config: integration.config,
         status: integration.status,
         version: integration.version,

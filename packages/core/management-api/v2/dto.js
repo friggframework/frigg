@@ -4,6 +4,8 @@
  * does (see maskCredential).
  */
 
+const { toPublicEntities } = require('../../modules/utils/public-entity');
+
 const idOf = (value) => {
     if (value === undefined || value === null) return null;
     if (typeof value === 'object') {
@@ -52,7 +54,8 @@ function toEntityDto(entity) {
 function toIntegrationDto(integration) {
     return {
         id: String(integration.id),
-        entities: integration.entities ?? [],
+        // Entity records carry the decrypted credential; never send them as is.
+        entities: toPublicEntities(integration.entities),
         status: integration.status ?? null,
         config: integration.config ?? {},
         version: integration.version ?? null,

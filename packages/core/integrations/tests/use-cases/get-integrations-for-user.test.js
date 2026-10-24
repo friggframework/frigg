@@ -169,7 +169,7 @@ describe('GetIntegrationsByUserId Use-Case (app-level commands, no request)', ()
             await integrationRepository.createIntegration([entity1.id, entity2.id, entity3.id], 'user-1', { type: 'dummy' });
 
             const list = await useCase.execute('user-1');
-            expect(list[0].entities).toEqual([entity1, entity2, entity3]);
+            expect(list[0].entities.map((e) => e.id)).toEqual(['entity-1', 'entity-2', 'entity-3']);
         });
     });
 }); 
