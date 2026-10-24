@@ -316,8 +316,8 @@ describe('MigrationBuilder', () => {
         it('bundles Prisma runtime when layer disabled', async () => {
             const appDef = { ...baseAppDefinition, usePrismaLambdaLayer: false };
             const result = await builder.build(appDef, {});
-            expect(result.functions.dbMigrationWorker.package.exclude).not.toEqual(
-                expect.arrayContaining(['node_modules/@prisma/client/**'])
+            expect(result.functions.dbMigrationWorker.package.patterns).not.toEqual(
+                expect.arrayContaining(['!node_modules/@prisma/client/**'])
             );
         });
     });
@@ -436,7 +436,7 @@ describe('MigrationBuilder nested node_modules (lambda.keepNestedNodeModules)', 
         const result = await new MigrationBuilder().build(baseAppDefinition, {});
 
         for (const fn of workerAndRouter(result)) {
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
+            expect(fn.package.patterns).toContain('!node_modules/**/node_modules/**');
         }
     });
 
@@ -447,8 +447,39 @@ describe('MigrationBuilder nested node_modules (lambda.keepNestedNodeModules)', 
         );
 
         for (const fn of workerAndRouter(result)) {
-            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+            expect(fn.package.patterns).not.toContain('!node_modules/**/node_modules/**');
+            expect(fn.package.patterns).toContain('!node_modules/**/node_modules/@friggframework/**');
         }
+    });
+});
+
+describe('MigrationBuilder function package patterns (ADR-050)', () => {
+    it('emits package.patterns and individually, never include/exclude', async () => {
+        const result = await new MigrationBuilder().build(
+            { database: { postgres: { enable: true } } },
+            {}
+        );
+
+        for (const name of ['dbMigrationWorker', 'dbMigrationRouter']) {
+            const pkg = result.functions[name].package;
+            expect(pkg.individually).toBe(true);
+            expect(pkg).not.toHaveProperty('include');
+            expect(pkg).not.toHaveProperty('exclude');
+            expect(pkg.patterns.every((p) => p.startsWith('!'))).toBe(true);
+            expect(pkg.patterns).toEqual(
+                expect.arrayContaining([
+                    '!node_modules/@prisma/client/**',
+                    '!node_modules/aws-sdk/**',
+                ])
+            );
+        }
+
+        // The worker keeps the Prisma CLI (WASM); only the router drops it.
+        expect(result.functions.dbMigrationWorker.package.patterns).not.toContain(
+            '!node_modules/prisma/**'
+        );
+        expect(result.functions.dbMigrationRouter.package.patterns).toContain(
+            '!node_modules/prisma/**'
+        );
     });
 });

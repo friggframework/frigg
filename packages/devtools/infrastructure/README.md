@@ -207,6 +207,26 @@ STAGE=production
 SERVICE_NAME=my-frigg-app
 ```
 
+## Packaging (osls 4)
+
+The composed definition targets osls `^4.4.0`
+([ADR-050](../../../docs/architecture-decisions/050-osls-4.md)):
+
+- `frameworkVersion` is `OSLS_FRAMEWORK_VERSION` (`^4.4.0`,
+  `domains/shared/utilities/framework-version.js`). It is the single place the version is set.
+- Every packaged function gets `package.patterns`, built by `toPackagePatterns({ include, exclude })`
+  (`domains/shared/utilities/package-patterns.js`): excludes negated first, then includes. Builders
+  keep plain include/exclude lists and pass them through the helper; never emit
+  `package.include`/`package.exclude`. `nestedNodeModulesExcludes()` output goes through the same
+  helper.
+- `useDotenv: true` is emitted only for `osls offline` (`frigg start`); otherwise the key is absent.
+- `custom.esbuild.exclude` is a serverless-esbuild option and stays as it is.
+
+`__tests__/package-patterns-composition.test.js` walks every function of a fully featured
+definition and fails if any of these rules is broken. Size budget: each function under 100 MB
+unzipped, function + layers under 200 MB (Lambda's hard limit is 250 MB); see
+[the measurements](../../../docs/reference/aws-sdk-v3-osls-migration.md#package-size-budget).
+
 ## Lambda Layers
 
 ### Prisma Layer

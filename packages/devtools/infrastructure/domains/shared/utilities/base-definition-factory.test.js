@@ -5,6 +5,7 @@
  */
 
 const { createBaseDefinition } = require('./base-definition-factory');
+const { OSLS_FRAMEWORK_VERSION } = require('./framework-version');
 
 describe('Base Definition Factory', () => {
     beforeEach(() => {
@@ -23,7 +24,7 @@ describe('Base Definition Factory', () => {
             const result = createBaseDefinition(appDefinition, appEnvironmentVars, discoveredResources);
 
             expect(result.service).toBe('test-app');
-            expect(result.frameworkVersion).toBe('>=3.17.0');
+            expect(result.frameworkVersion).toBe(OSLS_FRAMEWORK_VERSION);
             expect(result.provider.name).toBe('aws');
             expect(result.provider.runtime).toBe('nodejs22.x');
             expect(result.provider.timeout).toBe(29);
@@ -269,12 +270,75 @@ describe('Base Definition Factory', () => {
             expect(result.package.individually).toBe(true);
         });
 
-        it('should enable dotenv only in offline mode', () => {
-            const result = createBaseDefinition({}, {}, {});
+        describe('useDotenv (ADR-050)', () => {
+            const originalArgv = process.argv;
+            afterEach(() => {
+                process.argv = originalArgv;
+            });
 
-            // useDotenv is conditional - only true when process.argv includes 'offline'
-            expect(result.useDotenv).toBeDefined();
-            expect(typeof result.useDotenv).toBe('boolean');
+            it.each([['package'], ['deploy'], ['print']])(
+                'omits useDotenv for `osls %s` (osls 4 only accepts true)',
+                (command) => {
+                    process.argv = ['node', 'osls', command, '--stage', 'prod'];
+                    const result = createBaseDefinition({}, {}, {});
+
+                    expect(result).not.toHaveProperty('useDotenv');
+                    expect(result.plugins).not.toContain('serverless-dotenv-plugin');
+                }
+            );
+
+            it('sets useDotenv: true for `osls offline`', () => {
+                process.argv = ['node', 'osls', 'offline', '--stage', 'dev'];
+                const result = createBaseDefinition({}, {}, {});
+
+                expect(result.useDotenv).toBe(true);
+                expect(result.plugins).toContain('serverless-dotenv-plugin');
+            });
+        });
+
+        describe('function package patterns (ADR-050)', () => {
+            it('emits package.patterns and no include/exclude on auth, user and health', () => {
+                const result = createBaseDefinition({}, {}, {});
+
+                for (const fn of ['auth', 'user', 'health']) {
+                    const pkg = result.functions[fn].package;
+                    expect(pkg).not.toHaveProperty('include');
+                    expect(pkg).not.toHaveProperty('exclude');
+                    expect(Array.isArray(pkg.patterns)).toBe(true);
+                    expect(pkg.patterns).toEqual(
+                        expect.arrayContaining([
+                            '!node_modules/aws-sdk/**',
+                            '!node_modules/@aws-sdk/**',
+                            '!.env',
+                            '!**/.env.*',
+                            '!package-lock.json',
+                            '!test/**',
+                            '!layers/**',
+                        ])
+                    );
+                    // No exclude pattern removes src/: handlers load the app definition from it.
+                    expect(pkg.patterns).not.toContain('!src/**');
+                }
+            });
+
+            it('puts the DocumentDB CA file after every exclude so it is re-added', () => {
+                const result = createBaseDefinition(
+                    { database: { documentDB: { tlsCAFile: './certs/global-bundle.pem' } } },
+                    {},
+                    {}
+                );
+                const { patterns } = result.functions.auth.package;
+
+                expect(patterns[patterns.length - 1]).toBe('certs/global-bundle.pem');
+                expect(patterns.slice(0, -1).every((p) => p.startsWith('!'))).toBe(true);
+            });
+
+            it('emits only negated excludes when no CA file is configured', () => {
+                const result = createBaseDefinition({}, {}, {});
+                expect(
+                    result.functions.auth.package.patterns.every((p) => p.startsWith('!'))
+                ).toBe(true);
+            });
         });
 
         describe('usePrismaLayer configuration', () => {
@@ -283,12 +347,12 @@ describe('Base Definition Factory', () => {
 
                 expect(result.layers.prisma).toBeDefined();
                 expect(result.functions.auth.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
-                expect(result.functions.auth.package.exclude).toEqual(
+                expect(result.functions.auth.package.patterns).toEqual(
                     expect.arrayContaining([
-                        'node_modules/@prisma/**',
-                        'node_modules/.prisma/**',
-                        'node_modules/prisma/**',
-                        'node_modules/@friggframework/core/generated/**',
+                        '!node_modules/@prisma/**',
+                        '!node_modules/.prisma/**',
+                        '!node_modules/prisma/**',
+                        '!node_modules/@friggframework/core/generated/**',
                     ])
                 );
                 expect(result.custom.esbuild.external).toEqual(
@@ -301,12 +365,12 @@ describe('Base Definition Factory', () => {
 
                 expect(result.layers).toEqual({});
                 expect(result.functions.auth.layers).toBeUndefined();
-                expect(result.functions.auth.package.exclude).not.toEqual(
+                expect(result.functions.auth.package.patterns).not.toEqual(
                     expect.arrayContaining([
-                        'node_modules/@prisma/**',
-                        'node_modules/.prisma/**',
-                        'node_modules/prisma/**',
-                        'node_modules/@friggframework/core/generated/**',
+                        '!node_modules/@prisma/**',
+                        '!node_modules/.prisma/**',
+                        '!node_modules/prisma/**',
+                        '!node_modules/@friggframework/core/generated/**',
                     ])
                 );
                 expect(result.custom.esbuild.external).not.toEqual(
@@ -330,7 +394,7 @@ describe('nested node_modules (lambda.keepNestedNodeModules)', () => {
         const result = build({ name: 'test-app' });
 
         for (const fn of ['auth', 'user', 'health']) {
-            expect(result.functions[fn].package.exclude).toContain('node_modules/**/node_modules/**');
+            expect(result.functions[fn].package.patterns).toContain('!node_modules/**/node_modules/**');
         }
     });
 
@@ -338,13 +402,13 @@ describe('nested node_modules (lambda.keepNestedNodeModules)', () => {
         const result = build({ name: 'test-app', lambda: { keepNestedNodeModules: true } });
 
         for (const fn of ['auth', 'user', 'health']) {
-            const { exclude } = result.functions[fn].package;
-            expect(exclude).not.toContain('node_modules/**/node_modules/**');
-            expect(exclude).toEqual(
+            const { patterns } = result.functions[fn].package;
+            expect(patterns).not.toContain('!node_modules/**/node_modules/**');
+            expect(patterns).toEqual(
                 expect.arrayContaining([
-                    'node_modules/**/node_modules/@friggframework/**',
-                    'node_modules/**/node_modules/@aws-sdk/**',
-                    'node_modules/**/node_modules/@prisma/**',
+                    '!node_modules/**/node_modules/@friggframework/**',
+                    '!node_modules/**/node_modules/@aws-sdk/**',
+                    '!node_modules/**/node_modules/@prisma/**',
                 ])
             );
         }
@@ -360,14 +424,14 @@ describe('logging (ADR-048)', () => {
 
         expect(result.provider.logs).toBeUndefined();
         expect(result.provider.logRetentionInDays).toBeUndefined();
-        expect(result.frameworkVersion).toBe('>=3.17.0');
+        expect(result.frameworkVersion).toBe(OSLS_FRAMEWORK_VERSION);
     });
 
     it('validates logging.level but leaves the Lambda log format and frameworkVersion alone by default', () => {
         const result = build({ level: 'warn' });
 
         expect(result.provider.logs).toBeUndefined();
-        expect(result.frameworkVersion).toBe('>=3.17.0');
+        expect(result.frameworkVersion).toBe(OSLS_FRAMEWORK_VERSION);
     });
 
     it.each(['verbose', 'warning', '', 3])('throws on unknown level %p', (level) => {
@@ -379,7 +443,12 @@ describe('logging (ADR-048)', () => {
 
         expect(result.provider.logRetentionInDays).toBe(30);
         expect(result.provider.logs).toBeUndefined();
-        expect(result.frameworkVersion).toBe('>=3.17.0');
+        expect(result.frameworkVersion).toBe(OSLS_FRAMEWORK_VERSION);
+    });
+
+    it('keeps the single osls frameworkVersion even when the Lambda LoggingConfig is on (ADR-050)', () => {
+        const result = build({ level: 'warn' });
+        expect(result.frameworkVersion).toBe('^4.4.0');
     });
 
     it('accepts 1096, which CloudWatch allows but the osls schema omits', () => {

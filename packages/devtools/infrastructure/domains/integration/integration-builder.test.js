@@ -886,8 +886,8 @@ describe('IntegrationBuilder', () => {
             const result = await integrationBuilder.build(appDefinition, {});
 
             expect(result.functions.testWebhook.package).toBeDefined();
-            expect(result.functions.testWebhook.package.exclude).toContain('node_modules/aws-sdk/**');
-            expect(result.functions.testWebhook.package.exclude).toContain('node_modules/@prisma/**');
+            expect(result.functions.testWebhook.package.patterns).toContain('!node_modules/aws-sdk/**');
+            expect(result.functions.testWebhook.package.patterns).toContain('!node_modules/@prisma/**');
         });
     });
 
@@ -982,8 +982,8 @@ describe('IntegrationBuilder', () => {
             expect(result.functions.asana.layers).toBeUndefined();
             expect(result.functions.asanaQueueWorker.layers).toBeUndefined();
             expect(result.functions.asanaWebhook.layers).toBeUndefined();
-            expect(result.functions.asana.package.exclude).not.toEqual(
-                expect.arrayContaining(['node_modules/@prisma/**'])
+            expect(result.functions.asana.package.patterns).not.toEqual(
+                expect.arrayContaining(['!node_modules/@prisma/**'])
             );
         });
     });
@@ -1091,14 +1091,14 @@ describe('IntegrationBuilder nested node_modules (lambda.keepNestedNodeModules)'
         ...(lambda && { lambda }),
     });
     const packagedFunctions = (result) =>
-        Object.values(result.functions).filter((fn) => fn.package?.exclude);
+        Object.values(result.functions).filter((fn) => fn.package?.patterns);
 
     it('excludes every nested node_modules by default', async () => {
         const result = await new IntegrationBuilder().build(appDefinition(), {});
 
         expect(packagedFunctions(result).length).toBeGreaterThan(0);
         for (const fn of packagedFunctions(result)) {
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
+            expect(fn.package.patterns).toContain('!node_modules/**/node_modules/**');
         }
     });
 
@@ -1109,8 +1109,73 @@ describe('IntegrationBuilder nested node_modules (lambda.keepNestedNodeModules)'
         );
 
         for (const fn of packagedFunctions(result)) {
-            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+            expect(fn.package.patterns).not.toContain('!node_modules/**/node_modules/**');
+            expect(fn.package.patterns).toContain('!node_modules/**/node_modules/@friggframework/**');
+        }
+    });
+});
+
+describe('IntegrationBuilder function package patterns (ADR-050)', () => {
+    const appDefinition = {
+        integrations: [
+            {
+                Definition: {
+                    name: 'hubspot',
+                    webhooks: true,
+                    extensions: {
+                        hubspotWebhooks: {
+                            extension: {
+                                name: 'hubspot-webhooks',
+                                routes: [
+                                    {
+                                        path: '/webhooks',
+                                        method: 'POST',
+                                        event: 'HUBSPOT_WEBHOOK_RECEIVED',
+                                    },
+                                ],
+                                events: {
+                                    HUBSPOT_WEBHOOK_RECEIVED: {
+                                        type: 'LIFE_CYCLE_EVENT',
+                                        handler: () => {},
+                                    },
+                                },
+                            },
+                            handlers: {},
+                        },
+                    },
+                },
+            },
+        ],
+    };
+
+    it('emits package.patterns, never include/exclude, on every function it packages', async () => {
+        const result = await new IntegrationBuilder().build(appDefinition, {});
+
+        const expected = [
+            'hubspot',
+            'hubspotWebhook',
+            'hubspot__hubspotWebhooks',
+            'hubspotQueueWorker',
+            'dlqProcessor',
+        ];
+        for (const name of expected) {
+            const pkg = result.functions[name]?.package;
+            expect(pkg).toBeDefined();
+            expect(pkg).not.toHaveProperty('include');
+            expect(pkg).not.toHaveProperty('exclude');
+            // Integration functions only exclude, so every pattern is negated.
+            expect(pkg.patterns.length).toBeGreaterThan(0);
+            expect(pkg.patterns.every((p) => p.startsWith('!'))).toBe(true);
+            expect(pkg.patterns).toEqual(
+                expect.arrayContaining([
+                    '!node_modules/aws-sdk/**',
+                    '!node_modules/@prisma/**',
+                    '!node_modules/**/node_modules/**',
+                    '!node_modules/osls/**',
+                    '!test/**',
+                ])
+            );
+            expect(pkg.patterns).not.toContain('!src/**');
         }
     });
 });
