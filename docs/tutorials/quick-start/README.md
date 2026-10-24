@@ -1,33 +1,31 @@
 # Quick Start Tutorial
 
-### Getting Started
+Aloha! In the next ten-ish minutes you'll scaffold a Frigg backend, give it a database, run it locally, and plug in your first API module. No cloud account, no config spelunking. The defaults are picked for you.
 
-Aloha! Ready to dive into using Frigg? Let’s get a HubSpot integration (or what HubSpot calls an "app") up and running quickly. \
-\
-This exercise will guide you through setting up a Frigg app locally, integrating it with HubSpot, and experiencing the magic in real-time.&#x20;
+## What you'll build
 
-IMPORTANT: Running Frigg init requires several software development packages to be installed locally on your computer. While each prerequisite tool is fairly easy to install and configure, you may want to have an engineer available for troubleshooting.
+A Frigg backend app running on your machine:
 
-### Prerequisites
+* PostgreSQL (the default database) in a Docker container
+* The Frigg backend running under serverless-offline at `http://localhost:3001`
+* A HubSpot integration scaffolded from the API module library
+* Optionally, the Frigg Management UI to poke around in
 
-Before we start, make sure you have:
+## Prerequisites
 
-* [Node.js and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed
-* [Git installed](https://git-scm.com/)&#x20;
-* [Docker installed](https://www.docker.com/products/docker-desktop/) and running on your machine
-* A [HubSpot Developer Account](https://app.hubspot.com/signup-hubspot/developers?utm_campaign=frigg)
-* Your favorite IDE installed and ready to use
-
-### Overview
-
-Running the `frigg init` command will generate a Frigg application that is deployable to your own infrastructure accounts in minutes.
-
-Let's get started with `frigg init` and unpack the magic as we go.
+* [Node.js](https://nodejs.org/) 22 or later, with npm
+* [Docker](https://www.docker.com/products/docker-desktop/), running (or any PostgreSQL you can reach)
+* [Git](https://git-scm.com/) (optional; `frigg init` sets up a repository unless you pass `--no-git`)
+* A terminal and your favorite editor
 
 {% hint style="info" %}
-**What is HubSpot and why use it in this tutorial?**
-
-HubSpot is a popular marketing and CRM tool that helps businesses manage customer interactions. In this exercise, we use HubSpot to demonstrate how your Frigg App connects with external APIs.\
-\
-Setting up a HubSpot app lets you see how to connect, authenticate, and pull data from an external service. HubSpot provides an easy way understand integration basics in a common context.
+You don't need an AWS account for this tutorial. Everything runs locally, and `frigg start` skips AWS resource discovery.
 {% endhint %}
+
+## The steps
+
+1. [Initialize with `frigg init`](frigg-init.md)
+2. [Start your Frigg app](start-your-frigg-app.md): database, `db:setup`, `frigg start`
+3. [Add an integration](add-an-integration.md) with `frigg install`
+4. [Look around with `frigg ui`](management-ui.md) (optional)
+5. [Use MongoDB instead](using-mongodb.md) (optional; PostgreSQL is the default)

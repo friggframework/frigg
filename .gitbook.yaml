@@ -1,1 +1,8 @@
 root: ./docs/
+
+redirects:
+  tutorials/quick-start/create-frigg-app: tutorials/quick-start/frigg-init.md
+  tutorials/quick-start/configuration: tutorials/quick-start/start-your-frigg-app.md
+  tutorials/quick-start/connecting-and-seeing-live-data: tutorials/quick-start/add-an-integration.md
+  tutorials/quick-start/updating-the-integration-logic: tutorials/quick-start/add-an-integration.md
+  getting-started/quick-start: tutorials/quick-start/README.md
