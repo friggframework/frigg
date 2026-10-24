@@ -28,14 +28,20 @@ const {
     CheckIntegrationsHealthUseCase,
 } = require('../use-cases/check-integrations-health-use-case');
 
+const {
+    createManagementApiMetaRouter,
+} = require('../../management-api/meta-router');
+
 const router = Router();
 const healthCheckRepository = createHealthCheckRepository({ prismaClient: prisma });
 
 // Load integrations and create factories just like auth router does
 // This verifies the system can properly load integrations
 let moduleFactory, integrationClasses;
+let appDefinition = {};
 try {
     const appDef = loadAppDefinition();
+    appDefinition = appDef;
     integrationClasses = appDef.integrations || [];
 
     const moduleRepository = createModuleRepository();
@@ -84,6 +90,10 @@ const validateApiKey = (req, res, next) => {
 
     next();
 };
+
+// Management API discovery (ADR-053 §4) is public and DB-free, so it is
+// mounted ahead of the health API key check.
+router.use(createManagementApiMetaRouter({ appDefinition }));
 
 router.use(validateApiKey);
 

@@ -8,6 +8,7 @@ const { getLogger } = require('../../logs');
 const { redactUrl } = require('../../logs/redact');
 const { toSanitizedSurrogate } = require('../../logs/serialize');
 const { getLoggerScope } = require('../../logs/context');
+const { proxyRequest } = require('./proxy-request');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
@@ -237,7 +238,9 @@ class Requester extends Delegate {
         // recursion (with its own backoff sleeps) always gets a clean
         // signal. Timer is cleared in the finally block regardless of
         // outcome.
-        const timeoutMs = this.requestTimeoutMs;
+        // options.timeoutMs lets one call use a tighter budget (the
+        // Management API proxy passes what is left of its deadline).
+        const timeoutMs = options.timeoutMs ?? this.requestTimeoutMs;
         const controller = timeoutMs > 0 ? new AbortController() : null;
         const timeoutHandle = controller
             ? setTimeout(() => controller.abort(), timeoutMs)
@@ -275,7 +278,11 @@ class Requester extends Delegate {
                 // stall at batch scale.
                 const isTimeout =
                     e?.name === 'AbortError' || e?.type === 'aborted';
-                if (e?.code === 'ECONNRESET' && attempt < this.backOff.length) {
+                if (
+                    e?.code === 'ECONNRESET' &&
+                    !options.noRetry &&
+                    attempt < this.backOff.length
+                ) {
                     clearRequestTimer();
                     const delay = this.backOff[attempt] * 1000;
                     await new Promise((resolve) => setTimeout(resolve, delay));
@@ -301,6 +308,7 @@ class Requester extends Delegate {
             // If the status is retriable and there are back off requests left, retry the request
             if (
                 (status === 429 || status >= 500) &&
+                !options.noRetry &&
                 attempt < this.backOff.length
             ) {
                 clearRequestTimer();
@@ -386,6 +394,12 @@ class Requester extends Delegate {
             // If the error wasn't retried, throw. FetchError.create reads
             // the response body (response.text()) — timer must still be
             // alive to catch a stalled body stream.
+            // The proxy relays upstream errors to its caller instead of
+            // throwing; 401 keeps the refresh / invalidate handling above.
+            if (status >= 400 && options.returnErrorResponses) {
+                return response;
+            }
+
             if (status >= 400) {
                 this._logRequestFailed(encodedUrl, options, status);
                 const fetchError = await FetchError.create({
@@ -526,6 +540,17 @@ class Requester extends Delegate {
         };
         const res = await this._request(options.url, fetchOptions);
         return res;
+    }
+
+    /**
+     * Generic, path-checked request for the Management API entity proxy
+     * (ADR-052 §8). The URL is always the module base URL plus a validated
+     * path; see ./proxy-request.js. Module methods are not involved.
+     *
+     * @param {Object} params - see proxyRequest()
+     */
+    async _proxyRequest(params) {
+        return proxyRequest(this, params);
     }
 
     async _delete(options) {

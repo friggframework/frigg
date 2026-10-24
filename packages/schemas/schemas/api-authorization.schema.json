@@ -6,13 +6,13 @@
   "definitions": {
     "authorizationRequirements": {
       "type": "object",
-      "description": "Authorization requirements response from GET /api/authorize",
+      "description": "Authorization requirements response from GET /api/v2/authorize (GET /api/authorize in v1 returns the module requirements unwrapped)",
       "required": ["type", "step", "totalSteps", "isMultiStep"],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["oauth2", "form", "api-key", "basic"],
-          "description": "Type of authentication required"
+          "description": "Type of authentication required: oauth2, form, api-key, basic, or a module-defined step type (e.g. email, otp)",
+          "examples": ["oauth2", "form", "api-key", "basic", "otp"]
         },
         "step": {
           "type": "integer",
@@ -112,13 +112,13 @@
     },
     "getEntityTypeRequirementsResponse": {
       "type": "object",
-      "description": "Authorization requirements response from GET /api/entities/types/:typeName/requirements",
+      "description": "Authorization requirements response from GET /api/v2/entities/types/:entityType/requirements",
       "required": ["type", "step", "totalSteps", "isMultiStep"],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["oauth2", "form", "api-key", "basic"],
-          "description": "Type of authentication required"
+          "description": "Type of authentication required: oauth2, form, api-key, basic, or a module-defined step type (e.g. email, otp)",
+          "examples": ["oauth2", "form", "api-key", "basic", "otp"]
         },
         "step": {
           "type": "integer",
@@ -151,7 +151,7 @@
     },
     "authorizationRequest": {
       "type": "object",
-      "description": "Authorization request to POST /api/authorize",
+      "description": "Authorization request to POST /api/v2/authorize (and v1 POST /api/authorize)",
       "required": ["entityType"],
       "properties": {
         "entityType": {
@@ -237,6 +237,40 @@
           "description": "Message to display to user (e.g., 'OTP sent to your email')"
         }
       }
+    },
+    "authorizeComplete": {
+      "type": "object",
+      "description": "POST /api/v2/authorize (or /api/v2/credentials/:credentialId/reauthorize) when the flow is complete. The credential is masked.",
+      "required": ["status", "entity", "credential"],
+      "properties": {
+        "status": { "const": "complete" },
+        "entity": { "type": "object", "description": "api-entities#/definitions/entity" },
+        "credential": { "type": "object", "description": "api-credentials#/definitions/credential, masked" },
+        "previousCredentialId": {
+          "type": "string",
+          "description": "Re-authorization only: set when the provider account changed and a new credential was stored"
+        }
+      }
+    },
+    "authorizePending": {
+      "type": "object",
+      "description": "POST /api/v2/authorize when another step is needed",
+      "required": ["status", "step", "totalSteps", "sessionId", "requirements"],
+      "properties": {
+        "status": { "const": "pending" },
+        "step": { "type": "integer", "minimum": 2 },
+        "totalSteps": { "type": "integer", "minimum": 2 },
+        "sessionId": { "type": "string" },
+        "requirements": { "$ref": "#/definitions/authorizationRequirements" },
+        "message": { "type": "string" }
+      }
+    },
+    "authorizeV2Response": {
+      "description": "Response from POST /api/v2/authorize and POST /api/v2/credentials/:credentialId/reauthorize",
+      "oneOf": [
+        { "$ref": "#/definitions/authorizeComplete" },
+        { "$ref": "#/definitions/authorizePending" }
+      ]
     },
     "authorizationSession": {
       "type": "object",

@@ -94,6 +94,40 @@
       },
       "additionalProperties": false
     },
+    "proxy": {
+      "type": "object",
+      "description": "Opt in to the Management API entity proxy (ADR-052). Without allow, nothing can be proxied.",
+      "properties": {
+        "allow": {
+          "type": "array",
+          "description": "Operations that may be proxied. :param matches one segment; a trailing /** matches a subtree. Wildcards (method * or path /**) are ignored here and only accepted in the app definition.",
+          "items": {
+            "type": "object",
+            "required": ["method", "path"],
+            "properties": {
+              "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+              "path": { "type": "string", "pattern": "^/" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "headers": {
+          "type": "array",
+          "description": "Provider-specific request headers callers may send, in addition to accept, content-type, accept-language, if-match and if-none-match",
+          "items": { "type": "string" }
+        },
+        "baseUrl": {
+          "description": "Proxy base URL (https). A string, or a function of the Api instance for tenant hosts. Defaults to the Api's baseUrl.",
+          "type": ["string", "object"]
+        },
+        "binary": {
+          "type": "boolean",
+          "default": false,
+          "description": "Return binary upstream bodies base64-encoded instead of refusing them (415)"
+        }
+      },
+      "additionalProperties": false
+    },
     "env": {
       "type": "object",
       "description": "Environment variable configuration",

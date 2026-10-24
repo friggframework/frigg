@@ -10,6 +10,24 @@
 const { buildEnvironment } = require('../environment-builder');
 const { nestedNodeModulesExcludes } = require('./nested-node-modules');
 const { buildLoggingProviderConfig } = require('./logging-config');
+const {
+    getGatewayRoutes,
+} = require('@friggframework/core/management-api/route-registry');
+
+/**
+ * HTTP API events for one function, from core's Management API route
+ * registry (ADR-053): the same registry mounts the Express routers and
+ * builds the OpenAPI documents, so the three cannot drift.
+ */
+function managementApiEvents(AppDefinition, functionName) {
+    const managementApi = AppDefinition.managementApi || {};
+    return getGatewayRoutes({
+        v1: managementApi.v1 !== false,
+        proxy: managementApi.proxy?.enable === true,
+    })
+        .filter((route) => route.function === functionName)
+        .map(({ method, path }) => ({ httpApi: { path, method } }));
+}
 
 /**
  * Create base serverless definition with core functions and resources
@@ -286,16 +304,12 @@ function createBaseDefinition(
                 ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
                 skipEsbuild: true,  // Handlers in node_modules don't need bundling
                 package: skipEsbuildPackageConfig,
-                events: [
-                    { httpApi: { path: '/api/integrations', method: 'ANY' } },
-                    {
-                        httpApi: {
-                            path: '/api/integrations/{proxy+}',
-                            method: 'ANY',
-                        },
-                    },
-                    { httpApi: { path: '/api/authorize', method: 'ANY' } },
-                ],
+                // Every Management API path the auth Lambda serves (v1, v2 per
+                // resource, the OAuth redirect) comes from core's route
+                // registry. HTTP API has no implicit catch-all, so an unlisted
+                // prefix 404s at the gateway before Express sees it. Guarded by
+                // __tests__/management-api-gateway-routes.test.js.
+                events: managementApiEvents(AppDefinition, 'auth'),
             },
             user: {
                 handler: 'node_modules/@friggframework/core/handlers/routers/user.handler',
@@ -312,6 +326,8 @@ function createBaseDefinition(
                 events: [
                     { httpApi: { path: '/health', method: 'GET' } },
                     { httpApi: { path: '/health/{proxy+}', method: 'GET' } },
+                    // GET /api/meta and the OpenAPI documents: public, DB-free.
+                    ...managementApiEvents(AppDefinition, 'health'),
                 ],
             },
             // Reporting is an admin operation (ADR-010): the report router runs on the admin-scripts Lambda, not as a standalone function here.
