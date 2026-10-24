@@ -221,5 +221,72 @@ describe('db-credentials bootstrap', () => {
         await expect(definition.env()).resolves.toEqual({ client_id: 'static-id' });
         expect(mockPrisma.oAuthAppCredential.findUnique).toHaveBeenCalledTimes(1);
     });
+    it('should wrap modules declared only in appDefinition.entities', async () => {
+        const definition = {
+            moduleName: 'google',
+            env: { client_id: 'static-google' },
+        };
+
+        mockPrisma.oAuthAppCredential.findUnique.mockResolvedValue({
+            moduleName: 'google',
+            clientId: 'db-google-id',
+            clientSecret: 'db-google-secret',
+        });
+
+        await bootstrap(mockPrisma, {
+            integrations: [],
+            entities: { google: { definition, scope: 'user' }, infer: true },
+        });
+
+        expect(typeof definition.env).toBe('function');
+        const result = await definition.env();
+        expect(result.client_id).toBe('db-google-id');
+        expect(result.client_secret).toBe('db-google-secret');
+    });
+
+    it('should fall back to the static env when the record is inactive', async () => {
+        const definition = {
+            moduleName: 'hubspot',
+            env: { client_id: 'static-id', client_secret: 'static-secret' },
+        };
+
+        mockPrisma.oAuthAppCredential.findUnique.mockResolvedValue({
+            moduleName: 'hubspot',
+            clientId: 'db-client-id',
+            clientSecret: 'db-client-secret',
+            isActive: false,
+        });
+
+        await bootstrap(mockPrisma, { entities: { hubspot: { definition } } });
+
+        await expect(definition.env()).resolves.toEqual({
+            client_id: 'static-id',
+            client_secret: 'static-secret',
+        });
+    });
+
+    it('should wrap a definition shared by an integration and an entity once', async () => {
+        const definition = {
+            moduleName: 'hubspot',
+            env: { client_id: 'static-id' },
+        };
+
+        class SharedIntegration {
+            static Definition = {
+                name: 'shared',
+                modules: { hubspot: { definition } },
+            };
+        }
+
+        mockPrisma.oAuthAppCredential.findUnique.mockResolvedValue(null);
+
+        await bootstrap(mockPrisma, {
+            integrations: [SharedIntegration],
+            entities: { hubspot: { definition } },
+        });
+
+        await expect(definition.env()).resolves.toEqual({ client_id: 'static-id' });
+        expect(mockPrisma.oAuthAppCredential.findUnique).toHaveBeenCalledTimes(1);
+    });
 });
 

@@ -20,6 +20,27 @@ const {
     getDatabaseSetupSuccess,
 } = require('../utils/error-messages');
 
+/**
+ * Composes the backend's core extension schemas into core's Prisma client.
+ * A backend whose index.js cannot be found has no extensions to compose.
+ */
+function composeExtensionPrismaForBackend(verbose) {
+    const { findNearestBackendPackageJson } = require('@friggframework/core');
+    const backendPackageJson = findNearestBackendPackageJson();
+    if (!backendPackageJson) return;
+    const backendDir = path.dirname(backendPackageJson);
+    const indexPath = path.join(backendDir, 'index.js');
+    if (!require('fs').existsSync(indexPath)) return;
+    const appDefinition = require(indexPath).Definition;
+    const { composeAppExtensionPrisma } = require('../../infrastructure/compose-extension-prisma');
+    const { results } = composeAppExtensionPrisma({ appDefinition, backendDir });
+    if (verbose) {
+        for (const r of results) {
+            console.log(chalk.gray(`  Extension schemas (${r.dbType}): ${r.changed ? 'composed' : 'unchanged'}`));
+        }
+    }
+}
+
 function getDatabaseDisplayName(dbType) {
     switch (dbType) {
         case 'postgresql':
@@ -108,6 +129,10 @@ async function dbSetupCommand(options = {}) {
         if (verbose) {
             console.log(chalk.gray('Step 3: Checking Prisma client...'));
         }
+
+        // Core extensions' models must be in the client (and, on PostgreSQL,
+        // their migrations next to core's) before generating or migrating.
+        composeExtensionPrismaForBackend(verbose);
 
         const clientCheck = checkPrismaClientGenerated(dbType);
         const forceRegenerate = options.force || false;

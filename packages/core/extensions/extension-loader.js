@@ -17,6 +17,28 @@ const {
     coreExtensionRoutePathError,
 } = require('../management-api/route-registry');
 
+const SCHEMA_DB_TYPES = ['postgresql', 'mongodb'];
+
+function schemaErrors(schema, label) {
+    if (typeof schema === 'string') {
+        return schema.endsWith('.prisma') ? [] : [`${label}: must end with .prisma`];
+    }
+    if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+        return [`${label}: must be a string (path to .prisma file) or { postgresql, mongodb } paths`];
+    }
+    const errors = [];
+    const keys = Object.keys(schema);
+    if (keys.length === 0) errors.push(`${label}: names no database type`);
+    for (const key of keys) {
+        if (!SCHEMA_DB_TYPES.includes(key)) {
+            errors.push(`${label}.${key}: unknown database type (expected ${SCHEMA_DB_TYPES.join(' or ')})`);
+        } else if (typeof schema[key] !== 'string' || !schema[key].endsWith('.prisma')) {
+            errors.push(`${label}.${key}: must be a path ending in .prisma`);
+        }
+    }
+    return errors;
+}
+
 /**
  * Validates a single extension definition.
  * @param {Object} ext - Raw extension config from app definition
@@ -36,13 +58,18 @@ function validateExtension(ext, index) {
         errors.push(`${prefix}.name: required string`);
     }
 
-    // schema is optional — path to a .prisma file
+    // schema is optional: a .prisma file for every database, or one per
+    // database type ({ postgresql, mongodb }), since a model written for one
+    // (an autoincrement Int id, a String[] column) does not compile for the other.
     if (ext.schema !== undefined) {
-        if (typeof ext.schema !== 'string') {
-            errors.push(`${prefix}.schema: must be a string (path to .prisma file)`);
-        } else if (!ext.schema.endsWith('.prisma')) {
-            errors.push(`${prefix}.schema: must end with .prisma`);
-        }
+        errors.push(...schemaErrors(ext.schema, `${prefix}.schema`));
+    }
+
+    // migrations is optional: a directory of Prisma migration folders
+    // (<timestamp>_<name>/migration.sql) for the extension's PostgreSQL models.
+    // They are applied with the core migrations. MongoDB has no migrations.
+    if (ext.migrations !== undefined && (typeof ext.migrations !== 'string' || ext.migrations === '')) {
+        errors.push(`${prefix}.migrations: must be a string (path to a migrations directory)`);
     }
 
     // encryption is optional — object with model names → { fields: [...] }
@@ -152,6 +179,7 @@ function loadExtensions(appDefinition) {
         return {
             name: ext.name,
             schema: ext.schema || null,
+            migrations: ext.migrations || null,
             encryption: ext.encryption || null,
             routes: ext.routes
                 ? { path: ext.routes.path, handler: routeHandler }
@@ -170,18 +198,33 @@ function loadExtensions(appDefinition) {
 }
 
 /**
+ * The .prisma file an extension adds for one database type.
+ * @param {Object} ext - Normalized extension
+ * @param {'postgresql'|'mongodb'} [dbType] - Omitted: a string schema only
+ * @returns {string|null}
+ */
+function extensionSchemaPath(ext, dbType) {
+    if (!ext?.schema) return null;
+    if (typeof ext.schema === 'string') return ext.schema;
+    return dbType ? ext.schema[dbType] || null : null;
+}
+
+/**
  * Get extension schema file paths from loaded extensions.
  * @param {Array<Object>} extensions - Normalized extensions
+ * @param {'postgresql'|'mongodb'} [dbType] - Database the paths are for. A
+ *   per-database schema ({ postgresql, mongodb }) only answers when given one.
  * @returns {string[]} Array of absolute paths to .prisma schema files
  */
-function getExtensionSchemaPaths(extensions) {
+function getExtensionSchemaPaths(extensions, dbType) {
     return extensions
-        .filter((ext) => ext.schema)
-        .map((ext) => ext.schema);
+        .map((ext) => extensionSchemaPath(ext, dbType))
+        .filter(Boolean);
 }
 
 module.exports = {
     loadExtensions,
     validateExtension,
     getExtensionSchemaPaths,
+    extensionSchemaPath,
 };

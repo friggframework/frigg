@@ -60,7 +60,8 @@ function applySsmPreloadNodeOptions(appDefinition, functions, providerEnvironmen
 }
 const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-resolver');
 const { createBaseDefinition } = require('./domains/shared/utilities/base-definition-factory');
-const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
+const { ensurePrismaLayerExists, invalidatePrismaLayer } = require('./domains/shared/utilities/prisma-layer-manager');
+const { composeAppExtensionPrisma } = require('./compose-extension-prisma');
 const { validateAndCleanPlugins, validatePackagingConfiguration } = require('./domains/shared/validation/plugin-validator');
 
 /**
@@ -74,6 +75,17 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
     // Determine if deployment should use Prisma Lambda Layer (default: true)
     const usePrismaLayer = AppDefinition.usePrismaLambdaLayer !== false;
+
+    // Core extensions' models go into core's Prisma client before anything
+    // copies it (the layer, or the functions when bundling Prisma). A changed
+    // client invalidates a layer built from the previous one.
+    const extensionPrisma = composeAppExtensionPrisma({
+        appDefinition: AppDefinition,
+        backendDir: process.cwd(),
+    });
+    if (extensionPrisma.changed && usePrismaLayer) {
+        invalidatePrismaLayer();
+    }
 
     // Ensure Prisma layer exists only when configured to use it
     if (usePrismaLayer) {

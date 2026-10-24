@@ -222,6 +222,15 @@ the OpenAPI documents and the API Gateway routes devtools generates.
   `routes.path: '/admin/<name>'` (served by the auth Lambda behind the admin API key; the registry
   lists them so API Gateway routes and netlify.toml redirects come from it). `/admin/scripts`,
   `/admin/db-migrate` and `/admin/queue` (the signed HTTP queue endpoint on Netlify) are reserved.
+- **Core extension models**: `coreExtensions[].schema` (a `.prisma` file, or `{ postgresql, mongodb }` paths)
+  and `coreExtensions[].migrations` (a directory of `<timestamp>_<name>/migration.sql`, PostgreSQL only)
+  are composed into the backend's installed core at build (`core/extensions/prisma-composer.js`): the
+  models are appended to `prisma-<db>/schema.prisma` (the pristine one is kept as `schema.base.prisma`),
+  the migrations are copied beside core's, and `prisma generate` rebuilds `generated/prisma-<db>`. The
+  Netlify build (`provider-build.js`), the AWS build (`infrastructure-composer.js`, which also
+  invalidates a stale Prisma layer) and `frigg db:setup` all run it. Without it `prisma.<model>` does
+  not exist and the table is never created. Encrypted fields an extension declares
+  (`coreExtensions[].encryption`) go through the same Prisma encryption extension as core's.
 - `/api/v2/reports` belongs to the admin-scripts Lambda (ADR-010); the registry reserves the
   `reports` segment. Never declare `ANY /api/v2/{proxy+}`.
 - Adding a route: add it to the registry, a handler keyed by its `operationId`, and its

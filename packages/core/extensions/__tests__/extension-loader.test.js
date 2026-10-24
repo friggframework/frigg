@@ -47,6 +47,31 @@ describe('Extension Loader', () => {
             expect(errors[0]).toContain('.prisma');
         });
 
+        it('accepts a schema per database type', () => {
+            const { valid } = validateExtension(
+                { name: 'test', schema: { postgresql: '/a/pg.prisma', mongodb: '/a/mongo.prisma' } },
+                0
+            );
+            expect(valid).toBe(true);
+        });
+
+        it.each([
+            [{}, 'names no database type'],
+            [{ mysql: '/a.prisma' }, 'unknown database type'],
+            [{ postgresql: '/a.sql' }, 'must be a path ending in .prisma'],
+            [['/a.prisma'], 'must be a string'],
+        ])('rejects the schema %j', (schema, message) => {
+            const { valid, errors } = validateExtension({ name: 'test', schema }, 0);
+            expect(valid).toBe(false);
+            expect(errors.join(' ')).toContain(message);
+        });
+
+        it.each([[''], [42]])('rejects migrations %j', (migrations) => {
+            const { valid, errors } = validateExtension({ name: 'test', migrations }, 0);
+            expect(valid).toBe(false);
+            expect(errors[0]).toContain('migrations');
+        });
+
         it('should reject encryption without fields array', () => {
             const { valid, errors } = validateExtension(
                 {
@@ -227,5 +252,35 @@ describe('Extension Loader', () => {
             expect(result[0].name).toBe('ext-a');
             expect(result[1].name).toBe('ext-b');
         });
+    });
+});
+
+describe('getExtensionSchemaPaths', () => {
+    const { getExtensionSchemaPaths, loadExtensions } = require('../extension-loader');
+    const extensions = loadExtensions({
+        coreExtensions: [
+            { name: 'both', schema: '/both.prisma', migrations: '/both/migrations' },
+            { name: 'split', schema: { postgresql: '/pg.prisma', mongodb: '/mongo.prisma' } },
+            { name: 'pg-only', schema: { postgresql: '/only-pg.prisma' } },
+            { name: 'none' },
+        ],
+    });
+
+    it('keeps the migrations directory on the normalized extension', () => {
+        expect(extensions[0].migrations).toBe('/both/migrations');
+        expect(extensions[3].migrations).toBeNull();
+    });
+
+    it('returns the schema for each database type', () => {
+        expect(getExtensionSchemaPaths(extensions, 'postgresql')).toEqual([
+            '/both.prisma',
+            '/pg.prisma',
+            '/only-pg.prisma',
+        ]);
+        expect(getExtensionSchemaPaths(extensions, 'mongodb')).toEqual(['/both.prisma', '/mongo.prisma']);
+    });
+
+    it('without a database type, returns only the schemas shared by every database', () => {
+        expect(getExtensionSchemaPaths(extensions)).toEqual(['/both.prisma']);
     });
 });

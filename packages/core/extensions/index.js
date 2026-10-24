@@ -12,6 +12,7 @@
 
 const { loadExtensions, validateExtension, getExtensionSchemaPaths } = require('./extension-loader');
 const { composeSchemas, extractModelBlocks, getSchemaFilePaths } = require('./schema-composer');
+const { composeExtensionPrisma, resolvePrismaDbTypes } = require('./prisma-composer');
 const {
     mountExtensionRoutes,
     createExtensionRoutesRouter,
@@ -29,6 +30,8 @@ module.exports = {
     composeSchemas,
     extractModelBlocks,
     getSchemaFilePaths,
+    composeExtensionPrisma,
+    resolvePrismaDbTypes,
 
     // Route mounting
     mountExtensionRoutes,
