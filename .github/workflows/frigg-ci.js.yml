@@ -48,6 +48,76 @@ jobs:
         run: npm run test:all
         timeout-minutes: 10
 
+  db:
+    # Opt-in database integration suites (`*.db.test.js`, `npm run test:db`).
+    # They are excluded from test:all so unit runs never need a database.
+    # The Postgres service also serves the tenant-isolation suite
+    # (FRIGG_TEST_POSTGRES_URL) once it lands on next.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: frigg
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      FRIGG_TEST_MONGODB_URL: mongodb://localhost:27017/frigg?replicaSet=rs0
+      FRIGG_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/frigg?schema=public
+      MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.cache/mongodb-binaries
+    steps:
+      - name: Check Out Code ⤵️
+        uses: actions/checkout@v4
+
+      # Prisma needs a replica set for MongoDB writes, and service containers
+      # can't take the --replSet argument, so start it directly.
+      - name: Start MongoDB replica set 🍃
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:8.0 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do
+            docker exec mongo mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' && break
+            sleep 1
+          done
+          docker exec mongo mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
+          for i in $(seq 1 30); do
+            [ "$(docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary')" = "true" ] && break
+            sleep 1
+          done
+
+      - name: Use Node.js 22.x 🛠
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install Dependencies 🛠
+        run: npm ci
+
+      - name: Cache mongodb-memory-server binaries 📦
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('packages/test/mongodb.js') }}
+
+      - name: Prepare databases 🗄
+        working-directory: packages/core
+        run: |
+          npm run prisma:generate
+          DATABASE_URL="$FRIGG_TEST_POSTGRES_URL" npx prisma migrate deploy --schema prisma-postgresql/schema.prisma
+          DATABASE_URL="$FRIGG_TEST_MONGODB_URL" npx prisma db push --skip-generate --schema prisma-mongodb/schema.prisma
+
+      - name: DB tests 🧪
+        run: npm run test:db --workspaces --if-present
+        timeout-minutes: 10
+
   lint:
     # Read-only lint check: reports prettier/eslint problems, never rewrites
     # files or pushes commits. Non-blocking for now because the tree has a
