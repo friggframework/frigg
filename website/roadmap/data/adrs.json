@@ -1,5 +1,5 @@
 {
-  "count": 31,
+  "count": 32,
   "adrs": [
     {
       "num": 1,
@@ -310,6 +310,16 @@
       "theme": "Observability & ops",
       "summary": "Replaces ad-hoc console logging with one Frigg-owned logger port in core that writes one redacted JSON record per line to stdout, with a fixed field set, six levels, ADR-011 correlation and trace ids, and redaction by construction. JSON is the only output format, in every stage; other destinations connect as sinks that only translate and send, the upgrade changes need maintainer ratification, and the Lambda log format and retention in devtools are opt-in.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/048-structured-logging.md"
+    },
+    {
+      "num": 64,
+      "id": "064",
+      "title": "Test Layers Follow the Hexagon — Repository Contract Tests per Port",
+      "status": "Proposed",
+      "date": "2026-10-24",
+      "theme": "Developer experience",
+      "summary": "Tests each layer at its own boundary: use cases against in-memory fake repositories, handlers against mocked use cases, and one shared contract suite per repository port run against every adapter (MongoDB, PostgreSQL, DocumentDB via MongoDB) on real databases in a separate test:db CI job, with field encryption exercised. Unit-test setup starts no database.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/064-repository-contract-tests.md"
     }
   ]
 }
