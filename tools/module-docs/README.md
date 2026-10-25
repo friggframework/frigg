@@ -40,6 +40,10 @@ branch edits. Pending versions are replayed so a second event cannot discard an
 unmerged release. A failed run is visible in Actions. Retry the manual workflow
 with the same package/version, without republishing the package.
 
+The concurrency group uses `queue: max` so new events do not replace the one
+pending run under GitHub's default queue policy. GitHub still caps that queue at
+100 pending runs; canceled/overflowed runs need the same manual retry path.
+
 Exact duplicates produce no changes. Conflicting bytes for an existing identity
 fail. An explicit docs-revision protocol is not implemented in this pilot, so
 corrections to published snapshots must not be made by editing generated files.
