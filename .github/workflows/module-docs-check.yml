@@ -6,6 +6,8 @@ on:
       - website/directory/**
       - website/data/catalog/**
       - .github/workflows/module-docs*.yml
+      - .github/workflows/release.yml
+      - docs/SUMMARY.md
       - docs/api-modules/*/versions/**
   workflow_dispatch:
 permissions:

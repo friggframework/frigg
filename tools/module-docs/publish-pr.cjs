@@ -42,7 +42,7 @@ async function main() {
     run('git', ['diff', '--cached', '--check']);
     run('git', ['config', 'user.name', 'frigg-module-docs[bot]']);
     run('git', ['config', 'user.email', 'module-docs@users.noreply.github.com']);
-    run('git', ['commit', '-m', 'docs: import published module documentation and catalog']);
+    run('git', ['commit', '-m', 'docs: import published module documentation and catalog [skip release]']);
     run('git', ['push', `--force-with-lease=refs/heads/${branch}:${oldHead || ''}`, 'origin', `HEAD:refs/heads/${branch}`]);
     if (!prs.length) {
         const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'module-docs-pr-'));
