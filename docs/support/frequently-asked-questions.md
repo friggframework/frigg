@@ -134,21 +134,7 @@ Yes, if that tool can facilitate using APIs to authenticate and configure a user
 
 <summary>Which cloud providers are supported?</summary>
 
-Frigg leverages (and requires) the [Serverless.com framework](https://github.com/serverless/serverless), which means it can run on many different cloud services including:\\
-
-AWS
-
-Microsoft Azure
-
-Google Cloud
-
-Tencent Cloud
-
-Cloudflare
-
-Alibaba Cloud
-
-twilio
+On `next`, Frigg supports **local** development and **AWS** deploy out of the box. See [Hosts](../explanation/hosts.md) for defaults, the Netlify work in review, and why Azure/GCP are not listed as supported yet.
 
 </details>
 
