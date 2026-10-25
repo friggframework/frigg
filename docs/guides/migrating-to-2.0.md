@@ -1,8 +1,8 @@
 ---
 description: >-
   Upgrade a Frigg 1.x app to 2.0: Prisma instead of Mongoose, an explicit
-  database choice, Definition-based integrations, fail-closed encryption,
-  Management API v2, Node.js 22.13+ or 24, and osls 4.
+  database choice, Definition-based integrations, a validated app definition,
+  and Node.js 22 or later.
 ---
 
 # Migrating from 1.x to 2.0
@@ -29,19 +29,14 @@ so plan the data move as a migration, not an in-place upgrade.
 | Users | `IndividualUser` and `OrganizationUser` discriminators | One `User` model with a `type` field |
 | Integration class | `static Config`, `static Options`, `static modules` | One `static Definition` and `this.events` |
 | Infrastructure | Hand-written `serverless.yml` | `infrastructure.js` generated from the app definition |
-| Deploy tool | Serverless Framework | `osls` 4 (oss-serverless), run by `frigg deploy` |
+| Deploy tool | Serverless Framework | `osls` (oss-serverless), run by `frigg deploy` |
 | AWS SDK | v2 (`aws-sdk`) | v3 (`@aws-sdk/client-*`) |
-| Runtime | Node.js 18 | Node.js 22.13+ or 24 for the CLI; `nodejs22.x` on Lambda |
-| Encryption | Skipped on `dev`, `test`, and `local` | Required on every deployed stage |
-| Management API | Unversioned `/api/*` | `/api/v2/*`; v1 still served, frozen and deprecated |
-| Entity ownership | The user who connected it | A scope: `individual`, `organization`, or `global` |
+| Runtime | Node.js 18 | Node.js 22 or later; `nodejs22.x` on Lambda |
 
 ## Step 1: Upgrade Node.js
 
-Install Node.js 22.13 or later (or Node.js 24) and npm 10 or later, locally
-and in CI (`nvm install 22`). osls 4, which `frigg deploy` runs, does not
-support Node.js 23 or 22.0 to 22.12. Lambda functions still run on
-`nodejs22.x`.
+Install Node.js 22 or later and npm 10 or later, locally and in CI
+(`nvm install 22`). Lambda functions run on `nodejs22.x`.
 
 ## Step 2: Start from a 2.0 backend
 
@@ -110,23 +105,6 @@ DATABASE_URL="mongodb://localhost:27017/frigg?replicaSet=rs0"
 
 Keep your encryption keys. 2.0 reads the same variables as 1.x: `KMS_KEY_ARN`
 for KMS, or `AES_KEY_ID` and `AES_KEY` for AES.
-
-{% hint style="warning" %}
-**2.0 fails closed.** In 1.x the `dev`, `test`, and `local` stages skipped
-encryption, and a stage without a key wrote plaintext. In 2.0 every deployed
-stage, `dev` included, encrypts, and a deployed function with no key refuses to
-start with `EncryptionConfigurationError`. Set
-`encryption: { fieldLevelEncryptionMethod: 'kms' }` and Frigg creates or
-discovers the key on every stage. Rows already stored in plaintext stay
-readable and are encrypted the next time they are written. Only local runs
-(`frigg start`, tests) still skip encryption on `dev`, `test`, and `local`. To
-keep a deployed stage in plaintext on purpose, set
-`fieldLevelEncryptionMethod: 'none'`; Frigg logs a warning on every cold start.
-{% endhint %}
-
-API modules that list `encryption.credentialFields` now have those fields
-encrypted too. Before 2.0.1 they were stored in plaintext by mistake. Existing
-rows stay readable and are encrypted the next time they are written.
 
 ## Step 4: Create the schema
 
@@ -220,27 +198,9 @@ Core no longer exports `mongoose`, the Mongoose models (`UserModel`,
 * Handle the `IN_CREATION` and `IN_DELETION` integration statuses anywhere you
   filter or display status.
 
-## Step 7: Point clients at Management API v2
+## Step 7: Keep your API clients
 
-Your 1.x clients keep working: 2.0.1 serves the v1 routes unchanged, frozen
-and deprecated. Every v1 response carries `Deprecation` and `Link` headers,
-and every v1 call is logged as `frigg.api.deprecated_route`, so you can find
-the callers left to move.
-
-* Move each call with the v1 to v2 table in the
-  [API reference](../reference/api-reference.md). Clients can call
-  `GET /api/meta` first to see which versions the backend serves.
-* In `@friggframework/ui`, pass `{ apiVersion: 'v2' }` to the `API` client
-  after the backend is on 2.0.1.
-* One v1 change applies right away: `POST /api/integrations` now checks that
-  the caller owns every entity it names.
-* When nothing calls v1, set `managementApi: { v1: false }`.
-
-**Entity scopes keep your current behavior.** With no scope configured, an
-entity is `individual` (owned by the person who connected it), or
-`organization` when `user.primary` is `'organization'`. That matches 1.x. No
-data backfill is needed. To share connections across an organization, see the
-entity scopes guide.
+The Management API routes stay unversioned under `/api/*` in 2.0.1, so existing clients keep working.
 
 **Optional: adopter tokens.** If your product already issues JWTs, Frigg can
 accept them instead of `x-frigg-*` headers or Frigg logins. This is the
@@ -318,24 +278,19 @@ skip them.
   deprecated and is only deployed when you register `reports` or set
   `admin: { includeBuiltinReports: true }`. Call
   `POST /api/v2/reports/integrations/run` with `{ "mode": "live" }` instead.
-* **Deployed `dev` stages now encrypt.** Prereleases skipped encryption on
-  `dev`, `test`, and `local` even when deployed. A deployed stage without a key
-  now fails at startup; add `encryption: { fieldLevelEncryptionMethod: 'kms' }`
-  and redeploy. `BYPASS_ENCRYPTION_STAGE` is no longer read.
 * **Process updates are atomic.** `updateProcessMetrics` and the context
   updates in `updateProcessState` no longer read, modify, and write the whole
   record. No code change is needed.
 
 ## Checklist
 
-* [ ] Node.js 22.13+ or 24, and npm 10+, locally and in CI
+* [ ] Node.js 22+, and npm 10+, locally and in CI
 * [ ] `@friggframework/core` and `@friggframework/devtools` on `^2.0.1`, plus `prisma` and `@prisma/client`
 * [ ] API modules on versions that depend on core 2.x
 * [ ] `infrastructure.js` in place; `serverless.yml` removed
 * [ ] `database.<engine>.enable` (or `DB_TYPE`) set, and `DATABASE_URL` replaces `MONGO_URI`
-* [ ] Encryption configured for every deployed stage (`kms`, AES keys, or an explicit `none`)
+* [ ] Encryption keys carried over (`KMS_KEY_ARN`, or `AES_KEY_ID` and `AES_KEY`)
 * [ ] `frigg db:setup` run; `frigg validate` passes
-* [ ] Clients moved to `/api/v2` (or a plan to move them); v1 still works meanwhile
 * [ ] Integrations use `static Definition`, `this.events`, and `this.<module>.api`
 * [ ] No imports of removed core exports; `user.type` checks in place
 * [ ] Custom AWS calls on SDK v3
