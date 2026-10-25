@@ -160,7 +160,7 @@
     * [Supported APIs](api-modules/module-list/zoom/supported-apis.md)
     * [Available Methods](api-modules/module-list/zoom/available-methods.md)
     * [Zoom Docs](https://developers.zoom.us/docs/api/)
-* [Building Your Own Module](api-module-library/building-your-own-module.md)
+* [Contribute an API Module](api-module-library/building-your-own-module.md)
 
 ## 🤝 Contributing
 
