@@ -10,13 +10,16 @@ The Frigg framework has been migrated from Serverless Framework v3 to OSS-Server
 
 **Why**: Serverless Framework v4 introduced breaking changes and licensing restrictions. OSS-Serverless is a maintained, MIT-licensed v3 alternative.
 
+Frigg 2.0.1 and later target **osls 4** (`^4.4.0`). See [osls 4 (Frigg 2.0.1)](#osls-4-frigg-201) below and
+[ADR-050](../architecture-decisions/050-osls-4.md).
+
 **Migration**:
 ```bash
 # Old
 npm install serverless@3.39.0
 
-# New
-npm install osls@^3.78.0
+# New (Frigg 2.0.1+)
+npm install osls@^4.4.0
 
 # Commands remain the same
 osls deploy --stage dev     # was: serverless deploy
@@ -45,8 +48,12 @@ const result = await sqs.send(new SendMessageCommand(params));
 **Why**: Node.js 22 is the latest Lambda runtime with better performance.
 
 **Migration**:
-- Update `package.json` engines: `"node": ">=22"`
-- Update serverless runtime: `runtime: nodejs22.x`
+- Lambda runtime: `runtime: nodejs22.x` (unchanged by osls 4)
+- CLI host (where `frigg` / `osls` run): Node `^22.13.0 || >=24`. This is the
+  `engines.node` of `@friggframework/devtools` and `@friggframework/frigg-cli`.
+  osls 3.7x and osls 4 both refuse Node 23 and Node 22.0–22.12, and the Frigg
+  CLI now says so before it starts (`FRIGG_SKIP_NODE_VERSION_CHECK=true` bypasses
+  the CLI check, but osls itself still refuses).
 
 ### 4. Bundle Optimization
 
@@ -62,6 +69,105 @@ const result = await sqs.send(new SendMessageCommand(params));
 
 **Old**: Monolithic 2,800-line serverless-template.js
 **New**: Domain-separated modules (~505 lines template + focused domain builders)
+
+## osls 4 (Frigg 2.0.1)
+
+Frigg 2.0.1 moves from osls 3 to osls `^4.4.0` ([ADR-050](../architecture-decisions/050-osls-4.md)).
+osls 3 depends on the end-of-support AWS SDK v2, so every Frigg app installed it through
+its deploy tool; osls 4 uses SDK v3 internally and is the line that gets new features
+(SSO credentials, `AWS_ENDPOINT_URL`, `provider.pruneFunctionVersions`).
+
+### What Frigg now emits
+
+| Setting | Before (osls 3) | Now |
+|---|---|---|
+| Function packaging | `package.include` / `package.exclude` | `package.patterns`: the excludes negated first, then the includes (`[!exclude…, include…]`). Same file set: osls evaluates this list in the order it built from include/exclude. |
+| `useDotenv` | `false` for build/deploy, `true` for `offline` | `true` for `frigg start` (offline) only; the key is omitted otherwise |
+| `frameworkVersion` | `>=3.17.0` (or `>=3.58.0` with LoggingConfig) | `^4.4.0` from one constant (`OSLS_FRAMEWORK_VERSION`) |
+| `osls` dependency | `^3.58.0` | `^4.4.0` (devtools devDependency, frigg-cli dependency) |
+| `provider.iamRoleStatements` | unchanged | unchanged. osls 4 prints a deprecation warning; the move to `provider.iam.role.statements` is tracked for osls 5 |
+
+`custom.esbuild.exclude` is a serverless-esbuild option, not osls packaging, and is unchanged.
+
+### Upgrading an app to 2.0.1
+
+osls 4 fails on configuration it only warned about before. Check your `infrastructure.js`
+wrapper and plugins for each of these:
+
+| If your app… | Fix |
+|---|---|
+| adds `package.include` / `package.exclude` (service, function or layer) | Use `package.patterns`. Put excludes first with a `!` prefix, then includes: `patterns: ['!node_modules/big-lib/**', 'certs/ca.pem']`. On osls 4 the old keys are rejected; with validation set to `warn` they are silently ignored and the function ships its whole `node_modules` closure. |
+| sets `useDotenv: false` | Remove the key. Absent means "do not load `.env`". |
+| pins `frameworkVersion: '3'` or `^3.x` | Use `^4.4.0` (or remove your override; Frigg sets it). |
+| has its own `osls` 3 dependency | Remove it or move it to `^4.4.0`. `frigg` spawns the `osls` it resolves; a 3.x binary fails with `FRAMEWORK_VERSION_MISMATCH`. |
+| sets service-level `package.patterns` | They now come *before* each function's own patterns, so Frigg's function excludes win. On osls 3 service patterns could re-add files a function excluded. Move a re-include to the function's `package.patterns`. |
+| loads a plugin that calls `provider.request`, `provider.sdk` or `provider.getCredentials` | Upgrade the plugin, or load a shim such as `osls-aws-provider-request-shim`. |
+| runs the CLI on Node 23 or Node 22.0–22.12 | Use Node 22.13+ or Node 24+. |
+
+### Operator notes (credentials and AWS requests)
+
+osls 4 resolves credentials and calls AWS with SDK v3 semantics:
+
+- **Profiles:** `~/.aws/config` is always merged. A profile that has static keys in
+  `~/.aws/credentials` *and* a `role_arn` in `~/.aws/config` now assumes the role, so the
+  deploy can land in a **different account**. Check the identity before the first deploy
+  (`aws sts get-caller-identity --profile <p>`).
+- **MFA:** `mfa_serial` is honoured and prompts for a code. The prompt fails in CI; use a
+  role or session credentials there.
+- **SSO:** IAM Identity Center profiles work.
+- **STS:** calls go to the regional endpoint.
+- **`AWS_ENDPOINT_URL`** (and `AWS_ENDPOINT_URL_<SERVICE>`) is honoured. This makes moto and
+  LocalStack builds work without plugin wiring, but a value left in your shell sends a real
+  `frigg deploy` to the local endpoint. Unset it before deploying.
+- **S3-compatible targets:** SDK v3 sends CRC32 checksums. Set
+  `AWS_REQUEST_CHECKSUM_CALCULATION=WHEN_REQUIRED` if a non-AWS S3 rejects them.
+- **Errors and retries:** SDK v3 retry behaviour and error codes apply. The Frigg CLI does
+  not parse osls error codes.
+
+### Package size budget
+
+Measured with `osls package --stage prod` against moto, a scaffold app and a featured app
+(integration + webhook + queue worker + migrations + admin scripts), Prisma layer on:
+
+| Function | Zipped | Unzipped | Budget (unzipped) |
+|---|---|---|---|
+| `auth`, `user`, `health`, integration (`<name>`, `<name>Webhook`, `<name>QueueWorker`), `dlqProcessor`, `adminScriptExecutor`, `adminScriptRouter` | 9.3 MB | 31.4 MB | 100 MB |
+| `dbMigrationRouter` | 4.1 MB | 13.6 MB | 100 MB |
+| `dbMigrationWorker` | 4.2 MB | 13.9 MB | 100 MB |
+| `prisma` layer | 14.6–22.7 MB | 37.2–56.3 MB | 100 MB |
+
+osls 3.78.0 and osls 4.4.0 produced the same file lists and sizes. The hard limit is
+Lambda's 250 MB unzipped for a function **plus its layers**; the largest measured total
+(function + Prisma layer) is about 88 MB. Keep each function under **100 MB unzipped** and
+function + layers under **200 MB**, which leaves 50 MB of headroom. A function well above
+these numbers usually means its packaging lost the `node_modules` excludes (for example an
+app-supplied `package.include`/`exclude` that osls 4 ignores) or dev dependencies were not
+excluded.
+
+To check a build:
+
+```bash
+frigg build --stage prod
+for z in .serverless/*.zip; do
+  printf '%-40s %8s zipped %8s unzipped\n' "$z" \
+    "$(du -h "$z" | cut -f1)" \
+    "$(unzip -l "$z" | tail -1 | awk '{printf "%.1fM", $1/1048576}')"
+done
+```
+
+osls excludes dev dependencies by running `npm ls --dev` and `npm ls --prod`. npm 9+
+masks UUID-shaped path segments in that output as `***`, so in a project path that contains
+a UUID (some CI workspaces and temp directories) the exclusion silently matches nothing and
+every function ships the whole dev tree (about 195 MB unzipped in the featured app). Build
+from a path without a UUID segment.
+
+### Rollback
+
+`package.patterns` and the `useDotenv` change are valid on osls 3, so rolling back is a pin
+change: `osls` back to `^3.78.0` and `frameworkVersion` to a range that accepts 3.x. A
+blocked app can add `"overrides": { "osls": "3.78.0" }` and set `frameworkVersion` in its
+`infrastructure.js` wrapper. Deployed stacks need no rollback: templates and resource names
+are unchanged.
 
 ## Files Modified
 
@@ -187,7 +293,7 @@ describe('My Test', () => {
 npm install
 
 # Verify osls is available
-npx osls --version  # Should show 3.40.1+
+npx osls --version  # Should show 4.4.0+ (Frigg 2.0.1+)
 ```
 
 ### Building Prisma Layer
@@ -303,7 +409,9 @@ domains/
 
 When updating existing Frigg applications:
 
-- [ ] Update `package.json` to use `osls` instead of `serverless`
+- [ ] Update `package.json` to use `osls` (`^4.4.0` for Frigg 2.0.1+) instead of `serverless`
+- [ ] Run the CLI on Node `^22.13.0 || >=24`
+- [ ] Replace any `package.include`/`exclude` in `infrastructure.js` with `package.patterns`; remove `useDotenv: false` and any `frameworkVersion` 3.x pin
 - [ ] Install dependencies: `npm install`
 - [ ] Update any custom deployment scripts to use `osls`
 - [ ] Rebuild Prisma layer: `rm -rf layers/prisma && osls deploy`
@@ -314,7 +422,9 @@ When updating existing Frigg applications:
 
 ## References
 
-- [OSS-Serverless GitHub](https://github.com/oss-serverless/serverless)
+- [OSS-Serverless GitHub](https://github.com/oss-serverless/osls)
+- [osls: Upgrading to v4](https://github.com/oss-serverless/osls/blob/main/docs/guides/upgrading-to-v4.md)
+- [ADR-050: Move to osls 4 for 2.0.1](../architecture-decisions/050-osls-4.md)
 - [AWS SDK v3 Documentation](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/)
 - [AWS SDK v3 Migration Guide](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/migrating-to-v3.html)
 - [serverless-esbuild Plugin](https://github.com/floydspace/serverless-esbuild)

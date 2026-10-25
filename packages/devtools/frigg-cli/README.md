@@ -6,6 +6,12 @@ The Frigg CLI provides tools for building, deploying, and managing serverless in
 
 ---
 
+**Requirements:** Node.js `^22.13.0 || >=24`. The CLI drives
+[osls](https://github.com/oss-serverless/osls) `^4.4.0` (Frigg 2.0.1+,
+[ADR-050](../../../docs/architecture-decisions/050-osls-4.md)); osls refuses Node 23 and
+Node 22.0–22.12, so the CLI checks the version first and exits with a message. Set
+`FRIGG_SKIP_NODE_VERSION_CHECK=true` to skip the CLI check.
+
 ## Command Reference
 
 ### Core Commands

@@ -148,7 +148,7 @@ describe('composeServerlessDefinition', () => {
             expect(result.provider.runtime).toBe('nodejs22.x');
             expect(result.provider.region).toBe('us-east-1');
             expect(result.provider.stage).toBe('${opt:stage}');
-            expect(result.frameworkVersion).toBe('>=3.17.0');
+            expect(result.frameworkVersion).toBe('^4.4.0');
         });
 
         it('should use default service name when name not provided', async () => {
@@ -240,7 +240,7 @@ describe('composeServerlessDefinition', () => {
                 logging: { level: 'debug', retentionInDays: 30 },
             });
 
-            expect(result.frameworkVersion).toBe('>=3.17.0');
+            expect(result.frameworkVersion).toBe('^4.4.0');
             expect(result.provider.logs).toBeUndefined();
             expect(result.provider.logRetentionInDays).toBe(30);
             expect(result.provider.environment.FRIGG_LOG_LEVEL).toBe('DEBUG');
@@ -270,7 +270,7 @@ describe('composeServerlessDefinition', () => {
         it('changes nothing when logging is absent', async () => {
             const result = await composeServerlessDefinition({ integrations: [] });
 
-            expect(result.frameworkVersion).toBe('>=3.17.0');
+            expect(result.frameworkVersion).toBe('^4.4.0');
             expect(result.provider.logs).toBeUndefined();
             expect(result.provider.logRetentionInDays).toBeUndefined();
             expect(result.provider.environment).not.toHaveProperty('FRIGG_LOG_LEVEL');

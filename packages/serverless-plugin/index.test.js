@@ -384,3 +384,12 @@ describe('FriggServerlessPlugin', () => {
     });
   });
 });
+
+// The client itself is covered under 'createLocalStackSQSClient' above (SDK v3,
+// LocalStack defaults, AWS_* overrides). This guards the ADR-050 removal.
+describe('FriggServerlessPlugin SDK v2 removal (ADR-050)', () => {
+  it('does not require the undeclared SDK v2 package', () => {
+    const source = require('fs').readFileSync(require.resolve('./index'), 'utf8');
+    expect(source).not.toMatch(/require\(['"]aws-sdk['"]\)/);
+  });
+});

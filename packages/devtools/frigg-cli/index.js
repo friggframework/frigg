@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// osls 4 needs Node ^22.13.0 || >=24 (ADR-050): fail early with a clear message.
+require('./utils/node-version').enforceNodeVersion();
+
 // Version Detection Wrapper
 // This code runs when frigg-cli is installed globally
 // It checks for a local installation and prefers it if newer
