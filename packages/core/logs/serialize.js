@@ -235,6 +235,20 @@ function errorCode(err) {
     return undefined;
 }
 
+function rateLimitFields(err) {
+    const retryAt = attempt(
+        () => (err.isRateLimited ? err.retryAt : undefined),
+        undefined
+    );
+    if (!(retryAt instanceof Date) || Number.isNaN(retryAt.getTime())) {
+        return {};
+    }
+    const reason = attempt(() => err.reason, undefined);
+    return typeof reason === 'string'
+        ? { retryAt: retryAt.toISOString(), reason: cleanString(reason) }
+        : { retryAt: retryAt.toISOString() };
+}
+
 function errorStack(err, type, message) {
     const stack = attempt(() => err.stack, undefined);
     if (typeof stack !== 'string') return undefined;
@@ -279,6 +293,7 @@ function serializeErrorAt(err, depth, seen) {
     if (code !== undefined) out.code = code;
     const status = errorStatus(err);
     if (status !== undefined) out.status = status;
+    Object.assign(out, rateLimitFields(err));
     const stack = errorStack(err, type, message);
     if (stack !== undefined) out.stack = stack;
 

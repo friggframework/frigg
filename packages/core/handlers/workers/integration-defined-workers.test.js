@@ -7,6 +7,7 @@ jest.mock('../../database/config', () => ({
 const { createQueueWorker } = require('../backend-utils');
 const { IntegrationBase } = require('../../integrations/integration-base');
 const { IntegrationEventDispatcher } = require('../integration-event-dispatcher');
+const { RateLimitError } = require('../../errors');
 
 class TestWebhookIntegration extends IntegrationBase {
     static Definition = {
@@ -259,6 +260,42 @@ describe('Webhook Queue Worker', () => {
 
             const result = await worker.run(sqsEvent, {});
             expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+
+        it('should NOT mark a 403 with isRateLimited as isHaltError (a provider limit outside 429)', async () => {
+            const error = new RateLimitError({
+                resource: 'https://api.example.com/v1/items',
+                response: { status: 403, bodyUsed: true },
+                hint: { waitMs: 60_000, reason: 'daily', source: 'body' },
+            });
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() {
+                    throw error;
+                }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [
+                    {
+                        messageId: 'msg-1',
+                        body: JSON.stringify({
+                            event: 'ON_WEBHOOK',
+                            data: { body: {} },
+                        }),
+                    },
+                ],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([
+                { itemIdentifier: 'msg-1' },
+            ]);
+            expect(error.statusCode).toBe(403);
+            expect(error.isHaltError).toBeUndefined();
         });
 
         it('should NOT mark 500 as isHaltError (server may recover)', async () => {

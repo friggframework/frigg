@@ -16,9 +16,56 @@ declare module "@friggframework/errors" {
     readonly body: any;
     isTimeout?: boolean;
     timeoutMs?: number;
+    isRateLimited?: boolean;
+    reason?: RateLimitReason;
 
     static create(options?: CreateFetchErrorParams): Promise<FetchError>;
   }
+
+  export type RateLimitReason =
+    | "burst"
+    | "daily"
+    | "monthly"
+    | "concurrency"
+    | "unknown";
+
+  export type RateLimitSource = "header" | "body" | "static" | "backoff";
+
+  export type RateLimitHint = {
+    retryAt: Date;
+    waitMs: number;
+    reason: RateLimitReason;
+    policy?: string;
+    remaining?: number;
+    source: RateLimitSource;
+  };
+
+  export class RateLimitError extends FetchError {
+    constructor(options?: RateLimitErrorConstructor);
+
+    isRateLimited: true;
+    retryAt: Date;
+    waitMs: number;
+    reason: RateLimitReason;
+    policy?: string;
+    source: RateLimitSource | "unknown";
+    module?: string;
+    scopeKey?: string;
+
+    static create(
+      options?: CreateRateLimitErrorParams
+    ): Promise<RateLimitError>;
+  }
+
+  type RateLimitErrorConstructor = FetchErrorConstructor & {
+    hint?: Partial<RateLimitHint>;
+    waitMs?: number;
+    module?: string;
+    scopeKey?: string;
+    now?: number;
+  };
+
+  type CreateRateLimitErrorParams = RateLimitErrorConstructor;
 
   type FetchErrorResponse = {
     headers?: object;
