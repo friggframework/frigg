@@ -581,43 +581,43 @@
             <div class="sec-head reveal">
                 <span class="eyebrow">Frigg 2.0 · out now</span>
                 <h2>The integration backend for people and their agents.</h2>
-                <p>Each person and each organization connects their accounts once. Your product, your people and the agents working for them use those connections through one versioned API, and the credential never leaves Frigg. <a href="https://docs.friggframework.org/2.0/getting-started/whats-new-in-2.0" style="color:var(--falcon-ink);font-weight:600">Read what's new</a>.</p>
+                <p>One data layer for three databases, a CLI that scaffolds, validates and deploys, and a runtime that keeps connections up. Typed capabilities so agents can call your integrations are in review. <a href="https://docs.friggframework.org/2.0/getting-started/whats-new-in-2.0" style="color:var(--falcon-ink);font-weight:600">Read what's new</a>.</p>
             </div>
             <div class="shift three">
                 <article class="block reveal">
-                    <span class="tag">Define it three ways</span>
-                    <h3>Code, a document, or a catalogue entry.</h3>
-                    <p>Write a class or one <span class="code-inline">defineIntegration</span> call, or publish a JSON document that Frigg checks against each module's capability manifest. Every version is immutable, and documents install, route and log like code.</p>
-                    <p>Workflows with delays and approvals, a sync engine, recurring triggers and dry runs.</p>
-                    <div class="refs"><span>ADR-054</span><span>ADR-063</span><span>ADR-055</span></div>
+                    <span class="tag">Integrations in code</span>
+                    <h3>One class, ready-made bundles.</h3>
+                    <p>A class with a <span class="code-inline">static Definition</span> declares modules, routes and events. Integration extensions bind an API module's routes and queue dispatch in one block.</p>
+                    <p>Atomic mapping claims, mapping queries, and a last-attempt flag on queue handlers.</p>
+                    <div class="refs"><span>Definition.extensions</span><span>createMapping</span><span>isLastAttempt</span></div>
                 </article>
                 <article class="block reveal">
-                    <span class="tag">Agent-ready connections</span>
-                    <h3>Use an account without seeing its credential.</h3>
-                    <p>Management API v2 under <span class="code-inline">/api/v2</span>, adopter-token auth and organization memberships. Each connection is personal, shared by the organization, or global.</p>
-                    <p>The entity proxy calls the API with the stored credential. It's off by default, and each module allows only the paths it lists.</p>
-                    <div class="refs"><span>GET /api/meta</span><span>ADR-052</span><span>ADR-056</span></div>
+                    <span class="tag">Connections that stay up</span>
+                    <h3>One refresh, not five.</h3>
+                    <p>Concurrent 401s on one API module share one token refresh. A 401 gets a grace retry, and integrations record why a credential failed.</p>
+                    <p>Adopter-token auth lets your product's JWTs sign users in.</p>
+                    <div class="refs"><span>single-flight refresh</span><span>adopterJwt</span></div>
                 </article>
                 <article class="block reveal">
-                    <span class="tag">Two app profiles</span>
-                    <h3>A product, or your own operations.</h3>
-                    <p><b>Product:</b> many customers on one shared deployment, each workspace isolated.</p>
-                    <p><b>Operations:</b> a company or a household, with shared and personal connections side by side.</p>
-                    <div class="refs"><span>individual</span><span>organization</span><span>global</span></div>
+                    <span class="tag">Observability</span>
+                    <h3>See what ran, and why.</h3>
+                    <p>Structured JSON logs with trace ids, opt-in OpenTelemetry traces and metrics, and health endpoints.</p>
+                    <p>Admin scripts and reports run behind an admin key.</p>
+                    <div class="refs"><span>JSON logs</span><span>OTel</span><span>/health</span></div>
                 </article>
                 <article class="block reveal">
                     <span class="tag">Production by default</span>
                     <h3>Secure before it's convenient.</h3>
-                    <p>Every deployed stage encrypts, <span class="code-inline">dev</span> included, and a stage without a key won't start. <span class="code-inline">frigg init</span> writes a scaffold that costs about a dollar a month idle.</p>
+                    <p><span class="code-inline">frigg init</span> writes a scaffold with no VPC and no NAT gateway that encrypts with KMS.</p>
                     <p><span class="code-inline">frigg validate</span> checks your app definition before every build and deploy.</p>
-                    <div class="refs"><span>fail closed</span><span>frigg validate</span><span>osls 4</span></div>
+                    <div class="refs"><span>frigg init</span><span>frigg validate</span><span>SSM offload</span></div>
                 </article>
                 <article class="block reveal">
-                    <span class="tag">More than one host</span>
-                    <h3>AWS by default. Netlify too.</h3>
+                    <span class="tag">Your cloud</span>
+                    <h3>AWS, generated for you.</h3>
                     <p>Lambda, SQS, KMS and EventBridge, generated from your app definition and deployed into your account.</p>
-                    <p>Set <span class="code-inline">provider: 'netlify'</span> and the same app runs on Netlify Functions.</p>
-                    <div class="refs"><span>AWS</span><span>Netlify</span><span>ADR-028</span></div>
+                    <p>Run the same app locally with <span class="code-inline">frigg start</span>.</p>
+                    <div class="refs"><span>AWS</span><span>local</span></div>
                 </article>
                 <article class="block reveal">
                     <span class="tag">Under the hood</span>
@@ -626,10 +626,6 @@
                     <p>One token refresh for many workers, atomic writes, and a hexagonal core.</p>
                     <div class="refs"><span>Prisma</span><span>SDK v3</span><span>nodejs22.x</span></div>
                 </article>
-            </div>
-            <div class="dogfood reveal">
-                <span class="tag">We run it ourselves</span>
-                <p><b>Left Hook runs both profiles on 2.0.</b> One is an internal agent tool server with hundreds of tools, where every person's connections live in Frigg instead of in shared environment variables (operations, on Netlify). The other is a product where customers' integrations are built from a catalogue or by chat and validated by Frigg (product, on AWS).</p>
             </div>
         </div>
     </section>
@@ -787,7 +783,7 @@
             <div class="sec-head reveal">
                 <span class="eyebrow">Upgrading from 1.x</span>
                 <h2>Upgrade one app at a time.</h2>
-                <p>2.0 replaces Mongoose with Prisma and the Serverless Framework with osls, so upgrading is a real migration. Your v1 API clients keep working while you move them. The guide walks through every step.</p>
+                <p>2.0 replaces Mongoose with Prisma and the Serverless Framework with osls, so upgrading is a real migration. Your API clients keep working. The guide walks through every step.</p>
             </div>
             <div class="upg">
                 <div class="adopt reveal">
@@ -796,9 +792,8 @@
                         <li><span class="d">!</span><span><b>Mongoose is gone.</b> Use repositories and <span class="code-inline">createFriggCommands()</span> instead of models.</span></li>
                         <li><span class="d">!</span><span><b>The engine is explicit.</b> Set <span class="code-inline">database.&lt;engine&gt;.enable</span>; <span class="code-inline">DATABASE_URL</span> replaces <span class="code-inline">MONGO_URI</span>.</span></li>
                         <li><span class="d">!</span><span><b>Integrations declare <span class="code-inline">static Definition</span></b> instead of <span class="code-inline">Config</span>, <span class="code-inline">Options</span> and <span class="code-inline">modules</span>.</span></li>
-                        <li><span class="d">!</span><span><b>Encryption fails closed.</b> Every deployed stage needs a key, <span class="code-inline">dev</span> included.</span></li>
-                        <li><span class="d">!</span><span><b>The v1 API is deprecated.</b> It still works and is frozen; move clients to <span class="code-inline">/api/v2</span>.</span></li>
-                        <li><span class="d">!</span><span><b>Node 22.13+ or 24, osls 4 and <span class="code-inline">infrastructure.js</span></b> replace the Serverless Framework and a hand-written <span class="code-inline">serverless.yml</span>.</span></li>
+                        <li><span class="d">!</span><span><b>The app definition is validated.</b> Unknown keys and retired values stop <span class="code-inline">frigg build</span> and <span class="code-inline">frigg deploy</span>.</span></li>
+                        <li><span class="d">!</span><span><b>Node 22+, osls and <span class="code-inline">infrastructure.js</span></b> replace the Serverless Framework and a hand-written <span class="code-inline">serverless.yml</span>.</span></li>
                     </ul>
                 </div>
                 <div class="startcard reveal">
