@@ -29,7 +29,10 @@ function readPackage(tgz, integrity) {
         const header = tar.subarray(offset, offset + 512);
         if (header.every(x => x === 0)) break;
         const str = (a, b) => header.subarray(a, b).toString().split('\0')[0];
-        const name = [str(345, 500), str(0, 100)].filter(Boolean).join('/');
+        const rawName = [str(345, 500), str(0, 100)].filter(Boolean).join('/');
+        // Lerna's packer prepends ./ to neutralize node-tar's special handling.
+        // Normalize only harmless dot components, never parent traversal.
+        const name = rawName.split('/').includes('..') ? rawName : rawName.split('/').filter(x => x !== '.').join('/');
         const sizeText = str(124, 136).trim();
         assert(/^[0-7]+$/.test(sizeText), 'Invalid tar entry size');
         const size = parseInt(sizeText, 8);
@@ -54,7 +57,7 @@ async function fetchRelease(allowed, version, fetchImpl = fetch) {
     const {bundle, pkg} = readPackage(tgz, metadata.dist.integrity);
     assert.equal(pkg.name, allowed.package); assert.equal(pkg.version, version);
     assert.equal(bundle.manifest.version, version);
-    for (const key of ['name', 'version', 'license', 'engines', 'dependencies', 'peerDependencies']) {
+    for (const key of ['name', 'version', 'license', 'engines', 'dependencies', 'peerDependencies', 'gitHead']) {
         assert.deepEqual(bundle.manifest.packageMetadata[key], pkg[key], `Published package ${key} disagrees with bundle`);
     }
     validateBundle(bundle, allowed);

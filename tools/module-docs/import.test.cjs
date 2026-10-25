@@ -28,6 +28,8 @@ test('release import preserves navigation, publishes snapshots and is idempotent
     const nav = fs.readFileSync(path.join(root, 'docs/SUMMARY.md'), 'utf8');
     assert(nav.includes('* [Legacy](legacy.md)\n\n## Other\n\n* [Keep](keep.md)'));
     assert.equal(nav.split('<!-- module-docs:start -->').length, 2);
+    for (const page of value.bundle.navigation) assert(nav.includes(`versions/1.0.0/${page.path}`), 'Every GitBook page must be registered');
+    assert.match(fs.readFileSync(path.join(root, 'docs/api-modules/hubspot/versions/1.0.0/reference.md'), 'utf8'), /^---\nhidden: true\n---/);
     assert.equal(importRelease(root, value, allowed).changed, 0);
 });
 
@@ -109,6 +111,22 @@ test('npm tarball transport verifies integrity and duplicate entries', () => {
     assert.throws(() => readPackage(Buffer.concat([tgz, Buffer.from('changed')]), integrity), /integrity mismatch/);
     const duplicate = tarball(value, [['package/module-docs.bundle.json', '{}']]);
     assert.throws(() => readPackage(duplicate.tgz, duplicate.integrity), /Duplicate/);
+    const lernaDuplicate = tarball(value, [['package/./module-docs.bundle.json', '{}']]);
+    assert.throws(() => readPackage(lernaDuplicate.tgz, lernaDuplicate.integrity), /Duplicate/);
+});
+
+test('enrolled legacy landing region preserves authored content across releases', t => {
+    const root = workspace(t);
+    const folder = path.join(root, 'docs/api-modules/hubspot');
+    fs.mkdirSync(folder, {recursive: true});
+    const prefix = '# Existing HubSpot guide\n\n[Configuration](configuration.md)\n\n';
+    fs.writeFileSync(path.join(folder, 'README.md'), prefix + '<!-- module-release-links:start -->\nPending\n<!-- module-release-links:end -->\n');
+    importRelease(root, envelope(bundle()), allowed);
+    importRelease(root, envelope(bundle('1.1.0')), allowed);
+    const page = fs.readFileSync(path.join(folder, 'README.md'), 'utf8');
+    assert(page.startsWith(prefix));
+    assert.equal(page.split('<!-- module-release-links:start -->').length, 2);
+    assert.match(page, /versions\/1.1.0\/README.md/);
 });
 
 test('receiver verifies npm then recovers from failed delivery without publishing', async t => {

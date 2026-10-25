@@ -50,6 +50,10 @@ cannot promote themselves to stable. Unknown compatibility remains unknown.
 The existing HubSpot landing page has an explicit generated-links region. Imports
 preserve its authored configuration link and all other existing module paths.
 `SUMMARY.md` has a separate generated region; unrelated navigation is preserved.
+Every snapshot page is registered in that region so GitBook can import it. A
+deterministic `hidden: true` frontmatter wrapper keeps historical snapshots out
+of the sidebar; the module landing links to their permanent pages. The wrapper
+does not alter the raw bundle preserved in the release manifest.
 
 ## Enable after reviewing both repository changes
 

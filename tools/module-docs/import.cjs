@@ -40,6 +40,7 @@ function projection(releases) {
         docsPath: `/api-modules/${m.id}`,
         versions: sorted.map(x => ({version: x.bundle.manifest.version, channel: x.bundle.manifest.channel,
             digest: x.digest, packageIntegrity: x.packageIntegrity,
+            navigation: x.bundle.navigation,
             docsPath: `/api-modules/${m.id}/versions/${x.bundle.manifest.version}`})),
     };
 }
@@ -58,7 +59,17 @@ function landing(record) {
 function summary(original, records) {
     const startCount = original.split(START).length - 1, endCount = original.split(END).length - 1;
     assert((startCount === 0 && endCount === 0) || (startCount === 1 && endCount === 1), 'Invalid generated navigation markers');
-    const block = [START, ...records.map(x => `* [${x.name} — versioned releases](api-modules/${x.identity.id}/README.md)`), END].join('\n');
+    const items = records.flatMap(record => {
+        const base = `api-modules/${record.identity.id}`;
+        const rows = [`* [${record.name}](api-modules/${record.identity.id}/README.md)`];
+        for (const version of record.versions) {
+            const folder = `${base}/versions/${version.version}`;
+            rows.push(`  * [${version.version}](${folder}/README.md)`);
+            for (const page of version.navigation.filter(x => x.path !== 'README.md')) rows.push(`    * [${page.title}](${folder}/${page.path})`);
+        }
+        return rows;
+    });
+    const block = [START, ...items, END].join('\n');
     if (startCount) {
         assert(original.indexOf(START) < original.indexOf(END), 'Reversed navigation markers');
         return original.slice(0, original.indexOf(START)) + block + original.slice(original.indexOf(END) + END.length);
@@ -92,7 +103,11 @@ function importRelease(root, release, allowedModules, {checkOnly = false} = {}) 
     const stored = path.join(root, versionDir);
     if (!existing) assert(!fs.existsSync(stored), 'Version directory exists without a release manifest');
     for (const [name, file] of Object.entries(release.bundle.files)) {
-        const content = Buffer.from(file.content, file.encoding);
+        // GitBook needs every page registered in SUMMARY, even historical pages.
+        // Hide snapshot pages in the sidebar; the module landing links to them.
+        // This presentation wrapper is deterministic and does not change bundle
+        // bytes or hashes in release.json.
+        const content = Buffer.from(name.endsWith('.md') ? `---\nhidden: true\n---\n\n${file.content}` : file.content, file.encoding);
         const relative = `${versionDir}/${name}`;
         const destination = checkDestination(root, relative);
         if (existing) assert(fs.existsSync(destination) && fs.readFileSync(destination).equals(content), 'Stored release content was modified');
