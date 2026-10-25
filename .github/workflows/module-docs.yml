@@ -1,0 +1,48 @@
+name: Import released module documentation
+on:
+  repository_dispatch:
+    types: [module-docs-published-v1]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Allowlisted npm package name
+        required: true
+        type: string
+      version:
+        description: Exact published package version (retry or backfill)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# One aggregate PR always starts at current next. Incoming releases are replayed
+# from the existing PR, so two events cannot drop each other's unmerged versions.
+concurrency:
+  group: module-docs-publishing
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.MODULE_DOCS_APP_ID }}
+          private-key: ${{ secrets.MODULE_DOCS_APP_PRIVATE_KEY }}
+          repositories: frigg
+      - uses: actions/checkout@v4
+        with:
+          ref: next
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test publishing contract
+        run: node --test tools/module-docs/*.test.cjs
+      - name: Replay pending releases and import event
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: node tools/module-docs/publish-pr.cjs

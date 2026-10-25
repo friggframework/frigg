@@ -1,0 +1,24 @@
+name: Module docs contract
+on:
+  pull_request:
+    paths:
+      - tools/module-docs/**
+      - website/directory/**
+      - website/data/catalog/**
+      - .github/workflows/module-docs*.yml
+      - docs/api-modules/*/versions/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tools/module-docs/*.test.cjs
+      - run: node tools/module-docs/check.cjs
