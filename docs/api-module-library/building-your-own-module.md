@@ -16,10 +16,10 @@ For field-level detail on `Definition`, see [API Module Definition](../reference
 
 ### Templates
 
-| Auth style | Copy from |
-|------------|-----------|
-| API key / form (package layout, files, tests) | [`packages/v1-ready/fathom/`](https://github.com/friggframework/api-module-library/tree/next/packages/v1-ready/fathom) |
-| OAuth2 + webhook extension patterns | [`packages/v1-ready/hubspot/`](https://github.com/friggframework/api-module-library/tree/next/packages/v1-ready/hubspot) — use HubSpot for OAuth and `extensions/webhooks` only; still prefer Fathom for the overall file/test layout |
+| Auth flow (example) | Copy from |
+|---------------------|-----------|
+| Form-based (package layout, files, tests) — Fathom is an API-key form | [`packages/v1-ready/fathom/`](https://github.com/friggframework/api-module-library/tree/next/packages/v1-ready/fathom) |
+| Redirect + code, plus webhook extension patterns — HubSpot | [`packages/v1-ready/hubspot/`](https://github.com/friggframework/api-module-library/tree/next/packages/v1-ready/hubspot) — use HubSpot for redirect/`getToken` and `extensions/webhooks` only; still prefer Fathom for the overall file/test layout |
 
 Agent skill (frigg repo, **`next` branch**): [`.claude/skills/frigg-api-modules/SKILL.md`](https://github.com/friggframework/frigg/blob/next/.claude/skills/frigg-api-modules/SKILL.md). Auth CLI details: sibling [`references/auth-testing.md`](https://github.com/friggframework/frigg/blob/next/.claude/skills/frigg-api-modules/references/auth-testing.md). If your docs build publishes from `main` and that path 404s, open the links on the `next` branch of frigg.
 
@@ -46,7 +46,7 @@ Mirror Fathom’s layout:
 | `package.json` | `@friggframework/api-module-<name>`, scripts, core dependency |
 | `.env.example` | Documented env vars (no real secrets) |
 
-HubSpot-style OAuth modules may also add `extensions/` (for example `extensions/webhooks`) when you need that pattern.
+Redirect-style modules (HubSpot-shaped) may also add `extensions/` (for example `extensions/webhooks`) when you need that pattern.
 
 ## Definition Checklist
 
@@ -56,16 +56,17 @@ Always provide:
 - `requiredAuthMethods`: `getEntityDetails`, `getCredentialDetails`, `apiPropertiesToPersist`, `testAuthRequest`
 - `env`
 
-Then by auth type:
+Auth is not a hard “API key vs OAuth” split. Pick the flow(s) you need:
 
-| Auth | Also add | Do not require |
-|------|----------|----------------|
-| **OAuth2** | `getToken`. For `env.redirect_uri`, use the ternary below. | — |
-| **API key / form** | `getAuthorizationRequirements` + `setAuthParams` (see Fathom). | `getToken`, unless there is also a token exchange |
+| Auth flow | Also add | Notes |
+|-----------|----------|-------|
+| **Redirect + code** | `getToken`. For `env.redirect_uri`, use the ternary below. | Some OAuth variation: send the user out, get a code back, exchange via `getToken`. HubSpot ≈ this. |
+| **Form-based** | `getAuthorizationRequirements` + `setAuthParams` (see Fathom). | Collect credentials in a form. API key is the common case, not the only one. |
+| **OAuth with a pre-redirect form** | Both sets: form methods **and** `getToken` (+ `redirect_uri` ternary when applicable). | Form first, then the redirect/code flow. |
 
 `modelName` is fine in examples (Fathom/HubSpot set it) but optional — do not treat it as a hard requirement.
 
-**`redirect_uri` ternary** (teach this; do not copy HubSpot’s always-on template string blindly):
+**`redirect_uri` ternary** (for redirect flows; do not copy HubSpot’s always-on template string blindly):
 
 ```javascript
 redirect_uri: process.env.REDIRECT_URI
@@ -83,7 +84,7 @@ redirect_uri: process.env.REDIRECT_URI
 2. Copy `packages/v1-ready/fathom/` to `packages/v1-ready/<name>/` (or scaffold the same file set).
 3. Rename the package to `@friggframework/api-module-<name>`, update `defaultConfig.json`, OpenAPI, and `Definition`.
 4. Implement `api.js` against the vendor API; keep OpenAPI and `spec-sync` honest.
-5. For OAuth + webhooks, crib patterns from HubSpot’s `definition.js` and `extensions/webhooks` — not its older `redirect_uri` line.
+5. For redirect + webhooks, crib patterns from HubSpot’s `definition.js` and `extensions/webhooks` — not its older `redirect_uri` line.
 6. Add `.env.example` for every env key you read. Keep secrets out of git.
 7. Run the gates below.
 8. Open one PR into `next` with title `feat(<slug>): add <DisplayName> API module`.

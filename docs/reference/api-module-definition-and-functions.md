@@ -12,8 +12,8 @@ Canonical JSON Schema (frigg `next`):
 
 Real v1-ready examples (api-module-library `next`):
 
-- [Fathom](https://github.com/friggframework/api-module-library/blob/next/packages/v1-ready/fathom/definition.js) — API key
-- [HubSpot](https://github.com/friggframework/api-module-library/blob/next/packages/v1-ready/hubspot/definition.js) — OAuth2 (webhooks live under `extensions/`, not on `Definition`)
+- [Fathom](https://github.com/friggframework/api-module-library/blob/next/packages/v1-ready/fathom/definition.js) — form-based (API key is the common case)
+- [HubSpot](https://github.com/friggframework/api-module-library/blob/next/packages/v1-ready/hubspot/definition.js) — redirect + code (webhooks live under `extensions/`, not on `Definition`)
 
 ## Required Properties
 
@@ -25,7 +25,7 @@ The schema requires these three top-level keys:
 | `getName` | function | Returns the module name |
 | `requiredAuthMethods` | object | Auth method implementations (see below) |
 
-Runtime structural checks (used when an app lists the module under an integration) also expect an `API` class and, inside `requiredAuthMethods`, `getEntityDetails`, `getCredentialDetails`, `testAuthRequest`, and `apiPropertiesToPersist`. OAuth2 requesters also need `getToken`.
+Runtime structural checks (used when an app lists the module under an integration) also expect an `API` class and, inside `requiredAuthMethods`, `getEntityDetails`, `getCredentialDetails`, `testAuthRequest`, and `apiPropertiesToPersist`. Redirect + code flows (OAuth-style requesters) also need `getToken`.
 
 ## Optional Properties Allowed by the Schema
 
@@ -49,10 +49,10 @@ v1-ready modules on api-module-library `next` routinely set fields the schema do
 | Field | Where | Role |
 |-------|-------|------|
 | `modelName` | top-level | Entity/credential model label used by the Module runtime (e.g. `'Fathom'`). Optional in practice; distinct from `moduleName`. |
-| `getAuthorizationRequirements` | `requiredAuthMethods` | API-key / form auth: returns the auth form (`type`, `jsonSchema` / `uiSchema`) |
-| `setAuthParams` | `requiredAuthMethods` | API-key / form auth: applies submitted params onto the API instance |
+| `getAuthorizationRequirements` | `requiredAuthMethods` | Form-based auth: returns the credential form (`type`, `jsonSchema` / `uiSchema`) |
+| `setAuthParams` | `requiredAuthMethods` | Form-based auth: applies submitted params onto the API instance |
 
-Until #701 lands, `frigg validate` does **not** schema-validate those keys on a standalone module package. They remain the correct patterns for new API-key modules (see Fathom).
+Until #701 lands, `frigg validate` does **not** schema-validate those keys on a standalone module package. They remain the correct patterns for form-based modules (see Fathom).
 
 There is no `Definition.mappings` property. Keep mapping helpers as files if you need them; `extensions.mapping` is out of scope for a minimal first contribution.
 
@@ -69,9 +69,10 @@ const Definition = {
     // modelName: 'MyModule',
 
     requiredAuthMethods: {
-        // OAuth2: include getToken.
-        // API key / form: include getAuthorizationRequirements + setAuthParams instead
+        // Redirect + code: include getToken (+ redirect_uri ternary in env).
+        // Form-based: include getAuthorizationRequirements + setAuthParams
         // (schema allowance for those two is in review — #701).
+        // Hybrid (form then redirect): include both sets.
         getEntityDetails: async (api, callbackParams, tokenResponse, userId) => { /* ... */ },
         getCredentialDetails: async (api, userId) => { /* ... */ },
         testAuthRequest: async (api) => { /* ... */ },
@@ -101,9 +102,9 @@ module.exports = { Definition };
 
 ## Required Auth Methods
 
-### getToken (OAuth2)
+### getToken (redirect + code)
 
-Exchanges an authorization code (or similar) for tokens:
+For redirect flows: exchange an authorization code (or similar) for tokens after the user returns:
 
 ```javascript
 getToken: async (api, params) => {
@@ -112,7 +113,7 @@ getToken: async (api, params) => {
 }
 ```
 
-Omit this for pure API-key modules unless there is also a token exchange.
+Omit this for form-only modules. Hybrid modules (form then redirect) include `getToken` as well as the form methods below.
 
 ### getEntityDetails
 
@@ -172,9 +173,9 @@ Those properties are:
 2. Passed back into the API class on instantiation
 3. Available as `api.propertyName`
 
-### getAuthorizationRequirements + setAuthParams (API key / form)
+### getAuthorizationRequirements + setAuthParams (form-based)
 
-Used by API-key modules (Fathom). Schema allowance is **In review** (#701); the library pattern is:
+Used by form-based modules (Fathom’s API-key form is the common example, not the only shape). Schema allowance is **In review** (#701); the library pattern is:
 
 ```javascript
 getAuthorizationRequirements: () => ({
@@ -215,7 +216,7 @@ Use **snake_case** keys. Schema-allowed properties:
 | `base_url` | Base API URL |
 | `UPPER_SNAKE_CASE` | Custom env vars (pattern property) |
 
-For OAuth `redirect_uri`, prefer the ternary so a missing `REDIRECT_URI` does not bake a broken string:
+For redirect flows, prefer a ternary on `redirect_uri` so a missing `REDIRECT_URI` does not bake a broken string:
 
 ```javascript
 redirect_uri: process.env.REDIRECT_URI
@@ -243,7 +244,7 @@ encryption: {
 
 Prefer snake_case names in `apiPropertiesToPersist.credential` so they match the core list. See [Encryption and Security](encryption-and-security.md) and the [encryption README](https://github.com/friggframework/frigg/blob/next/packages/core/database/encryption/README.md).
 
-## OAuth2 Example (HubSpot-shaped)
+## Redirect + Code Example (HubSpot-shaped)
 
 ```javascript
 const { Api } = require('./api');
@@ -297,7 +298,7 @@ const Definition = {
 module.exports = { Definition };
 ```
 
-## API-Key Example (Fathom-shaped)
+## Form-Based Example (Fathom-shaped)
 
 ```javascript
 const { Api } = require('./api');
