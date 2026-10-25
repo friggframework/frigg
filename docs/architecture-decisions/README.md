@@ -49,6 +49,7 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [042](./042-in-process-single-flight-token-refresh.md) | In-Process Single-Flight Token Refresh | Proposed | 2026-09-04 |
 | [048](./048-structured-logging.md) | Structured Logging | Proposed | 2026-09-23 |
 | [051](./051-app-definition-validation.md) | App Definition Validation and One Source for Its Defaults | Proposed | 2026-10-02 |
+| [065](./065-release-versioned-module-documentation-and-catalog.md) | Release-Versioned Module Documentation and Catalog Publishing | Accepted | 2026-10-25 |
 
 ## Conventions
 
