@@ -9,6 +9,17 @@ const serverlessHttp = require('serverless-http');
 
 const log = getLogger('frigg.http');
 
+const isHttpErrorStatus = (statusCode) =>
+    Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599;
+
+const toBoom = (err) => {
+    if (err.isBoom) return err;
+    if (err.isClientSafe === true && isHttpErrorStatus(err.statusCode)) {
+        return Boom.boomify(err, { statusCode: err.statusCode });
+    }
+    return Boom.boomify(err);
+};
+
 const createApp = (applyMiddleware) => {
     const app = express();
 
@@ -27,7 +38,7 @@ const createApp = (applyMiddleware) => {
 
     // The express boundary: send the error response and log it one time.
     app.use((err, req, res, next) => {
-        const boomError = err.isBoom ? err : Boom.boomify(err);
+        const boomError = toBoom(err);
         const {
             output: { statusCode = 500 },
         } = boomError;
