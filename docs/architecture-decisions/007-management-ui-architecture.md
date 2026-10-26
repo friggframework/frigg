@@ -288,5 +288,5 @@ graph TB
 
 - [ADR-002: No Database for Local Development Tools](./002-no-database-for-local-dev.md)
 - [ADR-003: Runtime State Only for Management GUI](./003-runtime-state-only.md)
-- [Management UI Server](/packages/devtools/management-ui/server/)
-- [FriggAppHttpAdapter](/packages/devtools/management-ui/server/src/infrastructure/adapters/FriggAppHttpAdapter.js)
+- [Management UI Server](https://github.com/friggframework/frigg/tree/next/packages/devtools/management-ui/server)
+- [FriggAppHttpAdapter](https://github.com/friggframework/frigg/blob/next/packages/devtools/management-ui/server/src/infrastructure/adapters/FriggAppHttpAdapter.js)
