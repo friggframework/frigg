@@ -3,6 +3,7 @@ const Boom = require('@hapi/boom');
 const { createApp } = require('./app-handler-helpers');
 const { createMemorySink } = require('../logs');
 const { SECRETS } = require('../logs/__fixtures__/secrets');
+const { ClientSafeError, FetchError } = require('../errors');
 
 async function request(router, { path = '/fail', headers = {} } = {}) {
     const app = createApp((a) => a.use(router));
@@ -100,5 +101,53 @@ describe('createApp error middleware (ADR-048 Phase 2)', () => {
         expect(rejected[0]).not.toHaveProperty('error');
         expect(JSON.stringify(rejected[0])).not.toMatch(/\n\s+at /);
         expect(sink.records.filter((r) => r.level === 'ERROR')).toHaveLength(0);
+    });
+
+    const failingWith = (error) => {
+        const router = express.Router();
+        router.get('/fail', () => {
+            throw error;
+        });
+        return router;
+    };
+
+    it('answers an expired session token with 401 and its user-safe message', async () => {
+        const res = await request(
+            failingWith(new ClientSafeError('Invalid Token: Token is expired', 401))
+        );
+
+        expect(res).toEqual({ status: 401, body: { error: 'Invalid Token: Token is expired' } });
+        expect(byEvent('frigg.http.request_rejected')).toHaveLength(1);
+        expect(byEvent('frigg.http.request_failed')).toHaveLength(0);
+    });
+
+    it.each([403, 404])('keeps the %i of a ClientSafeError', async (statusCode) => {
+        const res = await request(failingWith(new ClientSafeError('Not yours', statusCode)));
+
+        expect(res).toEqual({ status: statusCode, body: { error: 'Not yours' } });
+    });
+
+    it('hides the message of a 5xx ClientSafeError but keeps its status', async () => {
+        const res = await request(failingWith(new ClientSafeError('db down', 503)));
+
+        expect(res).toEqual({ status: 503, body: { error: 'Internal Server Error' } });
+        expect(byEvent('frigg.http.request_failed')).toHaveLength(1);
+    });
+
+    it.each([200, 302, 600, '401', 'nope'])(
+        'answers 500 without the message for a ClientSafeError with statusCode %p',
+        async (statusCode) => {
+            const res = await request(failingWith(new ClientSafeError('odd status', statusCode)));
+
+            expect(res).toEqual({ status: 500, body: { error: 'Internal Server Error' } });
+        }
+    );
+
+    it('does not pass an upstream status through for an error that is not client-safe', async () => {
+        const res = await request(
+            failingWith(new FetchError({ resource: 'https://api.example.com/x', response: { status: 401 } }))
+        );
+
+        expect(res).toEqual({ status: 500, body: { error: 'Internal Server Error' } });
     });
 });
