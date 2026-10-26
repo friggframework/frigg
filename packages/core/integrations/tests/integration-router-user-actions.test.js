@@ -63,6 +63,14 @@ function mockIntegrationClass() {
                     type: 'USER_ACTION',
                     handler: (body) => mockHandlers.DYNAMIC_ACTION(body),
                 },
+                UNTYPED_DYNAMIC_ACTION: {
+                    handler: (body) =>
+                        mockHandlers.UNTYPED_DYNAMIC_ACTION(body),
+                },
+                DYNAMIC_QUEUE_EVENT: {
+                    type: 'QUEUE',
+                    handler: (body) => mockHandlers.DYNAMIC_QUEUE_EVENT(body),
+                },
             };
         }
 
@@ -128,6 +136,8 @@ describe('integration user action routes', () => {
             'DYNAMIC_ACTION',
             'ON_DELETE',
             'LOAD_DYNAMIC_USER_ACTIONS',
+            'UNTYPED_DYNAMIC_ACTION',
+            'DYNAMIC_QUEUE_EVENT',
         ]) {
             mockHandlers[name] = jest.fn(async () => ({ ran: name }));
         }
@@ -141,6 +151,19 @@ describe('integration user action routes', () => {
     afterEach(() => {
         consoleSpies.forEach((spy) => spy.mockRestore());
         jest.restoreAllMocks();
+    });
+
+    describe('GET /api/integrations/:integrationId/actions', () => {
+        it('lists declared and dynamic user actions, untyped dynamic ones included', async () => {
+            const res = await call('GET', '/api/integrations/int-1/actions');
+
+            expect(res.status).toBe(200);
+            expect(Object.keys(res.body).sort()).toEqual([
+                'DYNAMIC_ACTION',
+                'RUN_INITIAL_SYNC',
+                'UNTYPED_DYNAMIC_ACTION',
+            ]);
+        });
     });
 
     describe('POST /api/integrations/:integrationId/actions/:actionId', () => {
@@ -166,6 +189,26 @@ describe('integration user action routes', () => {
 
             expect(res.status).toBe(200);
             expect(res.body).toEqual({ ran: 'DYNAMIC_ACTION' });
+        });
+
+        it('runs a dynamic user action that declares no type', async () => {
+            const res = await call(
+                'POST',
+                '/api/integrations/int-1/actions/UNTYPED_DYNAMIC_ACTION'
+            );
+
+            expect(res.status).toBe(200);
+            expect(res.body).toEqual({ ran: 'UNTYPED_DYNAMIC_ACTION' });
+        });
+
+        it('refuses a dynamic event typed as something other than a user action', async () => {
+            const res = await call(
+                'POST',
+                '/api/integrations/int-1/actions/DYNAMIC_QUEUE_EVENT'
+            );
+
+            expect(res.status).toBe(404);
+            expect(mockHandlers.DYNAMIC_QUEUE_EVENT).not.toHaveBeenCalled();
         });
 
         it('loads the dynamic user actions once per request', async () => {
@@ -245,6 +288,16 @@ describe('integration user action routes', () => {
     ])(
         '%s /api/integrations/:integrationId/actions/:actionId/%s',
         (method, suffix, expected) => {
+            it('returns the options of a dynamic user action that declares no type', async () => {
+                const res = await call(
+                    method,
+                    `/api/integrations/int-1/actions/UNTYPED_DYNAMIC_ACTION/${suffix}`
+                );
+
+                expect(res.status).toBe(200);
+                expect(res.body.actionId).toBe('UNTYPED_DYNAMIC_ACTION');
+            });
+
             it('returns the options of a user action', async () => {
                 const res = await call(
                     method,

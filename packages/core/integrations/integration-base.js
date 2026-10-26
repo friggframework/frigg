@@ -557,15 +557,28 @@ class IntegrationBase {
                 }
             }
         }
-        const dynamicUserActions = await this.loadDynamicUserActions();
-        const filteredDynamicActions = actionType
-            ? Object.fromEntries(
-                  Object.entries(dynamicUserActions).filter(
-                      ([_, event]) => event.userActionType === actionType
-                  )
-              )
-            : dynamicUserActions;
+        const dynamicUserActions = await this._loadDynamicUserActionEvents();
+        const filteredDynamicActions = Object.fromEntries(
+            Object.entries(dynamicUserActions).filter(
+                ([_, event]) =>
+                    event.type === constantsToBeMigrated.types.USER_ACTION &&
+                    (!actionType || event.userActionType === actionType)
+            )
+        );
         return { ...userActions, ...filteredDynamicActions };
+    }
+
+    async _loadDynamicUserActionEvents() {
+        const dynamicUserActions = await this.loadDynamicUserActions();
+        return Object.fromEntries(
+            Object.entries(dynamicUserActions).map(([key, event]) => [
+                key,
+                {
+                    ...event,
+                    type: event.type ?? constantsToBeMigrated.types.USER_ACTION,
+                },
+            ])
+        );
     }
 
     async getActionOptions(actionId, data) {
@@ -847,7 +860,8 @@ class IntegrationBase {
 
     async initialize() {
         try {
-            const additionalUserActions = await this.loadDynamicUserActions();
+            const additionalUserActions =
+                await this._loadDynamicUserActionEvents();
             this.events = { ...this.events, ...additionalUserActions };
         } catch (e) {
             this.addError(e);
