@@ -19,7 +19,9 @@
   "scripts": {
     "test": "jest",
     "validate": "node scripts/validate-schemas.js",
-    "build": "node scripts/build-schemas.js"
+    "build": "node scripts/build-schemas.js",
+    "sync:hosted": "node scripts/sync-hosted-schemas.js",
+    "check:hosted": "node scripts/sync-hosted-schemas.js --check"
   },
   "keywords": [
     "frigg",
@@ -40,6 +42,7 @@
     "mocks/",
     "middleware/",
     "app-definition.js",
+    "schema-ids.js",
     "index.js"
   ]
 }

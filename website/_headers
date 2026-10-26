@@ -1,0 +1,12 @@
+# Netlify response headers for friggframework.org (publish directory: website/).
+
+# JSON Schemas: https://friggframework.org/schemas/<name>/v<major>.<minor>.json
+# Copied from the packages by packages/schemas/scripts/sync-hosted-schemas.js.
+# CORS is open so editors and browser tools can fetch them; the Frigg runtime
+# never does (ADR-051, "Hosted schemas").
+/schemas/*
+  Content-Type: application/schema+json; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=3600
