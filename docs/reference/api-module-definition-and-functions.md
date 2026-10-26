@@ -1,389 +1,389 @@
 # API Module Definition
 
-This document describes the API module definition structure used by the Frigg Framework. API modules provide the connection layer between Frigg and external APIs.
+An API module is the connection layer between Frigg and an external API. This page is the field reference for a module `Definition` object.
+
+For contributing a module to the public library, see [Contribute an API Module](../api-module-library/building-your-own-module.md).
 
 ## Schema Reference
 
-The canonical JSON Schema is at `packages/schemas/schemas/api-module-definition.schema.json`.
+Canonical JSON Schema (frigg `next`):
+
+[`packages/schemas/schemas/api-module-definition.schema.json`](https://github.com/friggframework/frigg/blob/next/packages/schemas/schemas/api-module-definition.schema.json)
+
+Real v1-ready examples (api-module-library `next`):
+
+- [Fathom](https://github.com/friggframework/api-module-library/blob/next/packages/v1-ready/fathom/definition.js) — form-based (API key is the common case)
+- [HubSpot](https://github.com/friggframework/api-module-library/blob/next/packages/v1-ready/hubspot/definition.js) — redirect + code (webhooks live under `extensions/`, not on `Definition`)
 
 ## Required Properties
 
-Every API module definition must include these three properties:
+The schema requires these three top-level keys:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `moduleName` | string | Unique identifier for the module (pattern: `^[a-zA-Z][a-zA-Z0-9_-]*$`) |
+| `moduleName` | string | Module identifier (`^[a-zA-Z][a-zA-Z0-9_-]*$`, 1–100 chars) |
 | `getName` | function | Returns the module name |
-| `requiredAuthMethods` | object | Authentication method implementations |
+| `requiredAuthMethods` | object | Auth method implementations (see below) |
 
-## Complete Definition Structure
+Runtime structural checks (used when an app lists the module under an integration) also expect an `API` class and, inside `requiredAuthMethods`, `getEntityDetails`, `getCredentialDetails`, `testAuthRequest`, and `apiPropertiesToPersist`. Redirect + code flows (OAuth-style requesters) also need `getToken`.
+
+## Optional Properties Allowed by the Schema
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `API` | class / object | Requester class for the module |
+| `env` | object | Environment mapping (snake_case keys; see below) |
+| `config` | object | Module metadata (`name`, `version`, `authType`, `baseURL`, `rateLimit`, `timeout`, `retries`, …) |
+| `manager` | object | Legacy manager configuration |
+| `webhooks` | object | Schema-level webhook config (`enabled`, `endpoints`) |
+| `encryption` | object | Extra credential fields to encrypt beyond the core schema |
+
+`config.authType` enum: `oauth2` | `api-key` | `basic` | `bearer` | `custom`.
+
+> **HubSpot webhooks today** ship as a Tier 3 integration extension (`hubspot.extensions.webhooks`), not as `Definition.webhooks`. Prefer that pattern when copying HubSpot; see the [HubSpot module README](https://github.com/friggframework/api-module-library/blob/next/packages/v1-ready/hubspot/README.md).
+
+## Common Library Fields Not Yet in the Schema
+
+v1-ready modules on api-module-library `next` routinely set fields the schema does not yet list. Schema allowance for them is tracked in open PR [#701](https://github.com/friggframework/frigg/pull/701) (**In review** — do not treat as merged):
+
+| Field | Where | Role |
+|-------|-------|------|
+| `modelName` | top-level | Entity/credential model label used by the Module runtime (e.g. `'Fathom'`). Optional in practice; distinct from `moduleName`. |
+| `getAuthorizationRequirements` | `requiredAuthMethods` | Form-based auth: returns the credential form (`type`, `jsonSchema` / `uiSchema`) |
+| `setAuthParams` | `requiredAuthMethods` | Form-based auth: applies submitted params onto the API instance |
+
+Until #701 lands, `frigg validate` does **not** schema-validate those keys on a standalone module package. They remain the correct patterns for form-based modules (see Fathom).
+
+There is no `Definition.mappings` property. Keep mapping helpers as files if you need them; `extensions.mapping` is out of scope for a minimal first contribution.
+
+## Complete Definition Shape
 
 ```javascript
-const { MyApi } = require('./api');
+const { Api } = require('./api');
 
 const Definition = {
-    // Required: API class
-    API: MyApi,
-
-    // Required: Module identifier
+    API: Api,
     moduleName: 'my-module',
-
-    // Required: Function returning module name
     getName: () => 'my-module',
+    // Optional (common in the library; schema allowance in review — #701):
+    // modelName: 'MyModule',
 
-    // Required: Authentication methods
     requiredAuthMethods: {
-        getToken: async (api, params) => { /* ... */ },
+        // Redirect + code: include getToken (+ redirect_uri ternary in env).
+        // Form-based: include getAuthorizationRequirements + setAuthParams
+        // (schema allowance for those two is in review — #701).
+        // Hybrid (form then redirect): include both sets.
         getEntityDetails: async (api, callbackParams, tokenResponse, userId) => { /* ... */ },
         getCredentialDetails: async (api, userId) => { /* ... */ },
         testAuthRequest: async (api) => { /* ... */ },
         apiPropertiesToPersist: {
             credential: ['access_token', 'refresh_token'],
-            entity: ['tenantId']
-        }
+            entity: [],
+        },
     },
 
-    // Optional: Environment configuration
     env: {
         client_id: process.env.MY_CLIENT_ID,
         client_secret: process.env.MY_CLIENT_SECRET,
-        scope: 'read write',
-        redirect_uri: process.env.MY_REDIRECT_URI,
-        base_url: process.env.MY_BASE_URL  // Note: snake_case
+        scope: process.env.MY_SCOPE,
+        redirect_uri: process.env.REDIRECT_URI
+            ? `${process.env.REDIRECT_URI}/my-module`
+            : undefined,
     },
 
-    // Optional: Module-level encryption for custom credential fields
     encryption: {
-        credentialFields: ['api_key', 'webhook_secret']
-    }
+        // Only for credential fields outside the core encryption schema
+        credentialFields: ['webhook_secret'],
+    },
 };
 
-module.exports = { Definition, MyApi };
+module.exports = { Definition };
 ```
 
 ## Required Auth Methods
 
-### getToken
+### getToken (redirect + code)
 
-Retrieves and sets authentication tokens. For OAuth2, this typically exchanges an authorization code for tokens:
+For redirect flows: exchange an authorization code (or similar) for tokens after the user returns:
 
 ```javascript
 getToken: async (api, params) => {
-    const code = params.data?.code;
+    const code = params.data?.code ?? params.code;
     return api.getTokenFromCode(code);
 }
 ```
 
-For session-based auth:
-
-```javascript
-getToken: async (api, params) => {
-    const { email, password } = params.data || {};
-    const response = await api.login(email, password);
-    return {
-        authentication_token: response.token,
-        user_id: response.userId
-    };
-}
-```
+Omit this for form-only modules. Hybrid modules (form then redirect) include `getToken` as well as the form methods below.
 
 ### getEntityDetails
 
-Retrieves details about the authorized user/organization. Returns identifiers for uniqueness and details for display:
+Returns identifiers for uniqueness and details for display:
 
 ```javascript
 getEntityDetails: async (api, callbackParams, tokenResponse, userId) => {
     const userDetails = await api.getUserDetails();
-
     return {
         identifiers: {
-            externalId: userDetails.id,      // Unique ID in external system
-            user: userId                      // Frigg user ID
+            externalId: userDetails.id,
+            user: userId,
         },
         details: {
             name: userDetails.name,
-            email: userDetails.email,
-            tenantId: userDetails.tenantId
-        }
+        },
     };
 }
 ```
 
 ### getCredentialDetails
 
-Similar to `getEntityDetails`, but for credential lookup:
+Same shape as entity details, used for credential lookup:
 
 ```javascript
 getCredentialDetails: async (api, userId) => {
     const userDetails = await api.getUserDetails();
     return {
-        identifiers: {
-            externalId: userDetails.id,
-            user: userId
-        },
-        details: {}
+        identifiers: { externalId: userDetails.id, user: userId },
+        details: {},
     };
 }
 ```
 
 ### testAuthRequest
 
-A simple request to verify authentication is working:
+Any authenticated call that proves credentials work:
 
 ```javascript
-testAuthRequest: async (api) => {
-    return api.getCurrentUser();  // Any authenticated API call
-}
+testAuthRequest: async (api) => api.getUserDetails()
 ```
 
 ### apiPropertiesToPersist
 
-Defines which API properties to save to the database:
+Which API properties to save after auth and rehydrate onto the API class:
 
 ```javascript
 apiPropertiesToPersist: {
-    // Credential: OAuth tokens, API keys, session tokens
-    credential: ['access_token', 'refresh_token', 'accessTokenExpire'],
-
-    // Entity: Connection-specific identifiers
-    entity: ['tenantId', 'organizationId']
+    credential: ['access_token', 'refresh_token'], // or ['api_key']
+    entity: [],
 }
 ```
 
-These properties are:
-1. Saved to the database after authentication
-2. Passed back to the API class on instantiation
-3. Available via `api.propertyName`
+Those properties are:
 
-## Environment Configuration
+1. Saved after authentication
+2. Passed back into the API class on instantiation
+3. Available as `api.propertyName`
 
-The `env` object maps environment variables to API configuration. Use **snake_case** for property names:
+### getAuthorizationRequirements + setAuthParams (form-based)
+
+Used by form-based modules (Fathom’s API-key form is the common example, not the only shape). Schema allowance is **In review** (#701); the library pattern is:
 
 ```javascript
-env: {
-    // Standard OAuth properties
-    client_id: process.env.XERO_CLIENT_ID,
-    client_secret: process.env.XERO_CLIENT_SECRET,
-    scope: 'openid profile email offline_access',
-    redirect_uri: process.env.XERO_REDIRECT_URI,
+getAuthorizationRequirements: () => ({
+    type: 'apiKey',
+    data: {
+        jsonSchema: {
+            title: 'Service Authentication',
+            type: 'object',
+            required: ['api_key'],
+            properties: {
+                api_key: { type: 'string', title: 'API Key' },
+            },
+        },
+        uiSchema: {
+            api_key: {
+                'ui:widget': 'password',
+                'ui:help': 'Generate an API key in the service settings.',
+            },
+        },
+    },
+}),
 
-    // API configuration
-    base_url: process.env.XERO_BASE_URL,
-    api_key: process.env.XERO_API_KEY
-}
+setAuthParams: async (api, params) => {
+    api.setApiKey(params.api_key);
+},
 ```
 
-**Allowed properties:**
-- `client_id`, `client_secret` - OAuth credentials
-- `scope` - OAuth scopes
-- `redirect_uri` - OAuth callback URL
-- `api_key` - API key authentication
-- `base_url` - Base URL for API requests
-- Custom: `UPPER_SNAKE_CASE` pattern (e.g., `CUSTOM_HEADER`)
+## Environment Configuration (`env`)
+
+Use **snake_case** keys. Schema-allowed properties:
+
+| Key | Purpose |
+|-----|---------|
+| `client_id`, `client_secret` | OAuth client credentials |
+| `scope` | OAuth scopes |
+| `redirect_uri` | OAuth callback URL |
+| `api_key` | API key |
+| `base_url` | Base API URL |
+| `UPPER_SNAKE_CASE` | Custom env vars (pattern property) |
+
+For redirect flows, prefer a ternary on `redirect_uri` so a missing `REDIRECT_URI` does not bake a broken string:
+
+```javascript
+redirect_uri: process.env.REDIRECT_URI
+    ? `${process.env.REDIRECT_URI}/my-module`
+    : undefined,
+```
+
+Some library modules (including HubSpot on `next`) still use an always-on template string. Teach and land the ternary on new modules.
 
 ## Encryption Configuration
 
-Declare which credential fields need encryption beyond the core schema:
+Declare credential fields that need encryption **beyond** the core schema:
 
 ```javascript
 encryption: {
-    credentialFields: ['api_key', 'webhook_secret', 'signing_key']
+    credentialFields: ['webhook_secret', 'signing_key'],
 }
 ```
 
-**How it works:**
-1. Module declares `encryption.credentialFields` array
-2. Framework adds `data.` prefix for database storage
-3. Fields merge with core encryption schema on startup
-4. All credential data transparently encrypted/decrypted
+**Core Credential fields (auto-encrypted, no module config):**
 
-**Core schema (auto-encrypted, no config needed):**
 - `access_token`, `refresh_token`, `id_token`
-- `username`, `password`
-- `domain`
+- `api_key`, `apiKey`, `API_KEY_VALUE`
+- `password`, `client_secret`
 
-**Common patterns:**
+Prefer snake_case names in `apiPropertiesToPersist.credential` so they match the core list. See [Encryption and Security](encryption-and-security.md) and the [encryption README](https://github.com/friggframework/frigg/blob/next/packages/core/database/encryption/README.md).
 
-```javascript
-// OAuth (no encryption config needed - uses core schema)
-apiPropertiesToPersist: {
-    credential: ['access_token', 'refresh_token']
-}
-
-// API Key
-encryption: { credentialFields: ['api_key'] },
-apiPropertiesToPersist: { credential: ['api_key'] }
-
-// Custom tokens
-encryption: { credentialFields: ['signing_key', 'webhook_secret'] },
-apiPropertiesToPersist: { credential: ['signing_key', 'webhook_secret'] }
-```
-
-## Complete OAuth2 Example
+## Redirect + Code Example (HubSpot-shaped)
 
 ```javascript
-const { XeroApi } = require('./api');
+const { Api } = require('./api');
+const config = require('./defaultConfig.json');
 
 const Definition = {
-    API: XeroApi,
-    moduleName: 'xero',
-    getName: () => 'xero',
-
+    API: Api,
+    getName: () => config.name,
+    moduleName: config.name,
     requiredAuthMethods: {
         getToken: async (api, params) => {
-            const code = params.data?.code;
+            const code = params.code ?? params.data?.code;
             return api.getTokenFromCode(code);
         },
-
         getEntityDetails: async (api, callbackParams, tokenResponse, userId) => {
-            const tenants = await api.getTenants();
-            const selectedTenant = callbackParams?.tenantId
-                ? tenants.find(t => t.tenantId === callbackParams.tenantId)
-                : tenants[0];
-
-            if (selectedTenant) {
-                api.setTenant(selectedTenant.tenantId);
-            }
-
-            const org = await api.getOrganisation();
-
+            const userDetails = await api.getUserDetails();
             return {
                 identifiers: {
-                    externalId: org.id,
-                    user: userId
+                    externalId: String(userDetails.portalId),
+                    user: userId,
                 },
-                details: {
-                    name: org.name,
-                    tenantId: selectedTenant?.tenantId,
-                    tenantType: selectedTenant?.tenantType
-                }
+                details: { name: userDetails.hub_domain },
             };
         },
-
-        apiPropertiesToPersist: {
-            credential: ['access_token', 'refresh_token', 'accessTokenExpire'],
-            entity: ['tenantId']
-        },
-
         getCredentialDetails: async (api, userId) => {
-            const org = await api.getOrganisation();
+            const userDetails = await api.getUserDetails();
             return {
-                identifiers: { externalId: org.id, user: userId },
-                details: {}
+                identifiers: {
+                    externalId: String(userDetails.portalId),
+                    userId,
+                },
+                details: {},
             };
         },
-
-        testAuthRequest: async (api) => {
-            return api.getOrganisation();
-        }
+        apiPropertiesToPersist: {
+            credential: ['access_token', 'refresh_token'],
+            entity: [],
+        },
+        testAuthRequest: async (api) => api.getUserDetails(),
     },
-
     env: {
-        client_id: process.env.XERO_CLIENT_ID,
-        client_secret: process.env.XERO_CLIENT_SECRET,
-        redirect_uri: process.env.XERO_REDIRECT_URI,
-        scope: 'openid profile email accounting.transactions offline_access'
-    }
+        client_id: process.env.HUBSPOT_CLIENT_ID,
+        client_secret: process.env.HUBSPOT_CLIENT_SECRET,
+        scope: process.env.HUBSPOT_SCOPE,
+        redirect_uri: process.env.REDIRECT_URI
+            ? `${process.env.REDIRECT_URI}/hubspot`
+            : undefined,
+    },
 };
 
-module.exports = { Definition, XeroApi };
+module.exports = { Definition };
 ```
 
-## Session-Based Auth Example
+## Form-Based Example (Fathom-shaped)
 
 ```javascript
-const { ProcurementExpressApi } = require('./api');
+const { Api } = require('./api');
+const config = require('./defaultConfig.json');
 
 const Definition = {
-    API: ProcurementExpressApi,
-    moduleName: 'procurement-express',
-    getName: () => 'procurement-express',
-
+    API: Api,
+    getName: () => config.name,
+    moduleName: config.name,
     requiredAuthMethods: {
-        getToken: async (api, params) => {
-            const { email, password } = params.data || {};
-
-            if (!email || !password) {
-                throw new Error('Email and password are required');
-            }
-
-            const response = await api.login(email, password);
-
-            return {
-                authentication_token: response.authentication_token,
-                employer_id: response.employer_id,
-                user_id: response.id
-            };
-        },
-
-        getEntityDetails: async (api, callbackParams, tokenResponse, userId) => {
-            const user = await api.getCurrentUser();
-            const company = user.companies?.[0];
-
-            return {
-                identifiers: {
-                    externalId: String(user.id),
-                    user: userId
+        getAuthorizationRequirements: () => ({
+            type: 'apiKey',
+            data: {
+                jsonSchema: {
+                    title: 'Fathom Authentication',
+                    type: 'object',
+                    required: ['api_key'],
+                    properties: {
+                        api_key: { type: 'string', title: 'API Key' },
+                    },
                 },
-                details: {
-                    name: user.name,
-                    email: user.email,
-                    companyId: company?.id,
-                    companyName: company?.name
-                }
-            };
+                uiSchema: {
+                    api_key: { 'ui:widget': 'password' },
+                },
+            },
+        }),
+        setAuthParams: async (api, params) => {
+            api.setApiKey(params.api_key);
         },
-
-        apiPropertiesToPersist: {
-            credential: ['authenticationToken', 'companyId'],
-            entity: ['companyId']
-        },
-
-        getCredentialDetails: async (api, userId) => {
-            const user = await api.getCurrentUser();
+        getEntityDetails: async (api, callbackParams, tokenResponse, userId) => {
+            // Resolve a stable externalId for the account…
             return {
-                identifiers: { externalId: String(user.id), user: userId },
-                details: {}
+                identifiers: { externalId: '…', userId },
+                details: { name: 'Fathom' },
             };
         },
-
-        testAuthRequest: async (api) => {
-            return api.getCurrentUser();
-        }
+        getCredentialDetails: async (api, userId) => ({
+            identifiers: { externalId: '…', userId },
+            details: {},
+        }),
+        apiPropertiesToPersist: {
+            credential: ['api_key'],
+            entity: [],
+        },
+        testAuthRequest: async (api) => api.listMeetings({}),
     },
-
     env: {
-        base_url: process.env.PROCUREMENT_EXPRESS_BASE_URL || 'https://app.example.com/api/v1'
-    }
+        api_key: process.env.FATHOM_API_KEY,
+    },
 };
 
-module.exports = { Definition, ProcurementExpressApi };
+module.exports = { Definition };
 ```
 
-## Validation
+## Validation (`frigg validate`)
 
-Use `frigg validate` to check your module definition against the schema:
+On frigg `next` today (`#666`), `frigg validate` validates an **app** definition (`index.js`), not a standalone API module package.
+
+It checks:
+
+1. App-definition JSON Schema (keys, types, enums)
+2. Semantic checks the schema cannot express, including each listed integration’s `Definition` and nested API module definitions via structural checks (`moduleName`, `API`, required auth methods, `apiPropertiesToPersist`)
 
 ```bash
 frigg validate
+frigg validate --stage prod
+frigg validate --json
 ```
 
-The validator checks:
-- Required properties are present
-- Property types match schema
-- `env` properties use correct naming (snake_case)
-- No additional properties on strict objects
+`frigg build` / `frigg deploy` run the same validation and stop on errors (`--skip-validate` bypasses with a warning). `frigg start` warns only.
+
+Standalone module-package schema validation (for example `frigg validate --module`) is **In review** (#701). Until that lands, validate a new module with `npm test` in the package and optionally `frigg auth test .` — see [Contribute an API Module](../api-module-library/building-your-own-module.md).
 
 ## Best Practices
 
-1. **Use snake_case for `env` properties** - The schema enforces this pattern
-2. **Keep `moduleName` simple** - Use lowercase with hyphens (e.g., `my-module`)
-3. **Persist minimal data** - Only store what's needed for re-authentication
-4. **Use core encryption** - OAuth tokens are auto-encrypted; declare custom fields explicitly
-5. **Test auth requests** - Use a simple, fast endpoint for `testAuthRequest`
+1. Keep `moduleName` lowercase with hyphens when that matches the package slug
+2. Persist only what you need to re-authenticate
+3. Prefer core-encrypted credential field names (`api_key`, `access_token`, …); declare extras in `encryption.credentialFields`
+4. Use a cheap authenticated call for `testAuthRequest`
+5. Do not add `Definition.mappings`
 
 ## Related Documentation
 
-- [JSON Schema](/packages/schemas/schemas/api-module-definition.schema.json) - Canonical schema definition
-- [Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md) - Sync, queue, and webhook patterns
-- [Encryption README](/packages/core/database/encryption/README.md) - Field-level encryption details
+- [Contribute an API Module](../api-module-library/building-your-own-module.md)
+- [API Module Library overview](../api-module-library/overview.md)
+- [Integration Patterns](../guides/INTEGRATION-PATTERNS.md)
+- [Encryption and Security](encryption-and-security.md)
+- [JSON Schema on GitHub](https://github.com/friggframework/frigg/blob/next/packages/schemas/schemas/api-module-definition.schema.json)
