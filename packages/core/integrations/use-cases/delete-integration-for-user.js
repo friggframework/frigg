@@ -31,14 +31,17 @@ class DeleteIntegrationForUser {
      * @param {string} integrationId - ID of the integration to delete.
      * @param {string} userId - ID of the user requesting the deletion.
      * @returns {Promise<void>} Resolves when the integration is successfully deleted.
-     * @throws {Boom.notFound} When integration with the specified ID does not exist.
-     * @throws {Error} When the integration doesn't belong to the specified user.
+     * @throws {Boom.notFound} When integration does not exist or doesn't belong to the specified user.
      */
     async execute(integrationId, userId) {
-        const integrationRecord =
-            await this.integrationRepository.findIntegrationById(integrationId);
+        const integrationRecord = await this.integrationRepository
+            .findIntegrationById(integrationId)
+            .catch((error) => {
+                if (error.message?.includes('not found')) return null;
+                throw error;
+            });
 
-        if (!integrationRecord) {
+        if (!integrationRecord || integrationRecord.userId !== userId) {
             throw Boom.notFound(
                 `Integration with id of ${integrationId} does not exist`
             );
@@ -49,12 +52,6 @@ class DeleteIntegrationForUser {
                 integrationClass.Definition.name ===
                 integrationRecord.config.type
         );
-
-        if (integrationRecord.userId !== userId) {
-            throw new Error(
-                `Integration ${integrationId} does not belong to User ${userId}`
-            );
-        }
 
         // Load modules with API clients for webhook deletion
         const modules = [];

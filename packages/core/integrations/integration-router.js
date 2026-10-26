@@ -257,6 +257,15 @@ function checkRequiredParams(params, requiredKeys) {
     return returnDict;
 }
 
+function assertUserAction(integration, actionId) {
+    if (
+        !Object.hasOwn(integration.events, actionId) ||
+        integration.events[actionId].type !== 'USER_ACTION'
+    ) {
+        throw Boom.notFound(`User action ${actionId} does not exist`);
+    }
+}
+
 /**
  * Sets up integration-related routes on the provided Express router
  * @param {express.Router} router - Express router instance to add routes to
@@ -393,6 +402,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                     params.integrationId,
                     user.getId()
                 );
+                assertUserAction(integration, params.actionId);
 
                 res.json(
                     await integration.send('GET_USER_ACTION_OPTIONS', {
@@ -418,6 +428,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                     params.integrationId,
                     user.getId()
                 );
+                assertUserAction(integration, params.actionId);
 
                 res.json(
                     await integration.send('REFRESH_USER_ACTION_OPTIONS', {
@@ -439,6 +450,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                 params.integrationId,
                 user.getId()
             );
+            assertUserAction(integration, params.actionId);
             res.json(await integration.send(params.actionId, req.body));
         })
     );
