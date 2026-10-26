@@ -73,20 +73,46 @@ describe('GetIntegrationInstance Use-Case', () => {
     });
 
     describe('error cases', () => {
-        it('throws error when integration not found', async () => {
+        it('throws the same not found when the repository throws not found', async () => {
+            integrationRepository.findIntegrationById = jest
+                .fn()
+                .mockRejectedValue(new Error('Integration with id missing-id not found'));
+
+            await expect(useCase.execute('missing-id', 'user-1'))
+                .rejects
+                .toMatchObject({
+                    message: 'Integration with id of missing-id does not exist',
+                    output: { statusCode: 404 },
+                });
+        });
+
+        it('rethrows other repository errors', async () => {
+            const dbError = new Error('connection refused');
+            integrationRepository.findIntegrationById = jest.fn().mockRejectedValue(dbError);
+
+            await expect(useCase.execute('some-id', 'user-1')).rejects.toBe(dbError);
+        });
+
+        it('throws not found when integration not found', async () => {
             const nonExistentId = 'non-existent-id';
 
             await expect(useCase.execute(nonExistentId, 'user-1'))
                 .rejects
-                .toThrow(`No integration found by the ID of ${nonExistentId}`);
+                .toMatchObject({
+                    message: `Integration with id of ${nonExistentId} does not exist`,
+                    output: { statusCode: 404 },
+                });
         });
 
-        it('throws error when user does not own integration', async () => {
+        it('throws the same not found when user does not own integration', async () => {
             const record = await integrationRepository.createIntegration(['entity-1'], 'user-1', { type: 'dummy' });
 
             await expect(useCase.execute(record.id, 'different-user'))
                 .rejects
-                .toThrow(`Integration ${record.id} does not belong to User different-user`);
+                .toMatchObject({
+                    message: `Integration with id of ${record.id} does not exist`,
+                    output: { statusCode: 404 },
+                });
         });
 
         it('throws error when integration class not found', async () => {

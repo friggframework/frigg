@@ -406,6 +406,10 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Options'
+                '404':
+                    description: >-
+                        Integration not found for the acting user, or the
+                        action is not one of its user actions.
     /api/integrations/{integrationId}/actions/{actionId}/options/refresh:
         parameters:
             - $ref: '#/components/parameters/IntegrationIdPath'
@@ -434,6 +438,10 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Options'
+                '404':
+                    description: >-
+                        Integration not found for the acting user, or the
+                        action is not one of its user actions.
     /api/integrations/{integrationId}/actions/{actionId}:
         parameters:
             - $ref: '#/components/parameters/IntegrationIdPath'
@@ -468,6 +476,10 @@ paths:
                             schema:
                                 type: object
                                 additionalProperties: true
+                '404':
+                    description: >-
+                        Integration not found for the acting user, or the
+                        action is not one of its user actions.
     /api/integrations/{integrationId}/test-auth:
         parameters:
             - $ref: '#/components/parameters/IntegrationIdPath'

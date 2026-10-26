@@ -1,3 +1,4 @@
+const Boom = require('@hapi/boom');
 // Removed Integration wrapper - using IntegrationBase directly
 
 /**
@@ -24,15 +25,20 @@ class GetIntegrationInstance {
      * @param {string} integrationId - ID of the integration to retrieve.
      * @param {string} userId - ID of the user requesting the integration.
      * @returns {Promise<Integration>} The fully initialized integration instance.
-     * @throws {Error} When integration is not found, doesn't belong to user, or integration class is not found.
+     * @throws {Boom.notFound} When integration is not found or doesn't belong to user.
+     * @throws {Error} When integration class is not found.
      */
     async execute(integrationId, userId) {
-        const integrationRecord =
-            await this.integrationRepository.findIntegrationById(integrationId);
+        const integrationRecord = await this.integrationRepository
+            .findIntegrationById(integrationId)
+            .catch((error) => {
+                if (error.message?.includes('not found')) return null;
+                throw error;
+            });
 
-        if (!integrationRecord) {
-            throw new Error(
-                `No integration found by the ID of ${integrationId}`
+        if (!integrationRecord || integrationRecord.userId !== userId) {
+            throw Boom.notFound(
+                `Integration with id of ${integrationId} does not exist`
             );
         }
 
@@ -45,12 +51,6 @@ class GetIntegrationInstance {
         if (!integrationClass) {
             throw new Error(
                 `No integration class found for type: ${integrationRecord.config.type}`
-            );
-        }
-
-        if (integrationRecord.userId !== userId) {
-            throw new Error(
-                `Integration ${integrationId} does not belong to User ${userId}`
             );
         }
 
