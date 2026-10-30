@@ -1,0 +1,246 @@
+const path = require('path');
+const chalk = require('chalk');
+const dotenv = require('dotenv');
+const {
+    validateDatabaseUrl,
+    getDatabaseType,
+    checkPrismaClientGenerated,
+} = require('../utils/database-validator');
+const {
+    runPrismaGenerate,
+    checkDatabaseState,
+    runPrismaMigrate,
+    runPrismaDbPush,
+    getMigrationCommand,
+} = require('@friggframework/core/database/utils/prisma-runner');
+const {
+    getDatabaseUrlMissingError,
+    getDatabaseTypeNotConfiguredError,
+    getPrismaCommandError,
+    getDatabaseSetupSuccess,
+} = require('../utils/error-messages');
+
+function getDatabaseDisplayName(dbType) {
+    switch (dbType) {
+        case 'postgresql':
+            return 'PostgreSQL';
+        case 'mongodb':
+            return 'MongoDB';
+        case 'documentdb':
+            return 'AWS DocumentDB (MongoDB-compatible)';
+        default:
+            return dbType;
+    }
+}
+
+function getPrismaRunnerDbType(dbType) {
+    return dbType === 'documentdb' ? 'mongodb' : dbType;
+}
+
+/**
+ * Database Setup Command
+ * Sets up the database for a Frigg application:
+ * - Validates configuration
+ * - Generates Prisma client
+ * - Runs migrations (PostgreSQL) or db push (MongoDB)
+ */
+
+async function dbSetupCommand(options = {}) {
+    const verbose = options.verbose || false;
+    const stage = options.stage || process.env.STAGE || 'development';
+
+    console.log(chalk.blue('🔧 Frigg Database Setup'));
+    console.log(chalk.gray(`Stage: ${stage}\n`));
+
+    // Load environment variables from .env file
+    const envPath = path.join(process.cwd(), '.env');
+    dotenv.config({ path: envPath });
+
+    try {
+        // Step 1: Validate DATABASE_URL
+        if (verbose) {
+            console.log(chalk.gray('Step 1: Validating DATABASE_URL...'));
+        }
+
+        const urlValidation = validateDatabaseUrl();
+        if (!urlValidation.valid) {
+            console.error(getDatabaseUrlMissingError());
+            process.exit(1);
+        }
+
+        if (verbose) {
+            console.log(chalk.green('✓ DATABASE_URL found\n'));
+        }
+
+        // Step 2: Determine database type from app definition
+        if (verbose) {
+            console.log(chalk.gray('Step 2: Determining database type...'));
+        }
+
+        const dbTypeResult = getDatabaseType();
+        if (dbTypeResult.error) {
+            console.error(chalk.red('❌ ' + dbTypeResult.error));
+
+            // Show stack trace in verbose mode for debugging
+            if (verbose && dbTypeResult.stack) {
+                console.error(chalk.gray('\nStack trace:'));
+                console.error(chalk.gray(dbTypeResult.stack));
+            }
+
+            console.error(getDatabaseTypeNotConfiguredError());
+            process.exit(1);
+        }
+
+        const dbType = dbTypeResult.dbType;
+        const dbDisplayName = getDatabaseDisplayName(dbType);
+        const isPostgres = dbType === 'postgresql';
+        const isDocumentDb = dbType === 'documentdb';
+        const isMongoFamily = dbType === 'mongodb' || isDocumentDb;
+        const runnerDbType = getPrismaRunnerDbType(dbType);
+
+        console.log(chalk.cyan(`Database type: ${dbDisplayName}`));
+
+        if (verbose) {
+            console.log(chalk.green(`✓ Using ${dbDisplayName}\n`));
+        }
+
+        // Step 3: Check if Prisma client exists, generate if needed
+        if (verbose) {
+            console.log(chalk.gray('Step 3: Checking Prisma client...'));
+        }
+
+        const clientCheck = checkPrismaClientGenerated(dbType);
+        const forceRegenerate = options.force || false;
+
+        if (clientCheck.generated && !forceRegenerate) {
+            // Client already exists and --force not specified
+            console.log(
+                chalk.green(
+                    '✓ Prisma client already exists (skipping generation)\n'
+                )
+            );
+            if (verbose) {
+                console.log(
+                    chalk.gray(`  Client location: ${clientCheck.path}\n`)
+                );
+            }
+        } else {
+            // Client doesn't exist OR --force specified - generate it
+            if (forceRegenerate && clientCheck.generated) {
+                console.log(
+                    chalk.yellow('⚠️  Forcing Prisma client regeneration...')
+                );
+            } else {
+                console.log(chalk.cyan('Generating Prisma client...'));
+            }
+
+            const generateResult = await runPrismaGenerate(
+                runnerDbType,
+                verbose
+            );
+
+            if (!generateResult.success) {
+                console.error(
+                    getPrismaCommandError('generate', generateResult.error)
+                );
+                if (generateResult.output) {
+                    console.error(chalk.gray(generateResult.output));
+                }
+                process.exit(1);
+            }
+
+            console.log(chalk.green('✓ Prisma client generated\n'));
+        }
+
+        // Step 4: Check database state
+        // Note: We skip connection testing in db:setup because when using frigg:local,
+        // the CLI code runs from tmp/frigg but the client is in backend/node_modules,
+        // causing module resolution mismatches. Connection testing happens in frigg start.
+        if (verbose) {
+            console.log(chalk.gray('Step 4: Checking database state...'));
+        }
+
+        const stateCheck = await checkDatabaseState(runnerDbType);
+
+        // Step 5: Run migrations or db push
+        if (isPostgres) {
+            console.log(chalk.cyan('Running database migrations...'));
+
+            const migrationCommand = getMigrationCommand(stage);
+
+            if (verbose) {
+                console.log(
+                    chalk.gray(`Using migration command: ${migrationCommand}`)
+                );
+            }
+
+            if (stateCheck.upToDate && migrationCommand === 'deploy') {
+                console.log(chalk.yellow('Database is already up-to-date'));
+            } else {
+                const migrateResult = await runPrismaMigrate(
+                    migrationCommand,
+                    verbose
+                );
+
+                if (!migrateResult.success) {
+                    console.error(
+                        getPrismaCommandError('migrate', migrateResult.error)
+                    );
+                    if (migrateResult.output) {
+                        console.error(chalk.gray(migrateResult.output));
+                    }
+                    process.exit(1);
+                }
+
+                console.log(chalk.green('✓ Migrations applied\n'));
+            }
+        } else if (isMongoFamily) {
+            const targetName = isDocumentDb
+                ? 'AWS DocumentDB (MongoDB-compatible)'
+                : 'MongoDB';
+
+            console.log(chalk.cyan(`Pushing schema to ${targetName}...`));
+
+            const pushResult = await runPrismaDbPush(verbose);
+
+            if (!pushResult.success) {
+                console.error(
+                    getPrismaCommandError('db push', pushResult.error)
+                );
+                if (pushResult.output) {
+                    console.error(chalk.gray(pushResult.output));
+                }
+                process.exit(1);
+            }
+
+            console.log(chalk.green('✓ Schema pushed to database\n'));
+        }
+
+        // Success!
+        console.log(getDatabaseSetupSuccess(dbType, stage));
+    } catch (error) {
+        console.error(chalk.red('\n❌ Database setup failed'));
+        console.error(chalk.gray(error.message));
+
+        if (verbose && error.stack) {
+            console.error(chalk.gray('\nStack trace:'));
+            console.error(chalk.gray(error.stack));
+        }
+
+        console.error(chalk.yellow('\nTroubleshooting:'));
+        console.error(chalk.gray('  • Verify DATABASE_URL in your .env file'));
+        console.error(
+            chalk.gray('  • Check database is running and accessible')
+        );
+        console.error(
+            chalk.gray('  • Ensure app definition has database configuration')
+        );
+        console.error(
+            chalk.gray('  • Run with --verbose flag for more details')
+        );
+
+        process.exit(1);
+    }
+}
+
+module.exports = { dbSetupCommand };

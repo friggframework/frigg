@@ -1,0 +1,26 @@
+{
+  "name": "frigg-canary-test-backend",
+  "version": "1.0.0",
+  "description": "Frigg canary test harness with real integrations",
+  "main": "index.js",
+  "scripts": {
+    "frigg:start": "node server.js",
+    "test": "node test-find-integration-context.js",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "prisma:generate:postgres": "npx prisma generate --schema=./node_modules/@friggframework/core/prisma-postgresql/schema.prisma",
+    "prisma:generate:mongo": "npx prisma generate --schema=./node_modules/@friggframework/core/prisma-mongodb/schema.prisma",
+    "db:migrate:postgres": "npx prisma migrate deploy --schema=./node_modules/@friggframework/core/prisma-postgresql/schema.prisma",
+    "db:push:mongo": "npx prisma db push --schema=./node_modules/@friggframework/core/prisma-mongodb/schema.prisma"
+  },
+  "dependencies": {
+    "@friggframework/core": "2.0.0--canary.593.63aa551.0",
+    "@aws-sdk/client-kms": "^3.1054.0",
+    "@aws-sdk/client-scheduler": "^3.1054.0",
+    "@aws-sdk/client-sqs": "^3.1054.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "prisma": "6.16.3",
+    "@prisma/client": "6.16.3"
+  }
+}
