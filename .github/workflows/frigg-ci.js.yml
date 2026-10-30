@@ -108,9 +108,10 @@ jobs:
 
       # Prisma needs a replica set for MongoDB writes, and service containers
       # can't take the --replSet argument, so start it directly.
+      # Pinned: the mongo:8.0.34 image (2026-10-27) exits right after start here.
       - name: Start MongoDB replica set 🍃
         run: |
-          docker run -d --name mongo -p 27017:27017 mongo:8.0 --replSet rs0 --bind_ip_all
+          docker run -d --name mongo -p 27017:27017 mongo:8.0.32 --replSet rs0 --bind_ip_all
           for i in $(seq 1 30); do
             docker exec mongo mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' && break
             sleep 1
