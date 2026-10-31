@@ -24,10 +24,12 @@
 ## 💭 Explanation (Understanding) <a href="#explanation" id="explanation"></a>
 
 * [The "Why" of Frigg Technical Decisions](explanation/the-why-of-frigg-technical-decisions.md)
+* [CLI Design Spec (roadmap, not current behavior)](CLI_SPECIFICATION.md)
 
 ## 📖 Reference (Information) <a href="#reference" id="reference"></a>
 
 * [Core Concepts](reference/core-concepts.md)
+* [CLI Reference](reference/cli.md)
 * [API Module Definition and Functions](reference/api-module-definition-and-functions.md)
 * [Architecture](reference/architecture.md)
 * [Data Model](reference/data-model.md)
