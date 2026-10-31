@@ -1,0 +1,7 @@
+[
+  {
+    "id": "hubspot",
+    "package": "@friggframework/api-module-hubspot",
+    "packagePath": "packages/v1-ready/hubspot"
+  }
+]
