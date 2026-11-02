@@ -18,6 +18,7 @@
 ## ✅ How-To Guides (Goals) <a href="#guides" id="guides"></a>
 
 * [Cooking with Frigg](guides/cooking-with-frigg.md)
+* [Choosing a Database](guides/choosing-a-database.md)
 * [Logging](guides/LOGGING.md)
   * [Logging in an Integration](guides/LOGGING-IN-INTEGRATIONS.md)
 
