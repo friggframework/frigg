@@ -875,10 +875,10 @@ async processRecord(sourceRecord) {
 
 ## Related Documentation
 
-- [API Module Definition and Functions](/docs/reference/api-module-definition-and-functions.md) - API module structure
-- [JSON Schemas](/packages/schemas/schemas/) - Canonical schema definitions:
+- [API Module Definition and Functions](../reference/api-module-definition-and-functions.md) - API module structure
+- [JSON Schemas](https://github.com/friggframework/frigg/tree/next/packages/schemas/schemas) - Canonical schema definitions:
   - `api-module-definition.schema.json` - API module validation
   - `integration-definition.schema.json` - Integration class validation
   - `app-definition.schema.json` - App configuration validation
-- [CLAUDE.md](/CLAUDE.md) - Hexagonal architecture patterns (DDD section)
-- [Testing Guide](/docs/TESTING_GUIDE.md) - Testing patterns
+- [CLAUDE.md](https://github.com/friggframework/frigg/blob/next/CLAUDE.md) - Hexagonal architecture patterns (DDD section)
+- [Testing Guide](../TESTING_GUIDE.md) - Testing patterns

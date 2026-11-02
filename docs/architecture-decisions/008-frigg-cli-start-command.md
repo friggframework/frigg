@@ -306,6 +306,6 @@ packages/devtools/frigg-cli/start-command/
 ## Related
 
 - [ADR-002: No Database for Local Development Tools](./002-no-database-for-local-dev.md)
-- [Frigg CLI](/packages/devtools/frigg-cli/)
-- [Start Command Implementation](/packages/devtools/frigg-cli/start-command/index.js)
+- [Frigg CLI](https://github.com/friggframework/frigg/tree/next/packages/devtools/frigg-cli)
+- [Start Command Implementation](https://github.com/friggframework/frigg/blob/next/packages/devtools/frigg-cli/start-command/index.js)
 - [Docker Compose Config](/docker-compose.yml)

@@ -210,6 +210,6 @@ GET /api/openapi.json  → Default (v2) OpenAPI spec
 
 ## Related
 
-- [Integration Router Implementation](/packages/core/integrations/integration-router.js)
-- [API Router v2 Spec](/docs/specs/api-router-v2-restructuring.md)
-- [OpenAPI Specs](/packages/core/handlers/routers/openapi/)
+- [Integration Router Implementation](https://github.com/friggframework/frigg/blob/next/packages/core/integrations/integration-router.js)
+- [API Router v2 Spec](../specs/api-router-v2-restructuring.md)
+- [OpenAPI Specs](https://github.com/friggframework/frigg/blob/next/packages/core/handlers/routers/openapi)
