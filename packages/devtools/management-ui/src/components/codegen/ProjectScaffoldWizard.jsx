@@ -239,7 +239,7 @@ module.exports = app;`;
   const generateServerlessYml = () => {
     return `service: ${projectData.name}
 
-frameworkVersion: '3'
+frameworkVersion: '^4.4.0'
 
 provider:
   name: aws

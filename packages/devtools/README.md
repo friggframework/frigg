@@ -12,6 +12,20 @@ The devtools package includes the following main components:
 4. Local runner and deploy tooling
 5. Infrastructure
 
+## Requirements
+
+- Node.js `^22.13.0 || >=24` on the machine that runs `frigg` (Node 23 and Node 22.0–22.12
+  are not supported by osls; the CLI exits with a message). Lambda functions run on
+  `nodejs22.x`.
+- [osls](https://github.com/oss-serverless/osls) `^4.4.0` (installed with the CLI). Frigg
+  2.0.1 moved from osls 3 to osls 4; see
+  [ADR-050](../../docs/architecture-decisions/050-osls-4.md) and the
+  [upgrade notes](../../docs/reference/aws-sdk-v3-osls-migration.md#osls-4-frigg-201).
+
+If your `infrastructure.js` wrapper changes the composed definition, use
+`package.patterns` (never `package.include`/`package.exclude`), do not set
+`useDotenv: false`, and do not pin `frameworkVersion` to 3.x. osls 4 rejects all three.
+
 ## Frigg CLI
 
 The Frigg CLI is a command-line interface tool that helps developers manage and install API modules in their Frigg projects.

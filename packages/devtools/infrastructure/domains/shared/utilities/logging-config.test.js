@@ -18,9 +18,8 @@ describe('buildLoggingProviderConfig (ADR-048)', () => {
         const build = (logging) =>
             buildLoggingProviderConfig(logging, { lambdaJson: true });
 
-        it('maps level to provider.logs.lambda and sets frameworkVersion >=3.58.0', () => {
+        it('maps level to provider.logs.lambda and leaves frameworkVersion to the base definition (ADR-050)', () => {
             expect(build({ level: 'warn' })).toEqual({
-                frameworkVersion: '>=3.58.0',
                 provider: {
                     logs: {
                         lambda: {

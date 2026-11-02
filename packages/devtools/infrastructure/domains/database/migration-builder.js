@@ -16,6 +16,7 @@
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
 const { isScopedEnvironmentActive } = require('../shared/function-environments');
 const { nestedNodeModulesExcludes } = require('../shared/utilities/nested-node-modules');
+const { toPackagePatterns } = require('../shared/utilities/package-patterns');
 const { MigrationResourceResolver } = require('./migration-resolver');
 const { createEmptyDiscoveryResult, ResourceOwnership } = require('../shared/types');
 
@@ -242,186 +243,192 @@ class MigrationBuilder extends InfrastructureBuilder {
         // Migration WORKER package config (needs Prisma CLI WASM files)
         const migrationWorkerPackageConfig = {
             individually: true,
-            exclude: [
-                // Exclude Prisma runtime client when using Lambda Layer (but keep CLI folder)
-                ...(usePrismaLayer ? [
-                    'node_modules/@prisma/client/**',
-                    'node_modules/.prisma/**',
-                    'node_modules/@friggframework/core/generated/**',
-                ] : []),
-                // But KEEP node_modules/prisma/** (the CLI with WASM)
+            // osls 4 only reads package.patterns (ADR-050): excludes first, then includes.
+            patterns: toPackagePatterns({
+                exclude: [
+                    // Exclude Prisma runtime client when using Lambda Layer (but keep CLI folder)
+                    ...(usePrismaLayer ? [
+                        'node_modules/@prisma/client/**',
+                        'node_modules/.prisma/**',
+                        'node_modules/@friggframework/core/generated/**',
+                    ] : []),
+                    // But KEEP node_modules/prisma/** (the CLI with WASM)
 
-                ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
+                    ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
 
-                // Exclude AWS SDK (provided by Lambda runtime)
-                'node_modules/aws-sdk/**',
-                'node_modules/@aws-sdk/**',
+                    // Exclude AWS SDK (provided by Lambda runtime)
+                    'node_modules/aws-sdk/**',
+                    'node_modules/@aws-sdk/**',
 
-                // Exclude build tools
-                'node_modules/esbuild/**',
-                'node_modules/@esbuild/**',
-                'node_modules/typescript/**',
-                'node_modules/webpack/**',
-                'node_modules/osls/**',
-                'node_modules/serverless-esbuild/**',
-                'node_modules/serverless-jetpack/**',
-                'node_modules/serverless-offline/**',
-                'node_modules/serverless-offline-sqs/**',
-                'node_modules/serverless-dotenv-plugin/**',
-                'node_modules/serverless-kms-grants/**',
+                    // Exclude build tools
+                    'node_modules/esbuild/**',
+                    'node_modules/@esbuild/**',
+                    'node_modules/typescript/**',
+                    'node_modules/webpack/**',
+                    'node_modules/osls/**',
+                    'node_modules/serverless-esbuild/**',
+                    'node_modules/serverless-jetpack/**',
+                    'node_modules/serverless-offline/**',
+                    'node_modules/serverless-offline-sqs/**',
+                    'node_modules/serverless-dotenv-plugin/**',
+                    'node_modules/serverless-kms-grants/**',
 
-                // Exclude dev dependencies
-                'node_modules/@friggframework/test/**',
-                'node_modules/@friggframework/eslint-config/**',
-                'node_modules/@friggframework/prettier-config/**',
-                'node_modules/@friggframework/devtools/**',
-                'node_modules/@friggframework/serverless-plugin/**',
-                'node_modules/jest/**',
-                'node_modules/prettier/**',
-                'node_modules/eslint/**',
+                    // Exclude dev dependencies
+                    'node_modules/@friggframework/test/**',
+                    'node_modules/@friggframework/eslint-config/**',
+                    'node_modules/@friggframework/prettier-config/**',
+                    'node_modules/@friggframework/devtools/**',
+                    'node_modules/@friggframework/serverless-plugin/**',
+                    'node_modules/jest/**',
+                    'node_modules/prettier/**',
+                    'node_modules/eslint/**',
 
-                // Exclude non-essential Frigg core modules
-                'node_modules/@friggframework/core/generated/prisma-mongodb/**',
-                'node_modules/@friggframework/core/integrations/**',
-                'node_modules/@friggframework/core/user/**',
+                    // Exclude non-essential Frigg core modules
+                    'node_modules/@friggframework/core/generated/prisma-mongodb/**',
+                    'node_modules/@friggframework/core/integrations/**',
+                    'node_modules/@friggframework/core/user/**',
 
-                // Exclude other handlers we don't need (keep db-migration worker)
-                'node_modules/@friggframework/core/handlers/routers/auth.js',
-                'node_modules/@friggframework/core/handlers/routers/health.js',
-                'node_modules/@friggframework/core/handlers/routers/user.js',
-                'node_modules/@friggframework/core/handlers/routers/websocket.js',
-                'node_modules/@friggframework/core/handlers/routers/integration-*.js',
-                'node_modules/@friggframework/core/handlers/workers/integration-*.js',
+                    // Exclude other handlers we don't need (keep db-migration worker)
+                    'node_modules/@friggframework/core/handlers/routers/auth.js',
+                    'node_modules/@friggframework/core/handlers/routers/health.js',
+                    'node_modules/@friggframework/core/handlers/routers/user.js',
+                    'node_modules/@friggframework/core/handlers/routers/websocket.js',
+                    'node_modules/@friggframework/core/handlers/routers/integration-*.js',
+                    'node_modules/@friggframework/core/handlers/workers/integration-*.js',
 
-                // Exclude wrong OS binaries
-                '**/query-engine-darwin*',
-                '**/schema-engine-darwin*',
-                '**/libquery_engine-darwin*',
-                '**/*-darwin-arm64*',
-                '**/*-darwin*',
+                    // Exclude wrong OS binaries
+                    '**/query-engine-darwin*',
+                    '**/schema-engine-darwin*',
+                    '**/libquery_engine-darwin*',
+                    '**/*-darwin-arm64*',
+                    '**/*-darwin*',
 
-                // Migration worker DOES need Prisma CLI WASM files (for migrate deploy)
-                // Only exclude runtime engine WASM (query engine internals)
-                '**/runtime/*.wasm',
+                    // Migration worker DOES need Prisma CLI WASM files (for migrate deploy)
+                    // Only exclude runtime engine WASM (query engine internals)
+                    '**/runtime/*.wasm',
 
-                // Additional size optimizations
-                '**/*.map',
-                '**/*.md',
-                '**/LICENSE*',
-                '**/*.d.ts',
-                '**/*.d.mts',
-                '**/examples/**',
-                '**/docs/**',
-                'src/**',
-                'test/**',
-                'layers/**',
-                'coverage/**',
-                'deploy.log',
-                '.env.backup',
-                'docker-compose.yml',
-                'jest.config.js',
-                'jest.unit.config.js',
-                'package-lock.json',
-                '**/*.test.js',
-                '**/*.spec.js',
-                '**/.claude-flow/**',
-                '**/.swarm/**',
-            ],
+                    // Additional size optimizations
+                    '**/*.map',
+                    '**/*.md',
+                    '**/LICENSE*',
+                    '**/*.d.ts',
+                    '**/*.d.mts',
+                    '**/examples/**',
+                    '**/docs/**',
+                    'src/**',
+                    'test/**',
+                    'layers/**',
+                    'coverage/**',
+                    'deploy.log',
+                    '.env.backup',
+                    'docker-compose.yml',
+                    'jest.config.js',
+                    'jest.unit.config.js',
+                    'package-lock.json',
+                    '**/*.test.js',
+                    '**/*.spec.js',
+                    '**/.claude-flow/**',
+                    '**/.swarm/**',
+                ],
+            }),
         };
 
         // Migration ROUTER package config (lighter, no Prisma CLI needed)
         const migrationRouterPackageConfig = {
             individually: true,
-            exclude: [
-                // Exclude Prisma runtime client when using Lambda Layer
-                ...(usePrismaLayer ? [
-                    'node_modules/@prisma/client/**',
-                    'node_modules/.prisma/**',
-                    'node_modules/@friggframework/core/generated/**',
-                ] : []),
+            // osls 4 only reads package.patterns (ADR-050): excludes first, then includes.
+            patterns: toPackagePatterns({
+                exclude: [
+                    // Exclude Prisma runtime client when using Lambda Layer
+                    ...(usePrismaLayer ? [
+                        'node_modules/@prisma/client/**',
+                        'node_modules/.prisma/**',
+                        'node_modules/@friggframework/core/generated/**',
+                    ] : []),
 
-                // Router only skips Prisma CLI if Lambda Layer is enabled
-                ...(usePrismaLayer ? ['node_modules/prisma/**'] : []),
+                    // Router only skips Prisma CLI if Lambda Layer is enabled
+                    ...(usePrismaLayer ? ['node_modules/prisma/**'] : []),
 
-                ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
+                    ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
 
-                // Exclude AWS SDK (provided by Lambda runtime)
-                'node_modules/aws-sdk/**',
-                'node_modules/@aws-sdk/**',
+                    // Exclude AWS SDK (provided by Lambda runtime)
+                    'node_modules/aws-sdk/**',
+                    'node_modules/@aws-sdk/**',
 
-                // Exclude build tools
-                'node_modules/esbuild/**',
-                'node_modules/@esbuild/**',
-                'node_modules/typescript/**',
-                'node_modules/webpack/**',
-                'node_modules/osls/**',
-                'node_modules/serverless-esbuild/**',
-                'node_modules/serverless-jetpack/**',
-                'node_modules/serverless-offline/**',
-                'node_modules/serverless-offline-sqs/**',
-                'node_modules/serverless-dotenv-plugin/**',
-                'node_modules/serverless-kms-grants/**',
+                    // Exclude build tools
+                    'node_modules/esbuild/**',
+                    'node_modules/@esbuild/**',
+                    'node_modules/typescript/**',
+                    'node_modules/webpack/**',
+                    'node_modules/osls/**',
+                    'node_modules/serverless-esbuild/**',
+                    'node_modules/serverless-jetpack/**',
+                    'node_modules/serverless-offline/**',
+                    'node_modules/serverless-offline-sqs/**',
+                    'node_modules/serverless-dotenv-plugin/**',
+                    'node_modules/serverless-kms-grants/**',
 
-                // Exclude dev dependencies
-                'node_modules/@friggframework/test/**',
-                'node_modules/@friggframework/eslint-config/**',
-                'node_modules/@friggframework/prettier-config/**',
-                'node_modules/@friggframework/devtools/**',
-                'node_modules/@friggframework/serverless-plugin/**',
-                'node_modules/jest/**',
-                'node_modules/prettier/**',
-                'node_modules/eslint/**',
+                    // Exclude dev dependencies
+                    'node_modules/@friggframework/test/**',
+                    'node_modules/@friggframework/eslint-config/**',
+                    'node_modules/@friggframework/prettier-config/**',
+                    'node_modules/@friggframework/devtools/**',
+                    'node_modules/@friggframework/serverless-plugin/**',
+                    'node_modules/jest/**',
+                    'node_modules/prettier/**',
+                    'node_modules/eslint/**',
 
-                // Exclude non-essential Frigg core modules
-                'node_modules/@friggframework/core/generated/prisma-mongodb/**',
-                'node_modules/@friggframework/core/integrations/**',
-                'node_modules/@friggframework/core/user/**',
+                    // Exclude non-essential Frigg core modules
+                    'node_modules/@friggframework/core/generated/prisma-mongodb/**',
+                    'node_modules/@friggframework/core/integrations/**',
+                    'node_modules/@friggframework/core/user/**',
 
-                // Exclude other handlers we don't need (keep db-migration router)
-                'node_modules/@friggframework/core/handlers/routers/auth.js',
-                'node_modules/@friggframework/core/handlers/routers/health.js',
-                'node_modules/@friggframework/core/handlers/routers/user.js',
-                'node_modules/@friggframework/core/handlers/routers/websocket.js',
-                'node_modules/@friggframework/core/handlers/routers/integration-*.js',
-                'node_modules/@friggframework/core/handlers/workers/**',
+                    // Exclude other handlers we don't need (keep db-migration router)
+                    'node_modules/@friggframework/core/handlers/routers/auth.js',
+                    'node_modules/@friggframework/core/handlers/routers/health.js',
+                    'node_modules/@friggframework/core/handlers/routers/user.js',
+                    'node_modules/@friggframework/core/handlers/routers/websocket.js',
+                    'node_modules/@friggframework/core/handlers/routers/integration-*.js',
+                    'node_modules/@friggframework/core/handlers/workers/**',
 
-                // Exclude wrong OS binaries
-                '**/query-engine-darwin*',
-                '**/schema-engine-darwin*',
-                '**/libquery_engine-darwin*',
-                '**/*-darwin-arm64*',
-                '**/*-darwin*',
+                    // Exclude wrong OS binaries
+                    '**/query-engine-darwin*',
+                    '**/schema-engine-darwin*',
+                    '**/libquery_engine-darwin*',
+                    '**/*-darwin-arm64*',
+                    '**/*-darwin*',
 
-                // Router doesn't run migrations - exclude ALL WASM files
-                '**/runtime/*.wasm',
-                '**/*.wasm*',
+                    // Router doesn't run migrations - exclude ALL WASM files
+                    '**/runtime/*.wasm',
+                    '**/*.wasm*',
 
-                // Additional size optimizations
-                '**/*.map',
-                '**/*.md',
-                '**/LICENSE*',
-                '**/*.d.ts',
-                '**/*.d.mts',
-                '**/test/**',
-                '**/tests/**',
-                '**/__tests__/**',
-                '**/examples/**',
-                '**/docs/**',
-                'src/**',
-                'test/**',
-                'layers/**',
-                'coverage/**',
-                'deploy.log',
-                '.env.backup',
-                'docker-compose.yml',
-                'jest.config.js',
-                'jest.unit.config.js',
-                'package-lock.json',
-                '**/*.test.js',
-                '**/*.spec.js',
-                '**/.claude-flow/**',
-                '**/.swarm/**',
-            ],
+                    // Additional size optimizations
+                    '**/*.map',
+                    '**/*.md',
+                    '**/LICENSE*',
+                    '**/*.d.ts',
+                    '**/*.d.mts',
+                    '**/test/**',
+                    '**/tests/**',
+                    '**/__tests__/**',
+                    '**/examples/**',
+                    '**/docs/**',
+                    'src/**',
+                    'test/**',
+                    'layers/**',
+                    'coverage/**',
+                    'deploy.log',
+                    '.env.backup',
+                    'docker-compose.yml',
+                    'jest.config.js',
+                    'jest.unit.config.js',
+                    'package-lock.json',
+                    '**/*.test.js',
+                    '**/*.spec.js',
+                    '**/.claude-flow/**',
+                    '**/.swarm/**',
+                ],
+            }),
         };
 
         // Create migration worker Lambda (triggered by SQS)

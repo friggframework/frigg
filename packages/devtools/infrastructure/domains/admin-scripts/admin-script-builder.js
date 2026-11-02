@@ -16,6 +16,7 @@
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
 const { isScopedEnvironmentActive } = require('../shared/function-environments');
 const { nestedNodeModulesExcludes } = require('../shared/utilities/nested-node-modules');
+const { toPackagePatterns } = require('../shared/utilities/package-patterns');
 
 class AdminScriptBuilder extends InfrastructureBuilder {
     constructor() {
@@ -397,52 +398,55 @@ class AdminScriptBuilder extends InfrastructureBuilder {
     skipEsbuildPackageConfig(appDefinition, usePrismaLayer) {
         const tlsCAFile = appDefinition?.database?.documentDB?.tlsCAFile;
         return {
-            include: [
-                // Handlers connect to the DB, so ship the DocumentDB CA cert.
-                ...(tlsCAFile ? [tlsCAFile.replace(/^\.\//, '')] : []),
-            ],
-            exclude: [
-                'node_modules/aws-sdk/**',
-                'node_modules/@aws-sdk/**',
-                ...(usePrismaLayer
-                    ? [
-                          'node_modules/@prisma/**',
-                          'node_modules/.prisma/**',
-                          'node_modules/prisma/**',
-                          'node_modules/@friggframework/core/generated/**',
-                      ]
-                    : []),
-                ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
-                'node_modules/@friggframework/test/**',
-                'node_modules/@friggframework/eslint-config/**',
-                'node_modules/@friggframework/prettier-config/**',
-                'node_modules/jest/**',
-                'node_modules/prettier/**',
-                'node_modules/eslint/**',
-                'node_modules/esbuild/**',
-                'node_modules/@esbuild/**',
-                'node_modules/typescript/**',
-                'node_modules/webpack/**',
-                'node_modules/osls/**',
-                'node_modules/serverless-esbuild/**',
-                'node_modules/serverless-jetpack/**',
-                'node_modules/serverless-offline/**',
-                'node_modules/serverless-offline-sqs/**',
-                'node_modules/serverless-dotenv-plugin/**',
-                'node_modules/serverless-kms-grants/**',
-                // Never deploy secrets or the lockfile.
-                '.env',
-                '.env.*',
-                '**/.env',
-                '**/.env.*',
-                '.frigg-credentials.json',
-                'package-lock.json',
-                'test/**',
-                'layers/**',
-                'coverage/**',
-                '**/*.test.js',
-                '**/*.spec.js',
-            ],
+            // osls 4 only reads package.patterns (ADR-050): excludes first, then includes.
+            patterns: toPackagePatterns({
+                include: [
+                    // Handlers connect to the DB, so ship the DocumentDB CA cert.
+                    ...(tlsCAFile ? [tlsCAFile.replace(/^\.\//, '')] : []),
+                ],
+                exclude: [
+                    'node_modules/aws-sdk/**',
+                    'node_modules/@aws-sdk/**',
+                    ...(usePrismaLayer
+                        ? [
+                              'node_modules/@prisma/**',
+                              'node_modules/.prisma/**',
+                              'node_modules/prisma/**',
+                              'node_modules/@friggframework/core/generated/**',
+                          ]
+                        : []),
+                    ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
+                    'node_modules/@friggframework/test/**',
+                    'node_modules/@friggframework/eslint-config/**',
+                    'node_modules/@friggframework/prettier-config/**',
+                    'node_modules/jest/**',
+                    'node_modules/prettier/**',
+                    'node_modules/eslint/**',
+                    'node_modules/esbuild/**',
+                    'node_modules/@esbuild/**',
+                    'node_modules/typescript/**',
+                    'node_modules/webpack/**',
+                    'node_modules/osls/**',
+                    'node_modules/serverless-esbuild/**',
+                    'node_modules/serverless-jetpack/**',
+                    'node_modules/serverless-offline/**',
+                    'node_modules/serverless-offline-sqs/**',
+                    'node_modules/serverless-dotenv-plugin/**',
+                    'node_modules/serverless-kms-grants/**',
+                    // Never deploy secrets or the lockfile.
+                    '.env',
+                    '.env.*',
+                    '**/.env',
+                    '**/.env.*',
+                    '.frigg-credentials.json',
+                    'package-lock.json',
+                    'test/**',
+                    'layers/**',
+                    'coverage/**',
+                    '**/*.test.js',
+                    '**/*.spec.js',
+                ],
+            }),
         };
     }
 

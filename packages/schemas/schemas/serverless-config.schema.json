@@ -8,9 +8,9 @@
   "properties": {
     "frameworkVersion": {
       "type": "string",
-      "description": "Serverless Framework version constraint",
-      "pattern": "^[><=]*\\d+\\.\\d+\\.\\d+$",
-      "examples": [">=3.17.0", "3.38.0"]
+      "description": "osls (Serverless Framework v3-compatible) version constraint. Frigg emits ^4.4.0 (ADR-050).",
+      "pattern": "^[><=^~]*\\d+(\\.\\d+){0,2}$",
+      "examples": ["^4.4.0", ">=4.4.0", "4.4.0"]
     },
     "service": {
       "type": "string",
@@ -353,7 +353,7 @@
   "additionalProperties": false,
   "examples": [
     {
-      "frameworkVersion": ">=3.17.0",
+      "frameworkVersion": "^4.4.0",
       "service": "frigg-backend",
       "provider": {
         "name": "aws",

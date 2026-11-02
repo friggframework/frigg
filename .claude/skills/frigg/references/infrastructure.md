@@ -1,6 +1,6 @@
 # Infrastructure Reference
 
-Frigg generates AWS infrastructure via Domain-Driven Design builders, deployed with **osls** (OSS-Serverless), a drop-in replacement for Serverless Framework v3.
+Frigg generates AWS infrastructure via Domain-Driven Design builders, deployed with **osls** (OSS-Serverless, MIT-licensed continuation of Serverless Framework v3). Frigg 2.0.1+ targets **osls `^4.4.0`** on Node `^22.13.0 || >=24` (ADR-050).
 
 ## Table of Contents
 
@@ -88,6 +88,14 @@ osls package --config infrastructure.js --stage prod
 osls deploy  --config infrastructure.js --stage prod --verbose
 osls info    --config infrastructure.js --stage prod
 ```
+
+osls 4 rules for anything an app's `infrastructure.js` wrapper adds to the composed definition (ADR-050):
+
+- Use `package.patterns` (`['!excluded/**', 'reincluded/file']`), never `package.include` / `package.exclude` (osls 4 rejects them; config validation errors by default).
+- Never set `useDotenv: false` (only `true` or absent is valid). Frigg emits `useDotenv: true` only for `frigg start`.
+- `frameworkVersion` is `^4.4.0`; an app that pins `'3'`/`^3.x` or still resolves osls 3 fails with `FRAMEWORK_VERSION_MISMATCH`.
+- Plugins must not use the removed SDK v2 provider surfaces (`provider.request`, `provider.sdk`, `provider.getCredentials`).
+- osls 4 honours `AWS_ENDPOINT_URL` (moto/LocalStack builds) — unset it before a real `frigg deploy`.
 
 ## Doctor & Repair (deployed-stack health)
 
