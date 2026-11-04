@@ -10,6 +10,7 @@
 const path = require('path');
 const fs = require('fs');
 const { buildPrismaLayer } = require('../../../scripts/build-prisma-layer');
+const { resolveLambdaArchitecture } = require('../lambda-architectures');
 
 /**
  * Check if a process is still running
@@ -39,11 +40,16 @@ function isProcessRunning(pid) {
  * - Waits for active builds to complete before starting new one
  * - Cleans stale locks and incomplete builds before retry
  *
- * @param {Object} databaseConfig - Database configuration from app definition
+ * @param {Object} options
+ * @param {Object} options.databaseConfig - Database configuration from app definition
+ * @param {string} options.prismaBinaryTarget - The engine the deployed architecture loads
  * @returns {Promise<void>}
  * @throws {Error} If layer build fails
  */
-async function ensurePrismaLayerExists(databaseConfig = {}) {
+async function ensurePrismaLayerExists({
+    databaseConfig = {},
+    prismaBinaryTarget = resolveLambdaArchitecture().prismaBinaryTarget,
+} = {}) {
     const projectRoot = process.cwd();
     const layerPath = path.join(projectRoot, 'layers/prisma');
     const completionMarkerPath = path.join(layerPath, '.build-complete');
@@ -119,7 +125,7 @@ async function ensurePrismaLayerExists(databaseConfig = {}) {
 
     try {
         // Build layer WITHOUT CLI (runtime only for minimal size)
-        await buildPrismaLayer(databaseConfig);
+        await buildPrismaLayer({ databaseConfig, prismaBinaryTarget });
 
         // Create completion marker
         fs.writeFileSync(

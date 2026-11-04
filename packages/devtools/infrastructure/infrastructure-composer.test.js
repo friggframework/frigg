@@ -1498,6 +1498,17 @@ describe('Lambda architecture (architecture)', () => {
         expect(explicit).toEqual(unset);
     });
 
+    it('builds the Prisma layer for the engine of the deployed architecture', async () => {
+        const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
+
+        await composeServerlessDefinition(appDefinition('arm64'));
+
+        expect(ensurePrismaLayerExists).toHaveBeenCalledWith({
+            databaseConfig: {},
+            prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+        });
+    });
+
     it('arm64 sets provider.architecture, which osls applies to every function, and the layer compatibleArchitectures', async () => {
         const result = await composeServerlessDefinition(appDefinition('arm64'));
 

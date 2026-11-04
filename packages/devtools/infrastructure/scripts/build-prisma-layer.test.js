@@ -8,6 +8,8 @@ const {
     getMigrationsPackages,
     getMigrationSourcePath,
     getMigrationDestinationPath,
+    engineFilesToRemove,
+    verifyTargetBinaries,
 } = require('./build-prisma-layer');
 
 // Mock the log function
@@ -187,5 +189,86 @@ describe('getMigrationDestinationPath()', () => {
         expect(destPath).toBe(
             '/layers/prisma/nodejs/node_modules/generated/prisma-postgresql/migrations'
         );
+    });
+});
+
+describe('engineFilesToRemove()', () => {
+    const files = [
+        'libquery_engine-rhel-openssl-3.0.x.so.node',
+        'libquery_engine-linux-arm64-openssl-3.0.x.so.node',
+        'libquery_engine-debian-openssl-3.0.x.so.node',
+        'schema-engine-rhel-openssl-3.0.x',
+        'query-engine-linux-arm64-openssl-3.0.x',
+        'query_engine_bg.wasm',
+        'index.js',
+    ];
+
+    it('keeps the rhel engines and the non-engine files for an x86_64 target', () => {
+        expect(engineFilesToRemove(files, 'rhel-openssl-3.0.x')).toEqual([
+            'libquery_engine-linux-arm64-openssl-3.0.x.so.node',
+            'libquery_engine-debian-openssl-3.0.x.so.node',
+            'query-engine-linux-arm64-openssl-3.0.x',
+        ]);
+    });
+
+    it('keeps the linux-arm64 engines and the non-engine files for an arm64 target', () => {
+        expect(engineFilesToRemove(files, 'linux-arm64-openssl-3.0.x')).toEqual([
+            'libquery_engine-rhel-openssl-3.0.x.so.node',
+            'libquery_engine-debian-openssl-3.0.x.so.node',
+            'schema-engine-rhel-openssl-3.0.x',
+        ]);
+    });
+});
+
+describe('verifyTargetBinaries()', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const clients = ['generated/prisma-postgresql', 'generated/prisma-mongodb'];
+    let layerNodeModules;
+
+    const writeEngine = (client, engine) => {
+        const dir = path.join(layerNodeModules, client);
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, engine), '');
+    };
+
+    beforeEach(() => {
+        layerNodeModules = fs.mkdtempSync(path.join(os.tmpdir(), 'frigg-prisma-layer-'));
+    });
+
+    afterEach(() => {
+        fs.rmSync(layerNodeModules, { recursive: true, force: true });
+    });
+
+    it.each([
+        ['rhel-openssl-3.0.x'],
+        ['linux-arm64-openssl-3.0.x'],
+    ])('passes when every client holds only the %s engine', async (target) => {
+        for (const client of clients) {
+            writeEngine(client, `libquery_engine-${target}.so.node`);
+        }
+
+        await expect(
+            verifyTargetBinaries(layerNodeModules, target, clients, '2.0.0-next.0')
+        ).resolves.toBeUndefined();
+    });
+
+    it('fails naming the client, the target and the core version when one client lacks the engine', async () => {
+        writeEngine('generated/prisma-postgresql', 'libquery_engine-linux-arm64-openssl-3.0.x.so.node');
+        writeEngine('generated/prisma-mongodb', 'libquery_engine-rhel-openssl-3.0.x.so.node');
+
+        await expect(
+            verifyTargetBinaries(layerNodeModules, 'linux-arm64-openssl-3.0.x', clients, '2.0.0-next.105')
+        ).rejects.toThrow(/prisma-mongodb.*linux-arm64-openssl-3\.0\.x[\s\S]*2\.0\.0-next\.105/);
+    });
+
+    it('fails when a client still holds an engine for another Linux target', async () => {
+        writeEngine('generated/prisma-postgresql', 'libquery_engine-rhel-openssl-3.0.x.so.node');
+        writeEngine('generated/prisma-postgresql', 'libquery_engine-linux-arm64-openssl-3.0.x.so.node');
+
+        await expect(
+            verifyTargetBinaries(layerNodeModules, 'rhel-openssl-3.0.x', ['generated/prisma-postgresql'], '2.0.0-next.0')
+        ).rejects.toThrow(/libquery_engine-linux-arm64-openssl-3\.0\.x\.so\.node/);
     });
 });

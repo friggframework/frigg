@@ -87,9 +87,27 @@ describe('Prisma Layer Manager', () => {
                 postgres: { enable: true },
             };
 
-            await ensurePrismaLayerExists(databaseConfig);
+            await ensurePrismaLayerExists({ databaseConfig });
 
-            expect(buildPrismaLayer).toHaveBeenCalledWith(databaseConfig);
+            expect(buildPrismaLayer).toHaveBeenCalledWith({
+                databaseConfig,
+                prismaBinaryTarget: 'rhel-openssl-3.0.x',
+            });
+        });
+
+        it('should pass the Prisma binary target of the deployed architecture to buildPrismaLayer', async () => {
+            fs.existsSync = jest.fn().mockReturnValue(false);
+            buildPrismaLayer.mockResolvedValue();
+
+            await ensurePrismaLayerExists({
+                databaseConfig: {},
+                prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+            });
+
+            expect(buildPrismaLayer).toHaveBeenCalledWith({
+                databaseConfig: {},
+                prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+            });
         });
 
         it('should handle build errors and rethrow', async () => {
@@ -105,7 +123,10 @@ describe('Prisma Layer Manager', () => {
 
             await ensurePrismaLayerExists();
 
-            expect(buildPrismaLayer).toHaveBeenCalledWith({});
+            expect(buildPrismaLayer).toHaveBeenCalledWith({
+                databaseConfig: {},
+                prismaBinaryTarget: 'rhel-openssl-3.0.x',
+            });
         });
 
         it('should use correct layer path relative to project root', async () => {

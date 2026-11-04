@@ -61,6 +61,7 @@ function applySsmPreloadNodeOptions(appDefinition, functions, providerEnvironmen
 const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-resolver');
 const { createBaseDefinition } = require('./domains/shared/utilities/base-definition-factory');
 const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
+const { resolveLambdaArchitecture } = require('./domains/shared/lambda-architectures');
 const { validateAndCleanPlugins, validatePackagingConfiguration } = require('./domains/shared/validation/plugin-validator');
 
 /**
@@ -77,7 +78,10 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
     // Ensure Prisma layer exists only when configured to use it
     if (usePrismaLayer) {
-        await ensurePrismaLayerExists(AppDefinition.database || {});
+        await ensurePrismaLayerExists({
+            databaseConfig: AppDefinition.database || {},
+            prismaBinaryTarget: resolveLambdaArchitecture(AppDefinition).prismaBinaryTarget,
+        });
     } else {
         console.log('📦 Skipping Prisma Lambda Layer (usePrismaLambdaLayer=false - bundling Prisma with functions)');
     }
