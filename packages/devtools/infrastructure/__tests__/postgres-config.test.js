@@ -36,6 +36,9 @@ const accountWithDefaultVpc = (overrides = {}) => ({
     defaultRouteTableId: 'rtb-12345',
     ...overrides,
 });
+jest.mock('../domains/database/migration-engines', () => ({
+    ensureMigrationEngines: jest.fn().mockResolvedValue(undefined),
+}));
 
 const postgresApp = (postgres, extra = {}) => ({
     name: 'test-app',

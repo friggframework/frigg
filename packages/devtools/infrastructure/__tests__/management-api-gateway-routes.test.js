@@ -37,6 +37,9 @@ jest.mock('../domains/shared/resource-discovery', () => {
         }),
     };
 });
+jest.mock('../domains/database/migration-engines', () => ({
+    ensureMigrationEngines: jest.fn().mockResolvedValue(undefined),
+}));
 
 // createIntegrationRouter loads the app definition from the consuming
 // backend; give it an empty one so the router can be built in isolation.

@@ -631,6 +631,9 @@ describe('CloudFormation Template Generation', () => {
         });
     });
 });
+jest.mock('../domains/database/migration-engines', () => ({
+    ensureMigrationEngines: jest.fn().mockResolvedValue(undefined),
+}));
 
 // Helper functions
 function findAllRefs(obj, refs = []) {

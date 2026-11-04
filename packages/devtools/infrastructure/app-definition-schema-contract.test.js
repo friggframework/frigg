@@ -40,6 +40,9 @@ jest.mock('./domains/shared/resource-discovery', () => {
     const actual = jest.requireActual('./domains/shared/resource-discovery');
     return { ...actual, gatherDiscoveredResources: jest.fn() };
 });
+jest.mock('./domains/database/migration-engines', () => ({
+    ensureMigrationEngines: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('./domains/shared/utilities/prisma-layer-manager', () => ({
     ensurePrismaLayerExists: jest.fn().mockResolvedValue(undefined),
 }));

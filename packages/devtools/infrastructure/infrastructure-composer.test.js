@@ -40,6 +40,9 @@ jest.mock('./domains/shared/resource-discovery', () => {
 jest.mock('./domains/shared/utilities/prisma-layer-manager', () => ({
     ensurePrismaLayerExists: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('./domains/database/migration-engines', () => ({
+    ensureMigrationEngines: jest.fn().mockResolvedValue(undefined),
+}));
 
 const { gatherDiscoveredResources } = require('./domains/shared/resource-discovery');
 
@@ -1496,6 +1499,28 @@ describe('Lambda architecture (architecture)', () => {
         delete explicit.provider.architecture;
         delete explicit.layers.prisma.compatibleArchitectures;
         expect(explicit).toEqual(unset);
+    });
+
+    it('fetches the migration worker engines for the deployed architecture before packaging', async () => {
+        const { ensureMigrationEngines } = require('./domains/database/migration-engines');
+
+        await composeServerlessDefinition(appDefinition('arm64'));
+
+        expect(ensureMigrationEngines).toHaveBeenCalledWith({
+            prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+        });
+    });
+
+    it('fetches no migration engines when there is no migration worker (PostgreSQL disabled)', async () => {
+        const { ensureMigrationEngines } = require('./domains/database/migration-engines');
+        ensureMigrationEngines.mockClear();
+
+        await composeServerlessDefinition({
+            ...appDefinition('arm64'),
+            database: { postgres: { enable: false }, mongoDB: { enable: true } },
+        });
+
+        expect(ensureMigrationEngines).not.toHaveBeenCalled();
     });
 
     it('builds the Prisma layer for the engine of the deployed architecture', async () => {
