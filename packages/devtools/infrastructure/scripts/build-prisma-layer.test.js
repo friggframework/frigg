@@ -10,6 +10,7 @@ const {
     getMigrationDestinationPath,
     engineFilesToRemove,
     verifyTargetBinaries,
+    layerBuildInputs,
 } = require('./build-prisma-layer');
 
 // Mock the log function
@@ -270,5 +271,21 @@ describe('verifyTargetBinaries()', () => {
         await expect(
             verifyTargetBinaries(layerNodeModules, 'rhel-openssl-3.0.x', ['generated/prisma-postgresql'], '2.0.0-next.0')
         ).rejects.toThrow(/libquery_engine-linux-arm64-openssl-3\.0\.x\.so\.node/);
+    });
+});
+
+describe('layerBuildInputs()', () => {
+    it('names the target, the client set and the core and @prisma/client versions the layer is built from', () => {
+        const inputs = layerBuildInputs({
+            databaseConfig: { postgres: { enable: true }, mongoDB: { enable: true } },
+            prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+        });
+
+        expect(inputs).toEqual({
+            prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+            clientPackages: ['generated/prisma-mongodb', 'generated/prisma-postgresql'],
+            coreVersion: require('@friggframework/core/package.json').version,
+            prismaClientVersion: require('@prisma/client/package.json').version,
+        });
     });
 });

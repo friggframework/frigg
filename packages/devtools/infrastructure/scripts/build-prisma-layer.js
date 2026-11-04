@@ -96,6 +96,31 @@ function getGeneratedClientPackages(databaseConfig = {}) {
     return packages;
 }
 
+/**
+ * Everything the layer contents depend on. The layer manager keys its cache
+ * on this, so a change in any of them rebuilds the layer.
+ * @param {Object} options
+ * @param {Object} options.databaseConfig - Database configuration from AppDefinition.database
+ * @param {string} options.prismaBinaryTarget - The engine the deployed architecture loads
+ * @returns {{ prismaBinaryTarget: string, clientPackages: string[], coreVersion: string, prismaClientVersion: string }}
+ */
+function layerBuildInputs({
+    databaseConfig = {},
+    prismaBinaryTarget = resolveLambdaArchitecture().prismaBinaryTarget,
+} = {}) {
+    return {
+        prismaBinaryTarget,
+        clientPackages: getGeneratedClientPackages(databaseConfig),
+        coreVersion: fs.readJsonSync(path.join(CORE_PACKAGE_PATH, 'package.json'))
+            .version,
+        prismaClientVersion: fs.readJsonSync(
+            require.resolve('@prisma/client/package.json', {
+                paths: [CORE_PACKAGE_PATH],
+            })
+        ).version,
+    };
+}
+
 function getMigrationsPackages(clientPackages) {
     return clientPackages.map((pkg) => ({
         dbType: pkg.replace('generated/prisma-', ''),
@@ -758,4 +783,5 @@ module.exports = {
     getRequiredLayerPaths,
     engineFilesToRemove,
     verifyTargetBinaries,
+    layerBuildInputs,
 };

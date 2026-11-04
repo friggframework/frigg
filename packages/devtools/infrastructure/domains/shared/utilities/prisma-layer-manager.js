@@ -9,7 +9,10 @@
 
 const path = require('path');
 const fs = require('fs');
-const { buildPrismaLayer } = require('../../../scripts/build-prisma-layer');
+const {
+    buildPrismaLayer,
+    layerBuildInputs,
+} = require('../../../scripts/build-prisma-layer');
 const { resolveLambdaArchitecture } = require('../lambda-architectures');
 
 /**
@@ -27,6 +30,47 @@ function isProcessRunning(pid) {
     }
 }
 
+const LEGACY_MARKER_TARGET = 'rhel-openssl-3.0.x';
+
+/**
+ * The inputs a completion marker records. A marker written before the
+ * marker became JSON recorded nothing, and every layer then held the rhel
+ * engine; its versions are unknown, so it never matches and the layer is
+ * rebuilt once.
+ * @param {string} markerText
+ * @returns {{ prismaBinaryTarget: string, clientPackages: string[]|null, coreVersion: string|null, prismaClientVersion: string|null }}
+ */
+function parseLayerMarker(markerText) {
+    try {
+        const marker = JSON.parse(markerText);
+        return {
+            prismaBinaryTarget: marker.prismaBinaryTarget,
+            clientPackages: marker.clientPackages,
+            coreVersion: marker.coreVersion,
+            prismaClientVersion: marker.prismaClientVersion,
+        };
+    } catch (error) {
+        return {
+            prismaBinaryTarget: LEGACY_MARKER_TARGET,
+            clientPackages: null,
+            coreVersion: null,
+            prismaClientVersion: null,
+        };
+    }
+}
+
+function sameLayerInputs(a, b) {
+    return (
+        a.prismaBinaryTarget === b.prismaBinaryTarget &&
+        a.coreVersion === b.coreVersion &&
+        a.prismaClientVersion === b.prismaClientVersion &&
+        Array.isArray(a.clientPackages) &&
+        Array.isArray(b.clientPackages) &&
+        a.clientPackages.length === b.clientPackages.length &&
+        a.clientPackages.every((pkg, i) => pkg === b.clientPackages[i])
+    );
+}
+
 /**
  * Ensure Prisma Lambda Layer exists
  *
@@ -35,7 +79,9 @@ function isProcessRunning(pid) {
  * Prisma CLI is bundled separately in the dbMigrate function.
  *
  * Domain Concept: Build Completion State & Process Locking
- * - Uses .build-complete marker file to track successful builds
+ * - Uses .build-complete marker file to track successful builds; it records
+ *   the inputs the layer was built from, and a built layer is reused only
+ *   when they match the requested ones
  * - Uses .build-lock PID file to prevent concurrent builds
  * - Waits for active builds to complete before starting new one
  * - Cleans stale locks and incomplete builds before retry
@@ -54,9 +100,17 @@ async function ensurePrismaLayerExists({
     const layerPath = path.join(projectRoot, 'layers/prisma');
     const completionMarkerPath = path.join(layerPath, '.build-complete');
     const lockFilePath = path.join(layerPath, '.build-lock');
+    const inputs = layerBuildInputs({ databaseConfig, prismaBinaryTarget });
+
+    const builtLayerMatches = () =>
+        fs.existsSync(completionMarkerPath) &&
+        sameLayerInputs(
+            parseLayerMarker(fs.readFileSync(completionMarkerPath, 'utf-8')),
+            inputs
+        );
 
     // Check if build is complete (marker exists)
-    if (fs.existsSync(completionMarkerPath)) {
+    if (builtLayerMatches()) {
         console.log('✓ Prisma Lambda Layer already exists at', layerPath);
         return;
     }
@@ -74,8 +128,13 @@ async function ensurePrismaLayerExists({
 
                 // Check if build completed
                 if (fs.existsSync(completionMarkerPath)) {
-                    console.log('✓ Concurrent build completed successfully');
-                    return;
+                    if (builtLayerMatches()) {
+                        console.log('✓ Concurrent build completed successfully');
+                        return;
+                    }
+                    console.log('⚠ Concurrent build completed for other inputs - rebuilding');
+                    fs.rmSync(lockFilePath, { force: true });
+                    break;
                 }
 
                 // Check if process died
@@ -87,14 +146,16 @@ async function ensurePrismaLayerExists({
             }
 
             // Timeout - check one final time
-            if (fs.existsSync(completionMarkerPath)) {
+            if (builtLayerMatches()) {
                 console.log('✓ Concurrent build completed');
                 return;
             }
 
             // Still locked after 60s - remove stale lock
-            console.log('⚠ Build timeout - removing stale lock and rebuilding');
-            fs.rmSync(lockFilePath, { force: true });
+            if (fs.existsSync(lockFilePath)) {
+                console.log('⚠ Build timeout - removing stale lock and rebuilding');
+                fs.rmSync(lockFilePath, { force: true });
+            }
         } else {
             // Stale lock file (process not running)
             console.log(`⚠ Stale lock file detected (PID ${lockPid} not running) - cleaning up`);
@@ -105,6 +166,8 @@ async function ensurePrismaLayerExists({
     // Check if incomplete build exists (directory without marker)
     if (fs.existsSync(layerPath) && !fs.existsSync(completionMarkerPath)) {
         console.log('⚠ Incomplete Prisma layer detected - will be cleaned by buildPrismaLayer()');
+    } else if (fs.existsSync(completionMarkerPath)) {
+        console.log(`⚠ Built Prisma layer does not match ${JSON.stringify(inputs)} - rebuilding`);
     }
 
     // Build layer
@@ -130,7 +193,16 @@ async function ensurePrismaLayerExists({
         // Create completion marker
         fs.writeFileSync(
             completionMarkerPath,
-            `Build completed: ${new Date().toISOString()}\nNode: ${process.version}\nPlatform: ${process.platform}\n`
+            JSON.stringify(
+                {
+                    ...inputs,
+                    builtAt: new Date().toISOString(),
+                    node: process.version,
+                    platform: process.platform,
+                },
+                null,
+                2
+            )
         );
 
         console.log('✓ Prisma Lambda Layer built successfully (~10-15MB)\n');
@@ -161,5 +233,6 @@ async function ensurePrismaLayerExists({
 
 module.exports = {
     ensurePrismaLayerExists,
+    parseLayerMarker,
 };
 
