@@ -378,9 +378,9 @@ describe('Lambda architecture with usePrismaLambdaLayer=false', () => {
         async (architecture, target, otherTarget) => {
             for (const fn of await layerOff(architecture)) {
                 expect(fn.package.exclude).toEqual(
-                    expect.arrayContaining(['**/*-debian-*', `**/*-${otherTarget}*`])
+                    expect.arrayContaining(['**/libquery_engine-debian*', `**/libquery_engine-${otherTarget}*`])
                 );
-                expect(fn.package.exclude).not.toContain(`**/*-${target}*`);
+                expect(fn.package.exclude).not.toContain(`**/libquery_engine-${target}*`);
             }
         }
     );
@@ -388,10 +388,10 @@ describe('Lambda architecture with usePrismaLambdaLayer=false', () => {
     it('with the layer on, adds no engine patterns, since the layer carries the engines', async () => {
         for (const fn of await layerOn('arm64')) {
             expect(fn.package.exclude).not.toEqual(
-                expect.arrayContaining(['**/*-rhel-openssl-3.0.x*'])
+                expect.arrayContaining(['**/libquery_engine-rhel-openssl-3.0.x*'])
             );
             expect(fn.package.exclude).not.toEqual(
-                expect.arrayContaining(['**/*-debian-*'])
+                expect.arrayContaining(['**/libquery_engine-debian*'])
             );
         }
     });

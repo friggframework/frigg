@@ -51,33 +51,45 @@ function prismaEngineFileNames(prismaBinaryTarget) {
     };
 }
 
-const HOST_PLATFORM_ENGINE_EXCLUDES = [
-    '**/*darwin*',
-    '**/*-debian-*',
-    '**/*-linux-musl*',
-    '**/*windows*',
+const PRISMA_ENGINE_FILE_PREFIXES = [
+    'libquery_engine-',
+    'query-engine-',
+    'query_engine-',
+    'schema-engine-',
+];
+
+const HOST_PLATFORM_ENGINE_TOKENS = [
+    'darwin',
+    'debian',
+    'linux-musl',
+    'windows',
 ];
 
 /**
- * Package exclude patterns for every Prisma engine the named architecture
- * does not load: the deploy host's own platforms and the other Lambda
- * architectures.
+ * Package exclude patterns for every Prisma engine file the named
+ * architecture does not load: the deploy host's own platforms and the other
+ * Lambda architectures. Each pattern starts with an engine file prefix, so a
+ * runtime dependency that only has a platform word in its name is kept.
  * @param {string} name - A registry key
  * @returns {string[]}
  */
 function foreignPrismaEngineExcludes(name) {
-    return [
-        ...HOST_PLATFORM_ENGINE_EXCLUDES,
+    const foreignTokens = [
+        ...HOST_PLATFORM_ENGINE_TOKENS,
         ...Object.entries(LAMBDA_ARCHITECTURES)
             .filter(([other]) => other !== name)
-            .map(([, { prismaBinaryTarget }]) => `**/*-${prismaBinaryTarget}*`),
+            .map(([, { prismaBinaryTarget }]) => prismaBinaryTarget),
     ];
+    return PRISMA_ENGINE_FILE_PREFIXES.flatMap((prefix) =>
+        foreignTokens.map((token) => `**/${prefix}${token}*`)
+    );
 }
 
 module.exports = {
     LAMBDA_ARCHITECTURES,
     DEFAULT_LAMBDA_ARCHITECTURE,
     resolveLambdaArchitecture,
+    PRISMA_ENGINE_FILE_PREFIXES,
     prismaEngineFileNames,
     foreignPrismaEngineExcludes,
 };

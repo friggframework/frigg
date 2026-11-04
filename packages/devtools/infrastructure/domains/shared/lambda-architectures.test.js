@@ -1,3 +1,4 @@
+const micromatch = require('micromatch');
 const {
     LAMBDA_ARCHITECTURES,
     resolveLambdaArchitecture,
@@ -51,23 +52,96 @@ describe('prismaEngineFileNames()', () => {
 });
 
 describe('foreignPrismaEngineExcludes()', () => {
-    it('excludes the host platforms and the other Lambda architecture for x86_64', () => {
-        expect(foreignPrismaEngineExcludes('x86_64')).toEqual([
-            '**/*darwin*',
-            '**/*-debian-*',
-            '**/*-linux-musl*',
-            '**/*windows*',
-            '**/*-linux-arm64-openssl-3.0.x*',
-        ]);
-    });
+    const matches = (name, filePath) =>
+        micromatch([filePath], foreignPrismaEngineExcludes(name), {
+            dot: true,
+        }).length > 0;
 
-    it('excludes the host platforms and the other Lambda architecture for arm64', () => {
-        expect(foreignPrismaEngineExcludes('arm64')).toEqual([
-            '**/*darwin*',
-            '**/*-debian-*',
-            '**/*-linux-musl*',
-            '**/*windows*',
-            '**/*-rhel-openssl-3.0.x*',
-        ]);
+    const foreignEngineFiles = {
+        x86_64: [
+            'node_modules/@prisma/engines/libquery_engine-darwin-arm64.dylib.node',
+            'node_modules/@prisma/engines/schema-engine-darwin-arm64',
+            'node_modules/.prisma/client/query_engine-windows.dll.node',
+            'node_modules/@prisma/engines/query-engine-debian-openssl-3.0.x',
+            'node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node',
+            'node_modules/@prisma/engines/libquery_engine-linux-musl-openssl-3.0.x.so.node',
+            'node_modules/@prisma/engines/schema-engine-linux-arm64-openssl-3.0.x',
+            'node_modules/@prisma/engines/libquery_engine-linux-arm64-openssl-3.0.x.so.node',
+        ],
+        arm64: [
+            'node_modules/@prisma/engines/libquery_engine-darwin-arm64.dylib.node',
+            'node_modules/.prisma/client/query_engine-windows.dll.node',
+            'node_modules/@prisma/engines/libquery_engine-linux-musl-openssl-3.0.x.so.node',
+            'node_modules/@prisma/engines/schema-engine-rhel-openssl-3.0.x',
+            'node_modules/@prisma/engines/libquery_engine-rhel-openssl-3.0.x.so.node',
+        ],
+    };
+
+    const targetEngineFiles = {
+        x86_64: [
+            'node_modules/@prisma/engines/schema-engine-rhel-openssl-3.0.x',
+            'node_modules/@prisma/engines/libquery_engine-rhel-openssl-3.0.x.so.node',
+        ],
+        arm64: [
+            'node_modules/@prisma/engines/schema-engine-linux-arm64-openssl-3.0.x',
+            'node_modules/@prisma/engines/libquery_engine-linux-arm64-openssl-3.0.x.so.node',
+        ],
+    };
+
+    const nonEngineFiles = [
+        'node_modules/is-windows/index.js',
+        'node_modules/is-windows/package.json',
+        'node_modules/darwin-utils/lib/index.js',
+        'node_modules/some-pkg/lib/debian-release.js',
+        'node_modules/some-pkg/linux-musl-detect.js',
+        'node_modules/@prisma/engines/query_engine_bg.wasm',
+        'node_modules/.prisma/client/query_engine_bg.js',
+        'node_modules/some-pkg/dist/linux-arm64-notes.js',
+        'src/handlers/windows-handler.js',
+    ];
+
+    it.each(['x86_64', 'arm64'])(
+        'matches every foreign engine file for %s',
+        (name) => {
+            foreignEngineFiles[name].forEach((file) =>
+                expect({ name, file, hit: matches(name, file) }).toEqual({
+                    name,
+                    file,
+                    hit: true,
+                })
+            );
+        }
+    );
+
+    it.each(['x86_64', 'arm64'])(
+        'keeps the engine files of the %s target',
+        (name) => {
+            targetEngineFiles[name].forEach((file) =>
+                expect({ file, hit: matches(name, file) }).toEqual({
+                    file,
+                    hit: false,
+                })
+            );
+        }
+    );
+
+    it.each(['x86_64', 'arm64'])(
+        'keeps runtime files that only share a platform word with an engine for %s',
+        (name) => {
+            nonEngineFiles.forEach((file) =>
+                expect({ file, hit: matches(name, file) }).toEqual({
+                    file,
+                    hit: false,
+                })
+            );
+        }
+    );
+
+    it('never uses negation', () => {
+        ['x86_64', 'arm64'].forEach((name) =>
+            foreignPrismaEngineExcludes(name).forEach((pattern) =>
+                expect(pattern.startsWith('!')).toBe(false)
+            )
+        );
     });
 });

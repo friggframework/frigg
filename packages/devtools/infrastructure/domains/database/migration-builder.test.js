@@ -344,12 +344,12 @@ describe('MigrationBuilder', () => {
                 for (const fn of workerAndRouter(result)) {
                     expect(fn.package.exclude).toEqual(
                         expect.arrayContaining([
-                            '**/*-debian-*',
-                            '**/*-linux-musl*',
-                            `**/*-${otherTarget}*`,
+                            '**/libquery_engine-debian*',
+                            '**/libquery_engine-linux-musl*',
+                            `**/libquery_engine-${otherTarget}*`,
                         ])
                     );
-                    expect(fn.package.exclude).not.toContain(`**/*-${target}*`);
+                    expect(fn.package.exclude).not.toContain(`**/libquery_engine-${target}*`);
                 }
             }
         );
