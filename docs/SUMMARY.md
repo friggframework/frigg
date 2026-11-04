@@ -1,6 +1,7 @@
 # Table of contents
 
 * [🥳 Welcome to Frigg!](README.md)
+* [What's New in Frigg 2.0](getting-started/whats-new-in-2.0.md)
 
 ## 👩‍💻 Tutorials (Learning) <a href="#tutorials" id="tutorials"></a>
 
@@ -18,6 +19,7 @@
 ## ✅ How-To Guides (Goals) <a href="#guides" id="guides"></a>
 
 * [Cooking with Frigg](guides/cooking-with-frigg.md)
+* [Migrating from 1.x to 2.0](guides/migrating-to-2.0.md)
 * [Logging](guides/LOGGING.md)
   * [Logging in an Integration](guides/LOGGING-IN-INTEGRATIONS.md)
 
