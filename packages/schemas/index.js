@@ -16,6 +16,7 @@ const {
     applyAppDefinitionDefaults,
     toAppDefinitionSchemaView,
 } = require('./app-definition');
+const schemaIds = require('./schema-ids');
 
 // Initialize AJV with formats
 const ajv = new Ajv({ 
@@ -49,7 +50,16 @@ schemaFiles.forEach(file => {
     const schemaName = file.replace('.schema.json', '');
     
     schemas[schemaName] = schemaContent;
-    ajv.addSchema(schemaContent, schemaName);
+    schemaIds.addSchemaWithAliases(ajv, schemaContent, schemaName);
+});
+
+// Schema name for each `$id` and legacy id, so getSchema() also accepts a URL.
+const schemaNamesById = {};
+Object.entries(schemas).forEach(([schemaName, schema]) => {
+    schemaNamesById[schema.$id] = schemaName;
+    (schemaIds.LEGACY_SCHEMA_IDS[schemaName] || []).forEach(legacyId => {
+        schemaNamesById[legacyId] = schemaName;
+    });
 });
 
 /**
@@ -332,15 +342,16 @@ function getSchemas() {
 }
 
 /**
- * Get a specific schema by name
- * @param {string} schemaName - Name of the schema to retrieve
+ * Get a specific schema by name or `$id`
+ * @param {string} schemaName - Schema name (`app-definition`), its `$id`, or a legacy unversioned id
  * @returns {object} - Schema object
  */
 function getSchema(schemaName) {
-    if (!schemas[schemaName]) {
+    const name = schemas[schemaName] ? schemaName : schemaNamesById[schemaName];
+    if (!name) {
         throw new Error(`Schema '${schemaName}' not found. Available schemas: ${Object.keys(schemas).join(', ')}`);
     }
-    return schemas[schemaName];
+    return schemas[name];
 }
 
 /**
@@ -400,6 +411,11 @@ module.exports = {
     formatErrors,
     schemas,
     ajv,
+
+    // Schema identifiers (https://friggframework.org/schemas/<name>/v<x.y>.json)
+    SCHEMA_ID_PATTERN: schemaIds.SCHEMA_ID_PATTERN,
+    LEGACY_SCHEMA_IDS: schemaIds.LEGACY_SCHEMA_IDS,
+    parseSchemaId: schemaIds.parseSchemaId,
 
     // Middleware exports
     middleware: schemaValidationMiddleware,

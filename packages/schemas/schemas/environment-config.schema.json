@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.friggframework.org/environment-config.schema.json",
+  "$id": "https://friggframework.org/schemas/environment-config/v1.0.json",
   "title": "Frigg Environment Configuration",
   "description": "Schema for environment variable configuration and validation in Frigg applications.",
   "type": "object",

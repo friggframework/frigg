@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.friggframework.org/integration-definition.schema.json",
+  "$id": "https://friggframework.org/schemas/integration-definition/v1.0.json",
   "title": "Frigg Integration Definition",
   "description": "Schema for defining a Frigg integration including configuration, options, and display properties.",
   "type": "object",
