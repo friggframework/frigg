@@ -278,6 +278,7 @@ const MATRIX = {
         },
         lambda: { scopedEnvironment: true, keepNestedNodeModules: false },
         usePrismaLambdaLayer: true,
+        architecture: 'x86_64',
     }),
     'frigg init scaffold (external db, no vpc)': () => ({
         ...base(),
@@ -294,6 +295,7 @@ const MATRIX = {
         database: { postgres: { enable: true, management: 'external' } },
         logging: { retentionInDays: 14 },
         ssm: { enable: false },
+        architecture: 'arm64',
     }),
     'external db, encryption none': () => ({
         ...base(),
