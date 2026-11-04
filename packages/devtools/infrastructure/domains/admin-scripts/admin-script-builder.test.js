@@ -963,6 +963,49 @@ describe('AdminScriptBuilder', () => {
         });
     });
 
+    describe('Lambda architecture with usePrismaLambdaLayer=false', () => {
+        const functionsOf = async (usePrismaLambdaLayer, architecture) => {
+            const result = await adminScriptBuilder.build(
+                {
+                    adminScripts: [{ Definition: { name: 'cleanup' } }],
+                    usePrismaLambdaLayer,
+                    ...(architecture && { architecture }),
+                },
+                {}
+            );
+            return Object.values(result.functions);
+        };
+        const layerOff = (architecture) => functionsOf(false, architecture);
+        const layerOn = (architecture) => functionsOf(true, architecture);
+
+        it.each([
+            [undefined, 'rhel-openssl-3.0.x', 'linux-arm64-openssl-3.0.x'],
+            ['x86_64', 'rhel-openssl-3.0.x', 'linux-arm64-openssl-3.0.x'],
+            ['arm64', 'linux-arm64-openssl-3.0.x', 'rhel-openssl-3.0.x'],
+        ])(
+            'with the layer off and architecture %s, the bundled Prisma keeps only the %s engine',
+            async (architecture, target, otherTarget) => {
+                for (const fn of await layerOff(architecture)) {
+                    expect(fn.package.exclude).toEqual(
+                        expect.arrayContaining(['**/*-debian-*', `**/*-${otherTarget}*`])
+                    );
+                    expect(fn.package.exclude).not.toContain(`**/*-${target}*`);
+                }
+            }
+        );
+
+        it('with the layer on, adds no engine patterns, since the layer carries the engines', async () => {
+            for (const fn of await layerOn('arm64')) {
+                expect(fn.package.exclude).not.toEqual(
+                    expect.arrayContaining(['**/*-rhel-openssl-3.0.x*'])
+                );
+                expect(fn.package.exclude).not.toEqual(
+                    expect.arrayContaining(['**/*-debian-*'])
+                );
+            }
+        });
+    });
+
     describe('getName()', () => {
         it('should return AdminScriptBuilder', () => {
             expect(adminScriptBuilder.getName()).toBe('AdminScriptBuilder');

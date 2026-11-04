@@ -10,7 +10,10 @@
 const { buildEnvironment } = require('../environment-builder');
 const { nestedNodeModulesExcludes } = require('./nested-node-modules');
 const { buildLoggingProviderConfig } = require('./logging-config');
-const { resolveLambdaArchitecture } = require('../lambda-architectures');
+const {
+    resolveLambdaArchitecture,
+    foreignPrismaEngineExcludes,
+} = require('../lambda-architectures');
 
 /**
  * Create base serverless definition with core functions and resources
@@ -37,6 +40,10 @@ function createBaseDefinition(
     const region = process.env.AWS_REGION || 'us-east-1';
     const loggingConfig = buildLoggingProviderConfig(AppDefinition.logging);
     const architecture = resolveLambdaArchitecture(AppDefinition);
+    // Bundled Prisma carries every generated engine; keep the target's only
+    const bundledEngineExcludes = usePrismaLayer
+        ? []
+        : foreignPrismaEngineExcludes(architecture.name);
 
     // Package config for handlers that skip esbuild (need node_modules dependencies)
     // Include backend src/ and index.js since handlers load the app definition
@@ -56,6 +63,7 @@ function createBaseDefinition(
                 'node_modules/prisma/**',
                 'node_modules/@friggframework/core/generated/**',
             ] : []),
+            ...bundledEngineExcludes,
 
             // Exclude AWS SDK (provided by Lambda runtime)
             'node_modules/aws-sdk/**',
@@ -129,6 +137,7 @@ function createBaseDefinition(
                 'node_modules/prisma/**',
                 'node_modules/@friggframework/core/generated/**',
             ] : []),
+            ...bundledEngineExcludes,
 
             // Exclude nested node_modules from symlinked frigg packages (for npm link development)
             'node_modules/@friggframework/core/node_modules/**',

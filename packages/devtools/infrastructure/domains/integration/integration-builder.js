@@ -33,6 +33,10 @@ const {
     nestedNodeModulesExcludes,
 } = require('../shared/utilities/nested-node-modules');
 const {
+    resolveLambdaArchitecture,
+    foreignPrismaEngineExcludes,
+} = require('../shared/lambda-architectures');
+const {
     INTEGRATION_QUEUE_MAX_RECEIVE_COUNT,
     QUEUE_MAX_RECEIVE_COUNT_ENV,
 } = require('@friggframework/core/queues/queue-delivery');
@@ -267,7 +271,9 @@ class IntegrationBuilder extends InfrastructureBuilder {
                           'node_modules/prisma/**',
                           'node_modules/@friggframework/core/generated/**',
                       ]
-                    : []),
+                    : foreignPrismaEngineExcludes(
+                          resolveLambdaArchitecture(appDefinition).name
+                      )),
 
                 ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
 
