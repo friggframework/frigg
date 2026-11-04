@@ -323,6 +323,39 @@ describe('Base Definition Factory', () => {
 });
 
 
+describe('Lambda architecture (architecture)', () => {
+    const build = (appDefinition) => createBaseDefinition(appDefinition, {}, {}, true);
+
+    it('adds no architecture fields when the key is unset, so existing templates do not change', () => {
+        const result = build({ name: 'test-app' });
+
+        expect(result.provider.architecture).toBeUndefined();
+        expect(result.layers.prisma.compatibleArchitectures).toBeUndefined();
+    });
+
+    it.each(['x86_64', 'arm64'])(
+        'sets provider.architecture and the layer compatibleArchitectures to %s when set',
+        (architecture) => {
+            const result = build({ name: 'test-app', architecture });
+
+            expect(result.provider.architecture).toBe(architecture);
+            expect(result.layers.prisma.compatibleArchitectures).toEqual([architecture]);
+        }
+    );
+
+    it('describes the layer without naming an engine, since the engine follows the architecture', () => {
+        const result = build({ name: 'test-app' });
+
+        expect(result.layers.prisma.description).not.toContain('rhel');
+    });
+
+    it('rejects an architecture the registry does not know', () => {
+        expect(() => build({ name: 'test-app', architecture: 'aarch64' })).toThrow(
+            /aarch64/
+        );
+    });
+});
+
 describe('nested node_modules (lambda.keepNestedNodeModules)', () => {
     const build = (appDefinition) => createBaseDefinition(appDefinition, {}, {}, true);
 

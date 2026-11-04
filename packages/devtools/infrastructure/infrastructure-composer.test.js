@@ -1474,6 +1474,41 @@ describe('composeServerlessDefinition', () => {
     });
 });
 
+describe('Lambda architecture (architecture)', () => {
+    const appDefinition = (architecture) => ({
+        name: 'arch-app',
+        integrations: [{ Definition: { name: 'crm' } }],
+        ...(architecture && { architecture }),
+    });
+
+    beforeEach(() => {
+        process.argv = ['node', 'test'];
+        gatherDiscoveredResources.mockResolvedValue(createDiscoveryResponse());
+    });
+
+    it('an explicit x86_64 only adds provider.architecture and the layer compatibleArchitectures to the unset template', async () => {
+        const unset = await composeServerlessDefinition(appDefinition());
+        const explicit = await composeServerlessDefinition(appDefinition('x86_64'));
+
+        expect(explicit.provider.architecture).toBe('x86_64');
+        expect(explicit.layers.prisma.compatibleArchitectures).toEqual(['x86_64']);
+
+        delete explicit.provider.architecture;
+        delete explicit.layers.prisma.compatibleArchitectures;
+        expect(explicit).toEqual(unset);
+    });
+
+    it('arm64 sets provider.architecture, which osls applies to every function, and the layer compatibleArchitectures', async () => {
+        const result = await composeServerlessDefinition(appDefinition('arm64'));
+
+        expect(result.provider.architecture).toBe('arm64');
+        expect(result.layers.prisma.compatibleArchitectures).toEqual(['arm64']);
+        for (const fn of Object.values(result.functions)) {
+            expect(fn.architecture).toBeUndefined();
+        }
+    });
+});
+
 describe('applySsmPreloadNodeOptions', () => {
     const appDefinition = {
         ssm: { enable: true },
