@@ -5,6 +5,9 @@ const {
 const {
     CredentialRepositoryDocumentDB,
 } = require('./credential-repository-documentdb');
+const {
+    CredentialRepositorySqlite,
+} = require('./credential-repository-sqlite');
 const config = require('../../database/config');
 
 /**
@@ -13,7 +16,7 @@ const config = require('../../database/config');
  *
  * Database-specific implementations:
  * - MongoDB: Uses String IDs (ObjectId), no conversion needed
- * - PostgreSQL: Uses Int IDs, converts String ↔ Int
+ * - PostgreSQL/SQLite: Uses Int IDs, converts String ↔ Int
  *
  * All repository methods return String IDs regardless of database type,
  * ensuring application layer consistency.
@@ -38,9 +41,12 @@ function createCredentialRepository() {
         case 'documentdb':
             return new CredentialRepositoryDocumentDB();
 
+        case 'sqlite':
+            return new CredentialRepositorySqlite();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql', 'sqlite'`
             );
     }
 }
@@ -51,4 +57,5 @@ module.exports = {
     CredentialRepositoryMongo,
     CredentialRepositoryPostgres,
     CredentialRepositoryDocumentDB,
+    CredentialRepositorySqlite,
 };

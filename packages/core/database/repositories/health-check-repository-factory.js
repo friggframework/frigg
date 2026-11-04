@@ -1,6 +1,7 @@
 const { HealthCheckRepositoryMongoDB } = require('./health-check-repository-mongodb');
 const { HealthCheckRepositoryPostgreSQL } = require('./health-check-repository-postgres');
 const { HealthCheckRepositoryDocumentDB } = require('./health-check-repository-documentdb');
+const { HealthCheckRepositorySqlite } = require('./health-check-repository-sqlite');
 const config = require('../config');
 
 /**
@@ -33,9 +34,12 @@ function createHealthCheckRepository({ prismaClient } = {}) {
         case 'documentdb':
             return new HealthCheckRepositoryDocumentDB({ prismaClient });
 
+        case 'sqlite':
+            return new HealthCheckRepositorySqlite({ prismaClient });
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql', 'sqlite'`
             );
     }
 }
@@ -45,4 +49,5 @@ module.exports = {
     HealthCheckRepositoryMongoDB,
     HealthCheckRepositoryPostgreSQL,
     HealthCheckRepositoryDocumentDB,
+    HealthCheckRepositorySqlite,
 };
