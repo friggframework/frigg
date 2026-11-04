@@ -1,5 +1,6 @@
 declare module "@friggframework/module-plugin" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
+  import type { RateLimitHint } from "@friggframework/errors";
 
   export interface Credential {
     id?: string;
@@ -22,8 +23,50 @@ declare module "@friggframework/module-plugin" {
   export type MappedEntity = Entity & { id: string; type: any };
 
 
+  export type RateLimitScope =
+    | "credential"
+    | "entity"
+    | "app"
+    | ((requester: Requester) => string | number | null | undefined);
+
+  export type RateLimitSignal = {
+    status?: number;
+    headers?: { get(name: string): string | null } | object;
+    body?: unknown;
+  };
+
+  export type RateLimitWindow = {
+    name: string;
+    limit?: number;
+    perMs?: number;
+    rollingMs?: number;
+    resets?: { at: string; tz: string };
+  };
+
+  export type RateLimitPolicy = {
+    scope?: RateLimitScope;
+    windows?: RateLimitWindow[];
+    maxConcurrency?: number;
+    minRetryAfterMs?: number;
+    maxInProcessWaitMs?: number;
+    parsers?: Array<"retryAfter" | "resetHeaders" | "ietf">;
+    classify?(
+      signal: RateLimitSignal
+    ): Partial<Omit<RateLimitHint, "source">> & {
+      source?: "header" | "body" | "static";
+    } | null | undefined;
+    userHints?: Record<
+      string,
+      { links?: Array<{ label: string; url: string }> }
+    >;
+  };
+
   export class Requester implements IFriggRequester {
+    static rateLimit?: RateLimitPolicy;
+    static requestTimeoutMs?: number;
+
     DLGT_INVALID_AUTH: string;
+    requestTimeoutMs: number;
     backOff: number[];
     fetch: any;
     isRefreshable: boolean;
@@ -87,6 +130,7 @@ declare module "@friggframework/module-plugin" {
   type RequesterConstructor = {
     backOff?: number[];
     fetch?: any;
+    random?: () => number;
   };
 
   export class ApiKeyRequester

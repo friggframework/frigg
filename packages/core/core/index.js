@@ -3,6 +3,10 @@ const { Worker } = require('./Worker');
 const { loadInstalledModules } = require('./load-installed-modules');
 const { createHandler } = require('./create-handler');
 const { runInvocationScope } = require('./invocation-scope');
+const {
+    runWithInvocationDeadline,
+    remainingInvocationMs,
+} = require('./invocation-deadline');
 
 module.exports = {
     Delegate,
@@ -10,4 +14,6 @@ module.exports = {
     loadInstalledModules,
     createHandler,
     runInvocationScope,
+    runWithInvocationDeadline,
+    remainingInvocationMs,
 };

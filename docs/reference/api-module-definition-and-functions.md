@@ -219,6 +219,202 @@ encryption: { credentialFields: ['signing_key', 'webhook_secret'] },
 apiPropertiesToPersist: { credential: ['signing_key', 'webhook_secret'] }
 ```
 
+## Rate Limits (`static rateLimit`)
+
+An API module can tell the Requester how its provider limits calls, and how to
+read a throttled response. Declare a static `rateLimit` on the API class. Every
+key is optional. A module that declares nothing keeps the fixed backoff ladder
+for a 429 (1, 3, 10, 30, 60 and 180 s), and reads `Retry-After` when a 429 has
+one. The JSON schema still has an older `config.rateLimit: { requests, period }`
+that the runtime does not read: only `static rateLimit` on the API class counts.
+
+| Key | Meaning |
+|---|---|
+| `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a function `(requester) => key`. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope. |
+| `minRetryAfterMs` | A wait never shorter than this. Use it when the docs say "wait 60 seconds" and the response says nothing. |
+| `maxInProcessWaitMs` | The most one request sleeps in process, in total. Default `300000` (5 minutes). `0` means never sleep: every hinted wait throws `RateLimitError`. |
+| `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
+| `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
+| `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
+| `userHints` | Links per `reason` that a UI can show, for example `{ daily: { links: [{ label, url }] } }`. |
+
+### Built-in parsers
+
+| Parser | Reads |
+|---|---|
+| `retryAfter` | `Retry-After`: delta seconds, an HTTP-date or an ISO timestamp |
+| `resetHeaders` | `X-RateLimit-Reset-After` (delta seconds), else `X-RateLimit-Reset`, `RateLimit-Reset` or `X-Rate-Limit-Reset`: epoch milliseconds, epoch seconds or delta seconds (told apart by size), or a date. `remaining` comes from `X-RateLimit-Remaining`, `RateLimit-Remaining` or `X-Rate-Limit-Remaining` |
+| `ietf` | The IETF `RateLimit` field, as `limit=, remaining=, reset=` or as structured items (`"name";r=0;t=12`). In a list, the item with the fewest remaining calls wins, then the longest wait. `RateLimit-Policy` names the policy |
+
+A parser reads the headers from a `Headers` object, a `Map`, an entries array or
+a plain object, and matches the names in any case. A time in the past waits
+0 ms. A wait that is negative, not a number or longer than 366 days is ignored.
+The package exports the parsers as `parseRetryAfter(value, { now })`,
+`parseResetHeaders(headers, { now })` and `parseIetfRateLimit(headers, { now })`.
+Each returns a hint or `null`.
+
+### What `classify` returns
+
+`classify({ status, headers, body })` runs for a 429, and for any other 4xx or
+5xx except 401. `body` is the response text parsed as JSON, whatever the media
+type, or `undefined` when the text is not JSON (an HTML error page, for
+example). It returns `null` when the response is not a limit, or a hint:
+
+| Field | Meaning |
+|---|---|
+| `reason` | `'burst'`, `'daily'`, `'monthly'`, `'concurrency'` or `'unknown'` |
+| `waitMs` or `retryAt` | When to call again. Leave both out to take the time from the parsers, then from the policy. Step 2 of [How the Requester waits](#how-the-requester-waits) says what happens when neither gives one. |
+| `policy` | The provider's own name for the limit, for logs and the UI |
+| `remaining` | Calls left in the window, when the response says |
+| `source` | `'header'`, `'body'` (default) or `'static'` |
+
+A status other than 429 is a limit only when `classify` returns a hint for it.
+A result counts only when it has a known `reason`, a finite `waitMs` or a valid
+`retryAt`; anything else, `{}` for example, counts as `null`. `classify` must
+be synchronous. A `classify` that throws or returns a Promise is logged
+(`rate_limit_classify_failed`) and counts as `null`.
+
+```javascript
+class Api extends OAuth2Requester {
+    static rateLimit = {
+        scope: 'entity',
+        windows: [{ name: 'burst', limit: 100, perMs: 10_000 }],
+        parsers: ['retryAfter', 'resetHeaders'],
+        classify({ status, body }) {
+            if (status !== 429) return null;
+            if (body?.policyName === 'DAILY') return { reason: 'daily', waitMs: 3_600_000 };
+            return { reason: 'burst', policy: body?.policyName };
+        },
+        userHints: {
+            daily: { links: [{ label: 'API usage limits', url: 'https://example.com/limits' }] },
+        },
+    };
+}
+```
+
+```javascript
+class Api extends ApiKeyRequester {
+    static rateLimit = { minRetryAfterMs: 60_000 };
+}
+```
+
+### How the Requester waits
+
+1. It looks for a hint in this order: `classify()`, the parsers, the policy
+   (the larger of `minRetryAfterMs` and the `perMs` of the window named by the
+   reason).
+2. With no hint, a 429 keeps the fixed ladder: the same calls, the same delays,
+   then a plain `FetchError`, as before. A response that `classify` recognises
+   but that gets no time follows the same ladder. When its status is not 429,
+   the last error is a `FetchError` flagged `isRateLimited`, with the `reason`,
+   so the queue worker does not halt it. A 429 needs no flag: the queue worker
+   never halts a 429. A 5xx that `classify` does not recognise keeps the 5xx
+   ladder.
+3. With a hint, the wait is the largest of the hint, `minRetryAfterMs` and 1 s,
+   plus at most 10 % jitter. The Requester sleeps when the wait fits the time
+   this request may still sleep: `maxInProcessWaitMs` in total, and the time left
+   in the Lambda invocation less one request timeout. That reserve is never more
+   than half the time left, so a 29 s HTTP invocation with the default 60 s
+   request timeout can still sleep 14.5 s.
+4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
+   `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
+   `policy`, `source`, `module` and `scopeKey`.
+
+A Requester built with `backOff: []` never sleeps: a hinted wait throws
+`RateLimitError` at once, and a 429 with no hint throws a plain `FetchError`.
+
+The parsers, `Retry-After` among them, read the headers of a 429 and of a
+response that `classify` recognises, and of no other response: a 503 with
+`Retry-After` keeps the 5xx ladder unless `classify` recognises it. The queue
+worker does not halt a `RateLimitError`, even when its status is 403: the
+message goes back to SQS.
+
+### A client that is not the Requester
+
+A module that drives another client (for example jsforce) calls
+`classifyRateLimit` around its own calls and throws the error itself:
+
+```javascript
+const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
+
+async withLimits(call) {
+    try {
+        return await call();
+    } catch (err) {
+        const hint = classifyRateLimit(Api.rateLimit, {
+            status: err.statusCode,
+            headers: {},
+            body: { errorCode: err.errorCode },
+        });
+        if (!hint) throw err;
+        throw new RateLimitError({ hint, module: this.delegate?.name, cause: err });
+    }
+}
+```
+
+`classifyRateLimit(policy, { status, headers, body }, { now, onClassifyError })`
+resolves in the order the Requester uses and returns a hint or `null`. A hint is
+`{ retryAt, waitMs, reason, source, policy, remaining }`: `retryAt` is a `Date`,
+`waitMs` counts from the call, and `policy` and `remaining` are there only when
+known. An error that `classify` throws propagates unless you pass
+`onClassifyError`.
+
+`new RateLimitError({ hint, waitMs, module, scopeKey, ...fetchErrorArgs })`
+takes the `FetchError` arguments (`resource`, `init`, `response`, `cause`,
+`responseBody`). It sets `retryAt` to now plus `waitMs`, or to `hint.retryAt`
+when `waitMs` is left out.
+
+### A limit in a 2xx body
+
+The Requester calls `classify` only for a 4xx or 5xx: a generic retry of a
+"throttled 200" could send a POST twice. A provider that answers 200 with a
+limit error (a GraphQL `THROTTLED` error, for example) needs the module to
+wrap its own call, classify the body and throw:
+
+```javascript
+const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
+
+class Api extends OAuth2Requester {
+    static rateLimit = {
+        classify({ body }) {
+            const throttled = body?.errors?.some(
+                (error) => error.extensions?.code === 'THROTTLED'
+            );
+            return throttled ? { reason: 'burst', waitMs: 2_000 } : null;
+        },
+    };
+
+    async query(document, variables) {
+        const url = `${this.baseUrl}/graphql`;
+        const response = await this._post({
+            url,
+            body: { query: document, variables },
+            returnFullRes: true,
+        });
+        const body = await response.json();
+        if (!body.errors?.length) return body.data;
+
+        const cause = new Error(body.errors[0].message);
+        const hint = classifyRateLimit(Api.rateLimit, {
+            status: response.status,
+            headers: response.headers,
+            body,
+        });
+        if (!hint) throw cause;
+        throw new RateLimitError({ hint, module: this.delegate?.name, cause, resource: url });
+    }
+}
+```
+
+### The invocation deadline
+
+`runInvocationScope` stores the end of every Lambda invocation, from
+`context.getRemainingTimeInMillis()`. `remainingInvocationMs()` returns the
+milliseconds left, or `Infinity` outside an invocation (tests, `frigg start`,
+scripts). `runWithInvocationDeadline(deadlineAt, fn)` runs `fn` with a deadline
+in epoch milliseconds. A nested call can only make the deadline earlier, and a
+deadline that is not a finite number sets none.
+
 ## Complete OAuth2 Example
 
 ```javascript
