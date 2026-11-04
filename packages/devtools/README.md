@@ -23,6 +23,7 @@ The Frigg CLI is a command-line interface tool that helps developers manage and 
 - Automatically update project files
 - Handle environment variables
 - Validate package existence and backend paths
+- Validate an API module Definition with `frigg validate --module` (or `frigg validate module`)
 - Run your Frigg instance locally
 - Deploy your Frigg application to your configured provider
 
