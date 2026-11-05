@@ -31,16 +31,21 @@ function resolveEnginesDir(cwd) {
 
 /**
  * Runs the @prisma/engines postinstall for one target. It downloads only
- * the engines that are missing, so the host's own engines stay.
+ * the engines that are missing, so the host's own engines stay. The host's
+ * pinned engine paths are hidden from it: with them set, the postinstall
+ * skips those engines instead of downloading them.
  */
 function runEnginesPostinstall({ enginesDir, prismaBinaryTarget }) {
+    const hostEnv = { ...process.env };
+    delete hostEnv.PRISMA_SCHEMA_ENGINE_BINARY;
+    delete hostEnv.PRISMA_QUERY_ENGINE_LIBRARY;
     execFileSync(
         process.execPath,
         [path.join(enginesDir, 'scripts', 'postinstall.js')],
         {
             cwd: enginesDir,
             stdio: 'inherit',
-            env: { ...process.env, PRISMA_CLI_BINARY_TARGETS: prismaBinaryTarget },
+            env: { ...hostEnv, PRISMA_CLI_BINARY_TARGETS: prismaBinaryTarget },
         }
     );
 }

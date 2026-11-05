@@ -103,4 +103,40 @@ describe('ensureMigrationEngines()', () => {
             expect(fetchEngines).not.toHaveBeenCalled();
         });
     });
+
+    describe('running the @prisma/engines postinstall', () => {
+        const pinnedEngineVars = ['PRISMA_SCHEMA_ENGINE_BINARY', 'PRISMA_QUERY_ENGINE_LIBRARY'];
+        let appDir;
+        let seenEnvPath;
+
+        beforeEach(() => {
+            appDir = fs.mkdtempSync(path.join(os.tmpdir(), 'frigg-app-'));
+            const engines = path.join(appDir, 'node_modules', '@prisma', 'engines');
+            fs.mkdirSync(path.join(engines, 'scripts'), { recursive: true });
+            seenEnvPath = path.join(appDir, 'seen-env.json');
+            fs.writeFileSync(
+                path.join(engines, 'scripts', 'postinstall.js'),
+                `const fs = require('fs');
+fs.writeFileSync(${JSON.stringify(seenEnvPath)}, JSON.stringify(process.env));
+for (const name of ${JSON.stringify([schemaEngine, queryEngineLibrary])}) fs.writeFileSync(name, '');`
+            );
+        });
+
+        afterEach(() => {
+            fs.rmSync(appDir, { recursive: true, force: true });
+            pinnedEngineVars.forEach((name) => delete process.env[name]);
+        });
+
+        it("hides the host's pinned engine paths, so the postinstall does not skip the download", async () => {
+            pinnedEngineVars.forEach((name) => {
+                process.env[name] = `/host/${name}`;
+            });
+
+            await ensureMigrationEngines({ prismaBinaryTarget: target, cwd: appDir });
+
+            const seenEnv = JSON.parse(fs.readFileSync(seenEnvPath, 'utf-8'));
+            expect(seenEnv.PRISMA_CLI_BINARY_TARGETS).toBe(target);
+            pinnedEngineVars.forEach((name) => expect(seenEnv).not.toHaveProperty(name));
+        });
+    });
 });
