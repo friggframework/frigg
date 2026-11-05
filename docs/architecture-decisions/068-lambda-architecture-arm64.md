@@ -54,8 +54,9 @@ architecture to its Prisma binary target:
 | `x86_64` | `rhel-openssl-3.0.x` |
 | `arm64` | `linux-arm64-openssl-3.0.x` |
 
-The engine file names, the package excludes and the migration worker's engine paths all derive
-from this table. `resolveLambdaArchitecture(appDefinition)` returns the name, the target and
+Every target string in devtools comes from this table: the engine file names, the package
+excludes and the migration worker's engine paths. (A few host-platform globs, such as the
+`darwin` excludes in the migration builder, predate this ADR and stay where they are.) `resolveLambdaArchitecture(appDefinition)` returns the name, the target and
 whether the key was set. An unknown value fails packaging and names the value. Adding a target
 later means adding one row.
 
@@ -64,9 +65,11 @@ later means adding one row.
 The schema declares `architecture` as an enum (`x86_64`, `arm64`) with no `default`. Devtools
 sets `provider.architecture` and the layer's `compatibleArchitectures` only when the key is set.
 With the key unset, the template gains no `Architectures` value, so an upgrade changes no
-existing stack's architecture. This follows [ADR-051](./051-app-definition-validation.md): a
-schema default must not change behaviour. When the key is unset, devtools resolves `x86_64`
-internally to choose the engine.
+existing stack's architecture. This follows [ADR-051](./051-app-definition-validation.md) §2: a
+schema default must equal what the code does when the key is absent. A `default: x86_64` would
+make every app's key explicit and add `Architectures` to every template, which breaks ADR-051's
+contract test that applying the schema defaults changes nothing in the composed infrastructure.
+When the key is unset, devtools resolves `x86_64` internally to choose the engine.
 
 ### 3. Core generates both Lambda targets
 
@@ -80,8 +83,9 @@ package time.
 - `buildPrismaLayer({ prismaBinaryTarget })` removes the engines of every other target.
 - After the build, it checks that each client in the layer holds the target engine. If an engine
   is missing, packaging fails and the error names the core version that lacks it.
-- The layer cache marker is JSON with the target, the client set, and the core, Prisma and Node
-  versions. A layer is reused only when all of these match. A marker in the old plain-text form
+- The layer cache marker is JSON. A layer is reused only when the target, the client set, and
+  the core and `@prisma/client` versions all match. The marker also records the Node version
+  and the host platform, for diagnosis only. A marker in the old plain-text form
   never matches, so the first deploy after the upgrade rebuilds the layer once.
 
 ### 5. The migration worker's engines are fetched at package time and pinned
@@ -94,8 +98,9 @@ package time.
   to those two files. With both pinned, the CLI never downloads at runtime. If a file is missing,
   the CLI fails at once and names the path.
 - This applies to `x86_64` too, so an x86_64 worker also gets the two env vars. Before this
-  change, an x86_64 worker worked only when the deploy host's Prisma cache happened to hold the
-  `rhel` engines.
+  change, an x86_64 worker worked only when the app's `node_modules/@prisma/engines` already
+  held the `rhel` pair: on a rhel-like deploy host, or after an `npm install` run with
+  `PRISMA_CLI_BINARY_TARGETS=rhel-openssl-3.0.x`.
 
 ### 6. A function that bundles Prisma keeps only the target's engines
 
@@ -128,8 +133,11 @@ package time.
 - When the migration engines are missing, packaging downloads them from Prisma's CDN
   (`binaries.prisma.sh`). A deploy host with no internet access must set
   `PRISMA_ENGINES_MIRROR`.
-- The app's root `@prisma/engines` version must match the Prisma version of core. Otherwise the
-  fetched engines do not match the CLI that runs them.
+- The worker runs the app's own `prisma` CLI, and the engines are fetched for the app's own
+  `@prisma/engines`, so the CLI and its engines always agree. The app's `prisma` must still be
+  able to run core's schema and migrations; that requirement predates this ADR. The query
+  engine pin also applies to any Prisma Client created inside the worker. The worker creates
+  none today; one created there later would load the app's engine, not core's generated one.
 - Frigg checks only Prisma. Other native dependencies in an app (for example image or crypto
   libraries) must also ship an arm64 build. The app owns that check.
 - Layer-off function zips still carry the schema engine and the second client's engine, which
@@ -141,8 +149,12 @@ package time.
 - The first deploy after the upgrade rebuilds the Prisma layer once, because the marker format
   changed.
 - Two deploys on one host can still race on the layer rebuild. This was true before this ADR.
-- On the default x86_64 setup, the template changes in two ways: the layer description no longer
-  names an engine, and the migration worker gains the two engine path env vars.
+- On the default x86_64 setup, the template changes in three ways:
+  - the layer description no longer names an engine;
+  - the migration worker gains the two engine path env vars;
+  - the `package.exclude` of the migration worker and router gains the foreign-engine patterns,
+    and so does every function's when the layer is off. These patterns are why layer-off zips
+    do not grow.
 
 ## Alternatives Considered
 
@@ -158,11 +170,20 @@ package time.
 - **Let the migration worker download its engines at cold start.** Rejected. `/var/task` is
   read-only, a cold-start download adds latency and a network dependency to every migration, and
   a missing engine would surface in a deployed stack instead of at package time.
+- **Fetch the target's query engine at layer-build time instead of generating it into core.**
+  This would avoid the 30 MB in core, and the migration worker already accepts a CDN fetch.
+  Rejected, because the layer build today uses only files that core's own `prisma generate`
+  built and that ship with core, so it needs no network and the engine always matches the
+  generated client. A fetch would need the engine hash of core's exact Prisma version and a
+  second CDN dependency on every layer build. The 30 MB lands on the deploy host's disk; no
+  Lambda carries it, because the layer and the bundles keep only the target engine.
 - **Publish one core package per architecture.** Rejected. It doubles the publish and install
   matrix to save package size that only the deploy host pays.
 - **Prisma's driver adapters with the WASM query engine.** Not adopted. That path removes the
-  native query engine, but it changes the runtime of every query, and in Prisma 6 it sits behind
-  preview flags. It does not help the migration CLI, which still needs the native schema engine.
+  native query engine (`engineType = "client"`, generally available since Prisma 6.16). It
+  changes the runtime path of every query in every app, which is a larger change than an
+  architecture switch should carry. It also does not help the migration CLI, which still needs
+  the native schema engine.
 
 ## Related
 
