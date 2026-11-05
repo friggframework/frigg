@@ -1,6 +1,20 @@
 const { resolveTelemetryConfig } = require('./telemetry-config');
 
 describe('resolveTelemetryConfig — exporter default by stage', () => {
+    const originalEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+    beforeEach(() => {
+        delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    });
+
+    afterEach(() => {
+        if (originalEndpoint === undefined) {
+            delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+        } else {
+            process.env.OTEL_EXPORTER_OTLP_ENDPOINT = originalEndpoint;
+        }
+    });
+
     it('defaults to no-op in production-like stages when telemetry is absent', () => {
         const cfg = resolveTelemetryConfig({}, { stage: 'production' });
         expect(cfg.exporter).toEqual({ type: 'none' });
