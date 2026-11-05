@@ -49,7 +49,8 @@ function parseLayerMarker(markerText) {
             coreVersion: marker.coreVersion,
             prismaClientVersion: marker.prismaClientVersion,
         };
-    } catch (error) {
+    } catch {
+        // A marker written before the JSON format is plain text: treat it as a legacy build
         return {
             prismaBinaryTarget: LEGACY_MARKER_TARGET,
             clientPackages: null,
