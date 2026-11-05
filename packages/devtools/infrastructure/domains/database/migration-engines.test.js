@@ -55,4 +55,52 @@ describe('ensureMigrationEngines()', () => {
             ensureMigrationEngines({ prismaBinaryTarget: target, enginesDir, fetchEngines })
         ).rejects.toThrow(missing);
     });
+
+    describe('resolving the engines directory from cwd', () => {
+        let root;
+
+        const installEngines = (dir) => {
+            const engines = path.join(dir, 'node_modules', '@prisma', 'engines');
+            fs.mkdirSync(path.join(engines, 'scripts'), { recursive: true });
+            fs.writeFileSync(path.join(engines, 'scripts', 'postinstall.js'), '');
+            return engines;
+        };
+
+        beforeEach(() => {
+            root = fs.mkdtempSync(path.join(os.tmpdir(), 'frigg-app-root-'));
+        });
+
+        afterEach(() => {
+            fs.rmSync(root, { recursive: true, force: true });
+        });
+
+        it("uses the engines in the app's own node_modules", async () => {
+            const appDir = path.join(root, 'app');
+            const appEngines = installEngines(appDir);
+            fs.writeFileSync(path.join(appEngines, schemaEngine), '');
+            fs.writeFileSync(path.join(appEngines, queryEngineLibrary), '');
+            const fetchEngines = jest.fn();
+
+            await ensureMigrationEngines({ prismaBinaryTarget: target, cwd: appDir, fetchEngines });
+
+            expect(fetchEngines).not.toHaveBeenCalled();
+        });
+
+        it('fails with a readable error when only a parent directory has the engines', async () => {
+            installEngines(root);
+            const appDir = path.join(root, 'app');
+            fs.mkdirSync(appDir);
+            const fetchEngines = jest.fn();
+
+            const failure = ensureMigrationEngines({
+                prismaBinaryTarget: target,
+                cwd: appDir,
+                fetchEngines,
+            });
+
+            await expect(failure).rejects.toThrow(/prisma.*own node_modules.*hoisted parent/is);
+            await expect(failure).rejects.not.toHaveProperty('code', 'MODULE_NOT_FOUND');
+            expect(fetchEngines).not.toHaveBeenCalled();
+        });
+    });
 });

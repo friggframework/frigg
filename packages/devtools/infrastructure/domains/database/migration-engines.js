@@ -15,14 +15,18 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { prismaEngineFileNames } = require('../shared/lambda-architectures');
+const { prismaEngineFileNames, PRISMA_ENGINES_PACKAGE_DIR } = require('../shared/lambda-architectures');
 
-function resolveEnginesDir() {
-    return path.dirname(
-        require.resolve('@prisma/engines/package.json', {
-            paths: [process.cwd()],
-        })
-    );
+function resolveEnginesDir(cwd) {
+    const enginesDir = path.join(cwd, PRISMA_ENGINES_PACKAGE_DIR);
+    if (!fs.existsSync(path.join(enginesDir, 'scripts', 'postinstall.js'))) {
+        throw new Error(
+            `@prisma/engines was not found at ${enginesDir}.\n` +
+                'The app must have prisma installed in its own node_modules, not only in a hoisted parent: ' +
+                'the migration worker ships its engines from the app\'s node_modules.'
+        );
+    }
+    return enginesDir;
 }
 
 /**
@@ -44,13 +48,15 @@ function runEnginesPostinstall({ enginesDir, prismaBinaryTarget }) {
 /**
  * @param {Object} options
  * @param {string} options.prismaBinaryTarget - The engine the deployed architecture loads
+ * @param {string} [options.cwd] - The app root
  * @param {string} [options.enginesDir] - node_modules/@prisma/engines of the app
  * @param {Function} [options.fetchEngines] - Fetches the target's engines into enginesDir
  * @throws {Error} When either engine is missing after the fetch
  */
 async function ensureMigrationEngines({
     prismaBinaryTarget,
-    enginesDir = resolveEnginesDir(),
+    cwd = process.cwd(),
+    enginesDir = resolveEnginesDir(cwd),
     fetchEngines = runEnginesPostinstall,
 }) {
     const engineNames = Object.values(prismaEngineFileNames(prismaBinaryTarget));

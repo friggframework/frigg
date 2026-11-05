@@ -38,6 +38,9 @@ function resolveLambdaArchitecture(appDefinition = {}) {
     return { name, prismaBinaryTarget: entry.prismaBinaryTarget, explicit };
 }
 
+/** Where the migration worker's engines live, relative to the app root and to /var/task. */
+const PRISMA_ENGINES_PACKAGE_DIR = 'node_modules/@prisma/engines';
+
 /**
  * The two engine files `prisma migrate` needs for a target, as
  * @prisma/engines names them.
@@ -90,6 +93,7 @@ module.exports = {
     DEFAULT_LAMBDA_ARCHITECTURE,
     resolveLambdaArchitecture,
     PRISMA_ENGINE_FILE_PREFIXES,
+    PRISMA_ENGINES_PACKAGE_DIR,
     prismaEngineFileNames,
     foreignPrismaEngineExcludes,
 };

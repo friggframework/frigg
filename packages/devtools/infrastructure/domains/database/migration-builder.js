@@ -18,6 +18,7 @@ const { isScopedEnvironmentActive } = require('../shared/function-environments')
 const { nestedNodeModulesExcludes } = require('../shared/utilities/nested-node-modules');
 const {
     resolveLambdaArchitecture,
+    PRISMA_ENGINES_PACKAGE_DIR,
     prismaEngineFileNames,
     foreignPrismaEngineExcludes,
 } = require('../shared/lambda-architectures');
@@ -454,8 +455,8 @@ class MigrationBuilder extends InfrastructureBuilder {
                 // Pin the migrate CLI to the shipped engines. With these set,
                 // Prisma neither downloads an engine at cold start (into the
                 // read-only /var/task) nor picks another file.
-                PRISMA_SCHEMA_ENGINE_BINARY: `/var/task/node_modules/@prisma/engines/${engines.schemaEngine}`,
-                PRISMA_QUERY_ENGINE_LIBRARY: `/var/task/node_modules/@prisma/engines/${engines.queryEngineLibrary}`,
+                PRISMA_SCHEMA_ENGINE_BINARY: `/var/task/${PRISMA_ENGINES_PACKAGE_DIR}/${engines.schemaEngine}`,
+                PRISMA_QUERY_ENGINE_LIBRARY: `/var/task/${PRISMA_ENGINES_PACKAGE_DIR}/${engines.queryEngineLibrary}`,
             },
             events: [
                 {
