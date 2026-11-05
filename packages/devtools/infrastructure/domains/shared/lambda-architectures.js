@@ -88,6 +88,19 @@ function foreignPrismaEngineExcludes(name) {
     );
 }
 
+/**
+ * Package exclude patterns for a function that bundles Prisma itself. With
+ * the Prisma layer on, the layer carries the engines and nothing is added.
+ * @param {Object} appDefinition
+ * @param {boolean} usePrismaLayer
+ * @returns {string[]}
+ */
+function bundledPrismaEngineExcludes(appDefinition, usePrismaLayer) {
+    return usePrismaLayer
+        ? []
+        : foreignPrismaEngineExcludes(resolveLambdaArchitecture(appDefinition).name);
+}
+
 module.exports = {
     LAMBDA_ARCHITECTURES,
     DEFAULT_LAMBDA_ARCHITECTURE,
@@ -96,4 +109,5 @@ module.exports = {
     PRISMA_ENGINES_PACKAGE_DIR,
     prismaEngineFileNames,
     foreignPrismaEngineExcludes,
+    bundledPrismaEngineExcludes,
 };

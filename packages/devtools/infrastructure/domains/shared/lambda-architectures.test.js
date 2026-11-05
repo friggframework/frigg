@@ -4,6 +4,7 @@ const {
     resolveLambdaArchitecture,
     prismaEngineFileNames,
     foreignPrismaEngineExcludes,
+    bundledPrismaEngineExcludes,
 } = require('./lambda-architectures');
 
 describe('resolveLambdaArchitecture()', () => {
@@ -142,6 +143,22 @@ describe('foreignPrismaEngineExcludes()', () => {
             foreignPrismaEngineExcludes(name).forEach((pattern) =>
                 expect(pattern.startsWith('!')).toBe(false)
             )
+        );
+    });
+});
+
+describe('bundledPrismaEngineExcludes()', () => {
+    it('adds nothing when the Prisma layer carries the engines', () => {
+        expect(bundledPrismaEngineExcludes({ architecture: 'arm64' }, true)).toEqual([]);
+    });
+
+    it.each([
+        [{}, 'x86_64'],
+        [{ architecture: 'x86_64' }, 'x86_64'],
+        [{ architecture: 'arm64' }, 'arm64'],
+    ])('with the layer off, excludes the engines %j does not load', (appDefinition, name) => {
+        expect(bundledPrismaEngineExcludes(appDefinition, false)).toEqual(
+            foreignPrismaEngineExcludes(name)
         );
     });
 });

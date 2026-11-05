@@ -16,10 +16,7 @@
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
 const { isScopedEnvironmentActive } = require('../shared/function-environments');
 const { nestedNodeModulesExcludes } = require('../shared/utilities/nested-node-modules');
-const {
-    resolveLambdaArchitecture,
-    foreignPrismaEngineExcludes,
-} = require('../shared/lambda-architectures');
+const { bundledPrismaEngineExcludes } = require('../shared/lambda-architectures');
 
 class AdminScriptBuilder extends InfrastructureBuilder {
     constructor() {
@@ -415,9 +412,8 @@ class AdminScriptBuilder extends InfrastructureBuilder {
                           'node_modules/prisma/**',
                           'node_modules/@friggframework/core/generated/**',
                       ]
-                    : foreignPrismaEngineExcludes(
-                          resolveLambdaArchitecture(appDefinition).name
-                      )),
+                    : []),
+                ...bundledPrismaEngineExcludes(appDefinition, usePrismaLayer),
                 ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
                 'node_modules/@friggframework/test/**',
                 'node_modules/@friggframework/eslint-config/**',
