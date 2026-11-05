@@ -68,7 +68,9 @@ async function ensureMigrationEngines({
         return;
     }
 
-    console.log(`📦 Fetching Prisma ${prismaBinaryTarget} migration engines into ${enginesDir}...`);
+    console.log(
+        `📦 Fetching ${missing().join(', ')} (Prisma ${prismaBinaryTarget}) into ${enginesDir}...`
+    );
     fetchEngines({ enginesDir, prismaBinaryTarget });
 
     const stillMissing = missing();
