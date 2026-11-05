@@ -44,6 +44,67 @@ describe('resolveTelemetryConfig — exporter default by stage', () => {
     });
 });
 
+describe('resolveTelemetryConfig — OTEL_EXPORTER_OTLP_ENDPOINT zero-code activation', () => {
+    const ENDPOINT = 'https://watchtower.example/api/v1/watchtower/otel';
+    const originalEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+    afterEach(() => {
+        if (originalEndpoint === undefined) {
+            delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+        } else {
+            process.env.OTEL_EXPORTER_OTLP_ENDPOINT = originalEndpoint;
+        }
+    });
+
+    it('activates { type: otlp } on production when Definition has no telemetry and endpoint is set', () => {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = ENDPOINT;
+        const cfg = resolveTelemetryConfig({}, { stage: 'production' });
+        expect(cfg.exporter).toEqual({ type: 'otlp' });
+    });
+
+    it('activates { type: otlp } on STAGE=local when endpoint is set (env wins over console default)', () => {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = ENDPOINT;
+        expect(resolveTelemetryConfig({}, { stage: 'local' }).exporter).toEqual(
+            {
+                type: 'otlp',
+            }
+        );
+    });
+
+    it('still defaults to none on production when the endpoint env is unset', () => {
+        delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+        expect(
+            resolveTelemetryConfig({}, { stage: 'production' }).exporter
+        ).toEqual({ type: 'none' });
+    });
+
+    it('ignores whitespace-only OTEL_EXPORTER_OTLP_ENDPOINT', () => {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = '   ';
+        expect(
+            resolveTelemetryConfig({}, { stage: 'production' }).exporter
+        ).toEqual({ type: 'none' });
+    });
+
+    it('lets an explicit exporter: { type: none } win over a set endpoint', () => {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = ENDPOINT;
+        const cfg = resolveTelemetryConfig(
+            { telemetry: { exporter: { type: 'none' } } },
+            { stage: 'production' }
+        );
+        expect(cfg.exporter).toEqual({ type: 'none' });
+    });
+
+    it('lets an explicit honeycomb exporter win over the endpoint env', () => {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = ENDPOINT;
+        const exporter = { type: 'honeycomb', apiKey: 'hny_test' };
+        const cfg = resolveTelemetryConfig(
+            { telemetry: { exporter } },
+            { stage: 'production' }
+        );
+        expect(cfg.exporter).toEqual(exporter);
+    });
+});
+
 describe('resolveTelemetryConfig — sampleRatio', () => {
     it('accepts a ratio in [0,1]', () => {
         const cfg = resolveTelemetryConfig(

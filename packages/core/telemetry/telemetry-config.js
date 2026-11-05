@@ -3,11 +3,14 @@
  * into a normalized config the TelemetryService and
  * usage rollup consume: `{ exporter, northStar, sampleRatio }`.
  *
- * Exporter default is keyed off STAGE: only a genuinely LOCAL run (STAGE=local)
- * gets `console` (visible, free); every deployed stage — including `dev` —
- * defaults to `none`. `dev` is a deployed AWS stage, and `console` there would
- * write full spans to CloudWatch by default (cost + a data-exposure surface).
- * Adopters opt into `console`/`otlp` explicitly for deployed stages.
+ * Exporter default when `Definition.telemetry.exporter` is omitted:
+ *   1. `OTEL_EXPORTER_OTLP_ENDPOINT` set (non-empty after trim) → `{ type: 'otlp' }`
+ *      (zero-code Watchtower / collector activation on any stage, including local)
+ *   2. else STAGE=local → `{ type: 'console' }` (visible, free)
+ *   3. else → `{ type: 'none' }` (deployed stages must not surprise-write to
+ *      CloudWatch; `dev` is a deployed AWS stage)
+ * An explicit `Definition.telemetry.exporter` always wins over the env var, so
+ * `{ type: 'none' }` still disables export even when the endpoint is set.
  */
 const VALID_EXPORTER_TYPES = [
     'none',
@@ -18,8 +21,16 @@ const VALID_EXPORTER_TYPES = [
     'datadog',
 ];
 
+function hasOtlpEndpointEnv() {
+    const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    return typeof endpoint === 'string' && endpoint.trim().length > 0;
+}
+
 function normalizeExporterConfig(exporter, stage) {
     if (!exporter) {
+        if (hasOtlpEndpointEnv()) {
+            return { type: 'otlp' };
+        }
         return stage === 'local' ? { type: 'console' } : { type: 'none' };
     }
 
