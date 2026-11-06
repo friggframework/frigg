@@ -373,16 +373,16 @@ describe('Lambda architecture with usePrismaLambdaLayer=false', () => {
 describe('nested node_modules (lambda.keepNestedNodeModules)', () => {
     const build = (appDefinition) => createBaseDefinition(appDefinition, {}, {}, true);
 
-    it('excludes every nested node_modules from the core function packages by default', () => {
-        const result = build({ name: 'test-app' });
+    it('excludes every nested node_modules from the core function packages when the app opts out', () => {
+        const result = build({ name: 'test-app', lambda: { keepNestedNodeModules: false } });
 
         for (const fn of ['auth', 'user', 'health']) {
             expect(result.functions[fn].package.exclude).toContain('node_modules/**/node_modules/**');
         }
     });
 
-    it('keeps nested node_modules when the app opts in, still excluding nested Frigg, AWS SDK and Prisma copies', () => {
-        const result = build({ name: 'test-app', lambda: { keepNestedNodeModules: true } });
+    it('keeps nested node_modules by default, still excluding nested Frigg, AWS SDK and Prisma copies', () => {
+        const result = build({ name: 'test-app' });
 
         for (const fn of ['auth', 'user', 'health']) {
             const { exclude } = result.functions[fn].package;

@@ -249,6 +249,64 @@ describe('Prisma Encryption Extension', () => {
                 expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('createsecret'));
                 expect(mockCryptor.encrypt).toHaveBeenCalledWith(JSON.stringify('updatesecret'));
             });
+
+            it('should not add an update key when upsert args have none', async () => {
+                const args = {
+                    create: { data: { access_token: 'secret' } },
+                    mockResult: { id: '1', data: {} },
+                };
+
+                await handlers.upsert({
+                    model: 'Credential',
+                    operation: 'upsert',
+                    args,
+                    query: mockQuery,
+                });
+
+                expect('update' in mockQuery.mock.calls[0][0]).toBe(false);
+            });
+
+            it('should encrypt a value shared by create and update once', async () => {
+                const args = {
+                    create: { data: { access_token: 'samesecret' } },
+                    update: { data: { access_token: 'samesecret' } },
+                    mockResult: {
+                        id: '1',
+                        data: { access_token: encValue('samesecret') },
+                    },
+                };
+
+                const result = await handlers.upsert({
+                    model: 'Credential',
+                    operation: 'upsert',
+                    args,
+                    query: mockQuery,
+                });
+
+                expect(mockCryptor.encrypt).toHaveBeenCalledTimes(1);
+                const persisted = mockQuery.mock.calls[0][0];
+                expect(persisted.create.data.access_token).toBe(
+                    persisted.update.data.access_token
+                );
+                expect(result.data.access_token).toBe('samesecret');
+            });
+
+            it('should keep distinct ciphertexts for distinct create and update values', async () => {
+                const args = {
+                    create: { data: { access_token: 'createsecret' } },
+                    update: { data: { access_token: 'updatesecret' } },
+                    mockResult: { id: '1', data: {} },
+                };
+
+                await handlers.upsert({
+                    model: 'Credential',
+                    operation: 'upsert',
+                    args,
+                    query: mockQuery,
+                });
+
+                expect(mockCryptor.encrypt).toHaveBeenCalledTimes(2);
+            });
         });
 
         describe('findUnique', () => {

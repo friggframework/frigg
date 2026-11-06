@@ -1041,23 +1041,23 @@ describe('AdminScriptBuilder nested node_modules (lambda.keepNestedNodeModules)'
         result.functions.adminScriptRouter,
     ];
 
-    it('excludes every nested node_modules by default', async () => {
+    it('keeps nested node_modules by default, still excluding nested Frigg copies', async () => {
         const result = await new AdminScriptBuilder().build(appDefinition(), {});
-
-        for (const fn of executorAndRouter(result)) {
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
-        }
-    });
-
-    it('keeps nested node_modules when the app opts in, still excluding nested Frigg copies', async () => {
-        const result = await new AdminScriptBuilder().build(
-            appDefinition({ keepNestedNodeModules: true }),
-            {}
-        );
 
         for (const fn of executorAndRouter(result)) {
             expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
             expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+        }
+    });
+
+    it('excludes every nested node_modules when the app opts out', async () => {
+        const result = await new AdminScriptBuilder().build(
+            appDefinition({ keepNestedNodeModules: false }),
+            {}
+        );
+
+        for (const fn of executorAndRouter(result)) {
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
         }
     });
 });

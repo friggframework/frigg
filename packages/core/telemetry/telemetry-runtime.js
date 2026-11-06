@@ -47,8 +47,21 @@ function getTelemetry() {
     try {
         const { telemetry = {} } = loadTelemetryConfig();
         const stage = process.env.STAGE || process.env.NODE_ENV || 'production';
+        // loadAppDefinition normally resolves via resolveTelemetryConfig. When the
+        // loader returns an unresolved block (exporter unset) — e.g. tests, or a
+        // Definition with no telemetry key — apply the same env-aware default so
+        // OTEL_EXPORTER_OTLP_ENDPOINT still auto-activates `{ type: 'otlp' }`.
+        // Explicit exporter (incl. `{ type: 'none' }`) always wins.
+        let exporter = telemetry.exporter;
+        if (exporter === undefined || exporter === null) {
+            const { resolveTelemetryConfig } = require('./telemetry-config');
+            exporter = resolveTelemetryConfig(
+                { telemetry: {} },
+                { stage }
+            ).exporter;
+        }
         state.telemetry = createTelemetry({
-            exporter: telemetry.exporter,
+            exporter,
             sampleRatio: telemetry.sampleRatio,
             resource: { service: process.env.FRIGG_STACK || 'frigg', stage },
         });

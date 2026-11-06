@@ -83,6 +83,48 @@ class FieldEncryptionService {
         return encrypted;
     }
 
+    async encryptUpsert(modelName, { create, update }) {
+        const fields = this._getWriteFields(modelName);
+        if (fields.length === 0) {
+            return { create, update };
+        }
+
+        const encryptedCreate = await this.encryptFields(modelName, create);
+        const pathsOverlap = fields.some((outer) =>
+            fields.some((inner) => inner.startsWith(`${outer}.`))
+        );
+        if (!create || !update || pathsOverlap) {
+            return {
+                create: encryptedCreate,
+                update: await this.encryptFields(modelName, update),
+            };
+        }
+
+        const reusing = this._deepClone(update);
+        for (const fieldPath of fields) {
+            const value = this._getNestedValue(update, fieldPath);
+            const createCiphertext = this._getNestedValue(
+                encryptedCreate,
+                fieldPath
+            );
+            if (
+                this._shouldEncrypt(value) &&
+                this._isEncrypted(createCiphertext) &&
+                this._serializeForEncryption(value) ===
+                    this._serializeForEncryption(
+                        this._getNestedValue(create, fieldPath)
+                    )
+            ) {
+                this._setNestedValue(reusing, fieldPath, createCiphertext);
+            }
+        }
+
+        return {
+            create: encryptedCreate,
+            update: await this.encryptFields(modelName, reusing),
+        };
+    }
+
     async decryptFields(modelName, document) {
         if (!document || typeof document !== 'object') {
             return document;
