@@ -24,7 +24,20 @@ if command -v docker >/dev/null 2>&1 && getent group docker >/dev/null 2>&1; the
   fi
 fi
 
-npm ci
+# Skip lifecycle scripts during install (Sonar: package-manager scripts must
+# not run implicitly). Then rebuild only packages whose install/postinstall
+# fetches platform binaries or prepares Prisma engines — see hasInstallScript
+# in package-lock.json. aws-sdk / es5-ext / serverless postinstalls are
+# warnings or no-ops and are intentionally omitted.
+npm ci --ignore-scripts
+npm rebuild \
+  @parcel/watcher \
+  @prisma/client \
+  @prisma/engines \
+  esbuild \
+  nx \
+  prisma \
+  unrs-resolver
 
 # Generate Prisma clients so DB suites and core imports resolve without a
 # separate manual step after warm boot.
