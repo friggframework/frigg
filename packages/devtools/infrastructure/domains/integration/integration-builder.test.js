@@ -1093,24 +1093,24 @@ describe('IntegrationBuilder nested node_modules (lambda.keepNestedNodeModules)'
     const packagedFunctions = (result) =>
         Object.values(result.functions).filter((fn) => fn.package?.exclude);
 
-    it('excludes every nested node_modules by default', async () => {
+    it('keeps nested node_modules by default, still excluding nested Frigg copies', async () => {
         const result = await new IntegrationBuilder().build(appDefinition(), {});
 
         expect(packagedFunctions(result).length).toBeGreaterThan(0);
         for (const fn of packagedFunctions(result)) {
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
+            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
         }
     });
 
-    it('keeps nested node_modules when the app opts in, still excluding nested Frigg copies', async () => {
+    it('excludes every nested node_modules when the app opts out', async () => {
         const result = await new IntegrationBuilder().build(
-            appDefinition({ keepNestedNodeModules: true }),
+            appDefinition({ keepNestedNodeModules: false }),
             {}
         );
 
         for (const fn of packagedFunctions(result)) {
-            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
         }
     });
 });
