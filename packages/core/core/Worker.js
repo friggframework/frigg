@@ -1,10 +1,13 @@
-const AWS = require('aws-sdk');
+const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
+const { readQueueDelivery } = require('../queues/queue-delivery');
+const { runMessageScope } = require('./invocation-scope');
+const { getLogger } = require('../logs');
 
-AWS.config.update({ region: process.env.AWS_REGION });
-const sqs = new AWS.SQS({ apiVersion: '2012-11-05' });
+const sqs = new SQSClient({ region: process.env.AWS_REGION });
+const log = getLogger('frigg.worker');
 
 class Worker {
     async getQueueURL(params) {
@@ -12,25 +15,59 @@ class Worker {
         // let params = {
         //     QueueName:  process.env.QueueName
         // };
-        return new Promise((resolve, reject) => {
-            sqs.getQueueUrl(params, (err, data) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(data.QueueUrl);
-                }
-            });
-        });
+        const command = new GetQueueUrlCommand(params);
+        const data = await sqs.send(command);
+        return data.QueueUrl;
     }
 
     async run(params, context = {}) {
         const records = get(params, 'Records');
+        const batchItemFailures = [];
+
+        console.log(
+            `[Worker] run: processing ${records.length} record(s)`
+        );
 
         for (const record of records) {
-            const runParams = JSON.parse(record.body);
-            this._validateParams(runParams);
-            await this._run(runParams, context);
+            await runMessageScope(record, async () => {
+                // messageId, receiveCount and the event come from the scope.
+                log.debug('Record started', { eventName: 'frigg.worker.record_started' });
+
+                try {
+                    const runParams = JSON.parse(record.body);
+                    this._validateParams(runParams);
+                    await this._run(runParams, context, readQueueDelivery(record));
+                    log.debug('Record succeeded', { eventName: 'frigg.worker.record_succeeded' });
+                } catch (error) {
+                    if (error.isHaltError) {
+                        // HaltError means "discard this message, don't retry".
+                        // Treat as success so SQS deletes it from the queue.
+                        // Logged explicitly — silent discards made prod debugging
+                        // extremely hard; keep this visible.
+                        log.error('Record halted (discarded, no retry)', {
+                            eventName: 'frigg.worker.record_halted',
+                            statusCode: error.statusCode,
+                            error,
+                        });
+                        return;
+                    }
+                    // The message goes back to SQS, so WARN (ADR-048 §4).
+                    log.warn('Record failed, returned for retry', {
+                        eventName: 'frigg.worker.record_failed',
+                        error,
+                    });
+                    batchItemFailures.push({ itemIdentifier: record.messageId });
+                }
+            });
         }
+
+        if (batchItemFailures.length > 0) {
+            console.warn(
+                `[Worker] run: returning ${batchItemFailures.length} batchItemFailure(s) of ${records.length}`
+            );
+        }
+
+        return { batchItemFailures };
     }
 
     async _run(params, context = {}) {
@@ -54,15 +91,9 @@ class Worker {
     }
 
     async sendAsyncSQSMessage(params) {
-        return new Promise((resolve, reject) => {
-            sqs.sendMessage(params, (err, data) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(data.MessageId);
-                }
-            });
-        });
+        const command = new SendMessageCommand(params);
+        const data = await sqs.send(command);
+        return data.MessageId;
     }
 
     // Throw an exception if the params do not validate

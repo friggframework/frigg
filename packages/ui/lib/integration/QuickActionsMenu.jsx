@@ -33,7 +33,7 @@ function QuickActionsMenu({
   }
 
   async function handleMenuItemClick(userAction) {
-    if (userAction.action === "SAMPLE_DATA") {
+    if (userAction.action === "GET_SAMPLE_DATA") {
       await getSampleData();
       return;
     }

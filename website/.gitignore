@@ -1,0 +1,8 @@
+# Local Netlify state / build output
+.netlify
+
+# Function dependencies
+node_modules
+
+# Local env
+.env

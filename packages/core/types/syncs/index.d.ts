@@ -1,18 +1,3 @@
-declare module "@friggframework/syncs/model" {
-  import { Model } from "mongoose";
-
-  export class Sync extends Model {
-    entities: any[];
-    hash: string;
-    name: string;
-    dataIdentifiers: {
-      entity: any;
-      id: object;
-      hash: string;
-    }[];
-  }
-}
-
 declare module "@friggframework/syncs/manager" {
   import Sync from "@friggframework/syncs/sync";
 
@@ -28,7 +13,6 @@ declare module "@friggframework/syncs/manager" {
     confirmCreate(
       syncObj: Sync,
       createdId: string,
-      moduleManager: any
     ): Promise<any>;
     confirmUpdate(syncObj: Sync): Promise<any>;
     createSyncDBObject(objArr: any[], entities: any[]): Promise<any>;
@@ -50,7 +34,6 @@ declare module "@friggframework/syncs/manager" {
     confirmCreate(
       syncObj: Sync,
       createdId: string,
-      moduleManager: any
     ): Promise<any>;
     confirmUpdate(syncObj: Sync): Promise<any>;
   }
