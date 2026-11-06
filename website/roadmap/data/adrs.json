@@ -1,5 +1,5 @@
 {
-  "count": 32,
+  "count": 33,
   "adrs": [
     {
       "num": 1,
@@ -320,6 +320,16 @@
       "theme": "Infra & deploy",
       "summary": "Adds an app-definition architecture key (x86_64 or arm64, no default) backed by one registry of Prisma binary targets. Core generates both Lambda engines; the Prisma layer, the migration worker's engines, and layer-off function bundles each keep only the deployed target's engines, and a missing engine fails at package time instead of at cold start.",
       "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/068-lambda-architecture-arm64.md"
+    },
+    {
+      "num": 69,
+      "id": "069",
+      "title": "Tenant Isolation on Integration Queues with SQS Fair Queues",
+      "status": "Proposed",
+      "date": "2026-11-06",
+      "theme": "Infra & deploy",
+      "summary": "Tags every message on an integration queue with its integration id as the SQS MessageGroupId, so SQS fair queues deliver quiet installations' messages ahead of one installation's burst. QueuerUtil takes an optional message group, queueWebhook passes the integration id, the queues stay standard and devtools does not change.",
+      "url": "https://github.com/friggframework/frigg/blob/next/docs/architecture-decisions/069-fair-queue-tenant-isolation.md"
     }
   ]
 }
