@@ -38,6 +38,7 @@ describe('FieldEncryptionService', () => {
                     User: ['hashword'],
                     IntegrationMapping: ['mapping'],
                     EmptyModel: [],
+                    OverlapModel: ['data', 'data.access_token'],
                 };
                 return schemas[modelName] || [];
             }),
@@ -75,6 +76,100 @@ describe('FieldEncryptionService', () => {
             expect(service).toBeInstanceOf(FieldEncryptionService);
             expect(service.cryptor).toBe(mockCryptor);
             expect(service.schema).toBe(mockSchema);
+        });
+    });
+
+    describe('encryptUpsert', () => {
+        const credential = (access, refresh) => ({
+            data: { access_token: access, refresh_token: refresh },
+        });
+
+        it('should encrypt a value once when create and update hold it at the same path', async () => {
+            const { create, update } = await service.encryptUpsert('Credential', {
+                create: { data: { access_token: 'same' } },
+                update: { data: { access_token: 'same' } },
+            });
+
+            expect(mockCryptor.encrypt).toHaveBeenCalledTimes(1);
+            expect(update.data.access_token).toBe(create.data.access_token);
+            expect(await service.decryptFields('Credential', update)).toEqual({
+                data: { access_token: 'same' },
+            });
+        });
+
+        it('should encrypt separately when different paths hold the same value', async () => {
+            await service.encryptUpsert('Credential', {
+                create: credential('same', undefined),
+                update: credential(undefined, 'same'),
+            });
+
+            expect(mockCryptor.encrypt).toHaveBeenCalledTimes(2);
+        });
+
+        it('should encrypt separately when the values differ', async () => {
+            const { create, update } = await service.encryptUpsert('Credential', {
+                create: credential('createsecret', 'same'),
+                update: credential('updatesecret', 'same'),
+            });
+
+            expect(mockCryptor.encrypt).toHaveBeenCalledTimes(3);
+            expect(update.data.access_token).not.toBe(create.data.access_token);
+            expect(update.data.refresh_token).toBe(create.data.refresh_token);
+        });
+
+        it('should encrypt create alone when update is missing', async () => {
+            const result = await service.encryptUpsert('Credential', {
+                create: credential('secret', undefined),
+            });
+
+            expect(mockCryptor.encrypt).toHaveBeenCalledTimes(1);
+            expect(result.update).toBeUndefined();
+            expect(result.create.data.access_token).toBe(encValue('secret'));
+        });
+
+        it('should encrypt update alone when create is missing', async () => {
+            const result = await service.encryptUpsert('Credential', {
+                update: credential('secret', undefined),
+            });
+
+            expect(mockCryptor.encrypt).toHaveBeenCalledTimes(1);
+            expect(result.create).toBeUndefined();
+            expect(result.update.data.access_token).toBe(encValue('secret'));
+        });
+
+        it('should pass documents through unchanged for a model with no encrypted fields', async () => {
+            class DbNullLike {}
+            const create = { meta: new DbNullLike() };
+            const update = { meta: new DbNullLike() };
+
+            const result = await service.encryptUpsert('EmptyModel', { create, update });
+
+            expect(result.create).toBe(create);
+            expect(result.update).toBe(update);
+            expect(result.update.meta).toBeInstanceOf(DbNullLike);
+        });
+
+        it('should encrypt update as encryptFields would when schema paths overlap', async () => {
+            const document = () => ({ data: { access_token: 'same' } });
+            const { update } = await service.encryptUpsert('OverlapModel', {
+                create: document(),
+                update: document(),
+            });
+            const alone = await service.encryptFields('OverlapModel', document());
+
+            expect(await service.decryptFields('OverlapModel', update)).toEqual(
+                await service.decryptFields('OverlapModel', alone)
+            );
+        });
+
+        it('should not mutate the input documents', async () => {
+            const create = credential('secret', undefined);
+            const update = credential('secret', undefined);
+
+            await service.encryptUpsert('Credential', { create, update });
+
+            expect(create).toEqual(credential('secret', undefined));
+            expect(update).toEqual(credential('secret', undefined));
         });
     });
 

@@ -114,18 +114,15 @@ function createEncryptionExtension({ cryptor, enabled = true }) {
                 },
 
                 async upsert({ model, args, query }) {
+                    const encrypted = await encryptionService.encryptUpsert(
+                        model,
+                        args
+                    );
                     if (args.create) {
-                        args.create = await encryptionService.encryptFields(
-                            model,
-                            args.create
-                        );
+                        args.create = encrypted.create;
                     }
-
                     if (args.update) {
-                        args.update = await encryptionService.encryptFields(
-                            model,
-                            args.update
-                        );
+                        args.update = encrypted.update;
                     }
 
                     const result = await query(args);

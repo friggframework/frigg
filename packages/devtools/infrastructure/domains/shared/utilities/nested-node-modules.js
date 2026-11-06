@@ -6,10 +6,11 @@
  * npm nests a package only when the root copy cannot satisfy the dependant's
  * range. Excluding every nested node_modules from a Lambda package therefore
  * rewires module resolution to whatever is hoisted, and drops a package
- * outright when the root copy is dev-only. Apps opt in to shipping the tree
- * the way npm resolved it with `lambda.keepNestedNodeModules: true`. Nested
- * copies of Frigg packages, the AWS SDK and Prisma stay excluded because the
- * app's single core, the Lambda runtime and the Prisma layer provide them.
+ * outright when the root copy is dev-only. Function packages ship the tree the
+ * way npm resolved it unless an app opts out with
+ * `lambda.keepNestedNodeModules: false`. Nested copies of Frigg packages, the
+ * AWS SDK and Prisma stay excluded because the app's single core, the Lambda
+ * runtime and the Prisma layer provide them.
  */
 
 const ALL_NESTED_NODE_MODULES = 'node_modules/**/node_modules/**';
@@ -19,7 +20,7 @@ const ALL_NESTED_NODE_MODULES = 'node_modules/**/node_modules/**';
  * @returns {boolean}
  */
 function keepsNestedNodeModules(appDefinition = {}) {
-    return appDefinition.lambda?.keepNestedNodeModules === true;
+    return appDefinition.lambda?.keepNestedNodeModules !== false;
 }
 
 /**

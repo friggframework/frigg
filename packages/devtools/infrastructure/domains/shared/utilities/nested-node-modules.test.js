@@ -8,20 +8,13 @@ const {
     nestedNodeModulesExcludes,
 } = require('./nested-node-modules');
 
+const OPT_OUT = { lambda: { keepNestedNodeModules: false } };
+
 describe('nestedNodeModulesExcludes', () => {
-    it('excludes every nested node_modules by default', () => {
-        expect(nestedNodeModulesExcludes({}, true)).toEqual([
-            'node_modules/**/node_modules/**',
-        ]);
-        expect(ALL_NESTED_NODE_MODULES).toBe('node_modules/**/node_modules/**');
-    });
+    it('keeps nested node_modules by default, except Frigg, AWS SDK and Prisma copies', () => {
+        const excludes = nestedNodeModulesExcludes({}, true);
 
-    it('keeps nested node_modules when the app opts in, except Frigg, AWS SDK and Prisma copies', () => {
-        const appDefinition = { lambda: { keepNestedNodeModules: true } };
-
-        const excludes = nestedNodeModulesExcludes(appDefinition, true);
-
-        expect(excludes).not.toContain('node_modules/**/node_modules/**');
+        expect(excludes).not.toContain(ALL_NESTED_NODE_MODULES);
         expect(excludes).toEqual([
             'node_modules/**/node_modules/@friggframework/**',
             'node_modules/**/node_modules/aws-sdk/**',
@@ -32,30 +25,31 @@ describe('nestedNodeModulesExcludes', () => {
     });
 
     it('keeps nested Prisma copies when the app bundles Prisma instead of using the layer', () => {
-        const appDefinition = { lambda: { keepNestedNodeModules: true } };
-
-        const excludes = nestedNodeModulesExcludes(appDefinition, false);
-
-        expect(excludes).toEqual([
+        expect(nestedNodeModulesExcludes({}, false)).toEqual([
             'node_modules/**/node_modules/@friggframework/**',
             'node_modules/**/node_modules/aws-sdk/**',
             'node_modules/**/node_modules/@aws-sdk/**',
         ]);
     });
+
+    it('excludes every nested node_modules when the app opts out', () => {
+        expect(nestedNodeModulesExcludes(OPT_OUT, true)).toEqual([
+            'node_modules/**/node_modules/**',
+        ]);
+        expect(ALL_NESTED_NODE_MODULES).toBe('node_modules/**/node_modules/**');
+    });
 });
 
 describe('keepsNestedNodeModules', () => {
-    it('is only enabled by the boolean true', () => {
-        expect(
-            keepsNestedNodeModules({ lambda: { keepNestedNodeModules: true } })
-        ).toBe(true);
+    it('is only disabled by the boolean false', () => {
+        expect(keepsNestedNodeModules(OPT_OUT)).toBe(false);
         expect(
             keepsNestedNodeModules({
-                lambda: { keepNestedNodeModules: 'true' },
+                lambda: { keepNestedNodeModules: true },
             })
-        ).toBe(false);
-        expect(keepsNestedNodeModules({ lambda: {} })).toBe(false);
-        expect(keepsNestedNodeModules({})).toBe(false);
-        expect(keepsNestedNodeModules()).toBe(false);
+        ).toBe(true);
+        expect(keepsNestedNodeModules({ lambda: {} })).toBe(true);
+        expect(keepsNestedNodeModules({})).toBe(true);
+        expect(keepsNestedNodeModules()).toBe(true);
     });
 });
