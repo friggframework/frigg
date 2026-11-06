@@ -750,8 +750,8 @@
         },
         "keepNestedNodeModules": {
           "type": "boolean",
-          "description": "Keep nested node_modules in function packages (nested Frigg, AWS SDK and Prisma packages are still excluded)",
-          "default": false
+          "description": "Keep nested node_modules in function packages (nested Frigg, AWS SDK and Prisma packages are still excluded). Set false to exclude every nested node_modules; the build then fails if a production package would be dropped",
+          "default": true
         }
       },
       "additionalProperties": false

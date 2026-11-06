@@ -285,23 +285,25 @@ const appDefinition = {
 
 > ℹ️ When `usePrismaLambdaLayer: false`, Prisma stays inside each bundle and the runtime automatically loads the correct binary. No extra configuration is required.
 
-**Keeping nested node_modules in Lambda packages:**
+**Nested node_modules in Lambda packages:**
 
-By default every function package excludes `node_modules/**/node_modules/**`. npm only nests a package when the root copy cannot satisfy a dependant, so the exclusion makes a package resolve whatever version is hoisted, and it removes the package entirely when the root copy is a dev dependency. The first `require` of such a package then fails at Lambda init with `Runtime.ImportModuleError`.
+npm nests a package under its dependant only when the root copy cannot satisfy the dependant's range. Function packages ship the dependency tree the way npm resolved it. Nested copies of `@friggframework/*`, `aws-sdk`, `@aws-sdk/*` and, when the Prisma layer is enabled, `@prisma/*` and `.prisma` are excluded: the app's single core, the Lambda runtime and the layer provide them.
 
-To ship the dependency tree the way npm resolved it, opt in per app:
+An app can exclude every nested `node_modules` to make packages smaller:
 
 ```javascript
 const appDefinition = {
     name: 'my-app',
     lambda: {
-        keepNestedNodeModules: true,
+        keepNestedNodeModules: false,
     },
     integrations: [{ Definition: { name: 'salesforce' } }],
 };
 ```
 
-Nested copies of `@friggframework/*`, `aws-sdk`, `@aws-sdk/*` and, when the Prisma layer is enabled, `@prisma/*` and `.prisma` stay excluded: the app's single core, the Lambda runtime and the layer provide them. Expect each function package to grow by the size of the nested directories that remain (a few MB compressed in a typical app). The default stays unchanged for apps that do not set the flag.
+With the opt-out, each nested package resolves whatever version is hoisted to the root, and a package whose root copy is a dev dependency is not shipped at all. The first `require` of such a package fails at Lambda init with `Runtime.ImportModuleError`.
+
+Before composing the definition, the build reads the app's `package-lock.json` and fails when a function package would be missing a production package: a nested copy that is excluded, with no shipped root copy, that neither the Lambda runtime nor the Prisma layer provides. The error lists each package. Remove the opt-out, or add the package as a direct dependency so npm installs it at the root. Apps without a `package-lock.json` skip the check.
 
 ## Usage Examples
 

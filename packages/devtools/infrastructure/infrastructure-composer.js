@@ -62,6 +62,8 @@ const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-
 const { createBaseDefinition } = require('./domains/shared/utilities/base-definition-factory');
 const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
 const { validateAndCleanPlugins, validatePackagingConfiguration } = require('./domains/shared/validation/plugin-validator');
+const { assertLambdaPackagesComplete } = require('./domains/shared/utilities/nested-node-modules');
+const path = require('path');
 
 /**
  * Compose serverless definition using domain builders
@@ -74,6 +76,12 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
     // Determine if deployment should use Prisma Lambda Layer (default: true)
     const usePrismaLayer = AppDefinition.usePrismaLambdaLayer !== false;
+
+    assertLambdaPackagesComplete({
+        appDefinition: AppDefinition,
+        usePrismaLayer,
+        lockfilePath: path.join(process.cwd(), 'package-lock.json'),
+    });
 
     // Ensure Prisma layer exists only when configured to use it
     if (usePrismaLayer) {

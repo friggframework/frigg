@@ -90,6 +90,61 @@ describe('composeServerlessDefinition', () => {
     // FRIGG_SKIP_AWS_DISCOVERY=true) is decided inside gatherDiscoveredResources
     // by shouldRunDiscovery(); see domains/shared/resource-discovery.test.js.
     // The composer always calls it, so these tests only check the call happens.
+    describe('Lambda package completeness', () => {
+        const fs = require('fs');
+        const os = require('os');
+        const path = require('path');
+        let originalCwd;
+        let appDir;
+
+        beforeEach(() => {
+            originalCwd = process.cwd();
+            appDir = fs.mkdtempSync(path.join(os.tmpdir(), 'frigg-app-'));
+            fs.writeFileSync(
+                path.join(appDir, 'package-lock.json'),
+                JSON.stringify({
+                    lockfileVersion: 3,
+                    packages: {
+                        '': { name: 'app' },
+                        'node_modules/qs': { version: '6.16.0' },
+                        'node_modules/qs/node_modules/side-channel': {
+                            version: '1.1.1',
+                        },
+                        'node_modules/side-channel': {
+                            version: '1.1.0',
+                            dev: true,
+                        },
+                    },
+                })
+            );
+            process.chdir(appDir);
+        });
+
+        afterEach(() => {
+            process.chdir(originalCwd);
+            fs.rmSync(appDir, { recursive: true, force: true });
+        });
+
+        it('fails when the app lockfile has a production package the function packages would drop', async () => {
+            await expect(
+                composeServerlessDefinition({
+                    integrations: [],
+                    lambda: { keepNestedNodeModules: false },
+                })
+            ).rejects.toThrow(/qs\/node_modules\/side-channel@1\.1\.1/);
+        });
+
+        it('ships the nested package by default', async () => {
+            const result = await composeServerlessDefinition({ integrations: [] });
+
+            const { exclude } = result.functions.health.package;
+            expect(exclude).not.toContain('node_modules/**/node_modules/**');
+            expect(exclude).toContain(
+                'node_modules/**/node_modules/@friggframework/**'
+            );
+        });
+    });
+
     describe('AWS discovery gating', () => {
 
         it('should run AWS discovery when VPC features are enabled', async () => {
