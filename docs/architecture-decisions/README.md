@@ -50,6 +50,8 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [048](./048-structured-logging.md) | Structured Logging | Proposed | 2026-09-23 |
 | [051](./051-app-definition-validation.md) | App Definition Validation and One Source for Its Defaults | Proposed | 2026-10-02 |
 | [065](./065-release-versioned-module-documentation-and-catalog.md) | Release-Versioned Module Documentation and Catalog Publishing | Accepted | 2026-10-25 |
+| [066](./066-integration-status-reason.md) | Integration Status Reason | Proposed | 2026-11-04 |
+| [067](./067-built-in-maintenance-scripts.md) | Built-in Maintenance Scripts | Proposed | 2026-11-04 |
 
 ## Conventions
 
