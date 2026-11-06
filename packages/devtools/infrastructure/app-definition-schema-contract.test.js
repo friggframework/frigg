@@ -40,6 +40,9 @@ jest.mock('./domains/shared/resource-discovery', () => {
     const actual = jest.requireActual('./domains/shared/resource-discovery');
     return { ...actual, gatherDiscoveredResources: jest.fn() };
 });
+jest.mock('./domains/database/migration-engines', () => ({
+    ensureMigrationEngines: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('./domains/shared/utilities/prisma-layer-manager', () => ({
     ensurePrismaLayerExists: jest.fn().mockResolvedValue(undefined),
 }));
@@ -278,6 +281,7 @@ const MATRIX = {
         },
         lambda: { scopedEnvironment: true, keepNestedNodeModules: false },
         usePrismaLambdaLayer: true,
+        architecture: 'x86_64',
     }),
     'frigg init scaffold (external db, no vpc)': () => ({
         ...base(),
@@ -294,6 +298,7 @@ const MATRIX = {
         database: { postgres: { enable: true, management: 'external' } },
         logging: { retentionInDays: 14 },
         ssm: { enable: false },
+        architecture: 'arm64',
     }),
     'external db, encryption none': () => ({
         ...base(),

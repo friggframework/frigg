@@ -10,6 +10,10 @@
 const { buildEnvironment } = require('../environment-builder');
 const { nestedNodeModulesExcludes } = require('./nested-node-modules');
 const { buildLoggingProviderConfig } = require('./logging-config');
+const {
+    resolveLambdaArchitecture,
+    bundledPrismaEngineExcludes,
+} = require('../lambda-architectures');
 
 /**
  * Create base serverless definition with core functions and resources
@@ -35,6 +39,8 @@ function createBaseDefinition(
 ) {
     const region = process.env.AWS_REGION || 'us-east-1';
     const loggingConfig = buildLoggingProviderConfig(AppDefinition.logging);
+    const architecture = resolveLambdaArchitecture(AppDefinition);
+    const bundledEngineExcludes = bundledPrismaEngineExcludes(AppDefinition, usePrismaLayer);
 
     // Package config for handlers that skip esbuild (need node_modules dependencies)
     // Include backend src/ and index.js since handlers load the app definition
@@ -54,6 +60,7 @@ function createBaseDefinition(
                 'node_modules/prisma/**',
                 'node_modules/@friggframework/core/generated/**',
             ] : []),
+            ...bundledEngineExcludes,
 
             // Exclude AWS SDK (provided by Lambda runtime)
             'node_modules/aws-sdk/**',
@@ -127,6 +134,7 @@ function createBaseDefinition(
                 'node_modules/prisma/**',
                 'node_modules/@friggframework/core/generated/**',
             ] : []),
+            ...bundledEngineExcludes,
 
             // Exclude nested node_modules from symlinked frigg packages (for npm link development)
             'node_modules/@friggframework/core/node_modules/**',
@@ -178,6 +186,7 @@ function createBaseDefinition(
             name: AppDefinition.provider || 'aws',
             ...(process.env.AWS_PROFILE && { profile: process.env.AWS_PROFILE }),
             runtime: 'nodejs22.x',  // Node.js 22.x (latest Lambda runtime with AWS SDK v3)
+            ...(architecture.explicit && { architecture: architecture.name }),
             timeout: 29,  // Set to 29s to give buffer before API Gateway's 30s timeout
             region,
             stage: '${opt:stage}',
@@ -341,8 +350,11 @@ function createBaseDefinition(
             prisma: {
                 path: 'layers/prisma',
                 name: '${self:service}-prisma-${sls:stage}',
-                description: 'Prisma runtime client only (NO CLI) with rhel-openssl-3.0.x binaries (~10-15MB). CLI packaged separately in dbMigrate function.',
+                description: 'Prisma runtime client only (NO CLI) with the query engine for the deployed Lambda architecture (~10-15MB). CLI packaged separately in dbMigrate function.',
                 compatibleRuntimes: ['nodejs20.x', 'nodejs22.x'],
+                ...(architecture.explicit && {
+                    compatibleArchitectures: [architecture.name],
+                }),
                 retain: false,
             },
         } : {},

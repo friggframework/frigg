@@ -146,3 +146,6 @@ describe('frigg init default infrastructure', () => {
         expect(definition.provider.logRetentionInDays).toBe(14);
     });
 });
+jest.mock('../domains/database/migration-engines', () => ({
+    ensureMigrationEngines: jest.fn().mockResolvedValue(undefined),
+}));

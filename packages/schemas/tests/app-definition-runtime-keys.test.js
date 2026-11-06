@@ -185,3 +185,22 @@ describe('app-definition schema defaults are the runtime defaults', () => {
         }
     });
 });
+
+describe('architecture (Lambda architecture)', () => {
+    const schema = getSchema('app-definition');
+
+    test.each(['x86_64', 'arm64'])(
+        "accepts architecture '%s' (the names AWS Lambda uses)",
+        (architecture) => {
+            expect(valid({ architecture }).valid).toBe(true);
+        }
+    );
+
+    test("rejects architecture 'aarch64', which the registry does not know", () => {
+        expect(valid({ architecture: 'aarch64' }).valid).toBe(false);
+    });
+
+    test('carries no default, so an app that leaves it unset gets an unchanged template', () => {
+        expect(schema.properties.architecture.default).toBeUndefined();
+    });
+});

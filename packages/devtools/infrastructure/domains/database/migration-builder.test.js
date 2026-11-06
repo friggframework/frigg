@@ -322,6 +322,61 @@ describe('MigrationBuilder', () => {
         });
     });
 
+    describe('Lambda architecture (architecture)', () => {
+        const baseAppDefinition = { database: { postgres: { enable: true } } };
+        const workerAndRouter = (result) => [
+            result.functions.dbMigrationWorker,
+            result.functions.dbMigrationRouter,
+        ];
+
+        it.each([
+            [undefined, 'rhel-openssl-3.0.x', 'linux-arm64-openssl-3.0.x'],
+            ['x86_64', 'rhel-openssl-3.0.x', 'linux-arm64-openssl-3.0.x'],
+            ['arm64', 'linux-arm64-openssl-3.0.x', 'rhel-openssl-3.0.x'],
+        ])(
+            'with architecture %s the worker and router ship only the %s engines',
+            async (architecture, target, otherTarget) => {
+                const result = await builder.build(
+                    { ...baseAppDefinition, ...(architecture && { architecture }) },
+                    {}
+                );
+
+                for (const fn of workerAndRouter(result)) {
+                    expect(fn.package.exclude).toEqual(
+                        expect.arrayContaining([
+                            '**/libquery_engine-debian*',
+                            '**/libquery_engine-linux-musl*',
+                            `**/libquery_engine-${otherTarget}*`,
+                        ])
+                    );
+                    expect(fn.package.exclude).not.toContain(`**/libquery_engine-${target}*`);
+                }
+            }
+        );
+
+        it.each([
+            [undefined, 'rhel-openssl-3.0.x'],
+            ['x86_64', 'rhel-openssl-3.0.x'],
+            ['arm64', 'linux-arm64-openssl-3.0.x'],
+        ])(
+            'with architecture %s the worker pins the migrate CLI to the shipped %s engines',
+            async (architecture, target) => {
+                const result = await builder.build(
+                    { ...baseAppDefinition, ...(architecture && { architecture }) },
+                    {}
+                );
+
+                expect(result.functions.dbMigrationWorker.environment).toEqual(
+                    expect.objectContaining({
+                        PRISMA_SCHEMA_ENGINE_BINARY: `/var/task/node_modules/@prisma/engines/schema-engine-${target}`,
+                        PRISMA_QUERY_ENGINE_LIBRARY: `/var/task/node_modules/@prisma/engines/libquery_engine-${target}.so.node`,
+                    })
+                );
+                expect(result.functions.dbMigrationRouter.environment.PRISMA_SCHEMA_ENGINE_BINARY).toBeUndefined();
+            }
+        );
+    });
+
     describe('scoped environment (lambda.scopedEnvironment)', () => {
         beforeEach(() => {
             delete process.env.FRIGG_SKIP_AWS_DISCOVERY;

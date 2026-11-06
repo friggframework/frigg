@@ -32,6 +32,7 @@ const {
 const {
     nestedNodeModulesExcludes,
 } = require('../shared/utilities/nested-node-modules');
+const { bundledPrismaEngineExcludes } = require('../shared/lambda-architectures');
 const {
     INTEGRATION_QUEUE_MAX_RECEIVE_COUNT,
     QUEUE_MAX_RECEIVE_COUNT_ENV,
@@ -268,6 +269,7 @@ class IntegrationBuilder extends InfrastructureBuilder {
                           'node_modules/@friggframework/core/generated/**',
                       ]
                     : []),
+                ...bundledPrismaEngineExcludes(appDefinition, usePrismaLayer),
 
                 ...nestedNodeModulesExcludes(appDefinition, usePrismaLayer),
 

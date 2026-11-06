@@ -40,6 +40,9 @@ jest.mock('./domains/shared/resource-discovery', () => {
 jest.mock('./domains/shared/utilities/prisma-layer-manager', () => ({
     ensurePrismaLayerExists: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('./domains/database/migration-engines', () => ({
+    ensureMigrationEngines: jest.fn().mockResolvedValue(undefined),
+}));
 
 const { gatherDiscoveredResources } = require('./domains/shared/resource-discovery');
 
@@ -1471,6 +1474,74 @@ describe('composeServerlessDefinition', () => {
                 'Integration at index 0 is missing Definition or name'
             );
         });
+    });
+});
+
+describe('Lambda architecture (architecture)', () => {
+    const appDefinition = (architecture) => ({
+        name: 'arch-app',
+        integrations: [{ Definition: { name: 'crm' } }],
+        ...(architecture && { architecture }),
+    });
+
+    beforeEach(() => {
+        process.argv = ['node', 'test'];
+        gatherDiscoveredResources.mockResolvedValue(createDiscoveryResponse());
+    });
+
+    it('an explicit x86_64 only adds provider.architecture and the layer compatibleArchitectures to the unset template', async () => {
+        const unset = await composeServerlessDefinition(appDefinition());
+        const explicit = await composeServerlessDefinition(appDefinition('x86_64'));
+
+        expect(explicit.provider.architecture).toBe('x86_64');
+        expect(explicit.layers.prisma.compatibleArchitectures).toEqual(['x86_64']);
+
+        delete explicit.provider.architecture;
+        delete explicit.layers.prisma.compatibleArchitectures;
+        expect(explicit).toEqual(unset);
+    });
+
+    it('fetches the migration worker engines for the deployed architecture before packaging', async () => {
+        const { ensureMigrationEngines } = require('./domains/database/migration-engines');
+
+        await composeServerlessDefinition(appDefinition('arm64'));
+
+        expect(ensureMigrationEngines).toHaveBeenCalledWith({
+            prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+        });
+    });
+
+    it('fetches no migration engines when there is no migration worker (PostgreSQL disabled)', async () => {
+        const { ensureMigrationEngines } = require('./domains/database/migration-engines');
+        ensureMigrationEngines.mockClear();
+
+        await composeServerlessDefinition({
+            ...appDefinition('arm64'),
+            database: { postgres: { enable: false }, mongoDB: { enable: true } },
+        });
+
+        expect(ensureMigrationEngines).not.toHaveBeenCalled();
+    });
+
+    it('builds the Prisma layer for the engine of the deployed architecture', async () => {
+        const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
+
+        await composeServerlessDefinition(appDefinition('arm64'));
+
+        expect(ensurePrismaLayerExists).toHaveBeenCalledWith({
+            databaseConfig: {},
+            prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+        });
+    });
+
+    it('arm64 sets provider.architecture, which osls applies to every function, and the layer compatibleArchitectures', async () => {
+        const result = await composeServerlessDefinition(appDefinition('arm64'));
+
+        expect(result.provider.architecture).toBe('arm64');
+        expect(result.layers.prisma.compatibleArchitectures).toEqual(['arm64']);
+        for (const fn of Object.values(result.functions)) {
+            expect(fn.architecture).toBeUndefined();
+        }
     });
 });
 

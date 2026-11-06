@@ -10,6 +10,7 @@ const {
 } = require('@friggframework/core/queues/queue-delivery');
 const { IntegrationBuilder } = require('./integration-builder');
 const { ValidationResult } = require('../shared/base-builder');
+const { itBundlesOnlyTheTargetPrismaEngine } = require('../../__tests__/helpers/bundled-prisma-engine-excludes');
 
 describe('IntegrationBuilder', () => {
     let integrationBuilder;
@@ -1084,6 +1085,21 @@ describe('IntegrationBuilder', () => {
     });
 });
 
+
+describe('IntegrationBuilder Lambda architecture with usePrismaLambdaLayer=false', () => {
+    const functionsOf = async (usePrismaLambdaLayer, architecture) => {
+        const result = await new IntegrationBuilder().build(
+            {
+                integrations: [{ Definition: { name: 'crm' } }],
+                usePrismaLambdaLayer,
+                ...(architecture && { architecture }),
+            },
+            {}
+        );
+        return Object.values(result.functions);
+    };
+    itBundlesOnlyTheTargetPrismaEngine(functionsOf);
+});
 
 describe('IntegrationBuilder nested node_modules (lambda.keepNestedNodeModules)', () => {
     const appDefinition = (lambda) => ({

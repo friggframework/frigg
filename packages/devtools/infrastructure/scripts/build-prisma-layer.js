@@ -34,6 +34,9 @@
 const fs = require('fs-extra');
 const path = require('path');
 const { execSync } = require('child_process');
+const {
+    resolveLambdaArchitecture,
+} = require('../domains/shared/lambda-architectures');
 
 /**
  * Find @friggframework/core package, handling workspace hoisting
@@ -91,6 +94,31 @@ function getGeneratedClientPackages(databaseConfig = {}) {
     }
 
     return packages;
+}
+
+/**
+ * Everything the layer contents depend on. The layer manager keys its cache
+ * on this, so a change in any of them rebuilds the layer.
+ * @param {Object} options
+ * @param {Object} options.databaseConfig - Database configuration from AppDefinition.database
+ * @param {string} options.prismaBinaryTarget - The engine the deployed architecture loads
+ * @returns {{ prismaBinaryTarget: string, clientPackages: string[], coreVersion: string, prismaClientVersion: string }}
+ */
+function layerBuildInputs({
+    databaseConfig = {},
+    prismaBinaryTarget = resolveLambdaArchitecture().prismaBinaryTarget,
+} = {}) {
+    return {
+        prismaBinaryTarget,
+        clientPackages: getGeneratedClientPackages(databaseConfig),
+        coreVersion: fs.readJsonSync(path.join(CORE_PACKAGE_PATH, 'package.json'))
+            .version,
+        prismaClientVersion: fs.readJsonSync(
+            require.resolve('@prisma/client/package.json', {
+                paths: [CORE_PACKAGE_PATH],
+            })
+        ).version,
+    };
 }
 
 function getMigrationsPackages(clientPackages) {
@@ -158,14 +186,33 @@ const CORE_PACKAGE_PATH = findCorePackage(PROJECT_ROOT);
 const LAYER_OUTPUT_PATH = path.join(PROJECT_ROOT, 'layers/prisma');
 const LAYER_NODE_MODULES = path.join(LAYER_OUTPUT_PATH, 'nodejs/node_modules');
 
-// Binary patterns to remove (non-rhel)
+// Binary patterns no Lambda architecture runs
 const BINARY_PATTERNS_TO_REMOVE = [
     '*darwin*',
     '*debian*',
-    '*linux-arm*',
     '*linux-musl*',
     '*windows*',
 ];
+
+const ENGINE_FILE_PREFIXES = [
+    'libquery_engine-',
+    'query-engine-',
+    'schema-engine-',
+];
+
+/**
+ * Engine files built for a target other than the one the layer deploys to
+ * @param {string[]} fileNames - Basenames found in the layer
+ * @param {string} prismaBinaryTarget - The engine the deployed architecture loads
+ * @returns {string[]}
+ */
+function engineFilesToRemove(fileNames, prismaBinaryTarget) {
+    return fileNames.filter(
+        (name) =>
+            ENGINE_FILE_PREFIXES.some((prefix) => name.startsWith(prefix)) &&
+            !name.includes(prismaBinaryTarget)
+    );
+}
 
 // Files to remove for size optimization
 const FILES_TO_REMOVE = [
@@ -276,21 +323,15 @@ async function installPrismaPackages() {
     await fs.writeJson(packageJsonPath, layerPackageJson, { spaces: 2 });
     logSuccess('Created layer package.json');
 
-    // Install Prisma packages with Lambda binary target
-    // Setting PRISMA_CLI_BINARY_TARGETS ensures only rhel-openssl-3.0.x binary is downloaded
-    log('Installing @prisma/client for AWS Lambda (rhel-openssl-3.0.x)...');
+    // The runtime client has no engine postinstall; the query engines come
+    // from the generated clients copied out of @friggframework/core.
+    log('Installing @prisma/client...');
     try {
-        const env = {
-            ...process.env,
-            PRISMA_CLI_BINARY_TARGETS: 'rhel-openssl-3.0.x',
-        };
-
         execSync('npm install --omit=dev --no-package-lock', {
             cwd: path.join(LAYER_OUTPUT_PATH, 'nodejs'),
             stdio: 'inherit',
-            env,
         });
-        logSuccess('Prisma packages installed with Lambda binary target');
+        logSuccess('Prisma packages installed');
     } catch (error) {
         throw new Error(`Failed to install Prisma packages: ${error.message}`);
     }
@@ -466,23 +507,40 @@ async function removeUnnecessaryFiles() {
 }
 
 /**
- * Remove non-rhel engine binaries to reduce layer size
+ * Remove engine binaries the deployed architecture does not load
+ * @param {string} prismaBinaryTarget - The engine the deployed architecture loads
  */
-async function removeNonRhelBinaries() {
-    logStep(7, 'Removing non-rhel engine binaries');
+async function removeForeignBinaries(prismaBinaryTarget) {
+    logStep(7, `Removing engine binaries other than ${prismaBinaryTarget}`);
 
     let removedCount = 0;
     let totalSize = 0;
 
-    for (const pattern of BINARY_PATTERNS_TO_REMOVE) {
+    const findPatterns = [
+        ...BINARY_PATTERNS_TO_REMOVE,
+        ...ENGINE_FILE_PREFIXES.map((prefix) => `${prefix}*`),
+    ];
+    for (const pattern of findPatterns) {
         try {
             // Find files matching the pattern
             const findCmd = `find "${LAYER_NODE_MODULES}" -name "${pattern}" 2>/dev/null || true`;
             const files = execSync(findCmd, { encoding: 'utf8' })
                 .split('\n')
                 .filter((f) => f.trim());
+            const foreign = new Set(
+                engineFilesToRemove(
+                    files.map((f) => path.basename(f)),
+                    prismaBinaryTarget
+                )
+            );
 
             for (const file of files) {
+                const isEngine = ENGINE_FILE_PREFIXES.some((prefix) =>
+                    path.basename(file).startsWith(prefix)
+                );
+                if (isEngine && !foreign.has(path.basename(file))) {
+                    continue;
+                }
                 if (await fs.pathExists(file)) {
                     const stats = await fs.stat(file);
                     totalSize += stats.size;
@@ -498,48 +556,59 @@ async function removeNonRhelBinaries() {
     if (removedCount > 0) {
         const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
         logSuccess(
-            `Removed ${removedCount} non-rhel binaries (saved ${sizeMB} MB)`
+            `Removed ${removedCount} foreign binaries (saved ${sizeMB} MB)`
         );
     } else {
-        log('No non-rhel binaries found to remove');
+        log('No foreign binaries found to remove');
     }
 }
 
 /**
- * Verify rhel binaries are present
- * @param {Array} expectedClients - List of client packages that should have binaries
+ * Verify each generated client holds the target query engine and no other
+ * Linux engine
+ * @param {string} layerNodeModules - The layer's nodejs/node_modules
+ * @param {string} prismaBinaryTarget - The engine the deployed architecture loads
+ * @param {Array} clientPackages - Generated client packages copied into the layer
+ * @param {string} coreVersion - The @friggframework/core the clients came from
  */
-async function verifyRhelBinaries(expectedClients) {
-    logStep(8, 'Verifying rhel-openssl-3.0.x binaries are present');
+async function verifyTargetBinaries(
+    layerNodeModules,
+    prismaBinaryTarget,
+    clientPackages,
+    coreVersion
+) {
+    logStep(8, `Verifying ${prismaBinaryTarget} query engines are present`);
 
-    try {
-        const findCmd = `find "${LAYER_NODE_MODULES}" -name "*rhel-openssl-3.0.x*" 2>/dev/null || true`;
-        const rhelFiles = execSync(findCmd, { encoding: 'utf8' })
-            .split('\n')
-            .filter((f) => f.trim());
+    const expectedEngine = `libquery_engine-${prismaBinaryTarget}.so.node`;
+    for (const pkg of clientPackages) {
+        const clientDir = path.join(layerNodeModules, pkg);
+        const files = (await fs.pathExists(clientDir))
+            ? await fs.readdir(clientDir)
+            : [];
 
-        if (rhelFiles.length === 0) {
+        if (!files.includes(expectedEngine)) {
             throw new Error(
-                'No rhel-openssl-3.0.x binaries found!\n' +
-                    'Check that Prisma schemas have binaryTargets = ["native", "rhel-openssl-3.0.x"]'
+                `Binary verification failed: ${pkg} has no ${expectedEngine}.\n` +
+                    `@friggframework/core ${coreVersion} did not generate the ${prismaBinaryTarget} engine. ` +
+                    `Upgrade to a core release whose Prisma schemas list ${prismaBinaryTarget} in binaryTargets.`
             );
         }
 
-        const expectedCount = expectedClients.length;
-        logSuccess(
-            `Found ${rhelFiles.length} rhel-openssl-3.0.x ${
-                rhelFiles.length === 1 ? 'binary' : 'binaries'
-            } (expected ${expectedCount})`
-        );
+        const otherEngines = engineFilesToRemove(files, prismaBinaryTarget);
+        if (otherEngines.length > 0) {
+            throw new Error(
+                `Binary verification failed: ${pkg} still holds ${otherEngines.join(
+                    ', '
+                )} next to ${expectedEngine}.`
+            );
+        }
 
-        // Show the binaries found
-        rhelFiles.forEach((file) => {
-            const relativePath = path.relative(LAYER_NODE_MODULES, file);
-            log(`  - ${relativePath}`, 'reset');
-        });
-    } catch (error) {
-        throw new Error(`Binary verification failed: ${error.message}`);
+        log(`  - ${pkg}/${expectedEngine}`, 'reset');
     }
+
+    logSuccess(
+        `Each of ${clientPackages.length} client(s) holds only ${expectedEngine}`
+    );
 }
 
 /**
@@ -607,7 +676,7 @@ async function displayLayerSummary() {
     log('  - generated/prisma-postgresql (PostgreSQL client)', 'reset');
     log('\nPackages EXCLUDED for minimal size:', 'bright');
     log('  - prisma CLI (excluded - only in dbMigrate function)', 'yellow');
-    log('  - @prisma/engines (minimal - only rhel binary)', 'yellow');
+    log('  - @prisma/engines (minimal - only the target engine)', 'yellow');
 
     log('\nNext steps:', 'bright');
     log(
@@ -626,9 +695,14 @@ async function displayLayerSummary() {
 
 /**
  * Main build function
- * @param {Object} databaseConfig - Database configuration from AppDefinition.database
+ * @param {Object} options
+ * @param {Object} options.databaseConfig - Database configuration from AppDefinition.database
+ * @param {string} options.prismaBinaryTarget - The engine the deployed architecture loads
  */
-async function buildPrismaLayer(databaseConfig = {}) {
+async function buildPrismaLayer({
+    databaseConfig = {},
+    prismaBinaryTarget = resolveLambdaArchitecture().prismaBinaryTarget,
+} = {}) {
     const startTime = Date.now();
 
     log('\n' + '='.repeat(60), 'bright');
@@ -638,7 +712,11 @@ async function buildPrismaLayer(databaseConfig = {}) {
     // Log paths
     log(`Project root: ${PROJECT_ROOT}`, 'reset');
     log(`Core package: ${CORE_PACKAGE_PATH}`, 'reset');
-    log(`Layer output: ${LAYER_OUTPUT_PATH}\n`, 'reset');
+    log(`Layer output: ${LAYER_OUTPUT_PATH}`, 'reset');
+    log(`Prisma binary target: ${prismaBinaryTarget}\n`, 'reset');
+    const coreVersion = fs.readJsonSync(
+        path.join(CORE_PACKAGE_PATH, 'package.json')
+    ).version;
 
     // Determine which database clients to include
     const clientPackages = getGeneratedClientPackages(databaseConfig);
@@ -650,8 +728,13 @@ async function buildPrismaLayer(databaseConfig = {}) {
         await copyPrismaPackages(clientPackages); // Copy generated clients from core
         await copyMigrations(clientPackages); // Copy migrations from core
         await removeUnnecessaryFiles(); // Remove source maps, docs, tests (37MB+)
-        await removeNonRhelBinaries(); // Remove non-Linux binaries
-        await verifyRhelBinaries(clientPackages); // Verify query engines present
+        await removeForeignBinaries(prismaBinaryTarget); // Keep only the target's engines
+        await verifyTargetBinaries(
+            LAYER_NODE_MODULES,
+            prismaBinaryTarget,
+            clientPackages,
+            coreVersion
+        );
         await verifyLayerStructure(clientPackages); // Verify minimal runtime structure
         await displayLayerSummary();
 
@@ -698,4 +781,7 @@ module.exports = {
     getMigrationSourcePath,
     getMigrationDestinationPath,
     getRequiredLayerPaths,
+    engineFilesToRemove,
+    verifyTargetBinaries,
+    layerBuildInputs,
 };

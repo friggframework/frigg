@@ -52,6 +52,11 @@
       "description": "Ship Prisma in a shared Lambda layer. false bundles Prisma into each function instead.",
       "default": true
     },
+    "architecture": {
+      "type": "string",
+      "description": "Lambda instruction set for every function, the Prisma layer and the migration worker. Unset deploys x86_64 with an unchanged template. 'arm64' (Graviton) needs a @friggframework/core release whose generated Prisma clients include the linux-arm64 engine.",
+      "enum": ["x86_64", "arm64"]
+    },
     "environment": {
       "type": "object",
       "description": "Environment variable configuration. true includes the variable in the Lambda environment; 'ssm' offloads it to SSM Parameter Store (requires ssm.enable) so it never counts against the Lambda 4KB env limit",

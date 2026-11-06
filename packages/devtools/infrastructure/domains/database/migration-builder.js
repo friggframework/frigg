@@ -16,6 +16,12 @@
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
 const { isScopedEnvironmentActive } = require('../shared/function-environments');
 const { nestedNodeModulesExcludes } = require('../shared/utilities/nested-node-modules');
+const {
+    resolveLambdaArchitecture,
+    PRISMA_ENGINES_PACKAGE_DIR,
+    prismaEngineFileNames,
+    foreignPrismaEngineExcludes,
+} = require('../shared/lambda-architectures');
 const { MigrationResourceResolver } = require('./migration-resolver');
 const { createEmptyDiscoveryResult, ResourceOwnership } = require('../shared/types');
 
@@ -239,6 +245,9 @@ class MigrationBuilder extends InfrastructureBuilder {
     async createFunctionDefinitions(result, usePrismaLayer = true, appDefinition = {}) {
         console.log('  🔍 DEBUG: createFunctionDefinitions called');
         console.log('  🔍 DEBUG: result.functions is:', typeof result.functions, result.functions);
+        const architecture = resolveLambdaArchitecture(appDefinition);
+        const engineExcludes = foreignPrismaEngineExcludes(architecture.name);
+        const engines = prismaEngineFileNames(architecture.prismaBinaryTarget);
         // Migration WORKER package config (needs Prisma CLI WASM files)
         const migrationWorkerPackageConfig = {
             individually: true,
@@ -293,12 +302,14 @@ class MigrationBuilder extends InfrastructureBuilder {
                 'node_modules/@friggframework/core/handlers/routers/integration-*.js',
                 'node_modules/@friggframework/core/handlers/workers/integration-*.js',
 
-                // Exclude wrong OS binaries
+                // Exclude the engines of every platform and architecture this
+                // stack does not run on
                 '**/query-engine-darwin*',
                 '**/schema-engine-darwin*',
                 '**/libquery_engine-darwin*',
                 '**/*-darwin-arm64*',
                 '**/*-darwin*',
+                ...engineExcludes,
 
                 // Migration worker DOES need Prisma CLI WASM files (for migrate deploy)
                 // Only exclude runtime engine WASM (query engine internals)
@@ -385,12 +396,14 @@ class MigrationBuilder extends InfrastructureBuilder {
                 'node_modules/@friggframework/core/handlers/routers/integration-*.js',
                 'node_modules/@friggframework/core/handlers/workers/**',
 
-                // Exclude wrong OS binaries
+                // Exclude the engines of every platform and architecture this
+                // stack does not run on
                 '**/query-engine-darwin*',
                 '**/schema-engine-darwin*',
                 '**/libquery_engine-darwin*',
                 '**/*-darwin-arm64*',
                 '**/*-darwin*',
+                ...engineExcludes,
 
                 // Router doesn't run migrations - exclude ALL WASM files
                 '**/runtime/*.wasm',
@@ -438,6 +451,12 @@ class MigrationBuilder extends InfrastructureBuilder {
             environment: {
                 // Ensure migration functions get DATABASE_URL from provider.environment
                 // Note: Serverless will merge this with provider.environment
+
+                // Pin the migrate CLI to the shipped engines. With these set,
+                // Prisma neither downloads an engine at cold start (into the
+                // read-only /var/task) nor picks another file.
+                PRISMA_SCHEMA_ENGINE_BINARY: `/var/task/${PRISMA_ENGINES_PACKAGE_DIR}/${engines.schemaEngine}`,
+                PRISMA_QUERY_ENGINE_LIBRARY: `/var/task/${PRISMA_ENGINES_PACKAGE_DIR}/${engines.queryEngineLibrary}`,
             },
             events: [
                 {

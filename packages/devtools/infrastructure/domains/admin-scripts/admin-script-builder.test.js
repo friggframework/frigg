@@ -10,6 +10,7 @@
 
 const { AdminScriptBuilder } = require('./admin-script-builder');
 const { ValidationResult } = require('../shared/base-builder');
+const { itBundlesOnlyTheTargetPrismaEngine } = require('../../__tests__/helpers/bundled-prisma-engine-excludes');
 
 describe('AdminScriptBuilder', () => {
     let adminScriptBuilder;
@@ -961,6 +962,21 @@ describe('AdminScriptBuilder', () => {
                 result.functions.reportRouter.environment
             ).toBeUndefined();
         });
+    });
+
+    describe('Lambda architecture with usePrismaLambdaLayer=false', () => {
+        const functionsOf = async (usePrismaLambdaLayer, architecture) => {
+            const result = await adminScriptBuilder.build(
+                {
+                    adminScripts: [{ Definition: { name: 'cleanup' } }],
+                    usePrismaLambdaLayer,
+                    ...(architecture && { architecture }),
+                },
+                {}
+            );
+            return Object.values(result.functions);
+        };
+        itBundlesOnlyTheTargetPrismaEngine(functionsOf);
     });
 
     describe('getName()', () => {

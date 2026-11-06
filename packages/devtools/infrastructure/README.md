@@ -303,6 +303,33 @@ const appDefinition = {
 
 With the opt-out, each nested package resolves whatever version is hoisted to the root, and a package whose root copy is a dev dependency is not shipped at all. The first `require` of such a package fails at Lambda init with `Runtime.ImportModuleError`.
 
+**Lambda architecture (arm64 / Graviton):**
+
+Every function, the Prisma layer and the migration worker deploy as x86_64 unless the app definition sets `architecture`:
+
+```javascript
+const appDefinition = {
+    name: 'my-app',
+    architecture: 'arm64', // or 'x86_64'; unset keeps today's template
+    integrations: [{ Definition: { name: 'hubspot' } }],
+};
+```
+
+An explicit value sets `provider.architecture` and the layer's `compatibleArchitectures`, builds the layer with that architecture's Prisma query engine, ships the migration worker with its schema engine and query engine library, and pins the migrate CLI to them through `PRISMA_SCHEMA_ENGINE_BINARY` and `PRISMA_QUERY_ENGINE_LIBRARY`. With `usePrismaLambdaLayer: false`, each function bundles only that engine. An unset key adds no field to the template.
+
+Before you flip an app to `arm64`:
+
+-   It needs a `@friggframework/core` release whose generated Prisma clients include the `linux-arm64-openssl-3.0.x` engine (both schemas list it in `binaryTargets`). With an older core the layer build fails naming the core version.
+-   The deploy host must reach Prisma's engine CDN (`binaries.prisma.sh`) at package time: the migration worker's engines for the target are fetched there, and packaging fails if either is missing.
+    -   This runs on every compose where the migration worker is enabled, and downloads only when the target's engines are missing from the app's `node_modules/@prisma/engines`.
+    -   Air-gapped or offline deploy hosts set `PRISMA_ENGINES_MIRROR` to an internal mirror of the CDN. Prisma's download honours it (`@prisma/fetch-engine` 6.19.3, `dist/chunk-LONQL55G.js`, where the download URL is built from `PRISMA_BINARIES_MIRROR || PRISMA_ENGINES_MIRROR || "https://binaries.prisma.sh"`).
+-   The app must have `prisma` installed in its own `node_modules`, not only in a hoisted parent: the worker ships its engines from there, and packaging fails otherwise. The worker runs the app's own `prisma` CLI and pins `PRISMA_SCHEMA_ENGINE_BINARY` and `PRISMA_QUERY_ENGINE_LIBRARY` to that `@prisma/engines`, so the CLI and its engines always agree. That `prisma` must still be able to run the schema and migrations of `@friggframework/core`.
+-   Published core carries one more query engine per generated client (about 15 MB unpacked each).
+-   Native addons of the app itself (`sharp`, `bcrypt`, and the like) are built for the deploy host's architecture by `npm ci`, not for the target. Build them for arm64 or replace them.
+-   During the stack update, functions run mixed for a short time, so flip in a low-traffic window.
+-   The cached layer under `layers/prisma` rebuilds on the flip: its marker records the Prisma binary target, the client set and the core and `@prisma/client` versions, and a mismatch rebuilds.
+-   The first compose after upgrading to a Frigg release with this support rebuilds the Prisma layer once, because cache markers written by older releases never match.
+
 ## Usage Examples
 
 ### Basic Deployment
