@@ -172,7 +172,7 @@ Path A must handle this at every worker. Paths B, C, D can dispatch by the paylo
 
 ### EventBridge Scheduler entries
 
-[Scheduled jobs](../guides/scheduled-jobs.md) target integration IDs (see `packages/core/scheduler-commands.js`). A scheduled job set at v1-time fires at v2-time. Same drift issue as SQS; same handling options.
+Scheduled jobs target integration IDs (see `packages/core/scheduler-commands.js`). A scheduled job set at v1-time fires at v2-time. Same drift issue as SQS; same handling options.
 
 ### Rollback semantics
 
