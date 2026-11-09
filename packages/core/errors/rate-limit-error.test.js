@@ -148,6 +148,24 @@ describe('RateLimitError', () => {
             expect(error.message).toBe(`POST ${sanitizedUrl} 429`);
         });
 
+        it('takes the status of the cause when there is no response', () => {
+            const cause = Object.assign(new Error('REQUEST_LIMIT_EXCEEDED'), {
+                statusCode: 403,
+            });
+            const error = new RateLimitError({ hint, cause });
+            expect(error.statusCode).toBe(403);
+        });
+
+        it('keeps the status of the response over the status of the cause', () => {
+            const cause = Object.assign(new Error('boom'), { statusCode: 403 });
+            const error = new RateLimitError({
+                hint,
+                cause,
+                response: throttledResponse(),
+            });
+            expect(error.statusCode).toBe(429);
+        });
+
         it('does not put the hint in the enumerable fields', () => {
             const error = new RateLimitError({ hint });
             expect(Object.keys(error)).not.toContain('hint');
