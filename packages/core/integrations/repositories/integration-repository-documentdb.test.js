@@ -175,3 +175,213 @@ describe('IntegrationRepositoryDocumentDB.createIntegration', () => {
         expect(insertCall.documents[0].status).toBe('IN_CREATION');
     });
 });
+
+function makeMessagesRepo(stored = {}) {
+    const doc = {
+        _id: { $oid: OID },
+        messages: { errors: [], warnings: [], info: [], logs: [] },
+        errors: [],
+        warnings: [],
+        info: [],
+        logs: [],
+        ...stored,
+    };
+    const repo = new IntegrationRepositoryDocumentDB();
+    repo.prisma = {
+        $runCommandRaw: jest.fn(async (command) => {
+            if (command.find) {
+                return { cursor: { firstBatch: [{ ...doc }] } };
+            }
+            Object.assign(doc, command.updates[0].u.$set);
+            return { ok: 1, n: 1, nModified: 1 };
+        }),
+    };
+    return { repo, doc };
+}
+
+describe('IntegrationRepositoryDocumentDB.updateIntegrationMessages', () => {
+    const first = { title: 'First', message: 'one', timestamp: 1000 };
+    const second = { title: 'Second', message: 'two', timestamp: 2000 };
+    const keepNewest50 = { keepLast: 50 };
+
+    it('appends, so two calls leave two items in both stored copies', async () => {
+        const { repo, doc } = makeMessagesRepo();
+
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            first,
+            keepNewest50
+        );
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            second,
+            keepNewest50
+        );
+
+        expect(doc.messages.warnings).toEqual([first, second]);
+        expect(doc.warnings).toEqual([first, second]);
+    });
+
+    it('appends to the items of a document that has no messages object', async () => {
+        const stored = { title: 'Old', message: 'stored', timestamp: 1 };
+        const { repo, doc } = makeMessagesRepo({
+            messages: undefined,
+            warnings: [stored],
+        });
+
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            first,
+            keepNewest50
+        );
+
+        expect(doc.warnings).toEqual([stored, first]);
+    });
+
+    it('keeps the items of the other types', async () => {
+        const error = { title: 'Kept', message: 'error', timestamp: 1 };
+        const { repo, doc } = makeMessagesRepo({
+            messages: { errors: [error], warnings: [], info: [], logs: [] },
+            errors: [error],
+        });
+
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            first,
+            keepNewest50
+        );
+
+        expect(doc.messages.errors).toEqual([error]);
+        expect(doc.errors).toEqual([error]);
+    });
+
+    it('throws when the integration id is not valid', async () => {
+        const { repo } = makeMessagesRepo();
+
+        await expect(
+            repo.updateIntegrationMessages(
+                'nope',
+                'warnings',
+                first,
+                keepNewest50
+            )
+        ).rejects.toThrow('Integration nope not found');
+        expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
+    });
+
+    it('stores the item with its extra keys in both stored copies', async () => {
+        const { repo, doc } = makeMessagesRepo();
+        const item = {
+            title: 'Rate limit reached',
+            message: 'It resets at noon.',
+            timestamp: 1000,
+            code: 'RATE_LIMITED',
+            actions: [{ type: 'RETRY_WHEN_READY' }],
+        };
+
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            item,
+            keepNewest50
+        );
+
+        expect(doc.messages.warnings).toEqual([item]);
+        expect(doc.warnings).toEqual([item]);
+    });
+
+    it('stores null for an item that has no title', async () => {
+        const { repo, doc } = makeMessagesRepo();
+
+        await repo.updateIntegrationMessages(
+            OID,
+            'warnings',
+            { message: 'untitled', timestamp: 1 },
+            keepNewest50
+        );
+
+        expect(doc.warnings).toEqual([
+            { title: null, message: 'untitled', timestamp: 1 },
+        ]);
+    });
+
+    it('keeps the newest 50 items of the type, oldest first', async () => {
+        const { repo, doc } = makeMessagesRepo();
+
+        for (let n = 1; n <= 51; n++) {
+            await repo.updateIntegrationMessages(
+                OID,
+                'warnings',
+                { title: `W${n}`, message: 'b', timestamp: n },
+                keepNewest50
+            );
+        }
+
+        expect(doc.messages.warnings.map((item) => item.timestamp)).toEqual(
+            Array.from({ length: 50 }, (_, i) => i + 2)
+        );
+        expect(doc.warnings.map((item) => item.timestamp)).toEqual(
+            Array.from({ length: 50 }, (_, i) => i + 2)
+        );
+    });
+});
+
+describe('IntegrationRepositoryDocumentDB.findIntegrationMessages', () => {
+    const stored = { title: 'Stored', message: 'warning', timestamp: 1 };
+
+    it('returns the stored items of the type', async () => {
+        const { repo } = makeMessagesRepo({
+            messages: { errors: [], warnings: [stored], info: [], logs: [] },
+        });
+
+        await expect(
+            repo.findIntegrationMessages(OID, 'warnings')
+        ).resolves.toEqual([stored]);
+    });
+
+    it('reads the column of a document that has no messages object', async () => {
+        const { repo } = makeMessagesRepo({
+            messages: undefined,
+            warnings: [stored],
+        });
+
+        await expect(
+            repo.findIntegrationMessages(OID, 'warnings')
+        ).resolves.toEqual([stored]);
+    });
+
+    it('returns an empty list when nothing is stored', async () => {
+        const { repo } = makeMessagesRepo({
+            messages: undefined,
+            warnings: undefined,
+        });
+
+        await expect(
+            repo.findIntegrationMessages(OID, 'warnings')
+        ).resolves.toEqual([]);
+    });
+
+    it('throws when the integration id is not valid', async () => {
+        const { repo } = makeMessagesRepo();
+
+        await expect(
+            repo.findIntegrationMessages('nope', 'warnings')
+        ).rejects.toThrow('Integration nope not found');
+        expect(repo.prisma.$runCommandRaw).not.toHaveBeenCalled();
+    });
+
+    it('throws when the integration does not exist', async () => {
+        const { repo } = makeMessagesRepo();
+        repo.prisma.$runCommandRaw.mockResolvedValue({
+            cursor: { firstBatch: [] },
+        });
+
+        await expect(
+            repo.findIntegrationMessages(OID, 'warnings')
+        ).rejects.toThrow(`Integration ${OID} not found`);
+    });
+});

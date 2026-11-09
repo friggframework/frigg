@@ -14,6 +14,7 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
+const { messagesOfType } = require('./message-item-shared');
 
 class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     constructor() {
@@ -94,9 +95,8 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     async updateIntegrationMessages(
         integrationId,
         messageType,
-        messageTitle,
-        messageBody,
-        messageTimestamp
+        item,
+        { keepLast }
     ) {
         const objectId = toObjectId(integrationId);
         if (!objectId) {
@@ -107,13 +107,12 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             throw new Error(`Integration ${integrationId} not found`);
         }
         const messages = this._extractMessages(existing);
-        const list = Array.isArray(messages[messageType]) ? [...messages[messageType]] : [];
-        list.push({
-            title: messageTitle ?? null,
-            message: messageBody,
-            timestamp: messageTimestamp,
-        });
-        const updatedMessages = { ...messages, [messageType]: list };
+        const list = [...messagesOfType(messages, messageType)];
+        list.push({ ...item, title: item.title ?? null });
+        const updatedMessages = {
+            ...messages,
+            [messageType]: list.slice(-keepLast),
+        };
         await updateOne(
             this.prisma,
             'Integration',
@@ -130,6 +129,20 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             }
         );
         return true;
+    }
+
+    async findIntegrationMessages(integrationId, messageType) {
+        const objectId = toObjectId(integrationId);
+        if (!objectId) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+        const existing = await findOne(this.prisma, 'Integration', {
+            _id: objectId,
+        });
+        if (!existing) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+        return messagesOfType(this._extractMessages(existing), messageType);
     }
 
     async createIntegration(entities, userId, config) {

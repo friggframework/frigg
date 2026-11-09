@@ -1,0 +1,110 @@
+const { getLogger } = require('../../logs');
+const { MAX_MESSAGES_PER_TYPE } = require('./update-integration-messages');
+
+const log = getLogger('frigg.integrations');
+
+const RATE_LIMITED_MESSAGE_CODE = 'RATE_LIMITED';
+const SAME_LIMIT_WINDOW_MS = 60_000;
+const MINUTE_MS = 60_000;
+
+const isNonEmptyString = (value) => typeof value === 'string' && value !== '';
+
+const isValidTime = (value) =>
+    value !== null &&
+    value !== undefined &&
+    !Number.isNaN(new Date(value).getTime());
+
+const isLink = (link) =>
+    typeof link?.label === 'string' && typeof link?.url === 'string';
+
+const linkActions = (links) =>
+    (Array.isArray(links) ? links : [])
+        .filter(isLink)
+        .map(({ label, url }) => ({ type: 'LINK', label, url }));
+
+function formatResetTime(date) {
+    const minute = new Date(Math.ceil(date.getTime() / MINUTE_MS) * MINUTE_MS);
+    return `${minute.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
+
+/**
+ * @class RecordRateLimitMessage
+ */
+class RecordRateLimitMessage {
+    /**
+     * @param {Object} params - Configuration parameters.
+     * @param {import('../repositories/integration-repository-interface').IntegrationRepositoryInterface} params.integrationRepository - Repository for integration data operations.
+     */
+    constructor({ integrationRepository }) {
+        this.integrationRepository = integrationRepository;
+    }
+
+    /**
+     * @async
+     * @param {string} integrationId - ID of the integration to warn on.
+     * @param {Object} payload - The RATE_LIMITED payload of the Module.
+     * @param {string} payload.moduleName
+     * @param {string} payload.reason
+     * @param {Date|string|number} payload.retryAt
+     * @param {Array<{label: string, url: string}>} [payload.links]
+     */
+    async execute(integrationId, payload) {
+        const { moduleName, reason, retryAt, links } = payload ?? {};
+        if (!isNonEmptyString(moduleName) || !isValidTime(retryAt)) return;
+
+        try {
+            await this._recordUnlessStored(integrationId, {
+                moduleName,
+                reason,
+                resetAt: new Date(retryAt),
+                links,
+            });
+        } catch (error) {
+            log.warn('Failed to record rate limit message', {
+                eventName:
+                    'frigg.integrations.rate_limit_message_record_failed',
+                integrationId,
+                moduleName,
+                error,
+            });
+        }
+    }
+
+    async _recordUnlessStored(
+        integrationId,
+        { moduleName, reason, resetAt, links }
+    ) {
+        const warnings =
+            await this.integrationRepository.findIntegrationMessages(
+                integrationId,
+                'warnings'
+            );
+        const alreadyRecorded = warnings.some(
+            (warning) =>
+                warning?.code === RATE_LIMITED_MESSAGE_CODE &&
+                warning.module === moduleName &&
+                Math.abs(Date.parse(warning.retryAt) - resetAt.getTime()) <=
+                    SAME_LIMIT_WINDOW_MS
+        );
+        if (alreadyRecorded) return;
+
+        const resetsAt = formatResetTime(resetAt);
+        await this.integrationRepository.updateIntegrationMessages(
+            integrationId,
+            'warnings',
+            {
+                title: 'Rate limit reached',
+                message: `The ${moduleName} API rate limit was reached and resets at ${resetsAt}.`,
+                timestamp: Date.now(),
+                code: RATE_LIMITED_MESSAGE_CODE,
+                module: moduleName,
+                reason,
+                retryAt: resetAt.toISOString(),
+                actions: [{ type: 'RETRY_WHEN_READY' }, ...linkActions(links)],
+            },
+            { keepLast: MAX_MESSAGES_PER_TYPE }
+        );
+    }
+}
+
+module.exports = { RecordRateLimitMessage };

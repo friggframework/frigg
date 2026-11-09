@@ -17,6 +17,9 @@ const {
 const {
     UpdateIntegrationConfig,
 } = require('./use-cases/update-integration-config');
+const {
+    RecordRateLimitMessage,
+} = require('./use-cases/record-rate-limit-message');
 const { validateExtensionBinding } = require('./extension');
 const { getTelemetry } = require('../telemetry/telemetry-runtime');
 const { instrumentHandler } = require('../telemetry/instrument-handler');
@@ -57,6 +60,9 @@ class IntegrationBase {
         integrationRepository: this.integrationRepository,
     });
     updateIntegrationConfig = new UpdateIntegrationConfig({
+        integrationRepository: this.integrationRepository,
+    });
+    recordRateLimitMessage = new RecordRateLimitMessage({
         integrationRepository: this.integrationRepository,
     });
 
@@ -907,6 +913,16 @@ class IntegrationBase {
                 moduleName: notifier?.name,
             });
             await this.persistStatus('ENABLED');
+        }
+
+        if (delegateString === 'RATE_LIMITED') {
+            this.logger.warn('Module reported a rate limit', {
+                eventName: `${this.logger.name}.rate_limited`,
+                moduleName: object?.moduleName,
+                reason: object?.reason,
+                retryAt: object?.retryAt,
+            });
+            await this.recordRateLimitMessage.execute(this.id, object);
         }
     }
 

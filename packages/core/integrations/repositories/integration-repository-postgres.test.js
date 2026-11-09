@@ -11,6 +11,7 @@
 const {
     IntegrationRepositoryPostgres,
 } = require('./integration-repository-postgres');
+const { withMessageRow } = require('../tests/doubles/prisma-message-row');
 
 function makeRepo({ affectedCount = 1 } = {}) {
     const repo = new IntegrationRepositoryPostgres();
@@ -119,5 +120,152 @@ describe('IntegrationRepositoryPostgres.patchIntegrationConfig', () => {
             status: 'ENABLED',
             messages: {},
         });
+    });
+});
+
+const makeMessagesRepo = (stored) =>
+    withMessageRow(new IntegrationRepositoryPostgres(), 7, stored);
+
+describe('IntegrationRepositoryPostgres.updateIntegrationMessages', () => {
+    const first = { title: 'First', message: 'one', timestamp: 1000 };
+    const second = { title: 'Second', message: 'two', timestamp: 2000 };
+    const keepNewest50 = { keepLast: 50 };
+
+    it('appends, so two calls leave two items', async () => {
+        const { repo, row } = makeMessagesRepo();
+
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            first,
+            keepNewest50
+        );
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            second,
+            keepNewest50
+        );
+
+        expect(row.warnings).toEqual([first, second]);
+    });
+
+    it('keeps the items that were stored before', async () => {
+        const stored = { title: 'Old', message: 'stored', timestamp: 1 };
+        const { repo, row } = makeMessagesRepo({ warnings: [stored] });
+
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            first,
+            keepNewest50
+        );
+
+        expect(row.warnings).toEqual([stored, first]);
+    });
+
+    it('writes only the column of its type', async () => {
+        const error = { title: 'Kept', message: 'error', timestamp: 1 };
+        const { repo, row } = makeMessagesRepo({ errors: [error] });
+
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            first,
+            keepNewest50
+        );
+
+        expect(repo.prisma.integration.update).toHaveBeenCalledWith({
+            where: { id: 7 },
+            data: { warnings: [first] },
+        });
+        expect(row.errors).toEqual([error]);
+    });
+
+    it('throws when the integration does not exist', async () => {
+        const { repo } = makeMessagesRepo();
+        repo.prisma.integration.findUnique.mockResolvedValue(null);
+
+        await expect(
+            repo.updateIntegrationMessages('7', 'warnings', first, keepNewest50)
+        ).rejects.toThrow('Integration 7 not found');
+        expect(repo.prisma.integration.update).not.toHaveBeenCalled();
+    });
+
+    it('stores the item with its extra keys as it is', async () => {
+        const { repo, row } = makeMessagesRepo();
+        const item = {
+            title: 'Rate limit reached',
+            message: 'It resets at noon.',
+            timestamp: 1000,
+            code: 'RATE_LIMITED',
+            actions: [{ type: 'RETRY_WHEN_READY' }],
+        };
+
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            item,
+            keepNewest50
+        );
+
+        expect(row.warnings).toEqual([item]);
+    });
+
+    it('keeps the newest 50 items of the type, oldest first', async () => {
+        const { repo, row } = makeMessagesRepo();
+
+        for (let n = 1; n <= 51; n++) {
+            await repo.updateIntegrationMessages(
+                '7',
+                'warnings',
+                { title: `W${n}`, message: 'b', timestamp: n },
+                keepNewest50
+            );
+        }
+
+        expect(row.warnings.map((item) => item.timestamp)).toEqual(
+            Array.from({ length: 50 }, (_, i) => i + 2)
+        );
+    });
+});
+
+describe('IntegrationRepositoryPostgres.findIntegrationMessages', () => {
+    const stored = { title: 'Stored', message: 'warning', timestamp: 1 };
+
+    it('returns the stored items of the type', async () => {
+        const { repo } = makeMessagesRepo({ warnings: [stored] });
+
+        await expect(
+            repo.findIntegrationMessages('7', 'warnings')
+        ).resolves.toEqual([stored]);
+    });
+
+    it('reads only the column of the type', async () => {
+        const { repo } = makeMessagesRepo();
+
+        await repo.findIntegrationMessages('7', 'warnings');
+
+        expect(repo.prisma.integration.findUnique).toHaveBeenCalledWith({
+            where: { id: 7 },
+            select: { warnings: true },
+        });
+    });
+
+    it('returns an empty list when the column holds no items', async () => {
+        const { repo } = makeMessagesRepo({ warnings: null });
+
+        await expect(
+            repo.findIntegrationMessages('7', 'warnings')
+        ).resolves.toEqual([]);
+    });
+
+    it('throws when the integration does not exist', async () => {
+        const { repo } = makeMessagesRepo();
+        repo.prisma.integration.findUnique.mockResolvedValue(null);
+
+        await expect(
+            repo.findIntegrationMessages('7', 'warnings')
+        ).rejects.toThrow('Integration 7 not found');
     });
 });

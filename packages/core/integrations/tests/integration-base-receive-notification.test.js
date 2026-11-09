@@ -367,4 +367,124 @@ describe('IntegrationBase.receiveNotification', () => {
             expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
         });
     });
+
+    describe('RATE_LIMITED', () => {
+        const retryAt = new Date('2026-09-28T14:30:15.000Z');
+        const payload = {
+            moduleName: 'testmodule',
+            reason: 'daily',
+            retryAt,
+            policy: 'DAILY',
+            statusCode: 429,
+            links: [
+                {
+                    label: 'API usage limits',
+                    url: 'https://developers.example.com/limits',
+                },
+            ],
+        };
+        const rateLimitedRecords = (sink) =>
+            sink.records.filter((r) => r.eventName?.endsWith('.rate_limited'));
+        let mockRecordRateLimitMessage;
+
+        beforeEach(() => {
+            mockRecordRateLimitMessage = {
+                execute: jest.fn().mockResolvedValue(undefined),
+            };
+            integration.recordRateLimitMessage = mockRecordRateLimitMessage;
+        });
+
+        it('records the message for this integration with the payload of the module', async () => {
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'RATE_LIMITED',
+                payload
+            );
+
+            expect(mockRecordRateLimitMessage.execute).toHaveBeenCalledTimes(1);
+            expect(mockRecordRateLimitMessage.execute).toHaveBeenCalledWith(
+                'int-1',
+                payload
+            );
+        });
+
+        it('passes a payload without a module name as it is, with no name from the notifier', async () => {
+            const withoutName = { ...payload };
+            delete withoutName.moduleName;
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'RATE_LIMITED',
+                withoutName
+            );
+
+            expect(mockRecordRateLimitMessage.execute).toHaveBeenCalledWith(
+                'int-1',
+                withoutName
+            );
+        });
+
+        it('never changes the status of the integration', async () => {
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'RATE_LIMITED',
+                payload
+            );
+
+            expect(mockUpdateIntegrationStatus.execute).not.toHaveBeenCalled();
+            expect(integration.status).toBe('ENABLED');
+        });
+
+        it('leaves the errors of the integration alone', async () => {
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'RATE_LIMITED',
+                payload
+            );
+
+            expect(
+                mockUpdateIntegrationMessages.execute
+            ).not.toHaveBeenCalled();
+        });
+
+        it('does nothing when the integration has no id yet', async () => {
+            integration.id = undefined;
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'RATE_LIMITED',
+                payload
+            );
+
+            expect(mockRecordRateLimitMessage.execute).not.toHaveBeenCalled();
+        });
+
+        it('writes one WARN with the module, the reason and the reset time', async () => {
+            const sink = createMemorySink();
+
+            await integration.receiveNotification(
+                { name: 'testmodule' },
+                'RATE_LIMITED',
+                payload
+            );
+
+            expect(rateLimitedRecords(sink)).toEqual([
+                expect.objectContaining({
+                    level: 'WARN',
+                    moduleName: 'testmodule',
+                    reason: 'daily',
+                    retryAt: '2026-09-28T14:30:15.000Z',
+                    integrationId: 'int-1',
+                }),
+            ]);
+        });
+
+        it('is wired to the repository of the integration', () => {
+            const fresh = new IntegrationBase();
+
+            expect(fresh.recordRateLimitMessage.integrationRepository).toBe(
+                fresh.integrationRepository
+            );
+        });
+    });
 });
