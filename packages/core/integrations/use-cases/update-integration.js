@@ -1,3 +1,4 @@
+const Boom = require('@hapi/boom');
 const {
     mapIntegrationClassToIntegrationDTO,
 } = require('../utils/map-integration-dto');
@@ -27,16 +28,21 @@ class UpdateIntegration {
      * @param {string} userId - ID of the user requesting the update.
      * @param {Object} config - New configuration object for the integration.
      * @returns {Promise<Object>} The updated integration DTO.
-     * @throws {Error} When integration is not found, doesn't belong to user, or integration class is not found.
+     * @throws {Boom.notFound} When integration is not found or doesn't belong to user.
+     * @throws {Error} When integration class is not found.
      */
     async execute(integrationId, userId, config) {
         // 1. Get integration record from repository
-        const integrationRecord =
-            await this.integrationRepository.findIntegrationById(integrationId);
+        const integrationRecord = await this.integrationRepository
+            .findIntegrationById(integrationId)
+            .catch((error) => {
+                if (error.message?.includes('not found')) return null;
+                throw error;
+            });
 
-        if (!integrationRecord) {
-            throw new Error(
-                `No integration found by the ID of ${integrationId}`
+        if (!integrationRecord || integrationRecord.userId !== userId) {
+            throw Boom.notFound(
+                `Integration with id of ${integrationId} does not exist`
             );
         }
 
@@ -50,12 +56,6 @@ class UpdateIntegration {
         if (!integrationClass) {
             throw new Error(
                 `No integration class found for type: ${integrationRecord.config.type}`
-            );
-        }
-
-        if (integrationRecord.userId !== userId) {
-            throw new Error(
-                `Integration ${integrationId} does not belong to User ${userId}`
             );
         }
 

@@ -5,6 +5,7 @@
  */
 
 const { createBaseDefinition } = require('./base-definition-factory');
+const { itBundlesOnlyTheTargetPrismaEngine } = require('../../../__tests__/helpers/bundled-prisma-engine-excludes');
 
 describe('Base Definition Factory', () => {
     beforeEach(() => {
@@ -94,7 +95,19 @@ describe('Base Definition Factory', () => {
 
             expect(result.functions.auth.handler).toBe('node_modules/@friggframework/core/handlers/routers/auth.handler');
             expect(result.functions.auth.layers).toEqual([{ Ref: 'PrismaLambdaLayer' }]);
-            expect(result.functions.auth.events).toHaveLength(3);
+            expect(
+                result.functions.auth.events.map(
+                    (e) => `${e.httpApi.method} ${e.httpApi.path}`
+                )
+            ).toEqual([
+                'ANY /api/integrations',
+                'ANY /api/integrations/{proxy+}',
+                'ANY /api/authorize',
+                'ANY /api/entity',
+                'ANY /api/entity/{proxy+}',
+                'ANY /api/entities',
+                'ANY /api/entities/{proxy+}',
+            ]);
         });
 
         it('should NOT include legacy dbMigrate function', () => {
@@ -119,6 +132,27 @@ describe('Base Definition Factory', () => {
             expect(result.resources.Resources.InternalErrorBridgeTopic).toBeDefined();
             expect(result.resources.Resources.InternalErrorBridgePolicy).toBeDefined();
             expect(result.resources.Resources.ApiGatewayAlarm5xx).toBeDefined();
+        });
+
+        it('alarms on the HTTP API 5xx metric of the API osls creates', () => {
+            // The Frigg functions use `httpApi` events, so osls creates an
+            // API Gateway v2 HTTP API (logical ID HttpApi) with only the
+            // `$default` stage. HTTP APIs publish `5xx` (REST APIs publish
+            // `5XXError`) with the ApiId dimension; a Stage dimension set to
+            // the deploy stage name would never match `$default`.
+            const result = createBaseDefinition({}, {}, {});
+            const usesHttpApi = Object.values(result.functions).some((fn) =>
+                (fn.events || []).some((event) => event.httpApi)
+            );
+            expect(usesHttpApi).toBe(true);
+
+            const alarm = result.resources.Resources.ApiGatewayAlarm5xx;
+            expect(alarm.Properties).toMatchObject({
+                Namespace: 'AWS/ApiGateway',
+                MetricName: '5xx',
+                Dimensions: [{ Name: 'ApiId', Value: { Ref: 'HttpApi' } }],
+                AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
+            });
         });
 
         it('should include base IAM permissions', () => {
@@ -290,19 +324,65 @@ describe('Base Definition Factory', () => {
 });
 
 
+describe('Lambda architecture (architecture)', () => {
+    const build = (appDefinition) => createBaseDefinition(appDefinition, {}, {}, true);
+
+    it('adds no architecture fields when the key is unset, so existing templates do not change', () => {
+        const result = build({ name: 'test-app' });
+
+        expect(result.provider.architecture).toBeUndefined();
+        expect(result.layers.prisma.compatibleArchitectures).toBeUndefined();
+    });
+
+    it.each(['x86_64', 'arm64'])(
+        'sets provider.architecture and the layer compatibleArchitectures to %s when set',
+        (architecture) => {
+            const result = build({ name: 'test-app', architecture });
+
+            expect(result.provider.architecture).toBe(architecture);
+            expect(result.layers.prisma.compatibleArchitectures).toEqual([architecture]);
+        }
+    );
+
+    it('describes the layer without naming an engine, since the engine follows the architecture', () => {
+        const result = build({ name: 'test-app' });
+
+        expect(result.layers.prisma.description).not.toContain('rhel');
+    });
+
+    it('rejects an architecture the registry does not know', () => {
+        expect(() => build({ name: 'test-app', architecture: 'aarch64' })).toThrow(
+            /aarch64/
+        );
+    });
+});
+
+describe('Lambda architecture with usePrismaLambdaLayer=false', () => {
+    const functionsOf = (usePrismaLayer, architecture) => {
+        const result = createBaseDefinition(
+            { name: 'test-app', ...(architecture && { architecture }) },
+            {},
+            {},
+            usePrismaLayer
+        );
+        return Object.values(result.functions);
+    };
+    itBundlesOnlyTheTargetPrismaEngine(functionsOf);
+});
+
 describe('nested node_modules (lambda.keepNestedNodeModules)', () => {
     const build = (appDefinition) => createBaseDefinition(appDefinition, {}, {}, true);
 
-    it('excludes every nested node_modules from the core function packages by default', () => {
-        const result = build({ name: 'test-app' });
+    it('excludes every nested node_modules from the core function packages when the app opts out', () => {
+        const result = build({ name: 'test-app', lambda: { keepNestedNodeModules: false } });
 
         for (const fn of ['auth', 'user', 'health']) {
             expect(result.functions[fn].package.exclude).toContain('node_modules/**/node_modules/**');
         }
     });
 
-    it('keeps nested node_modules when the app opts in, still excluding nested Frigg, AWS SDK and Prisma copies', () => {
-        const result = build({ name: 'test-app', lambda: { keepNestedNodeModules: true } });
+    it('keeps nested node_modules by default, still excluding nested Frigg, AWS SDK and Prisma copies', () => {
+        const result = build({ name: 'test-app' });
 
         for (const fn of ['auth', 'user', 'health']) {
             const { exclude } = result.functions[fn].package;
@@ -315,5 +395,56 @@ describe('nested node_modules (lambda.keepNestedNodeModules)', () => {
                 ])
             );
         }
+    });
+});
+
+describe('logging (ADR-048)', () => {
+    const build = (logging) =>
+        createBaseDefinition({ name: 'test-app', ...(logging && { logging }) }, {}, {});
+
+    it('emits no logs, logRetentionInDays or frameworkVersion change when logging is absent', () => {
+        const result = build();
+
+        expect(result.provider.logs).toBeUndefined();
+        expect(result.provider.logRetentionInDays).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.17.0');
+    });
+
+    it('validates logging.level but leaves the Lambda log format and frameworkVersion alone by default', () => {
+        const result = build({ level: 'warn' });
+
+        expect(result.provider.logs).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.17.0');
+    });
+
+    it.each(['verbose', 'warning', '', 3])('throws on unknown level %p', (level) => {
+        expect(() => build({ level })).toThrow(/logging\.level/);
+    });
+
+    it('maps retentionInDays to provider.logRetentionInDays without a logs block', () => {
+        const result = build({ retentionInDays: 30 });
+
+        expect(result.provider.logRetentionInDays).toBe(30);
+        expect(result.provider.logs).toBeUndefined();
+        expect(result.frameworkVersion).toBe('>=3.17.0');
+    });
+
+    it('accepts 1096, which CloudWatch allows but the osls schema omits', () => {
+        expect(build({ retentionInDays: 1096 }).provider.logRetentionInDays).toBe(1096);
+    });
+
+    it.each([10, 0, -1, 30.5, '30'])(
+        'throws on retentionInDays %p, which CloudWatch rejects',
+        (retentionInDays) => {
+            expect(() => build({ retentionInDays })).toThrow(
+                /logging\.retentionInDays/
+            );
+        }
+    );
+
+    it('sets retention when level is also set', () => {
+        const result = build({ level: 'debug', retentionInDays: 14 });
+
+        expect(result.provider.logRetentionInDays).toBe(14);
     });
 });

@@ -16,11 +16,85 @@ const { createTelemetryEventBus } = require('./telemetry-event-bus');
 const {
     runWithTelemetryContext,
     mergeTelemetryContext,
+    getTelemetryContextStore,
 } = require('./telemetry-context');
+const { serializeError } = require('../logs/serialize');
+const { LOGGER_SCOPE_KEY } = require('../logs/context');
+
+const BAGGAGE_TYPES = new Set(['string', 'number', 'boolean', 'bigint']);
+const isBaggageValue = (value) => BAGGAGE_TYPES.has(typeof value);
 
 const TRACER_NAME = 'frigg';
 const METRIC_EXPORT_INTERVAL_MS =
     Number(process.env.OTEL_METRIC_EXPORT_INTERVAL_MS) || 60000;
+
+// ADR-011 §2: high-cardinality ids ride baggage/ALS; copy onto SPANS only
+// (never metric labels). Keys match withContext baggage entry names.
+const BAGGAGE_TO_SPAN_ATTR = Object.freeze({
+    integrationId: 'frigg.integration_id',
+    userId: 'frigg.user_id',
+    integrationType: 'integration_type',
+    version: 'frigg.version',
+});
+
+function nonEmptyString(value) {
+    if (value === undefined || value === null) return null;
+    const s = String(value).trim();
+    return s.length > 0 ? s : null;
+}
+
+/**
+ * Built-in processor: stamp active baggage (fallback ALS) onto each new span
+ * as Frigg span attributes. Runs ahead of BatchSpanProcessor so exported OTLP
+ * spans carry attribution Watchtower/backends can index. Never touches metrics.
+ */
+class BaggageAttributeSpanProcessor {
+    onStart(span, parentContext) {
+        try {
+            const baggage = otelApi.propagation.getBaggage(parentContext);
+            const als = getTelemetryContextStore();
+            const existing =
+                span && span.attributes && typeof span.attributes === 'object'
+                    ? span.attributes
+                    : null;
+
+            for (const [baggageKey, attrName] of Object.entries(
+                BAGGAGE_TO_SPAN_ATTR
+            )) {
+                if (
+                    existing &&
+                    existing[attrName] !== undefined &&
+                    existing[attrName] !== null
+                ) {
+                    continue; // explicit span attribute wins
+                }
+                let value = null;
+                if (baggage) {
+                    const entry = baggage.getEntry(baggageKey);
+                    value = nonEmptyString(entry && entry.value);
+                }
+                if (!value && als) {
+                    value = nonEmptyString(als[baggageKey]);
+                }
+                if (value) {
+                    span.setAttribute(attrName, value);
+                }
+            }
+        } catch (_) {
+            // Telemetry must never break the wrapped path.
+        }
+    }
+
+    onEnd() {}
+
+    shutdown() {
+        return Promise.resolve();
+    }
+
+    forceFlush() {
+        return Promise.resolve();
+    }
+}
 
 /**
  * Register an AsyncLocalStorage-backed OTel context manager once per process.
@@ -78,12 +152,16 @@ class OtelTelemetry {
                   })
                 : new AlwaysOnSampler();
 
+        // Attribution processor ahead of the batch exporter so every exported
+        // span (handler, apimodule, adopter) carries frigg.* ids from baggage.
+        const spanProcessors = [new BaggageAttributeSpanProcessor()];
+        if (traceExporter) {
+            spanProcessors.push(new BatchSpanProcessor(traceExporter));
+        }
         this._tracerProvider = new BasicTracerProvider({
             resource: res,
             sampler,
-            spanProcessors: traceExporter
-                ? [new BatchSpanProcessor(traceExporter)]
-                : [],
+            spanProcessors,
         });
 
         const metricReader = metricExporter
@@ -138,6 +216,15 @@ class OtelTelemetry {
         this._bus.emit('event', payload);
     }
 
+    getActiveSpanContext() {
+        const spanContext = otelApi.trace.getActiveSpan()?.spanContext();
+        if (!spanContext || !otelApi.isSpanContextValid(spanContext)) {
+            return null;
+        }
+        const { traceId, spanId, traceFlags } = spanContext;
+        return { traceId, spanId, traceFlags };
+    }
+
     startSpan(name, options) {
         return this._tracer.startSpan(name, options);
     }
@@ -150,10 +237,16 @@ class OtelTelemetry {
                 span.setStatus({ code: otelApi.SpanStatusCode.OK });
                 return result;
             } catch (err) {
-                span.recordException(err);
+                const serialized = serializeError(err);
+                span.recordException({
+                    name: serialized.type,
+                    message: serialized.message,
+                    stack: serialized.stack,
+                    code: serialized.code,
+                });
                 span.setStatus({
                     code: otelApi.SpanStatusCode.ERROR,
-                    message: err && err.message,
+                    message: serialized.message,
                 });
                 throw err;
             } finally {
@@ -170,10 +263,9 @@ class OtelTelemetry {
      */
     async withContext(attributes = {}, fn) {
         const entries = {};
-        for (const [key, value] of Object.entries(attributes)) {
-            if (value !== undefined && value !== null) {
-                entries[key] = { value: String(value) };
-            }
+        for (const [key, value] of Object.entries(attributes || {})) {
+            if (key === LOGGER_SCOPE_KEY || !isBaggageValue(value)) continue;
+            entries[key] = { value: String(value) };
         }
         const baggage = otelApi.propagation.createBaggage(entries);
         const ctx = otelApi.propagation.setBaggage(

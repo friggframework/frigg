@@ -87,15 +87,21 @@ const { doctorCommand } = require('./doctor-command');
 const { repairCommand } = require('./repair-command');
 const { authCommand } = require('./auth-command');
 const { ssmPushCommand } = require('./ssm-command');
+const { validateCommand } = require('./validate-command');
 
 const program = new Command();
 
 program
-    .command('init [templateName]')
+    .command('init [projectName]')
     .description('Initialize a new Frigg application')
-    .option('-t, --template <template>', 'template to use', 'backend-only')
-    .option('-n, --name <name>', 'project name')
-    .option('-d, --directory <directory>', 'target directory')
+    .option('-n, --name <name>', 'project name (alternative to the positional argument)')
+    .option('-m, --mode <mode>', 'deployment mode: standalone or embedded')
+    .option('-y, --yes', 'accept the default for every prompt (implied when stdin is not a TTY)')
+    .option('--no-install', 'skip installing dependencies')
+    .option('--no-git', 'skip initializing a git repository')
+    .option('-f, --force', 'scaffold into a non-empty directory and overwrite README.md')
+    .option('-v, --verbose', 'enable verbose output')
+    .option('-t, --template <template>', 'legacy template (no longer supported)')
     .action(initCommand);
 
 program
@@ -108,7 +114,16 @@ program
     .description('Run the backend and optional frontend')
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .option('-v, --verbose', 'enable verbose output')
+    .option('--skip-validate', 'skip app definition validation')
     .action(startCommand);
+
+program
+    .command('validate')
+    .description('Validate the app definition (index.js) against the schema and the runtime rules')
+    .option('-s, --stage <stage>', 'also run the checks for this stage (encryption, deploy-time environment)')
+    .option('--json', 'print the report as JSON')
+    .option('-v, --verbose', 'enable verbose output')
+    .action(validateCommand);
 
 program
     .command('build')
@@ -116,6 +131,7 @@ program
     .option('-s, --stage <stage>', 'deployment stage', 'dev')
     .option('-v, --verbose', 'enable verbose output')
     .option('-p, --production', 'build for production (enables AWS discovery)')
+    .option('--skip-validate', 'skip app definition validation (not recommended)')
     .action(buildCommand);
 
 program
@@ -125,6 +141,7 @@ program
     .option('-v, --verbose', 'enable verbose output')
     .option('-f, --force', 'force deployment (bypasses caching for layers and functions)')
     .option('--skip-doctor', 'skip post-deployment health check')
+    .option('--skip-validate', 'skip app definition validation (not recommended)')
     .action(deployCommand);
 
 program
@@ -220,4 +237,4 @@ authProgram
 
 program.parse(process.argv);
 
-module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand, ssmPushCommand };
+module.exports = { initCommand, installCommand, startCommand, buildCommand, deployCommand, validateCommand, generateIamCommand, uiCommand, dbSetupCommand, doctorCommand, repairCommand, authCommand, ssmPushCommand };

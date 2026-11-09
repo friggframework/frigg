@@ -23,7 +23,7 @@ class TestUserRepository {
 
     async createToken(userId, rawToken, minutes = 120) {
         const token = `token-for-${userId}-for-${minutes}-mins`;
-        this.tokens.set(token, { user: userId, rawToken });
+        this.tokens.set(token, { id: token, userId, rawToken });
         return token;
     }
 

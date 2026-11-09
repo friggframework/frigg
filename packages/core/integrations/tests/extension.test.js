@@ -2,7 +2,6 @@ jest.mock('../../database/config', () => ({
     DB_TYPE: 'mongodb',
     getDatabaseType: jest.fn(() => 'mongodb'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 const {
@@ -10,6 +9,7 @@ const {
     getExtensionRoutes,
     getExtensionWorkers,
 } = require('../extension');
+const { createMemorySink } = require('../../logs');
 const { IntegrationBase } = require('../integration-base');
 
 const buildExtension = (overrides = {}) => ({
@@ -490,33 +490,39 @@ describe('IntegrationBase._mergeExtensions (via initialize)', () => {
     });
 
     it('warns (does not throw) when a subclass shadows a binding-declared handler', async () => {
-        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-        try {
-            const ParentKlass = makeIntegrationClass({
-                ext: {
-                    extension: buildExtension(),
-                    handlers: { TEST_EVENT: 'onCustomEvent' },
-                },
-            });
-            class SubKlass extends ParentKlass {
-                constructor(params) {
-                    super(params);
-                    this.events.TEST_EVENT = {
-                        type: 'USER_ACTION',
-                        handler: () => ({ source: 'subclass' }),
-                    };
-                }
+        const sink = createMemorySink();
+        const ParentKlass = makeIntegrationClass({
+            ext: {
+                extension: buildExtension(),
+                handlers: { TEST_EVENT: 'onCustomEvent' },
+            },
+        });
+        class SubKlass extends ParentKlass {
+            constructor(params) {
+                super(params);
+                this.events.TEST_EVENT = {
+                    type: 'USER_ACTION',
+                    handler: () => ({ source: 'subclass' }),
+                };
             }
-            const instance = new SubKlass();
-            await instance.initialize();
-            const result = await instance.events.TEST_EVENT.handler();
-            expect(result).toEqual({ source: 'subclass' });
-            expect(warn).toHaveBeenCalledWith(
-                expect.stringMatching(/handler "onCustomEvent".*ignored/)
-            );
-        } finally {
-            warn.mockRestore();
         }
+        const instance = new SubKlass();
+        await instance.initialize();
+        const result = await instance.events.TEST_EVENT.handler();
+        expect(result).toEqual({ source: 'subclass' });
+        const shadowed = sink.records.filter((r) =>
+            r.eventName?.endsWith('.extension_handler_shadowed')
+        );
+        expect(shadowed).toEqual([
+            expect.objectContaining({
+                level: 'WARN',
+                handler: 'onCustomEvent',
+                event: 'TEST_EVENT',
+            }),
+        ]);
+        expect(shadowed[0].message).toBe(
+            'Binding handler is ignored: the event is already set'
+        );
     });
 
     it('binds the handler to the integration instance (this-context preserved)', async () => {

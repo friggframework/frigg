@@ -483,6 +483,35 @@ async onWebhook({ data }) {
 }
 ```
 
+`getMapping` followed by `upsertMapping` is not atomic. To claim an event so only one
+concurrent worker proceeds, use the insert-only `createMapping`, which throws
+`MappingAlreadyExistsError` (exported from `@friggframework/core`) when the
+`sourceId` is already taken. `deleteMapping(sourceId)` releases the claim and is a
+no-op when nothing exists.
+
+```javascript
+const { MappingAlreadyExistsError } = require('@friggframework/core');
+
+async onWebhook({ data }) {
+    const claimId = `claim:${data.body.id}`;
+    try {
+        await this.createMapping(claimId, { claimedAt: new Date() });
+    } catch (error) {
+        if (error instanceof MappingAlreadyExistsError) {
+            return { processed: false, duplicate: true };
+        }
+        throw error;
+    }
+
+    try {
+        await this.processEvent(data.body);
+    } catch (error) {
+        await this.deleteMapping(claimId);
+        throw error;
+    }
+}
+```
+
 ### 4. Error Handling
 ```javascript
 async onWebhook({ data }) {

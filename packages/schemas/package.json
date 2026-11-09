@@ -39,6 +39,7 @@
     "validators/",
     "mocks/",
     "middleware/",
+    "app-definition.js",
     "index.js"
   ]
 }

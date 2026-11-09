@@ -4,8 +4,13 @@
  * Tests integration-specific Lambda functions and SQS queues
  */
 
+const {
+    INTEGRATION_QUEUE_MAX_RECEIVE_COUNT,
+    QUEUE_MAX_RECEIVE_COUNT_ENV,
+} = require('@friggframework/core/queues/queue-delivery');
 const { IntegrationBuilder } = require('./integration-builder');
 const { ValidationResult } = require('../shared/base-builder');
+const { itBundlesOnlyTheTargetPrismaEngine } = require('../../__tests__/helpers/bundled-prisma-engine-excludes');
 
 describe('IntegrationBuilder', () => {
     let integrationBuilder;
@@ -205,6 +210,54 @@ describe('IntegrationBuilder', () => {
                     'Fn::GetAtt': ['InternalErrorQueue', 'Arn'],
                 },
             });
+        });
+
+        it('takes the redrive max receive count from the core runtime contract', async () => {
+            const result = await integrationBuilder.build(
+                { integrations: [{ Definition: { name: 'test' } }] },
+                {}
+            );
+
+            expect(
+                result.resources.TestQueue.Properties.RedrivePolicy
+                    .maxReceiveCount
+            ).toBe(INTEGRATION_QUEUE_MAX_RECEIVE_COUNT);
+        });
+
+        it('tells the queue worker the max receive count of the queue it owns', async () => {
+            const result = await integrationBuilder.build(
+                { integrations: [{ Definition: { name: 'test' } }] },
+                {}
+            );
+
+            expect(
+                result.functions.testQueueWorker.environment[
+                    QUEUE_MAX_RECEIVE_COUNT_ENV
+                ]
+            ).toBe('3');
+        });
+
+        it('leaves the max receive count unset for an external queue', async () => {
+            const result = await integrationBuilder.build(
+                {
+                    integrations: [
+                        {
+                            Definition: { name: 'test' },
+                            ownership: { queue: 'external' },
+                            queue: {
+                                url: 'https://sqs.us-east-1.amazonaws.com/123456789012/test-queue',
+                            },
+                        },
+                    ],
+                },
+                {}
+            );
+
+            expect(
+                result.functions.testQueueWorker.environment?.[
+                    QUEUE_MAX_RECEIVE_COUNT_ENV
+                ]
+            ).toBeUndefined();
         });
 
         it('should create queue worker function', async () => {
@@ -1033,6 +1086,21 @@ describe('IntegrationBuilder', () => {
 });
 
 
+describe('IntegrationBuilder Lambda architecture with usePrismaLambdaLayer=false', () => {
+    const functionsOf = async (usePrismaLambdaLayer, architecture) => {
+        const result = await new IntegrationBuilder().build(
+            {
+                integrations: [{ Definition: { name: 'crm' } }],
+                usePrismaLambdaLayer,
+                ...(architecture && { architecture }),
+            },
+            {}
+        );
+        return Object.values(result.functions);
+    };
+    itBundlesOnlyTheTargetPrismaEngine(functionsOf);
+});
+
 describe('IntegrationBuilder nested node_modules (lambda.keepNestedNodeModules)', () => {
     const appDefinition = (lambda) => ({
         integrations: [{ Definition: { name: 'test', webhooks: true } }],
@@ -1041,24 +1109,24 @@ describe('IntegrationBuilder nested node_modules (lambda.keepNestedNodeModules)'
     const packagedFunctions = (result) =>
         Object.values(result.functions).filter((fn) => fn.package?.exclude);
 
-    it('excludes every nested node_modules by default', async () => {
+    it('keeps nested node_modules by default, still excluding nested Frigg copies', async () => {
         const result = await new IntegrationBuilder().build(appDefinition(), {});
 
         expect(packagedFunctions(result).length).toBeGreaterThan(0);
         for (const fn of packagedFunctions(result)) {
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
+            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
         }
     });
 
-    it('keeps nested node_modules when the app opts in, still excluding nested Frigg copies', async () => {
+    it('excludes every nested node_modules when the app opts out', async () => {
         const result = await new IntegrationBuilder().build(
-            appDefinition({ keepNestedNodeModules: true }),
+            appDefinition({ keepNestedNodeModules: false }),
             {}
         );
 
         for (const fn of packagedFunctions(result)) {
-            expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
         }
     });
 });

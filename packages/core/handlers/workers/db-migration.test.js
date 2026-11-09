@@ -301,3 +301,62 @@ describe('Database Migration Worker - Adapter Layer', () => {
         });
     });
 });
+
+describe('Database Migration Worker - invocation log (ADR-048 Phase 2)', () => {
+    it('logs the invocation from an SQS body without dumping the event', async () => {
+        jest.resetModules();
+        jest.doMock('../../database/utils/prisma-runner', () => ({
+            checkDatabaseState: jest.fn().mockResolvedValue({
+                upToDate: true,
+                pendingMigrations: 0,
+            }),
+        }));
+        const { handler } = require('./db-migration');
+        const { createMemorySink } = require('../../logs');
+        const { SECRETS } = require('../../logs/__fixtures__/secrets');
+        const { findSecretWindow } = require('../../logs/__fixtures__/matchers');
+        const sink = createMemorySink();
+        const consoleSpies = ['log', 'warn', 'error'].map((method) =>
+            jest.spyOn(console, method).mockImplementation()
+        );
+        const event = {
+            action: 'checkStatus',
+            Records: [
+                {
+                    body: JSON.stringify({
+                        migrationId: 'mig-2',
+                        dbType: 'postgresql',
+                        stage: 'dev',
+                        DATABASE_URL: `postgresql://admin:${SECRETS.dbPassword}@db.internal/app`,
+                    }),
+                },
+            ],
+        };
+        const context = {
+            requestId: 'req-1',
+            functionName: 'fn',
+            getRemainingTimeInMillis: () => 30000,
+        };
+
+        try {
+            await handler(event, context);
+
+            const [record] = sink.records.filter(
+                (r) => r.eventName === 'frigg.database.migration.invoked'
+            );
+            expect(record).toMatchObject({
+                level: 'INFO',
+                migrationId: 'mig-2',
+                dbType: 'postgresql',
+                targetStage: 'dev',
+                action: 'checkStatus',
+            });
+            expect(sink.records).toContainNoSecretWindow(SECRETS);
+            for (const spy of consoleSpies) {
+                expect(findSecretWindow(spy.mock.calls, [SECRETS.dbPassword])).toBeNull();
+            }
+        } finally {
+            consoleSpies.forEach((spy) => spy.mockRestore());
+        }
+    });
+});

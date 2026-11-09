@@ -13,11 +13,15 @@ const {
     isSsmOffloadActive,
     getOffloadedKeys,
 } = require('../parameters/offload-utils');
+const { normalizeLogLevel } = require('./utilities/logging-config');
 
 // OTLP-family exporters read their endpoint/headers from these standard env
-// vars (ADR-011). When such an exporter is configured we auto-register them as
-// Serverless passthroughs so the deployed Lambda inherits them from the deploy
-// environment — no need for the adopter to also list them under `environment`.
+// vars (ADR-011). When such an exporter is configured — or when the adopter
+// opts into zero-code OTLP by setting OTEL_EXPORTER_OTLP_ENDPOINT (or marking
+// it for SSM offload) with no Definition.telemetry.exporter — we auto-register
+// them as Serverless passthroughs so the deployed Lambda inherits them from
+// the deploy environment. An explicit exporter.type always wins: 'none' /
+// 'console' do NOT register passthroughs even if the deploy shell has the env.
 //
 // NOTE (VPC egress): a Lambda in a private subnet needs a NAT gateway or a VPC
 // endpoint to reach an external OTLP backend (Honeycomb/Datadog). Without egress
@@ -28,9 +32,31 @@ const OTEL_PASSTHROUGH_VARS = [
     'OTEL_EXPORTER_OTLP_HEADERS',
 ];
 
+function hasOtlpEndpointEnv() {
+    const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    return typeof endpoint === 'string' && endpoint.trim().length > 0;
+}
+
+/**
+ * Zero-code OTLP is active when Definition.telemetry.exporter is omitted and
+ * either the deploy shell has a non-empty OTEL_EXPORTER_OTLP_ENDPOINT or that
+ * key is declared for SSM offload (`environment: 'ssm'` / `ssm.parameters`).
+ */
+function isZeroCodeOtlpActive(appDefinition) {
+    if (hasOtlpEndpointEnv()) return true;
+    return getOffloadedKeys(appDefinition).includes(
+        'OTEL_EXPORTER_OTLP_ENDPOINT'
+    );
+}
+
 function addTelemetryEnvPassthrough(appDefinition, envVars) {
     const exporterType = appDefinition?.telemetry?.exporter?.type;
-    if (!OTLP_EXPORTER_TYPES.has(exporterType)) return;
+    if (exporterType !== undefined) {
+        // Explicit Definition.telemetry.exporter.type wins over the env var.
+        if (!OTLP_EXPORTER_TYPES.has(exporterType)) return;
+    } else if (!isZeroCodeOtlpActive(appDefinition)) {
+        return;
+    }
 
     // Skip offloaded keys here: baking '${env:KEY, ''}' resolves to '' at
     // deploy (the value lives only in SSM), and '' !== undefined then blocks
@@ -42,6 +68,34 @@ function addTelemetryEnvPassthrough(appDefinition, envVars) {
         if (offloadedKeys?.has(key)) continue;
         envVars[key] = `\${env:${key}, ''}`;
     }
+}
+
+// ADR-048 §12: logging.level wins over an `environment` passthrough. INFO is
+// the core default, so it emits no env var.
+function addLoggingEnv(appDefinition, envVars) {
+    const level = appDefinition?.logging?.level;
+    const normalized =
+        level === undefined ? undefined : normalizeLogLevel(level);
+
+    // serverless-offline copies only AWS_* shell vars into handlers, so under
+    // frigg start the shell level must travel through provider.environment.
+    if (process.env.FRIGG_SKIP_AWS_DISCOVERY === 'true') {
+        const shellLevel = process.env.FRIGG_LOG_LEVEL?.trim();
+        if (shellLevel) {
+            envVars.FRIGG_LOG_LEVEL = shellLevel;
+            return;
+        }
+        // Emit INFO too: without it the local DEBUG default (IS_OFFLINE) wins.
+        if (normalized) envVars.FRIGG_LOG_LEVEL = normalized;
+        return;
+    }
+
+    if (normalized === undefined) return;
+    if (normalized === 'INFO') {
+        delete envVars.FRIGG_LOG_LEVEL;
+        return;
+    }
+    envVars.FRIGG_LOG_LEVEL = normalized;
 }
 
 /**
@@ -119,6 +173,8 @@ function getAppEnvironmentVars(appDefinition) {
         envVars[key] = `\${env:${key}, ''}`;
         envKeys.push(key);
     }
+
+    addLoggingEnv(appDefinition, envVars);
 
     if (envKeys.length > 0) {
         console.log(

@@ -2,7 +2,6 @@ jest.mock('../../database/config', () => ({
     DB_TYPE: 'mongodb',
     getDatabaseType: jest.fn(() => 'mongodb'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 const { createQueueWorker } = require('../backend-utils');
@@ -127,6 +126,7 @@ describe('Webhook Queue Worker', () => {
         });
 
         it('should log errors with integration context', async () => {
+            const sink = require('../../logs').createMemorySink();
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
             const FailingIntegration = class extends TestWebhookIntegration {
@@ -149,11 +149,17 @@ describe('Webhook Queue Worker', () => {
 
             const result = await failingWorker.run(sqsEvent, {});
             expect(result.batchItemFailures).toHaveLength(1);
-            // Error is logged by createQueueWorker._run with integration context
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.stringContaining('Error in ON_WEBHOOK for test-webhook'),
-                expect.any(Error)
-            );
+            // The Worker boundary logs the error one time, with the message scope.
+            expect(consoleSpy).not.toHaveBeenCalled();
+            expect(
+                sink.records.filter((r) => r.eventName === 'frigg.worker.record_failed')
+            ).toEqual([
+                expect.objectContaining({
+                    messageId: 'msg-1',
+                    integrationEvent: 'ON_WEBHOOK',
+                    error: expect.objectContaining({ message: 'Test error' }),
+                }),
+            ]);
 
             consoleSpy.mockRestore();
         });
@@ -594,6 +600,101 @@ describe('Webhook Queue Worker', () => {
 
             // Should work with unhydrated instance (no DB call)
             await expect(worker.run(sqsEvent, {})).resolves.not.toThrow();
+        });
+    });
+
+    describe('Queue delivery passed to the event handler', () => {
+        const originalMaxReceiveCount =
+            process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT;
+        let received;
+
+        class DeliveryAwareIntegration extends TestWebhookIntegration {
+            async onWebhook(params) {
+                received = params;
+            }
+        }
+
+        const sqsRecord = (attributes) => ({
+            messageId: 'msg-1',
+            body: JSON.stringify({
+                event: 'ON_WEBHOOK',
+                data: { body: { entityId: '123' } },
+            }),
+            ...(attributes && { attributes }),
+        });
+
+        const deliver = async (record, context = {}) => {
+            const QueueWorker = createQueueWorker(DeliveryAwareIntegration);
+            await new QueueWorker().run({ Records: [record] }, context);
+            return received;
+        };
+
+        beforeEach(() => {
+            received = undefined;
+            process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT = '3';
+        });
+
+        afterEach(() => {
+            if (originalMaxReceiveCount === undefined) {
+                delete process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT;
+            } else {
+                process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT =
+                    originalMaxReceiveCount;
+            }
+        });
+
+        it.each([
+            ['1', 1, false],
+            ['2', 2, false],
+            ['3', 3, true],
+        ])(
+            'receive %s of 3 reaches the handler as receiveCount %i, isLastAttempt %s',
+            async (approximateReceiveCount, receiveCount, isLastAttempt) => {
+                const { delivery } = await deliver(
+                    sqsRecord({
+                        ApproximateReceiveCount: approximateReceiveCount,
+                    })
+                );
+
+                expect(delivery).toEqual({
+                    receiveCount,
+                    maxReceiveCount: 3,
+                    isLastAttempt,
+                });
+            }
+        );
+
+        it('makes no last-attempt claim when SQS gives no receive count', async () => {
+            const { delivery } = await deliver(sqsRecord());
+
+            expect(delivery.receiveCount).toBeUndefined();
+            expect(delivery.isLastAttempt).toBe(false);
+        });
+
+        it('makes no last-attempt claim when the queue max receive count is unknown', async () => {
+            delete process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT;
+
+            const { delivery } = await deliver(
+                sqsRecord({ ApproximateReceiveCount: '3' })
+            );
+
+            expect(delivery).toEqual({
+                receiveCount: 3,
+                maxReceiveCount: undefined,
+                isLastAttempt: false,
+            });
+        });
+
+        it('still hands data and context to handlers that ignore delivery', async () => {
+            const context = { awsRequestId: 'req-1' };
+
+            const { data, context: handlerContext } = await deliver(
+                sqsRecord({ ApproximateReceiveCount: '1' }),
+                context
+            );
+
+            expect(data).toEqual({ body: { entityId: '123' } });
+            expect(handlerContext).toBe(context);
         });
     });
 });

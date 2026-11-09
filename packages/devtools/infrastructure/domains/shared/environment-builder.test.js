@@ -10,6 +10,22 @@ const {
 } = require('./environment-builder');
 
 describe('Environment Builder', () => {
+    // Keep stage-default / empty-definition assertions deterministic even when
+    // a developer shell has OTEL_EXPORTER_OTLP_ENDPOINT set (zero-code path).
+    const originalOtelEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+    beforeEach(() => {
+        delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    });
+
+    afterEach(() => {
+        if (originalOtelEndpoint === undefined) {
+            delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+        } else {
+            process.env.OTEL_EXPORTER_OTLP_ENDPOINT = originalOtelEndpoint;
+        }
+    });
+
     describe('getAppEnvironmentVars()', () => {
         it('should extract environment variables with value true', () => {
             const appDefinition = {
@@ -144,6 +160,178 @@ describe('Environment Builder', () => {
             expect(
                 getAppEnvironmentVars({}).OTEL_EXPORTER_OTLP_ENDPOINT
             ).toBeUndefined();
+        });
+
+        it('zero-code: emits OTLP passthroughs when Definition omits exporter and the deploy env has the endpoint', () => {
+            process.env.OTEL_EXPORTER_OTLP_ENDPOINT =
+                'https://watchtower.example/api/v1/watchtower/otel';
+
+            const result = getAppEnvironmentVars({});
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBe(
+                "${env:OTEL_EXPORTER_OTLP_ENDPOINT, ''}"
+            );
+            expect(result.OTEL_EXPORTER_OTLP_HEADERS).toBe(
+                "${env:OTEL_EXPORTER_OTLP_HEADERS, ''}"
+            );
+        });
+
+        it('zero-code: whitespace-only OTEL_EXPORTER_OTLP_ENDPOINT does not emit passthroughs', () => {
+            process.env.OTEL_EXPORTER_OTLP_ENDPOINT = '   ';
+
+            const result = getAppEnvironmentVars({});
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+            expect(result.OTEL_EXPORTER_OTLP_HEADERS).toBeUndefined();
+        });
+
+        it.each(['none', 'console'])(
+            'explicit exporter type "%s" wins over a set deploy-shell endpoint',
+            (type) => {
+                process.env.OTEL_EXPORTER_OTLP_ENDPOINT =
+                    'https://watchtower.example/api/v1/watchtower/otel';
+
+                const result = getAppEnvironmentVars({
+                    telemetry: { exporter: { type } },
+                });
+
+                expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+                expect(result.OTEL_EXPORTER_OTLP_HEADERS).toBeUndefined();
+            }
+        );
+    });
+
+    describe('logging env (ADR-048)', () => {
+        it.each(['debug', 'WARN', 'Error'])(
+            'emits literal upper-case FRIGG_LOG_LEVEL for level "%s"',
+            (level) => {
+                const result = getAppEnvironmentVars({ logging: { level } });
+
+                expect(result.FRIGG_LOG_LEVEL).toBe(level.toUpperCase());
+            }
+        );
+
+        it.each(['info', 'INFO'])(
+            'emits nothing for the default level "%s"',
+            (level) => {
+                const result = getAppEnvironmentVars({ logging: { level } });
+
+                expect(result).not.toHaveProperty('FRIGG_LOG_LEVEL');
+            }
+        );
+
+        it('emits nothing when logging or logging.level is absent', () => {
+            expect(getAppEnvironmentVars({})).not.toHaveProperty(
+                'FRIGG_LOG_LEVEL'
+            );
+            expect(
+                getAppEnvironmentVars({ logging: { retentionInDays: 30 } })
+            ).not.toHaveProperty('FRIGG_LOG_LEVEL');
+        });
+
+        it('lets logging.level win over an environment passthrough', () => {
+            const result = getAppEnvironmentVars({
+                environment: { FRIGG_LOG_LEVEL: true },
+                logging: { level: 'error' },
+            });
+
+            expect(result.FRIGG_LOG_LEVEL).toBe('ERROR');
+        });
+
+        it('drops an environment passthrough when logging.level is INFO', () => {
+            const result = getAppEnvironmentVars({
+                environment: { FRIGG_LOG_LEVEL: true },
+                logging: { level: 'info' },
+            });
+
+            expect(result).not.toHaveProperty('FRIGG_LOG_LEVEL');
+        });
+
+        it('keeps an environment passthrough when logging.level is absent', () => {
+            const result = getAppEnvironmentVars({
+                environment: { FRIGG_LOG_LEVEL: true },
+            });
+
+            expect(result.FRIGG_LOG_LEVEL).toBe("${env:FRIGG_LOG_LEVEL, ''}");
+        });
+
+        it('throws on an unknown level', () => {
+            expect(() =>
+                getAppEnvironmentVars({ logging: { level: 'verbose' } })
+            ).toThrow(/logging\.level/);
+        });
+
+        describe('under frigg start (FRIGG_SKIP_AWS_DISCOVERY=true)', () => {
+            const saved = {};
+            const setEnv = (vars) => {
+                for (const [key, value] of Object.entries(vars)) {
+                    saved[key] = process.env[key];
+                    if (value === undefined) delete process.env[key];
+                    else process.env[key] = value;
+                }
+            };
+
+            beforeEach(() =>
+                setEnv({
+                    FRIGG_SKIP_AWS_DISCOVERY: 'true',
+                    FRIGG_LOG_LEVEL: undefined,
+                })
+            );
+
+            afterEach(() => {
+                for (const [key, value] of Object.entries(saved)) {
+                    if (value === undefined) delete process.env[key];
+                    else process.env[key] = value;
+                }
+            });
+
+            it('passes the shell FRIGG_LOG_LEVEL to the handlers, which serverless-offline would drop', () => {
+                setEnv({ FRIGG_LOG_LEVEL: 'warn' });
+
+                expect(getAppEnvironmentVars({}).FRIGG_LOG_LEVEL).toBe('warn');
+            });
+
+            it('lets the shell FRIGG_LOG_LEVEL win over logging.level', () => {
+                setEnv({ FRIGG_LOG_LEVEL: 'error' });
+
+                expect(
+                    getAppEnvironmentVars({ logging: { level: 'debug' } })
+                        .FRIGG_LOG_LEVEL
+                ).toBe('error');
+            });
+
+            it('emits logging.level INFO, so the local DEBUG default does not replace it', () => {
+                expect(
+                    getAppEnvironmentVars({ logging: { level: 'info' } })
+                        .FRIGG_LOG_LEVEL
+                ).toBe('INFO');
+            });
+
+            it('ignores an empty shell value', () => {
+                setEnv({ FRIGG_LOG_LEVEL: '  ' });
+
+                expect(getAppEnvironmentVars({})).not.toHaveProperty(
+                    'FRIGG_LOG_LEVEL'
+                );
+                expect(
+                    getAppEnvironmentVars({ logging: { level: 'warn' } })
+                        .FRIGG_LOG_LEVEL
+                ).toBe('WARN');
+            });
+
+            it('does not read the shell value outside frigg start', () => {
+                setEnv({
+                    FRIGG_SKIP_AWS_DISCOVERY: undefined,
+                    FRIGG_LOG_LEVEL: 'error',
+                });
+
+                expect(getAppEnvironmentVars({})).not.toHaveProperty(
+                    'FRIGG_LOG_LEVEL'
+                );
+                expect(
+                    getAppEnvironmentVars({ logging: { level: 'info' } })
+                ).not.toHaveProperty('FRIGG_LOG_LEVEL');
+            });
         });
     });
 
@@ -346,6 +534,23 @@ describe('Environment Builder', () => {
             const result = getAppEnvironmentVars(appDefinition);
 
             expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+        });
+
+        it('zero-code: omitted exporter + SSM-offloaded endpoint still passes through headers', () => {
+            delete process.env.FRIGG_SKIP_AWS_DISCOVERY;
+            const appDefinition = {
+                ssm: { enable: true },
+                environment: {
+                    OTEL_EXPORTER_OTLP_ENDPOINT: 'ssm',
+                },
+            };
+
+            const result = getAppEnvironmentVars(appDefinition);
+
+            expect(result.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+            expect(result.OTEL_EXPORTER_OTLP_HEADERS).toBe(
+                "${env:OTEL_EXPORTER_OTLP_HEADERS, ''}"
+            );
         });
     });
 

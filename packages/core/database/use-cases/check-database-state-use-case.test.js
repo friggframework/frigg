@@ -114,7 +114,7 @@ describe('CheckDatabaseStateUseCase', () => {
 
             await expect(
                 useCase.execute('invalid-db', 'prod')
-            ).rejects.toThrow('dbType must be postgresql or mongodb');
+            ).rejects.toThrow('dbType must be postgresql, mongodb, or documentdb');
         });
 
         it('should throw ValidationError for missing dbType', async () => {

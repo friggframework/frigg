@@ -21,6 +21,7 @@ const { validateExtensionBinding } = require('./extension');
 const { getTelemetry } = require('../telemetry/telemetry-runtime');
 const { instrumentHandler } = require('../telemetry/instrument-handler');
 const { bindTelemetryContext } = require('../telemetry/bind-telemetry-context');
+const { getLogger } = require('../logs');
 
 const constantsToBeMigrated = {
     defaultEvents: {
@@ -63,6 +64,10 @@ class IntegrationBase {
     telemetry = bindTelemetryContext(getTelemetry(), () =>
         this.getTelemetryContext()
     );
+
+    logger = getLogger(
+        `integration.${this.constructor.Definition?.name ?? 'unknown'}`
+    ).child(() => this.getLoggerBindings());
 
     static getOptionDetails() {
         const options = new Options({
@@ -254,6 +259,14 @@ class IntegrationBase {
         };
     }
 
+    // Stage and appName are record resource fields; binding them would
+    // only land in droppedKeys.
+    getLoggerBindings() {
+        const { integrationId, integrationType, userId, version } =
+            this.getTelemetryContext();
+        return { integrationId, integrationType, userId, version };
+    }
+
     assertHydrated(message = 'Integration instance is not hydrated') {
         if (!this.isHydrated) {
             throw new Error(message);
@@ -411,15 +424,15 @@ class IntegrationBase {
      */
     async reconcileAuthStatus(authPassed) {
         if (!authPassed) {
-            console.log(
-                `[Frigg] Integration ${this.id} failed to authenticate`
-            );
+            this.logger.warn('Integration failed to authenticate', {
+                eventName: `${this.logger.name}.auth_failed`,
+            });
             await this.persistStatus('ERROR');
         }
         if (authPassed && this.status === 'ERROR') {
-            console.log(
-                `[Frigg] auth confirmed for integration ${this.id} — clearing ERROR → ENABLED`
-            );
+            this.logger.info('Auth confirmed, clearing ERROR', {
+                eventName: `${this.logger.name}.auth_confirmed`,
+            });
             await this.persistStatus('ENABLED');
         }
     }
@@ -441,6 +454,35 @@ class IntegrationBase {
             this.id,
             sourceId,
             mapping
+        );
+    }
+
+    /**
+     * Insert-only mapping write; usable as an atomic claim/lock row.
+     * @throws {MappingAlreadyExistsError} If a mapping for sourceId exists
+     */
+    async createMapping(sourceId, mapping) {
+        if (!sourceId) {
+            throw new Error(`sourceId must be set`);
+        }
+        return await this.integrationMappingRepository.createMapping(
+            this.id,
+            sourceId,
+            mapping
+        );
+    }
+
+    /**
+     * Deletes the mapping for sourceId. A missing mapping is not an error
+     * (resolves with deletedCount 0).
+     */
+    async deleteMapping(sourceId) {
+        if (!sourceId) {
+            throw new Error(`sourceId must be set`);
+        }
+        return await this.integrationMappingRepository.deleteMapping(
+            this.id,
+            sourceId
         );
     }
 
@@ -515,15 +557,28 @@ class IntegrationBase {
                 }
             }
         }
-        const dynamicUserActions = await this.loadDynamicUserActions();
-        const filteredDynamicActions = actionType
-            ? Object.fromEntries(
-                  Object.entries(dynamicUserActions).filter(
-                      ([_, event]) => event.userActionType === actionType
-                  )
-              )
-            : dynamicUserActions;
+        const dynamicUserActions = await this._loadDynamicUserActionEvents();
+        const filteredDynamicActions = Object.fromEntries(
+            Object.entries(dynamicUserActions).filter(
+                ([_, event]) =>
+                    event.type === constantsToBeMigrated.types.USER_ACTION &&
+                    (!actionType || event.userActionType === actionType)
+            )
+        );
         return { ...userActions, ...filteredDynamicActions };
+    }
+
+    async _loadDynamicUserActionEvents() {
+        const dynamicUserActions = await this.loadDynamicUserActions();
+        return Object.fromEntries(
+            Object.entries(dynamicUserActions).map(([key, event]) => [
+                key,
+                {
+                    ...event,
+                    type: event.type ?? constantsToBeMigrated.types.USER_ACTION,
+                },
+            ])
+        );
     }
 
     async getActionOptions(actionId, data) {
@@ -615,12 +670,22 @@ class IntegrationBase {
         this[key] = module;
     }
 
+    // The raw error can echo a request with its credentials, and messages
+    // reach end users, so only a fixed text is stored.
     addError(error) {
         if (!this.messages.errors) {
             this.messages.errors = [];
         }
-        this.messages.errors.push(error);
+        this.messages.errors.push({
+            title: 'Integration Error',
+            message: `Integration ${this.id} hit an error. Contact support.`,
+            timestamp: Date.now(),
+        });
         this.status = 'ERROR';
+        this.logger.error('Integration error recorded', {
+            eventName: `${this.logger.name}.error_recorded`,
+            error,
+        });
     }
 
     addWarning(warning) {
@@ -639,9 +704,10 @@ class IntegrationBase {
     async persistStatus(status) {
         await this.updateIntegrationStatus.execute(this.id, status);
         this.status = status;
-        console.log(
-            `[Frigg] Integration ${this.id} status changed to ${status}`
-        );
+        this.logger.info('Integration status changed', {
+            eventName: `${this.logger.name}.status_changed`,
+            integrationStatus: status,
+        });
     }
 
     /**
@@ -753,10 +819,14 @@ class IntegrationBase {
                 // it wins. Warn if the binding tried to wire an override that's now ignored.
                 if (this.events[eventName]) {
                     if (typeof handlers[eventName] === 'string') {
-                        console.warn(
-                            `[Frigg] Integration "${integrationName}" binding "${bindingName}": ` +
-                                `handler "${handlers[eventName]}" for event "${eventName}" is ignored because ` +
-                                `this.events["${eventName}"] was already set (subclass constructor or earlier merge)`
+                        this.logger.warn(
+                            'Binding handler is ignored: the event is already set',
+                            {
+                                eventName: `${this.logger.name}.extension_handler_shadowed`,
+                                bindingName,
+                                handler: handlers[eventName],
+                                event: eventName,
+                            }
                         );
                     }
                     continue;
@@ -790,7 +860,8 @@ class IntegrationBase {
 
     async initialize() {
         try {
-            const additionalUserActions = await this.loadDynamicUserActions();
+            const additionalUserActions =
+                await this._loadDynamicUserActionEvents();
             this.events = { ...this.events, ...additionalUserActions };
         } catch (e) {
             this.addError(e);
@@ -858,19 +929,12 @@ class IntegrationBase {
             if (this.status === 'ERROR') return;
 
             const moduleName = notifier?.name;
-            const detail =
-                object?.reason || object?.statusCode
-                    ? ` (status ${object?.statusCode ?? '?'}: ${
-                          object?.reason ?? 'no reason given'
-                      })`
-                    : '';
-            console.log(
-                `[Frigg] Module ${
-                    moduleName || '?'
-                } reported invalid credentials for integration ${
-                    this.id
-                } — marking ERROR${detail}`
-            );
+            this.logger.warn('Module reported invalid credentials, marking ERROR', {
+                eventName: `${this.logger.name}.credentials_invalidated`,
+                moduleName,
+                statusCode: object?.statusCode,
+                reason: object?.reason,
+            });
             await this._recordCredentialRejection(
                 moduleName,
                 object?.statusCode
@@ -881,13 +945,10 @@ class IntegrationBase {
 
         if (delegateString === 'CREDENTIAL_VALIDATED') {
             if (this.status !== 'ERROR') return;
-            console.log(
-                `[Frigg] Module ${
-                    notifier?.name || '?'
-                } reported valid credentials for integration ${
-                    this.id
-                } — clearing ERROR → ENABLED`
-            );
+            this.logger.info('Module reported valid credentials, clearing ERROR', {
+                eventName: `${this.logger.name}.credentials_validated`,
+                moduleName: notifier?.name,
+            });
             await this.persistStatus('ENABLED');
         }
     }
@@ -909,10 +970,10 @@ class IntegrationBase {
                 Date.now()
             );
         } catch (error) {
-            console.error(
-                `[Frigg] Failed to record credential rejection for integration ${this.id}:`,
-                error
-            );
+            this.logger.error('Failed to record credential rejection', {
+                eventName: `${this.logger.name}.credential_rejection_record_failed`,
+                error,
+            });
         }
     }
 }

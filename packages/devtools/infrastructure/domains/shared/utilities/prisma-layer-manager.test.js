@@ -12,9 +12,19 @@ const { ensurePrismaLayerExists } = require('./prisma-layer-manager');
 jest.mock('fs');
 jest.mock('../../../scripts/build-prisma-layer', () => ({
     buildPrismaLayer: jest.fn(),
+    layerBuildInputs: jest.fn(),
 }));
 
-const { buildPrismaLayer } = require('../../../scripts/build-prisma-layer');
+const { buildPrismaLayer, layerBuildInputs } = require('../../../scripts/build-prisma-layer');
+
+const inputsFor = ({ prismaBinaryTarget = 'rhel-openssl-3.0.x' } = {}) => ({
+    prismaBinaryTarget,
+    clientPackages: ['generated/prisma-postgresql'],
+    coreVersion: '2.0.0-next.120',
+    prismaClientVersion: '6.19.3',
+});
+const markerFor = (overrides = {}) =>
+    JSON.stringify({ ...inputsFor(), ...overrides });
 
 // Helper to mock fs methods for different scenarios
 const mockFs = {
@@ -50,6 +60,8 @@ describe('Prisma Layer Manager', () => {
         originalCwd = process.cwd;
         process.cwd = jest.fn().mockReturnValue('/project');
         jest.clearAllMocks();
+        layerBuildInputs.mockImplementation(inputsFor);
+        fs.readFileSync = jest.fn((p) => (p.endsWith('.build-lock') ? '99999' : markerFor()));
     });
 
     afterEach(() => {
@@ -87,9 +99,27 @@ describe('Prisma Layer Manager', () => {
                 postgres: { enable: true },
             };
 
-            await ensurePrismaLayerExists(databaseConfig);
+            await ensurePrismaLayerExists({ databaseConfig });
 
-            expect(buildPrismaLayer).toHaveBeenCalledWith(databaseConfig);
+            expect(buildPrismaLayer).toHaveBeenCalledWith({
+                databaseConfig,
+                prismaBinaryTarget: 'rhel-openssl-3.0.x',
+            });
+        });
+
+        it('should pass the Prisma binary target of the deployed architecture to buildPrismaLayer', async () => {
+            fs.existsSync = jest.fn().mockReturnValue(false);
+            buildPrismaLayer.mockResolvedValue();
+
+            await ensurePrismaLayerExists({
+                databaseConfig: {},
+                prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+            });
+
+            expect(buildPrismaLayer).toHaveBeenCalledWith({
+                databaseConfig: {},
+                prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+            });
         });
 
         it('should handle build errors and rethrow', async () => {
@@ -105,7 +135,10 @@ describe('Prisma Layer Manager', () => {
 
             await ensurePrismaLayerExists();
 
-            expect(buildPrismaLayer).toHaveBeenCalledWith({});
+            expect(buildPrismaLayer).toHaveBeenCalledWith({
+                databaseConfig: {},
+                prismaBinaryTarget: 'rhel-openssl-3.0.x',
+            });
         });
 
         it('should use correct layer path relative to project root', async () => {
@@ -123,6 +156,7 @@ describe('Prisma Layer Manager', () => {
 
         it('should log success when layer already exists', async () => {
             fs.existsSync = jest.fn().mockReturnValue(true);
+            fs.readFileSync = jest.fn().mockReturnValue(markerFor());
             const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
             await ensurePrismaLayerExists();
@@ -169,6 +203,120 @@ describe('Prisma Layer Manager', () => {
             consoleErrorSpy.mockRestore();
         });
 
+        describe('layer cache keyed by its inputs', () => {
+            const existingMarker = () => {
+                fs.existsSync = jest.fn((p) => p.endsWith('.build-complete') || p.endsWith('layers/prisma'));
+                fs.writeFileSync = jest.fn();
+                fs.rmSync = jest.fn();
+                buildPrismaLayer.mockResolvedValue();
+            };
+
+            it('reuses the layer when the marker records the same target, clients and versions', async () => {
+                existingMarker();
+                fs.readFileSync = jest.fn().mockReturnValue(markerFor());
+
+                await ensurePrismaLayerExists({ prismaBinaryTarget: 'rhel-openssl-3.0.x' });
+
+                expect(buildPrismaLayer).not.toHaveBeenCalled();
+            });
+
+            it('rebuilds when the deployed architecture changes the target', async () => {
+                existingMarker();
+                fs.readFileSync = jest.fn().mockReturnValue(markerFor());
+
+                await ensurePrismaLayerExists({ prismaBinaryTarget: 'linux-arm64-openssl-3.0.x' });
+
+                expect(buildPrismaLayer).toHaveBeenCalledWith({
+                    databaseConfig: {},
+                    prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+                });
+            });
+
+            it('rebuilds when the installed core version changes', async () => {
+                existingMarker();
+                fs.readFileSync = jest.fn().mockReturnValue(markerFor({ coreVersion: '2.0.0-next.105' }));
+
+                await ensurePrismaLayerExists();
+
+                expect(buildPrismaLayer).toHaveBeenCalledTimes(1);
+            });
+
+            it('rebuilds when the client set changes', async () => {
+                existingMarker();
+                fs.readFileSync = jest.fn().mockReturnValue(
+                    markerFor({ clientPackages: ['generated/prisma-postgresql', 'generated/prisma-mongodb'] })
+                );
+
+                await ensurePrismaLayerExists();
+
+                expect(buildPrismaLayer).toHaveBeenCalledTimes(1);
+            });
+
+            it('rebuilds over a legacy plain-text marker, which records no target or versions', async () => {
+                existingMarker();
+                fs.readFileSync = jest.fn().mockReturnValue(
+                    'Build completed: 2026-01-01T00:00:00.000Z\nNode: v22.0.0\nPlatform: darwin\n'
+                );
+
+                await ensurePrismaLayerExists();
+
+                expect(buildPrismaLayer).toHaveBeenCalledTimes(1);
+            });
+
+            it('writes the inputs into the marker after a build', async () => {
+                mockFs.noBuild();
+                buildPrismaLayer.mockResolvedValue();
+
+                await ensurePrismaLayerExists({ prismaBinaryTarget: 'linux-arm64-openssl-3.0.x' });
+
+                const [, written] = fs.writeFileSync.mock.calls.find(
+                    ([p]) => p === '/project/layers/prisma/.build-complete'
+                );
+                expect(JSON.parse(written)).toEqual(
+                    expect.objectContaining(inputsFor({ prismaBinaryTarget: 'linux-arm64-openssl-3.0.x' }))
+                );
+            });
+
+            it('rebuilds after waiting on a concurrent build that finished for the other target', async () => {
+                jest.useFakeTimers();
+                let completionMarkerExists = false;
+                fs.existsSync = jest.fn((p) => {
+                    if (p.endsWith('.build-complete')) return completionMarkerExists;
+                    if (p.endsWith('.build-lock')) return !completionMarkerExists;
+                    if (p.endsWith('layers/prisma')) return true;
+                    return false;
+                });
+                fs.readFileSync = jest.fn((p) =>
+                    p.endsWith('.build-lock') ? '12345' : markerFor({ prismaBinaryTarget: 'rhel-openssl-3.0.x' })
+                );
+                fs.writeFileSync = jest.fn();
+                fs.mkdirSync = jest.fn();
+                fs.rmSync = jest.fn();
+                buildPrismaLayer.mockResolvedValue();
+                const originalKill = process.kill;
+                let polls = 0;
+                process.kill = jest.fn(() => {
+                    if (++polls >= 3) completionMarkerExists = true;
+                    return true;
+                });
+
+                const promise = ensurePrismaLayerExists({ prismaBinaryTarget: 'linux-arm64-openssl-3.0.x' });
+                for (let i = 0; i < 5; i++) {
+                    jest.advanceTimersByTime(1000);
+                    await Promise.resolve();
+                }
+                await promise;
+
+                expect(buildPrismaLayer).toHaveBeenCalledWith({
+                    databaseConfig: {},
+                    prismaBinaryTarget: 'linux-arm64-openssl-3.0.x',
+                });
+
+                process.kill = originalKill;
+                jest.useRealTimers();
+            });
+        });
+
         describe('Concurrent Build Protection', () => {
             it('should skip build if completion marker exists (TDD)', async () => {
                 mockFs.completedBuild();
@@ -191,7 +339,9 @@ describe('Prisma Layer Manager', () => {
                     if (path.endsWith('layers/prisma')) return true;
                     return false;
                 });
-                fs.readFileSync = jest.fn().mockReturnValue(activePid.toString());
+                fs.readFileSync = jest.fn((p) =>
+                    p.endsWith('.build-lock') ? activePid.toString() : markerFor()
+                );
                 fs.writeFileSync = jest.fn();
                 fs.rmSync = jest.fn();
 
@@ -405,7 +555,9 @@ describe('Prisma Layer Manager', () => {
                     if (path.endsWith('layers/prisma')) return true;
                     return false;
                 });
-                fs.readFileSync = jest.fn().mockReturnValue('12345');
+                fs.readFileSync = jest.fn((p) =>
+                    p.endsWith('.build-lock') ? '12345' : markerFor()
+                );
                 fs.writeFileSync = jest.fn();
                 fs.rmSync = jest.fn();
 

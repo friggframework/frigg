@@ -1,7 +1,10 @@
 const {
     createEncryptionExtension,
 } = require('./encryption/prisma-encryption-extension');
-const { loadCustomEncryptionSchema } = require('./encryption/encryption-schema-registry');
+const {
+    loadCustomEncryptionSchema,
+    EncryptionSchemaError,
+} = require('./encryption/encryption-schema-registry');
 const { logger } = require('./encryption/logger');
 const { Cryptor } = require('../encrypt/Cryptor');
 const config = require('./config');
@@ -125,6 +128,12 @@ const prismaClientSingleton = () => {
                 `Field-level encryption enabled using ${encryptionConfig.method.toUpperCase()}`
             );
         } catch (error) {
+            // An invalid encryption configuration must fail startup: carrying
+            // on without the extension would write encrypted fields in
+            // plaintext.
+            if (error instanceof EncryptionSchemaError) {
+                throw error;
+            }
             logger.error(
                 'Failed to initialize encryption extension:',
                 error

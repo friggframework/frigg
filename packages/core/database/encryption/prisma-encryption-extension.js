@@ -10,6 +10,24 @@ const {
 } = require('./encryption-schema-registry');
 const { FieldEncryptionService } = require('./field-encryption-service');
 
+/**
+ * The FieldEncryptionService the extension runs, with field paths from the
+ * encryption schema registry.
+ *
+ * @param {import('../../encrypt/Cryptor').Cryptor} cryptor
+ * @returns {FieldEncryptionService}
+ */
+function createFieldEncryptionService(cryptor) {
+    return new FieldEncryptionService({
+        cryptor,
+        schema: {
+            getEncryptedFields,
+            getFieldsToEncryptOnWrite,
+            getFieldsToDecryptOnRead,
+        },
+    });
+}
+
 function createEncryptionExtension({ cryptor, enabled = true }) {
     if (!enabled) {
         return (client) => client;
@@ -21,14 +39,7 @@ function createEncryptionExtension({ cryptor, enabled = true }) {
         );
     }
 
-    const encryptionService = new FieldEncryptionService({
-        cryptor,
-        schema: {
-            getEncryptedFields,
-            getFieldsToEncryptOnWrite,
-            getFieldsToDecryptOnRead,
-        },
-    });
+    const encryptionService = createFieldEncryptionService(cryptor);
 
     return {
         name: 'frigg-field-encryption',
@@ -103,18 +114,15 @@ function createEncryptionExtension({ cryptor, enabled = true }) {
                 },
 
                 async upsert({ model, args, query }) {
+                    const encrypted = await encryptionService.encryptUpsert(
+                        model,
+                        args
+                    );
                     if (args.create) {
-                        args.create = await encryptionService.encryptFields(
-                            model,
-                            args.create
-                        );
+                        args.create = encrypted.create;
                     }
-
                     if (args.update) {
-                        args.update = await encryptionService.encryptFields(
-                            model,
-                            args.update
-                        );
+                        args.update = encrypted.update;
                     }
 
                     const result = await query(args);
@@ -227,4 +235,4 @@ function createEncryptionExtension({ cryptor, enabled = true }) {
     };
 }
 
-module.exports = { createEncryptionExtension };
+module.exports = { createEncryptionExtension, createFieldEncryptionService };

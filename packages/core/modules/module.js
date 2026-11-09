@@ -1,6 +1,6 @@
 const { Delegate } = require('../core');
 const _ = require('lodash');
-const { flushDebugLog } = require('../logs');
+const { getLogger } = require('../logs');
 const { ModuleConstants } = require('./ModuleConstants');
 const {
     createCredentialRepository,
@@ -32,6 +32,14 @@ class Module extends Delegate {
         this.credential = entityObj?.credential;
         this.definition = definition;
         this.name = this.definition.moduleName;
+        this.logger = getLogger(`module.${this.name ?? 'unknown'}`).child(() => ({
+            entityId: this.entity?.id,
+            credentialId:
+                this.credential?.id ??
+                (typeof this.credential === 'string'
+                    ? this.credential
+                    : undefined),
+        }));
         this.modelName = this.definition.modelName;
         this.apiClass = this.definition.API;
 
@@ -49,6 +57,7 @@ class Module extends Delegate {
         const apiParams = {
             ...this.definition.env,
             delegate: this,
+            logger: this.logger,
             ...(state ? { state } : {}),
             ...(this.credential?.data
                 ? this.apiParamsFromCredential(this.credential.data)
@@ -100,7 +109,10 @@ class Module extends Delegate {
         try {
             if (await this.testAuthRequest(this.api)) validAuth = true;
         } catch (e) {
-            flushDebugLog(e);
+            this.logger.warn('testAuth failed', {
+                eventName: `${this.logger.name}.test_auth_failed`,
+                error: e,
+            });
         }
         return validAuth;
     }
@@ -113,9 +125,9 @@ class Module extends Delegate {
         const apiParams = this.apiParamsFromCredential(this.api);
 
         if (!apiParams.refresh_token && this.api.isRefreshable) {
-            console.warn(
-                `[Frigg] No refresh_token in apiParams for module ${this.name}.`
-            );
+            this.logger.warn('No refresh_token in apiParams', {
+                eventName: `${this.logger.name}.refresh_token_missing`,
+            });
         }
 
         Object.assign(credentialDetails.details, apiParams);
@@ -133,10 +145,10 @@ class Module extends Delegate {
                     moduleName: this.name,
                 });
             } catch (err) {
-                console.error(
-                    `[Frigg] Failed to propagate CREDENTIAL_VALIDATED for module ${this.name}:`,
-                    err?.message || err
-                );
+                this.logger.error('Failed to propagate CREDENTIAL_VALIDATED', {
+                    eventName: `${this.logger.name}.credential_validated_propagation_failed`,
+                    error: err,
+                });
             }
         }
     }
@@ -177,12 +189,11 @@ class Module extends Delegate {
         if (!this.credential.id) return;
 
         if (diagnosticInfo) {
-            console.error(
-                `[Frigg] Module ${this.name} credentials rejected (status ${
-                    diagnosticInfo.statusCode ?? '?'
-                }):`,
-                diagnosticInfo.message ?? diagnosticInfo
-            );
+            this.logger.warn('Credentials rejected', {
+                eventName: `${this.logger.name}.credentials_rejected`,
+                statusCode: diagnosticInfo.statusCode,
+                error: diagnosticInfo,
+            });
         }
 
         await this.credentialRepository.updateAuthenticationStatus(
@@ -216,16 +227,17 @@ class Module extends Delegate {
                 }),
             });
         } catch (err) {
-            console.error(
-                `[Frigg] Failed to propagate CREDENTIAL_INVALIDATED for module ${this.name}:`,
-                err?.message || err
-            );
+            this.logger.error('Failed to propagate CREDENTIAL_INVALIDATED', {
+                eventName: `${this.logger.name}.credential_invalidated_propagation_failed`,
+                error: err,
+            });
         }
     }
 
     async deauthorize() {
         //todo: Check if this is correct, we're instantiating a new api without params (credentials, tokens, etc...)
         this.api = new this.apiClass();
+        this.api.logger = this.logger;
 
         // Remove persisted credential (if any)
         if (this.entity?.credential) {
@@ -234,6 +246,7 @@ class Module extends Delegate {
 
             // Delete credential via repository
             await this.credentialRepository.deleteCredentialById(credentialId);
+            this.credential = undefined;
 
             // Unset credential reference on the Entity document
             const entityId = this.entity.id;

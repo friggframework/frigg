@@ -1,4 +1,11 @@
-const { generateIAMCloudFormation, getFeatureSummary } = require('./iam-generator');
+const fs = require('fs');
+const path = require('path');
+const {
+    generateIAMCloudFormation,
+    getFeatureSummary,
+    generateBasicIAMPolicy,
+    generateFullIAMPolicy,
+} = require('./iam-generator');
 
 describe('IAM Generator', () => {
     describe('getFeatureSummary', () => {
@@ -250,6 +257,28 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('iam:ListPolicyVersions');
         });
 
+        it('should grant logs:DeleteRetentionPolicy so logging.retentionInDays can be removed', () => {
+            const yaml = generateIAMCloudFormation({
+                appName: 'test-app',
+                features: getFeatureSummary({ name: 'test-app' }).features,
+            });
+
+            expect(yaml).toContain('logs:PutRetentionPolicy');
+            expect(yaml).toContain('logs:DeleteRetentionPolicy');
+        });
+
+        it('should grant logs:DeleteRetentionPolicy in the static policy templates', () => {
+            for (const policy of [generateBasicIAMPolicy(), generateFullIAMPolicy()]) {
+                const actions = policy.Statement.flatMap((statement) => statement.Action);
+                expect(actions).toContain('logs:DeleteRetentionPolicy');
+            }
+            const stackYaml = fs.readFileSync(
+                path.join(__dirname, 'templates/frigg-deployment-iam-stack.yaml'),
+                'utf8'
+            );
+            expect(stackYaml).toContain("'logs:DeleteRetentionPolicy'");
+        });
+
         it('should include internal-error-queue pattern in SQS resources', () => {
             const appDefinition = {
                 name: 'test-app',
@@ -282,6 +311,100 @@ describe('IAM Generator', () => {
             expect(yaml).toContain('AccessKeyId:');
             expect(yaml).toContain('SecretAccessKeyCommand:');
             expect(yaml).toContain('CredentialsSecretArn:');
+        });
+    });
+
+    describe("scoping to the app's own resources", () => {
+        const yaml = require('js-yaml');
+        const policyResources = (template, policy) =>
+            template.Resources[
+                policy
+            ].Properties.PolicyDocument.Statement.flatMap((statement) =>
+                [].concat(statement.Resource)
+            ).map((r) => (typeof r === 'string' ? r : r['Fn::Sub']));
+
+        // `frigg deploy` names everything after the service (Definition.name):
+        // stack my-app-prod, functions my-app-prod-auth, role
+        // my-app-prod-us-east-1-lambdaRole, queues my-app-internal-error-queue-prod
+        // and my-app-prod-DbMigrationQueue, layer my-app-prisma-prod, and
+        // CloudFormation-named topics, alarms and buckets prefixed my-app-prod.
+        const generate = (appDefinition) => {
+            const summary = getFeatureSummary(appDefinition);
+            return yaml.load(
+                generateIAMCloudFormation({
+                    appName: summary.appName,
+                    serviceName: summary.serviceName,
+                    features: summary.features,
+                })
+            );
+        };
+
+        it('reports the service name osls deploys under', () => {
+            expect(getFeatureSummary({ name: 'my-app' }).serviceName).toBe(
+                'my-app'
+            );
+            expect(getFeatureSummary({}).serviceName).toBe('create-frigg-app');
+        });
+
+        it('lets an app whose name does not contain "frigg" deploy its stack and resources', () => {
+            const resources = policyResources(
+                generate({ name: 'my-app' }),
+                'FriggCoreDeploymentPolicy'
+            );
+
+            for (const expected of [
+                'arn:aws:cloudformation:*:${AWS::AccountId}:stack/*my-app*/*',
+                'arn:aws:lambda:*:${AWS::AccountId}:function:*my-app*',
+                'arn:aws:iam::${AWS::AccountId}:role/*my-app*',
+                'arn:aws:sqs:*:${AWS::AccountId}:*my-app*',
+                'arn:aws:sns:*:${AWS::AccountId}:*my-app*',
+                'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*my-app*',
+                'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/*my-app*:*',
+                'arn:aws:cloudwatch:*:${AWS::AccountId}:alarm:*my-app*',
+                'arn:aws:lambda:*:${AWS::AccountId}:layer:*my-app*',
+                'arn:aws:lambda:*:${AWS::AccountId}:layer:*my-app*:*',
+                'arn:aws:s3:::*my-app*',
+                'arn:aws:s3:::*my-app*/*',
+            ]) {
+                expect(resources).toContain(expected);
+            }
+            // Existing grants for frigg-named resources are kept.
+            expect(resources).toContain(
+                'arn:aws:lambda:*:${AWS::AccountId}:function:*frigg*'
+            );
+        });
+
+        it('matches S3 bucket names in lower case', () => {
+            const resources = policyResources(
+                generate({ name: 'MyApp' }),
+                'FriggCoreDeploymentPolicy'
+            );
+            expect(resources).toContain('arn:aws:s3:::*myapp*');
+        });
+
+        it('scopes the SSM parameter grant to the app too', () => {
+            const template = generate({
+                name: 'my-app',
+                ssm: { enable: true },
+            });
+            const resources = policyResources(template, 'FriggSSMPolicy');
+            expect(resources).toContain(
+                'arn:aws:ssm:*:${AWS::AccountId}:parameter/*my-app*'
+            );
+        });
+
+        it('does not duplicate grants for an app named frigg', () => {
+            const resources = policyResources(
+                generate({ name: 'frigg' }),
+                'FriggCoreDeploymentPolicy'
+            );
+            expect(
+                resources.filter(
+                    (r) =>
+                        r ===
+                        'arn:aws:lambda:*:${AWS::AccountId}:function:*frigg*'
+                )
+            ).toHaveLength(1);
         });
     });
 });

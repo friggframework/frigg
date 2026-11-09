@@ -2,12 +2,13 @@ jest.mock('../../database/config', () => ({
     DB_TYPE: 'mongodb',
     getDatabaseType: jest.fn(() => 'mongodb'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 const mockFindExecute = jest.fn();
 const mockUpdateConfigExecute = jest.fn();
 const mockPatchConfigExecute = jest.fn();
+const mockAddEntitiesExecute = jest.fn();
+const mockRemoveEntitiesExecute = jest.fn();
 
 jest.mock('../../integrations/use-cases/find-integration-context-by-external-entity-id', () => {
     return {
@@ -35,6 +36,22 @@ jest.mock('../../integrations/use-cases/patch-integration-config', () => {
     };
 });
 
+jest.mock('../../integrations/use-cases/add-entities-to-integration', () => {
+    return {
+        AddEntitiesToIntegration: jest.fn().mockImplementation(() => ({
+            execute: mockAddEntitiesExecute,
+        })),
+    };
+});
+
+jest.mock('../../integrations/use-cases/remove-entities-from-integration', () => {
+    return {
+        RemoveEntitiesFromIntegration: jest.fn().mockImplementation(() => ({
+            execute: mockRemoveEntitiesExecute,
+        })),
+    };
+});
+
 const {
     createIntegrationCommands,
     findIntegrationContextByExternalEntityId,
@@ -56,6 +73,8 @@ describe('integration commands', () => {
         mockFindExecute.mockReset();
         mockUpdateConfigExecute.mockReset();
         mockPatchConfigExecute.mockReset();
+        mockAddEntitiesExecute.mockReset();
+        mockRemoveEntitiesExecute.mockReset();
     });
 
     it('returns class-agnostic read commands when no integrationClass is given', () => {
@@ -90,12 +109,14 @@ describe('integration commands', () => {
             integrationClass: DummyIntegration,
         });
 
-        const result = await commands.findIntegrationContextByExternalEntityId(
-            'ext-1',
-        );
+        const result = await commands.findIntegrationContextByExternalEntityId({
+            externalId: 'ext-1',
+            type: 'dummy',
+        });
 
         expect(mockFindExecute).toHaveBeenCalledWith({
-            externalEntityId: 'ext-1',
+            externalId: 'ext-1',
+            type: 'dummy',
         });
         expect(result).toEqual({ context: expectedContext });
     });
@@ -109,9 +130,10 @@ describe('integration commands', () => {
             integrationClass: DummyIntegration,
         });
 
-        const result = await commands.findIntegrationContextByExternalEntityId(
-            'ext-1',
-        );
+        const result = await commands.findIntegrationContextByExternalEntityId({
+            externalId: 'ext-1',
+            type: 'dummy',
+        });
 
         expect(result).toEqual({
             error: 401,
@@ -142,11 +164,13 @@ describe('integration commands', () => {
 
         const result = await findIntegrationContextByExternalEntityId({
             integrationClass: DummyIntegration,
-            externalEntityId: 'ext-2',
+            externalId: 'ext-2',
+            type: 'dummy',
         });
 
         expect(mockFindExecute).toHaveBeenCalledWith({
-            externalEntityId: 'ext-2',
+            externalId: 'ext-2',
+            type: 'dummy',
         });
         expect(result).toEqual({ context: expectedContext });
     });
@@ -273,4 +297,54 @@ describe('integration commands', () => {
             });
         });
     });
+
+    describe.each([
+        ['addEntitiesToIntegration', () => mockAddEntitiesExecute],
+        ['removeEntitiesFromIntegration', () => mockRemoveEntitiesExecute],
+    ])('%s', (command, executeMock) => {
+        it('delegates to its use case and returns the updated integration', async () => {
+            executeMock().mockResolvedValue({
+                id: 'integration-1',
+                entitiesIds: ['e1', 'e2'],
+            });
+            const commands = createIntegrationCommands({
+                integrationClass: DummyIntegration,
+            });
+
+            const result = await commands[command]({
+                integrationId: 'integration-1',
+                entityIds: ['e2'],
+            });
+
+            expect(executeMock()).toHaveBeenCalledWith('integration-1', ['e2']);
+            expect(result).toEqual({
+                id: 'integration-1',
+                entitiesIds: ['e1', 'e2'],
+            });
+        });
+
+        it.each([
+            ['INTEGRATION_NOT_FOUND', 404],
+            ['INVALID_INTEGRATION_DATA', 400],
+            ['ENTITIES_NOT_FOUND', 404],
+            ['ENTITY_USER_MISMATCH', 403],
+            ['ENTITY_MODULE_MISMATCH', 400],
+            ['LAST_ENTITY_OF_MODULE', 409],
+        ])('maps %s to status %s', async (code, status) => {
+            const error = new Error('nope');
+            error.code = code;
+            executeMock().mockRejectedValue(error);
+            const commands = createIntegrationCommands({
+                integrationClass: DummyIntegration,
+            });
+
+            const result = await commands[command]({
+                integrationId: 'integration-1',
+                entityIds: ['e2'],
+            });
+
+            expect(result).toEqual({ error: status, reason: 'nope', code });
+        });
+    });
 });
+

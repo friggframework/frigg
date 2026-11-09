@@ -1,4 +1,3 @@
-const Boom = require('@hapi/boom');
 const { GetUserFromAdopterJwt } = require('../../use-cases/get-user-from-adopter-jwt');
 
 describe('GetUserFromAdopterJwt', () => {
@@ -42,7 +41,7 @@ describe('GetUserFromAdopterJwt', () => {
 
             await expect(
                 getUserFromAdopterJwt.execute(jwtToken)
-            ).rejects.toThrow(Boom.notImplemented().message);
+            ).rejects.toMatchObject({ output: { statusCode: 501 } });
         });
 
         it('should provide helpful error message about alternative auth modes', async () => {
@@ -61,14 +60,14 @@ describe('GetUserFromAdopterJwt', () => {
         it('should throw 501 error with any token format', async () => {
             await expect(
                 getUserFromAdopterJwt.execute('simple-token')
-            ).rejects.toThrow(Boom.notImplemented().message);
+            ).rejects.toMatchObject({ output: { statusCode: 501 } });
 
             await expect(
                 getUserFromAdopterJwt.execute('part1.part2.part3')
-            ).rejects.toThrow(Boom.notImplemented().message);
+            ).rejects.toMatchObject({ output: { statusCode: 501 } });
 
-            await expect(getUserFromAdopterJwt.execute('')).rejects.toThrow(
-                Boom.notImplemented().message
+            await expect(getUserFromAdopterJwt.execute('')).rejects.toMatchObject(
+                { output: { statusCode: 501 } }
             );
         });
     });

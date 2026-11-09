@@ -24,6 +24,9 @@
 
 const { execFile } = require('child_process');
 const path = require('path');
+const { getLogger } = require('../logs');
+
+const log = getLogger('frigg.database.migration');
 
 /**
  * Execute Prisma migration command
@@ -153,7 +156,13 @@ exports.handler = async (event, context) => {
     console.log('='.repeat(60));
     console.log('Database Migration Handler');
     console.log('='.repeat(60));
-    console.log('Event:', JSON.stringify(event, null, 2));
+    log.info('Database migration invoked', {
+        eventName: 'frigg.database.migration.invoked',
+        migrationId: event.migrationId,
+        dbType: process.env.DB_TYPE,
+        targetStage: process.env.STAGE,
+        action: event.command || 'deploy',
+    });
     console.log('Context:', JSON.stringify({
         functionName: context.functionName,
         functionVersion: context.functionVersion,

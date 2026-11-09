@@ -239,42 +239,51 @@ npm run test:coverage
 
 ## Test Infrastructure
 
-### MongoDB (Integration Tests)
+### Databases (DB Integration Tests)
 
-Integration tests automatically get access to an in-memory MongoDB instance:
+Unit tests never get a database: core's jest `globalSetup` only sets
+`STAGE=dev`, and repository unit tests mock the Prisma client. Tests that
+need a real database are DB integration tests:
+
+- **Name them `*.db.test.js`.** The default `npm test` / `npm run test:all`
+  ignores them; `npm run test:db` runs them (in `packages/core`, see
+  `jest.db.config.js`).
+- **Point them at real databases** with environment variables, defaulting to
+  local containers:
+  - `FRIGG_TEST_MONGODB_URL` — a MongoDB **replica set** (Prisma needs one for
+    MongoDB writes), default `mongodb://localhost:27017/frigg?replicaSet=rs0`
+  - `FRIGG_TEST_POSTGRES_URL` — PostgreSQL with the `prisma-postgresql`
+    migrations applied, default
+    `postgresql://postgres:postgres@localhost:5432/frigg?schema=public`
+- **Generate the Prisma clients first:** `npm run prisma:generate` in
+  `packages/core`.
+
+CI runs them in the `db` job of `.github/workflows/frigg-ci.js.yml`, which
+starts both databases. Locally:
+
+```bash
+docker run -d --name frigg-mongo -p 27017:27017 mongo:8.0 --replSet rs0 --bind_ip_all
+docker exec frigg-mongo mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
+docker run -d --name frigg-pg -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=frigg postgres:16
+
+cd packages/core
+npm run prisma:generate
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/frigg?schema=public" \
+  npx prisma migrate deploy --schema prisma-postgresql/schema.prisma
+npm run test:db
+```
+
+**In-memory MongoDB for apps (opt-in).** `@friggframework/test` still exports
+`TestMongo`, which starts a pinned MongoDB binary with
+mongodb-memory-server and sets `MONGO_URI`. It is no longer started for you;
+start it in your own `globalSetup` or `beforeAll` if your tests need it:
 
 ```javascript
-const { mongoose } = require('@friggframework/core');
+const { TestMongo } = require('@friggframework/test');
 
-/**
- * @group integration
- * @group infrastructure
- */
-describe('UserRepository', () => {
-    beforeAll(async () => {
-        // MONGO_URI is provided by test setup
-        await mongoose.connect(process.env.MONGO_URI);
-    });
-
-    afterAll(async () => {
-        await mongoose.disconnect();
-    });
-
-    beforeEach(async () => {
-        // Clean up between tests
-        await User.deleteMany({});
-    });
-
-    it('should save user to database', async () => {
-        const user = await User.create({
-            email: 'test@example.com',
-            name: 'Test User'
-        });
-
-        expect(user._id).toBeDefined();
-        expect(user.email).toBe('test@example.com');
-    });
-});
+const testMongo = new TestMongo();
+beforeAll(() => testMongo.start()); // sets process.env.MONGO_URI
+afterAll(() => testMongo.stop());
 ```
 
 ### Mocking

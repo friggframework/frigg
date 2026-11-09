@@ -1,8 +1,14 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
+const { preflightValidation } = require('../validate-command');
 
 async function buildCommand(options) {
     console.log('Building the serverless application...');
+
+    // Validate the app definition first (ADR-051); errors stop the build.
+    if (!preflightValidation({ command: 'build', options, failOnErrors: true })) {
+        return;
+    }
 
     // Suppress AWS SDK warning message about maintenance mode
     process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';

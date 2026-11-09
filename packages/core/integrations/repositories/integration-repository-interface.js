@@ -184,6 +184,36 @@ class IntegrationRepositoryInterface {
             'Method findIntegrationsByEntityId must be implemented by subclass'
         );
     }
+
+    /**
+     * Attach entities to an existing integration. Entities that are already
+     * attached are left as they are.
+     *
+     * @param {string|number} integrationId - Integration ID
+     * @param {Array<string|number>} entityIds - Entity IDs to attach
+     * @returns {Promise<Object|null>} Updated integration, or null when the integration does not exist
+     * @abstract
+     */
+    async addEntitiesToIntegration(integrationId, entityIds) {
+        throw new Error(
+            'Method addEntitiesToIntegration must be implemented by subclass'
+        );
+    }
+
+    /**
+     * Detach entities from an integration. Entities that are not attached
+     * are ignored; the entities themselves are not deleted.
+     *
+     * @param {string|number} integrationId - Integration ID
+     * @param {Array<string|number>} entityIds - Entity IDs to detach
+     * @returns {Promise<Object|null>} Updated integration, or null when the integration does not exist
+     * @abstract
+     */
+    async removeEntitiesFromIntegration(integrationId, entityIds) {
+        throw new Error(
+            'Method removeEntitiesFromIntegration must be implemented by subclass'
+        );
+    }
 }
 
 module.exports = { IntegrationRepositoryInterface };

@@ -61,6 +61,8 @@ function applySsmPreloadNodeOptions(appDefinition, functions, providerEnvironmen
 const { modifyHandlerPaths } = require('./domains/shared/utilities/handler-path-resolver');
 const { createBaseDefinition } = require('./domains/shared/utilities/base-definition-factory');
 const { ensurePrismaLayerExists } = require('./domains/shared/utilities/prisma-layer-manager');
+const { resolveLambdaArchitecture } = require('./domains/shared/lambda-architectures');
+const { ensureMigrationEngines } = require('./domains/database/migration-engines');
 const { validateAndCleanPlugins, validatePackagingConfiguration } = require('./domains/shared/validation/plugin-validator');
 
 /**
@@ -74,12 +76,21 @@ const composeServerlessDefinition = async (AppDefinition) => {
 
     // Determine if deployment should use Prisma Lambda Layer (default: true)
     const usePrismaLayer = AppDefinition.usePrismaLambdaLayer !== false;
+    const { prismaBinaryTarget } = resolveLambdaArchitecture(AppDefinition);
 
     // Ensure Prisma layer exists only when configured to use it
     if (usePrismaLayer) {
-        await ensurePrismaLayerExists(AppDefinition.database || {});
+        await ensurePrismaLayerExists({
+            databaseConfig: AppDefinition.database || {},
+            prismaBinaryTarget,
+        });
     } else {
         console.log('📦 Skipping Prisma Lambda Layer (usePrismaLambdaLayer=false - bundling Prisma with functions)');
+    }
+
+    // The migration worker ships its own Prisma CLI engines (layer or not)
+    if (new MigrationBuilder().shouldExecute(AppDefinition)) {
+        await ensureMigrationEngines({ prismaBinaryTarget });
     }
 
     // Create orchestrator with all domain builders

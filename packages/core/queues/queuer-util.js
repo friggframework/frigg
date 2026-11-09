@@ -1,5 +1,6 @@
 const { v4: uuid } = require('uuid');
 const { SQSClient, SendMessageCommand, SendMessageBatchCommand } = require('@aws-sdk/client-sqs');
+const { summarizeMessageBody } = require('../logs/summarize-event');
 
 const awsConfigOptions = () => {
     const config = {};
@@ -17,21 +18,6 @@ const awsConfigOptions = () => {
 };
 
 const sqs = new SQSClient(awsConfigOptions());
-
-// Best-effort extraction of the logical event/processId/integrationId from a
-// JSON message body. Used only for log correlation — never throws.
-const summarizeMessageBody = (bodyStr) => {
-    try {
-        const parsed = JSON.parse(bodyStr);
-        return {
-            event: parsed?.event,
-            processId: parsed?.data?.processId,
-            integrationId: parsed?.data?.integrationId,
-        };
-    } catch {
-        return {};
-    }
-};
 
 // Inspect SendMessageBatchResult for partial failures and log them.
 // AWS SendMessageBatch can succeed at the HTTP level while individual entries
@@ -111,16 +97,17 @@ const QueuerUtil = {
                 Id: uuid(),
                 MessageBody: JSON.stringify(entry),
             });
-            // Sends 10, then purges the buffer
+            // Sends 10, then starts a fresh buffer. Each command gets its own
+            // array: clearing the shared buffer in place would also empty the
+            // Entries of a command that was already sent.
             if (buffer.length === batchSize) {
+                const batch = buffer.splice(0, buffer.length);
                 const command = new SendMessageBatchCommand({
-                    Entries: buffer,
+                    Entries: batch,
                     QueueUrl: queueUrl,
                 });
                 const result = await sqs.send(command);
-                inspectBatchResult(result, queueUrl, buffer);
-                // Purge the buffer
-                buffer.splice(0, buffer.length);
+                inspectBatchResult(result, queueUrl, batch);
             }
         }
 

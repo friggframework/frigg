@@ -558,5 +558,36 @@ describe('encryption-schema-registry', () => {
             expect(credentialFields).toContain('data.custom_field'); // From custom schema
             expect(credentialFields).toContain('data.api_key'); // From module schema
         });
+
+        it('keeps app custom schema when modules add non-core fields', () => {
+            registerCustomSchema({
+                Credential: { fields: ['data.custom_field'] },
+                MyModel: { fields: ['secret'] },
+            });
+
+            loadModuleEncryptionSchemas([
+                {
+                    Definition: {
+                        modules: {
+                            testModule: {
+                                definition: {
+                                    encryption: {
+                                        credentialFields: ['api_key', 'webhook_secret'],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            ]);
+
+            const credentialFields = getEncryptedFields('Credential');
+            expect(credentialFields).toContain('data.custom_field');
+            expect(credentialFields).toContain('data.webhook_secret');
+            expect(
+                credentialFields.filter((f) => f === 'data.api_key')
+            ).toHaveLength(1);
+            expect(getEncryptedFields('MyModel')).toEqual(['secret']);
+        });
     });
 });

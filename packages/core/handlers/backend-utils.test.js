@@ -135,7 +135,7 @@ describe('createQueueWorker — integration deleted mid-flight', () => {
         }));
 
         jest.spyOn(console, 'warn').mockImplementation();
-        jest.spyOn(console, 'error').mockImplementation();
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation();
         jest.spyOn(console, 'log').mockImplementation();
 
         const QueueWorker = createQueueWorker(FakeIntegration);
@@ -147,6 +147,8 @@ describe('createQueueWorker — integration deleted mid-flight', () => {
                 {}
             )
         ).rejects.toBe(boom);
+        // The Worker boundary logs the rethrown error one time (ADR-048 §4).
+        expect(errorSpy).not.toHaveBeenCalled();
     });
 
     it('discards the message when the integration is IN_DELETION (teardown in progress)', async () => {
@@ -181,5 +183,80 @@ describe('createQueueWorker — integration deleted mid-flight', () => {
         expect(warnSpy).toHaveBeenCalledWith(
             expect.stringContaining('Discarding')
         );
+    });
+});
+
+describe('createQueueWorker — process missing at hydration', () => {
+    class FakeIntegration {
+        static Definition = { name: 'fake' };
+    }
+
+    afterEach(() => jest.clearAllMocks());
+
+    it('throws a coded PROCESS_NOT_FOUND error, so the worker record carries the code', async () => {
+        const {
+            createProcessRepository,
+        } = require('../integrations/repositories/process-repository-factory');
+        createProcessRepository.mockReturnValue({
+            findById: jest.fn().mockResolvedValue(null),
+        });
+        createIntegrationRepository.mockReturnValue({
+            findIntegrationById: jest.fn(),
+        });
+        jest.spyOn(console, 'log').mockImplementation();
+
+        const QueueWorker = createQueueWorker(FakeIntegration);
+        const worker = new QueueWorker();
+
+        await expect(
+            worker._run({ event: 'FETCH_PAGE', data: { processId: 'p-404' } }, {})
+        ).rejects.toMatchObject({
+            code: 'PROCESS_NOT_FOUND',
+            message: 'Process not found: p-404',
+        });
+    });
+});
+
+describe('loadRouterFromObject — logger scope for a route :integrationId', () => {
+    const express = require('express');
+    const { loadRouterFromObject } = require('./backend-utils');
+    const { getLoggerScope } = require('../logs/context');
+    const { mergeTelemetryContext } = require('../telemetry/telemetry-context');
+
+    class FakeIntegration {
+        static Definition = { name: 'fake' };
+        async initialize() {}
+    }
+
+    async function call(routeDef, path) {
+        const app = express();
+        app.use(loadRouterFromObject(FakeIntegration, routeDef));
+        const server = await new Promise((resolve) => {
+            const s = app.listen(0, () => resolve(s));
+        });
+        try {
+            await fetch(`http://127.0.0.1:${server.address().port}${path}`);
+        } finally {
+            await new Promise((resolve) => server.close(resolve));
+        }
+    }
+
+    afterEach(() => jest.clearAllMocks());
+
+    it.each([
+        ['with :integrationId', '/items/:integrationId', '/items/int-42', { integrationId: 'int-42' }],
+        ['without it', '/items', '/items', {}],
+    ])('route %s', async (_label, routePath, requestPath, expected) => {
+        jest.spyOn(console, 'log').mockImplementation();
+        let seen;
+        IntegrationEventDispatcher.mockImplementation(() => ({
+            dispatchHttp: async () => {
+                seen = { scope: getLoggerScope(), bus: mergeTelemetryContext() };
+                return {};
+            },
+        }));
+        await call({ path: routePath, method: 'GET', event: 'X' }, requestPath);
+        expect(seen.scope).toEqual(expected);
+        expect(seen.bus).toBeUndefined();
     });
 });

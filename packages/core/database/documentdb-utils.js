@@ -58,7 +58,10 @@ async function insertOne(client, collection, document) {
 
         // Provide helpful context for common errors
         if (error.code === 11000) {
-            throw new Error(`${errorMsg} - Duplicate key violation`);
+            throw Object.assign(
+                new Error(`${errorMsg} - Duplicate key violation`),
+                { code: 11000 }
+            );
         }
         throw new Error(errorMsg);
     }
@@ -166,11 +169,12 @@ async function findManyDrained(client, collection, filter = {}, options = {}) {
     return drainCursor(client, collection, first);
 }
 
-async function aggregateDrained(client, collection, pipeline) {
+async function aggregateDrained(client, collection, pipeline, options = {}) {
     const first = await client.$runCommandRaw({
         aggregate: collection,
         pipeline,
         cursor: { batchSize: DRAIN_BATCH_SIZE },
+        ...options,
     });
     return drainCursor(client, collection, first);
 }

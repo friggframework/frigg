@@ -53,14 +53,17 @@ describe('IntegrationRepositoryMongo.patchIntegrationConfig', () => {
         expect(cmd.new).toBe(true);
     });
 
-    it('stamps updatedAt as a Date in the same command', async () => {
+    it('stamps updatedAt as an extended-JSON $date so Mongo stores a BSON date', async () => {
         const { repo, calls } = makeRepo({ value: RAW_DOC });
 
         await repo.patchIntegrationConfig('507f1f77bcf86cd799439011', {
             attioWebhookId: 'wh_1',
         });
 
-        expect(calls[0].update.$set.updatedAt).toBeInstanceOf(Date);
+        const { updatedAt } = calls[0].update.$set;
+        expect(updatedAt).not.toBeInstanceOf(Date);
+        expect(Object.keys(updatedAt)).toEqual(['$date']);
+        expect(new Date(updatedAt.$date).toISOString()).toBe(updatedAt.$date);
     });
 
     it('performs no read before the update command', async () => {

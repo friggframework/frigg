@@ -1,6 +1,6 @@
 ---
 name: bootstrap-frigg-integration
-description: "Creating a Frigg integration from scratch — the development-time runbook: set up the backend project, install or build the API modules it connects, write the IntegrationBase subclass and its Definition (modules, events, routes), choose a sync mechanism (webhooks, extensions, or scheduled jobs), run it locally, and deploy. Use when starting a new Frigg integration or a new Frigg backend project from zero. Note: the CLI scaffold (create-frigg-app / frigg init) is currently non-functional, so this covers the working manual path. For provisioning/running a deployed integration at runtime via the API, see the frigg-user-actions skill."
+description: "Creating a Frigg integration from scratch — the development-time runbook: set up the backend project, install or build the API modules it connects, write the IntegrationBase subclass and its Definition (modules, events, routes), choose a sync mechanism (webhooks, extensions, or scheduled jobs), run it locally, and deploy. Use when starting a new Frigg integration or a new Frigg backend project from zero. Covers both the `frigg init` scaffold and the manual path. For provisioning/running a deployed integration at runtime via the API, see the frigg-user-actions skill."
 ---
 
 # Bootstrap a Frigg Integration
@@ -21,10 +21,23 @@ Copy this checklist and track progress:
 
 ## 0. Set up the backend project
 
-There is **no working one-command scaffold** — `npx create-frigg-app` is unpublished/archived and `frigg init` crashes (missing templates). Start manually:
+**Scaffold with `frigg init`** (recommended):
+
+```bash
+npx @friggframework/devtools init my-app --yes   # or `frigg init my-app` for interactive prompts
+cd my-app
+# start a local PostgreSQL matching DATABASE_URL in .env, e.g.
+docker run --name frigg-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
+npm run db:setup
+npm start
+```
+
+This writes `index.js` (app definition), `infrastructure.js`, `.env`, and a `package.json` whose scripts call `frigg start|build|deploy` and which already declares `@friggframework/core`, `@friggframework/devtools`, the serverless plugins, and Prisma. `--mode embedded` puts the backend in `./frigg-integration` of an existing repo. `npx create-frigg-app` is unpublished/archived; do not use it.
+
+**Manual alternative:**
 
 - **Clone an example:** `git clone https://github.com/friggframework/example-frigg-applications`, copy an example, `npm install`. — or —
-- **Hand-roll:** `npm init -y` → `npm install @friggframework/core` → create `index.js` exporting an app definition (`createFriggBackend`-style) → add `infrastructure.js`.
+- **Hand-roll:** `npm init -y` → `npm install @friggframework/core` and, as dev dependencies, `@friggframework/devtools`, `@friggframework/serverless-plugin`, `osls`, `serverless-esbuild`, `serverless-offline`, `serverless-offline-sqs`, `serverless-dotenv-plugin` → create `index.js` exporting `{ Definition }` → add `infrastructure.js` (`module.exports = require('@friggframework/devtools').createFriggInfrastructure();`).
 
 See the `frigg` skill (Project Setup + monorepo/quick reference) for the app-definition shape.
 

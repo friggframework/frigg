@@ -51,8 +51,12 @@ describe('frigg-cli dependencies', () => {
             expect(packageJson.dependencies.commander).toBeDefined();
         });
 
-        it('should have @friggframework/devtools for infrastructure', () => {
-            expect(packageJson.dependencies['@friggframework/devtools']).toBeDefined();
+        // frigg-cli ships inside @friggframework/devtools (14236100), so
+        // devtools is a peer, not a runtime dependency — a hard dependency
+        // would make the package depend on itself.
+        it('should declare @friggframework/devtools as a peer dependency for infrastructure', () => {
+            expect(packageJson.peerDependencies['@friggframework/devtools']).toBeDefined();
+            expect(packageJson.dependencies['@friggframework/devtools']).toBeUndefined();
         });
     });
 

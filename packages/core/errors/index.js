@@ -6,6 +6,9 @@ const {
     ParameterTypeError,
 } = require('./validation-errors');
 const { ClientSafeError } = require('./client-safe-error');
+const {
+    MappingAlreadyExistsError,
+} = require('./mapping-already-exists-error');
 
 module.exports = {
     BaseError,
@@ -14,4 +17,5 @@ module.exports = {
     RequiredPropertyError,
     ParameterTypeError,
     ClientSafeError,
+    MappingAlreadyExistsError,
 };

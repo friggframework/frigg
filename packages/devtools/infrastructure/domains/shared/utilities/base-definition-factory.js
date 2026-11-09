@@ -9,6 +9,11 @@
 
 const { buildEnvironment } = require('../environment-builder');
 const { nestedNodeModulesExcludes } = require('./nested-node-modules');
+const { buildLoggingProviderConfig } = require('./logging-config');
+const {
+    resolveLambdaArchitecture,
+    bundledPrismaEngineExcludes,
+} = require('../lambda-architectures');
 
 /**
  * Create base serverless definition with core functions and resources
@@ -33,6 +38,9 @@ function createBaseDefinition(
     usePrismaLayer = true
 ) {
     const region = process.env.AWS_REGION || 'us-east-1';
+    const loggingConfig = buildLoggingProviderConfig(AppDefinition.logging);
+    const architecture = resolveLambdaArchitecture(AppDefinition);
+    const bundledEngineExcludes = bundledPrismaEngineExcludes(AppDefinition, usePrismaLayer);
 
     // Package config for handlers that skip esbuild (need node_modules dependencies)
     // Include backend src/ and index.js since handlers load the app definition
@@ -52,6 +60,7 @@ function createBaseDefinition(
                 'node_modules/prisma/**',
                 'node_modules/@friggframework/core/generated/**',
             ] : []),
+            ...bundledEngineExcludes,
 
             // Exclude AWS SDK (provided by Lambda runtime)
             'node_modules/aws-sdk/**',
@@ -125,6 +134,7 @@ function createBaseDefinition(
                 'node_modules/prisma/**',
                 'node_modules/@friggframework/core/generated/**',
             ] : []),
+            ...bundledEngineExcludes,
 
             // Exclude nested node_modules from symlinked frigg packages (for npm link development)
             'node_modules/@friggframework/core/node_modules/**',
@@ -164,7 +174,7 @@ function createBaseDefinition(
     };
 
     return {
-        frameworkVersion: '>=3.17.0',
+        frameworkVersion: loggingConfig.frameworkVersion || '>=3.17.0',
         service: AppDefinition.name || 'create-frigg-app',
         package: {
             individually: true,
@@ -176,6 +186,7 @@ function createBaseDefinition(
             name: AppDefinition.provider || 'aws',
             ...(process.env.AWS_PROFILE && { profile: process.env.AWS_PROFILE }),
             runtime: 'nodejs22.x',  // Node.js 22.x (latest Lambda runtime with AWS SDK v3)
+            ...(architecture.explicit && { architecture: architecture.name }),
             timeout: 29,  // Set to 29s to give buffer before API Gateway's 30s timeout
             region,
             stage: '${opt:stage}',
@@ -218,6 +229,7 @@ function createBaseDefinition(
                 name: '${opt:stage, "dev"}-${self:service}',
                 disableDefaultEndpoint: false,
             },
+            ...loggingConfig.provider,
         },
         plugins: [
             'serverless-esbuild',
@@ -283,6 +295,11 @@ function createBaseDefinition(
                 ...(usePrismaLayer && { layers: [{ Ref: 'PrismaLambdaLayer' }] }),
                 skipEsbuild: true,  // Handlers in node_modules don't need bundling
                 package: skipEsbuildPackageConfig,
+                // Every path prefix the core integration router
+                // (createIntegrationRouter) registers must be routed here;
+                // HTTP API has no implicit catch-all, so an unlisted prefix
+                // 404s at the gateway before Express sees it. Guarded by
+                // __tests__/management-api-gateway-routes.test.js.
                 events: [
                     { httpApi: { path: '/api/integrations', method: 'ANY' } },
                     {
@@ -292,6 +309,20 @@ function createBaseDefinition(
                         },
                     },
                     { httpApi: { path: '/api/authorize', method: 'ANY' } },
+                    { httpApi: { path: '/api/entity', method: 'ANY' } },
+                    {
+                        httpApi: {
+                            path: '/api/entity/{proxy+}',
+                            method: 'ANY',
+                        },
+                    },
+                    { httpApi: { path: '/api/entities', method: 'ANY' } },
+                    {
+                        httpApi: {
+                            path: '/api/entities/{proxy+}',
+                            method: 'ANY',
+                        },
+                    },
                 ],
             },
             user: {
@@ -319,8 +350,11 @@ function createBaseDefinition(
             prisma: {
                 path: 'layers/prisma',
                 name: '${self:service}-prisma-${sls:stage}',
-                description: 'Prisma runtime client only (NO CLI) with rhel-openssl-3.0.x binaries (~10-15MB). CLI packaged separately in dbMigrate function.',
+                description: 'Prisma runtime client only (NO CLI) with the query engine for the deployed Lambda architecture (~10-15MB). CLI packaged separately in dbMigrate function.',
                 compatibleRuntimes: ['nodejs20.x', 'nodejs22.x'],
+                ...(architecture.explicit && {
+                    compatibleArchitectures: [architecture.name],
+                }),
                 retain: false,
             },
         } : {},
@@ -380,12 +414,18 @@ function createBaseDefinition(
                         },
                     },
                 },
+                // The functions above use `httpApi` events, so osls creates
+                // an HTTP API (API Gateway v2, logical ID HttpApi) with only
+                // the `$default` stage. HTTP APIs publish `5xx`, not the REST
+                // API metric `5XXError`, and the ApiId dimension identifies
+                // this API (a Stage dimension would have to be `$default`).
+                // https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-metrics.html
                 ApiGatewayAlarm5xx: {
                     Type: 'AWS::CloudWatch::Alarm',
                     Properties: {
                         AlarmDescription: 'API Gateway 5xx Errors',
                         Namespace: 'AWS/ApiGateway',
-                        MetricName: '5XXError',
+                        MetricName: '5xx',
                         Statistic: 'Sum',
                         Threshold: 0,
                         ComparisonOperator: 'GreaterThanThreshold',
@@ -394,7 +434,6 @@ function createBaseDefinition(
                         AlarmActions: [{ Ref: 'InternalErrorBridgeTopic' }],
                         Dimensions: [
                             { Name: 'ApiId', Value: { Ref: 'HttpApi' } },
-                            { Name: 'Stage', Value: '${self:provider.stage}' },
                         ],
                     },
                 },

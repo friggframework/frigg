@@ -23,6 +23,9 @@ jest.mock('../domains/shared/resource-discovery', () => {
         }),
     };
 });
+jest.mock('../domains/database/migration-engines', () => ({
+    ensureMigrationEngines: jest.fn().mockResolvedValue(undefined),
+}));
 
 const buildApp = (overrides = {}) => ({
     name: 'preload-test',

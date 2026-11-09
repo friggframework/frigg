@@ -84,10 +84,12 @@ describe('MismatchAnalyzer Method Name Bug Fix', () => {
             driftStatus: 'MODIFIED',
             propertyDifferences: [
                 {
-                    propertyPath: 'BucketEncryption.Rules[0].BucketKeyEnabled',
-                    expectedValue: true,
-                    actualValue: false,
-                    differenceType: 'NOT_EQUAL',
+                    // Raw CloudFormation PropertyDifference shape, as passed through by
+                    // AWSStackRepository.getResourceDrift() (PascalCase, slash-separated path).
+                    PropertyPath: '/BucketEncryption/ServerSideEncryptionConfiguration/0/BucketKeyEnabled',
+                    ExpectedValue: 'true',
+                    ActualValue: 'false',
+                    DifferenceType: 'NOT_EQUAL',
                 },
             ],
         });
@@ -144,10 +146,12 @@ describe('MismatchAnalyzer Method Name Bug Fix', () => {
             actualProperties: { BucketEncryption: { enabled: false } },
             propertyDifferences: [
                 {
-                    propertyPath: 'BucketEncryption.enabled',
-                    expectedValue: true,
-                    actualValue: false,
-                    differenceType: 'NOT_EQUAL',
+                    // Raw CloudFormation PropertyDifference shape, as passed through by
+                    // AWSStackRepository.getResourceDrift() (PascalCase, slash-separated path).
+                    PropertyPath: '/BucketEncryption/enabled',
+                    ExpectedValue: 'true',
+                    ActualValue: 'false',
+                    DifferenceType: 'NOT_EQUAL',
                 },
             ],
         });

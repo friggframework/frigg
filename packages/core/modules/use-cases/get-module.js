@@ -1,4 +1,7 @@
 const { Module } = require('../module');
+const {
+    findModuleDefinitionForEntity,
+} = require('../utils/find-module-definition');
 
 class GetModule {
     constructor({ moduleRepository, moduleDefinitions }) {
@@ -42,10 +45,10 @@ class GetModule {
         }
 
         const entityType = entity.moduleName;
-        const moduleDefinition = this.moduleDefinitions.find((def) => {
-            const modelName = Module.getEntityModelFromDefinition(def).modelName;
-            return entityType === modelName;
-        });
+        const moduleDefinition = findModuleDefinitionForEntity(
+            this.moduleDefinitions,
+            entity
+        );
 
         if (!moduleDefinition) {
             throw new Error(
@@ -59,15 +62,33 @@ class GetModule {
             definition: moduleDefinition,
         });
 
-        // todo: this properties should be methods in the Module class
+        // The credential itself (tokens, API keys) never leaves the server:
+        // the response names it and says whether it still works, as the v2
+        // entity DTO does.
+        const credential = module.credential;
+        const credentialId =
+            credential && typeof credential === 'object'
+                ? credential.id
+                : credential;
+        const ownerId = module.entity.userId ?? module.entity.user;
         return {
             id: module.entity.id,
             name: module.entity.name,
             moduleName: module.entity.moduleName,
-            credential: module.credential,
+            credentialId:
+                credentialId === undefined || credentialId === null
+                    ? null
+                    : String(credentialId),
+            authIsValid:
+                typeof credential?.authIsValid === 'boolean'
+                    ? credential.authIsValid
+                    : null,
             externalId: module.entity.externalId,
-            userId: module.entity.user.toString(),
-        }
+            userId:
+                ownerId === undefined || ownerId === null
+                    ? null
+                    : String(ownerId),
+        };
     }
 }
 

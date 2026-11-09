@@ -53,6 +53,13 @@ const FRAMEWORK_ENV_BLOCKLIST = new Set([
     'FRIGG_SSM_OFFLOADED_KEYS',
     'FRIGG_SSM_CACHE_TTL',
     'WORKER_FUNCTION_NAME',
+    // Read by the logger, telemetry flush and Prisma at INIT, before SSM loads
+    'FRIGG_LOG_LEVEL',
+    'AWS_LAMBDA_LOG_LEVEL',
+    'AWS_LAMBDA_LOG_FORMAT',
+    'OTEL_FLUSH_TIMEOUT_MS',
+    'DEBUG_VERBOSE',
+    'PRISMA_LOG_LEVEL',
     // Reserved AWS Lambda runtime variables
     '_HANDLER',
     '_X_AMZN_TRACE_ID',

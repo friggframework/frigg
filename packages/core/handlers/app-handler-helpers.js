@@ -1,9 +1,24 @@
-const { createHandler, flushDebugLog } = require('@friggframework/core');
+const { createHandler } = require('@friggframework/core');
+const { getLogger } = require('../logs');
+const { summarizeExpressRequest } = require('../logs/summarize-event');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const Boom = require('@hapi/boom');
 const serverlessHttp = require('serverless-http');
+
+const log = getLogger('frigg.http');
+
+const isHttpErrorStatus = (statusCode) =>
+    Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599;
+
+const toBoom = (err) => {
+    if (err.isBoom) return err;
+    if (err.isClientSafe === true && isHttpErrorStatus(err.statusCode)) {
+        return Boom.boomify(err, { statusCode: err.statusCode });
+    }
+    return Boom.boomify(err);
+};
 
 const createApp = (applyMiddleware) => {
     const app = express();
@@ -21,18 +36,28 @@ const createApp = (applyMiddleware) => {
 
     if (applyMiddleware) applyMiddleware(app);
 
-    // Handle sending error response and logging server errors to console
+    // The express boundary: send the error response and log it one time.
     app.use((err, req, res, next) => {
-        const boomError = err.isBoom ? err : Boom.boomify(err);
+        const boomError = toBoom(err);
         const {
             output: { statusCode = 500 },
         } = boomError;
 
         if (statusCode >= 500) {
-            flushDebugLog(boomError);
+            log.error('Request failed', {
+                eventName: 'frigg.http.request_failed',
+                statusCode,
+                invocation: summarizeExpressRequest(req),
+                error: boomError,
+            });
             res.status(statusCode).json({ error: 'Internal Server Error' });
         } else {
-            console.warn(`[Frigg] ${req.method} ${req.path} -> ${statusCode}: ${err.message}`);
+            // A client error needs no stack; the logger scrubs the reason.
+            log.warn('Request rejected', {
+                eventName: 'frigg.http.request_rejected',
+                statusCode,
+                reason: boomError.message,
+            });
             res.status(statusCode).json({ error: err.message });
         }
     });

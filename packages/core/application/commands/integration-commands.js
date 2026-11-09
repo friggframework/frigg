@@ -30,6 +30,12 @@ const {
     PatchIntegrationConfig,
 } = require('../../integrations/use-cases/patch-integration-config');
 const {
+    AddEntitiesToIntegration,
+} = require('../../integrations/use-cases/add-entities-to-integration');
+const {
+    RemoveEntitiesFromIntegration,
+} = require('../../integrations/use-cases/remove-entities-from-integration');
+const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../../integrations/utils/map-integration-dto');
 
@@ -40,6 +46,11 @@ const ERROR_CODE_MAP = {
     EXTERNAL_ID_REQUIRED: 400,
     TYPE_REQUIRED: 400,
     INTEGRATION_RECORD_NOT_FOUND: 404,
+    INVALID_INTEGRATION_DATA: 400,
+    ENTITIES_NOT_FOUND: 404,
+    ENTITY_USER_MISMATCH: 403,
+    ENTITY_MODULE_MISMATCH: 400,
+    LAST_ENTITY_OF_MODULE: 409,
 };
 
 function mapErrorToResponse(error) {
@@ -162,6 +173,17 @@ function createIntegrationCommands({ integrationClass } = {}) {
     const patchIntegrationConfigUseCase = new PatchIntegrationConfig({
         integrationRepository,
     });
+
+    const addEntitiesToIntegrationUseCase = new AddEntitiesToIntegration({
+        integrationRepository,
+        moduleRepository,
+    });
+
+    const removeEntitiesFromIntegrationUseCase =
+        new RemoveEntitiesFromIntegration({
+            integrationRepository,
+            moduleRepository,
+        });
 
     return {
         findIntegrationById,
@@ -302,6 +324,47 @@ function createIntegrationCommands({ integrationClass } = {}) {
                     patch
                 );
                 return integration;
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Attach entities to an existing integration. Every entity must
+         * exist, belong to the integration's user, and be of a module the
+         * integration already holds; entities that are already attached are
+         * left as they are.
+         * @param {Object} params
+         * @param {string} params.integrationId - Integration ID
+         * @param {Array<string>} params.entityIds - Entity IDs to attach
+         * @returns {Promise<Object>} Updated integration
+         */
+        async addEntitiesToIntegration({ integrationId, entityIds }) {
+            try {
+                return await addEntitiesToIntegrationUseCase.execute(
+                    integrationId,
+                    entityIds
+                );
+            } catch (error) {
+                return mapErrorToResponse(error);
+            }
+        },
+
+        /**
+         * Detach entities from an integration. Entities that are not
+         * attached are ignored; detached entities are not deleted. Each
+         * module must keep at least one entity.
+         * @param {Object} params
+         * @param {string} params.integrationId - Integration ID
+         * @param {Array<string>} params.entityIds - Entity IDs to detach
+         * @returns {Promise<Object>} Updated integration
+         */
+        async removeEntitiesFromIntegration({ integrationId, entityIds }) {
+            try {
+                return await removeEntitiesFromIntegrationUseCase.execute(
+                    integrationId,
+                    entityIds
+                );
             } catch (error) {
                 return mapErrorToResponse(error);
             }

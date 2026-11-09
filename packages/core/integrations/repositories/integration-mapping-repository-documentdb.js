@@ -1,4 +1,5 @@
 const { prisma } = require('../../database/prisma');
+const { MappingAlreadyExistsError } = require('../../errors');
 const {
     toObjectId,
     fromObjectId,
@@ -8,6 +9,7 @@ const {
     updateOne,
     deleteOne,
     deleteMany,
+    aggregate,
     aggregateDrained,
 } = require('../../database/documentdb-utils');
 const {
@@ -16,6 +18,20 @@ const {
 const {
     DocumentDBEncryptionService,
 } = require('../../database/documentdb-encryption-service');
+const {
+    assertMappingWrittenUnencrypted,
+} = require('../../database/encryption/integration-mapping-encryption');
+const { validateMappingQuery } = require('./integration-mapping-query');
+const {
+    buildMappingQueryStages,
+} = require('./integration-mapping-query-pipeline');
+
+function storedIntegrationId(id) {
+    if (!['string', 'number'].includes(typeof id) || id === '') {
+        throw new TypeError(`Invalid ID: ${id}`);
+    }
+    return String(id);
+}
 
 class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositoryInterface {
     constructor() {
@@ -165,6 +181,55 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
         return this._mapMapping(decryptedMapping);
     }
 
+    async createMapping(integrationId, sourceId, mapping) {
+        const now = new Date();
+        const encryptedDocument = await this.encryptionService.encryptFields(
+            'IntegrationMapping',
+            {
+                integrationId,
+                sourceId:
+                    sourceId === null || sourceId === undefined
+                        ? null
+                        : String(sourceId),
+                mapping,
+                createdAt: now,
+                updatedAt: now,
+            }
+        );
+
+        let insertedId;
+        try {
+            insertedId = await insertOne(
+                this.prisma,
+                'IntegrationMapping',
+                encryptedDocument
+            );
+        } catch (error) {
+            if (error.code === 11000) {
+                throw new MappingAlreadyExistsError(integrationId, sourceId, {
+                    cause: error,
+                });
+            }
+            throw error;
+        }
+
+        const created = await findOne(this.prisma, 'IntegrationMapping', {
+            _id: insertedId,
+        });
+        if (!created) {
+            throw new Error(
+                'Failed to create mapping: Document not found after insert. ' +
+                    'This indicates a database consistency issue.'
+            );
+        }
+        return this._mapMapping(
+            await this.encryptionService.decryptFields(
+                'IntegrationMapping',
+                created
+            )
+        );
+    }
+
     async findMappingsByIntegration(integrationId) {
         const filter = {};
         if (integrationId) filter.integrationId = integrationId;
@@ -177,6 +242,44 @@ class IntegrationMappingRepositoryDocumentDB extends IntegrationMappingRepositor
         );
 
         return decryptedDocs.map((doc) => this._mapMapping(doc));
+    }
+
+    /**
+     * @param {string} integrationId
+     * @param {Object} query - See IntegrationMappingRepositoryInterface.queryMappings
+     * @returns {Promise<{mappings: Array<Object>, total: number}>}
+     */
+    async queryMappings(integrationId, query) {
+        const validated = validateMappingQuery(query);
+        const stored = storedIntegrationId(integrationId);
+        assertMappingWrittenUnencrypted();
+        const { match, page, sort } = buildMappingQueryStages(
+            stored,
+            validated
+        );
+
+        const [docs, counts] = await Promise.all([
+            aggregateDrained(
+                this.prisma,
+                'IntegrationMapping',
+                [match, ...page, sort],
+                { allowDiskUse: true }
+            ),
+            aggregate(this.prisma, 'IntegrationMapping', [
+                match,
+                { $count: 'total' },
+            ]),
+        ]);
+        const decryptedDocs = await Promise.all(
+            docs.map((doc) =>
+                this.encryptionService.decryptFields('IntegrationMapping', doc)
+            )
+        );
+
+        return {
+            mappings: decryptedDocs.map((doc) => this._mapMapping(doc)),
+            total: counts[0]?.total ?? 0,
+        };
     }
 
     async deleteMapping(integrationId, sourceId) {

@@ -164,7 +164,7 @@ describe('CloudFormationDiscovery', () => {
             expect(result.routeTableId).toBe('rtb-123');
             expect(result.vpcEndpointSecurityGroupId).toBe('sg-vpce-123');
             expect(result.s3VpcEndpointId).toBe('vpce-s3-123');
-            expect(result.dynamoDbVpcEndpointId).toBe('vpce-ddb-123');
+            expect(result.dynamodbVpcEndpointId).toBe('vpce-ddb-123');
             expect(result.kmsVpcEndpointId).toBe('vpce-kms-123');
             expect(result.secretsManagerVpcEndpointId).toBe('vpce-sm-123');
         });
@@ -190,6 +190,9 @@ describe('CloudFormationDiscovery', () => {
 
             expect(result).toEqual({
                 fromCloudFormationStack: true,
+                // _extractFromResources() initialises the structured endpoint map whenever
+                // the stack has resources (37a354e8)
+                vpcEndpoints: {},
                 stackName: 'test-stack',
                 auroraClusterId: 'test-cluster',
                 existingLogicalIds: ['FriggAuroraCluster'],
@@ -257,6 +260,9 @@ describe('CloudFormationDiscovery', () => {
 
             expect(result).toEqual({
                 fromCloudFormationStack: true,
+                // _extractFromResources() initialises the structured endpoint map whenever
+                // the stack has resources (37a354e8)
+                vpcEndpoints: {},
                 stackName: 'test-stack',
                 migrationStatusBucket: 'test-migration-bucket',
                 existingLogicalIds: ['FriggMigrationStatusBucket'],
@@ -285,6 +291,9 @@ describe('CloudFormationDiscovery', () => {
 
             expect(result).toEqual({
                 fromCloudFormationStack: true,
+                // _extractFromResources() initialises the structured endpoint map whenever
+                // the stack has resources (37a354e8)
+                vpcEndpoints: {},
                 stackName: 'test-stack',
                 migrationQueueUrl:
                     'https://sqs.us-east-1.amazonaws.com/123456789/test-queue',
@@ -313,6 +322,9 @@ describe('CloudFormationDiscovery', () => {
 
             expect(result).toEqual({
                 fromCloudFormationStack: true,
+                // _extractFromResources() initialises the structured endpoint map whenever
+                // the stack has resources (37a354e8)
+                vpcEndpoints: {},
                 stackName: 'test-stack',
                 natGatewayId: 'nat-0123456789',
                 existingLogicalIds: ['FriggNatGateway'],
@@ -340,6 +352,9 @@ describe('CloudFormationDiscovery', () => {
 
             expect(result).toEqual({
                 fromCloudFormationStack: true,
+                // _extractFromResources() initialises the structured endpoint map whenever
+                // the stack has resources (37a354e8)
+                vpcEndpoints: {},
                 stackName: 'test-stack',
                 defaultVpcId: 'vpc-037ec55fe87aec1e7',
                 existingLogicalIds: ['FriggVPC'],
@@ -378,6 +393,9 @@ describe('CloudFormationDiscovery', () => {
 
             expect(result).toEqual({
                 fromCloudFormationStack: true,
+                // _extractFromResources() initialises the structured endpoint map whenever
+                // the stack has resources (37a354e8)
+                vpcEndpoints: {},
                 stackName: 'test-stack',
                 defaultVpcId: 'vpc-123', // VpcBuilder expects 'defaultVpcId'
                 defaultKmsKeyId: 'arn:aws:kms:us-east-1:123456789:key/abc',
@@ -406,6 +424,9 @@ describe('CloudFormationDiscovery', () => {
 
             expect(result).toEqual({
                 fromCloudFormationStack: true,
+                // _extractFromResources() initialises the structured endpoint map whenever
+                // the stack has resources (37a354e8)
+                vpcEndpoints: {},
                 stackName: 'test-stack',
             });
         });
@@ -439,6 +460,11 @@ describe('CloudFormationDiscovery', () => {
                 SecurityGroups: [{ VpcId: 'vpc-123' }],
             });
 
+            // Mock the VPC's default security group lookup (added in 37a354e8)
+            mockEC2Client.send.mockResolvedValueOnce({
+                SecurityGroups: [{ GroupId: 'sg-default-123' }],
+            });
+
             // Mock subnet query
             mockEC2Client.send.mockResolvedValueOnce({
                 Subnets: [
@@ -469,9 +495,11 @@ describe('CloudFormationDiscovery', () => {
 
             const result = await cfDiscovery.discoverFromStack('test-stack');
 
+            expect(result.defaultVpcId).toBe('vpc-123');
+            expect(result.defaultSecurityGroupId).toBe('sg-default-123');
             expect(result.privateSubnetId1).toBe('subnet-private-1');
             expect(result.privateSubnetId2).toBe('subnet-private-2');
-            expect(mockEC2Client.send).toHaveBeenCalledTimes(2);
+            expect(mockEC2Client.send).toHaveBeenCalledTimes(3);
         });
 
         it('should handle EC2 subnet query errors gracefully', async () => {
@@ -739,7 +767,7 @@ describe('CloudFormationDiscovery', () => {
             expect(result.vpcEndpoints.s3).toBe('vpce-0352ceac2124c14be');
             expect(result.vpcEndpoints.dynamodb).toBe('vpce-0b06c4f631199ea68');
             expect(result.s3VpcEndpointId).toBe('vpce-0352ceac2124c14be');
-            expect(result.dynamoDbVpcEndpointId).toBe('vpce-0b06c4f631199ea68');
+            expect(result.dynamodbVpcEndpointId).toBe('vpce-0b06c4f631199ea68');
 
             // Verify NO VPC/KMS resources (they're external)
             expect(result.defaultVpcId).toBeUndefined();
@@ -776,7 +804,7 @@ describe('CloudFormationDiscovery', () => {
             expect(result.vpcEndpoints.s3).toBe('vpce-legacy-s3');
             expect(result.vpcEndpoints.dynamodb).toBe('vpce-legacy-ddb');
             expect(result.s3VpcEndpointId).toBe('vpce-legacy-s3');
-            expect(result.dynamoDbVpcEndpointId).toBe('vpce-legacy-ddb');
+            expect(result.dynamodbVpcEndpointId).toBe('vpce-legacy-ddb');
         });
 
         it('should extract FriggLambdaSecurityGroup from stack', async () => {
@@ -807,7 +835,9 @@ describe('CloudFormationDiscovery', () => {
 
             // Lambda security group should be extracted
             expect(result.lambdaSecurityGroupId).toBe('sg-01002240c6a446202');
-            expect(result.defaultSecurityGroupId).toBe('sg-01002240c6a446202');
+            // The Lambda SG must not masquerade as the VPC's default SG
+            // (defaultSecurityGroupId is only ever the VPC default; see 37a354e8).
+            expect(result.defaultSecurityGroupId).toBeUndefined();
             expect(result.existingLogicalIds).toContain(
                 'FriggLambdaSecurityGroup'
             );
@@ -899,7 +929,7 @@ describe('CloudFormationDiscovery', () => {
 
     describe('existingLogicalIds tracking', () => {
         it('should track OLD VPC endpoint logical IDs (VPCEndpointS3 pattern) for backwards compatibility', async () => {
-            // CRITICAL: Frontify production uses OLD naming convention
+            // CRITICAL: Older production stacks use the OLD naming convention
             const mockStack = {
                 StackName: 'create-frigg-app-production',
                 Outputs: [],

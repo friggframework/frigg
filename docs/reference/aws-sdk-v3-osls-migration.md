@@ -16,7 +16,7 @@ The Frigg framework has been migrated from Serverless Framework v3 to OSS-Server
 npm install serverless@3.39.0
 
 # New
-npm install osls@^3.40.1
+npm install osls@^3.78.0
 
 # Commands remain the same
 osls deploy --stage dev     # was: serverless deploy

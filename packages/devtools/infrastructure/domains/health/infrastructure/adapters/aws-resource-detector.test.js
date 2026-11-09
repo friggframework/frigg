@@ -441,6 +441,16 @@ describe('AWSResourceDetector', () => {
     describe('findOrphanedResources', () => {
         const StackIdentifier = require('../../domain/value-objects/stack-identifier');
 
+        beforeEach(() => {
+            // findOrphanedResources() scans every supported resource type
+            // (EC2, RDS and KMS), not just the types in the stack, so every
+            // client needs an (empty) response; each test overrides the one
+            // service it is about.
+            mockEC2Send.mockResolvedValue({});
+            mockRDSSend.mockResolvedValue({});
+            mockKMSSend.mockResolvedValue({});
+        });
+
         it('should find orphaned RDS DBCluster with frigg:stack tag', async () => {
             const stackIdentifier = new StackIdentifier({
                 stackName: 'my-app-prod',

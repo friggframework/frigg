@@ -10,6 +10,7 @@
 
 const { AdminScriptBuilder } = require('./admin-script-builder');
 const { ValidationResult } = require('../shared/base-builder');
+const { itBundlesOnlyTheTargetPrismaEngine } = require('../../__tests__/helpers/bundled-prisma-engine-excludes');
 
 describe('AdminScriptBuilder', () => {
     let adminScriptBuilder;
@@ -166,6 +167,21 @@ describe('AdminScriptBuilder', () => {
 
             expect(result.resources.AdminScriptQueue.Properties.MessageRetentionPeriod).toBe(86400); // 1 day
             expect(result.resources.AdminScriptQueue.Properties.VisibilityTimeout).toBe(900); // 15 minutes
+        });
+
+        it('registers AdminScriptQueue under custom so frigg start creates it locally', async () => {
+            const appDefinition = {
+                adminScripts: [{ Definition: { name: 'test-script' } }],
+            };
+
+            const result = await adminScriptBuilder.build(appDefinition, {});
+
+            expect(result.custom.AdminScriptQueue).toBe(
+                '${self:service}-${self:provider.stage}-AdminScriptQueue'
+            );
+            expect(result.resources.AdminScriptQueue.Properties.QueueName).toBe(
+                '${self:custom.AdminScriptQueue}'
+            );
         });
 
         it('should configure AdminScriptQueue redrive policy to InternalErrorQueue', async () => {
@@ -621,6 +637,21 @@ describe('AdminScriptBuilder', () => {
     });
 
     describe('reports (ReportQueue + reportExecutor)', () => {
+        it('registers ReportQueue under custom so frigg start creates it locally', async () => {
+            const appDefinition = {
+                reports: [{ Definition: { name: 'my-report', version: '1.0.0' } }],
+            };
+
+            const result = await adminScriptBuilder.build(appDefinition, {});
+
+            expect(result.custom.ReportQueue).toBe(
+                '${self:service}-${self:provider.stage}-ReportQueue'
+            );
+            expect(result.resources.ReportQueue.Properties.QueueName).toBe(
+                '${self:custom.ReportQueue}'
+            );
+        });
+
         it('creates ReportQueue + reportExecutor and wires REPORT_QUEUE_URL when reports are present', async () => {
             const appDefinition = {
                 reports: [{ Definition: { name: 'my-report', version: '1.0.0' } }],
@@ -933,6 +964,21 @@ describe('AdminScriptBuilder', () => {
         });
     });
 
+    describe('Lambda architecture with usePrismaLambdaLayer=false', () => {
+        const functionsOf = async (usePrismaLambdaLayer, architecture) => {
+            const result = await adminScriptBuilder.build(
+                {
+                    adminScripts: [{ Definition: { name: 'cleanup' } }],
+                    usePrismaLambdaLayer,
+                    ...(architecture && { architecture }),
+                },
+                {}
+            );
+            return Object.values(result.functions);
+        };
+        itBundlesOnlyTheTargetPrismaEngine(functionsOf);
+    });
+
     describe('getName()', () => {
         it('should return AdminScriptBuilder', () => {
             expect(adminScriptBuilder.getName()).toBe('AdminScriptBuilder');
@@ -995,23 +1041,23 @@ describe('AdminScriptBuilder nested node_modules (lambda.keepNestedNodeModules)'
         result.functions.adminScriptRouter,
     ];
 
-    it('excludes every nested node_modules by default', async () => {
+    it('keeps nested node_modules by default, still excluding nested Frigg copies', async () => {
         const result = await new AdminScriptBuilder().build(appDefinition(), {});
-
-        for (const fn of executorAndRouter(result)) {
-            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
-        }
-    });
-
-    it('keeps nested node_modules when the app opts in, still excluding nested Frigg copies', async () => {
-        const result = await new AdminScriptBuilder().build(
-            appDefinition({ keepNestedNodeModules: true }),
-            {}
-        );
 
         for (const fn of executorAndRouter(result)) {
             expect(fn.package.exclude).not.toContain('node_modules/**/node_modules/**');
             expect(fn.package.exclude).toContain('node_modules/**/node_modules/@friggframework/**');
+        }
+    });
+
+    it('excludes every nested node_modules when the app opts out', async () => {
+        const result = await new AdminScriptBuilder().build(
+            appDefinition({ keepNestedNodeModules: false }),
+            {}
+        );
+
+        for (const fn of executorAndRouter(result)) {
+            expect(fn.package.exclude).toContain('node_modules/**/node_modules/**');
         }
     });
 });

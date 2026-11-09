@@ -67,9 +67,10 @@ class MyIntegration extends IntegrationBase {
     async hydrateFromExternalUser(externalUserId) {
         // Find integration context by external entity ID
         const result =
-            await this.commands.findIntegrationContextByExternalEntityId(
-                externalUserId
-            );
+            await this.commands.findIntegrationContextByExternalEntityId({
+                externalId: externalUserId,
+                type: 'my-integration', // integration config.type to match
+            });
 
         if (result.error) {
             return { error: result.error };
@@ -231,9 +232,10 @@ Manage integration records and load full integration contexts.
 ```javascript
 // Find integration context by external entity ID
 // Returns { context, error } where context includes record + hydrated modules
-const result = await commands.findIntegrationContextByExternalEntityId(
-    'external-user-or-workspace-id'
-);
+const result = await commands.findIntegrationContextByExternalEntityId({
+    externalId: 'external-user-or-workspace-id',
+    type: 'my-integration', // integration config.type to match
+});
 
 if (!result.error) {
     integration.setIntegrationRecord(result.context);
@@ -299,7 +301,10 @@ try {
 For integration context operations, errors are returned in the result:
 
 ```javascript
-const result = await commands.findIntegrationContextByExternalEntityId(userId);
+const result = await commands.findIntegrationContextByExternalEntityId({
+    externalId: userId,
+    type: 'my-integration',
+});
 
 if (result.error) {
     return { error: result.error };
@@ -349,9 +354,10 @@ const result =
 const { createFriggCommands } = require('@friggframework/core');
 
 this.commands = createFriggCommands({ integrationClass: MyIntegration });
-const result = await this.commands.findIntegrationContextByExternalEntityId(
-    userId
-);
+const result = await this.commands.findIntegrationContextByExternalEntityId({
+    externalId: userId,
+    type: 'my-integration',
+});
 ```
 
 ## Best Practices
@@ -433,7 +439,7 @@ if (!user) {
 |                 | `findEntitiesByIds(ids)`                                | Find multiple by IDs                      |
 |                 | `updateEntity(id, updates)`                             | Update entity properties                  |
 |                 | `deleteEntity(id)`                                      | Delete entity                             |
-| **Integration** | `findIntegrationContextByExternalEntityId(externalId)`  | Load integration + modules by external ID |
+| **Integration** | `findIntegrationContextByExternalEntityId({ externalId, type })` | Load integration + modules by external ID |
 |                 | `loadIntegrationContextById(integrationId)`             | Load integration + modules by ID          |
 
 ## Support

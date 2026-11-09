@@ -133,10 +133,12 @@ describe('RunHealthCheckUseCase', () => {
                 driftStatus: 'MODIFIED',
                 propertyDifferences: [
                     {
-                        propertyPath: 'Properties.EnableDnsSupport',
-                        expectedValue: true,
-                        actualValue: false,
-                        differenceType: 'NOT_EQUAL',
+                        // Raw CloudFormation PropertyDifference shape, as passed through by
+                        // AWSStackRepository.getResourceDrift() (PascalCase, slash-separated path).
+                        PropertyPath: '/EnableDnsSupport',
+                        ExpectedValue: 'true',
+                        ActualValue: 'false',
+                        DifferenceType: 'NOT_EQUAL',
                     },
                 ],
             });
@@ -308,10 +310,12 @@ describe('RunHealthCheckUseCase', () => {
                 driftStatus: 'MODIFIED',
                 propertyDifferences: [
                     {
-                        propertyPath: 'Properties.EnableDnsSupport',
-                        expectedValue: true,
-                        actualValue: false,
-                        differenceType: 'NOT_EQUAL',
+                        // Raw CloudFormation PropertyDifference shape, as passed through by
+                        // AWSStackRepository.getResourceDrift() (PascalCase, slash-separated path).
+                        PropertyPath: '/EnableDnsSupport',
+                        ExpectedValue: 'true',
+                        ActualValue: 'false',
+                        DifferenceType: 'NOT_EQUAL',
                     },
                 ],
             });

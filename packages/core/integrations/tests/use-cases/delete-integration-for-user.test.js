@@ -2,12 +2,14 @@ jest.mock('../../../database/config', () => ({
     DB_TYPE: 'mongodb',
     getDatabaseType: jest.fn(() => 'mongodb'),
     PRISMA_LOG_LEVEL: 'error,warn',
-    PRISMA_QUERY_LOGGING: false,
 }));
 
 const { DeleteIntegrationForUser } = require('../../use-cases/delete-integration-for-user');
 const { TestIntegrationRepository } = require('../doubles/test-integration-repository');
 const { DummyIntegration } = require('../doubles/dummy-integration-class');
+const { FetchError } = require('../../../errors');
+const { createMemorySink } = require('../../../logs');
+const { SECRETS } = require('../../../logs/__fixtures__/secrets');
 
 // Records the integration's in-memory status at the moment ON_DELETE fires, so
 // a test can prove IN_DELETION was set before any teardown ran.
@@ -81,6 +83,26 @@ describe('DeleteIntegrationForUser Use-Case', () => {
     });
 
     describe('error cases', () => {
+        it('throws the same not found when the repository throws not found', async () => {
+            integrationRepository.findIntegrationById = jest
+                .fn()
+                .mockRejectedValue(new Error('Integration with id missing-id not found'));
+
+            await expect(useCase.execute('missing-id', 'user-1'))
+                .rejects
+                .toMatchObject({
+                    message: 'Integration with id of missing-id does not exist',
+                    output: { statusCode: 404 },
+                });
+        });
+
+        it('rethrows other repository errors', async () => {
+            const dbError = new Error('connection refused');
+            integrationRepository.findIntegrationById = jest.fn().mockRejectedValue(dbError);
+
+            await expect(useCase.execute('some-id', 'user-1')).rejects.toBe(dbError);
+        });
+
         it('throws error when integration not found', async () => {
             const nonExistentId = 'non-existent-id';
 
@@ -89,12 +111,15 @@ describe('DeleteIntegrationForUser Use-Case', () => {
                 .toThrow(`Integration with id of ${nonExistentId} does not exist`);
         });
 
-        it('throws error when user does not own integration', async () => {
+        it('throws the same not found when user does not own integration', async () => {
             const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'dummy' });
 
             await expect(useCase.execute(record.id, 'different-user'))
                 .rejects
-                .toThrow(`Integration ${record.id} does not belong to User different-user`);
+                .toMatchObject({
+                    message: `Integration with id of ${record.id} does not exist`,
+                    output: { statusCode: 404 },
+                });
         });
 
         it('throws error when integration class not found', async () => {
@@ -147,9 +172,13 @@ describe('DeleteIntegrationForUser Use-Case', () => {
             });
             const record = await integrationRepository.createIntegration(['e1'], 'user-1', { type: 'throwing-on-delete' });
 
-            await expect(
-                useCaseWithThrowingIntegration.execute(record.id, 'user-1')
-            ).rejects.toThrow('webhook deregistration failed');
+            const error = await useCaseWithThrowingIntegration
+                .execute(record.id, 'user-1')
+                .catch((e) => e);
+            expect(error.message).toBe(
+                `Integration ${record.id} deletion did not complete`
+            );
+            expect(error.cause.message).toBe('webhook deregistration failed');
 
             const found = await integrationRepository.findIntegrationById(record.id);
             expect(found).not.toBeNull();
@@ -175,7 +204,7 @@ describe('DeleteIntegrationForUser Use-Case', () => {
 
             await expect(
                 useCaseWithNullRejectingIntegration.execute(record.id, 'user-1')
-            ).rejects.toBeNull();
+            ).rejects.toThrow(`Integration ${record.id} deletion did not complete`);
 
             const found = await integrationRepository.findIntegrationById(record.id);
             expect(found).not.toBeNull();
@@ -211,15 +240,75 @@ describe('DeleteIntegrationForUser Use-Case', () => {
 
             await expect(
                 useCaseWithThrowingIntegration.execute(record.id, 'user-1')
-            ).rejects.toThrow('webhook deregistration failed');
+            ).rejects.toThrow(`Integration ${record.id} deletion did not complete`);
 
             expect(capturedMessagesExecute).toHaveBeenCalledWith(
                 record.id,
                 'errors',
                 'Integration Deletion Error',
-                expect.stringContaining('webhook deregistration failed'),
+                'Deletion did not complete. Contact support.',
                 expect.any(Number)
             );
+        });
+
+        it('keeps a FetchError out of the messages, the console and the use-case records', async () => {
+            let capturedMessagesExecute;
+            class LeakyFailingIntegration extends DummyIntegration {
+                static Definition = {
+                    ...DummyIntegration.Definition,
+                    name: 'leaky-failing-on-delete',
+                };
+
+                constructor(params) {
+                    super(params);
+                    capturedMessagesExecute = this.updateIntegrationMessages.execute;
+                }
+
+                async onDelete() {
+                    const error = new FetchError({
+                        resource: `https://api.example.com/hooks?api_key=${SECRETS.apiKeyQuery}`,
+                        init: { method: 'DELETE' },
+                        response: { status: 500 },
+                    });
+                    error.message += ` Bearer ${SECRETS.bearer}`;
+                    throw error;
+                }
+            }
+            const consoleSpies = ['log', 'warn', 'error'].map((method) =>
+                jest.spyOn(console, method).mockImplementation()
+            );
+            const sink = createMemorySink();
+            const leakyUseCase = new DeleteIntegrationForUser({
+                integrationRepository,
+                integrationClasses: [LeakyFailingIntegration],
+            });
+            const record = await integrationRepository.createIntegration(
+                ['e1'],
+                'user-1',
+                { type: 'leaky-failing-on-delete' }
+            );
+
+            const error = await leakyUseCase
+                .execute(record.id, 'user-1')
+                .catch((e) => e);
+
+            expect(error.message).toBe(
+                `Integration ${record.id} deletion did not complete`
+            );
+            expect(capturedMessagesExecute.mock.calls).toContainNoSecretWindow(
+                SECRETS
+            );
+            expect(capturedMessagesExecute.mock.calls[0][3]).not.toContain('api.example.com');
+            expect(
+                sink.records.filter(
+                    (r) => r.logger === 'frigg.integrations' && r.level === 'ERROR'
+                )
+            ).toEqual([]);
+            expect(sink.records).toContainNoSecretWindow(SECRETS);
+            consoleSpies.forEach((spy) => {
+                expect(spy).not.toHaveBeenCalled();
+                spy.mockRestore();
+            });
         });
     });
 
@@ -254,7 +343,10 @@ describe('DeleteIntegrationForUser Use-Case', () => {
 
             await expect(useCase.execute(record.id, null))
                 .rejects
-                .toThrow(`Integration ${record.id} does not belong to User null`);
+                .toMatchObject({
+                    message: `Integration with id of ${record.id} does not exist`,
+                    output: { statusCode: 404 },
+                });
         });
 
         it('handles undefined userId gracefully', async () => {
@@ -262,7 +354,10 @@ describe('DeleteIntegrationForUser Use-Case', () => {
 
             await expect(useCase.execute(record.id, undefined))
                 .rejects
-                .toThrow(`Integration ${record.id} does not belong to User undefined`);
+                .toMatchObject({
+                    message: `Integration with id of ${record.id} does not exist`,
+                    output: { statusCode: 404 },
+                });
         });
     });
 
@@ -298,7 +393,7 @@ describe('DeleteIntegrationForUser Use-Case', () => {
 
             await expect(
                 useCaseFailing.execute(record.id, 'user-1')
-            ).rejects.toThrow('teardown failed');
+            ).rejects.toThrow(`Integration ${record.id} deletion did not complete`);
 
             expect(capturedStatusAtDelete).toBe('IN_DELETION');
             const found = await integrationRepository.findIntegrationById(

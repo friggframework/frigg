@@ -58,7 +58,6 @@ describe('DocumentDB factory selection', () => {
         DB_TYPE: 'documentdb',
         getDatabaseType: jest.fn(() => 'documentdb'),
         PRISMA_LOG_LEVEL: 'error,warn',
-        PRISMA_QUERY_LOGGING: false,
     };
 
     test.each(FACTORIES)(

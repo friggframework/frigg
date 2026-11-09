@@ -3,6 +3,7 @@ const fs = require('fs-extra');
 const crypto = require('crypto');
 const { composeServerlessDefinition } = require('./infrastructure-composer');
 const { findNearestBackendPackageJson } = require('@friggframework/core');
+const { applyAppDefinitionDefaults } = require('@friggframework/schemas');
 
 // Filesystem-based cache to persist across osls require cache clears
 const getCachePath = (backendDir) => {
@@ -102,7 +103,9 @@ async function createFriggInfrastructure() {
 
     try {
         const backend = require(backendFilePath);
-        const appDefinition = backend.Definition;
+        // Same defaults step as core's loadAppDefinition (ADR-051), so the
+        // builders and the runtime see the same definition.
+        const appDefinition = applyAppDefinitionDefaults(backend.Definition);
 
         const definition = await composeServerlessDefinition(
             appDefinition,

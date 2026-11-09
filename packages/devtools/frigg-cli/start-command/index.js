@@ -12,6 +12,7 @@ const {
     getDatabaseTypeNotConfiguredError,
     getPrismaClientNotGeneratedError
 } = require('../utils/error-messages');
+const { preflightValidation } = require('../validate-command');
 
 async function startCommand(options) {
     if (options.verbose) {
@@ -24,6 +25,9 @@ async function startCommand(options) {
     // Load environment variables from .env file
     const envPath = path.join(process.cwd(), '.env');
     dotenv.config({ path: envPath });
+
+    // Validate the app definition (ADR-051); local development only warns.
+    preflightValidation({ command: 'start', options, failOnErrors: false });
 
     // Pre-flight database checks
     try {

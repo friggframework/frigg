@@ -7,6 +7,7 @@
 
 const { createTelemetry } = require('./telemetry-service');
 const { NoOpTelemetry } = require('./no-op-telemetry');
+const loggerRuntime = require('../logs/logger-runtime');
 
 const UNSET = Symbol('unset');
 
@@ -21,18 +22,46 @@ function loadTelemetryConfig() {
     return loadAppDefinition();
 }
 
+function activeSpanContext() {
+    const telemetry = state.telemetry;
+    return telemetry && typeof telemetry.getActiveSpanContext === 'function'
+        ? telemetry.getActiveSpanContext()
+        : null;
+}
+
+// resetLoggerForTests clears the provider, so check on every call.
+function ensureSpanContextProvider() {
+    if (loggerRuntime.getSpanContextProvider() !== activeSpanContext) {
+        loggerRuntime.setSpanContextProvider(activeSpanContext);
+    }
+}
+
 /**
  * The process telemetry service. Created lazily on first use and reused for the
  * life of the Lambda container, so the OTel SDK initialises at most once per cold
  * start. Never throws — any failure falls back to the no-op.
  */
 function getTelemetry() {
+    ensureSpanContextProvider();
     if (state.telemetry) return state.telemetry;
     try {
         const { telemetry = {} } = loadTelemetryConfig();
         const stage = process.env.STAGE || process.env.NODE_ENV || 'production';
+        // loadAppDefinition normally resolves via resolveTelemetryConfig. When the
+        // loader returns an unresolved block (exporter unset) — e.g. tests, or a
+        // Definition with no telemetry key — apply the same env-aware default so
+        // OTEL_EXPORTER_OTLP_ENDPOINT still auto-activates `{ type: 'otlp' }`.
+        // Explicit exporter (incl. `{ type: 'none' }`) always wins.
+        let exporter = telemetry.exporter;
+        if (exporter === undefined || exporter === null) {
+            const { resolveTelemetryConfig } = require('./telemetry-config');
+            exporter = resolveTelemetryConfig(
+                { telemetry: {} },
+                { stage }
+            ).exporter;
+        }
         state.telemetry = createTelemetry({
-            exporter: telemetry.exporter,
+            exporter,
             sampleRatio: telemetry.sampleRatio,
             resource: { service: process.env.FRIGG_STACK || 'frigg', stage },
         });
@@ -136,6 +165,7 @@ function resetTelemetryRuntimeForTests() {
 function setTelemetryForTests(telemetry) {
     state = newState();
     state.telemetry = telemetry;
+    ensureSpanContextProvider();
 }
 
 module.exports = {

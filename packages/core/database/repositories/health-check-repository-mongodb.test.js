@@ -88,14 +88,20 @@ describe('HealthCheckRepositoryMongoDB', () => {
         });
 
         it('should measure actual response time', async () => {
-            mockPrismaClient.$runCommandRaw.mockImplementation(() =>
-                new Promise(resolve => setTimeout(() => resolve({ ok: 1 }), 50))
-            );
+            // Control the clock instead of sleeping (timer-based assertions
+            // are flaky on loaded CI runners).
+            const nowSpy = jest
+                .spyOn(Date, 'now')
+                .mockReturnValueOnce(1_000)
+                .mockReturnValueOnce(1_050);
+            mockPrismaClient.$runCommandRaw.mockResolvedValue({ ok: 1 });
 
-            const responseTime = await repository.pingDatabase(2000);
-
-            expect(responseTime).toBeGreaterThanOrEqual(50);
-            expect(responseTime).toBeLessThan(200);
+            try {
+                const responseTime = await repository.pingDatabase(2000);
+                expect(responseTime).toBe(50);
+            } finally {
+                nowSpy.mockRestore();
+            }
         });
 
         it('should reject with timeout error when ping exceeds maxTimeMS', async () => {

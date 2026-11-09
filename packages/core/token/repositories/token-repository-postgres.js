@@ -257,7 +257,19 @@ class TokenRepositoryPostgres extends TokenRepositoryInterface {
      */
     getJSONTokenFromBase64BufferToken(buffer) {
         const tokenStr = Buffer.from(buffer.trim(), 'base64').toString('ascii');
-        return JSON.parse(tokenStr);
+        let jsonToken;
+        try {
+            jsonToken = JSON.parse(tokenStr);
+        } catch {
+            jsonToken = null;
+        }
+        if (
+            !['string', 'number'].includes(typeof jsonToken?.id) ||
+            typeof jsonToken?.token !== 'string'
+        ) {
+            throw new ClientSafeError('Invalid Token: Token is malformed', 401);
+        }
+        return jsonToken;
     }
 }
 

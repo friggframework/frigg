@@ -2,6 +2,7 @@ const express = require('express');
 const { get } = require('../assertions');
 const Boom = require('@hapi/boom');
 const catchAsyncError = require('express-async-handler');
+const { getLogger } = require('../logs');
 const {
     createIntegrationRepository,
 } = require('./repositories/integration-repository-factory');
@@ -42,6 +43,9 @@ const {
 const { TestModuleAuth } = require('../modules/use-cases/test-module-auth');
 const { GetModule } = require('../modules/use-cases/get-module');
 const {
+    CreateEntityFromCredential,
+} = require('../modules/use-cases/create-entity-from-credential');
+const {
     GetEntityOptionsById,
 } = require('../modules/use-cases/get-entity-options-by-id');
 const {
@@ -69,6 +73,8 @@ const { AuthenticateUser } = require('../user/use-cases/authenticate-user');
 const {
     ProcessAuthorizationCallback,
 } = require('../modules/use-cases/process-authorization-callback');
+
+const log = getLogger('frigg.integrations');
 
 function createIntegrationRouter() {
     const { integrations: integrationClasses, userConfig } =
@@ -195,6 +201,13 @@ function createIntegrationRouter() {
             getModulesDefinitionFromIntegrationClasses(integrationClasses),
     });
 
+    const createEntityFromCredential = new CreateEntityFromCredential({
+        processAuthorizationCallback,
+        credentialRepository,
+        moduleDefinitions:
+            getModulesDefinitionFromIntegrationClasses(integrationClasses),
+    });
+
     const router = express();
 
     setIntegrationRoutes(router, authenticateUser, {
@@ -215,6 +228,7 @@ function createIntegrationRouter() {
         getEntityOptionsById,
         refreshEntityOptions,
         processAuthorizationCallback,
+        createEntityFromCredential,
     });
     return router;
 }
@@ -241,6 +255,15 @@ function checkRequiredParams(params, requiredKeys) {
         );
     }
     return returnDict;
+}
+
+function assertUserAction(integration, actionId) {
+    if (
+        !Object.hasOwn(integration.events, actionId) ||
+        integration.events[actionId].type !== 'USER_ACTION'
+    ) {
+        throw Boom.notFound(`User action ${actionId} does not exist`);
+    }
 }
 
 /**
@@ -379,6 +402,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                     params.integrationId,
                     user.getId()
                 );
+                assertUserAction(integration, params.actionId);
 
                 res.json(
                     await integration.send('GET_USER_ACTION_OPTIONS', {
@@ -404,6 +428,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                     params.integrationId,
                     user.getId()
                 );
+                assertUserAction(integration, params.actionId);
 
                 res.json(
                     await integration.send('REFRESH_USER_ACTION_OPTIONS', {
@@ -425,6 +450,7 @@ function setIntegrationRoutes(router, authenticateUser, useCases) {
                 params.integrationId,
                 user.getId()
             );
+            assertUserAction(integration, params.actionId);
             res.json(await integration.send(params.actionId, req.body));
         })
     );
@@ -499,6 +525,7 @@ function setEntityRoutes(router, authenticateUser, useCases) {
         getEntityOptionsById,
         refreshEntityOptions,
         processAuthorizationCallback,
+        createEntityFromCredential,
     } = useCases;
 
     router.route('/api/authorize').get(
@@ -536,64 +563,46 @@ function setEntityRoutes(router, authenticateUser, useCases) {
                 params.data && typeof params.data === 'object'
                     ? Object.keys(params.data)
                     : [];
-            console.log(
-                `[Frigg] POST /api/authorize userId=${userId} entityType=${params.entityType} dataKeys=${JSON.stringify(dataKeys)}`
+            log.debug('Authorize requested', {
+                userId,
+                entityType: params.entityType,
+                dataKeys,
+            });
+
+            const entityDetails = await processAuthorizationCallback.execute(
+                userId,
+                params.entityType,
+                params.data
             );
 
-            try {
-                const entityDetails =
-                    await processAuthorizationCallback.execute(
-                        userId,
-                        params.entityType,
-                        params.data
-                    );
+            log.info('Entity authorized', {
+                eventName: 'frigg.integrations.authorized',
+                userId,
+                entityType: params.entityType,
+                credentialId: entityDetails?.credential_id,
+                entityId: entityDetails?.entity_id,
+            });
 
-                console.log(
-                    `[Frigg] POST /api/authorize success userId=${userId} entityType=${params.entityType} credentialId=${entityDetails?.credential_id} entityId=${entityDetails?.entity_id}`
-                );
-
-                res.json(entityDetails);
-            } catch (err) {
-                console.error(
-                    `[Frigg] POST /api/authorize failed userId=${userId} entityType=${params.entityType} error=${err?.message || err}`
-                );
-                throw err;
-            }
+            res.json(entityDetails);
         })
     );
 
     router.route('/api/entity').post(
         catchAsyncError(async (req, res) => {
             const user = await authenticateUser.execute(req);
-            const userId = user.getId();
             const params = checkRequiredParams(req.body, [
                 'entityType',
                 'data',
             ]);
             checkRequiredParams(req.body.data, ['credential_id']);
 
-            // May want to pass along the user ID as well so credential ID's can't be fished???
-            const credential = await getCredentialForUser.execute(
-                params.data.credential_id,
-                userId
+            res.json(
+                await createEntityFromCredential.execute({
+                    user,
+                    entityType: params.entityType,
+                    credentialId: params.data.credential_id,
+                })
             );
-
-            if (!credential) {
-                throw Boom.badRequest('Invalid credential ID');
-            }
-
-            const module = await getModuleInstanceFromType.execute(
-                userId,
-                params.entityType
-            );
-            const entityDetails = await module.getEntityDetails(
-                module.api,
-                null,
-                null,
-                userId
-            );
-
-            res.json(await module.findOrCreateEntity(entityDetails));
         })
     );
 

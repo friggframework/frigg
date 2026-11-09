@@ -548,7 +548,11 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       expect(result.unmappedCount).toBe(2);
     });
 
-    it('should generate warnings for multiple resources of same type', async () => {
+    it('should warn about duplicate resources dropped for the same logical ID', async () => {
+      // Since 6a0bba7b, importWithLogicalIdMapping() de-duplicates candidates
+      // per logical ID and only warns about the candidates it dropped
+      // (_checkForMultipleResources(duplicates)). Distinct logical IDs are not
+      // duplicates and produce no warning.
       // Arrange
       const stackIdentifier = {
         stackName: 'acme-integrations-dev',
@@ -588,7 +592,7 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       const buildTemplate = { resources: {} };
       const deployedTemplate = { resources: {} };
 
-      // Three VPCs mapped
+      // Three VPCs all mapped to the same logical ID
       const mappings = [
         {
           logicalId: 'FriggVPC',
@@ -598,14 +602,14 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
           confidence: 'high',
         },
         {
-          logicalId: 'FriggVPC2',
+          logicalId: 'FriggVPC',
           physicalId: 'vpc-456',
           resourceType: 'AWS::EC2::VPC',
           matchMethod: 'contained-resources',
           confidence: 'high',
         },
         {
-          logicalId: 'FriggVPC3',
+          logicalId: 'FriggVPC',
           physicalId: 'vpc-789',
           resourceType: 'AWS::EC2::VPC',
           matchMethod: 'tag',
@@ -628,13 +632,21 @@ describe('RepairViaImportUseCase - importWithLogicalIdMapping', () => {
       });
 
       // Assert
+      // Nothing is referenced by the deployed template, so the first candidate
+      // is kept and the other two are reported as duplicates.
       expect(result.success).toBe(true);
+      expect(result.mappedCount).toBe(1);
+      expect(result.mappings[0].physicalId).toBe('vpc-123');
+      expect(result.duplicatesRemoved).toBe(2);
       expect(result.warnings).toHaveLength(1);
       expect(result.warnings[0].type).toBe('MULTIPLE_RESOURCES');
       expect(result.warnings[0].resourceType).toBe('AWS::EC2::VPC');
-      expect(result.warnings[0].count).toBe(3);
-      expect(result.warnings[0].message).toContain('Multiple VPCs detected (3)');
-      expect(result.warnings[0].resources).toHaveLength(3);
+      expect(result.warnings[0].count).toBe(2);
+      expect(result.warnings[0].message).toContain('Multiple VPCs detected (2)');
+      expect(result.warnings[0].resources.map((r) => r.physicalId)).toEqual([
+        'vpc-456',
+        'vpc-789',
+      ]);
     });
 
     it('should include build and deployed template paths in result', async () => {

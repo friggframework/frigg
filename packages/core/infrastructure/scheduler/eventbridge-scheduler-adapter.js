@@ -11,19 +11,65 @@
  * This adapter implements SchedulerServiceInterface for AWS EventBridge Scheduler.
  */
 
-const {
-    SchedulerClient,
-    CreateScheduleCommand,
-    DeleteScheduleCommand,
-    GetScheduleCommand,
-    ResourceNotFoundException,
-} = require('@aws-sdk/client-scheduler');
-
 const { SchedulerServiceInterface } = require('./scheduler-service-interface');
+
+const SCHEDULER_SDK = '@aws-sdk/client-scheduler';
+
+/**
+ * Lazily load the AWS EventBridge Scheduler SDK.
+ *
+ * Requiring `@aws-sdk/client-scheduler` at module top level would put the AWS
+ * SDK on the load path of every consumer of `@friggframework/core`, including
+ * those using the mock scheduler or no scheduler at all. Loading it here, on
+ * construction of the EventBridge adapter, keeps it out of the module-load
+ * path. The adapter calls it exactly once, in its constructor, and keeps the
+ * classes its methods need on the instance.
+ *
+ * Only a MODULE_NOT_FOUND for the scheduler SDK itself is rewritten into an
+ * actionable message; any other failure (including a missing transitive
+ * dependency) is rethrown unchanged so the real cause is not masked.
+ *
+ * @returns {object} The relevant exports from `@aws-sdk/client-scheduler`.
+ */
+function loadSchedulerSdk() {
+    try {
+        // Keep the literal specifier so bundlers (esbuild) can resolve it.
+        return require('@aws-sdk/client-scheduler');
+    } catch (error) {
+        const isSchedulerSdkMissing =
+            error &&
+            error.code === 'MODULE_NOT_FOUND' &&
+            typeof error.message === 'string' &&
+            error.message.includes(SCHEDULER_SDK);
+        if (isSchedulerSdkMissing) {
+            throw new Error(
+                `The EventBridge scheduler requires the "${SCHEDULER_SDK}" package, ` +
+                    `which is not installed. Install it (\`npm install ${SCHEDULER_SDK}\`) ` +
+                    'to use the EventBridge scheduler provider, or use the mock scheduler provider ' +
+                    '(SCHEDULER_PROVIDER=mock) for local development.',
+                { cause: error }
+            );
+        }
+        throw error;
+    }
+}
 
 class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
     constructor({ region } = {}) {
         super();
+        const {
+            SchedulerClient,
+            CreateScheduleCommand,
+            DeleteScheduleCommand,
+            GetScheduleCommand,
+            ResourceNotFoundException,
+        } = loadSchedulerSdk();
+        this.sdk = {
+            CreateScheduleCommand,
+            DeleteScheduleCommand,
+            GetScheduleCommand,
+            ResourceNotFoundException,
+        };
         this.client = new SchedulerClient({
             region: region || process.env.AWS_REGION || 'us-east-1',
         });
@@ -42,7 +88,12 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
      * @param {Object} params.payload - Message payload
      * @returns {Promise<{scheduledJobId: string, scheduledAt: string}>}
      */
-    async scheduleOneTime({ scheduleName, scheduleAt, queueResourceId, payload }) {
+    async scheduleOneTime({
+        scheduleName,
+        scheduleAt,
+        queueResourceId,
+        payload,
+    }) {
         if (!scheduleName) {
             throw new Error('scheduleName is required');
         }
@@ -59,8 +110,11 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
         }
 
         // Format date to AWS schedule expression (at(yyyy-mm-ddThh:mm:ss))
-        const scheduleExpression = `at(${scheduleAt.toISOString().replace(/\.\d{3}Z$/, '')})`;
+        const scheduleExpression = `at(${scheduleAt
+            .toISOString()
+            .replace(/\.\d{3}Z$/, '')})`;
 
+        const { CreateScheduleCommand } = this.sdk;
         const command = new CreateScheduleCommand({
             Name: scheduleName,
             GroupName: this.scheduleGroupName,
@@ -107,6 +161,7 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
             throw new Error('scheduleName is required');
         }
 
+        const { DeleteScheduleCommand, ResourceNotFoundException } = this.sdk;
         const command = new DeleteScheduleCommand({
             Name: scheduleName,
             GroupName: this.scheduleGroupName,
@@ -141,6 +196,7 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
             throw new Error('scheduleName is required');
         }
 
+        const { GetScheduleCommand, ResourceNotFoundException } = this.sdk;
         const command = new GetScheduleCommand({
             Name: scheduleName,
             GroupName: this.scheduleGroupName,
@@ -153,9 +209,7 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
             // Format: at(yyyy-mm-ddThh:mm:ss)
             let scheduledAt = null;
             if (response.ScheduleExpression) {
-                const match = response.ScheduleExpression.match(
-                    /^at\((.+)\)$/
-                );
+                const match = response.ScheduleExpression.match(/^at\((.+)\)$/);
                 if (match) {
                     scheduledAt = new Date(match[1] + 'Z').toISOString();
                 }

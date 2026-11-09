@@ -1,4 +1,3 @@
-const Boom = require('@hapi/boom');
 const { GetUserFromXFriggHeaders } = require('../../use-cases/get-user-from-x-frigg-headers');
 const { User } = require('../../user');
 
@@ -32,7 +31,7 @@ describe('GetUserFromXFriggHeaders', () => {
         it('should throw 400 error when neither appUserId nor appOrgId provided', async () => {
             await expect(
                 getUserFromXFriggHeaders.execute(null, null)
-            ).rejects.toThrow(Boom.badRequest().message);
+            ).rejects.toMatchObject({ output: { statusCode: 400 } });
 
             await expect(
                 getUserFromXFriggHeaders.execute(undefined, undefined)
@@ -274,7 +273,7 @@ describe('GetUserFromXFriggHeaders', () => {
 
             await expect(
                 getUserFromXFriggHeaders.execute('app-user-456', 'app-org-789')
-            ).rejects.toThrow(Boom.badRequest().message);
+            ).rejects.toMatchObject({ output: { statusCode: 400 } });
 
             await expect(
                 getUserFromXFriggHeaders.execute('app-user-456', 'app-org-789')

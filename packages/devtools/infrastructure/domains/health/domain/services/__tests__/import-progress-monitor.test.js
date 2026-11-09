@@ -412,24 +412,23 @@ describe('ImportProgressMonitor', () => {
 
       mockCloudFormationRepository.getStackStatus.mockResolvedValue('IMPORT_IN_PROGRESS');
 
-      // Act & Assert - wrap in expect().rejects to properly handle async rejection
-      await expect(
-        (async () => {
-          const resultPromise = monitor.monitorImport({
-            stackIdentifier,
-            resourceLogicalIds,
-            onProgress,
-          });
+      // Act & Assert - attach the rejection handler before advancing the fake
+      // clock: the monitor rejects while the timers run, and an unobserved
+      // rejection fails the test under Jest 30.
+      const resultPromise = monitor.monitorImport({
+        stackIdentifier,
+        resourceLogicalIds,
+        onProgress,
+      });
+      const assertion = expect(resultPromise).rejects.toThrow('Import operation timed out');
 
-          // Advance timers beyond 5 minutes (300,000ms) in chunks
-          // Simulate 151 polls (302 seconds = 302,000ms) to exceed timeout
-          for (let i = 0; i < 151; i++) {
-            await jest.advanceTimersByTimeAsync(2000);
-          }
+      // Advance timers beyond 5 minutes (300,000ms) in chunks
+      // Simulate 151 polls (302 seconds = 302,000ms) to exceed timeout
+      for (let i = 0; i < 151; i++) {
+        await jest.advanceTimersByTimeAsync(2000);
+      }
 
-          return await resultPromise;
-        })()
-      ).rejects.toThrow('Import operation timed out');
+      await assertion;
     });
 
     it('should filter events by resourceLogicalIds', async () => {

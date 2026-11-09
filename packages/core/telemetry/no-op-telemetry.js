@@ -62,6 +62,10 @@ class NoOpTelemetry {
     isEnabled() {
         return false;
     }
+
+    getActiveSpanContext() {
+        return null;
+    }
 }
 
 module.exports = { NoOpTelemetry };
