@@ -31,6 +31,7 @@ class RateLimitError extends FetchError {
         super(fetchErrorArgs);
 
         const timing = resolveTiming({ hint, waitMs, now });
+        this.statusCode ??= fetchErrorArgs.cause?.statusCode;
         this.isRateLimited = true;
         this.waitMs = timing.waitMs;
         this.retryAt = timing.retryAt;
