@@ -44,8 +44,8 @@ declare module "@friggframework/errors" {
     constructor(options?: RateLimitErrorConstructor);
 
     isRateLimited: true;
-    retryAt: Date;
-    waitMs: number;
+    retryAt?: Date;
+    waitMs?: number;
     reason: RateLimitReason;
     policy?: string;
     source: RateLimitSource | "unknown";

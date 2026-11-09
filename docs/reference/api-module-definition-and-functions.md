@@ -232,7 +232,6 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 |---|---|
 | `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a function `(requester) => key`. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope. |
 | `minRetryAfterMs` | A wait never shorter than this. Use it when the docs say "wait 60 seconds" and the response says nothing. |
-| `maxInProcessWaitMs` | The most one request sleeps in process, in total. Default `300000` (5 minutes). `0` means never sleep: every hinted wait throws `RateLimitError`. |
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
 | `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
@@ -303,19 +302,23 @@ class Api extends ApiKeyRequester {
 1. It looks for a hint in this order: `classify()`, the parsers, the policy
    (the larger of `minRetryAfterMs` and the `perMs` of the window named by the
    reason).
-2. With no hint, a 429 keeps the fixed ladder: the same calls, the same delays,
-   then a plain `FetchError`, as before. A response that `classify` recognises
-   but that gets no time follows the same ladder. When its status is not 429,
-   the last error is a `FetchError` flagged `isRateLimited`, with the `reason`,
-   so the queue worker does not halt it. A 429 needs no flag: the queue worker
-   never halts a 429. A 5xx that `classify` does not recognise keeps the 5xx
-   ladder.
+2. With no time, a 429 keeps the fixed ladder: the same calls, the same delays,
+   then a plain `FetchError`, as before. A response with another status that
+   `classify` recognises but that gets no time throws `RateLimitError` at once,
+   after one call, with `retryAt` and `waitMs` `undefined`: the time is unknown,
+   and a ladder of seconds cannot outwait a daily limit. A 5xx that `classify`
+   does not recognise keeps the 5xx ladder.
 3. With a hint, the wait is the largest of the hint, `minRetryAfterMs` and 1 s,
    plus at most 10 % jitter. The Requester sleeps when the wait fits the time
-   this request may still sleep: `maxInProcessWaitMs` in total, and the time left
-   in the Lambda invocation less one request timeout. That reserve is never more
-   than half the time left, so a 29 s HTTP invocation with the default 60 s
-   request timeout can still sleep 14.5 s.
+   this request may still sleep, in total, and the time left in the Lambda
+   invocation less one request timeout. That reserve is never more than half
+   the time left, so a 29 s HTTP invocation with the default 60 s request
+   timeout can still sleep 14.5 s. The caller owns the total, not the module:
+   10 s in an HTTP handler, 60 s in an integration queue worker, and 300 s
+   outside an invocation (tests, scripts, `frigg start`). See
+   [The invocation deadline](#the-invocation-deadline). A request makes at most
+   10 hinted retries. They do not use the retries of the ladder, so a 5xx after
+   a hinted wait still gets the whole 5xx ladder.
 4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
    `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
    `policy`, `source`, `module` and `scopeKey`.
@@ -409,12 +412,23 @@ class Api extends OAuth2Requester {
 
 ### The invocation deadline
 
-`runInvocationScope` stores the end of every Lambda invocation, from
-`context.getRemainingTimeInMillis()`. `remainingInvocationMs()` returns the
-milliseconds left, or `Infinity` outside an invocation (tests, `frigg start`,
-scripts). `runWithInvocationDeadline(deadlineAt, fn)` runs `fn` with a deadline
-in epoch milliseconds. A nested call can only make the deadline earlier, and a
-deadline that is not a finite number sets none.
+`runInvocationScope` stores two limits for every Lambda invocation: the end of
+the invocation, from `context.getRemainingTimeInMillis()`, and the most one
+Requester call may sleep in process, in total. `createHandler` takes the second
+as the option `maxInProcessWaitMs`.
+
+| Entry point | `maxInProcessWaitMs` |
+|---|---|
+| HTTP handlers (`createHandler` default) | `10000` |
+| Integration queue worker | `60000` |
+| Outside an invocation (tests, scripts, `frigg start`) | `300000` |
+
+`remainingInvocationMs()` returns the milliseconds left, or `Infinity` outside
+an invocation. `runWithInvocationDeadline({ deadlineAt, maxInProcessWaitMs }, fn)`
+runs `fn` with either limit or both. `deadlineAt` is in epoch milliseconds. A
+nested call can only lower each limit, field by field. A field that is not a
+finite number, or a negative `maxInProcessWaitMs`, sets nothing. `0` means never
+sleep: every hinted wait throws `RateLimitError`.
 
 ## Complete OAuth2 Example
 

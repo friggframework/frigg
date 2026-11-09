@@ -163,8 +163,13 @@ async function runInvocationScope(fields, fn, opts = {}) {
         shouldUseDatabase = true,
         flushTimeoutMs = DEFAULT_FLUSH_TIMEOUT_MS,
         context,
+        maxInProcessWaitMs,
     } = opts;
-    return runWithInvocationDeadline(deadlineFromContext(context), () =>
+    const deadline = {
+        deadlineAt: deadlineFromContext(context),
+        maxInProcessWaitMs,
+    };
+    return runWithInvocationDeadline(deadline, () =>
         runInContext(
             { [LOGGER_SCOPE_KEY]: { ...(fields || {}) } },
             async () => {

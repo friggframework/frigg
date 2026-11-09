@@ -157,7 +157,7 @@ class MyIntegration extends Delegate {
 ### Lambda Handler Lifecycle
 1. **Pre-Execution Setup**:
    ```javascript
-   runInvocationScope({ requestId, handlerName, method, route, invocation }, …); // Logger scope + invocation deadline (remainingInvocationMs())
+   runInvocationScope({ requestId, handlerName, method, route, invocation }, …); // Logger scope + invocation deadline (remainingInvocationMs()) + in-process wait budget (createHandler `maxInProcessWaitMs`: 10 s HTTP, 60 s queue worker)
    log.info('Handler invoked', { eventName: 'frigg.handler.invoked' });
    await secretsToEnv();                     // Secrets Manager injection
    await parametersToEnv();                  // SSM Parameter Store fetch (only when SSM_PARAMETER_PREFIX + FRIGG_SSM_OFFLOADED_KEYS are set)

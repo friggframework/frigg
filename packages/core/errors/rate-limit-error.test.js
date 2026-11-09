@@ -55,7 +55,8 @@ describe('RateLimitError', () => {
     it('can be built with no arguments', () => {
         const error = new RateLimitError();
         expect(error.isRateLimited).toBe(true);
-        expect(error.waitMs).toBe(0);
+        expect(error.waitMs).toBeUndefined();
+        expect(error.retryAt).toBeUndefined();
         expect(error.reason).toBe('unknown');
         expect(error.source).toBe('unknown');
     });
@@ -99,6 +100,16 @@ describe('RateLimitError', () => {
             });
             expect(error.waitMs).toBe(3_000);
             expect(error.retryAt).toEqual(new Date(NOW + 3_000));
+        });
+
+        it('leaves retryAt and waitMs unknown for a hint that carries no time', () => {
+            const error = new RateLimitError({
+                hint: { reason: 'daily' },
+                now: NOW,
+            });
+            expect(error.retryAt).toBeUndefined();
+            expect(error.waitMs).toBeUndefined();
+            expect(error.reason).toBe('daily');
         });
 
         it('reads the clock when no time is given', () => {

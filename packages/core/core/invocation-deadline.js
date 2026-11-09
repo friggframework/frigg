@@ -9,15 +9,50 @@ function storage() {
     return globalThis[STORE_KEY];
 }
 
-function runWithInvocationDeadline(deadlineAt, fn) {
-    if (typeof deadlineAt !== 'number' || !Number.isFinite(deadlineAt)) {
+const MAX_IN_PROCESS_WAIT_MS = Object.freeze({
+    outsideInvocation: 300_000,
+    http: 10_000,
+    queueWorker: 60_000,
+});
+
+const validDeadline = (value) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+const validWait = (value) =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0
+        ? value
+        : undefined;
+
+const lower = (outer, next) =>
+    outer === undefined
+        ? next
+        : next === undefined
+        ? outer
+        : Math.min(outer, next);
+
+function runWithInvocationDeadline(
+    { deadlineAt, maxInProcessWaitMs } = {},
+    fn
+) {
+    const outer = storage().getStore();
+    const effectiveDeadline = lower(
+        outer?.deadlineAt,
+        validDeadline(deadlineAt)
+    );
+    const effectiveWait = lower(
+        outer?.maxInProcessWaitMs,
+        validWait(maxInProcessWaitMs)
+    );
+    if (effectiveDeadline === undefined && effectiveWait === undefined) {
         return fn();
     }
-    const outer = storage().getStore();
-    const effective = outer
-        ? Math.min(outer.deadlineAt, deadlineAt)
-        : deadlineAt;
-    return storage().run(Object.freeze({ deadlineAt: effective }), fn);
+    return storage().run(
+        Object.freeze({
+            deadlineAt: effectiveDeadline ?? Infinity,
+            maxInProcessWaitMs: effectiveWait,
+        }),
+        fn
+    );
 }
 
 function remainingTimeMs(context) {
@@ -39,8 +74,17 @@ function remainingInvocationMs(now = Date.now()) {
     return store ? Math.max(0, store.deadlineAt - now) : Infinity;
 }
 
+function invocationMaxInProcessWaitMs() {
+    return (
+        storage().getStore()?.maxInProcessWaitMs ??
+        MAX_IN_PROCESS_WAIT_MS.outsideInvocation
+    );
+}
+
 module.exports = {
+    MAX_IN_PROCESS_WAIT_MS,
     deadlineFromContext,
+    invocationMaxInProcessWaitMs,
     remainingInvocationMs,
     remainingTimeMs,
     runWithInvocationDeadline,
