@@ -1,7 +1,10 @@
 const fetch = require('node-fetch');
 const { AsyncLocalStorage } = require('async_hooks');
 const { Delegate } = require('../../core');
-const { remainingInvocationMs } = require('../../core/invocation-deadline');
+const {
+    invocationMaxInProcessWaitMs,
+    remainingInvocationMs,
+} = require('../../core/invocation-deadline');
 const { FetchError, RateLimitError } = require('../../errors');
 const { get } = require('../../assertions');
 const { getTelemetry } = require('../../telemetry/telemetry-runtime');
@@ -493,7 +496,7 @@ class Requester extends Delegate {
             this.backOff.length > 0 && hinted.retries < MAX_HINTED_RETRIES;
         const budgetMs = mayWait
             ? inProcessBudgetMs({
-                  policy: this._rateLimitPolicy,
+                  maxInProcessWaitMs: invocationMaxInProcessWaitMs(),
                   requestTimeoutMs: this.requestTimeoutMs,
                   remainingMs: remainingInvocationMs(),
                   waitedMs: hinted.waitedMs,

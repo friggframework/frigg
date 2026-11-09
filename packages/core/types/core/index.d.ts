@@ -59,7 +59,7 @@ declare module "@friggframework/core" {
   export function loadInstalledModules(): any[];
 
   export function runWithInvocationDeadline<T>(
-    deadlineAt: number | undefined,
+    limits: { deadlineAt?: number; maxInProcessWaitMs?: number },
     fn: () => T
   ): T;
 

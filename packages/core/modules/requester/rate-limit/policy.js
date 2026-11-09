@@ -6,7 +6,6 @@ const {
 } = require('./parsers');
 
 const DEFAULT_PARSERS = ['retryAfter', 'resetHeaders', 'ietf'];
-const DEFAULT_MAX_IN_PROCESS_WAIT_MS = 300_000;
 const MIN_HINTED_WAIT_MS = 1_000;
 const JITTER_MAX_MS = 1_000;
 const JITTER_RATIO = 0.1;
@@ -60,8 +59,8 @@ function normalizePolicy(raw, owner) {
     if (typeof raw.classify === 'function') {
         policy.classify = (signal) => raw.classify(signal);
     }
-    for (const key of ['minRetryAfterMs', 'maxInProcessWaitMs']) {
-        if (Number.isFinite(raw[key]) && raw[key] >= 0) policy[key] = raw[key];
+    if (Number.isFinite(raw.minRetryAfterMs) && raw.minRetryAfterMs >= 0) {
+        policy.minRetryAfterMs = raw.minRetryAfterMs;
     }
     if (Number.isInteger(raw.maxConcurrency) && raw.maxConcurrency > 0) {
         policy.maxConcurrency = raw.maxConcurrency;
@@ -280,18 +279,19 @@ function computeWaitMs({ hint, policy, budgetMs, random = Math.random }) {
 }
 
 function inProcessBudgetMs({
-    policy,
+    maxInProcessWaitMs,
     requestTimeoutMs = 0,
     remainingMs = Infinity,
     waitedMs = 0,
 } = {}) {
-    const cap = policy?.maxInProcessWaitMs ?? DEFAULT_MAX_IN_PROCESS_WAIT_MS;
     const reserveMs = Math.min(requestTimeoutMs || 0, remainingMs / 2);
-    return Math.max(0, Math.min(cap - waitedMs, remainingMs - reserveMs));
+    return Math.max(
+        0,
+        Math.min(maxInProcessWaitMs - waitedMs, remainingMs - reserveMs)
+    );
 }
 
 module.exports = {
-    DEFAULT_MAX_IN_PROCESS_WAIT_MS,
     DEFAULT_PARSERS,
     JITTER_MAX_MS,
     MIN_HINTED_WAIT_MS,
