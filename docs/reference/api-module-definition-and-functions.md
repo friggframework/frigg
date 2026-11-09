@@ -331,7 +331,8 @@ response that `classify` recognises, and of no other response: a 503 with
 `Retry-After` keeps the 5xx ladder unless `classify` recognises it. The queue
 worker does not halt a `RateLimitError`, even when its status is 403. It puts
 the message back to run at `retryAt` (see the Rate-Limit Deferral section of
-the [Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md)).
+the [Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md)). With
+no `retryAt`, the message returns to SQS like any retryable error.
 
 ### A client that is not the Requester
 

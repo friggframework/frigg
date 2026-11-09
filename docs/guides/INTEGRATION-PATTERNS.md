@@ -425,7 +425,8 @@ async processBatch({ data, delivery }) {
 
 A deferral past `FRIGG_QUEUE_MAX_DEFERRALS` (default 30) or
 `FRIGG_QUEUE_MAX_DEFERRED_MS` (default 26 hours) fails the record like any other
-retryable error, and `delivery` applies. The defaults cover one full day of
+retryable error, and `delivery` applies. So does a `RateLimitError` with no
+`retryAt`: a non-429 limit that `classify` names without a time. The defaults cover one full day of
 hourly waits, for a module that probes a daily limit every hour. Do not catch a
 `RateLimitError` to write a retry of your own.
 
