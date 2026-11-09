@@ -48,7 +48,6 @@ declare module "@friggframework/module-plugin" {
     windows?: RateLimitWindow[];
     maxConcurrency?: number;
     minRetryAfterMs?: number;
-    maxInProcessWaitMs?: number;
     parsers?: Array<"retryAfter" | "resetHeaders" | "ietf">;
     classify?(
       signal: RateLimitSignal

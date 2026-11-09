@@ -1,6 +1,7 @@
 const { createHandler } = require('@friggframework/core');
 const { loadAppDefinition } = require('../app-definition-loader');
 const { createQueueWorker } = require('../backend-utils');
+const { MAX_IN_PROCESS_WAIT_MS } = require('../../core/invocation-deadline');
 // TODO(Phase 2): mount extension-declared workers in addition to the per-integration
 // default queue worker. Today, getExtensionWorkers(IntegrationClass) returns the
 // declared workers but they are not yet bound to dedicated SQS sources. Extension-
@@ -19,6 +20,7 @@ integrationClasses.forEach((IntegrationClass) => {
         queueWorker: createHandler({
             eventName: `Queue Worker for ${IntegrationClass.Definition.name}`,
             isUserFacingResponse: false,
+            maxInProcessWaitMs: MAX_IN_PROCESS_WAIT_MS.queueWorker,
             method: async (event, context) => {
                 const worker = new defaultQueueWorker();
                 return await worker.run(event, context);

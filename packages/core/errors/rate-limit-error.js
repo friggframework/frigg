@@ -10,8 +10,13 @@ function resolveTiming({ hint, waitMs, now }) {
             return { waitMs: Math.max(0, retryAt.getTime() - now), retryAt };
         }
     }
-    const fallbackWaitMs = hint?.waitMs ?? 0;
-    return { waitMs: fallbackWaitMs, retryAt: new Date(now + fallbackWaitMs) };
+    if (hint?.waitMs !== undefined) {
+        return {
+            waitMs: hint.waitMs,
+            retryAt: new Date(now + hint.waitMs),
+        };
+    }
+    return { waitMs: undefined, retryAt: undefined };
 }
 
 class RateLimitError extends FetchError {
