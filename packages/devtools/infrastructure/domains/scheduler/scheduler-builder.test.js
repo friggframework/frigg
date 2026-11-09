@@ -170,4 +170,48 @@ describe('SchedulerBuilder', () => {
             expect(result.functionEnvironments).toBeUndefined();
         });
     });
+
+    describe('build() execution role', () => {
+        const sendableQueues = (result) =>
+            result.resources.SchedulerExecutionRole.Properties.Policies[0]
+                .PolicyDocument.Statement[0].Resource;
+
+        it('allows sending to a queue the stack creates', async () => {
+            const result = await schedulerBuilder.build(
+                {
+                    scheduler: { enable: true },
+                    integrations: [{ Definition: { name: 'hubspot' } }],
+                },
+                {}
+            );
+
+            expect(sendableQueues(result)).toEqual([
+                { 'Fn::GetAtt': ['HubspotQueue', 'Arn'] },
+            ]);
+        });
+
+        it('allows sending to an external queue by its ARN, not a resource the stack lacks', async () => {
+            const result = await schedulerBuilder.build(
+                {
+                    scheduler: { enable: true },
+                    integrations: [
+                        { Definition: { name: 'hubspot' } },
+                        {
+                            Definition: { name: 'salesforce' },
+                            ownership: { queue: 'external' },
+                            queue: {
+                                url: 'https://sqs.us-east-1.amazonaws.com/123456789012/acme-salesforce',
+                            },
+                        },
+                    ],
+                },
+                {}
+            );
+
+            expect(sendableQueues(result)).toEqual([
+                { 'Fn::GetAtt': ['HubspotQueue', 'Arn'] },
+                'arn:aws:sqs:us-east-1:123456789012:acme-salesforce',
+            ]);
+        });
+    });
 });
