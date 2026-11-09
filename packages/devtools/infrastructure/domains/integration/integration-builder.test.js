@@ -10,6 +10,8 @@ const {
 } = require('@friggframework/core/queues/queue-delivery');
 const { IntegrationBuilder } = require('./integration-builder');
 const { ValidationResult } = require('../shared/base-builder');
+const { BuilderOrchestrator } = require('../shared/builder-orchestrator');
+const { SchedulerBuilder } = require('../scheduler/scheduler-builder');
 
 describe('IntegrationBuilder', () => {
     let integrationBuilder;
@@ -257,6 +259,37 @@ describe('IntegrationBuilder', () => {
                     QUEUE_MAX_RECEIVE_COUNT_ENV
                 ]
             ).toBeUndefined();
+        });
+
+        it('adds no resource, function or env var when no module declares rateLimit', async () => {
+            class Api {}
+            const { merged } = await new BuilderOrchestrator([
+                new IntegrationBuilder(),
+                new SchedulerBuilder(),
+            ]).buildAll({
+                integrations: [
+                    {
+                        Definition: {
+                            name: 'test',
+                            modules: { crm: { definition: { API: Api } } },
+                        },
+                    },
+                ],
+            });
+            const before = await integrationBuilder.build(
+                { integrations: [{ Definition: { name: 'test' } }] },
+                {}
+            );
+
+            expect(Object.keys(merged.resources)).toEqual(
+                Object.keys(before.resources)
+            );
+            expect(Object.keys(merged.functions)).toEqual(
+                Object.keys(before.functions)
+            );
+            expect(Object.keys(merged.environment)).toEqual(
+                Object.keys(before.environment)
+            );
         });
 
         it('should create queue worker function', async () => {

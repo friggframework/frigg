@@ -195,6 +195,7 @@ function createBaseDefinition(
                         'sqs:SendMessageBatch',
                         'sqs:GetQueueUrl',
                         'sqs:GetQueueAttributes',
+                        'sqs:ChangeMessageVisibility',
                     ],
                     Resource: [
                         { 'Fn::GetAtt': ['InternalErrorQueue', 'Arn'] },

@@ -13,11 +13,23 @@
  */
 
 const { InfrastructureBuilder, ValidationResult } = require('../shared/base-builder');
+const { ResourceOwnership } = require('../shared/types/resource-ownership');
 const {
     isScopedEnvironmentActive,
     getIntegrationFunctionNames,
     getAdminFunctionNames,
 } = require('../shared/function-environments');
+
+const queueArnFromUrl = (queueUrl) => {
+    const { hostname, pathname } = new URL(queueUrl);
+    const [accountId, queueName] = pathname.split('/').filter(Boolean);
+    return `arn:aws:sqs:${hostname.split('.')[1]}:${accountId}:${queueName}`;
+};
+
+const declaresRateLimit = (integration) =>
+    Object.values(integration?.Definition?.modules ?? {}).some((module) =>
+        Boolean(module?.definition?.API?.rateLimit)
+    );
 
 class SchedulerBuilder extends InfrastructureBuilder {
     constructor() {
@@ -37,7 +49,8 @@ class SchedulerBuilder extends InfrastructureBuilder {
             return appDefinition.integrations.some(
                 (integration) =>
                     integration?.Definition?.webhooks?.enabled === true ||
-                    integration?.Definition?.webhooks === true
+                    integration?.Definition?.webhooks === true ||
+                    declaresRateLimit(integration)
             );
         }
 
@@ -107,7 +120,11 @@ class SchedulerBuilder extends InfrastructureBuilder {
         if (Array.isArray(appDefinition.integrations)) {
             appDefinition.integrations.forEach((integration) => {
                 const integrationName = integration?.Definition?.name;
-                if (integrationName) {
+                if (
+                    integration.ownership?.queue === ResourceOwnership.EXTERNAL
+                ) {
+                    queueArns.push(queueArnFromUrl(integration.queue.url));
+                } else if (integrationName) {
                     const capitalizedName =
                         integrationName.charAt(0).toUpperCase() +
                         integrationName.slice(1);
