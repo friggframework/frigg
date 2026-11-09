@@ -235,7 +235,7 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
 | `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
-| `userHints` | Links per `reason`, for example `{ daily: { links: [{ label, url }] } }`. They become the `LINK` actions of the warning the integration records for a wait longer than `maxInProcessWaitMs` (see "The message for the user"). A `reason` with no hint gets no links. |
+| `userHints` | Links per `reason`, for example `{ daily: { links: [{ label, url }] } }`. They become the `LINK` actions of the warning the integration records for a wait longer than the caller's `maxInProcessWaitMs` (see "The message for the user"). A `reason` with no hint gets no links. |
 
 ### Built-in parsers
 
@@ -322,7 +322,7 @@ class Api extends ApiKeyRequester {
 4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
    `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
    `policy`, `source`, `module` and `scopeKey`. When the wait is also longer
-   than `maxInProcessWaitMs`, the Requester tells its delegate
+   than the caller's `maxInProcessWaitMs`, the Requester tells its delegate
    (`RATE_LIMITED`) first, so the integration can warn its users.
 
 A Requester built with `backOff: []` never sleeps: a hinted wait throws
@@ -336,9 +336,12 @@ message goes back to SQS.
 
 ### The message for the user
 
-When the Requester throws `RateLimitError` for a wait longer than
-`maxInProcessWaitMs`, the integration records one warning for its users. A
-shorter wait that throws records none. The warning is one item in the stored
+When the Requester throws `RateLimitError` for a wait longer than the
+caller's `maxInProcessWaitMs` (10 s in an HTTP handler, 60 s in an integration
+queue worker, 300 s outside an invocation; see
+[The invocation deadline](#the-invocation-deadline)), the integration records
+one warning for its users. A shorter wait that throws, or a limit with no
+time, records none. The warning is one item in the stored
 `warnings`:
 
 | Field | Value |
@@ -364,9 +367,10 @@ the same warning.
 
 - It never rejects. A failed notification is logged
   (`rate_limit_notify_failed`), and the module throws its error as planned.
-- It writes the warning only when the wait of the error is longer than
-  `maxInProcessWaitMs` (5 minutes by default), as for the Requester's own
-  errors. A 30-second concurrency limit writes none; a daily limit does.
+- It writes the warning only when the wait of the error is longer than the
+  caller's `maxInProcessWaitMs`, as for the Requester's own errors. In a queue
+  worker (60 s), a 30-second concurrency limit writes none; a daily limit
+  does.
 - A module that must also run on an older core, which has no
   `_notifyRateLimited`, calls `this._notifyRateLimited?.(error)`.
 

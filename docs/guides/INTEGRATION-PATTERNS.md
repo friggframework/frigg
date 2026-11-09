@@ -806,8 +806,9 @@ and ends the run on the last attempt, then rethrows: the queue worker does not
 halt a `RateLimitError`, and SQS redelivers the message. Do not catch it to
 write a retry of your own.
 
-When it throws for a wait longer than the in-process cap (`maxInProcessWaitMs`,
-5 minutes by default), the integration also records one warning for the user.
+When it throws for a wait longer than the in-process cap of the caller
+(`maxInProcessWaitMs`: 60 s in the queue worker, 10 s in an HTTP handler), the
+integration also records one warning for the user.
 You write nothing for it. The warning is an item in the stored `warnings` with
 `code: 'RATE_LIMITED'`, the `module`, the `reason`, `retryAt` (ISO 8601) and
 `actions`: `RETRY_WHEN_READY`, and one `LINK` for each link in the module's

@@ -534,7 +534,8 @@ if (!userId) {
 ```
 
 **Rate-limit message** (ADR-049): when a wait is longer than the in-process cap
-(`maxInProcessWaitMs`, default 5 min), the Requester tells its delegate
+of the caller (`maxInProcessWaitMs`: 10 s HTTP, 60 s queue worker, 5 min outside
+an invocation), the Requester tells its delegate
 (`RATE_LIMITED`, with the `RateLimitError`) and then throws. A shorter wait
 that throws sends no notification. The notification takes the path of
 `CREDENTIAL_INVALIDATED`: Requester, `Module`, `IntegrationBase`.
