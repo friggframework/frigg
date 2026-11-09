@@ -452,10 +452,6 @@ class Requester extends Delegate {
                     response,
                     responseBody: throttle?.responseBody,
                 });
-                if (throttle?.throttled && status !== 429) {
-                    fetchError.isRateLimited = true;
-                    fetchError.reason = throttle.hint.reason;
-                }
                 throw this._maybeFlagTimeoutDuringBodyRead(
                     fetchError,
                     timeoutMs
@@ -498,20 +494,24 @@ class Requester extends Delegate {
             return null;
         }
         const { hint } = throttle;
-        const budgetMs = this.backOff.length
-            ? inProcessBudgetMs({
+        const untimed = hint.waitMs === undefined;
+        const budgetMs =
+            this.backOff.length && !untimed
+                ? inProcessBudgetMs({
+                      policy: this._rateLimitPolicy,
+                      requestTimeoutMs: this.requestTimeoutMs,
+                      remainingMs: remainingInvocationMs(),
+                      waitedMs,
+                  })
+                : 0;
+        const { waitMs, fits } = untimed
+            ? { waitMs: undefined, fits: false }
+            : computeWaitMs({
+                  hint,
                   policy: this._rateLimitPolicy,
-                  requestTimeoutMs: this.requestTimeoutMs,
-                  remainingMs: remainingInvocationMs(),
-                  waitedMs,
-              })
-            : 0;
-        const { waitMs, fits } = computeWaitMs({
-            hint,
-            policy: this._rateLimitPolicy,
-            budgetMs,
-            random: this._random,
-        });
+                  budgetMs,
+                  random: this._random,
+              });
         if (fits) {
             this._logRateLimited({ status, hint, waitMs, attempt, waitedMs });
             return waitMs;

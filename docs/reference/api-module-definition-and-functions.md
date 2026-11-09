@@ -303,13 +303,12 @@ class Api extends ApiKeyRequester {
 1. It looks for a hint in this order: `classify()`, the parsers, the policy
    (the larger of `minRetryAfterMs` and the `perMs` of the window named by the
    reason).
-2. With no hint, a 429 keeps the fixed ladder: the same calls, the same delays,
-   then a plain `FetchError`, as before. A response that `classify` recognises
-   but that gets no time follows the same ladder. When its status is not 429,
-   the last error is a `FetchError` flagged `isRateLimited`, with the `reason`,
-   so the queue worker does not halt it. A 429 needs no flag: the queue worker
-   never halts a 429. A 5xx that `classify` does not recognise keeps the 5xx
-   ladder.
+2. With no time, a 429 keeps the fixed ladder: the same calls, the same delays,
+   then a plain `FetchError`, as before. A response with another status that
+   `classify` recognises but that gets no time throws `RateLimitError` at once,
+   after one call, with `retryAt` and `waitMs` `undefined`: the time is unknown,
+   and a ladder of seconds cannot outwait a daily limit. A 5xx that `classify`
+   does not recognise keeps the 5xx ladder.
 3. With a hint, the wait is the largest of the hint, `minRetryAfterMs` and 1 s,
    plus at most 10 % jitter. The Requester sleeps when the wait fits the time
    this request may still sleep: `maxInProcessWaitMs` in total, and the time left

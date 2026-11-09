@@ -652,23 +652,34 @@ describe('rate-limit/policy', () => {
             ).toBeNull();
         });
 
-        it('falls back to the ladder for a status other than 429 that classify named by reason only', () => {
+        it('returns an untimed hint for a status other than 429 that classify named by reason only', () => {
             const policy = {
-                classify: () => ({ reason: 'daily', policy: 'DAILY' }),
+                classify: () => ({
+                    reason: 'daily',
+                    policy: 'DAILY',
+                    remaining: 0,
+                }),
             };
-            expect(
-                resolveRateLimitHint(
-                    policy,
-                    { status: 403, headers: {} },
-                    { ...options, attempt: 1, backOff }
-                )
-            ).toEqual({
-                waitMs: 3_000,
-                retryAt: new Date(NOW + 3_000),
+            const hint = resolveRateLimitHint(
+                policy,
+                { status: 403, headers: {} },
+                { ...options, attempt: 1, backOff }
+            );
+            expect(hint).toEqual({
                 reason: 'daily',
                 policy: 'DAILY',
-                source: 'backoff',
+                remaining: 0,
             });
+            expect(hint).not.toHaveProperty('waitMs');
+            expect(hint).not.toHaveProperty('retryAt');
+            expect(hint).not.toHaveProperty('source');
+        });
+
+        it('keeps classifyRateLimit null for a reason-only classify on a status other than 429', () => {
+            const policy = { classify: () => ({ reason: 'daily' }) };
+            expect(
+                classifyRateLimit(policy, { status: 403, headers: {} }, options)
+            ).toBeNull();
         });
 
         it('waits 0 ms past the end of the ladder', () => {

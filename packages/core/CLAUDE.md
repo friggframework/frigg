@@ -373,7 +373,8 @@ class MyIntegration extends IntegrationBase {
 `Requester` subclass. A hinted wait (from `classify()`, the header parsers or
 the static policy) sleeps within a budget, or throws `RateLimitError`
 (`isRateLimited`, `retryAt`) when it does not fit. A 429 with no hint keeps the
-fixed `backOff` ladder. See
+fixed `backOff` ladder. A non-429 limit that `classify` names without a time
+throws `RateLimitError` at once, with `retryAt` unknown. See
 [Rate Limits](../../docs/reference/api-module-definition-and-functions.md#rate-limits-static-ratelimit).
 
 **Module Factory**:

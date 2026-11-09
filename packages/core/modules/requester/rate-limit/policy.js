@@ -241,6 +241,15 @@ function resolveRateLimitHint(policy, signal, options = {}) {
     });
     if (hint) return hint;
     if (signal.status !== 429 && !classified) return null;
+    if (signal.status !== 429) {
+        return {
+            reason: classified.reason,
+            ...definedOnly({
+                policy: classified.policy,
+                remaining: classified.remaining,
+            }),
+        };
+    }
 
     const waitMs =
         attempt < backOff.length ? Number(backOff[attempt]) * 1000 || 0 : 0;
