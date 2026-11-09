@@ -529,15 +529,34 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
     });
 
     describe('a rate-limit error that cannot be deferred', () => {
-        it('goes back to SQS as before when it has no retry time', async () => {
-            worker._run.mockRejectedValue(
-                Object.assign(new Error('limited'), { isRateLimited: true })
-            );
+        it.each([
+            [
+                'an error with isRateLimited and no retryAt',
+                () =>
+                    Object.assign(new Error('limited'), {
+                        isRateLimited: true,
+                    }),
+            ],
+            [
+                'a RateLimitError for a non-429 limit with no time',
+                () =>
+                    new RateLimitError({
+                        resource: 'https://api.example.com/v1/items',
+                        response: { status: 403, bodyUsed: true },
+                        hint: { reason: 'daily' },
+                        module: 'hubspot',
+                        now: NOW,
+                    }),
+            ],
+        ])('goes back to SQS as before for %s', async (_label, makeError) => {
+            worker._run.mockRejectedValue(makeError());
 
             const result = await run();
 
             expect(result).toEqual(failure());
             expect(sent()).toEqual([]);
+            expect(schedules()).toEqual([]);
+            expect(visibility()).toEqual([]);
             expect(logged('record_failed')).toEqual([
                 expect.objectContaining({
                     deferral: { skipped: 'no_retry_at' },
