@@ -110,9 +110,9 @@ function computeScopeKey(policy, requester) {
     if (typeof scope === 'function') {
         try {
             const value = scope(requester);
-            return value === undefined || value === null
-                ? undefined
-                : `${label}:custom:${String(value)}`;
+            return typeof value === 'string' || Number.isFinite(value)
+                ? `${label}:custom:${value}`
+                : undefined;
         } catch {
             return undefined;
         }

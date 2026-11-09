@@ -224,13 +224,14 @@ apiPropertiesToPersist: { credential: ['signing_key', 'webhook_secret'] }
 An API module can tell the Requester how its provider limits calls, and how to
 read a throttled response. Declare a static `rateLimit` on the API class. Every
 key is optional. A module that declares nothing keeps the fixed backoff ladder
-for a 429 (1, 3, 10, 30, 60 and 180 s), and reads `Retry-After` when a 429 has
-one. The JSON schema still has an older `config.rateLimit: { requests, period }`
+for a 429 (1, 3, 10, 30, 60 and 180 s), and reads the time from a 429 with the
+default `parsers`: `Retry-After`, the reset headers and the IETF `RateLimit`
+headers. The JSON schema still has an older `config.rateLimit: { requests, period }`
 that the runtime does not read: only `static rateLimit` on the API class counts.
 
 | Key | Meaning |
 |---|---|
-| `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a function `(requester) => key`. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope. |
+| `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a synchronous function `(requester) => key` that returns a string or a number. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope or the function returns another type. |
 | `minRetryAfterMs` | A wait never shorter than this. Use it when the docs say "wait 60 seconds" and the response says nothing. |
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
@@ -367,7 +368,8 @@ known. An error that `classify` throws propagates unless you pass
 `new RateLimitError({ hint, waitMs, module, scopeKey, ...fetchErrorArgs })`
 takes the `FetchError` arguments (`resource`, `init`, `response`, `cause`,
 `responseBody`). It sets `retryAt` to now plus `waitMs`, or to `hint.retryAt`
-when `waitMs` is left out.
+when `waitMs` is left out. With no `response`, `statusCode` comes from
+`cause.statusCode`.
 
 ### A limit in a 2xx body
 
