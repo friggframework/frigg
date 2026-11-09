@@ -231,7 +231,7 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 
 | Key | Meaning |
 |---|---|
-| `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a function `(requester) => key`. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope. |
+| `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a synchronous function `(requester) => key` that returns a string or a number. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope or the function returns another type. |
 | `minRetryAfterMs` | A wait never shorter than this. Use it when the docs say "wait 60 seconds" and the response says nothing. |
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |

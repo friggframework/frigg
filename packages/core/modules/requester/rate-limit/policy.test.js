@@ -222,6 +222,16 @@ describe('rate-limit/policy', () => {
                 { scope: () => undefined },
                 requester({}),
             ],
+            [
+                'an async function',
+                { scope: async () => 'portal-1' },
+                requester({}),
+            ],
+            [
+                'a function that returns an object',
+                { scope: () => ({ id: 'portal-1' }) },
+                requester({}),
+            ],
         ])('returns undefined for %s', (_label, policy, subject) => {
             expect(computeScopeKey(policy, subject)).toBeUndefined();
         });
