@@ -688,7 +688,42 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             worker.clearRateLimitWait = jest.fn().mockResolvedValue(undefined);
         });
 
-        it('records the wait after the message was put back', async () => {
+        const keepWaitInMemory = () => {
+            const store = { wait: null };
+            worker.recordRateLimitWait.mockImplementation(
+                async (body, error, state) => {
+                    store.wait = state;
+                }
+            );
+            worker.clearRateLimitWait.mockImplementation(
+                async (body, { deferralId }) => {
+                    if (store.wait?.deferralId === deferralId) {
+                        store.wait = null;
+                    }
+                }
+            );
+            return store;
+        };
+
+        it('records the wait before the delayed message is sent, so a new message that runs at once clears it', async () => {
+            const store = keepWaitInMemory();
+            sqsMock.on(SendMessageCommand).callsFake(async (input) => {
+                const body = JSON.parse(input.MessageBody);
+                await worker.clearRateLimitWait(body, {
+                    deferralId: body._frigg.deferralId,
+                });
+                return { MessageId: 'new-message' };
+            });
+            worker._run.mockRejectedValue(rateLimited(0));
+
+            const result = await run();
+
+            expect(result).toEqual({ batchItemFailures: [] });
+            expect(sent()).toHaveLength(1);
+            expect(store.wait).toBeNull();
+        });
+
+        it('records the wait of a delayed message', async () => {
             worker._run.mockRejectedValue(rateLimited(60 * SECOND));
 
             await run();
@@ -707,9 +742,22 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             });
         });
 
-        it('records nothing when the message could not be put back', async () => {
+        it('leaves no wait when the delayed message could not be sent', async () => {
+            const store = keepWaitInMemory();
             sqsMock.on(SendMessageCommand).rejects(new Error('SQS is down'));
             worker._run.mockRejectedValue(rateLimited(60 * SECOND));
+
+            const result = await run();
+
+            expect(result).toEqual(failure());
+            expect(store.wait).toBeNull();
+        });
+
+        it('records nothing when the visibility change fails', async () => {
+            sqsMock
+                .on(ChangeMessageVisibilityCommand)
+                .rejects(new Error('gone'));
+            worker._run.mockRejectedValue(rateLimited(20 * MINUTE));
 
             await run();
 

@@ -97,9 +97,12 @@ Each outcome writes one log record. `acked` writes WARN `record_deferred`.
 the last attempt they write one ERROR, `record_lost_rate_limited`, with the
 details, and no WARN.
 
-Subclasses override two no-op hooks to keep run state: `recordRateLimitWait(body,
-error, state)` runs after the message was put back, and `clearRateLimitWait(body,
-{ deferralId })` runs after a deferred or redelivered message succeeded.
+Subclasses override two no-op hooks to keep run state.
+`recordRateLimitWait(body, error, state)` runs before a delayed message is sent,
+because with a short delay the new message can run first; a failed send clears
+the wait again. For a schedule or a visibility change it runs after the change.
+`clearRateLimitWait(body, { deferralId })` runs after a deferred or redelivered
+message succeeded.
 `state.deferralId` and `deferralId` name the message that was first put back
 (`_frigg.deferralId`, or the message's own id). A failing hook logs
 `frigg.worker.rate_limit_state_failed` and never changes the outcome. The queue

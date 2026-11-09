@@ -184,6 +184,9 @@ class Worker {
 
     async _deferWithDelay(deferral) {
         const delaySeconds = Math.ceil(deferral.waitMs / 1000);
+        // Write the wait before the send: with a short delay the new message
+        // can run, and clear the wait, before a later write lands.
+        await this._recordWait(deferral, 'WAITING', 'delay');
         try {
             const queueUrl = await this._queueUrl(deferral.queueName);
             await this.send(
@@ -191,6 +194,7 @@ class Worker {
                 delaySeconds
             );
         } catch (cause) {
+            await this._clearWait(deferral.body, deferral.counters.deferralId);
             return { outcome: 'skipped', skipped: 'send_failed', cause };
         }
         return this._acknowledgeDeferral(deferral, 'delay', { delaySeconds });
@@ -212,6 +216,7 @@ class Worker {
             if (cause?.name !== 'ConflictException')
                 return { scheduleError: cause };
         }
+        await this._recordWait(deferral, 'WAITING', 'schedule');
         return this._acknowledgeDeferral(deferral, 'schedule', {
             scheduleName,
         });
@@ -254,7 +259,6 @@ class Worker {
     }
 
     async _acknowledgeDeferral(deferral, mechanism, fields) {
-        await this._recordWait(deferral, 'WAITING', mechanism);
         log.warn('Record deferred', {
             eventName: 'frigg.worker.record_deferred',
             mechanism,
@@ -322,10 +326,12 @@ class Worker {
         const redelivered = delivery.receiveCount > 1;
         const { deferrals, deferralId } = readDeferral(body);
         if (deferrals === 0 && !redelivered) return;
+        await this._clearWait(body, deferralId ?? record.messageId);
+    }
+
+    async _clearWait(body, deferralId) {
         await this._runStateHook('clear', () =>
-            this.clearRateLimitWait(body, {
-                deferralId: deferralId ?? record.messageId,
-            })
+            this.clearRateLimitWait(body, { deferralId })
         );
     }
 
