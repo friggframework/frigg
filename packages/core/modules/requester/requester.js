@@ -13,7 +13,6 @@ const { redactUrl } = require('../../logs/redact');
 const { toSanitizedSurrogate } = require('../../logs/serialize');
 const { getLoggerScope } = require('../../logs/context');
 const {
-    DEFAULT_MAX_IN_PROCESS_WAIT_MS,
     computeScopeKey,
     computeWaitMs,
     inProcessBudgetMs,
@@ -621,10 +620,7 @@ class Requester extends Delegate {
         const waitMs = Number.isFinite(rateLimitError?.waitMs)
             ? rateLimitError.waitMs
             : new Date(rateLimitError?.retryAt).getTime() - Date.now();
-        const capMs =
-            this._rateLimitPolicy?.maxInProcessWaitMs ??
-            DEFAULT_MAX_IN_PROCESS_WAIT_MS;
-        return waitMs > capMs;
+        return waitMs > invocationMaxInProcessWaitMs();
     }
 
     _logRequestFailed(encodedUrl, options, status) {

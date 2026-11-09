@@ -212,7 +212,7 @@ describe('Requester RATE_LIMITED delegate', () => {
             expect(delegate.receiveNotification).not.toHaveBeenCalled();
         });
 
-        it('does not notify for a wait equal to the default cap of 5 min', async () => {
+        it('does not notify for a wait equal to the 5 min cap outside an invocation', async () => {
             const delegate = makeDelegate();
 
             await makeRequester(jest.fn(), { delegate })._notifyRateLimited(
@@ -232,17 +232,32 @@ describe('Requester RATE_LIMITED delegate', () => {
             expect(delegate.receiveNotification).toHaveBeenCalledTimes(1);
         });
 
-        it('notifies for a 2 min wait when the policy caps the wait at 1 min', async () => {
+        it('notifies for a 2 min wait when the caller caps the wait at 1 min', async () => {
             const delegate = makeDelegate();
-            const Api = withPolicy({ maxInProcessWaitMs: 60_000 });
 
-            await makeRequester(
-                jest.fn(),
-                { delegate },
-                Api
-            )._notifyRateLimited(errorWaiting(120_000));
+            await runWithInvocationDeadline(
+                { maxInProcessWaitMs: 60_000 },
+                () =>
+                    makeRequester(jest.fn(), { delegate })._notifyRateLimited(
+                        errorWaiting(120_000)
+                    )
+            );
 
             expect(delegate.receiveNotification).toHaveBeenCalledTimes(1);
+        });
+
+        it('does not notify for a 2 min wait when the caller allows 5 min', async () => {
+            const delegate = makeDelegate();
+
+            await runWithInvocationDeadline(
+                { maxInProcessWaitMs: 300_000 },
+                () =>
+                    makeRequester(jest.fn(), { delegate })._notifyRateLimited(
+                        errorWaiting(120_000)
+                    )
+            );
+
+            expect(delegate.receiveNotification).not.toHaveBeenCalled();
         });
 
         it.each([
@@ -271,7 +286,7 @@ describe('Requester RATE_LIMITED delegate', () => {
             const fetch = fetchReturning(throttled({ 'Retry-After': '20' }));
 
             const error = await runWithInvocationDeadline(
-                Date.now() + 10_000,
+                { deadlineAt: Date.now() + 10_000 },
                 () =>
                     makeRequester(fetch, { delegate })
                         ._get({ url })
@@ -323,19 +338,19 @@ describe('Requester RATE_LIMITED delegate', () => {
             expect(delegate.receiveNotification).not.toHaveBeenCalled();
         });
 
-        it('does not notify for a limit that classify named with no time, which ends as a flagged FetchError', async () => {
+        it('does not notify for a limit that classify named with no time, which throws RateLimitError at once', async () => {
             const delegate = makeDelegate();
             const Api = withPolicy({ classify: () => ({ reason: 'daily' }) });
-            const fetch = fetchReturning(...Array(7).fill(response(403)));
+            const fetch = fetchReturning(response(403));
 
             const error = await makeRequester(fetch, { delegate }, Api)
                 ._get({ url })
                 .catch((e) => e);
 
-            expect(error).toBeInstanceOf(FetchError);
-            expect(error).not.toBeInstanceOf(RateLimitError);
-            expect(error.isRateLimited).toBe(true);
+            expect(fetch).toHaveBeenCalledTimes(1);
+            expect(error).toBeInstanceOf(RateLimitError);
             expect(error.retryAt).toBeUndefined();
+            expect(error.waitMs).toBeUndefined();
             expect(delegate.receiveNotification).not.toHaveBeenCalled();
         });
 
