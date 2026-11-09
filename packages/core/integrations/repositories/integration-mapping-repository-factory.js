@@ -7,6 +7,9 @@ const {
 const {
     IntegrationMappingRepositoryDocumentDB,
 } = require('./integration-mapping-repository-documentdb');
+const {
+    IntegrationMappingRepositorySqlite,
+} = require('./integration-mapping-repository-sqlite');
 const config = require('../../database/config');
 
 /**
@@ -15,7 +18,7 @@ const config = require('../../database/config');
  *
  * Database-specific implementations:
  * - MongoDB: Uses String IDs (ObjectId), no conversion needed
- * - PostgreSQL: Uses Int IDs, converts String ↔ Int
+ * - PostgreSQL/SQLite: Uses Int IDs, converts String ↔ Int
  *
  * All repository methods return String IDs regardless of database type,
  * ensuring application layer consistency.
@@ -41,9 +44,12 @@ function createIntegrationMappingRepository() {
         case 'documentdb':
             return new IntegrationMappingRepositoryDocumentDB();
 
+        case 'sqlite':
+            return new IntegrationMappingRepositorySqlite();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql', 'sqlite'`
             );
     }
 }
@@ -54,4 +60,5 @@ module.exports = {
     IntegrationMappingRepositoryMongo,
     IntegrationMappingRepositoryPostgres,
     IntegrationMappingRepositoryDocumentDB,
+    IntegrationMappingRepositorySqlite,
 };
