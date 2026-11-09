@@ -249,6 +249,55 @@ describe('Requester', () => {
                 expect(fetch).toHaveBeenCalledTimes(9);
             });
 
+            it('stops after 10 hinted retries even when every wait fits the cap', async () => {
+                const fetch = throttledFetch(
+                    Array(11).fill(limited({ 'Retry-After': '1' }))
+                );
+
+                const error = await makeRequester(fetch, { backOff: [1, 2] })
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(error.statusCode).toBe(429);
+                expect(delays).toEqual(Array(10).fill(1_000));
+                expect(fetch).toHaveBeenCalledTimes(11);
+            });
+
+            it('keeps the whole 5xx ladder after a hinted retry', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '1' }),
+                    ...Array(7).fill({ status: 500 }),
+                ]);
+
+                const error = await makeRequester(fetch)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(FetchError);
+                expect(error.statusCode).toBe(500);
+                expect(delays).toEqual([1_000, ...LADDER_MS]);
+                expect(fetch).toHaveBeenCalledTimes(8);
+            });
+
+            it('does not count a 5xx retry or a connection reset as a hinted retry', async () => {
+                const reset = Object.assign(new Error('socket hang up'), {
+                    code: 'ECONNRESET',
+                });
+                const fetch = throttledFetch([
+                    ...Array(9).fill(limited({ 'Retry-After': '1' })),
+                    { status: 500 },
+                    { reject: reset },
+                    limited({ 'Retry-After': '1' }),
+                    ok,
+                ]);
+
+                const result = await makeRequester(fetch)._get({ url });
+
+                expect(result).toEqual({ ok: true });
+                expect(fetch).toHaveBeenCalledTimes(13);
+            });
+
             it('throws a RateLimitError with retryAt when the wait is over the cap', async () => {
                 const fetch = throttledFetch([
                     limited({ 'Retry-After': '400' }),
@@ -304,7 +353,7 @@ describe('Requester', () => {
                     .catch((e) => e);
 
                 expect(error).toBeInstanceOf(RateLimitError);
-                expect(delays).toEqual([200_000, 3_000]);
+                expect(delays).toEqual([200_000, 1_000]);
                 expect(fetch).toHaveBeenCalledTimes(3);
             });
 
@@ -324,7 +373,7 @@ describe('Requester', () => {
                     .catch((e) => e);
 
                 expect(error).toBeInstanceOf(RateLimitError);
-                expect(delays).toEqual([200_000, 3_000]);
+                expect(delays).toEqual([200_000, 1_000]);
             });
 
             it('sleeps a short wait inside an invocation shorter than the default request timeout', async () => {
