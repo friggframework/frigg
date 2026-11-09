@@ -285,8 +285,7 @@ const createQueueWorker = (integrationClass) => {
                     status >= 400 &&
                     status < 500 &&
                     status !== 408 &&
-                    status !== 429 &&
-                    !error.isRateLimited
+                    status !== 429
                 ) {
                     error.isHaltError = true;
                     console.warn(

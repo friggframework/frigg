@@ -487,8 +487,7 @@ handlers (`{ req, res, next }`) and `this.on` events do not.
 `isLastAttempt` is `false` when either count is unknown: a local or non-SQS
 invocation, or a queue whose redrive policy the stack does not own
 (`ownership.queue: 'external'`). The value is information only: core still
-rethrows retryable errors and discards halt errors (4xx except 408, 429 and
-errors with `isRateLimited`).
+rethrows retryable errors and discards halt errors (4xx except 408 and 429).
 
 Use it to end a run or count lost work on the final try: when a retryable
 error (429, 5xx, network) is about to be rethrown and `isLastAttempt` is
