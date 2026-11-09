@@ -224,8 +224,9 @@ apiPropertiesToPersist: { credential: ['signing_key', 'webhook_secret'] }
 An API module can tell the Requester how its provider limits calls, and how to
 read a throttled response. Declare a static `rateLimit` on the API class. Every
 key is optional. A module that declares nothing keeps the fixed backoff ladder
-for a 429 (1, 3, 10, 30, 60 and 180 s), and reads `Retry-After` when a 429 has
-one. The JSON schema still has an older `config.rateLimit: { requests, period }`
+for a 429 (1, 3, 10, 30, 60 and 180 s), and reads the time from a 429 with the
+default `parsers`: `Retry-After`, the reset headers and the IETF `RateLimit`
+headers. The JSON schema still has an older `config.rateLimit: { requests, period }`
 that the runtime does not read: only `static rateLimit` on the API class counts.
 
 | Key | Meaning |
@@ -329,8 +330,8 @@ A Requester built with `backOff: []` never sleeps: a hinted wait throws
 The parsers, `Retry-After` among them, read the headers of a 429 and of a
 response that `classify` recognises, and of no other response: a 503 with
 `Retry-After` keeps the 5xx ladder unless `classify` recognises it. The queue
-worker does not halt a `RateLimitError`, even when its status is 403: the
-message goes back to SQS.
+worker halts a `RateLimitError` with a 4xx status other than 408 and 429, like
+any other 4xx: it discards the message.
 
 ### A client that is not the Requester
 
