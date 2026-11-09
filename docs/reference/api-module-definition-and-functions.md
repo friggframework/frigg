@@ -315,6 +315,8 @@ class Api extends ApiKeyRequester {
    in the Lambda invocation less one request timeout. That reserve is never more
    than half the time left, so a 29 s HTTP invocation with the default 60 s
    request timeout can still sleep 14.5 s.
+   A request makes at most 10 hinted retries. They do not use the retries of
+   the ladder, so a 5xx after a hinted wait still gets the whole 5xx ladder.
 4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
    `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
    `policy`, `source`, `module` and `scopeKey`.
