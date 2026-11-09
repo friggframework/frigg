@@ -371,7 +371,9 @@ class MyIntegration extends IntegrationBase {
 
 **Rate limits** (ADR-049): an API module declares `static rateLimit` on its
 `Requester` subclass. A hinted wait (from `classify()`, the header parsers or
-the static policy) sleeps within a budget, or throws `RateLimitError`
+the static policy) sleeps within a budget that the caller owns (10 s in an HTTP
+handler, 60 s in a queue worker, 300 s outside an invocation, at most 10
+hinted retries), or throws `RateLimitError`
 (`isRateLimited`, `retryAt`) when it does not fit. A 429 with no hint keeps the
 fixed `backOff` ladder. A non-429 limit that `classify` names without a time
 throws `RateLimitError` at once, with `retryAt` unknown. See

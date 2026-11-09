@@ -1,5 +1,4 @@
 const {
-    DEFAULT_MAX_IN_PROCESS_WAIT_MS,
     DEFAULT_PARSERS,
     JITTER_MAX_MS,
     MIN_HINTED_WAIT_MS,
@@ -17,7 +16,6 @@ const options = { now: NOW };
 describe('rate-limit/policy', () => {
     it('exposes the defaults', () => {
         expect(DEFAULT_PARSERS).toEqual(['retryAfter', 'resetHeaders', 'ietf']);
-        expect(DEFAULT_MAX_IN_PROCESS_WAIT_MS).toBe(300_000);
         expect(MIN_HINTED_WAIT_MS).toBe(1_000);
         expect(JITTER_MAX_MS).toBe(1_000);
     });
@@ -76,11 +74,11 @@ describe('rate-limit/policy', () => {
                 windows,
                 maxConcurrency: 5,
                 minRetryAfterMs: 60_000,
-                maxInProcessWaitMs: 30_000,
                 parsers: ['retryAfter'],
                 userHints,
             });
             expect(policy).not.toHaveProperty('somethingElse');
+            expect(policy).not.toHaveProperty('maxInProcessWaitMs');
         });
 
         it('drops values of the wrong type', () => {
@@ -88,7 +86,6 @@ describe('rate-limit/policy', () => {
                 static rateLimit = {
                     classify: 'nope',
                     minRetryAfterMs: -1,
-                    maxInProcessWaitMs: Infinity,
                     maxConcurrency: 1.5,
                     windows: 'many',
                     userHints: 3,
@@ -823,26 +820,16 @@ describe('rate-limit/policy', () => {
     });
 
     describe('inProcessBudgetMs', () => {
-        it('defaults the cap to 5 minutes', () => {
+        it('takes the cap from the caller', () => {
             expect(
                 inProcessBudgetMs({
-                    requestTimeoutMs: 0,
-                    remainingMs: Infinity,
-                    waitedMs: 0,
-                })
-            ).toBe(300_000);
-        });
-
-        it('lets the policy override the cap', () => {
-            expect(
-                inProcessBudgetMs({
-                    policy: { maxInProcessWaitMs: 30_000 },
+                    maxInProcessWaitMs: 30_000,
                     remainingMs: Infinity,
                 })
             ).toBe(30_000);
             expect(
                 inProcessBudgetMs({
-                    policy: { maxInProcessWaitMs: 0 },
+                    maxInProcessWaitMs: 0,
                     remainingMs: Infinity,
                 })
             ).toBe(0);
@@ -850,13 +837,18 @@ describe('rate-limit/policy', () => {
 
         it('subtracts the wait already spent', () => {
             expect(
-                inProcessBudgetMs({ remainingMs: Infinity, waitedMs: 100_000 })
+                inProcessBudgetMs({
+                    maxInProcessWaitMs: 300_000,
+                    remainingMs: Infinity,
+                    waitedMs: 100_000,
+                })
             ).toBe(200_000);
         });
 
         it('keeps one request timeout of the time left for the next request', () => {
             expect(
                 inProcessBudgetMs({
+                    maxInProcessWaitMs: 300_000,
                     requestTimeoutMs: 30_000,
                     remainingMs: 100_000,
                 })
@@ -866,6 +858,7 @@ describe('rate-limit/policy', () => {
         it('keeps at most half of the time left for the next request', () => {
             expect(
                 inProcessBudgetMs({
+                    maxInProcessWaitMs: 300_000,
                     requestTimeoutMs: 60_000,
                     remainingMs: 29_000,
                 })
@@ -875,6 +868,7 @@ describe('rate-limit/policy', () => {
         it('is the cap when the invocation has time to spare', () => {
             expect(
                 inProcessBudgetMs({
+                    maxInProcessWaitMs: 300_000,
                     requestTimeoutMs: 60_000,
                     remainingMs: 900_000,
                 })
@@ -884,19 +878,30 @@ describe('rate-limit/policy', () => {
         it('is never negative', () => {
             expect(
                 inProcessBudgetMs({
+                    maxInProcessWaitMs: 300_000,
                     requestTimeoutMs: 60_000,
                     remainingMs: 0,
                 })
             ).toBe(0);
             expect(
-                inProcessBudgetMs({ remainingMs: Infinity, waitedMs: 400_000 })
+                inProcessBudgetMs({
+                    maxInProcessWaitMs: 300_000,
+                    remainingMs: Infinity,
+                    waitedMs: 400_000,
+                })
             ).toBe(0);
         });
 
         it('treats a missing request timeout as 0', () => {
-            expect(inProcessBudgetMs({ remainingMs: 50_000 })).toBe(50_000);
             expect(
                 inProcessBudgetMs({
+                    maxInProcessWaitMs: 300_000,
+                    remainingMs: 50_000,
+                })
+            ).toBe(50_000);
+            expect(
+                inProcessBudgetMs({
+                    maxInProcessWaitMs: 300_000,
                     requestTimeoutMs: null,
                     remainingMs: 50_000,
                 })

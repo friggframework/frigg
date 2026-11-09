@@ -143,7 +143,7 @@ describe('Requester', () => {
                 });
 
                 const error = await runWithInvocationDeadline(
-                    Date.now() + 29_000,
+                    { deadlineAt: Date.now() + 29_000 },
                     () => requester._get({ url }).catch((e) => e)
                 );
 
@@ -386,7 +386,7 @@ describe('Requester', () => {
                 });
 
                 const result = await runWithInvocationDeadline(
-                    Date.now() + 29_000,
+                    { deadlineAt: Date.now() + 29_000 },
                     () => requester._get({ url })
                 );
 
@@ -408,7 +408,7 @@ describe('Requester', () => {
                 });
 
                 const error = await runWithInvocationDeadline(
-                    Date.now() + 8_000,
+                    { deadlineAt: Date.now() + 8_000 },
                     () => requester._get({ url }).catch((e) => e)
                 );
 
@@ -416,19 +416,57 @@ describe('Requester', () => {
                 expect(fetch).toHaveBeenCalledTimes(1);
             });
 
-            it('throws at once when the policy allows no in-process wait', async () => {
+            it('throws at once when the caller allows no in-process wait', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '2' }),
+                    ok,
+                ]);
+
+                const error = await runWithInvocationDeadline(
+                    { maxInProcessWaitMs: 0 },
+                    () =>
+                        makeRequester(fetch)
+                            ._get({ url })
+                            .catch((e) => e)
+                );
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+            });
+
+            it('sleeps only as long as the budget of the caller allows', async () => {
+                const fetch = throttledFetch([
+                    ...Array(3).fill(limited({ 'Retry-After': '10' })),
+                    ok,
+                ]);
+
+                const error = await runWithInvocationDeadline(
+                    { maxInProcessWaitMs: 25_000 },
+                    () =>
+                        makeRequester(fetch)
+                            ._get({ url })
+                            .catch((e) => e)
+                );
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(delays).toEqual([10_000, 10_000]);
+                expect(fetch).toHaveBeenCalledTimes(3);
+            });
+
+            it('ignores a maxInProcessWaitMs in the static rateLimit of the module', async () => {
                 const Api = withPolicy({ maxInProcessWaitMs: 0 });
                 const fetch = throttledFetch([
                     limited({ 'Retry-After': '2' }),
                     ok,
                 ]);
 
-                const error = await makeRequester(fetch, {}, Api)
-                    ._get({ url })
-                    .catch((e) => e);
+                const result = await makeRequester(fetch, {}, Api)._get({
+                    url,
+                });
 
-                expect(error).toBeInstanceOf(RateLimitError);
-                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(result).toEqual({ ok: true });
+                expect(delays).toEqual([2_000]);
             });
 
             it('reads the body of the RateLimitError once', async () => {

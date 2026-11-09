@@ -10,7 +10,10 @@ const {
 const { getLogger, createMemorySink } = require('../logs');
 const { setSinks } = require('../logs/logger-runtime');
 const { getLoggerScope } = require('../logs/context');
-const { remainingInvocationMs } = require('./invocation-deadline');
+const {
+    invocationMaxInProcessWaitMs,
+    remainingInvocationMs,
+} = require('./invocation-deadline');
 const { mergeTelemetryContext } = require('../telemetry/telemetry-context');
 const { NoOpTelemetry } = require('../telemetry/no-op-telemetry');
 const { createUsageRollupSubscriber } = require('../telemetry/usage-rollup-subscriber');
@@ -73,6 +76,23 @@ describe('core/invocation-scope', () => {
             },
             { context }
         );
+    });
+
+    it('passes maxInProcessWaitMs on to the invocation scope', async () => {
+        await runInvocationScope(
+            {},
+            async () => {
+                expect(invocationMaxInProcessWaitMs()).toBe(12_000);
+                expect(remainingInvocationMs()).toBe(Infinity);
+            },
+            { maxInProcessWaitMs: 12_000 }
+        );
+    });
+
+    it('sets the default wait budget when the caller gives none', async () => {
+        await runInvocationScope({}, async () => {
+            expect(invocationMaxInProcessWaitMs()).toBe(300_000);
+        });
     });
 
     it('sets no deadline when there is no context', async () => {
