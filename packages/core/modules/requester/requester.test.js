@@ -2,9 +2,7 @@ const { Headers } = require('node-fetch');
 const { Requester } = require('./requester');
 const { FetchError, RateLimitError } = require('../../errors');
 const { createMemorySink } = require('../../logs');
-const {
-    runWithInvocationDeadline,
-} = require('../../core/invocation-deadline');
+const { runWithInvocationDeadline } = require('../../core/invocation-deadline');
 
 /**
  * Requester is abstract: subclasses provide `addAuthHeaders`. For the
@@ -579,32 +577,29 @@ describe('Requester', () => {
                 expect(delays).toEqual([]);
             });
 
-            it('treats a 403 that classify names by reason only like a bare 429: the ladder, then a flagged FetchError', async () => {
+            it('throws a RateLimitError at once for a 403 that classify names by reason only', async () => {
                 const Api = withPolicy({
                     classify: () => ({ reason: 'daily' }),
                 });
                 const fetch = throttledFetch(
-                    Array(3).fill({ status: 403, body: { code: 'LIMIT' } })
+                    Array(7).fill({ status: 403, body: { code: 'LIMIT' } })
                 );
 
-                const error = await makeRequester(
-                    fetch,
-                    { backOff: [0, 0] },
-                    Api
-                )
+                const error = await makeRequester(fetch, {}, Api)
                     ._get({ url })
                     .catch((e) => e);
 
-                expect(error).toBeInstanceOf(FetchError);
-                expect(error).not.toBeInstanceOf(RateLimitError);
+                expect(error).toBeInstanceOf(RateLimitError);
                 expect(error).toMatchObject({
                     statusCode: 403,
                     isRateLimited: true,
                     reason: 'daily',
                 });
                 expect(error.retryAt).toBeUndefined();
-                expect(fetch).toHaveBeenCalledTimes(3);
-                expect(delays).toEqual([0, 0]);
+                expect(error.waitMs).toBeUndefined();
+                expect(error.module).toEqual(expect.any(String));
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
             });
 
             it.each([
@@ -1035,16 +1030,11 @@ describe('Requester', () => {
                         headers: { get: () => 'application/json' },
                         json: () =>
                             new Promise((_resolve, reject) => {
-                                capturedSignal.addEventListener(
-                                    'abort',
-                                    () => {
-                                        const err = new Error(
-                                            'aborted mid-body'
-                                        );
-                                        err.name = 'AbortError';
-                                        reject(err);
-                                    }
-                                );
+                                capturedSignal.addEventListener('abort', () => {
+                                    const err = new Error('aborted mid-body');
+                                    err.name = 'AbortError';
+                                    reject(err);
+                                });
                             }),
                     };
                 });
@@ -1238,11 +1228,15 @@ describe('Requester', () => {
             requester.refreshAuth = jest.fn().mockResolvedValue(true);
             requester.notify = jest.fn();
 
-            const result = await requester._get({ url: 'https://example.com/protected' });
+            const result = await requester._get({
+                url: 'https://example.com/protected',
+            });
 
             expect(result).toEqual({ ok: true });
             expect(requester.refreshAuth).toHaveBeenCalledTimes(1);
-            expect(requester.notify).not.toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+            expect(requester.notify).not.toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH
+            );
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
@@ -1321,13 +1315,19 @@ describe('Requester', () => {
             requester.refreshAuth = jest.fn().mockResolvedValue(true);
             requester.notify = jest.fn();
 
-            const r1 = await requester._get({ url: 'https://example.com/first' });
-            const r2 = await requester._get({ url: 'https://example.com/second' });
+            const r1 = await requester._get({
+                url: 'https://example.com/first',
+            });
+            const r2 = await requester._get({
+                url: 'https://example.com/second',
+            });
 
             expect(r1).toEqual({ ok: 'first' });
             expect(r2).toEqual({ ok: 'second' });
             expect(requester.refreshAuth).toHaveBeenCalledTimes(2);
-            expect(requester.notify).not.toHaveBeenCalledWith(requester.DLGT_INVALID_AUTH);
+            expect(requester.notify).not.toHaveBeenCalledWith(
+                requester.DLGT_INVALID_AUTH
+            );
             expect(fetchMock).toHaveBeenCalledTimes(4);
         });
     });
