@@ -366,7 +366,8 @@ known. An error that `classify` throws propagates unless you pass
 `new RateLimitError({ hint, waitMs, module, scopeKey, ...fetchErrorArgs })`
 takes the `FetchError` arguments (`resource`, `init`, `response`, `cause`,
 `responseBody`). It sets `retryAt` to now plus `waitMs`, or to `hint.retryAt`
-when `waitMs` is left out.
+when `waitMs` is left out. With no `response`, `statusCode` comes from
+`cause.statusCode`.
 
 ### A limit in a 2xx body
 
