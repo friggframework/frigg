@@ -55,10 +55,26 @@
  *
  * @property {Object} [config] - Configuration preferences
  * @property {'aurora-postgresql'|'aurora-mysql'} [config.engine] - Database engine
- * @property {number} [config.minCapacity] - Min serverless capacity (default: 0.5)
- * @property {number} [config.maxCapacity] - Max serverless capacity (default: 1)
+ * @property {number} [config.minCapacity] - Min serverless capacity in ACU. Accepts
+ *   `0` for Aurora Serverless v2 scale-to-zero (cluster pauses to 0 ACU when idle;
+ *   requires Aurora PostgreSQL 13.15+/14.12+/15.7+/16.3+, and the default 15.13
+ *   qualifies) OR a value in [0.5, 128]. Values in (0, 0.5) are invalid. (default: 0.5)
+ * @property {number} [config.maxCapacity] - Max serverless capacity in ACU, range
+ *   [0.5, 128] (default: 4)
+ * @property {number} [config.secondsUntilAutoPause] - Idle window before a
+ *   scale-to-zero cluster (minCapacity: 0) pauses to 0 ACU. Integer seconds in
+ *   [300, 86400]. Only applied when minCapacity === 0 (default: 300)
  * @property {string} [config.database] - Database name (default: 'frigg')
  * @property {boolean} [config.publiclyAccessible] - Public access (default: false)
+ * @property {'vpc'|'public'} [config.connectivity] - Lambda↔Aurora connectivity
+ *   mode. `'vpc'` (default): Aurora in private subnets, Lambda attached to the VPC,
+ *   ingress from the Lambda security group (needs a NAT for external egress).
+ *   `'public'` (NAT-free): Aurora in public subnets with a public endpoint, Lambda
+ *   left OUTSIDE the VPC (no NAT Gateway, no VPC endpoints), ingress opened to
+ *   `allowedCidrs`, TLS enforced (sslmode=require). (default: 'vpc')
+ * @property {string[]} [config.allowedCidrs] - CIDR blocks allowed to reach Aurora
+ *   on 5432 when connectivity is 'public'. One ingress rule is emitted per CIDR.
+ *   (default: ['0.0.0.0/0'] — narrow this for production)
  * @property {boolean} [config.autoCreateCredentials] - Auto-create credentials in Secrets Manager
  */
 
