@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://friggframework.org/schemas/api-proxy.json",
+  "$id": "https://friggframework.org/schemas/api-proxy/v1.0.json",
   "title": "Frigg Proxy API Schemas",
   "description": "JSON schemas for proxy API requests and responses that forward calls to external APIs",
   "definitions": {

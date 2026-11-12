@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.friggframework.org/core-models.schema.json",
+  "$id": "https://friggframework.org/schemas/core-models/v1.0.json",
   "title": "Frigg Core Data Models",
   "description": "Schema definitions for core Frigg data models including User, Entity, and Credential.",
   "definitions": {

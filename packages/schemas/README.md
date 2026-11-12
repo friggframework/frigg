@@ -95,6 +95,31 @@ const appSchema = getSchema('app-definition');
 console.log('App definition schema:', appSchema);
 ```
 
+## Schema Identifiers and Hosting
+
+Every schema's `$id` is its public URL:
+
+```
+https://friggframework.org/schemas/<name>/v<major>.<minor>.json
+```
+
+for example `https://friggframework.org/schemas/app-definition/v1.0.json`.
+friggframework.org serves each file at that URL (with
+`Content-Type: application/schema+json` and open CORS), so editors can fetch
+it from a `$schema` reference. The URL is a name, not a dependency: this
+package, `frigg validate` and the runtime resolve every `$id` from the
+installed files and never fetch it.
+
+- A version is immutable once a stable release ships it. A backward-compatible
+  change gets a new minor version, a breaking change a new major version.
+- `validate()` and `getSchema()` accept a schema name, its `$id`, or the
+  unversioned id it had before 2.0.1 (kept as an alias for one release).
+- The website copies live in `website/schemas/` and are committed. After you
+  change a schema, run `npm run sync:hosted` here and commit the result;
+  `tests/hosted-schemas.test.js` fails while a copy is missing or stale.
+
+The rules are in ADR-051, "Hosted schemas" amendment.
+
 ## Available Schemas
 
 ### App Definition Schema
@@ -353,7 +378,12 @@ Validates core data models (User, Entity, Credential).
 Returns all available schemas as an object.
 
 #### `getSchema(schemaName)`
-Returns a specific schema by name.
+Returns a specific schema by name (`app-definition`), by `$id`, or by its legacy unversioned id.
+
+#### `parseSchemaId(id)`
+Returns `{ name, version, hostedPath }` for an `$id` on the
+`https://friggframework.org/schemas/<name>/v<x.y>.json` pattern, or `null`.
+`SCHEMA_ID_PATTERN` and `LEGACY_SCHEMA_IDS` are exported too.
 
 ### Utility Functions
 
