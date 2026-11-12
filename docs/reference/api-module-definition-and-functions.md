@@ -16,6 +16,18 @@ Every API module definition must include these three properties:
 | `getName` | function | Returns the module name |
 | `requiredAuthMethods` | object | Authentication method implementations |
 
+## Optional Top-Level Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `modelName` | string | Entity/credential model name used by the Module runtime (pattern: `^[a-zA-Z][a-zA-Z0-9_]*$`). Distinct from `moduleName`. |
+| `API` | class | Requester class for the module |
+| `env` | object | Environment variable mapping (snake_case keys) |
+| `config` | object | Module configuration metadata |
+| `encryption` | object | Module-specific credential field encryption |
+| `webhooks` | object | Webhook configuration |
+| `manager` | object | Legacy manager configuration |
+
 ## Complete Definition Structure
 
 ```javascript
@@ -28,6 +40,9 @@ const Definition = {
     // Required: Module identifier
     moduleName: 'my-module',
 
+    // Optional: Model name for entity/credential records
+    modelName: 'MyModule',
+
     // Required: Function returning module name
     getName: () => 'my-module',
 
@@ -37,6 +52,9 @@ const Definition = {
         getEntityDetails: async (api, callbackParams, tokenResponse, userId) => { /* ... */ },
         getCredentialDetails: async (api, userId) => { /* ... */ },
         testAuthRequest: async (api) => { /* ... */ },
+        // Optional for API-key / non-OAuth modules:
+        getAuthorizationRequirements: () => ({ type: 'apiKey', data: { /* ... */ } }),
+        setAuthParams: async (api, params) => { /* apply api key, etc. */ },
         apiPropertiesToPersist: {
             credential: ['access_token', 'refresh_token'],
             entity: ['tenantId']
@@ -154,6 +172,42 @@ These properties are:
 1. Saved to the database after authentication
 2. Passed back to the API class on instantiation
 3. Available via `api.propertyName`
+
+### getAuthorizationRequirements
+
+Optional. Returns the authorization requirements for non-OAuth flows (API key, basic, custom forms). Used by `frigg auth test` and the Management API to render credential forms:
+
+```javascript
+getAuthorizationRequirements: () => ({
+    type: 'apiKey',
+    data: {
+        jsonSchema: {
+            title: 'Service Authentication',
+            type: 'object',
+            required: ['api_key'],
+            properties: {
+                api_key: { type: 'string', title: 'API Key' },
+            },
+        },
+        uiSchema: {
+            api_key: {
+                'ui:widget': 'password',
+                'ui:help': 'Generate an API key in the service settings.',
+            },
+        },
+    },
+})
+```
+
+### setAuthParams
+
+Optional. Applies authorization parameters from the callback/form to the API instance (typically for API-key modules that have no `getToken` OAuth exchange):
+
+```javascript
+setAuthParams: async (api, params) => {
+    api.setApiKey(params.api_key);
+}
+```
 
 ## Environment Configuration
 
@@ -362,17 +416,24 @@ module.exports = { Definition, ProcurementExpressApi };
 
 ## Validation
 
-Use `frigg validate` to check your module definition against the schema:
+From an API module directory (one that exports `{ Api, Definition }` from `index.js`), validate the module definition against the schema and the runtime structural checks:
 
 ```bash
-frigg validate
+frigg validate --module
+# or
+frigg validate module
 ```
+
+Both accept `--json` and `-v` / `--verbose` like app-mode `frigg validate`. Exit code is non-zero when there are errors; each issue includes a JSON field path (`pointer`).
+
+You can also validate programmatically with `validateApiModuleDefinition` from `@friggframework/schemas` (real Definitions with classes/functions are accepted via a schema view).
 
 The validator checks:
 - Required properties are present
-- Property types match schema
+- Property types match schema (functions and the API class are accepted via a schema view)
 - `env` properties use correct naming (snake_case)
-- No additional properties on strict objects
+- No additional properties on strict objects (`additionalProperties: false`)
+- Structural checks from `checkModuleDefinition` (API class, required auth methods as functions)
 
 ## Best Practices
 
