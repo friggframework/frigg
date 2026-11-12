@@ -81,6 +81,10 @@ await esbuild.build({
     platform: 'node',
     format: 'esm',
     target: 'node18',
+    // Minify — the vendored bundle is a generated artifact (not read/diffed by
+    // hand, and Sonar-excluded), and the MCP SDK + zod + jose it inlines are
+    // large. Minifying roughly halves the shipped size with no behavior change.
+    minify: true,
     // Resolve bare @freyaframework/* specifiers against the Freya checkout.
     nodePaths: [freyaModules],
     // Lazily-imported optional deps the assistant path never touches.
