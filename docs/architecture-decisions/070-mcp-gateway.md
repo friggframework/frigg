@@ -123,8 +123,8 @@ module.exports = {
 
 Every outbound request to a remote server, including the discovery fetches, goes through an
 HTTPS-only client that refuses private and link-local address ranges and caps response size.
-In version 1, server URLs come from module definitions only. Section 9 covers servers an
-organization or user adds themselves.
+In version 1, server URLs come from module definitions only. [ADR-071](./071-bring-your-own-mcp-server.md) covers servers an organization or user adds
+themselves.
 
 ### 4. Grants
 
@@ -215,43 +215,18 @@ connector, tool, source, access class, acting user and organization, duration, r
 outcome. Arguments and results are not logged by default, because a query can carry personal
 data.
 
-### 9. Bring your own server (after version 1)
+### 9. Servers a customer adds
 
-Adopters will want their customers to add MCP servers the adopter never reviewed, the way
-desktop agent clients allow custom connectors. Version 1 does not ship this, but the design
-must not block it. Three things change when the server is not known in advance:
-
-| | Curated connector (version 1) | Added by an organization admin | Added by one user |
-|---|---|---|---|
-| Defined in | Code, as an API module | A stored record, scoped to the organization | A stored record, scoped to the user |
-| Who reviews the tools | The adopter, before release | The admin, when adding it | Nobody |
-| Access class | Set by the adopter | Set by the admin; `write` until they say otherwise | Always `write` |
-| Pinned hash | From the adopter's review | Taken when the admin adds it | Taken on first use |
-| Who can call it | Per connector config | Members of that organization | That user only |
-
-Rules that hold for both stored kinds:
-
-- The adopter turns the feature on per app, and can limit it to admins. Off is the default.
-- `McpRemoteRequester` is reused unchanged. Discovery and client registration are what make an
-  unknown server connectable, and the outbound request guard in section 3 applies to every
-  fetch.
-- A changed tool definition is withheld until the person who added the server accepts it.
-- Results carry `source: 'remote'` and `curated: false`, so the caller can apply stricter rules
-  to content from a server nobody at the adopter reviewed.
-- A stored connector never supersedes a native tool, and its tool names cannot collide with a
-  curated connector's.
-
-Stored connector records are a small case of data-defined integration definitions. They should
-use that storage and publishing mechanism when it lands, not a second one. The recommended
-order is admin-added first, because it keeps a human review step, then user-added.
+Version 1 serves curated connectors only. Servers that an organization admin or an end user
+adds themselves are designed in [ADR-071](./071-bring-your-own-mcp-server.md), which builds on
+the requester, grants and tool policy defined here.
 
 ### Non-goals
 
 - **No agent loop.** Frigg does not call a model.
 - **No approval logic.** Confirmation before a write, undo, and rules such as "no write after
   reading untrusted content" stay in the caller. The gateway supplies the facts those rules need.
-- **No user-supplied server URLs in version 1** and no public registry. Section 9 sets out how
-  they are added later without changing the rest of this design.
+- **No user-supplied server URLs in version 1** and no public registry. See [ADR-071](./071-bring-your-own-mcp-server.md).
 - **Tools only in version 1.** MCP resources, prompts, sampling and elicitation are not passed
   through.
 - **No use of an MCP grant for sync, webhooks or schedules.**
@@ -357,6 +332,7 @@ ADR, and these products change quickly, so check the linked pages before relying
 - [ADR-015](./015-extensions-taxonomy.md), [ADR-017](./017-core-extensions.md): where the gateway sits as an extension
 - [ADR-020](./020-capabilities.md): the `mcp-tool` surface that native tools are declared with
 - [ADR-024](./024-global-entities.md): app-owned entities, a possible third ownership level
+- [ADR-071](./071-bring-your-own-mcp-server.md): servers added by an organization or a user
 - [ADR-031](./031-concurrent-oauth-credential-refresh.md), [ADR-042](./042-in-process-single-flight-token-refresh.md): token refresh
 - MCP authorization specification; RFC 7591, RFC 8414, RFC 8707, RFC 9728
 
@@ -378,7 +354,3 @@ ADR, and these products change quickly, so check the linked pages before relying
    less on a change. Lean: per tool.
 6. **Where policy lives.** Gateway config in the app definition is reviewable in code. A
    database-backed policy would let an operator re-pin without a deploy. Lean: code first.
-7. **Bring your own server.** Is admin-added enough for the first adopters, or do end users
-   need to add their own from day one? And does a stored connector also need "bring your own
-   OAuth client", for servers that accept only clients registered ahead of time? Lean:
-   admin-added first; client credentials per stored connector as an optional field.

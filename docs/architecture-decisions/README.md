@@ -52,6 +52,7 @@ An ADR documents a significant architectural decision made in the project, inclu
 | [065](./065-release-versioned-module-documentation-and-catalog.md) | Release-Versioned Module Documentation and Catalog Publishing | Accepted | 2026-10-25 |
 | [068](./068-lambda-architecture-arm64.md) | Lambda Architecture Selection (arm64 / Graviton) | Proposed | 2026-11-05 |
 | [070](./070-mcp-gateway.md) | MCP Gateway | Proposed | 2026-11-13 |
+| [071](./071-bring-your-own-mcp-server.md) | Bring Your Own MCP Server | Proposed | 2026-11-13 |
 
 ## Conventions
 
