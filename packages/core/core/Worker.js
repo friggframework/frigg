@@ -3,6 +3,7 @@ const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
 const { readQueueDelivery } = require('../queues/queue-delivery');
+const { toSqsMessageBody } = require('../queues/sqs-message-body');
 const { runMessageScope } = require('./invocation-scope');
 const { getLogger } = require('../logs');
 
@@ -84,7 +85,7 @@ class Worker {
         const messageParams = _.omit(params, 'QueueUrl');
         const args = {
             DelaySeconds: delay,
-            MessageBody: JSON.stringify(messageParams),
+            MessageBody: toSqsMessageBody(messageParams),
             QueueUrl: queueURL,
         };
         return this.sendAsyncSQSMessage(args);
