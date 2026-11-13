@@ -250,7 +250,62 @@ data.
   depend on them.
 - ADR-017's table entry for `extension-mcp-server` should point here.
 
+## Comparable tools
+
+Products on the market already do parts of this. They fall into four groups. The descriptions
+below come from each vendor's public documentation in November 2026. None was tested for this
+ADR, and these products change quickly, so check the linked pages before relying on a detail.
+
+| Group | Examples | What they do | Same as this ADR | Different from this ADR |
+|---|---|---|---|---|
+| Cloud agent gateways | Amazon Bedrock AgentCore Gateway with AgentCore Identity | One MCP endpoint in front of targets (OpenAPI, Lambda, MCP servers). Outbound OAuth to targets, including user-consent flows, with tokens held in a vault | The merged endpoint, outbound authorization per user, a credential vault, remote MCP servers as targets | A managed service tied to one cloud's agent stack. Tools only: no sync, webhooks or schedules on the same connections |
+| Agent tool platforms | Composio, Arcade, Pipedream Connect | Hosted catalogs of prebuilt tools with per-user OAuth, exposed to an agent as an MCP endpoint | Per-user credentials handled server-side; the agent never holds a provider token | The vendor hosts the tokens and authors most of the tools. The adopter's existing integrations and their credentials live elsewhere |
+| Embedded integration platforms with an agent surface | Nango, Paragon ActionKit, Merge Agent Handler | An integration platform for a SaaS product's end users that also serves its actions as agent tools, scoped to one user's connection | The closest match: one set of connections serves both product integrations and agent tools | Mostly hosted by the vendor. Tools are ones written on the provider's API; passing a provider's own MCP server through is not their main model |
+| MCP infrastructure gateways | Cloudflare MCP server portals, Docker MCP Gateway, IBM ContextForge, Envoy AI Gateway | Put many MCP servers behind one endpoint with access policy, tool filtering and logging | Aggregation, tool filtering, central logging | Built for an organization's own staff and developer tools. No notion of an adopter's end users, each with their own provider grant, and no tools built from API modules |
+
+### What this ADR takes from them
+
+- **One endpoint, filtered per caller.** Every group does this, and the infrastructure
+  gateways warn against passing every tool through unfiltered. Section 6 follows that advice.
+- **Credentials resolved server-side for the acting user.** The agent tool platforms and
+  AgentCore Identity all work this way. Section 5 does the same with Frigg's existing user and
+  organization model.
+- **A vault with consent flows per provider.** This is what `McpRemoteRequester` and the
+  existing credential store provide together.
+
+### What is different here
+
+1. **One connection store for integrations and agent tools.** Only the embedded integration
+   platforms share this. An adopter that already runs sync on Frigg does not add a second vendor
+   or a second set of tokens.
+2. **It runs in the adopter's own cloud account**, with the adopter's encryption keys. Most of
+   the products above hold the tokens on the vendor's side.
+3. **Native and remote tools in one list, with an explicit rule for overlap** (`supersedes`).
+   The agent tool platforms lean to tools they wrote; the infrastructure gateways lean to
+   pass-through. This design treats both as first-class and lets the adopter choose per action.
+4. **The adopter sets the access class and pins each remote tool's definition.** Filtering is
+   common in these products. Pinning a reviewed definition and withholding the tool when it
+   changes is stated here as a requirement.
+
+### Sources
+
+- AgentCore Gateway: [outbound authorization](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-outbound-auth.html), [MCP server targets](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-target-MCPservers.html)
+- Merge Agent Handler: [how it works](https://docs.merge.dev/merge-agent-handler/how-it-works)
+- Paragon: [MCP support without hosting servers](https://www.useparagon.com/blog/add-mcp-support-without-hosting-servers)
+- Nango: [MCP servers for agent API integrations](https://nango.dev/blog/best-mcp-servers-for-agent-api-integrations)
+- Arcade: [the MCP gateway pattern](https://blog.arcade.dev/mcp-gateway-pattern), [Arcade and Composio compared](https://arcade.dev/compare/arcade-vs-composio/)
+- Cloudflare: [MCP server portals](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/mcp-portals)
+- Docker: [MCP Gateway](https://www.docker.com/blog/docker-mcp-gateway-secure-infrastructure-for-agentic-ai/)
+- IBM: [ContextForge](https://github.com/ibm/mcp-context-forge)
+- Envoy AI Gateway: [MCP gateway](https://aigateway.envoyproxy.io/docs/0.6/capabilities/mcp/)
+
 ## Alternatives Considered
+
+0. **Adopt one of the comparable tools next to Frigg.** Workable, and the right call for an
+   adopter with no Frigg app. For one that has a Frigg app it means a second vendor, a second
+   credential store and a second connect flow, which is the problem this ADR starts from. The
+   cloud agent gateway is the strongest candidate, and nothing here prevents putting it in
+   front of this gateway later as one more MCP target.
 
 1. **The adopter builds its own MCP client and token store.** Fastest for one adopter. It
    duplicates what Frigg exists to provide, and every adopter with an agent repeats it.
