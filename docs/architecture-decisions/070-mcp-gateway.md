@@ -301,21 +301,21 @@ ADR, and these products change quickly, so check the linked pages before relying
 
 ## Alternatives Considered
 
-0. **Adopt one of the comparable tools next to Frigg.** Workable, and the right call for an
+1. **Adopt one of the comparable tools next to Frigg.** Workable, and the right call for an
    adopter with no Frigg app. For one that has a Frigg app it means a second vendor, a second
    credential store and a second connect flow, which is the problem this ADR starts from. The
    cloud agent gateway is the strongest candidate, and nothing here prevents putting it in
    front of this gateway later as one more MCP target.
 
-1. **The adopter builds its own MCP client and token store.** Fastest for one adopter. It
+2. **The adopter builds its own MCP client and token store.** Fastest for one adopter. It
    duplicates what Frigg exists to provide, and every adopter with an agent repeats it.
-2. **Frigg as a token vault only**: the adopter's backend asks Frigg for a token and calls the
+3. **Frigg as a token vault only**: the adopter's backend asks Frigg for a token and calls the
    remote server itself. Rejected because tokens leave Frigg, and tool policy and the merged
    tool list would have to be rebuilt by each adopter.
-3. **Wrap every provider as a native API module and ignore provider MCP servers.** Rejected for
+4. **Wrap every provider as a native API module and ignore provider MCP servers.** Rejected for
    the long tail: we would maintain tool surfaces the provider already maintains, and some
    providers offer their data to third parties only through MCP.
-4. **Use provider MCP servers for everything.** Rejected because MCP cannot deliver webhooks,
+5. **Use provider MCP servers for everything.** Rejected because MCP cannot deliver webhooks,
    bulk sync or scheduled work, and some servers admit only listed clients.
 
 ## Related
