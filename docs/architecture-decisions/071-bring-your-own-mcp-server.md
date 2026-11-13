@@ -28,7 +28,7 @@ the server is not known in advance:
 This ADR covers servers added by an adopter's **end users**. It does not cover a developer
 handing Frigg an OAuth client and sync mappings so Frigg runs a whole integration for them.
 That is the subject of ADR-063 (Integration Definitions as Data, proposed in an open pull
-request and not yet on `next`). The two meet in one place, noted under Storage below.
+request and not yet on `next`). Section 6 sets out how the two relate.
 
 ## Decision
 
@@ -79,18 +79,24 @@ One record per stored connector:
 | `owner` | The organization user or the individual user |
 | `url` | The server's MCP endpoint. HTTPS only |
 | `clientRegistration` | How Frigg identifies itself to this server: `metadata-document`, `dynamic`, or `provided` |
-| `clientId`, `clientSecret` | Only for `provided`. Encrypted like any credential |
-| `tools` | Per tool: allowed or not, access class, pinned hash |
-| `status` | `pending-review`, `active`, `drifted`, `disabled` |
+| `clientCredentialId` | Only for `provided`. Points at a `Credential` row holding the client ID and secret |
+| `version`, `checksum` | The reviewed tool list is an immutable version (section 6) |
+| `tools` | Per tool: allowed or not, access class (`read` or `write`), pinned hash |
+| `status` | `DRAFT` (awaiting review), `PUBLISHED`, `DEPRECATED`, `RETIRED` |
+| `drifted` | Set when the live tool list no longer matches the published version |
 | `addedBy`, `addedAt`, `reviewedBy`, `reviewedAt` | For audit |
+
+The record never holds a secret. This follows ADR-063, where a definition never holds one and
+credentials stay in credential rows.
 
 Each person's sign-in to the server is an ordinary grant: an `Entity` and `Credential` owned by
 that user, as in ADR-070 section 4. The stored connector holds the definition. It never holds a
 user's token.
 
 `provided` exists because some servers accept only clients registered ahead of time. The admin
-registers an OAuth client with the provider and gives Frigg its ID and secret. This is the one
-piece of "bring your own OAuth client" this ADR takes on.
+registers an OAuth client with the provider and gives Frigg its ID and secret, which Frigg
+stores as a credential. This is the one piece of "bring your own OAuth client" this ADR takes
+on.
 
 ### 4. Adding a server
 
@@ -101,7 +107,7 @@ sequenceDiagram
     participant G as MCP Gateway
     participant S as Remote MCP server
     A->>B: Add connector (name, URL)
-    B->>G: POST /api/gateway/stored-connectors
+    B->>G: POST /api/v2/gateway/stored-connectors
     G->>S: Discover authorization metadata
     G-->>B: connection_required, authorizeUrl
     A->>S: Sign in and consent
@@ -109,13 +115,13 @@ sequenceDiagram
     G-->>B: Tool list for review
     A->>B: Allow tools, mark read or write
     B->>G: Approve
-    Note over G: Hashes pinned, status active
+    Note over G: Version 1 published, hashes pinned
 ```
 
 - `McpRemoteRequester` from ADR-070 is reused unchanged. Discovery and client registration are
   what make an unknown server connectable.
-- A connector is `pending-review` until its tool list is approved. No tool is served before
-  that.
+- A connector is a `DRAFT` until its tool list is approved. Approval publishes version 1. No
+  tool is served before that.
 - For a personal connector there is no review step. Every tool is allowed, classed `write`,
   and pinned on first use.
 
@@ -126,8 +132,8 @@ sequenceDiagram
   link-local addresses, a response size cap, and the address checked at connect time so a DNS
   change cannot redirect it afterwards.
 - **A changed tool is withheld.** If a tool's definition no longer matches its pinned hash, the
-  connector becomes `drifted` and that tool stops being served until the person who added the
-  connector accepts the new definition.
+  connector is marked `drifted` and that tool stops being served. Accepting the new definition
+  publishes a new version. The earlier version stays, so going back is a pin change.
 - **Results say they are unreviewed.** `_meta.frigg` carries `source: 'remote'` and
   `curated: false`, with the owner kind. The caller can then apply stricter rules, such as
   confirming every call or refusing to mix this content with a write elsewhere.
@@ -139,26 +145,46 @@ sequenceDiagram
 - **Telemetry.** Tool calls emit the same usage events as ADR-070, with the connector marked as
   stored. Adding, approving, re-pinning and removing a connector are audit events.
 
-### 6. Storage
+### 6. How this relates to ADR-063
 
-A stored connector is a small definition held as data. ADR-063 proposes holding whole
-integration definitions as data, with a store, versions and publishing. Stored connectors must
-use that mechanism when it lands and must not become a second definition store. If this ADR is
-built first, it uses one table with the fields above, shaped so the rows can move into the
-ADR-063 store without change to the gateway.
+ADR-063 holds **integration** definitions as data. Its safety argument is that a definition
+"cannot reach a module the app didn't register": a data-defined integration only composes
+registered, reviewed code, through each module's capability manifest.
+
+A stored connector is the other thing: a **module** defined as data, pointing at a server the
+app did not register. ADR-063 does not cover that and its safety argument does not extend to
+it. So a stored connector is not an integration definition document, and it does not go in the
+`IntegrationDefinitionVersion` table.
+
+It does follow the same patterns, so the two read as one system:
+
+| ADR-063 pattern | Used here as |
+|---|---|
+| Immutable published versions with a checksum | The reviewed tool list. Re-approving after a change publishes a new version |
+| `DRAFT` → `PUBLISHED` → `DEPRECATED` → `RETIRED` | The connector's status |
+| Publishing is the review gate | An admin approving the tool list |
+| A definition never holds a secret | Client credentials and user tokens live in `Credential` rows |
+| Capability manifest entries, `<object>.<verb>` with `kind: read \| write` | A stored connector's tool list has the same shape: a name, an input schema, and a kind. The gateway's access class uses the same two values |
+| Ownership by owner `userId` plus `organizationId`, per ADR-056 | Organization and personal connectors use that model, not a second one |
+
+One boundary is kept on purpose: **a data-defined integration cannot call a stored connector's
+tools as steps.** Allowing it would let an unreviewed server into sync and workflow runs, which
+is exactly what ADR-063 rules out. Stored connectors are reachable only through the gateway,
+by an agent, for the acting user.
 
 ### 7. API
 
 | Method and path | Purpose |
 |---|---|
-| `POST /api/gateway/stored-connectors` | Add a server. Returns the record and, if needed, `connection_required` |
-| `GET /api/gateway/stored-connectors` | List the acting user's and their organization's stored connectors |
-| `GET /api/gateway/stored-connectors/:id/tools` | The live tool list beside the pinned one, for review |
-| `PATCH /api/gateway/stored-connectors/:id` | Approve tools, set access classes, accept a changed definition, disable |
-| `DELETE /api/gateway/stored-connectors/:id` | Remove the connector and its grants |
+| `POST /api/v2/gateway/stored-connectors` | Add a server. Returns the record and, if needed, `connection_required` |
+| `GET /api/v2/gateway/stored-connectors` | List the acting user's and their organization's stored connectors |
+| `GET /api/v2/gateway/stored-connectors/:id/tools` | The live tool list beside the pinned one, for review |
+| `PATCH /api/v2/gateway/stored-connectors/:id` | Approve tools, set access classes, accept a changed definition, disable |
+| `DELETE /api/v2/gateway/stored-connectors/:id` | Remove the connector and its grants |
 
-`GET /api/gateway/connectors` from ADR-070 includes stored connectors, marked as such, so an
-adopter's integrations page can show curated and stored connectors in one list.
+The directory endpoint from ADR-070 includes stored connectors, marked as such, so an adopter's
+integrations page can show curated and stored connectors in one list. New Management API
+resources go under `/api/v2/` per ADR-053.
 
 ### Non-goals
 
@@ -212,7 +238,9 @@ adopter's integrations page can show curated and stored connectors in one list.
 ## Related
 
 - [ADR-070](./070-mcp-gateway.md): the gateway, the requester, grants and tool policy this builds on
-- ADR-063, Integration Definitions as Data (proposed, not yet on `next`): the store these records should live in
+- ADR-063, Integration Definitions as Data (proposed, not yet on `next`): versions, lifecycle and capability manifests this follows; see section 6
+- ADR-056, app profiles, tenancy and entity scopes (proposed, not yet on `next`): the ownership model
+- ADR-053, Management API versioning (proposed, not yet on `next`): the `/api/v2/` prefix
 - [ADR-011](./011-integration-telemetry-and-usage-tracking.md): usage and audit events
 - [ADR-024](./024-global-entities.md): ownership levels
 - MCP specification: authorization, and tool annotations as untrusted hints
@@ -230,5 +258,9 @@ adopter's integrations page can show curated and stored connectors in one list.
    goes through admin review? Lean: yes, as a later addition.
 5. **Host allowlist by default.** Should a new app start with stored connectors limited to an
    allowlist the adopter fills in? Lean: no allowlist, feature off by default.
-6. **Build order against ADR-063.** If the definition store is close, wait and build on it. If
-   not, build the single table now. Needs a date for ADR-063.
+6. **Stored connectors inside data-defined integrations.** Section 6 forbids it. Is there a
+   case for allowing an organization connector, once an admin has reviewed it, as a module in
+   that organization's own definitions? Lean: no, until ADR-063's ownership follow-up lands.
+7. **Shared code with ADR-063.** Versioning, checksum and the conditional publish write exist in
+   ADR-063's v0.1 use cases. Reuse them directly, or copy the pattern? Lean: reuse, by lifting
+   them out of the integration-specific module.

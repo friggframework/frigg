@@ -92,6 +92,11 @@ Lambda and API Gateway deployment with no session store.
 
 The caller cannot tell the two apart. Both appear as tools named `{connector}__{tool}`.
 
+ADR-063 (proposed, not yet on `next`) gives each API module a capability manifest: entries
+named `<object>.<verb>`, each with `kind: read | write`, an input schema and the `Api` method
+it calls. That is already the shape of a tool. Where a module has a manifest, native tools are
+generated from it, and the access class in section 6 defaults to the manifest's `kind`.
+
 ### 3. A remote MCP server is an API module
 
 A remote MCP server is declared as an API module so that connect, storage, refresh, encryption
@@ -204,7 +209,7 @@ confirmation step. That belongs to the caller (see Non-goals).
 - A call to a connector with no usable grant returns a structured error:
   `{ code: 'connection_required', connector, provider, ownership, authorizeUrl }`. The
   caller shows a connect control. The agent's model never handles a token or a credential.
-- `GET /api/gateway/connectors` returns the directory for the acting user: every configured
+- `GET /api/v2/gateway/connectors` (under `/api/v2/` per ADR-053) returns the directory for the acting user: every configured
   connector, who owns its grant, and whether it is connected. This is what an adopter's
   integrations page renders.
 
@@ -331,6 +336,7 @@ ADR, and these products change quickly, so check the linked pages before relying
 - [ADR-011](./011-integration-telemetry-and-usage-tracking.md): usage events
 - [ADR-015](./015-extensions-taxonomy.md), [ADR-017](./017-core-extensions.md): where the gateway sits as an extension
 - [ADR-020](./020-capabilities.md): the `mcp-tool` surface that native tools are declared with
+- ADR-063, Integration Definitions as Data (proposed, not yet on `next`): capability manifests, the source for native tools
 - [ADR-024](./024-global-entities.md): app-owned entities, a possible third ownership level
 - [ADR-071](./071-bring-your-own-mcp-server.md): servers added by an organization or a user
 - [ADR-031](./031-concurrent-oauth-credential-refresh.md), [ADR-042](./042-in-process-single-flight-token-refresh.md): token refresh
