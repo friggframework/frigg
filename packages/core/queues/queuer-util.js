@@ -1,6 +1,7 @@
 const { v4: uuid } = require('uuid');
 const { SQSClient, SendMessageCommand, SendMessageBatchCommand } = require('@aws-sdk/client-sqs');
 const { summarizeMessageBody } = require('../logs/summarize-event');
+const { toSqsMessageBody } = require('./sqs-message-body');
 
 const awsConfigOptions = () => {
     const config = {};
@@ -78,7 +79,7 @@ const inspectBatchResult = (result, queueUrl, buffer) => {
 const QueuerUtil = {
     send: async (message, queueUrl) => {
         const command = new SendMessageCommand({
-            MessageBody: JSON.stringify(message),
+            MessageBody: toSqsMessageBody(message),
             QueueUrl: queueUrl,
         });
         const result = await sqs.send(command);
@@ -95,7 +96,7 @@ const QueuerUtil = {
         for (const entry of entries) {
             buffer.push({
                 Id: uuid(),
-                MessageBody: JSON.stringify(entry),
+                MessageBody: toSqsMessageBody(entry),
             });
             // Sends 10, then starts a fresh buffer. Each command gets its own
             // array: clearing the shared buffer in place would also empty the

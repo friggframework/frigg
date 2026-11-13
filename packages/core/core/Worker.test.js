@@ -50,6 +50,28 @@ describe('Worker - AWS SDK v3', () => {
         });
     });
 
+    describe('send()', () => {
+        it('escapes characters SQS rejects and keeps the body lossless', async () => {
+            sqsMock.on(SendMessageCommand).resolves({ MessageId: 'message-ffe' });
+            const params = {
+                QueueUrl: 'https://queue-url',
+                worker: 'ingest',
+                data: { name: 'Ana\uFFFE Lima\uFFFF' },
+            };
+
+            await worker.send(params);
+
+            const body = sqsMock.call(0).args[0].input.MessageBody;
+            expect(
+                /[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/u.test(body)
+            ).toBe(false);
+            expect(JSON.parse(body)).toEqual({
+                worker: 'ingest',
+                data: { name: 'Ana\uFFFE Lima\uFFFF' },
+            });
+        });
+    });
+
     describe('sendAsyncSQSMessage()', () => {
         it('should send message and return MessageId', async () => {
             sqsMock.on(SendMessageCommand).resolves({
