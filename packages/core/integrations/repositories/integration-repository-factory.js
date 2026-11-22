@@ -3,6 +3,9 @@ const { IntegrationRepositoryPostgres } = require('./integration-repository-post
 const {
     IntegrationRepositoryDocumentDB,
 } = require('./integration-repository-documentdb');
+const {
+    IntegrationRepositorySqlite,
+} = require('./integration-repository-sqlite');
 const config = require('../../database/config');
 
 /**
@@ -11,7 +14,7 @@ const config = require('../../database/config');
  *
  * This implements the Factory pattern for Hexagonal Architecture:
  * - Reads database type from app definition (backend/index.js)
- * - Returns correct adapter (MongoDB or PostgreSQL)
+ * - Returns correct adapter (MongoDB, PostgreSQL, or SQLite)
  * - Provides clear error for unsupported databases
  *
  * Usage:
@@ -35,9 +38,12 @@ function createIntegrationRepository() {
         case 'documentdb':
             return new IntegrationRepositoryDocumentDB();
 
+        case 'sqlite':
+            return new IntegrationRepositorySqlite();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql', 'sqlite'`
             );
     }
 }
@@ -48,4 +54,5 @@ module.exports = {
     IntegrationRepositoryMongo,
     IntegrationRepositoryPostgres,
     IntegrationRepositoryDocumentDB,
+    IntegrationRepositorySqlite,
 };

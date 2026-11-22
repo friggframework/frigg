@@ -19,7 +19,19 @@ class UserRepositoryPostgres extends UserRepositoryInterface {
     constructor() {
         super();
         this.prisma = prisma;
-        this.tokenRepository = createTokenRepository();
+        // Lazy initialization to avoid circular dependency at module load time
+        this._tokenRepository = null;
+    }
+
+    /**
+     * Lazy getter for token repository to avoid circular dependency
+     * @private
+     */
+    get tokenRepository() {
+        if (!this._tokenRepository) {
+            this._tokenRepository = createTokenRepository();
+        }
+        return this._tokenRepository;
     }
 
     /**

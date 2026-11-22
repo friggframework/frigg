@@ -3,6 +3,9 @@ const { TokenRepositoryPostgres } = require('./token-repository-postgres');
 const {
     TokenRepositoryDocumentDB,
 } = require('./token-repository-documentdb');
+const {
+    TokenRepositorySqlite,
+} = require('./token-repository-sqlite');
 const config = require('../../database/config');
 
 /**
@@ -24,9 +27,12 @@ function createTokenRepository() {
         case 'documentdb':
             return new TokenRepositoryDocumentDB();
 
+        case 'sqlite':
+            return new TokenRepositorySqlite();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql', 'sqlite'`
             );
     }
 }
@@ -37,4 +43,5 @@ module.exports = {
     TokenRepositoryMongo,
     TokenRepositoryPostgres,
     TokenRepositoryDocumentDB,
+    TokenRepositorySqlite,
 };

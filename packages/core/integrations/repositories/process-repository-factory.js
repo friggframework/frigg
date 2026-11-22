@@ -3,6 +3,9 @@ const { ProcessRepositoryPostgres } = require('./process-repository-postgres');
 const {
     ProcessRepositoryDocumentDB,
 } = require('./process-repository-documentdb');
+const {
+    ProcessRepositorySqlite,
+} = require('./process-repository-sqlite');
 const config = require('../../database/config');
 
 /**
@@ -11,7 +14,7 @@ const config = require('../../database/config');
  *
  * This implements the Factory pattern for Hexagonal Architecture:
  * - Reads database type from app definition (backend/index.js)
- * - Returns correct adapter (MongoDB or PostgreSQL)
+ * - Returns correct adapter (MongoDB, PostgreSQL, or SQLite)
  * - Provides clear error for unsupported databases
  *
  * Usage:
@@ -36,9 +39,12 @@ function createProcessRepository() {
         case 'documentdb':
             return new ProcessRepositoryDocumentDB();
 
+        case 'sqlite':
+            return new ProcessRepositorySqlite();
+
         default:
             throw new Error(
-                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql'`
+                `Unsupported database type: ${dbType}. Supported values: 'mongodb', 'documentdb', 'postgresql', 'sqlite'`
             );
     }
 }
@@ -49,5 +55,6 @@ module.exports = {
     ProcessRepositoryMongo,
     ProcessRepositoryPostgres,
     ProcessRepositoryDocumentDB,
+    ProcessRepositorySqlite,
 };
 
