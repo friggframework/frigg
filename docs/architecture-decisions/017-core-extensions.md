@@ -28,7 +28,7 @@ Core Extensions differ from the other two extension types:
 | `@friggframework/extension-slack-admin` | Slack bot that responds to `/frigg status`, `/frigg replay`, `/frigg integrations` against the running app |
 | `@friggframework/extension-agent-frigg-claude` | Embedded agent surface that queries the [Capability](./020-capabilities.md) graph, proposes sync flows, scaffolds integrations |
 | `@friggframework/extension-audit-log` | Append-only audit log of every credential change, integration toggle, admin action |
-| `@friggframework/extension-mcp-server` | Exposes the app's capabilities as MCP tools for external agent consumption |
+| `@friggframework/extension-mcp-server` | Exposes the app's capabilities as MCP tools for external agent consumption. Designed in [ADR-070](./070-mcp-gateway.md) as `extension-mcp-gateway`, which also fronts remote MCP servers |
 
 ## Shape (worked example)
 
