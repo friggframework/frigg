@@ -62,6 +62,13 @@ declare module "@friggframework/core" {
     decideRateLimited(
       event: RateLimitedEvent
     ): Promise<RateLimitedDecision | void>;
+
+    /** Runs past the delay tier, for an unknown retryAt, or at a cap. */
+    recordRateLimitMessage(
+      body: object,
+      error: Error,
+      limit: { retryAt: Date; capped: boolean }
+    ): Promise<void>;
   }
 
   /** ADR-049 section 3. The input of the RATE_LIMITED event handler. */

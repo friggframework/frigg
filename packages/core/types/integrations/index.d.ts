@@ -1,6 +1,27 @@
 declare module "@friggframework/integrations" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
 
+  export type IntegrationMessageAction =
+    | { type: "RETRY_WHEN_READY" }
+    | { type: "LINK"; label: string; url: string };
+
+  /** A stored integration message. Each type keeps its newest 50 items. */
+  export interface IntegrationMessage {
+    title: string | null;
+    message: string;
+    timestamp: number;
+    [key: string]: unknown;
+  }
+
+  /** ADR-049 section 5. Stored in `warnings`; `retryAt` is ISO UTC. */
+  export interface RateLimitedIntegrationMessage extends IntegrationMessage {
+    code: "RATE_LIMITED";
+    module: string;
+    reason: string;
+    retryAt: string;
+    actions: IntegrationMessageAction[];
+  }
+
   export interface Integration {
     entities: any[];
     userId: string;
@@ -8,10 +29,10 @@ declare module "@friggframework/integrations" {
     config: any;
     version: string;
     messages: {
-      errors: [];
-      warnings: [];
-      info: [];
-      logs: [];
+      errors: IntegrationMessage[];
+      warnings: IntegrationMessage[];
+      info: IntegrationMessage[];
+      logs: IntegrationMessage[];
     };
   }
 

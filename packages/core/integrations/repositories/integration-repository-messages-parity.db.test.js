@@ -166,9 +166,14 @@ describeLegs('integration messages on %s', (_, makeClient, Repository) => {
     it('keeps the warnings that were stored before', async () => {
         const integrationId = await createIntegration();
         const stored = { title: 'Old', message: 'stored', timestamp: 1 };
-        await repo.updateIntegrationMessages(integrationId, 'warnings', stored, {
-            keepLast: 50,
-        });
+        await repo.updateIntegrationMessages(
+            integrationId,
+            'warnings',
+            stored,
+            {
+                keepLast: 50,
+            }
+        );
         const item = rateLimited();
 
         await append(integrationId, item);
@@ -197,7 +202,10 @@ describeLegs('integration messages on %s', (_, makeClient, Repository) => {
 
         const results = await Promise.all(
             Array.from({ length: 20 }, (_, n) =>
-                append(integrationId, rateLimited({ retryAt: RETRY_AT + n * SECOND }))
+                append(
+                    integrationId,
+                    rateLimited({ retryAt: RETRY_AT + n * SECOND })
+                )
             )
         );
 

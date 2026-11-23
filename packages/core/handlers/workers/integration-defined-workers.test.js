@@ -616,6 +616,203 @@ describe('Webhook Queue Worker', () => {
         });
     });
 
+    describe('the RATE_LIMITED message', () => {
+        const NOW = Date.parse('2026-09-28T12:00:00.000Z');
+        const MINUTE = 60_000;
+        const QUEUE_ARN =
+            'arn:aws:sqs:us-east-1:123456789012:app--dev-TestQueue';
+        let schedulerMock;
+        let savedRoleArn;
+
+        class HubSpotApi {
+            static rateLimit = {
+                userHints: {
+                    daily: {
+                        links: [
+                            { label: 'Limits', url: 'https://example.com/limits' },
+                        ],
+                    },
+                },
+            };
+        }
+
+        class LimitedIntegration extends TestWebhookIntegration {
+            static Definition = {
+                ...TestWebhookIntegration.Definition,
+                modules: {
+                    hubspot: {
+                        definition: { moduleName: 'hubspot', API: HubSpotApi },
+                    },
+                },
+            };
+
+            async onWebhook() {
+                throw new RateLimitError({
+                    resource: 'https://api.example.com/v1/items',
+                    response: { status: 429, bodyUsed: true },
+                    hint: { reason: 'daily', source: 'header' },
+                    waitMs: this.waitMs,
+                    module: 'hubspot',
+                    now: NOW,
+                });
+            }
+        }
+
+        beforeEach(() => {
+            jest.spyOn(Date, 'now').mockReturnValue(NOW);
+            savedRoleArn = process.env.SCHEDULER_ROLE_ARN;
+            process.env.SCHEDULER_ROLE_ARN =
+                'arn:aws:iam::123456789012:role/app-dev-scheduler-role';
+            schedulerMock = mockClient(SchedulerClient);
+            schedulerMock.on(CreateScheduleCommand).resolves({});
+        });
+
+        afterEach(() => {
+            jest.restoreAllMocks();
+            schedulerMock.restore();
+            if (savedRoleArn === undefined)
+                delete process.env.SCHEDULER_ROLE_ARN;
+            else process.env.SCHEDULER_ROLE_ARN = savedRoleArn;
+        });
+
+        let isolatedSqsMocks = [];
+
+        afterEach(() => {
+            isolatedSqsMocks.forEach((mock) => mock.restore());
+            isolatedSqsMocks = [];
+        });
+
+        function buildWorker(waitMs) {
+            const appendRateLimitMessage = jest.fn().mockResolvedValue(true);
+            let QueueWorker;
+            jest.isolateModules(() => {
+                const isolatedSqs = require('@aws-sdk/client-sqs');
+                const isolatedSqsMock = mockClient(isolatedSqs.SQSClient);
+                isolatedSqsMock
+                    .on(isolatedSqs.GetQueueUrlCommand)
+                    .resolves({ QueueUrl: 'queue-url' });
+                isolatedSqsMock
+                    .on(isolatedSqs.SendMessageCommand)
+                    .resolves({ MessageId: 'new' });
+                isolatedSqsMocks.push(isolatedSqsMock);
+                jest.doMock(
+                    '../../integrations/repositories/process-repository-factory',
+                    () => ({
+                        createProcessRepository: () => ({
+                            findById: async () => ({
+                                id: 7,
+                                integrationId: 'int-3',
+                                userId: 1,
+                                context: {},
+                            }),
+                            applyProcessUpdate: async () => ({}),
+                        }),
+                    })
+                );
+                jest.doMock(
+                    '../../integrations/repositories/integration-repository-factory',
+                    () => ({
+                        createIntegrationRepository: () => ({
+                            appendRateLimitMessage,
+                        }),
+                    })
+                );
+                jest.doMock(
+                    '../../modules/repositories/module-repository-factory',
+                    () => ({ createModuleRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../integrations/use-cases/get-integration-instance',
+                    () => ({
+                        GetIntegrationInstance: class {
+                            async execute(integrationId) {
+                                const instance = new LimitedIntegration();
+                                instance.id = integrationId;
+                                instance.waitMs = waitMs;
+                                return instance;
+                            }
+                        },
+                    })
+                );
+                QueueWorker = require('../backend-utils').createQueueWorker(
+                    LimitedIntegration
+                );
+            });
+            const run = () =>
+                new QueueWorker().run({
+                    Records: [
+                        {
+                            messageId: 'msg-1',
+                            eventSourceARN: QUEUE_ARN,
+                            attributes: { ApproximateReceiveCount: '1' },
+                            body: JSON.stringify({
+                                event: 'ON_WEBHOOK',
+                                data: { processId: 7 },
+                            }),
+                        },
+                    ],
+                });
+            return { run, appendRateLimitMessage };
+        }
+
+        it('writes the warning with the links of the module on the integration that ran the job', async () => {
+            const { run, appendRateLimitMessage } = buildWorker(20 * MINUTE);
+
+            const result = await run();
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(appendRateLimitMessage).toHaveBeenCalledTimes(1);
+            expect(appendRateLimitMessage).toHaveBeenCalledWith(
+                'int-3',
+                'warnings',
+                {
+                    title: 'Rate limit reached',
+                    message:
+                        'The hubspot API rate limit was reached. The integration tries again at 2026-09-28 12:20 UTC.',
+                    timestamp: NOW,
+                    code: 'RATE_LIMITED',
+                    module: 'hubspot',
+                    reason: 'daily',
+                    retryAt: '2026-09-28T12:20:00.000Z',
+                    actions: [
+                        { type: 'RETRY_WHEN_READY' },
+                        {
+                            type: 'LINK',
+                            label: 'Limits',
+                            url: 'https://example.com/limits',
+                        },
+                    ],
+                },
+                {
+                    retryAtFrom: '2026-09-28T12:19:00.000Z',
+                    retryAtTo: '2026-09-28T12:21:00.000Z',
+                    keepLast: 50,
+                }
+            );
+        });
+
+        it('writes no warning for a wait of up to 15 minutes', async () => {
+            const { run, appendRateLimitMessage } = buildWorker(MINUTE);
+
+            const result = await run();
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(appendRateLimitMessage).not.toHaveBeenCalled();
+        });
+
+        it('keeps the deferral when the warning cannot be written', async () => {
+            const { run, appendRateLimitMessage } = buildWorker(20 * MINUTE);
+            appendRateLimitMessage.mockRejectedValue(new Error('db down'));
+
+            const result = await run();
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(
+                schedulerMock.commandCalls(CreateScheduleCommand)
+            ).toHaveLength(1);
+        });
+    });
+
     describe('Rate-limit run state', () => {
         const NOW = Date.parse('2026-09-28T12:00:00.000Z');
         const MINUTE = 60_000;

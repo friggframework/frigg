@@ -236,7 +236,7 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
 | `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
-| `userHints` | Links per `reason` that a UI can show, for example `{ daily: { links: [{ label, url }] } }`. |
+| `userHints` | Text and links per `reason` for the `RATE_LIMITED` warning that the queue worker writes on the integration, for example `{ daily: { message, links: [{ label, url }] } }`. `message` replaces the default text. Keep both client-safe. |
 
 ### Built-in parsers
 
@@ -336,7 +336,9 @@ worker does not halt a `RateLimitError`, even when its status is 403. It puts
 the message back to run at `retryAt` (see the Rate-Limit Deferral section of
 the [Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md)). With
 no `retryAt`, it puts the message back to run after the probe interval,
-`FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default 1 hour).
+`FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default 1 hour). For a wait over 15
+minutes, an unknown `retryAt` or a cap, it also writes one `RATE_LIMITED`
+warning on the integration, with the text and links of `userHints`.
 
 ### A client that is not the Requester
 

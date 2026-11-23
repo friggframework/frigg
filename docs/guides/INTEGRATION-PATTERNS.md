@@ -432,6 +432,14 @@ without a time) runs again after the probe interval,
 `FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default 1 hour). Do not catch a
 `RateLimitError` to write a retry of your own.
 
+For a wait over 15 minutes, an unknown `retryAt` or a cap, core also writes
+one `RATE_LIMITED` warning on the integration: `{ title, message, timestamp,
+code: 'RATE_LIMITED', module, reason, retryAt, actions }`. `retryAt` is ISO
+UTC. `actions` holds `{ type: 'RETRY_WHEN_READY' }` and a
+`{ type: 'LINK', label, url }` for each link in the `userHints` of the module.
+Concurrent workers that meet one limit write one warning. A shorter wait
+writes nothing, because the run continues within 15 minutes.
+
 To decide yourself, define a `RATE_LIMITED` event handler. The queue worker
 calls it with the `RATE_LIMITED` event as `data`, on the instance that ran the
 job. Return `'defer'` (or nothing) to let core put the message back, `'drop'`

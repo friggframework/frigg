@@ -32,6 +32,10 @@ const validDate = (value) =>
     value instanceof Date && !Number.isNaN(value.getTime()) ? value : null;
 const queueNameOf = (arn) =>
     typeof arn === 'string' && arn ? arn.split(':').pop() : undefined;
+// ADR-049 section 5: a wait inside the delay tier ends within 15 minutes, so
+// the user has nothing to do and gets no message.
+const tellsTheUser = ({ capped, probe, waitMs }) =>
+    capped || probe || waitMs > MAX_DELAY_SECONDS * 1000;
 
 class Worker {
     async getQueueURL(params) {
@@ -225,11 +229,21 @@ class Worker {
             delivery,
             retryAt,
             probe: !knownRetryAt,
+            capped: isDeferralCapped({ ...counters, retryAt }, limits),
             waitMs: Math.max(0, retryAt.getTime() - now),
             counters,
         };
 
-        if (isDeferralCapped({ ...counters, retryAt }, limits)) {
+        const result = await this._deferOrCap(deferral, limits);
+        if (result.outcome !== 'skipped' && tellsTheUser(deferral)) {
+            await this._recordMessage(deferral);
+        }
+        return result;
+    }
+
+    async _deferOrCap(deferral, limits) {
+        const { counters, retryAt } = deferral;
+        if (deferral.capped) {
             await this._recordWait(deferral, 'EXHAUSTED', 'none');
             this._logUnacked(
                 deferral,
@@ -361,6 +375,10 @@ class Worker {
         return Promise.resolve();
     }
 
+    recordRateLimitMessage() {
+        return Promise.resolve();
+    }
+
     clearRateLimitWait() {
         return Promise.resolve();
     }
@@ -389,6 +407,17 @@ class Worker {
                 retryAt,
             })
         );
+    }
+
+    async _recordMessage({ body, error, retryAt, capped }) {
+        try {
+            await this.recordRateLimitMessage(body, error, { retryAt, capped });
+        } catch (hookError) {
+            log.warn('Rate-limit message not written', {
+                eventName: 'frigg.worker.rate_limit_message_failed',
+                error: hookError,
+            });
+        }
     }
 
     async _clearDeferredState(record, body, delivery) {

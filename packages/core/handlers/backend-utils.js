@@ -27,6 +27,9 @@ const {
 const {
     ClearRateLimitWait,
 } = require('../integrations/use-cases/clear-rate-limit-wait');
+const {
+    RecordRateLimitMessage,
+} = require('../integrations/use-cases/record-rate-limit-message');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
     const router = Router();
@@ -204,6 +207,24 @@ const createQueueWorker = (integrationClass) => {
                 ...state,
                 reason: error.reason,
                 module: error.module,
+            });
+        }
+
+        async recordRateLimitMessage(body, error, { retryAt, capped }) {
+            const integrationId =
+                runsByMessage.get(body)?.dispatcher.integrationInstance.id;
+            if (!integrationId) return;
+            const recordRateLimitMessage = new RecordRateLimitMessage({
+                integrationRepository: createIntegrationRepository(),
+                moduleDefinitions: getModulesDefinitionFromIntegrationClasses([
+                    integrationClass,
+                ]),
+            });
+            await recordRateLimitMessage.execute(integrationId, {
+                module: error.module,
+                reason: error.reason,
+                retryAt,
+                capped,
             });
         }
 

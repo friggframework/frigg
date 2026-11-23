@@ -118,7 +118,14 @@ message succeeded.
 (`_frigg.deferralId`, or the message's own id). A failing hook logs
 `frigg.worker.rate_limit_state_failed` and never changes the outcome. The queue
 worker of an integration (`createQueueWorker`) writes `Process.context.rateLimit`
-in them. See `packages/core/CLAUDE.md` section 7.
+in them.
+
+A third no-op hook, `recordRateLimitMessage(body, error, { retryAt, capped })`,
+runs after a deferral or a cap when the wait is over 900 s, `retryAt` is
+unknown, or a cap ended the deferrals. It does not run for a `skipped`
+outcome. A failing hook logs `frigg.worker.rate_limit_message_failed` and never
+changes the outcome. The queue worker of an integration writes the
+`RATE_LIMITED` warning in it. See `packages/core/CLAUDE.md` section 7.
 
 ### Delegate Pattern System (`Delegate.js:3-27`)
 

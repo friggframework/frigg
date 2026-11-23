@@ -301,6 +301,14 @@ packages/core/
   per integration and 0.5–0.7 s at 10⁵ (the DocumentDB pipeline, run on
   MongoDB, 0.6–0.8 s). On every adapter a deep offset or an empty page past
   the end costs about the same as the first page.
+- Integration messages: `updateIntegrationMessages(integrationId, type, item,
+  { keepLast })` appends one item and keeps the newest `keepLast` (the use case
+  passes 50). `findIntegrationMessages(integrationId, type)` reads the stored
+  items of a type. `appendRateLimitMessage` is the atomic write of the
+  `RATE_LIMITED` warning (section 7). `integration-repository-messages-parity.db.test.js`
+  runs every adapter against real databases when
+  `INTEGRATION_MESSAGES_PARITY_MONGO_URL` / `INTEGRATION_MESSAGES_PARITY_POSTGRES_URL`
+  are set.
 - `process-repository-*.js` - Process (long-running job) persistence.
   Implements `applyProcessUpdate(processId, ops)` — a race-safe alternative
   to `update(id, patch)` that routes increments, sets, and bounded-array
@@ -648,7 +656,39 @@ Records: a rate-limited SQS record gets one log record, by its outcome.
 | Not acknowledged, not the last attempt | One WARN: `record_deferral_capped`, `record_visibility_extended`, or `record_failed` with `deferral.skipped` (`handler_retry` and `handler_failed` for the `RATE_LIMITED` handler) |
 | Not acknowledged, last attempt | One ERROR, `record_lost_rate_limited`, with the details, and no WARN |
 
-A failing run state hook adds `rate_limit_state_failed`. A queue in a stack
+**The `RATE_LIMITED` message** (ADR-049 section 5): the default handler writes
+one client-safe warning on the integration in three cases: the wait is over
+900 s, `retryAt` is unknown (the message then has the probe time), or a cap
+ended the deferrals. A shorter wait writes nothing, because the run continues
+within 15 minutes. The `RATE_LIMITED` handler's `'drop'` and `'retry'` write
+nothing, because the default handler does not run.
+
+```javascript
+{
+    title: 'Rate limit reached',
+    message,                 // userHints[reason].message, else a default text
+    timestamp,
+    code: 'RATE_LIMITED',
+    module, reason,
+    retryAt,                 // ISO UTC; the UI shows local time
+    actions: [
+        { type: 'RETRY_WHEN_READY' },
+        { type: 'LINK', label, url },   // from userHints[reason].links
+    ],
+}
+```
+
+`userHints` come from the `static rateLimit` of the module that the event
+names (`Definition.modules[*].definition.moduleName`). The `QueueWorker` writes
+the warning through `RecordRateLimitMessage` and the repository method
+`appendRateLimitMessage`. That method is one atomic write on every adapter: it
+appends only when no stored warning has the same `code` and `module` and a
+`retryAt` within 60 s, and it keeps the newest 50 warnings. So twenty workers
+that meet one limit write one warning. A rate limit does not change the status
+of the integration.
+
+A failing run state hook adds `rate_limit_state_failed`. A failing message hook
+adds `rate_limit_message_failed`. Neither changes the outcome. A queue in a stack
 that does not own it (`ownership.queue: 'external'`) needs its own
 `sqs:ChangeMessageVisibility` and scheduler access.
 

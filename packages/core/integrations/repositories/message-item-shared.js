@@ -3,7 +3,10 @@ const MESSAGE_TYPES = Object.freeze(['errors', 'warnings', 'info', 'logs']);
 const messagesOfType = (record, messageType) =>
     Array.isArray(record[messageType]) ? record[messageType] : [];
 
-const sameRateLimitMessage = ({ code, module }, { retryAtFrom, retryAtTo }) => ({
+const sameRateLimitMessage = (
+    { code, module },
+    { retryAtFrom, retryAtTo }
+) => ({
     $elemMatch: {
         code,
         module,

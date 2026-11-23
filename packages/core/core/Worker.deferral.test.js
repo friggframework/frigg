@@ -1088,6 +1088,128 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
         });
     });
 
+    describe('the rate-limit message hook', () => {
+        beforeEach(() => {
+            worker.recordRateLimitMessage = jest
+                .fn()
+                .mockResolvedValue(undefined);
+        });
+
+        const messageCalls = () =>
+            worker.recordRateLimitMessage.mock.calls.map(
+                ([body, error, limit]) => ({ body, error, limit })
+            );
+
+        it('writes the message for a wait past the delay tier', async () => {
+            process.env.SCHEDULER_ROLE_ARN = SCHEDULER_ROLE_ARN;
+            worker._run.mockRejectedValue(rateLimited(20 * MINUTE));
+
+            await run();
+
+            expect(messageCalls()).toEqual([
+                {
+                    body: BODY,
+                    error: expect.any(RateLimitError),
+                    limit: { retryAt: new Date(NOW + 20 * MINUTE), capped: false },
+                },
+            ]);
+        });
+
+        it('writes the message when the visibility timeout carries the wait', async () => {
+            worker._run.mockRejectedValue(rateLimited(20 * MINUTE));
+
+            const result = await run();
+
+            expect(result).toEqual(failure());
+            expect(messageCalls()).toHaveLength(1);
+        });
+
+        it('writes the message with the probe time when retryAt is unknown, also on the delay tier', async () => {
+            process.env[RATE_LIMIT_PROBE_MS_ENV] = String(10 * MINUTE);
+            worker._run.mockRejectedValue(
+                Object.assign(new Error('limited'), { isRateLimited: true })
+            );
+
+            await run();
+
+            expect(sent()).toHaveLength(1);
+            expect(messageCalls()[0].limit).toEqual({
+                retryAt: new Date(NOW + 10 * MINUTE),
+                capped: false,
+            });
+        });
+
+        it('writes the message when a cap ended the deferrals', async () => {
+            process.env[MAX_DEFERRALS_ENV] = '2';
+            worker._run.mockRejectedValue(rateLimited(60 * SECOND));
+
+            await run(
+                deferredRecord(2, new Date(NOW - MINUTE).toISOString())
+            );
+
+            expect(messageCalls()[0].limit).toEqual({
+                retryAt: new Date(NOW + 60 * SECOND),
+                capped: true,
+            });
+        });
+
+        it('writes no message for a wait of up to 15 minutes', async () => {
+            worker._run.mockRejectedValue(rateLimited(15 * MINUTE));
+
+            await run();
+
+            expect(sent()).toHaveLength(1);
+            expect(worker.recordRateLimitMessage).not.toHaveBeenCalled();
+        });
+
+        it('writes no message when the record was not deferred', async () => {
+            sqsMock
+                .on(ChangeMessageVisibilityCommand)
+                .rejects(new Error('gone'));
+            worker._run.mockRejectedValue(rateLimited(20 * MINUTE));
+
+            await run();
+
+            expect(worker.recordRateLimitMessage).not.toHaveBeenCalled();
+        });
+
+        it.each([['drop'], ['retry']])(
+            'writes no message when the RATE_LIMITED handler decides %s',
+            async (decision) => {
+                worker.decideRateLimited = jest
+                    .fn()
+                    .mockResolvedValue(decision);
+                worker._run.mockRejectedValue(rateLimited(20 * MINUTE));
+
+                await run();
+
+                expect(worker.recordRateLimitMessage).not.toHaveBeenCalled();
+            }
+        );
+
+        it('logs a failing hook and keeps the outcome', async () => {
+            process.env.SCHEDULER_ROLE_ARN = SCHEDULER_ROLE_ARN;
+            worker.recordRateLimitMessage.mockRejectedValue(
+                new Error('database is down')
+            );
+            worker._run.mockRejectedValue(rateLimited(20 * MINUTE));
+
+            const result = await run();
+
+            expect(result).toEqual({ batchItemFailures: [] });
+            expect(schedules()).toHaveLength(1);
+            expect(logged('rate_limit_message_failed')).toEqual([
+                expect.objectContaining({
+                    level: 'WARN',
+                    error: expect.objectContaining({
+                        message: 'database is down',
+                    }),
+                }),
+            ]);
+            expect(logged('record_deferred')).toHaveLength(1);
+        });
+    });
+
     describe('the SQS client', () => {
         it('is built with the offline and endpoint options', () => {
             process.env.AWS_ENDPOINT = 'http://localhost:4566';
