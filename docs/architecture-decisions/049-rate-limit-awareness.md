@@ -195,7 +195,7 @@ A **hint** has one shape everywhere:
   unknown `retryAt`.
 - **`Retry-After` is read for every module, on a 429 and on a response that
   `classify` recognises.** A 503 that `classify` does not recognise keeps the
-  5xx ladder, also with `Retry-After`.
+  5xx `backOff` ladder, and the Requester does not read its `Retry-After`.
 - **Modules that do not use the Requester** (for example a module on jsforce)
   call the exported `classifyRateLimit()` around their own client.
 
