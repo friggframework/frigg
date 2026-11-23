@@ -3,9 +3,10 @@
  *
  * Merely requiring the scheduler infrastructure (and therefore core itself)
  * must NOT load the AWS SDK. Only instantiating the EventBridge adapter should
- * reach for it. These tests simulate the SDK being absent with a virtual mock
- * that throws MODULE_NOT_FOUND, so they prove laziness regardless of whether
- * the package happens to be installed in the test environment.
+ * reach for it. These tests simulate the SDK being absent with a mock that
+ * throws MODULE_NOT_FOUND. The mock is not virtual: the package is a hard
+ * dependency, and a virtual mock is missed when an earlier test file in the
+ * same jest worker already resolved the real package.
  */
 
 const SDK = '@aws-sdk/client-scheduler';
@@ -22,13 +23,9 @@ function moduleNotFound(message) {
  */
 function withSdkThrowing(error, fn) {
     jest.isolateModules(() => {
-        jest.doMock(
-            SDK,
-            () => {
-                throw error;
-            },
-            { virtual: true }
-        );
+        jest.doMock(SDK, () => {
+            throw error;
+        });
         fn();
     });
 }
@@ -109,7 +106,7 @@ describe('EventBridge scheduler lazy AWS SDK loading', () => {
     it('instantiates the adapter when the SDK is available', () => {
         jest.isolateModules(() => {
             const SchedulerClient = jest.fn();
-            jest.doMock(SDK, () => ({ SchedulerClient }), { virtual: true });
+            jest.doMock(SDK, () => ({ SchedulerClient }));
             const {
                 EventBridgeSchedulerAdapter,
             } = require('./eventbridge-scheduler-adapter');
@@ -153,7 +150,7 @@ describe('EventBridge scheduler lazy AWS SDK loading', () => {
 
         let adapter;
         jest.isolateModules(() => {
-            jest.doMock(SDK, factory, { virtual: true });
+            jest.doMock(SDK, factory);
             const {
                 EventBridgeSchedulerAdapter,
             } = require('./eventbridge-scheduler-adapter');
