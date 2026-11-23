@@ -432,6 +432,25 @@ without a time) runs again after the probe interval,
 `FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default 1 hour). Do not catch a
 `RateLimitError` to write a retry of your own.
 
+To decide yourself, define a `RATE_LIMITED` event handler. The queue worker
+calls it with the `RATE_LIMITED` event as `data`, on the instance that ran the
+job. Return `'defer'` (or nothing) to let core put the message back, `'drop'`
+to delete the message, or `'retry'` to give it back to SQS. A handler that
+throws counts as `'retry'`.
+
+```javascript
+this.events = {
+    RATE_LIMITED: {
+        handler: async ({ data: event }) => {
+            // event: { retryAt, waitMs, reason, module, scopeKey, message,
+            //          delivery: { messageId, receiveCount, deferrals, deferredMs } }
+            if (event.message.event === 'REFRESH_PREVIEW') return 'drop';
+            return 'defer';
+        },
+    },
+};
+```
+
 ---
 
 ## Sync Orchestration

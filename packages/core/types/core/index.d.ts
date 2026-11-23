@@ -58,7 +58,30 @@ declare module "@friggframework/core" {
       body: object,
       options?: { deferralId?: string }
     ): Promise<void>;
+
+    decideRateLimited(
+      event: RateLimitedEvent
+    ): Promise<RateLimitedDecision | void>;
   }
+
+  /** ADR-049 section 3. The input of the RATE_LIMITED event handler. */
+  export type RateLimitedEvent = {
+    retryAt?: Date;
+    waitMs?: number;
+    reason?: string;
+    module?: string;
+    scopeKey?: string;
+    message: object;
+    delivery: {
+      messageId: string;
+      receiveCount?: number;
+      deferrals: number;
+      deferredMs: number;
+    };
+  };
+
+  /** `defer` or no value runs the default handler. A throw counts as `retry`. */
+  export type RateLimitedDecision = "defer" | "drop" | "retry";
 
   export type RateLimitWaitState = {
     status: "WAITING" | "EXHAUSTED";

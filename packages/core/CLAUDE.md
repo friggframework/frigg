@@ -554,8 +554,32 @@ it as `FRIGG_QUEUE_MAX_RECEIVE_COUNT` on the queue worker function.
 
 **Rate-limit deferral** (ADR-049): when a queue handler throws an error with
 `isRateLimited` (a `RateLimitError` from the Requester, or one a module throws),
-`Worker.run` does not give the message back to SQS for a 30 minute redelivery.
-It puts the message back so it runs at `retryAt`:
+`Worker.run` builds a `RATE_LIMITED` event:
+
+```javascript
+{
+    retryAt, waitMs, reason, module, scopeKey, // from the error; retryAt can be undefined
+    message,                                   // the body of the queue message
+    delivery: { messageId, receiveCount, deferrals, deferredMs },
+}
+```
+
+When the integration defines a `RATE_LIMITED` event handler, the queue worker
+calls it with `{ data: event, context, delivery }`, on the instance that ran the
+job. The return value decides:
+
+| Value | What the worker does |
+|---|---|
+| `'defer'`, or no value | The default handler runs (below) |
+| `'drop'` | Acknowledges the record. SQS deletes the message |
+| `'retry'` | Reports the record failed, as for any retryable error |
+
+A handler that throws counts as `'retry'`. With no `RATE_LIMITED` handler, the
+default handler runs. The same event is meant to become the input of the
+ADR-047 orchestrator later.
+
+The default handler does not give the message back to SQS for a 30 minute
+redelivery. It puts the message back so it runs at `retryAt`:
 
 | Wait | What the worker does | Record |
 |---|---|---|
@@ -620,7 +644,8 @@ Records: a rate-limited SQS record gets one log record, by its outcome.
 | Outcome | Log record |
 |---|---|
 | Acknowledged | WARN `frigg.worker.record_deferred` (`mechanism` `delay` or `schedule`) |
-| Not acknowledged, not the last attempt | One WARN: `record_deferral_capped`, `record_visibility_extended`, or `record_failed` with `deferral.skipped` |
+| Dropped by the `RATE_LIMITED` handler | WARN `frigg.worker.record_dropped` |
+| Not acknowledged, not the last attempt | One WARN: `record_deferral_capped`, `record_visibility_extended`, or `record_failed` with `deferral.skipped` (`handler_retry` and `handler_failed` for the `RATE_LIMITED` handler) |
 | Not acknowledged, last attempt | One ERROR, `record_lost_rate_limited`, with the details, and no WARN |
 
 A failing run state hook adds `rate_limit_state_failed`. A queue in a stack

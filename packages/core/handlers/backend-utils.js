@@ -167,10 +167,33 @@ const loadIntegrationForProcess = async (processId, integrationClass) => {
     return instance;
 };
 
+const RATE_LIMITED_EVENT = 'RATE_LIMITED';
+
 const createQueueWorker = (integrationClass) => {
     const integrationName = integrationClass.Definition.name;
+    // The hydrated instance of each message, so the RATE_LIMITED handler runs
+    // on the instance that ran the job, with no second hydration.
+    const runsByMessage = new WeakMap();
 
     class QueueWorker extends Worker {
+        async decideRateLimited(event) {
+            const run = runsByMessage.get(event.message);
+            if (
+                !run?.dispatcher.findEventHandler(
+                    run.dispatcher.integrationInstance,
+                    RATE_LIMITED_EVENT
+                )
+            ) {
+                return undefined;
+            }
+            return run.dispatcher.dispatchJob({
+                event: RATE_LIMITED_EVENT,
+                data: event,
+                context: run.context,
+                delivery: run.delivery,
+            });
+        }
+
         async recordRateLimitWait(body, error, state) {
             const processId = body.data?.processId;
             if (!processId) return;
@@ -274,6 +297,7 @@ const createQueueWorker = (integrationClass) => {
                 const dispatcher = new IntegrationEventDispatcher(
                     integrationInstance
                 );
+                runsByMessage.set(params, { dispatcher, context, delivery });
 
                 console.log(
                     `[QueueWorker] dispatching ${params.event}`,

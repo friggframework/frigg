@@ -68,12 +68,26 @@ class Worker {
                 } catch (error) {
                     let deferralResult;
                     if (error.isRateLimited && runParams) {
-                        deferralResult = await this.defer(
+                        const event = this._rateLimitedEvent(
                             record,
                             runParams,
                             error,
                             delivery
                         );
+                        const decision = await this._decideRateLimited(event);
+                        if (decision.action === 'drop') {
+                            this._logDropped(event, error);
+                            return;
+                        }
+                        deferralResult =
+                            decision.action === 'defer'
+                                ? await this.defer(
+                                      record,
+                                      runParams,
+                                      error,
+                                      delivery
+                                  )
+                                : { outcome: 'skipped', ...decision.skip };
                         if (deferralResult.outcome === 'acked') return;
                         if (deferralResult.outcome === 'failed') {
                             batchItemFailures.push({
@@ -135,6 +149,60 @@ class Worker {
     async _run(params, context = {}) {
         // validate params and instantiate any class to do work based on the
         // parameters
+    }
+
+    // The RATE_LIMITED event of ADR-049 section 3. The same object is meant to
+    // become the input of the ADR-047 orchestrator's reducer.
+    _rateLimitedEvent(record, body, error, delivery) {
+        const { deferrals, firstDeferredAt } = readDeferral(body);
+        return {
+            retryAt: validDate(error.retryAt) ?? undefined,
+            waitMs: error.waitMs,
+            reason: error.reason,
+            module: error.module,
+            scopeKey: error.scopeKey,
+            message: body,
+            delivery: {
+                messageId: record.messageId,
+                receiveCount: delivery.receiveCount,
+                deferrals,
+                deferredMs: firstDeferredAt
+                    ? Date.now() - Date.parse(firstDeferredAt)
+                    : 0,
+            },
+        };
+    }
+
+    decideRateLimited() {
+        return Promise.resolve();
+    }
+
+    async _decideRateLimited(event) {
+        let decision;
+        try {
+            decision = await this.decideRateLimited(event);
+        } catch (cause) {
+            return {
+                action: 'retry',
+                skip: { skipped: 'handler_failed', cause },
+            };
+        }
+        if (decision === 'drop') return { action: 'drop' };
+        if (decision === 'retry') {
+            return { action: 'retry', skip: { skipped: 'handler_retry' } };
+        }
+        return { action: 'defer' };
+    }
+
+    _logDropped(event, error) {
+        log.warn('Rate-limited record dropped by the integration', {
+            eventName: 'frigg.worker.record_dropped',
+            retryAt: event.retryAt?.toISOString(),
+            reason: event.reason,
+            module: event.module,
+            statusCode: error.statusCode,
+            error,
+        });
     }
 
     async defer(record, body, error, delivery) {

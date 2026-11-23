@@ -530,6 +530,186 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
         });
     });
 
+    describe('the RATE_LIMITED event', () => {
+        beforeEach(() => {
+            worker.decideRateLimited = jest.fn().mockResolvedValue(undefined);
+        });
+
+        const scopedError = () =>
+            new RateLimitError({
+                resource: 'https://api.example.com/v1/items',
+                response: { status: 429, bodyUsed: true },
+                hint: { waitMs: 60 * SECOND, reason: 'daily', source: 'header' },
+                waitMs: 60 * SECOND,
+                module: 'hubspot',
+                scopeKey: 'hubspot:entity:9',
+                now: NOW,
+            });
+
+        it('hands the event of ADR-049 section 3 to decideRateLimited', async () => {
+            worker._run.mockRejectedValue(scopedError());
+
+            await run(
+                sqsRecord({ attributes: { ApproximateReceiveCount: '2' } })
+            );
+
+            expect(worker.decideRateLimited).toHaveBeenCalledTimes(1);
+            expect(worker.decideRateLimited).toHaveBeenCalledWith({
+                retryAt: new Date(NOW + 60 * SECOND),
+                waitMs: 60 * SECOND,
+                reason: 'daily',
+                module: 'hubspot',
+                scopeKey: 'hubspot:entity:9',
+                message: BODY,
+                delivery: {
+                    messageId: 'msg-1',
+                    receiveCount: 2,
+                    deferrals: 0,
+                    deferredMs: 0,
+                },
+            });
+        });
+
+        it('counts the deferrals and the time since the first deferral of a message that was put back before', async () => {
+            const firstDeferredAt = new Date(NOW - 10 * MINUTE).toISOString();
+            worker._run.mockRejectedValue(scopedError());
+
+            await run(deferredRecord(2, firstDeferredAt));
+
+            expect(worker.decideRateLimited.mock.calls[0][0].delivery).toEqual(
+                {
+                    messageId: 'msg-1',
+                    receiveCount: 1,
+                    deferrals: 2,
+                    deferredMs: 10 * MINUTE,
+                }
+            );
+        });
+
+        it('leaves retryAt and waitMs undefined when the time is unknown', async () => {
+            worker._run.mockRejectedValue(
+                Object.assign(new Error('limited'), { isRateLimited: true })
+            );
+
+            await run();
+
+            const [event] = worker.decideRateLimited.mock.calls[0];
+            expect(event.retryAt).toBeUndefined();
+            expect(event.waitMs).toBeUndefined();
+        });
+
+        it('builds no event for an error that is not a rate limit', async () => {
+            worker._run.mockRejectedValue(new Error('boom'));
+
+            await run();
+
+            expect(worker.decideRateLimited).not.toHaveBeenCalled();
+        });
+
+        it.each([['defer'], [undefined]])(
+            'runs the default handler for the decision %p',
+            async (decision) => {
+                worker.decideRateLimited.mockResolvedValue(decision);
+                worker._run.mockRejectedValue(scopedError());
+
+                const result = await run();
+
+                expect(result).toEqual({ batchItemFailures: [] });
+                expect(sent()).toEqual([
+                    expect.objectContaining({ DelaySeconds: 60 }),
+                ]);
+            }
+        );
+
+        it('acknowledges the record, sends nothing and writes one WARN for drop', async () => {
+            worker.decideRateLimited.mockResolvedValue('drop');
+            worker._run.mockRejectedValue(scopedError());
+
+            const result = await run();
+
+            expect(result).toEqual({ batchItemFailures: [] });
+            expect(sent()).toEqual([]);
+            expect(schedules()).toEqual([]);
+            expect(visibility()).toEqual([]);
+            expect(sink.records.filter((r) => r.level !== 'DEBUG')).toEqual([
+                expect.objectContaining({
+                    level: 'WARN',
+                    eventName: 'frigg.worker.record_dropped',
+                    reason: 'daily',
+                    module: 'hubspot',
+                    retryAt: new Date(NOW + 60 * SECOND).toISOString(),
+                    error: expect.objectContaining({ type: 'RateLimitError' }),
+                }),
+            ]);
+        });
+
+        it('reports the record failed, and sends nothing, for retry', async () => {
+            worker.decideRateLimited.mockResolvedValue('retry');
+            worker._run.mockRejectedValue(scopedError());
+
+            const result = await run();
+
+            expect(result).toEqual(failure());
+            expect(sent()).toEqual([]);
+            expect(logged('record_failed')).toEqual([
+                expect.objectContaining({
+                    deferral: { skipped: 'handler_retry' },
+                }),
+            ]);
+        });
+
+        it('takes a handler that throws as retry, and logs why', async () => {
+            worker.decideRateLimited.mockRejectedValue(
+                new Error('handler broke')
+            );
+            worker._run.mockRejectedValue(scopedError());
+
+            const result = await run();
+
+            expect(result).toEqual(failure());
+            expect(sent()).toEqual([]);
+            expect(logged('record_failed')).toEqual([
+                expect.objectContaining({
+                    error: expect.objectContaining({ type: 'RateLimitError' }),
+                    deferral: {
+                        skipped: 'handler_failed',
+                        cause: expect.objectContaining({
+                            message: 'handler broke',
+                        }),
+                    },
+                }),
+            ]);
+        });
+
+        it('writes one ERROR for retry on the last delivery', async () => {
+            process.env.FRIGG_QUEUE_MAX_RECEIVE_COUNT = '3';
+            worker.decideRateLimited.mockResolvedValue('retry');
+            worker._run.mockRejectedValue(scopedError());
+
+            await run(
+                sqsRecord({ attributes: { ApproximateReceiveCount: '3' } })
+            );
+
+            expect(logged('record_lost_rate_limited')).toEqual([
+                expect.objectContaining({
+                    level: 'ERROR',
+                    deferral: { skipped: 'handler_retry' },
+                }),
+            ]);
+            expect(logged('record_failed')).toEqual([]);
+        });
+
+        it('makes no decision by default, so the default handler runs', async () => {
+            const plain = new Worker();
+            plain._run = jest.fn().mockRejectedValue(scopedError());
+
+            const result = await plain.run({ Records: [sqsRecord()] });
+
+            expect(result).toEqual({ batchItemFailures: [] });
+            expect(sent()).toHaveLength(1);
+        });
+    });
+
     describe('a rate-limit error with no retryAt', () => {
         const untimed = () => [
             [

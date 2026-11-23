@@ -79,8 +79,19 @@ await worker.send({
 }, delaySeconds);
 ```
 
-**Rate-limit deferral** (ADR-049): `run()` handles an error with `isRateLimited`
-through `defer(record, body, error, delivery)`, which returns `{ outcome }`. An
+**Rate-limit deferral** (ADR-049): for an error with `isRateLimited`, `run()`
+builds the `RATE_LIMITED` event (`{ retryAt, waitMs, reason, module, scopeKey,
+message, delivery: { messageId, receiveCount, deferrals, deferredMs } }`) and
+gives it to the hook `decideRateLimited(event)`. The hook returns `'defer'`,
+`'drop'` or `'retry'`. The `Worker` default returns no value. A throw counts as
+`'retry'`. `'drop'` acknowledges the record and writes WARN `record_dropped`.
+`'retry'` fails the record with `deferral.skipped` `handler_retry` (or
+`handler_failed` for a throw). The queue worker of an integration
+(`createQueueWorker`) calls the integration's `RATE_LIMITED` event handler
+there, on the instance that ran the job.
+
+For `'defer'` or no value, the default handler
+`defer(record, body, error, delivery)` runs. It returns `{ outcome }`. An
 unknown `retryAt` becomes now plus `FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default
 1 h):
 - `acked`: the message was sent again with `DelaySeconds` (wait up to 900 s) or
