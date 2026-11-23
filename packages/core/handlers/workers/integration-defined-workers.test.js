@@ -4,6 +4,12 @@ jest.mock('../../database/config', () => ({
     PRISMA_LOG_LEVEL: 'error,warn',
 }));
 
+const { mockClient } = require('aws-sdk-client-mock');
+const { SQSClient } = require('@aws-sdk/client-sqs');
+const {
+    CreateScheduleCommand,
+    SchedulerClient,
+} = require('@aws-sdk/client-scheduler');
 const { createQueueWorker } = require('../backend-utils');
 const { IntegrationBase } = require('../../integrations/integration-base');
 const { IntegrationEventDispatcher } = require('../integration-event-dispatcher');
@@ -296,6 +302,77 @@ describe('Webhook Queue Worker', () => {
             ]);
             expect(error.statusCode).toBe(403);
             expect(error.isHaltError).toBeUndefined();
+        });
+
+        describe('a classified 403 with no retry time', () => {
+            const NOW = Date.parse('2026-09-28T12:00:00.000Z');
+            const QUEUE_ARN =
+                'arn:aws:sqs:us-east-1:123456789012:app--dev-TestQueue';
+            let sqsMock;
+            let schedulerMock;
+            let savedRoleArn;
+
+            beforeEach(() => {
+                jest.spyOn(Date, 'now').mockReturnValue(NOW);
+                savedRoleArn = process.env.SCHEDULER_ROLE_ARN;
+                process.env.SCHEDULER_ROLE_ARN =
+                    'arn:aws:iam::123456789012:role/app-dev-scheduler-role';
+                sqsMock = mockClient(SQSClient);
+                schedulerMock = mockClient(SchedulerClient);
+                schedulerMock.on(CreateScheduleCommand).resolves({});
+            });
+
+            afterEach(() => {
+                jest.restoreAllMocks();
+                sqsMock.restore();
+                schedulerMock.restore();
+                if (savedRoleArn === undefined)
+                    delete process.env.SCHEDULER_ROLE_ARN;
+                else process.env.SCHEDULER_ROLE_ARN = savedRoleArn;
+            });
+
+            it('is not halted, and is deferred to the probe time instead of going back to SQS', async () => {
+                const error = new RateLimitError({
+                    resource: 'https://api.example.com/v1/items',
+                    response: { status: 403, bodyUsed: true },
+                    hint: { reason: 'daily' },
+                    module: 'hubspot',
+                    now: NOW,
+                });
+                const FailingIntegration = class extends TestWebhookIntegration {
+                    async onWebhook() {
+                        throw error;
+                    }
+                };
+                const QueueWorker = createQueueWorker(FailingIntegration);
+
+                const result = await new QueueWorker().run({
+                    Records: [
+                        {
+                            messageId: 'msg-1',
+                            eventSourceARN: QUEUE_ARN,
+                            attributes: { ApproximateReceiveCount: '1' },
+                            body: JSON.stringify({
+                                event: 'ON_WEBHOOK',
+                                data: { body: {} },
+                            }),
+                        },
+                    ],
+                });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(error.isHaltError).toBeUndefined();
+                expect(
+                    schedulerMock
+                        .commandCalls(CreateScheduleCommand)
+                        .map((call) => call.args[0].input)
+                ).toEqual([
+                    expect.objectContaining({
+                        Name: 'frigg-defer-msg-1',
+                        ScheduleExpression: 'at(2026-09-28T13:00:00)',
+                    }),
+                ]);
+            });
         });
 
         it('should NOT mark 500 as isHaltError (server may recover)', async () => {

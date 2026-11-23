@@ -3,6 +3,8 @@ const {
     MAX_DEFERRALS_ENV,
     MAX_DEFERRED_MS,
     MAX_DEFERRED_MS_ENV,
+    RATE_LIMIT_PROBE_MS,
+    RATE_LIMIT_PROBE_MS_ENV,
     MAX_DELAY_SECONDS,
     MAX_VISIBILITY_TIMEOUT_SECONDS,
     isDeferralCapped,
@@ -23,6 +25,8 @@ describe('queue-deferral', () => {
         expect(MAX_DEFERRED_MS).toBe(26 * HOUR);
         expect(MAX_DEFERRALS_ENV).toBe('FRIGG_QUEUE_MAX_DEFERRALS');
         expect(MAX_DEFERRED_MS_ENV).toBe('FRIGG_QUEUE_MAX_DEFERRED_MS');
+        expect(RATE_LIMIT_PROBE_MS).toBe(HOUR);
+        expect(RATE_LIMIT_PROBE_MS_ENV).toBe('FRIGG_QUEUE_RATE_LIMIT_PROBE_MS');
     });
 
     describe('readDeferralLimits', () => {
@@ -30,16 +34,22 @@ describe('queue-deferral', () => {
             expect(readDeferralLimits({})).toEqual({
                 maxDeferrals: 30,
                 maxDeferredMs: 26 * HOUR,
+                probeMs: HOUR,
             });
         });
 
-        it('reads both limits from the environment', () => {
+        it('reads every limit from the environment', () => {
             expect(
                 readDeferralLimits({
                     [MAX_DEFERRALS_ENV]: '3',
                     [MAX_DEFERRED_MS_ENV]: '7200000',
+                    [RATE_LIMIT_PROBE_MS_ENV]: '600000',
                 })
-            ).toEqual({ maxDeferrals: 3, maxDeferredMs: 7_200_000 });
+            ).toEqual({
+                maxDeferrals: 3,
+                maxDeferredMs: 7_200_000,
+                probeMs: 600_000,
+            });
         });
 
         it.each(['0', '-1', '1.5', 'many', ''])(
@@ -49,8 +59,13 @@ describe('queue-deferral', () => {
                     readDeferralLimits({
                         [MAX_DEFERRALS_ENV]: value,
                         [MAX_DEFERRED_MS_ENV]: value,
+                        [RATE_LIMIT_PROBE_MS_ENV]: value,
                     })
-                ).toEqual({ maxDeferrals: 30, maxDeferredMs: 26 * HOUR });
+                ).toEqual({
+                    maxDeferrals: 30,
+                    maxDeferredMs: 26 * HOUR,
+                    probeMs: HOUR,
+                });
             }
         );
 

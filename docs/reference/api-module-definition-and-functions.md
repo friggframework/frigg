@@ -335,7 +335,8 @@ response that `classify` recognises, and of no other response: a 503 with
 worker does not halt a `RateLimitError`, even when its status is 403. It puts
 the message back to run at `retryAt` (see the Rate-Limit Deferral section of
 the [Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md)). With
-no `retryAt`, the message returns to SQS like any retryable error.
+no `retryAt`, it puts the message back to run after the probe interval,
+`FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default 1 hour).
 
 ### A client that is not the Requester
 

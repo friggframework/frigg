@@ -16,6 +16,7 @@ const {
     MAX_DEFERRALS_ENV,
     MAX_DEFERRED_MS,
     MAX_DEFERRED_MS_ENV,
+    RATE_LIMIT_PROBE_MS_ENV,
 } = require('../queues/queue-deferral');
 
 const NOW = Date.parse('2026-09-28T12:00:00.000Z');
@@ -39,6 +40,7 @@ const ENV_KEYS = [
     'SCHEDULER_ROLE_ARN',
     MAX_DEFERRALS_ENV,
     MAX_DEFERRED_MS_ENV,
+    RATE_LIMIT_PROBE_MS_ENV,
 ];
 
 function rateLimited(waitMs, { reason = 'burst', module = 'hubspot' } = {}) {
@@ -528,42 +530,86 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
         });
     });
 
-    describe('a rate-limit error that cannot be deferred', () => {
-        it.each([
+    describe('a rate-limit error with no retryAt', () => {
+        const untimed = () => [
             [
                 'an error with isRateLimited and no retryAt',
-                () =>
-                    Object.assign(new Error('limited'), {
-                        isRateLimited: true,
-                    }),
+                Object.assign(new Error('limited'), { isRateLimited: true }),
             ],
             [
                 'a RateLimitError for a non-429 limit with no time',
-                () =>
-                    new RateLimitError({
-                        resource: 'https://api.example.com/v1/items',
-                        response: { status: 403, bodyUsed: true },
-                        hint: { reason: 'daily' },
-                        module: 'hubspot',
-                        now: NOW,
-                    }),
+                new RateLimitError({
+                    resource: 'https://api.example.com/v1/items',
+                    response: { status: 403, bodyUsed: true },
+                    hint: { reason: 'daily' },
+                    module: 'hubspot',
+                    now: NOW,
+                }),
             ],
-        ])('goes back to SQS as before for %s', async (_label, makeError) => {
-            worker._run.mockRejectedValue(makeError());
+        ];
+
+        it.each(untimed())(
+            'schedules %s at the probe time, one hour from now',
+            async (_label, error) => {
+                process.env.SCHEDULER_ROLE_ARN = SCHEDULER_ROLE_ARN;
+                worker._run.mockRejectedValue(error);
+
+                const result = await run();
+
+                expect(result).toEqual({ batchItemFailures: [] });
+                expect(schedules()).toEqual([
+                    expect.objectContaining({
+                        ScheduleExpression: 'at(2026-09-28T13:00:00)',
+                    }),
+                ]);
+                expect(logged('record_deferred')).toEqual([
+                    expect.objectContaining({
+                        mechanism: 'schedule',
+                        retryAt: new Date(NOW + HOUR).toISOString(),
+                        waitMs: HOUR,
+                        probe: true,
+                    }),
+                ]);
+                expect(logged('record_failed')).toEqual([]);
+            }
+        );
+
+        it('extends the visibility timeout to the probe time when there is no scheduler', async () => {
+            worker._run.mockRejectedValue(untimed()[1][1]);
 
             const result = await run();
 
             expect(result).toEqual(failure());
-            expect(sent()).toEqual([]);
-            expect(schedules()).toEqual([]);
-            expect(visibility()).toEqual([]);
-            expect(logged('record_failed')).toEqual([
-                expect.objectContaining({
-                    deferral: { skipped: 'no_retry_at' },
-                }),
+            expect(visibility()).toEqual([
+                expect.objectContaining({ VisibilityTimeout: 3600 }),
             ]);
         });
 
+        it('reads the probe interval from FRIGG_QUEUE_RATE_LIMIT_PROBE_MS', async () => {
+            process.env[RATE_LIMIT_PROBE_MS_ENV] = String(10 * MINUTE);
+            worker._run.mockRejectedValue(untimed()[1][1]);
+
+            const result = await run();
+
+            expect(result).toEqual({ batchItemFailures: [] });
+            expect(sent()).toEqual([
+                expect.objectContaining({ DelaySeconds: 600 }),
+            ]);
+        });
+
+        it('records the probe time as the retry time of the wait', async () => {
+            worker.recordRateLimitWait = jest.fn().mockResolvedValue(undefined);
+            worker._run.mockRejectedValue(untimed()[1][1]);
+
+            await run();
+
+            expect(worker.recordRateLimitWait.mock.calls[0][2]).toMatchObject({
+                retryAt: new Date(NOW + HOUR),
+            });
+        });
+    });
+
+    describe('a rate-limit error that cannot be deferred', () => {
         it.each([
             ['no event source ARN', { eventSourceARN: undefined }],
             ['a FIFO queue', { eventSourceARN: `${QUEUE_ARN}.fifo` }],

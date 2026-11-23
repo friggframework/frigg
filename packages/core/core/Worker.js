@@ -138,14 +138,15 @@ class Worker {
     }
 
     async defer(record, body, error, delivery) {
-        const retryAt = validDate(error.retryAt);
-        if (!retryAt) return { outcome: 'skipped', skipped: 'no_retry_at' };
         const queueName = queueNameOf(record.eventSourceARN);
         if (!queueName || queueName.endsWith('.fifo')) {
             return { outcome: 'skipped', skipped: 'no_event_source' };
         }
 
         const now = Date.now();
+        const limits = readDeferralLimits();
+        const knownRetryAt = validDate(error.retryAt);
+        const retryAt = knownRetryAt ?? new Date(now + limits.probeMs);
         const counters = nextDeferral(body, now, record.messageId);
         const deferral = {
             record,
@@ -155,11 +156,11 @@ class Worker {
             error,
             delivery,
             retryAt,
+            probe: !knownRetryAt,
             waitMs: Math.max(0, retryAt.getTime() - now),
             counters,
         };
 
-        const limits = readDeferralLimits();
         if (isDeferralCapped({ ...counters, retryAt }, limits)) {
             await this._recordWait(deferral, 'EXHAUSTED', 'none');
             this._logUnacked(
@@ -347,10 +348,11 @@ class Worker {
         }
     }
 
-    _deferralLogFields({ error, retryAt, waitMs, counters }) {
+    _deferralLogFields({ error, retryAt, probe, waitMs, counters }) {
         return {
             waitMs,
             retryAt: retryAt.toISOString(),
+            ...(probe && { probe }),
             deferrals: counters.deferrals,
             firstDeferredAt: counters.firstDeferredAt,
             reason: error.reason,

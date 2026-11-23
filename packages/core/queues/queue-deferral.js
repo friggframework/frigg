@@ -2,6 +2,7 @@ const { toPositiveInteger } = require('./queue-delivery');
 
 const MAX_DEFERRALS = 30;
 const MAX_DEFERRED_MS = 26 * 60 * 60 * 1000;
+const RATE_LIMIT_PROBE_MS = 60 * 60 * 1000;
 const MAX_DELAY_SECONDS = 900;
 const MAX_VISIBILITY_TIMEOUT_SECONDS = 43_200;
 const MAX_LAMBDA_RUN_SECONDS = 900;
@@ -12,11 +13,14 @@ const MAX_DEFERRED_VISIBILITY_SECONDS =
     MAX_BATCHING_WINDOW_SECONDS;
 const MAX_DEFERRALS_ENV = 'FRIGG_QUEUE_MAX_DEFERRALS';
 const MAX_DEFERRED_MS_ENV = 'FRIGG_QUEUE_MAX_DEFERRED_MS';
+const RATE_LIMIT_PROBE_MS_ENV = 'FRIGG_QUEUE_RATE_LIMIT_PROBE_MS';
 
 const readDeferralLimits = (env = process.env) => ({
     maxDeferrals: toPositiveInteger(env[MAX_DEFERRALS_ENV]) ?? MAX_DEFERRALS,
     maxDeferredMs:
         toPositiveInteger(env[MAX_DEFERRED_MS_ENV]) ?? MAX_DEFERRED_MS,
+    probeMs:
+        toPositiveInteger(env[RATE_LIMIT_PROBE_MS_ENV]) ?? RATE_LIMIT_PROBE_MS,
 });
 
 const readDeferral = (body) => {
@@ -65,6 +69,8 @@ module.exports = {
     MAX_DEFERRED_VISIBILITY_SECONDS,
     MAX_DELAY_SECONDS,
     MAX_VISIBILITY_TIMEOUT_SECONDS,
+    RATE_LIMIT_PROBE_MS,
+    RATE_LIMIT_PROBE_MS_ENV,
     deferredMs,
     isDeferralCapped,
     nextDeferral,

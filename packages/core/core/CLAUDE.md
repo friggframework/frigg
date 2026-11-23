@@ -80,15 +80,15 @@ await worker.send({
 ```
 
 **Rate-limit deferral** (ADR-049): `run()` handles an error with `isRateLimited`
-and a `retryAt` through `defer(record, body, error, delivery)`, which returns
-`{ outcome }`:
+through `defer(record, body, error, delivery)`, which returns `{ outcome }`. An
+unknown `retryAt` becomes now plus `FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default
+1 h):
 - `acked`: the message was sent again with `DelaySeconds` (wait up to 900 s) or
   scheduled with the one-time scheduler (longer wait). The record is handled.
 - `failed`: the visibility timeout was extended to `retryAt`, or a cap
   (`FRIGG_QUEUE_MAX_DEFERRALS`, `FRIGG_QUEUE_MAX_DEFERRED_MS`) ended the
   deferrals. The record is reported failed.
-- `skipped`: no `retryAt` (`no_retry_at`), no `eventSourceARN` or a FIFO queue
-  (`no_event_source`), a failed send (`send_failed`), or a failed visibility
+- `skipped`: no `eventSourceARN` or a FIFO queue (`no_event_source`), a failed send (`send_failed`), or a failed visibility
   change (`visibility_failed`). The record fails as any error does.
 
 Each outcome writes one log record. `acked` writes WARN `record_deferred`.
