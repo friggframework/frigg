@@ -602,7 +602,8 @@ redelivery. It puts the message back so it runs at `retryAt`:
 
 - The new message starts at receive count 1. A deferred body carries
   `_frigg: { deferrals, firstDeferredAt, deferralId }`; `_frigg` is reserved and
-  the handler never sees it. `deferralId` is the SQS message id of the first
+  the job handler never sees it. The `message` of the `RATE_LIMITED` event is
+  the whole body, `_frigg` included. `deferralId` is the SQS message id of the first
   message that was put back, and every later deferral of that work keeps it.
 - The visibility tier sets a timeout of at most 12 h less 20 minutes
   (42,000 s). SQS counts its 12 h maximum from the receive, and an extension
