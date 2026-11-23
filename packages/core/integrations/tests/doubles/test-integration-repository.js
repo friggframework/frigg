@@ -97,6 +97,23 @@ class TestIntegrationRepository {
         return [...(rec.messages[type] ?? [])];
     }
 
+    async appendRateLimitMessage(id, type, item, { retryAtFrom, retryAtTo, keepLast }) {
+        const rec = this.store.get(id);
+        if (!rec) return false;
+        const stored = rec.messages[type] ?? [];
+        const sameLimit = stored.some(
+            (kept) =>
+                kept?.code === item.code &&
+                kept.module === item.module &&
+                kept.retryAt >= retryAtFrom &&
+                kept.retryAt <= retryAtTo
+        );
+        if (sameLimit) return false;
+        rec.messages[type] = [...stored, item].slice(-keepLast);
+        this.operationHistory.push({ operation: 'appendRateLimitMessage', id, type });
+        return true;
+    }
+
     async updateIntegrationConfig(id, config) {
         if (config === null || config === undefined) {
             throw new Error('Config parameter is required');

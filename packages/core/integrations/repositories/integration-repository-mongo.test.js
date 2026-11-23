@@ -279,3 +279,95 @@ describe('IntegrationRepositoryMongo.findIntegrationMessages', () => {
         ).rejects.toThrow(`Integration ${ID} not found`);
     });
 });
+
+const RATE_LIMITED_ITEM = {
+    title: 'Rate limit reached',
+    message: 'The hubspot API rate limit was reached.',
+    timestamp: 1000,
+    code: 'RATE_LIMITED',
+    module: 'hubspot',
+    reason: 'daily',
+    retryAt: '2026-09-28T13:00:00.000Z',
+    actions: [{ type: 'RETRY_WHEN_READY' }],
+};
+const SAME_LIMIT = {
+    retryAtFrom: '2026-09-28T12:59:00.000Z',
+    retryAtTo: '2026-09-28T13:01:00.000Z',
+    keepLast: 50,
+};
+const SAME_LIMIT_MATCH = {
+    $elemMatch: {
+        code: 'RATE_LIMITED',
+        module: 'hubspot',
+        retryAt: {
+            $gte: '2026-09-28T12:59:00.000Z',
+            $lte: '2026-09-28T13:01:00.000Z',
+        },
+    },
+};
+
+describe('IntegrationRepositoryMongo.appendRateLimitMessage', () => {
+    function makeRawRepo(matched) {
+        const repo = new IntegrationRepositoryMongo();
+        repo.prisma = {
+            $runCommandRaw: jest.fn(async () => ({
+                ok: 1,
+                n: matched,
+                nModified: matched,
+            })),
+        };
+        return repo;
+    }
+
+    it('appends in one update that matches only when no stored message has the same code, module and a retryAt in the window', async () => {
+        const repo = makeRawRepo(1);
+
+        await repo.appendRateLimitMessage(
+            ID,
+            'warnings',
+            RATE_LIMITED_ITEM,
+            SAME_LIMIT
+        );
+
+        expect(repo.prisma.$runCommandRaw).toHaveBeenCalledTimes(1);
+        expect(repo.prisma.$runCommandRaw).toHaveBeenCalledWith({
+            update: 'Integration',
+            updates: [
+                {
+                    q: {
+                        _id: { $oid: ID },
+                        $nor: [{ warnings: SAME_LIMIT_MATCH }],
+                    },
+                    u: {
+                        $push: {
+                            warnings: {
+                                $each: [RATE_LIMITED_ITEM],
+                                $slice: -50,
+                            },
+                        },
+                        $set: { updatedAt: { $date: expect.any(String) } },
+                    },
+                },
+            ],
+        });
+    });
+
+    it.each([
+        [1, true],
+        [0, false],
+    ])(
+        'returns whether it appended (%p matched)',
+        async (matched, appended) => {
+            const repo = makeRawRepo(matched);
+
+            await expect(
+                repo.appendRateLimitMessage(
+                    ID,
+                    'warnings',
+                    RATE_LIMITED_ITEM,
+                    SAME_LIMIT
+                )
+            ).resolves.toBe(appended);
+        }
+    );
+});

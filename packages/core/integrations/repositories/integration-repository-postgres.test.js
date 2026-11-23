@@ -269,3 +269,81 @@ describe('IntegrationRepositoryPostgres.findIntegrationMessages', () => {
         ).rejects.toThrow('Integration 7 not found');
     });
 });
+
+const RATE_LIMITED_ITEM = {
+    title: 'Rate limit reached',
+    message: 'The hubspot API rate limit was reached.',
+    timestamp: 1000,
+    code: 'RATE_LIMITED',
+    module: 'hubspot',
+    reason: 'daily',
+    retryAt: '2026-09-28T13:00:00.000Z',
+    actions: [{ type: 'RETRY_WHEN_READY' }],
+};
+const SAME_LIMIT = {
+    retryAtFrom: '2026-09-28T12:59:00.000Z',
+    retryAtTo: '2026-09-28T13:01:00.000Z',
+    keepLast: 50,
+};
+
+describe('IntegrationRepositoryPostgres.appendRateLimitMessage', () => {
+    function makeRawRepo(rows) {
+        const repo = new IntegrationRepositoryPostgres();
+        repo.prisma = { $queryRawUnsafe: jest.fn(async () => rows) };
+        return repo;
+    }
+
+    it('appends in one UPDATE that has a NOT EXISTS guard on the same limit', async () => {
+        const repo = makeRawRepo([{ id: 7 }]);
+
+        const appended = await repo.appendRateLimitMessage(
+            '7',
+            'warnings',
+            RATE_LIMITED_ITEM,
+            SAME_LIMIT
+        );
+
+        expect(appended).toBe(true);
+        expect(repo.prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+        const [sql, ...params] = repo.prisma.$queryRawUnsafe.mock.calls[0];
+        expect(sql).toMatch(/^\s*UPDATE "Integration"/);
+        expect(sql).toMatch(/SET "warnings" =/);
+        expect(sql).toMatch(/NOT EXISTS/);
+        expect(params).toEqual([
+            JSON.stringify(RATE_LIMITED_ITEM),
+            50,
+            7,
+            'RATE_LIMITED',
+            'hubspot',
+            '2026-09-28T12:59:00.000Z',
+            '2026-09-28T13:01:00.000Z',
+        ]);
+    });
+
+    it('returns false when no row was updated', async () => {
+        const repo = makeRawRepo([]);
+
+        await expect(
+            repo.appendRateLimitMessage(
+                '7',
+                'warnings',
+                RATE_LIMITED_ITEM,
+                SAME_LIMIT
+            )
+        ).resolves.toBe(false);
+    });
+
+    it('refuses a column that is not a message type', async () => {
+        const repo = makeRawRepo([]);
+
+        await expect(
+            repo.appendRateLimitMessage(
+                '7',
+                'config',
+                RATE_LIMITED_ITEM,
+                SAME_LIMIT
+            )
+        ).rejects.toThrow('Unknown message type: config');
+        expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+    });
+});

@@ -132,6 +132,35 @@ class IntegrationRepositoryInterface {
     }
 
     /**
+     * Append a rate-limit message item in one atomic write, unless a stored
+     * item of the type has the same `code` and `module` as `item` and a
+     * `retryAt` from `retryAtFrom` to `retryAtTo`. Keeps the newest
+     * `keepLast` items of the type. Concurrent calls for the same limit
+     * store one item.
+     *
+     * @param {string|number} integrationId - Integration ID
+     * @param {string} messageType - Type of message (errors, warnings, info, logs)
+     * @param {Object} item - Message item with `code`, `module` and an ISO UTC `retryAt`
+     * @param {Object} options
+     * @param {string} options.retryAtFrom - ISO UTC start of the window, inclusive
+     * @param {string} options.retryAtTo - ISO UTC end of the window, inclusive
+     * @param {number} options.keepLast - How many of the newest items of the type to keep
+     * @returns {Promise<boolean>} True when it appended the item. False when a
+     *   stored item matched or the integration does not exist.
+     * @abstract
+     */
+    async appendRateLimitMessage(
+        integrationId,
+        messageType,
+        item,
+        { retryAtFrom, retryAtTo, keepLast }
+    ) {
+        throw new Error(
+            'Method appendRateLimitMessage must be implemented by subclass'
+        );
+    }
+
+    /**
      * Create a new integration
      *
      * @param {Array<string|number>} entities - Array of entity IDs

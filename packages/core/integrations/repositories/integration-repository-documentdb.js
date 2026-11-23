@@ -14,7 +14,10 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
-const { messagesOfType } = require('./message-item-shared');
+const {
+    messagesOfType,
+    sameRateLimitMessage,
+} = require('./message-item-shared');
 
 class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     constructor() {
@@ -143,6 +146,34 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             throw new Error(`Integration ${integrationId} not found`);
         }
         return messagesOfType(this._extractMessages(existing), messageType);
+    }
+
+    // Writes both stored copies (`messages.<type>` and `<type>`), which
+    // _extractMessages reads.
+    async appendRateLimitMessage(
+        integrationId,
+        messageType,
+        item,
+        { retryAtFrom, retryAtTo, keepLast }
+    ) {
+        const objectId = toObjectId(integrationId);
+        if (!objectId) return false;
+        const sameLimit = sameRateLimitMessage(item, { retryAtFrom, retryAtTo });
+        const push = { $each: [item], $slice: -keepLast };
+        const nested = `messages.${messageType}`;
+        const result = await updateOne(
+            this.prisma,
+            'Integration',
+            {
+                _id: objectId,
+                $nor: [{ [messageType]: sameLimit }, { [nested]: sameLimit }],
+            },
+            {
+                $push: { [messageType]: push, [nested]: push },
+                $set: { updatedAt: new Date() },
+            }
+        );
+        return result?.n === 1;
     }
 
     async createIntegration(entities, userId, config) {

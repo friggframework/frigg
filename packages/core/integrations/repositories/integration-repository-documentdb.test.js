@@ -385,3 +385,94 @@ describe('IntegrationRepositoryDocumentDB.findIntegrationMessages', () => {
         ).rejects.toThrow(`Integration ${OID} not found`);
     });
 });
+
+const RATE_LIMITED_ITEM = {
+    title: 'Rate limit reached',
+    message: 'The hubspot API rate limit was reached.',
+    timestamp: 1000,
+    code: 'RATE_LIMITED',
+    module: 'hubspot',
+    reason: 'daily',
+    retryAt: '2026-09-28T13:00:00.000Z',
+    actions: [{ type: 'RETRY_WHEN_READY' }],
+};
+const SAME_LIMIT = {
+    retryAtFrom: '2026-09-28T12:59:00.000Z',
+    retryAtTo: '2026-09-28T13:01:00.000Z',
+    keepLast: 50,
+};
+const SAME_LIMIT_MATCH = {
+    $elemMatch: {
+        code: 'RATE_LIMITED',
+        module: 'hubspot',
+        retryAt: {
+            $gte: '2026-09-28T12:59:00.000Z',
+            $lte: '2026-09-28T13:01:00.000Z',
+        },
+    },
+};
+
+describe('IntegrationRepositoryDocumentDB.appendRateLimitMessage', () => {
+    it('appends to both stored copies in one update that matches only when neither copy has the same limit', async () => {
+        const { repo, calls } = makeRepo();
+
+        const appended = await repo.appendRateLimitMessage(
+            OID,
+            'warnings',
+            RATE_LIMITED_ITEM,
+            SAME_LIMIT
+        );
+
+        expect(appended).toBe(true);
+        expect(calls).toHaveLength(1);
+        const [update] = calls[0].updates;
+        expect(calls[0].update).toBe('Integration');
+        expect(update.q).toEqual({
+            _id: expect.anything(),
+            $nor: [
+                { warnings: SAME_LIMIT_MATCH },
+                { 'messages.warnings': SAME_LIMIT_MATCH },
+            ],
+        });
+        expect(update.q._id.toHexString()).toBe(OID);
+        expect(update.u).toEqual({
+            $push: {
+                warnings: { $each: [RATE_LIMITED_ITEM], $slice: -50 },
+                'messages.warnings': {
+                    $each: [RATE_LIMITED_ITEM],
+                    $slice: -50,
+                },
+            },
+            $set: { updatedAt: expect.any(Date) },
+        });
+    });
+
+    it('returns false when nothing matched', async () => {
+        const { repo } = makeRepo({
+            updateResult: { ok: 1, n: 0, nModified: 0 },
+        });
+
+        await expect(
+            repo.appendRateLimitMessage(
+                OID,
+                'warnings',
+                RATE_LIMITED_ITEM,
+                SAME_LIMIT
+            )
+        ).resolves.toBe(false);
+    });
+
+    it('writes nothing for an id that is not an ObjectId', async () => {
+        const { repo, calls } = makeRepo();
+
+        await expect(
+            repo.appendRateLimitMessage(
+                'nope',
+                'warnings',
+                RATE_LIMITED_ITEM,
+                SAME_LIMIT
+            )
+        ).resolves.toBe(false);
+        expect(calls).toEqual([]);
+    });
+});

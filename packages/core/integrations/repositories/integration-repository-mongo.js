@@ -3,7 +3,10 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
-const { messagesOfType } = require('./message-item-shared');
+const {
+    messagesOfType,
+    sameRateLimitMessage,
+} = require('./message-item-shared');
 
 /**
  * MongoDB Integration Repository Adapter
@@ -285,6 +288,57 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
         }
 
         return messagesOfType(integration, messageType);
+    }
+
+    /**
+     * Append a rate-limit message item unless the same limit is stored.
+     * One update command, so concurrent workers store one item.
+     *
+     * @param {string} integrationId - Integration ID
+     * @param {string} messageType - Type of message (errors, warnings, info, logs)
+     * @param {Object} item - Message item with `code`, `module` and an ISO UTC `retryAt`
+     * @param {Object} options
+     * @param {string} options.retryAtFrom - ISO UTC start of the window, inclusive
+     * @param {string} options.retryAtTo - ISO UTC end of the window, inclusive
+     * @param {number} options.keepLast - How many of the newest items of the type to keep
+     * @returns {Promise<boolean>} True when it appended the item
+     */
+    async appendRateLimitMessage(
+        integrationId,
+        messageType,
+        item,
+        { retryAtFrom, retryAtTo, keepLast }
+    ) {
+        const result = await this.prisma.$runCommandRaw({
+            update: 'Integration',
+            updates: [
+                {
+                    q: {
+                        _id: { $oid: integrationId },
+                        $nor: [
+                            {
+                                [messageType]: sameRateLimitMessage(item, {
+                                    retryAtFrom,
+                                    retryAtTo,
+                                }),
+                            },
+                        ],
+                    },
+                    u: {
+                        $push: {
+                            [messageType]: {
+                                $each: [item],
+                                $slice: -keepLast,
+                            },
+                        },
+                        $set: {
+                            updatedAt: { $date: new Date().toISOString() },
+                        },
+                    },
+                },
+            ],
+        });
+        return result?.n === 1;
     }
 
     /**
