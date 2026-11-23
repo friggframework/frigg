@@ -36,6 +36,10 @@ const queueNameOf = (arn) =>
 // the user has nothing to do and gets no message.
 const tellsTheUser = ({ capped, probe, waitMs }) =>
     capped || probe || waitMs > MAX_DELAY_SECONDS * 1000;
+const RATE_LIMITED_DECISIONS = new Map([
+    ['drop', { action: 'drop' }],
+    ['retry', { action: 'retry', skip: { skipped: 'handler_retry' } }],
+]);
 
 class Worker {
     async getQueueURL(params) {
@@ -196,11 +200,7 @@ class Worker {
                 skip: { skipped: 'handler_failed', cause },
             };
         }
-        if (decision === 'drop') return { action: 'drop' };
-        if (decision === 'retry') {
-            return { action: 'retry', skip: { skipped: 'handler_retry' } };
-        }
-        return { action: 'defer' };
+        return RATE_LIMITED_DECISIONS.get(decision) ?? { action: 'defer' };
     }
 
     _logDropped(event, error) {

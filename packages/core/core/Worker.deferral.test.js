@@ -606,7 +606,7 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             expect(worker.decideRateLimited).not.toHaveBeenCalled();
         });
 
-        it.each([['defer'], [undefined]])(
+        it.each([['defer'], [undefined], ['later'], ['constructor']])(
             'runs the default handler for the decision %p',
             async (decision) => {
                 worker.decideRateLimited.mockResolvedValue(decision);
