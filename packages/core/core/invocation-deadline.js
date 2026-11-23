@@ -12,7 +12,7 @@ function storage() {
 const MAX_IN_PROCESS_WAIT_MS = Object.freeze({
     outsideInvocation: 300_000,
     http: 10_000,
-    queueWorker: 60_000,
+    queueWorker: 0,
 });
 
 const validDeadline = (value) =>

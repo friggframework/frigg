@@ -315,8 +315,10 @@ class Api extends ApiKeyRequester {
    invocation less one request timeout. That reserve is never more than half
    the time left, so a 29 s HTTP invocation with the default 60 s request
    timeout can still sleep 14.5 s. The caller owns the total, not the module:
-   10 s in an HTTP handler, 60 s in an integration queue worker, and 300 s
-   outside an invocation (tests, scripts, `frigg start`). See
+   10 s in an HTTP handler, 0 in an integration queue worker, and 300 s
+   outside an invocation (tests, scripts, `frigg start`). With 0, a queue
+   worker never sleeps for a hint. It defers the message, and the worker slot
+   is free again. See
    [The invocation deadline](#the-invocation-deadline). A request makes at most
    10 hinted retries. They do not use the retries of the ladder, so a 5xx after
    a hinted wait still gets the whole 5xx ladder.
@@ -423,7 +425,7 @@ as the option `maxInProcessWaitMs`.
 | Entry point | `maxInProcessWaitMs` |
 |---|---|
 | HTTP handlers (`createHandler` default) | `10000` |
-| Integration queue worker | `60000` |
+| Integration queue worker | `0` |
 | Outside an invocation (tests, scripts, `frigg start`) | `300000` |
 
 `remainingInvocationMs()` returns the milliseconds left, or `Infinity` outside
