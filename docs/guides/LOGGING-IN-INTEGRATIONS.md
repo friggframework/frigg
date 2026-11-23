@@ -202,14 +202,18 @@ try {
   the last retry, the DLQ processor logs `frigg.queue.dlq.message_failed` at
   `ERROR`. A `HaltError` stops the retries and logs
   `frigg.worker.record_halted` at `ERROR`.
-- A `RateLimitError` (an error with `isRateLimited`) is different. When it
-  has a `retryAt`, the `Worker` puts the message back to run at that time. It
-  logs one record:
+- A `RateLimitError` (an error with `isRateLimited`) is different. The
+  `Worker` puts the message back to run at its `retryAt`, or after the probe
+  interval when the time is unknown. It logs one record:
   - `frigg.worker.record_deferred` at `WARN` when it sent the message again
     with a delay, or scheduled it. The new message starts with all its retries.
+  - `frigg.worker.record_dropped` at `WARN` when your `RATE_LIMITED` handler
+    returned `'drop'`.
   - One `WARN` when the message returns to SQS:
     `frigg.worker.record_deferral_capped`, `record_visibility_extended`, or
-    `record_failed` with `deferral.skipped`.
+    `record_failed` with `deferral.skipped` (`handler_retry` or
+    `handler_failed` when your `RATE_LIMITED` handler returned `'retry'` or
+    threw).
   - On the last attempt, one `ERROR`, `frigg.worker.record_lost_rate_limited`,
     with the details, and no `WARN`. The message goes to the DLQ next.
 
