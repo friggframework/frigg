@@ -132,9 +132,10 @@ part has one job:
 
 #653 stays the fallback when no hint exists.
 
-Phase 1 is friggframework/frigg#656, phase 2 is friggframework/frigg#657,
-phase 3 is friggframework/api-module-library#102 and phase 4 is
-friggframework/frigg#658. The [appendix](#appendix-code-sketches) points at the
+Phase 1 is friggframework/frigg#656, phase 2 is friggframework/frigg#657 and
+phase 3 is friggframework/api-module-library#102. Phase 4 lands with phase 2,
+in friggframework/frigg#657, because the default handler writes the message.
+The [appendix](#appendix-code-sketches) points at the
 code for each part. Where the code and this section differ, this section is
 the decision, and the code changes to match it.
 
@@ -296,7 +297,8 @@ with the 300 s budget. Adding the deadline to them is open work:
   - `'retry'`: the worker reports the record as a failure, and SQS delivers
     it again as for any other error.
 
-  A handler that throws counts as `'retry'`.
+  A handler that throws counts as `'retry'`. Any other value counts as
+  `'defer'`.
 - **The default handler** runs when the integration has no `RATE_LIMITED`
   handler, or when that handler returns `'defer'` or no value. It puts the
   message back at `retryAt`:
@@ -456,7 +458,7 @@ and installation, in the ports".
 | 1 (core, opt-in; frigg#656) | Parsers, `static rateLimit`, honour `Retry-After` and `minRetryAfterMs`, the caller's budget, the cap of 10 hinted retries, `RateLimitError`, the throw for an untimed limit that is not 429. No queue change: the error still rethrows, and a classified 403 is still halted. | `modules/requester/requester.js`, `modules/requester/rate-limit/*`, `errors/rate-limit-error.js`, `errors/fetch-error.js`, `errors/index.js`, `core/invocation-deadline.js`, `core/invocation-scope.js`, `core/create-handler.js`, `handlers/workers/integration-defined-workers.js`, `logs/serialize.js`, `packages/core/CLAUDE.md` |
 | 2 (core + devtools; frigg#657) | The halt exemption, the `RATE_LIMITED` event, the integration's handler and the default handler, the probe interval, the deferral tiers, run state, the queue-worker budget of 0, the rate-limit fields on the OAuth token error, the scheduler switch with the ARN of an external queue, the IAM action. | `core/Worker.js`, `queues/queue-deferral.js`, `queues/queuer-util.js`, `handlers/backend-utils.js`, `integrations/use-cases/record-rate-limit-wait.js`, `integrations/use-cases/clear-rate-limit-wait.js`, `core/invocation-deadline.js`, `modules/requester/oauth-2.js`, `devtools/.../scheduler-builder.js`, `base-definition-factory.js`, `docs/guides/INTEGRATION-PATTERNS.md` |
 | 3 (api-module-library#102) | Policies and classifiers: HubSpot (`policyName`), Salesforce (403 `REQUEST_LIMIT_EXCEEDED`, `withLimits`), Pipedrive (`x-ratelimit-*`). | each module's `api.js`, README and tests |
-| 4 (core; frigg#658) | The `RATE_LIMITED` message from the default handler, the message shape, the `RETRY_WHEN_READY` action, the atomic upsert, a repository read for the stored messages, and the fix that made `updateIntegrationMessages` append. | `handlers/backend-utils.js`, `integrations/use-cases/record-rate-limit-message.js`, `integrations/use-cases/update-integration-messages.js`, `integrations/repositories/*` |
+| 4 (core; lands with phase 2 in frigg#657) | The `RATE_LIMITED` message from the default handler, the message shape, the `RETRY_WHEN_READY` action, the atomic upsert, a repository read for the stored messages, and the fix that made `updateIntegrationMessages` append. | `handlers/backend-utils.js`, `integrations/use-cases/record-rate-limit-message.js`, `integrations/use-cases/update-integration-messages.js`, `integrations/repositories/*` |
 | 5 (core + devtools) | Pacing 2a, then 2b. | `modules/requester/rate-limit/*`, `integration-builder.js` |
 
 **The halt exemption lands with phase 2.** Phase 1 alone keeps the behaviour of
