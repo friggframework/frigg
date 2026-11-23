@@ -643,6 +643,24 @@ describe('Worker rate-limit deferral (ADR-049)', () => {
             ]);
         });
 
+        it('clears the wait of a deferred message that it drops, naming the message that set it', async () => {
+            worker.decideRateLimited.mockResolvedValue('drop');
+            worker.clearRateLimitWait = jest.fn().mockResolvedValue(undefined);
+            worker._run.mockRejectedValue(scopedError());
+
+            await run(
+                sqsRecord({
+                    messageId: 'msg-2',
+                    body: JSON.stringify(deferredBody(1)),
+                })
+            );
+
+            expect(worker.clearRateLimitWait).toHaveBeenCalledWith(
+                deferredBody(1),
+                { deferralId: 'msg-1' }
+            );
+        });
+
         it('reports the record failed, and sends nothing, for retry', async () => {
             worker.decideRateLimited.mockResolvedValue('retry');
             worker._run.mockRejectedValue(scopedError());

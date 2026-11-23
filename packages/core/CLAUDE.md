@@ -579,7 +579,7 @@ job. The return value decides:
 | Value | What the worker does |
 |---|---|
 | `'defer'`, or no value | The default handler runs (below) |
-| `'drop'` | Acknowledges the record. SQS deletes the message |
+| `'drop'` | Acknowledges the record. SQS deletes the message. The wait that the message set is cleared, as after a success |
 | `'retry'` | Reports the record failed, as for any retryable error |
 
 A handler that throws counts as `'retry'`. With no `RATE_LIMITED` handler, the

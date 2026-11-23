@@ -81,6 +81,11 @@ class Worker {
                         const decision = await this._decideRateLimited(event);
                         if (decision.action === 'drop') {
                             this._logDropped(event, error);
+                            await this._clearDeferredState(
+                                record,
+                                runParams,
+                                delivery
+                            );
                             return;
                         }
                         deferralResult =
