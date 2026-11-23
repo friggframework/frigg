@@ -50,7 +50,7 @@ Each builder implements:
 
 ## Scheduler
 
-The scheduler builder (`scheduler/scheduler-builder.js`) auto-enables when any integration has `webhooks.enabled = true` (or explicitly via `appDefinition.scheduler.enable = true`). It creates an EventBridge Scheduler `ScheduleGroup` + an IAM role for EventBridge → SQS and exposes `SCHEDULER_ROLE_ARN`, enabling one-time scheduled jobs (e.g., webhook subscription renewals).
+The scheduler builder (`scheduler/scheduler-builder.js`) auto-enables when any integration has `webhooks.enabled = true`, or when any API module declares `static rateLimit` (or explicitly via `appDefinition.scheduler.enable = true`). It creates an EventBridge Scheduler `ScheduleGroup` + an IAM role for EventBridge → SQS and exposes `SCHEDULER_ROLE_ARN`, enabling one-time scheduled jobs (e.g., webhook subscription renewals, or a rate-limited queue message that must wait more than 15 minutes).
 
 For scheduling jobs from integration code (`createSchedulerCommands`: `scheduleJob` / `deleteJob` / `getJobStatus`), the production-vs-mock provider, auto-cleanup, and env vars, see the **frigg-scheduled-jobs** skill.
 

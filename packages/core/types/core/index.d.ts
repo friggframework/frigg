@@ -47,7 +47,26 @@ declare module "@friggframework/core" {
     send(params: object & { QueueUrl: any }, delay?: number): Promise<string>;
 
     sendAsyncSQSMessage(params: SendSQSMessageParams): Promise<string>;
+
+    recordRateLimitWait(
+      body: object,
+      error: Error,
+      state: RateLimitWaitState
+    ): Promise<void>;
+
+    clearRateLimitWait(
+      body: object,
+      options?: { deferralId?: string }
+    ): Promise<void>;
   }
+
+  export type RateLimitWaitState = {
+    status: "WAITING" | "EXHAUSTED";
+    mechanism: "delay" | "schedule" | "visibility" | "none";
+    deferrals: number;
+    deferralId?: string;
+    retryAt: Date;
+  };
 
   interface IWorker {
     getQueueURL(params: GetQueueURLParams): Promise<string | undefined>;
