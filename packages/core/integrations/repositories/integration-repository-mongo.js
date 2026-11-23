@@ -338,6 +338,11 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
                 },
             ],
         });
+        if (result?.writeErrors?.length) {
+            throw new Error(
+                `Failed to append rate-limit message: ${result.writeErrors[0].errmsg}`
+            );
+        }
         return result?.n === 1;
     }
 

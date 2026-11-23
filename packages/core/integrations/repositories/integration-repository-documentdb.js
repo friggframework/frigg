@@ -173,6 +173,11 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
                 $set: { updatedAt: new Date() },
             }
         );
+        if (result?.writeErrors?.length) {
+            throw new Error(
+                `Failed to append rate-limit message: ${result.writeErrors[0].errmsg}`
+            );
+        }
         return result?.n === 1;
     }
 

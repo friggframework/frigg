@@ -462,6 +462,25 @@ describe('IntegrationRepositoryDocumentDB.appendRateLimitMessage', () => {
         ).resolves.toBe(false);
     });
 
+    it('throws when the update reports a write error', async () => {
+        const { repo } = makeRepo({
+            updateResult: {
+                ok: 1,
+                n: 0,
+                writeErrors: [{ index: 0, code: 121, errmsg: 'validation' }],
+            },
+        });
+
+        await expect(
+            repo.appendRateLimitMessage(
+                OID,
+                'warnings',
+                RATE_LIMITED_ITEM,
+                SAME_LIMIT
+            )
+        ).rejects.toThrow('validation');
+    });
+
     it('writes nothing for an id that is not an ObjectId', async () => {
         const { repo, calls } = makeRepo();
 

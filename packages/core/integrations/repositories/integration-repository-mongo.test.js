@@ -370,4 +370,24 @@ describe('IntegrationRepositoryMongo.appendRateLimitMessage', () => {
             ).resolves.toBe(appended);
         }
     );
+
+    it('throws when the update reports a write error', async () => {
+        const repo = new IntegrationRepositoryMongo();
+        repo.prisma = {
+            $runCommandRaw: jest.fn(async () => ({
+                ok: 1,
+                n: 0,
+                writeErrors: [{ index: 0, code: 121, errmsg: 'validation' }],
+            })),
+        };
+
+        await expect(
+            repo.appendRateLimitMessage(
+                ID,
+                'warnings',
+                RATE_LIMITED_ITEM,
+                SAME_LIMIT
+            )
+        ).rejects.toThrow('validation');
+    });
 });
