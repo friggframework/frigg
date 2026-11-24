@@ -231,6 +231,6 @@ npm run test:ci
 
 ## Related
 
-- [E2E Package](/packages/e2e)
+- [E2E Package](https://github.com/friggframework/frigg/blob/next/packages/e2e)
 - [Integration Router v2](./006-integration-router-v2.md)
-- [@friggframework/test](/packages/test)
+- [@friggframework/test](https://github.com/friggframework/frigg/tree/next/packages/test)

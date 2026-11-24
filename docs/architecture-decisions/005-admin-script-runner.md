@@ -196,7 +196,7 @@ None ship yet. The `AdminScriptBase` + registration mechanics support framework-
 
 ## Related
 
-- [Integration Base Pattern](/packages/core/integrations/integration-base.js)
-- [Command Pattern](/packages/core/application/commands/)
-- [Repository Factory Pattern](/packages/core/database/)
+- [Integration Base Pattern](https://github.com/friggframework/frigg/blob/next/packages/core/integrations/integration-base.js)
+- [Command Pattern](https://github.com/friggframework/frigg/tree/next/packages/core/application/commands)
+- [Repository Factory Pattern](https://github.com/friggframework/frigg/tree/next/packages/core/database)
 - [AWS EventBridge Scheduler](https://docs.aws.amazon.com/scheduler/latest/UserGuide/what-is-scheduler.html)
