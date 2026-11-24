@@ -188,6 +188,7 @@ describe('OAuth2Requester', () => {
                     resource: 'https://auth.example.com/token',
                     response: { status: 429, bodyUsed: true },
                     hint: { retryAt, reason: 'burst', source: 'header' },
+                    scopeKey: 'crm:entity:7',
                 })
             );
             requester.notify = jest.fn();
@@ -198,6 +199,7 @@ describe('OAuth2Requester', () => {
                 isRateLimited: true,
                 statusCode: 429,
                 reason: 'burst',
+                scopeKey: 'crm:entity:7',
             });
             expect(error.retryAt).toEqual(retryAt);
             expect(error.waitMs).toBeGreaterThan(0);

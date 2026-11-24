@@ -404,6 +404,7 @@ class OAuth2Requester extends Requester {
             transportError.waitMs = error.waitMs;
             transportError.reason = error.reason;
             transportError.module = error.module;
+            transportError.scopeKey = error.scopeKey;
         }
         return transportError;
     }
