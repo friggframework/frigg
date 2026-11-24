@@ -1,4 +1,8 @@
-# Frigg CLI Command Specification
+# Frigg CLI Command Specification (design / roadmap)
+
+{% hint style="warning" %}
+**This is a design spec, not a description of the current CLI.** Many commands here (for example `frigg create`, `frigg add` and `frigg config`) are planned but not shipped. For the commands and flags that actually exist today, see the [Frigg CLI Reference](reference/cli.md).
+{% endhint %}
 
 ## Overview
 
