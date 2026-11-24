@@ -252,7 +252,7 @@ class Worker {
             await this._recordWait(deferral, 'EXHAUSTED', 'none');
             this._logUnacked(
                 deferral,
-                'record_deferral_capped',
+                'frigg.worker.record_deferral_capped',
                 'Rate-limit deferral capped',
                 {
                     maxDeferrals: limits.maxDeferrals,
@@ -335,7 +335,7 @@ class Worker {
         );
         this._logUnacked(
             deferral,
-            'record_visibility_extended',
+            'frigg.worker.record_visibility_extended',
             'Record visibility extended',
             {
                 mechanism: 'visibility',
@@ -474,7 +474,7 @@ class Worker {
             return;
         }
         log.warn(message, {
-            eventName: `frigg.worker.${eventName}`,
+            eventName,
             ...logFields,
         });
     }
