@@ -1,10 +1,45 @@
-const AWS = require('aws-sdk');
+const {
+    SQSClient,
+    GetQueueUrlCommand,
+    SendMessageCommand,
+    ChangeMessageVisibilityCommand,
+} = require('@aws-sdk/client-sqs');
 const _ = require('lodash');
 const { RequiredPropertyError } = require('../errors');
 const { get } = require('../assertions');
+const { readQueueDelivery } = require('../queues/queue-delivery');
+const { awsConfigOptions } = require('../queues/queuer-util');
+const {
+    MAX_DEFERRED_VISIBILITY_SECONDS,
+    MAX_DELAY_SECONDS,
+    deferredMs,
+    isDeferralCapped,
+    nextDeferral,
+    readDeferral,
+    readDeferralLimits,
+    withDeferral,
+} = require('../queues/queue-deferral');
+const { runMessageScope } = require('./invocation-scope');
+const { getLogger } = require('../logs');
 
-AWS.config.update({ region: process.env.AWS_REGION });
-const sqs = new AWS.SQS({ apiVersion: '2012-11-05' });
+const sqs = new SQSClient({
+    region: process.env.AWS_REGION,
+    ...awsConfigOptions(),
+});
+const log = getLogger('frigg.worker');
+
+const validDate = (value) =>
+    value instanceof Date && !Number.isNaN(value.getTime()) ? value : null;
+const queueNameOf = (arn) =>
+    typeof arn === 'string' && arn ? arn.split(':').pop() : undefined;
+// ADR-049 section 5: a wait inside the delay tier ends within 15 minutes, so
+// the user has nothing to do and gets no message.
+const tellsTheUser = ({ capped, probe, waitMs }) =>
+    capped || probe || waitMs > MAX_DELAY_SECONDS * 1000;
+const RATE_LIMITED_DECISIONS = new Map([
+    ['drop', { action: 'drop' }],
+    ['retry', { action: 'retry', skip: { skipped: 'handler_retry' } }],
+]);
 
 class Worker {
     async getQueueURL(params) {
@@ -12,30 +47,443 @@ class Worker {
         // let params = {
         //     QueueName:  process.env.QueueName
         // };
-        return new Promise((resolve, reject) => {
-            sqs.getQueueUrl(params, (err, data) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(data.QueueUrl);
-                }
-            });
-        });
+        const command = new GetQueueUrlCommand(params);
+        const data = await sqs.send(command);
+        return data.QueueUrl;
     }
 
     async run(params, context = {}) {
         const records = get(params, 'Records');
+        const batchItemFailures = [];
+
+        console.log(
+            `[Worker] run: processing ${records.length} record(s)`
+        );
 
         for (const record of records) {
-            const runParams = JSON.parse(record.body);
-            this._validateParams(runParams);
-            await this._run(runParams, context);
+            await runMessageScope(record, async () => {
+                // messageId, receiveCount and the event come from the scope.
+                log.debug('Record started', { eventName: 'frigg.worker.record_started' });
+
+                const delivery = readQueueDelivery(record);
+                let runParams;
+                try {
+                    runParams = JSON.parse(record.body);
+                    this._validateParams(runParams);
+                    await this._run(runParams, context, delivery);
+                    await this._clearDeferredState(record, runParams, delivery);
+                    log.debug('Record succeeded', { eventName: 'frigg.worker.record_succeeded' });
+                } catch (error) {
+                    let deferralResult;
+                    if (error.isRateLimited && runParams) {
+                        const event = this._rateLimitedEvent(
+                            record,
+                            runParams,
+                            error,
+                            delivery
+                        );
+                        const decision = await this._decideRateLimited(event);
+                        if (decision.action === 'drop') {
+                            this._logDropped(event, error);
+                            await this._clearDeferredState(
+                                record,
+                                runParams,
+                                delivery
+                            );
+                            return;
+                        }
+                        deferralResult =
+                            decision.action === 'defer'
+                                ? await this.defer(
+                                      record,
+                                      runParams,
+                                      error,
+                                      delivery
+                                  )
+                                : { outcome: 'skipped', ...decision.skip };
+                        if (deferralResult.outcome === 'acked') return;
+                        if (deferralResult.outcome === 'failed') {
+                            batchItemFailures.push({
+                                itemIdentifier: record.messageId,
+                            });
+                            return;
+                        }
+                    }
+                    if (error.isHaltError) {
+                        // HaltError means "discard this message, don't retry".
+                        // Treat as success so SQS deletes it from the queue.
+                        // Logged explicitly — silent discards made prod debugging
+                        // extremely hard; keep this visible.
+                        log.error('Record halted (discarded, no retry)', {
+                            eventName: 'frigg.worker.record_halted',
+                            statusCode: error.statusCode,
+                            error,
+                        });
+                        return;
+                    }
+                    const skippedDeferral = deferralResult && {
+                        deferral: {
+                            skipped: deferralResult.skipped,
+                            ...(deferralResult.cause && {
+                                cause: deferralResult.cause,
+                            }),
+                        },
+                    };
+                    if (skippedDeferral && delivery.isLastAttempt) {
+                        this._logLost({
+                            retryAt: validDate(error.retryAt)?.toISOString(),
+                            reason: error.reason,
+                            module: error.module,
+                            ...skippedDeferral,
+                            error,
+                        });
+                    } else {
+                        // The message goes back to SQS, so WARN (ADR-048 §4).
+                        log.warn('Record failed, returned for retry', {
+                            eventName: 'frigg.worker.record_failed',
+                            error,
+                            ...skippedDeferral,
+                        });
+                    }
+                    batchItemFailures.push({ itemIdentifier: record.messageId });
+                }
+            });
         }
+
+        if (batchItemFailures.length > 0) {
+            console.warn(
+                `[Worker] run: returning ${batchItemFailures.length} batchItemFailure(s) of ${records.length}`
+            );
+        }
+
+        return { batchItemFailures };
     }
 
     async _run(params, context = {}) {
         // validate params and instantiate any class to do work based on the
         // parameters
+    }
+
+    // The RATE_LIMITED event of ADR-049 section 3. The same object is meant to
+    // become the input of the ADR-047 orchestrator's reducer.
+    _rateLimitedEvent(record, body, error, delivery) {
+        const { deferrals, firstDeferredAt } = readDeferral(body);
+        return {
+            retryAt: validDate(error.retryAt) ?? undefined,
+            waitMs: error.waitMs,
+            reason: error.reason,
+            module: error.module,
+            scopeKey: error.scopeKey,
+            message: body,
+            delivery: {
+                messageId: record.messageId,
+                receiveCount: delivery.receiveCount,
+                deferrals,
+                deferredMs: firstDeferredAt
+                    ? Date.now() - Date.parse(firstDeferredAt)
+                    : 0,
+            },
+        };
+    }
+
+    decideRateLimited() {
+        return Promise.resolve();
+    }
+
+    async _decideRateLimited(event) {
+        let decision;
+        try {
+            decision = await this.decideRateLimited(event);
+        } catch (cause) {
+            return {
+                action: 'retry',
+                skip: { skipped: 'handler_failed', cause },
+            };
+        }
+        return RATE_LIMITED_DECISIONS.get(decision) ?? { action: 'defer' };
+    }
+
+    _logDropped(event, error) {
+        log.warn('Rate-limited record dropped by the integration', {
+            eventName: 'frigg.worker.record_dropped',
+            retryAt: event.retryAt?.toISOString(),
+            reason: event.reason,
+            module: event.module,
+            statusCode: error.statusCode,
+            error,
+        });
+    }
+
+    async defer(record, body, error, delivery) {
+        const queueName = queueNameOf(record.eventSourceARN);
+        if (!queueName || queueName.endsWith('.fifo')) {
+            return { outcome: 'skipped', skipped: 'no_event_source' };
+        }
+
+        const now = Date.now();
+        const limits = readDeferralLimits();
+        const knownRetryAt = validDate(error.retryAt);
+        const retryAt = knownRetryAt ?? new Date(now + limits.probeMs);
+        const counters = nextDeferral(body, now, record.messageId);
+        const deferral = {
+            record,
+            queueName,
+            body,
+            deferredBody: withDeferral(body, counters),
+            error,
+            delivery,
+            retryAt,
+            probe: !knownRetryAt,
+            capped: isDeferralCapped({ ...counters, retryAt }, limits),
+            waitMs: Math.max(0, retryAt.getTime() - now),
+            counters,
+        };
+
+        const result = await this._deferOrCap(deferral, limits);
+        if (result.outcome !== 'skipped' && tellsTheUser(deferral)) {
+            await this._recordMessage(deferral);
+        }
+        return result;
+    }
+
+    async _deferOrCap(deferral, limits) {
+        const { counters, retryAt } = deferral;
+        if (deferral.capped) {
+            await this._recordWait(deferral, 'EXHAUSTED', 'none');
+            this._logUnacked(
+                deferral,
+                'frigg.worker.record_deferral_capped',
+                'Rate-limit deferral capped',
+                {
+                    maxDeferrals: limits.maxDeferrals,
+                    maxDeferredMs: limits.maxDeferredMs,
+                    deferredMs: deferredMs({ ...counters, retryAt }),
+                }
+            );
+            return { outcome: 'failed' };
+        }
+
+        if (deferral.waitMs <= MAX_DELAY_SECONDS * 1000)
+            return this._deferWithDelay(deferral);
+        const scheduled = await this._deferWithSchedule(deferral);
+        if (scheduled?.outcome) return scheduled;
+        return this._deferWithVisibility(deferral, scheduled?.scheduleError);
+    }
+
+    async _deferWithDelay(deferral) {
+        const delaySeconds = Math.ceil(deferral.waitMs / 1000);
+        // Write the wait before the send: with a short delay the new message
+        // can run, and clear the wait, before a later write lands.
+        await this._recordWait(deferral, 'WAITING', 'delay');
+        try {
+            const queueUrl = await this._queueUrl(deferral.queueName);
+            await this.send(
+                { ...deferral.deferredBody, QueueUrl: queueUrl },
+                delaySeconds
+            );
+        } catch (cause) {
+            await this._clearWait(deferral.body, deferral.counters.deferralId);
+            return { outcome: 'skipped', skipped: 'send_failed', cause };
+        }
+        return this._acknowledgeDeferral(deferral, 'delay', { delaySeconds });
+    }
+
+    async _deferWithSchedule(deferral) {
+        const { record, retryAt, deferredBody } = deferral;
+        const scheduleName = `frigg-defer-${record.messageId}`;
+        try {
+            const scheduler = this.getSchedulerService();
+            if (!scheduler) return null;
+            await scheduler.scheduleOneTime({
+                scheduleName,
+                scheduleAt: retryAt,
+                queueResourceId: record.eventSourceARN,
+                payload: deferredBody,
+            });
+        } catch (cause) {
+            if (cause?.name !== 'ConflictException')
+                return { scheduleError: cause };
+        }
+        await this._recordWait(deferral, 'WAITING', 'schedule');
+        return this._acknowledgeDeferral(deferral, 'schedule', {
+            scheduleName,
+        });
+    }
+
+    async _deferWithVisibility(deferral, scheduleError) {
+        const { record, queueName, delivery, waitMs } = deferral;
+        const visibilityTimeout = Math.min(
+            Math.ceil(waitMs / 1000),
+            MAX_DEFERRED_VISIBILITY_SECONDS
+        );
+        try {
+            const queueUrl = await this._queueUrl(queueName);
+            await sqs.send(
+                new ChangeMessageVisibilityCommand({
+                    QueueUrl: queueUrl,
+                    ReceiptHandle: record.receiptHandle,
+                    VisibilityTimeout: visibilityTimeout,
+                })
+            );
+        } catch (cause) {
+            return { outcome: 'skipped', skipped: 'visibility_failed', cause };
+        }
+        await this._recordWait(
+            deferral,
+            delivery.isLastAttempt ? 'EXHAUSTED' : 'WAITING',
+            'visibility'
+        );
+        this._logUnacked(
+            deferral,
+            'frigg.worker.record_visibility_extended',
+            'Record visibility extended',
+            {
+                mechanism: 'visibility',
+                visibilityTimeout,
+                ...(scheduleError && { scheduleError }),
+            }
+        );
+        return { outcome: 'failed' };
+    }
+
+    async _acknowledgeDeferral(deferral, mechanism, fields) {
+        log.warn('Record deferred', {
+            eventName: 'frigg.worker.record_deferred',
+            mechanism,
+            ...fields,
+            ...this._deferralLogFields(deferral),
+            error: deferral.error,
+        });
+        return { outcome: 'acked' };
+    }
+
+    getSchedulerService() {
+        if (this._schedulerService !== undefined) return this._schedulerService;
+        if (
+            !process.env.SCHEDULER_ROLE_ARN ||
+            process.env.SCHEDULER_PROVIDER === 'mock'
+        ) {
+            this._schedulerService = null;
+            return null;
+        }
+        const {
+            createSchedulerService,
+            SCHEDULER_PROVIDERS,
+        } = require('../infrastructure/scheduler/scheduler-service-factory');
+        this._schedulerService = createSchedulerService({
+            provider: SCHEDULER_PROVIDERS.EVENTBRIDGE,
+        });
+        return this._schedulerService;
+    }
+
+    recordRateLimitWait() {
+        return Promise.resolve();
+    }
+
+    recordRateLimitMessage() {
+        return Promise.resolve();
+    }
+
+    clearRateLimitWait() {
+        return Promise.resolve();
+    }
+
+    _queueUrl(queueName) {
+        this._queueUrls ??= new Map();
+        if (!this._queueUrls.has(queueName)) {
+            const lookup = this.getQueueURL({ QueueName: queueName }).catch(
+                (error) => {
+                    this._queueUrls.delete(queueName);
+                    throw error;
+                }
+            );
+            this._queueUrls.set(queueName, lookup);
+        }
+        return this._queueUrls.get(queueName);
+    }
+
+    async _recordWait({ body, error, counters, retryAt }, status, mechanism) {
+        await this._runStateHook('record', () =>
+            this.recordRateLimitWait(body, error, {
+                status,
+                mechanism,
+                deferrals: counters.deferrals,
+                deferralId: counters.deferralId,
+                retryAt,
+            })
+        );
+    }
+
+    async _recordMessage({ body, error, retryAt, capped }) {
+        try {
+            await this.recordRateLimitMessage(body, error, { retryAt, capped });
+        } catch (hookError) {
+            log.warn('Rate-limit message not written', {
+                eventName: 'frigg.worker.rate_limit_message_failed',
+                error: hookError,
+            });
+        }
+    }
+
+    async _clearDeferredState(record, body, delivery) {
+        const redelivered = delivery.receiveCount > 1;
+        const { deferrals, deferralId } = readDeferral(body);
+        if (deferrals === 0 && !redelivered) return;
+        await this._clearWait(body, deferralId ?? record.messageId);
+    }
+
+    async _clearWait(body, deferralId) {
+        await this._runStateHook('clear', () =>
+            this.clearRateLimitWait(body, { deferralId })
+        );
+    }
+
+    async _runStateHook(operation, hook) {
+        try {
+            await hook();
+        } catch (error) {
+            log.warn('Rate-limit run state not written', {
+                eventName: 'frigg.worker.rate_limit_state_failed',
+                operation,
+                error,
+            });
+        }
+    }
+
+    _deferralLogFields({ error, retryAt, probe, waitMs, counters }) {
+        return {
+            waitMs,
+            retryAt: retryAt.toISOString(),
+            ...(probe && { probe }),
+            deferrals: counters.deferrals,
+            firstDeferredAt: counters.firstDeferredAt,
+            reason: error.reason,
+            module: error.module,
+            statusCode: error.statusCode,
+        };
+    }
+
+    _logUnacked(deferral, eventName, message, fields) {
+        const logFields = {
+            ...fields,
+            ...this._deferralLogFields(deferral),
+            error: deferral.error,
+        };
+        if (deferral.delivery.isLastAttempt) {
+            this._logLost(logFields);
+            return;
+        }
+        log.warn(message, {
+            eventName,
+            ...logFields,
+        });
+    }
+
+    _logLost(fields) {
+        log.error(
+            'Rate-limited record lost: the message goes to the dead-letter queue next',
+            { eventName: 'frigg.worker.record_lost_rate_limited', ...fields }
+        );
     }
 
     // returns the message id
@@ -54,15 +502,9 @@ class Worker {
     }
 
     async sendAsyncSQSMessage(params) {
-        return new Promise((resolve, reject) => {
-            sqs.sendMessage(params, (err, data) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(data.MessageId);
-                }
-            });
-        });
+        const command = new SendMessageCommand(params);
+        const data = await sqs.send(command);
+        return data.MessageId;
     }
 
     // Throw an exception if the params do not validate

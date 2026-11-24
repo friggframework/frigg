@@ -219,8 +219,7 @@ const mockApi = (Api, classOptionByName = {}) => {
             // TODO read authentication mode from module package
             if (authenticationMode === 'client_credentials') {
                 // TODO make generic (tied to crossbeam api)
-                api.grantType = 'client_credentials';
-                api.refreshAccessToken = api.getTokenFromClientCredentials;
+                api.grant_type = 'client_credentials';
 
                 if (process.env.CROSSBEAM_API_BASE_URL)
                     api.baseUrl = process.env.CROSSBEAM_API_BASE_URL;
@@ -231,7 +230,6 @@ const mockApi = (Api, classOptionByName = {}) => {
 
                 api.client_secret = process.env.CROSSBEAM_TEST_CLIENT_SECRET;
                 api.client_id = process.env.CROSSBEAM_TEST_CLIENT_ID;
-                api.refreshAccessToken = api.getTokenFromClientCredentials;
 
                 this.tokenResponse = await api.getTokenFromClientCredentials();
             } else if (authenticationMode === 'puppet') {

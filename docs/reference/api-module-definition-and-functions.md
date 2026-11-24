@@ -1,79 +1,626 @@
-# API Module Definition and Functions
+# API Module Definition
 
-#### Module Definition
+This document describes the API module definition structure used by the Frigg Framework. API modules provide the connection layer between Frigg and external APIs.
+
+## Schema Reference
+
+The canonical JSON Schema is at `packages/schemas/schemas/api-module-definition.schema.json`.
+
+## Required Properties
+
+Every API module definition must include these three properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `moduleName` | string | Unique identifier for the module (pattern: `^[a-zA-Z][a-zA-Z0-9_-]*$`) |
+| `getName` | function | Returns the module name |
+| `requiredAuthMethods` | object | Authentication method implementations |
+
+## Complete Definition Structure
 
 ```javascript
-const API = require('./api');
-const authDef = {
-    API: API,
-    getName: function() {return config.name},
-	   moduleName: config.name,
+const { MyApi } = require('./api');
+
+const Definition = {
+    // Required: API class
+    API: MyApi,
+
+    // Required: Module identifier
+    moduleName: 'my-module',
+
+    // Required: Function returning module name
+    getName: () => 'my-module',
+
+    // Required: Authentication methods
     requiredAuthMethods: {
-        // oauth methods
-        getToken: async function(api, params) {},
-        // for all Auth methods
-	 apiPropertiesToPersist: {
+        getToken: async (api, params) => { /* ... */ },
+        getEntityDetails: async (api, callbackParams, tokenResponse, userId) => { /* ... */ },
+        getCredentialDetails: async (api, userId) => { /* ... */ },
+        testAuthRequest: async (api) => { /* ... */ },
+        apiPropertiesToPersist: {
             credential: ['access_token', 'refresh_token'],
-            entity: []
-        },
-        getCredentialDetails: async function(api) {}, 
-        getEntityDetails: async function(api, callbackParams, tokenResponse, userId) {},
-        testAuthRequest: async function() {}, // basic request to testAuth
+            entity: ['tenantId']
+        }
     },
+
+    // Optional: Environment configuration
     env: {
-        client_id: process.env.HUBSPOT_CLIENT_ID,
-        client_secret: process.env.HUBSPOT_CLIENT_SECRET,
-        scope: process.env.HUBSPOT_SCOPE,
-        redirect_uri: `${process.env.REDIRECT_URI}/an-api`,
+        client_id: process.env.MY_CLIENT_ID,
+        client_secret: process.env.MY_CLIENT_SECRET,
+        scope: 'read write',
+        redirect_uri: process.env.MY_REDIRECT_URI,
+        base_url: process.env.MY_BASE_URL  // Note: snake_case
+    },
+
+    // Optional: Module-level encryption for custom credential fields
+    encryption: {
+        credentialFields: ['api_key', 'webhook_secret']
     }
 };
+
+module.exports = { Definition, MyApi };
 ```
 
-#### getToken
+## Required Auth Methods
 
-For OAuth2, this function typically looks like this:
+### getToken
 
-```javascript
-const code = get(params.data, 'code'); 
- await api.getTokenFromCode(code);
-```
-
-The `getTokenFromCode` method will make the token request and set the token on the API class.
-
-#### apiPropertiesToPersist
-
-Named arrays of properties to persist on either the entity or credential. Upon API class instantiation, these will be retrieved from the entity/credential and passed into the API class. Typically, the entity won't need to store anything, and the credential will suffice to persist tokens and other connection metadata.
-
-#### getEntityDetails
-
-Retrieve and return details about the user/organization that is authorizing requests to this API. Should return something like:
+Retrieves and sets authentication tokens. For OAuth2, this typically exchanges an authorization code for tokens:
 
 ```javascript
- const userDetails = await api.getUserDetails();
-return {
-        identifiers: { externalId: userDetails.portalId, user: api.userId },
-        details: { name: userDetails.hub_domain },
+getToken: async (api, params) => {
+    const code = params.data?.code;
+    return api.getTokenFromCode(code);
 }
 ```
 
-The identifiers define the uniqueness of the entity and how it is looked up. It will automatically be linked to the created credential.
-
-#### getCredentialDetails
-
-Similar to `getEntityDetails`, returns:
+For session-based auth:
 
 ```javascript
- const userDetails = await api.getUserDetails();
-return {
-        identifiers: { externalId: userDetails.portalId },
-        details: {}
-};
+getToken: async (api, params) => {
+    const { email, password } = params.data || {};
+    const response = await api.login(email, password);
+    return {
+        authentication_token: response.token,
+        user_id: response.userId
+    };
+}
 ```
 
-Generally, the entity is looked up first, and the credential is found through that reference.
+### getEntityDetails
 
-***
+Retrieves details about the authorized user/organization. Returns identifiers for uniqueness and details for display:
 
-{% hint style="info" %}
-The entity and credential details functions require the most knowledge of Frigg Framework, and a deeper understanding of how authentication is handled by the external API. In the case where the external API has user accounts, and tokens per user (vs app or organization tokens), the `externalId` should likely be the user's id in that system (or their email, or whatever unique info can be retrieved).
-{% endhint %}
+```javascript
+getEntityDetails: async (api, callbackParams, tokenResponse, userId) => {
+    const userDetails = await api.getUserDetails();
+
+    return {
+        identifiers: {
+            externalId: userDetails.id,      // Unique ID in external system
+            user: userId                      // Frigg user ID
+        },
+        details: {
+            name: userDetails.name,
+            email: userDetails.email,
+            tenantId: userDetails.tenantId
+        }
+    };
+}
+```
+
+### getCredentialDetails
+
+Similar to `getEntityDetails`, but for credential lookup:
+
+```javascript
+getCredentialDetails: async (api, userId) => {
+    const userDetails = await api.getUserDetails();
+    return {
+        identifiers: {
+            externalId: userDetails.id,
+            user: userId
+        },
+        details: {}
+    };
+}
+```
+
+### testAuthRequest
+
+A simple request to verify authentication is working:
+
+```javascript
+testAuthRequest: async (api) => {
+    return api.getCurrentUser();  // Any authenticated API call
+}
+```
+
+### apiPropertiesToPersist
+
+Defines which API properties to save to the database:
+
+```javascript
+apiPropertiesToPersist: {
+    // Credential: OAuth tokens, API keys, session tokens
+    credential: ['access_token', 'refresh_token', 'accessTokenExpire'],
+
+    // Entity: Connection-specific identifiers
+    entity: ['tenantId', 'organizationId']
+}
+```
+
+These properties are:
+1. Saved to the database after authentication
+2. Passed back to the API class on instantiation
+3. Available via `api.propertyName`
+
+## Environment Configuration
+
+The `env` object maps environment variables to API configuration. Use **snake_case** for property names:
+
+```javascript
+env: {
+    // Standard OAuth properties
+    client_id: process.env.XERO_CLIENT_ID,
+    client_secret: process.env.XERO_CLIENT_SECRET,
+    scope: 'openid profile email offline_access',
+    redirect_uri: process.env.XERO_REDIRECT_URI,
+
+    // API configuration
+    base_url: process.env.XERO_BASE_URL,
+    api_key: process.env.XERO_API_KEY
+}
+```
+
+**Allowed properties:**
+- `client_id`, `client_secret` - OAuth credentials
+- `scope` - OAuth scopes
+- `redirect_uri` - OAuth callback URL
+- `api_key` - API key authentication
+- `base_url` - Base URL for API requests
+- Custom: `UPPER_SNAKE_CASE` pattern (e.g., `CUSTOM_HEADER`)
+
+## Encryption Configuration
+
+Declare which credential fields need encryption beyond the core schema:
+
+```javascript
+encryption: {
+    credentialFields: ['api_key', 'webhook_secret', 'signing_key']
+}
+```
+
+**How it works:**
+1. Module declares `encryption.credentialFields` array
+2. Framework adds `data.` prefix for database storage
+3. Fields merge with core encryption schema on startup
+4. All credential data transparently encrypted/decrypted
+
+**Core schema (auto-encrypted, no config needed):**
+- `access_token`, `refresh_token`, `id_token`
+- `username`, `password`
+- `domain`
+
+**Common patterns:**
+
+```javascript
+// OAuth (no encryption config needed - uses core schema)
+apiPropertiesToPersist: {
+    credential: ['access_token', 'refresh_token']
+}
+
+// API Key
+encryption: { credentialFields: ['api_key'] },
+apiPropertiesToPersist: { credential: ['api_key'] }
+
+// Custom tokens
+encryption: { credentialFields: ['signing_key', 'webhook_secret'] },
+apiPropertiesToPersist: { credential: ['signing_key', 'webhook_secret'] }
+```
+
+## Rate Limits (`static rateLimit`)
+
+An API module can tell the Requester how its provider limits calls, and how to
+read a throttled response. Declare a static `rateLimit` on the API class. Every
+key is optional. A module that declares nothing keeps the fixed backoff ladder
+for a 429 (1, 3, 10, 30, 60 and 180 s), and reads the time from a 429 with the
+default `parsers`: `Retry-After`, the reset headers and the IETF `RateLimit`
+headers. The JSON schema still has an older `config.rateLimit: { requests, period }`
+that the runtime does not read: only `static rateLimit` on the API class counts.
+
+| Key | Meaning |
+|---|---|
+| `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a synchronous function `(requester) => key` that returns a string or a number. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope or the function returns another type. |
+| `minRetryAfterMs` | A wait never shorter than this. Use it when the docs say "wait 60 seconds" and the response says nothing. |
+| `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
+| `resetDeltaUnit` | The unit of a delta in the reset headers: `'s'` (default) or `'ms'`. Set `'ms'` when the provider sends `X-RateLimit-Reset: 60000` for one minute. The size of a delta cannot show its unit (60000 s is also a real daily reset), so the parser cannot find it. Epoch values are not changed. Another value throws a `TypeError` when the API class is constructed. |
+| `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
+| `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
+| `userHints` | Text and links per `reason` for the `RATE_LIMITED` warning that the queue worker writes on the integration, for example `{ daily: { message, links: [{ label, url }] } }`. `message` replaces the default text. Keep both client-safe. |
+
+### Built-in parsers
+
+| Parser | Reads |
+|---|---|
+| `retryAfter` | `Retry-After`: delta seconds, an HTTP-date or an ISO timestamp |
+| `resetHeaders` | `X-RateLimit-Reset-After` (a delta), else `X-RateLimit-Reset`, `RateLimit-Reset` or `X-Rate-Limit-Reset`: epoch milliseconds, epoch seconds or a delta (told apart by size), or a date. A delta is in seconds, or in milliseconds when `resetDeltaUnit` is `'ms'`. `remaining` comes from `X-RateLimit-Remaining`, `RateLimit-Remaining` or `X-Rate-Limit-Remaining` |
+| `ietf` | The IETF `RateLimit` field, as `limit=, remaining=, reset=` or as structured items (`"name";r=0;t=12`). In a list, the item with the fewest remaining calls wins, then the longest wait. `RateLimit-Policy` names the policy |
+
+A parser reads the headers from a `Headers` object, a `Map`, an entries array or
+a plain object, and matches the names in any case. A time in the past waits
+0 ms. A wait that is negative, not a number or longer than 366 days is ignored.
+The package exports the parsers as `parseRetryAfter(value, { now })`,
+`parseResetHeaders(headers, { now, resetDeltaUnit })` and
+`parseIetfRateLimit(headers, { now })`.
+Each returns a hint or `null`.
+
+### What `classify` returns
+
+`classify({ status, headers, body })` runs for a 429, and for any other 4xx or
+5xx except 401. `body` is the response text parsed as JSON, whatever the media
+type, or `undefined` when the text is not JSON (an HTML error page, for
+example). It returns `null` when the response is not a limit, or a hint:
+
+| Field | Meaning |
+|---|---|
+| `reason` | `'burst'`, `'daily'`, `'monthly'`, `'concurrency'` or `'unknown'` |
+| `waitMs` or `retryAt` | When to call again. Leave both out to take the time from the parsers, then from the policy. Step 2 of [How the Requester waits](#how-the-requester-waits) says what happens when neither gives one. |
+| `policy` | The provider's own name for the limit, for logs and the UI |
+| `remaining` | Calls left in the window, when the response says |
+| `source` | `'header'`, `'body'` (default) or `'static'` |
+
+A status other than 429 is a limit only when `classify` returns a hint for it.
+A result counts only when it has a known `reason`, a finite `waitMs` or a valid
+`retryAt`; anything else, `{}` for example, counts as `null`. `classify` must
+be synchronous. A `classify` that throws or returns a Promise is logged
+(`rate_limit_classify_failed`) and counts as `null`.
+
+**Warning:** make `classify` match only the provider's limit signal (a status
+and a limit code in the body or headers). Do not match a status alone. A
+`classify` that names a response that is not a limit (a 404, for example) as a
+limit with a time makes the Requester call again after each wait. One request
+can make up to 10 hinted retries, and then it throws `RateLimitError`, not the
+usual `FetchError`. With no time, it throws `RateLimitError` after one call.
+Return `null` for each response that you do not know to be a limit.
+
+```javascript
+class Api extends OAuth2Requester {
+    static rateLimit = {
+        scope: 'entity',
+        windows: [{ name: 'burst', limit: 100, perMs: 10_000 }],
+        parsers: ['retryAfter', 'resetHeaders'],
+        classify({ status, body }) {
+            if (status !== 429) return null;
+            if (body?.policyName === 'DAILY') return { reason: 'daily', waitMs: 3_600_000 };
+            return { reason: 'burst', policy: body?.policyName };
+        },
+        userHints: {
+            daily: { links: [{ label: 'API usage limits', url: 'https://example.com/limits' }] },
+        },
+    };
+}
+```
+
+```javascript
+class Api extends ApiKeyRequester {
+    static rateLimit = { minRetryAfterMs: 60_000 };
+}
+```
+
+### How the Requester waits
+
+1. It looks for a hint in this order: `classify()`, the parsers, the policy
+   (the larger of `minRetryAfterMs` and the `perMs` of the window named by the
+   reason).
+2. With no time, a 429 keeps the fixed ladder: the same calls, the same delays,
+   then a plain `FetchError`, as before. A response with another status that
+   `classify` recognises but that gets no time throws `RateLimitError` at once,
+   after one call, with `retryAt` and `waitMs` `undefined`: the time is unknown,
+   and a ladder of seconds cannot outwait a daily limit. A 5xx that `classify`
+   does not recognise keeps the 5xx ladder.
+3. With a hint, the wait is the largest of the hint, `minRetryAfterMs` and 1 s,
+   plus at most 10 % jitter. The Requester sleeps when the wait fits the time
+   this request may still sleep, in total, and the time left in the Lambda
+   invocation less one request timeout. That reserve is never more than half
+   the time left, so a 29 s HTTP invocation with the default 60 s request
+   timeout can still sleep 14.5 s. A Requester with no request timeout
+   (`requestTimeoutMs: 0`) keeps half the time left, because its next request
+   has no time limit. The caller owns the total, not the module:
+   10 s in an HTTP handler, 0 in an integration queue worker, and 300 s
+   outside an invocation (tests, scripts, `frigg start`). With 0, a queue
+   worker never sleeps for a hint. It defers the message, and the worker slot
+   is free again. See
+   [The invocation deadline](#the-invocation-deadline). A request makes at most
+   10 hinted retries. They do not use the retries of the ladder, so a 5xx after
+   a hinted wait still gets the whole 5xx ladder.
+4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
+   `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
+   `policy`, `source`, `module` and `scopeKey`.
+
+An HTTP route answers an error with `isRateLimited` (a `RateLimitError`, or a
+token-endpoint error that copies the field) with 429 and
+`{ error: 'Too Many Requests', retryAt }`. It sets `Retry-After` to the seconds
+until `retryAt`. When `retryAt` is unknown, it sends no `Retry-After` and no
+`retryAt`. The response does not show the provider URL or body.
+
+A Requester built with `backOff: []` never sleeps: a hinted wait throws
+`RateLimitError` at once, and a 429 with no hint throws a plain `FetchError`.
+
+The parsers, `Retry-After` among them, read the headers of a 429 and of a
+response that `classify` recognises, and of no other response: a 503 with
+`Retry-After` keeps the 5xx ladder unless `classify` recognises it. The queue
+worker does not halt a `RateLimitError`, even when its status is 403. It puts
+the message back to run at `retryAt` (see the Rate-Limit Deferral section of
+the [Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md)). With
+no `retryAt`, it puts the message back to run after the probe interval,
+`FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default 1 hour). For a wait over 15
+minutes, an unknown `retryAt` or a cap, it also writes one `RATE_LIMITED`
+warning on the integration, with the text and links of `userHints`.
+
+### A client that is not the Requester
+
+A module that drives another client (for example jsforce) calls
+`classifyRateLimit` around its own calls and throws the error itself:
+
+```javascript
+const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
+
+async withLimits(call) {
+    try {
+        return await call();
+    } catch (err) {
+        const hint = classifyRateLimit(Api.rateLimit, {
+            status: err.statusCode,
+            headers: {},
+            body: { errorCode: err.errorCode },
+        });
+        if (!hint) throw err;
+        throw new RateLimitError({ hint, module: this.delegate?.name, cause: err });
+    }
+}
+```
+
+`classifyRateLimit(policy, { status, headers, body }, { now, onClassifyError })`
+resolves in the order the Requester uses and returns a hint or `null`. A hint is
+`{ retryAt, waitMs, reason, source, policy, remaining }`: `retryAt` is a `Date`,
+`waitMs` counts from the call, and `policy` and `remaining` are there only when
+known. An error that `classify` throws propagates unless you pass
+`onClassifyError`.
+
+`new RateLimitError({ hint, waitMs, module, scopeKey, ...fetchErrorArgs })`
+takes the `FetchError` arguments (`resource`, `init`, `response`, `cause`,
+`responseBody`). It sets `retryAt` to now plus `waitMs`, or to `hint.retryAt`
+when `waitMs` is left out. With no `response`, `statusCode` comes from
+`cause.statusCode`.
+
+### A limit in a 2xx body
+
+The Requester calls `classify` only for a 4xx or 5xx: a generic retry of a
+"throttled 200" could send a POST twice. A provider that answers 200 with a
+limit error (a GraphQL `THROTTLED` error, for example) needs the module to
+wrap its own call, classify the body and throw:
+
+```javascript
+const { classifyRateLimit, RateLimitError } = require('@friggframework/core');
+
+class Api extends OAuth2Requester {
+    static rateLimit = {
+        classify({ body }) {
+            const throttled = body?.errors?.some(
+                (error) => error.extensions?.code === 'THROTTLED'
+            );
+            return throttled ? { reason: 'burst', waitMs: 2_000 } : null;
+        },
+    };
+
+    async query(document, variables) {
+        const url = `${this.baseUrl}/graphql`;
+        const response = await this._post({
+            url,
+            body: { query: document, variables },
+            returnFullRes: true,
+        });
+        const body = await response.json();
+        if (!body.errors?.length) return body.data;
+
+        const cause = new Error(body.errors[0].message);
+        const hint = classifyRateLimit(Api.rateLimit, {
+            status: response.status,
+            headers: response.headers,
+            body,
+        });
+        if (!hint) throw cause;
+        throw new RateLimitError({ hint, module: this.delegate?.name, cause, resource: url });
+    }
+}
+```
+
+### The invocation deadline
+
+`runInvocationScope` stores two limits for every Lambda invocation: the end of
+the invocation, from `context.getRemainingTimeInMillis()`, and the most one
+Requester call may sleep in process, in total. `createHandler` takes the second
+as the option `maxInProcessWaitMs`.
+
+| Entry point | `maxInProcessWaitMs` |
+|---|---|
+| HTTP handlers (`createHandler` default) | `10000` |
+| Integration queue worker | `0` |
+| Outside an invocation (tests, scripts, `frigg start`) | `300000` |
+
+`remainingInvocationMs()` returns the milliseconds left, or `Infinity` outside
+an invocation. `runWithInvocationDeadline({ deadlineAt, maxInProcessWaitMs }, fn)`
+runs `fn` with either limit or both. `deadlineAt` is in epoch milliseconds. A
+nested call can only lower each limit, field by field. A field that is not a
+finite number, or a negative `maxInProcessWaitMs`, sets nothing. `0` means never
+sleep: every hinted wait throws `RateLimitError`.
+
+## Complete OAuth2 Example
+
+```javascript
+const { XeroApi } = require('./api');
+
+const Definition = {
+    API: XeroApi,
+    moduleName: 'xero',
+    getName: () => 'xero',
+
+    requiredAuthMethods: {
+        getToken: async (api, params) => {
+            const code = params.data?.code;
+            return api.getTokenFromCode(code);
+        },
+
+        getEntityDetails: async (api, callbackParams, tokenResponse, userId) => {
+            const tenants = await api.getTenants();
+            const selectedTenant = callbackParams?.tenantId
+                ? tenants.find(t => t.tenantId === callbackParams.tenantId)
+                : tenants[0];
+
+            if (selectedTenant) {
+                api.setTenant(selectedTenant.tenantId);
+            }
+
+            const org = await api.getOrganisation();
+
+            return {
+                identifiers: {
+                    externalId: org.id,
+                    user: userId
+                },
+                details: {
+                    name: org.name,
+                    tenantId: selectedTenant?.tenantId,
+                    tenantType: selectedTenant?.tenantType
+                }
+            };
+        },
+
+        apiPropertiesToPersist: {
+            credential: ['access_token', 'refresh_token', 'accessTokenExpire'],
+            entity: ['tenantId']
+        },
+
+        getCredentialDetails: async (api, userId) => {
+            const org = await api.getOrganisation();
+            return {
+                identifiers: { externalId: org.id, user: userId },
+                details: {}
+            };
+        },
+
+        testAuthRequest: async (api) => {
+            return api.getOrganisation();
+        }
+    },
+
+    env: {
+        client_id: process.env.XERO_CLIENT_ID,
+        client_secret: process.env.XERO_CLIENT_SECRET,
+        redirect_uri: process.env.XERO_REDIRECT_URI,
+        scope: 'openid profile email accounting.transactions offline_access'
+    }
+};
+
+module.exports = { Definition, XeroApi };
+```
+
+## Session-Based Auth Example
+
+```javascript
+const { ProcurementExpressApi } = require('./api');
+
+const Definition = {
+    API: ProcurementExpressApi,
+    moduleName: 'procurement-express',
+    getName: () => 'procurement-express',
+
+    requiredAuthMethods: {
+        getToken: async (api, params) => {
+            const { email, password } = params.data || {};
+
+            if (!email || !password) {
+                throw new Error('Email and password are required');
+            }
+
+            const response = await api.login(email, password);
+
+            return {
+                authentication_token: response.authentication_token,
+                employer_id: response.employer_id,
+                user_id: response.id
+            };
+        },
+
+        getEntityDetails: async (api, callbackParams, tokenResponse, userId) => {
+            const user = await api.getCurrentUser();
+            const company = user.companies?.[0];
+
+            return {
+                identifiers: {
+                    externalId: String(user.id),
+                    user: userId
+                },
+                details: {
+                    name: user.name,
+                    email: user.email,
+                    companyId: company?.id,
+                    companyName: company?.name
+                }
+            };
+        },
+
+        apiPropertiesToPersist: {
+            credential: ['authenticationToken', 'companyId'],
+            entity: ['companyId']
+        },
+
+        getCredentialDetails: async (api, userId) => {
+            const user = await api.getCurrentUser();
+            return {
+                identifiers: { externalId: String(user.id), user: userId },
+                details: {}
+            };
+        },
+
+        testAuthRequest: async (api) => {
+            return api.getCurrentUser();
+        }
+    },
+
+    env: {
+        base_url: process.env.PROCUREMENT_EXPRESS_BASE_URL || 'https://app.example.com/api/v1'
+    }
+};
+
+module.exports = { Definition, ProcurementExpressApi };
+```
+
+## Validation
+
+Use `frigg validate` to check your module definition against the schema:
+
+```bash
+frigg validate
+```
+
+The validator checks:
+- Required properties are present
+- Property types match schema
+- `env` properties use correct naming (snake_case)
+- No additional properties on strict objects
+
+## Best Practices
+
+1. **Use snake_case for `env` properties** - The schema enforces this pattern
+2. **Keep `moduleName` simple** - Use lowercase with hyphens (e.g., `my-module`)
+3. **Persist minimal data** - Only store what's needed for re-authentication
+4. **Use core encryption** - OAuth tokens are auto-encrypted; declare custom fields explicitly
+5. **Test auth requests** - Use a simple, fast endpoint for `testAuthRequest`
+
+## Related Documentation
+
+- [JSON Schema](/packages/schemas/schemas/api-module-definition.schema.json) - Canonical schema definition
+- [Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md) - Sync, queue, and webhook patterns
+- [Encryption README](/packages/core/database/encryption/README.md) - Field-level encryption details

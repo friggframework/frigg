@@ -1,0 +1,989 @@
+# CLAUDE.md - Frigg Framework Core Package
+
+This file provides guidance to Claude Code when working with the Frigg Framework's core package (`@friggframework/core`).
+
+## Critical Context (Read First)
+
+- **Package Purpose**: Core framework functionality for building enterprise serverless integrations
+- **Main Architecture**: Hexagonal/DDD architecture with clear separation of adapters, use cases, and repositories
+- **Key Technologies**: Node.js, Express, AWS Lambda, MongoDB/PostgreSQL (Prisma), AWS KMS encryption
+- **Core Value**: Provides building blocks for integration developers - they extend IntegrationBase and use framework services
+- **Security Model**: Field-level encryption, OAuth2 flows, signature validation, VPC deployment
+- **DO NOT**: Bypass architectural layers, skip encryption for sensitive data, expose internal errors to users
+
+## Table of Contents
+
+1. [Package Overview](#package-overview)
+2. [Architecture Principles](#architecture-principles)
+3. [Essential Commands](#essential-commands)
+4. [Directory Structure](#directory-structure)
+5. [Core Components](#core-components)
+6. [Development Workflow](#development-workflow)
+7. [Testing Strategy](#testing-strategy)
+8. [Anti-Patterns](#anti-patterns)
+
+## Package Overview
+
+`@friggframework/core` is the foundational package of the Frigg Framework, providing:
+
+- **IntegrationBase**: Base class all integrations extend
+- **Database Layer**: Multi-database support (MongoDB, DocumentDB, PostgreSQL) with Prisma ORM
+- **Encryption**: Transparent field-level encryption with AWS KMS or AES
+- **User Management**: Individual and organizational user support
+- **Module System**: API module loading and credential management
+- **Lambda Runtime**: Handler factory, worker base class, timeout management
+- **Error Handling**: Standardized error types with proper HTTP status codes
+- **Event System**: Integration lifecycle events and user actions
+
+## Architecture Principles
+
+### Hexagonal Architecture (Ports and Adapters)
+
+The core package strictly follows hexagonal architecture:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  Adapters (Inbound)                     │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+│  │ HTTP/REST   │  │ Lambda      │  │ SQS Workers │    │
+│  │ (handlers/) │  │ (core/)     │  │ (queues/)   │    │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘    │
+└─────────┼─────────────────┼─────────────────┼───────────┘
+          │                 │                 │
+┌─────────▼─────────────────▼─────────────────▼───────────┐
+│              Application Layer (Use Cases)              │
+│  ┌────────────────────────────────────────────────┐    │
+│  │ CreateIntegration, UpdateIntegration,          │    │
+│  │ LoginUser, ProcessAttachmentJob, etc.          │    │
+│  └────────────────────┬───────────────────────────┘    │
+└───────────────────────┼─────────────────────────────────┘
+                        │ calls
+┌───────────────────────▼─────────────────────────────────┐
+│                Domain Layer (Entities)                  │
+│  ┌────────────────────────────────────────────────┐    │
+│  │ IntegrationBase, User, Credential, Entity      │    │
+│  └────────────────────┬───────────────────────────┘    │
+└───────────────────────┼─────────────────────────────────┘
+                        │ persisted by
+┌───────────────────────▼─────────────────────────────────┐
+│            Infrastructure Layer (Repositories)          │
+│  ┌────────────────────────────────────────────────┐    │
+│  │ IntegrationRepository, UserRepository,         │    │
+│  │ CredentialRepository, ModuleRepository         │    │
+│  └────────────────────┬───────────────────────────┘    │
+└───────────────────────┼─────────────────────────────────┘
+                        │ accesses
+┌───────────────────────▼─────────────────────────────────┐
+│                  External Systems                       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐             │
+│  │ MongoDB  │  │ Postgres │  │ AWS KMS  │             │
+│  └──────────┘  └──────────┘  └──────────┘             │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Golden Rules
+
+1. **Handlers NEVER call repositories directly** - Always go through use cases
+2. **Use cases contain business logic** - Not repositories or handlers
+3. **Repositories are pure data access** - No business logic or orchestration
+4. **Domain entities have behavior** - Not just data bags
+5. **Encryption is transparent** - Application code works with plain data
+
+## Essential Commands
+
+### Development
+
+```bash
+# Install dependencies
+npm install
+
+# Generate Prisma clients (both MongoDB and PostgreSQL)
+npm run prisma:generate
+
+# Format and lint code
+npm run lint:fix
+
+# Run tests
+npm test
+
+# Run specific test file
+npm test -- path/to/test.test.js
+
+# Run tests for specific pattern
+npm test -- --testPathPattern="encryption"
+```
+
+### Prisma Database Operations
+
+```bash
+# Generate clients
+npm run prisma:generate:mongo      # MongoDB only
+npm run prisma:generate:postgres   # PostgreSQL only
+npm run prisma:generate            # Both databases
+
+# Database migrations
+npm run prisma:push:mongo          # Push MongoDB schema
+npm run prisma:migrate:postgres    # Run PostgreSQL migrations
+```
+
+### Testing
+
+```bash
+# All tests
+npm test
+
+# Specific test categories
+npm test -- database/encryption/   # Encryption tests
+npm test -- integrations/          # Integration tests
+npm test -- handlers/              # Handler tests
+```
+
+## Directory Structure
+
+```
+packages/core/
+├── application/              # Application-level commands and initialization
+│   └── commands/            # Command pattern implementations
+├── assertions/              # Validation and assertion utilities
+├── associations/            # Entity association management
+├── core/                    # Runtime system (Lambda, Workers, Delegates)
+│   └── CLAUDE.md           # Detailed core runtime documentation
+├── credential/              # Credential management
+│   ├── repositories/       # Credential data access
+│   └── use-cases/          # Credential business logic
+├── database/                # Database layer and encryption
+│   ├── encryption/         # Field-level encryption system
+│   │   └── README.md       # Comprehensive encryption documentation
+│   ├── models/             # Mongoose models
+│   ├── repositories/       # Database repositories
+│   └── use-cases/          # Database health and management
+├── encrypt/                 # Cryptor adapter for AWS KMS and AES
+├── errors/                  # Error type definitions
+├── handlers/                # HTTP/Lambda request handlers
+│   └── routers/            # Express routers
+├── integrations/            # Integration domain and lifecycle
+│   ├── integration-base.js # Base class for all integrations
+│   ├── repositories/       # Integration data access
+│   ├── tests/              # Integration tests
+│   └── use-cases/          # Integration business logic
+├── lambda/                  # AWS Lambda utilities
+├── logs/                    # Logging system
+├── modules/                 # API module system
+│   ├── requester/          # HTTP client implementations
+│   └── repositories/       # Module data access
+├── prisma-mongodb/          # MongoDB Prisma schema
+├── prisma-postgresql/       # PostgreSQL Prisma schema
+├── queues/                  # SQS job queue management
+├── syncs/                   # Data synchronization
+├── token/                   # Token management
+│   └── repositories/       # Token data access
+├── types/                   # TypeScript type definitions
+├── user/                    # User management
+│   ├── repositories/       # User data access
+│   └── use-cases/          # User business logic
+├── utils/                   # Utility functions
+├── websocket/               # WebSocket connection management
+│   └── repositories/       # WebSocket data access
+├── index.js                 # Main export file
+├── package.json             # Package configuration
+└── README.md                # Package documentation
+```
+
+## Core Components
+
+### 1. Integration System (`/integrations`)
+
+**Purpose**: Foundation for building integrations between external systems.
+
+**Key Files**:
+- `integration-base.js` - Base class all integrations extend
+- `integration.js` - Integration domain aggregate using Proxy pattern
+- `options.js` - Integration configuration and options
+
+**Use Cases**:
+- `create-integration.js` - Create new integration instance
+- `update-integration.js` - Update integration configuration
+- `delete-integration-for-user.js` - Remove integration
+- `get-integration-instance.js` - Load integration with modules
+- `load-integration-context.js` - Full integration context loading
+- `add-entities-to-integration.js` / `remove-entities-from-integration.js` - Attach or detach entities on an existing integration
+
+**Repositories**:
+- `integration-repository-factory.js` - Creates database-specific repositories
+- `integration-repository-mongo.js` - MongoDB implementation
+- `integration-repository-postgres.js` - PostgreSQL implementation
+- `addEntitiesToIntegration(integrationId, entityIds)` /
+  `removeEntitiesFromIntegration(integrationId, entityIds)` change the entity
+  set of an existing integration (all three adapters; `null` for an unknown
+  integration). Reach them through the `addEntitiesToIntegration` /
+  `removeEntitiesFromIntegration` commands. The add use case
+  (`add-entities-to-integration.js`) rejects unknown entities
+  (`ENTITIES_NOT_FOUND`, 404), entities of another user
+  (`ENTITY_USER_MISMATCH`, 403) and entities of a module the integration does
+  not already hold (`ENTITY_MODULE_MISMATCH`, 400). The remove use case
+  (`remove-entities-from-integration.js`) refuses to leave a module with no
+  entity (`LAST_ENTITY_OF_MODULE`, 409). Re-adding an attached entity or
+  removing a detached one changes nothing; a detached entity is not deleted.
+  `integration-repository-entities-parity.db.test.js` runs every adapter against
+  real databases when `INTEGRATION_ENTITIES_PARITY_MONGO_URL` /
+  `INTEGRATION_ENTITIES_PARITY_POSTGRES_URL` are set. The DocumentDB adapter
+  writes only `Integration.entityIds` (as its `createIntegration` does), not
+  `Entity.integrationIds`.
+  **One credential, many accounts**: when one credential covers several
+  provider accounts, give each account its own entity (externalId = account
+  id) and attach them all to one integration; webhooks then route with
+  `findIntegrationByEntityExternalId`. Traps:
+  (1) `IntegrationBase` keys modules by module name, so `this.<moduleKey>`
+  holds only one entity's module, and on the queue/webhook path
+  (`get-integration-instance.js`) `this.entities` holds entity **ids**, not
+  records. For per-account work (a webhook for one account, teardown of every
+  account in `onDelete`), load
+  `this.commands.loadIntegrationContextById(this.id)` and use
+  `context.modules`: one module per entity, each with its record on
+  `module.entity` (pick by `module.entity.externalId`).
+  (2) `findIntegrationByEntityExternalId` counts every entity with that
+  externalId, attached or not, across users: reuse an existing entity
+  (`findEntity`) when an account comes back, or delete it when it is revoked,
+  never create a second one.
+  (3) `createIntegration` reuses an existing integration of the same user
+  and type whose entities include all requested ones (an exact match wins),
+  so a reconnect that sends the original entities finds the integration that
+  now holds more.
+  (4) Every module's delegate is the integration: an auth failure on any
+  account marks the shared credential invalid and the integration ERROR.
+- `integration-mapping-repository-*.js` - Mapping data persistence.
+  `queryMappings(integrationId, { where, orderBy, skip, take, omit })`
+  returns `{ mappings, total }`: one filtered, ordered page of an
+  integration's mappings, for callers that cannot load every row through
+  `findMappingsByIntegration`. `where` is an array of ANDed conditions
+  (at most 20); an entry may be `{ anyOf: [...] }`, ORed, one level deep.
+  Conditions are `{ path: 'mapping.<segment>...', op: 'exists' | 'notExists' }`
+  (JSON null counts as absent), `{ path: 'mapping.…', op: 'in', value: string[] }`
+  (1–500 strings) and `{ path: 'sourceId', op: 'notStartsWith', value }`
+  (a NULL sourceId matches). `orderBy` is `{ path: 'mapping.…', direction:
+  'asc' | 'desc' }`, nulls last, ties broken by id in the same direction;
+  without it rows come in id order. `take` is 1–500. `omit` lists top-level
+  mapping keys to leave out of the rows; never write such rows back. Path
+  segments must match `^[A-Za-z_][A-Za-z0-9_]*$`. The PostgreSQL, MongoDB and
+  DocumentDB adapters give the same pages and totals;
+  `integration-mapping-repository-query-parity.db.test.js` checks that against
+  real databases when `QUERY_MAPPINGS_PARITY_MONGO_URL` /
+  `QUERY_MAPPINGS_PARITY_POSTGRES_URL` are set. Two orderings still differ:
+  strings compare by the database collation on PostgreSQL and by code point
+  on MongoDB and DocumentDB, and arrays or objects at the sort path order
+  among themselves only on PostgreSQL (the other adapters fall back to id).
+  The legacy `IntegrationMappingRepository` inherits the port's
+  "not supported by this database adapter yet" error. Every adapter refuses
+  to run while field-level encryption still encrypts
+  `IntegrationMapping.mapping` on write (see `database/encryption/README.md`),
+  and returns rows decrypted like `findMappingsByIntegration`. PostgreSQL and
+  MongoDB decrypt through `decryptQueriedMappings`
+  (`database/encryption/integration-mapping-encryption.js`), a no-op while
+  encryption is off or lists no `IntegrationMapping` field besides `mapping`.
+  Validation lives in `integration-mapping-query.js`; a new operator is one
+  entry in its `OPERATORS` table, one in the Postgres adapter's
+  `CONDITION_SQL` and one in `CONDITION_EXPRESSIONS` in
+  `integration-mapping-query-pipeline.js`, the aggregation stages both
+  MongoDB-protocol adapters share. Those stages may only use what Amazon
+  DocumentDB 4.0 and 5.0 support (no `$facet`, `$getField`, `$set` or
+  `$unset`).
+  **Cost**: PostgreSQL answers in one SQL statement, which reads every row
+  of the integration and evaluates the JSON paths per row, because no JSON
+  index exists. With ~4 KB mappings on PostgreSQL 16 that is about 0.3 s per
+  call at 10⁴ rows per integration and 2.5–3 s at 10⁵. MongoDB answers in one
+  aggregate: the `integrationId` index narrows `$match` to the integration,
+  the `$expr` is then evaluated per document, and `$facet` returns the page
+  with its `$count`, so a page (after `omit`) must fit the 16 MB document
+  limit. DocumentDB has no `$facet`: the page and the count are two
+  concurrent aggregates, so the total does not come from the same snapshot
+  as the page. Both sort in memory on a computed key (`allowDiskUse`). With
+  ~4 KB mappings on MongoDB 7 that is about 0.05–0.1 s per call at 10⁴ rows
+  per integration and 0.5–0.7 s at 10⁵ (the DocumentDB pipeline, run on
+  MongoDB, 0.6–0.8 s). On every adapter a deep offset or an empty page past
+  the end costs about the same as the first page.
+- Integration messages: `updateIntegrationMessages(integrationId, type, item,
+  { keepLast })` appends one item and keeps the newest `keepLast` (the use case
+  passes 50). `findIntegrationMessages(integrationId, type)` reads the stored
+  items of a type. `appendRateLimitMessage` is the atomic write of the
+  `RATE_LIMITED` warning (section 7). `integration-repository-messages-parity.db.test.js`
+  runs every adapter against real databases when
+  `INTEGRATION_MESSAGES_PARITY_MONGO_URL` / `INTEGRATION_MESSAGES_PARITY_POSTGRES_URL`
+  are set.
+- `process-repository-*.js` - Process (long-running job) persistence.
+  Implements `applyProcessUpdate(processId, ops)` — a race-safe alternative
+  to `update(id, patch)` that routes increments, sets, and bounded-array
+  pushes through each backend's native atomic primitive (PostgreSQL
+  `jsonb_set` / MongoDB `$inc`/`$set`/`$push`). Use this method any time
+  multiple queue workers may concurrently mutate the same Process row
+  (counters, flags, error history). The legacy `update(id, patch)`
+  remains available but is clobber-prone under concurrency.
+
+**Integration developers extend IntegrationBase**:
+
+```javascript
+const { IntegrationBase } = require('@friggframework/core');
+
+class MyIntegration extends IntegrationBase {
+    static Definition = {
+        name: 'my-integration',
+        version: '1.0.0',
+        modules: {
+            serviceA: 'service-a',
+            serviceB: 'service-b'
+        }
+    };
+
+    async onCreate({ integrationId }) {
+        // Setup logic
+        await super.onCreate({ integrationId });
+    }
+}
+```
+
+### 2. Database Layer (`/database`)
+
+**Purpose**: Multi-database support with transparent encryption.
+
+**Key Components**:
+- `prisma.js` - Prisma client initialization with encryption extension
+- `mongo.js` - Mongoose connection management (legacy)
+- `models/` - Mongoose model definitions
+
+**Encryption System** (`/database/encryption`):
+- **Transparent encryption**: Application code never sees encrypted data
+- **Database-agnostic**: Works with MongoDB and PostgreSQL
+- **AWS KMS or AES**: Production KMS, development AES
+- **Configurable**: Via environment variables and app definition
+
+**See**: `database/encryption/README.md` for comprehensive documentation
+
+**Repositories**:
+- `health-check-repository.js` - Database health monitoring
+- `token-repository.js` - Authentication tokens
+- `websocket-connection-repository.js` - WebSocket connections
+- DocumentDB-enabled adapters mirror the MongoDB APIs but execute raw commands (`$runCommandRaw`, `$aggregateRaw`) for compatibility; encrypted models (e.g., credentials) still delegate reads to Prisma so the encryption extension can decrypt secrets transparently.
+
+**Use Cases**:
+- `check-database-health-use-case.js` - Database health checks
+- `test-encryption-use-case.js` - Encryption verification
+
+### 3. User Management (`/user`)
+
+**Purpose**: Individual and organizational user authentication.
+
+**User Types**:
+- **Individual Users**: Personal accounts with email/password
+- **Organization Users**: Business accounts with organization-level access
+- **Hybrid**: Support both simultaneously
+
+**Authentication Methods**:
+- Password-based (bcrypt hashed)
+- Token-based (Bearer tokens)
+- App-based (external app user IDs)
+
+**Use Cases**:
+- `login-user.js` - User authentication
+- `create-individual-user.js` - Create personal account
+- `create-organization-user.js` - Create business account
+- `get-user-from-bearer-token.js` - Token authentication
+
+**Repositories**:
+- `user-repository-factory.js` - Creates database-specific repositories
+- `user-repository-mongo.js` - MongoDB implementation
+- `user-repository-postgres.js` - PostgreSQL implementation
+
+**Configuration** (in app definition):
+
+```javascript
+{
+    user: {
+        usePassword: true,              // Enable password auth
+        primary: 'individual',          // Primary user type
+        individualUserRequired: true,   // Require individual user
+        organizationUserRequired: false // Optional org user
+    }
+}
+```
+
+### 4. Module System (`/modules`)
+
+**Purpose**: API module loading, credential management, and HTTP clients.
+
+**Key Classes**:
+- `Credential` - API credentials domain entity
+- `Entity` - External service entity (account, workspace, etc.)
+- `Requester` - Base HTTP client class
+- `OAuth2Requester` - OAuth 2.0 flow implementation
+- `ApiKeyRequester` - API key authentication
+- `BasicAuthRequester` - Basic authentication
+
+**Rate limits** (ADR-049): an API module declares `static rateLimit` on its
+`Requester` subclass. A hinted wait (from `classify()`, the header parsers or
+the static policy) sleeps within a budget that the caller owns (10 s in an HTTP
+handler, 0 in a queue worker, 300 s outside an invocation, at most 10
+hinted retries), or throws `RateLimitError`
+(`isRateLimited`, `retryAt`) when it does not fit. A 429 with no hint keeps the
+fixed `backOff` ladder. A non-429 limit that `classify` names without a time
+throws `RateLimitError` at once, with `retryAt` unknown. See
+[Rate Limits](../../docs/reference/api-module-definition-and-functions.md#rate-limits-static-ratelimit).
+
+**Module Factory**:
+- `ModuleFactory` - Creates and configures API module instances
+- Handles credential injection
+- Manages module lifecycle
+
+**Repositories**:
+- `module-repository.js` - Module data access
+- `credential-repository.js` - Credential persistence (encrypted)
+
+### 5. Core Runtime System (`/core`)
+
+**Purpose**: Lambda-optimized runtime with handlers, workers, and delegates.
+
+**See**: `core/CLAUDE.md` for comprehensive documentation
+
+**Key Components**:
+- `create-handler.js` - Lambda handler factory
+- `Worker.js` - SQS job processing base class
+- `Delegate.js` - Observer/delegation pattern
+- `load-installed-modules.js` - Dynamic module loading
+
+**Handler Pattern**:
+
+```javascript
+const { createHandler } = require('@friggframework/core');
+
+const handler = createHandler({
+    eventName: 'MyIntegration',
+    isUserFacingResponse: true,  // Sanitize errors
+    shouldUseDatabase: true,     // Connect to DB
+    method: async (event, context) => {
+        // Your logic here
+        return { statusCode: 200, body: 'Success' };
+    }
+});
+```
+
+**Worker Pattern**:
+
+```javascript
+const { Worker } = require('@friggframework/core');
+
+class MyWorker extends Worker {
+    _validateParams(params) {
+        this._verifyParamExists(params, 'requiredField');
+    }
+
+    async _run(params, context) {
+        // Process SQS message
+    }
+}
+```
+
+### 6. Encryption System (`/encrypt`)
+
+**Purpose**: Cryptor adapter for AWS KMS and AES encryption.
+
+**Key Class**: `Cryptor.js`
+- Envelope encryption pattern
+- AWS KMS integration
+- AES-256-GCM fallback
+- Key rotation support
+
+**Usage**:
+
+```javascript
+const { Cryptor } = require('@friggframework/core');
+
+const cryptor = new Cryptor({
+    shouldUseAws: process.env.KMS_KEY_ARN ? true : false
+});
+
+const encrypted = await cryptor.encrypt('sensitive-data');
+const decrypted = await cryptor.decrypt(encrypted);
+```
+
+### 7. Handlers & Routers (`/handlers`)
+
+**Purpose**: HTTP/Lambda request handling and routing.
+
+**Key Routers**:
+- `integration-router.js` - Integration CRUD operations
+- `auth.js` - Authentication endpoints
+- `health.js` - Health check endpoints with encryption verification
+
+**Handler Types**:
+- **User-facing**: Sanitize errors, friendly responses
+- **Server-to-server**: Full error details for debugging
+- **Background workers**: SQS message processing
+
+**Event Dispatcher**:
+- `integration-event-dispatcher.js` - Routes events to integration handlers
+- Supports lifecycle events and user actions
+
+**Queue handler delivery**: a handler dispatched from the integration queue
+(any `this.events` entry reached through SQS, including `ON_WEBHOOK` and
+scheduled jobs) receives `{ data, context, delivery }`. HTTP-dispatched
+handlers (`{ req, res, next }`) and `this.on` events do not.
+
+| Field | Type | Value |
+|---|---|---|
+| `delivery.receiveCount` | `number \| undefined` | SQS `ApproximateReceiveCount` of this delivery |
+| `delivery.maxReceiveCount` | `number \| undefined` | Receives allowed before SQS moves the message to the DLQ (`FRIGG_QUEUE_MAX_RECEIVE_COUNT`) |
+| `delivery.isLastAttempt` | `boolean` | `true` only when both counts are known and `receiveCount >= maxReceiveCount` |
+
+`isLastAttempt` is `false` when either count is unknown: a local or non-SQS
+invocation, or a queue whose redrive policy the stack does not own
+(`ownership.queue: 'external'`). The value does not change what core does: a
+retryable error returns the message to SQS, a rate-limited error puts it back
+to run at `retryAt` (see **Rate-limit deferral** below), and a halt error (4xx
+except 408, 429 and errors with `isRateLimited`) discards it.
+
+Use it to end a run or count lost work on the final try. Check it first: when
+it is `true`, mark the run failed or count the message's records as failed, and
+return. Otherwise rethrow. Do not end the run and then rethrow: core can still
+send a `RateLimitError` again, so the message would run again on an ended run.
+
+```javascript
+async processBatch({ data, delivery }) {
+    try {
+        await this.syncPage(data);
+    } catch (error) {
+        if (delivery?.isLastAttempt) return this.failRun(data.processId, error);
+        throw error;
+    }
+}
+```
+
+The single source of the max receive count is
+`INTEGRATION_QUEUE_MAX_RECEIVE_COUNT` in `queues/queue-delivery.js`. The
+devtools integration builder uses it for the queue's `RedrivePolicy` and sets
+it as `FRIGG_QUEUE_MAX_RECEIVE_COUNT` on the queue worker function.
+
+**Rate-limit deferral** (ADR-049): when a queue handler throws an error with
+`isRateLimited` (a `RateLimitError` from the Requester, or one a module throws),
+`Worker.run` builds a `RATE_LIMITED` event:
+
+```javascript
+{
+    retryAt, waitMs, reason, module, scopeKey, // from the error; retryAt can be undefined
+    message,                                   // the body of the queue message
+    delivery: { messageId, receiveCount, deferrals, deferredMs },
+}
+```
+
+When the integration defines a `RATE_LIMITED` event handler, the queue worker
+calls it with `{ data: event, context, delivery }`, on the instance that ran the
+job. The return value decides:
+
+| Value | What the worker does |
+|---|---|
+| `'defer'`, or no value | The default handler runs (below) |
+| `'drop'` | Acknowledges the record. SQS deletes the message. The wait that the message set is cleared, as after a success |
+| `'retry'` | Reports the record failed, as for any retryable error |
+
+A handler that throws counts as `'retry'`. With no `RATE_LIMITED` handler, the
+default handler runs. The same event is meant to become the input of the
+ADR-047 orchestrator later.
+
+The default handler does not give the message back to SQS for a 30 minute
+redelivery. It puts the message back so it runs at `retryAt`:
+
+| Wait | What the worker does | Record |
+|---|---|---|
+| Up to 900 s | Sends the same body again with `DelaySeconds`, then acknowledges the old message | handled |
+| Over 900 s, and `SCHEDULER_ROLE_ARN` is set | Creates a one-time EventBridge schedule at `retryAt` that sends the body to the queue, then acknowledges | handled |
+| Over 900 s, no scheduler | Extends the message's visibility timeout to `retryAt` (12 h less 20 minutes at most). This uses one receive | reported failed |
+
+- An unknown `retryAt` (a non-429 limit that `classify` names without a time)
+  uses now plus the probe interval, `FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default
+  1 h). The worker does not wait for the visibility timeout of the queue. The
+  log record then has `probe: true`.
+
+- The new message starts at receive count 1. A deferred body carries
+  `_frigg: { deferrals, firstDeferredAt, deferralId }`; `_frigg` is reserved and
+  the job handler never sees it. The `message` of the `RATE_LIMITED` event is
+  the whole body, `_frigg` included. `deferralId` is the SQS message id of the first
+  message that was put back, and every later deferral of that work keeps it.
+- The visibility tier sets a timeout of at most 12 h less 20 minutes
+  (42,000 s). SQS counts its 12 h maximum from the receive, and an extension
+  does not reset it. The margin covers the longest Lambda run (900 s) plus the
+  longest batching window (300 s).
+- Two caps bound it: `FRIGG_QUEUE_MAX_DEFERRALS` (default 30) and
+  `FRIGG_QUEUE_MAX_DEFERRED_MS` (default 26 h, from the first deferral to the
+  retry time). The defaults cover one full day of hourly waits, for a module
+  that probes a daily limit every hour. Past a cap, with no event source ARN
+  or on a FIFO queue, the record fails like any retryable error and `delivery`
+  applies.
+- The mock scheduler is never used for a deferral: a schedule kept in memory
+  would be lost with the acknowledged message.
+- With a `processId` in the message, the worker writes
+  `Process.context.rateLimit = { status: 'WAITING' | 'EXHAUSTED', mechanism,
+  retryAt, reason, module, deferrals, deferralId, updatedAt }`. `EXHAUSTED` means
+  a cap ended the deferrals, or a visibility change came on the last delivery.
+  The value is one per process, so it holds the latest known wait: a new wait
+  replaces it only when its `retryAt` is later, and a `WAITING` value never hides
+  an `EXHAUSTED` one. After a deferred or redelivered message ran, the worker
+  sets a `WAITING` value to `null` at once when that message set it (same
+  `deferralId`, or the message's own id for a visibility change), and for any
+  other message only when its `retryAt` is past or within 5 s. So a job that
+  resumes before its `retryAt` clears its own wait, and cannot clear the wait of
+  another message.
+- Delivery stays at least once. The new message is sent before the old one is
+  acknowledged, so a crash between the two can run the work twice.
+- Handlers check `delivery.isLastAttempt` first, then rethrow. The delay and
+  schedule tiers send a new message, so they never reach the last attempt. The
+  visibility tier and a cap use a receive: on the last one the worker writes an
+  ERROR (`frigg.worker.record_lost_rate_limited`), and the handler has this one
+  chance to end the run.
+
+```javascript
+async processBatch({ data, delivery }) {
+    try {
+        await this.syncPage(data);
+    } catch (error) {
+        if (delivery?.isLastAttempt) return this.failRun(data.processId, error);
+        throw error; // a RateLimitError too: core puts the message back at retryAt
+    }
+}
+```
+
+Records: a rate-limited SQS record gets one log record, by its outcome.
+
+| Outcome | Log record |
+|---|---|
+| Acknowledged | WARN `frigg.worker.record_deferred` (`mechanism` `delay` or `schedule`) |
+| Dropped by the `RATE_LIMITED` handler | WARN `frigg.worker.record_dropped` |
+| Not acknowledged, not the last attempt | One WARN: `record_deferral_capped`, `record_visibility_extended`, or `record_failed` with `deferral.skipped` (`handler_retry` and `handler_failed` for the `RATE_LIMITED` handler) |
+| Not acknowledged, last attempt | One ERROR, `record_lost_rate_limited`, with the details, and no WARN |
+
+**The `RATE_LIMITED` message** (ADR-049 section 5): the default handler writes
+one client-safe warning on the integration in three cases: the wait is over
+900 s, `retryAt` is unknown (the message then has the probe time), or a cap
+ended the deferrals. A shorter wait writes nothing, because the run continues
+within 15 minutes. The `RATE_LIMITED` handler's `'drop'` and `'retry'` write
+nothing, because the default handler does not run.
+
+```javascript
+{
+    title: 'Rate limit reached',
+    message,                 // userHints[reason].message, else a default text
+    timestamp,
+    code: 'RATE_LIMITED',
+    module, reason,
+    retryAt,                 // ISO UTC; the UI shows local time
+    actions: [
+        { type: 'RETRY_WHEN_READY' },
+        { type: 'LINK', label, url },   // from userHints[reason].links
+    ],
+}
+```
+
+`userHints` come from the `static rateLimit` of the module that the event
+names (`Definition.modules[*].definition.moduleName`). The `QueueWorker` writes
+the warning through `RecordRateLimitMessage` and the repository method
+`appendRateLimitMessage`. That method is one atomic write on every adapter: it
+appends only when no stored warning has the same `code` and `module` and a
+`retryAt` within 60 s, and it keeps the newest 50 warnings. So twenty workers
+that meet one limit write one warning. A rate limit does not change the status
+of the integration.
+
+A failing run state hook adds `rate_limit_state_failed`. A failing message hook
+adds `rate_limit_message_failed`. Neither changes the outcome. For a queue that
+the stack does not own (`ownership.queue: 'external'`), devtools grants the
+functions `sqs:SendMessage`, `sqs:GetQueueUrl`, `sqs:GetQueueAttributes` and
+`sqs:ChangeMessageVisibility` on the queue's ARN, and the scheduler role
+`sqs:SendMessage` on it.
+
+### 8. Error Handling (`/errors`)
+
+**Purpose**: Standardized error types with proper HTTP semantics.
+
+**Error Types**:
+- `BaseError` - Base error class
+- `FetchError` - HTTP request failures
+- `RateLimitError` - A `FetchError` for a limit the provider or the module's policy says when to retry (`retryAt`)
+- `HaltError` - Stop processing without retry
+- `RequiredPropertyError` - Missing required parameters
+- `ParameterTypeError` - Invalid parameter type
+
+**Usage**:
+
+```javascript
+const { RequiredPropertyError } = require('@friggframework/core');
+
+if (!userId) {
+    throw new RequiredPropertyError('userId is required');
+}
+```
+
+### 9. Logging System (`/logs`)
+
+**Purpose**: One redacted JSON record per line to stdout (ADR-048). See `docs/guides/LOGGING.md`.
+
+**Rules**:
+- `logs/` is a leaf: it requires only Node built-ins and sibling `logs/` files.
+- Integrations and API modules use `this.logger`; core uses one `getLogger('frigg.<area>')` per module.
+- Fixed message text; ids and counts go into fields. `frigg.*` records at WARN and above need an `eventName` (`<logger name>.<action>`); tests fail without it.
+- Log an error one time, at the boundary (`createHandler`, the express middleware, `Worker.run`, the DLQ processor). Inner code throws with `cause`.
+- Use `statusCode`, not `status` (reserved key). `body`, `payload`, `response` are dropped at INFO and above.
+- Tests assert on `createMemorySink()` records by `eventName`, not on console spies.
+- `debug`, `initDebugLog`, `flushDebugLog` are deprecated shims.
+
+**Usage**:
+
+```javascript
+const { getLogger } = require('../logs');
+const log = getLogger('frigg.core.sync');
+
+log.warn('Sync skipped', { eventName: 'frigg.core.sync.skipped', processId });
+```
+
+### 10. Lambda Utilities (`/lambda`)
+
+**Purpose**: AWS Lambda-specific utilities.
+
+**Key Classes**:
+- `TimeoutCatcher` - Detect approaching Lambda timeout
+- Graceful shutdown handling
+
+**Usage**:
+
+```javascript
+const { TimeoutCatcher } = require('@friggframework/core');
+
+exports.handler = async (event, context) => {
+    const timeoutCatcher = new TimeoutCatcher(context);
+
+    if (timeoutCatcher.isNearTimeout()) {
+        // Save state and exit gracefully
+    }
+};
+```
+
+## Development Workflow
+
+### Adding a New Use Case
+
+1. **Create use case file** in appropriate `use-cases/` directory:
+
+```javascript
+// integrations/use-cases/my-new-use-case.js
+class MyNewUseCase {
+    constructor({ integrationRepository, userRepository }) {
+        this.integrationRepo = integrationRepository;
+        this.userRepo = userRepository;
+    }
+
+    async execute(userId, integrationId) {
+        // Business logic here
+        const user = await this.userRepo.findById(userId);
+        const integration = await this.integrationRepo.findById(integrationId);
+
+        // Validate, orchestrate, coordinate
+        // Return result
+    }
+}
+
+module.exports = { MyNewUseCase };
+```
+
+2. **Add tests** in corresponding `tests/` directory
+3. **Export** from parent index.js if needed
+4. **Use in handler** - handlers call use cases, not repositories
+
+### Adding Encrypted Fields
+
+**For custom models** (integration developers):
+
+In `backend/index.js`:
+
+```javascript
+const appDefinition = {
+    encryption: {
+        schema: {
+            MyCustomModel: {
+                fields: ['secretData', 'data.apiKey']
+            }
+        }
+    }
+};
+```
+
+**For core models** (framework developers):
+
+Edit `database/encryption/encryption-schema-registry.js`:
+
+```javascript
+const ENCRYPTION_SCHEMA = {
+    MyModel: {
+        fields: ['sensitiveField']
+    }
+};
+```
+
+### Database Migrations
+
+**MongoDB** (Prisma push):
+
+```bash
+npm run prisma:push:mongo
+```
+
+**PostgreSQL** (Prisma migrate):
+
+```bash
+npm run prisma:migrate:postgres
+```
+
+### Integration Development
+
+1. **Extend IntegrationBase** in your app
+2. **Define static Definition** with name, version, modules
+3. **Implement lifecycle methods**: `onCreate`, `onUpdate`, `onDelete`
+4. **Add event handlers** for webhooks and user actions
+5. **Use framework services**: repositories, encryption, logging
+
+## Testing Strategy
+
+### Test Categories
+
+1. **Unit Tests**: Use cases with mocked repositories
+2. **Integration Tests**: Full flow with real dependencies
+3. **Repository Tests**: Database operations
+4. **Handler Tests**: HTTP/Lambda response testing
+
+### Test Structure
+
+```javascript
+describe('MyUseCase', () => {
+    let useCase;
+    let mockRepository;
+
+    beforeEach(() => {
+        mockRepository = {
+            findById: jest.fn(),
+            save: jest.fn()
+        };
+        useCase = new MyUseCase({ repository: mockRepository });
+    });
+
+    it('executes successfully', async () => {
+        mockRepository.findById.mockResolvedValue({ id: '123' });
+
+        const result = await useCase.execute('123');
+
+        expect(result).toBeDefined();
+        expect(mockRepository.findById).toHaveBeenCalledWith('123');
+    });
+});
+```
+
+### Running Tests
+
+```bash
+# All tests
+npm test
+
+# Specific file
+npm test -- path/to/test.test.js
+
+# Pattern matching
+npm test -- --testPathPattern="encryption"
+
+# With coverage
+npm test -- --coverage
+```
+
+### Test Doubles
+
+Use test doubles from `@friggframework/test` package for consistent mocking.
+
+## Anti-Patterns
+
+### Architecture Anti-Patterns
+
+❌ **Don't call repositories from handlers** - Always use use cases
+❌ **Don't put business logic in repositories** - Repositories are pure data access
+❌ **Don't put HTTP concerns in use cases** - Use cases are protocol-agnostic
+❌ **Don't bypass encryption** - Sensitive data must be encrypted
+❌ **Don't expose internal errors to users** - Use `isUserFacingResponse: true`
+❌ **Don't skip connection pooling** - Set `callbackWaitsForEmptyEventLoop = false`
+
+### Development Anti-Patterns
+
+❌ **Don't modify node_modules** - Extend through proper patterns
+❌ **Don't hardcode credentials** - Use environment variables
+❌ **Don't skip tests** - Maintain test coverage
+❌ **Don't commit secrets** - Use .gitignore and AWS Secrets Manager
+❌ **Don't ignore linting errors** - Run `npm run lint:fix`
+
+### Integration Development Anti-Patterns
+
+❌ **Don't bypass IntegrationBase** - Always extend the base class
+❌ **Don't ignore lifecycle methods** - Implement onCreate, onUpdate, onDelete
+❌ **Don't skip signature validation** - Validate all webhooks
+❌ **Don't sync operations in handlers** - Use background workers for long tasks
+❌ **Don't ignore errors** - Proper error handling and logging
+
+## Environment Variables
+
+### Required
+
+- `AWS_REGION` - AWS region for services
+- `DATABASE_URL` - Database connection string (auto-set)
+- `DB_TYPE` - Database type: 'mongodb' or 'postgresql'
+
+### Encryption
+
+- `KMS_KEY_ARN` - AWS KMS key ARN (production)
+- `AES_KEY_ID` - AES key ID (development)
+- `AES_KEY` - AES encryption key (development)
+- `STAGE` - Environment stage (dev, test, local bypass encryption)
+
+### Optional
+
+- `SECRET_ARN` - AWS Secrets Manager ARN for auto-injection
+- `FRIGG_LOG_LEVEL` - Minimum log level (`TRACE` … `FATAL`, default `INFO`; `DEBUG` on local runs)
+- `FRIGG_QUEUE_MAX_RECEIVE_COUNT` - Set by devtools on integration queue workers whose queue the stack owns; feeds `delivery.maxReceiveCount`
+- `FRIGG_QUEUE_MAX_DEFERRALS` - Most rate-limit deferrals of one message (default 30)
+- `FRIGG_QUEUE_MAX_DEFERRED_MS` - Most time in ms from a message's first rate-limit deferral to its retry time (default 26 h)
+- `FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` - Time in ms until the retry of a rate-limited message whose `retryAt` is unknown (default 1 h)
+
+## Version Information
+
+- **Current Version**: 2.0.0-next.0 (pre-release)
+- **Node.js**: >=18 required
+- **Dependencies**: See package.json for full list
+
+## Support and Documentation
+
+- **Main Framework CLAUDE.md**: See root Frigg CLAUDE.md for framework-wide guidance
+- **Core Runtime**: See `core/CLAUDE.md` for Lambda/Worker patterns
+- **Encryption**: See `database/encryption/README.md` for encryption details
+- **Package README**: See `README.md` for API reference
+
+## Recent Important Changes
+
+### Field-Level Encryption JSON Object Support
+
+**Date**: 2025-01-06
+
+**Problem**: The `FieldEncryptionService` was converting objects to the string `"[object Object]"` before encrypting, corrupting JSON fields like `IntegrationMapping.mapping`.
+
+**Solution**: Added `_serializeForEncryption()` and `_deserializeAfterDecryption()` methods:
+- Objects are now JSON.stringify'd before encryption
+- Decrypted strings are JSON.parse'd back to objects
+- Plain strings work as before
+
+**Files Changed**:
+- `database/encryption/field-encryption-service.js`
+- `database/encryption/field-encryption-service.test.js`
+
+**Test Coverage**: All 40 tests pass, including new object encryption test.
+
+**Impact**: `IntegrationMapping.mapping` and other JSON fields now correctly round-trip through encryption.
+
+---
+
+**Built with ❤️ by the Frigg Framework team**

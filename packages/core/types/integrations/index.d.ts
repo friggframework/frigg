@@ -1,26 +1,44 @@
 declare module "@friggframework/integrations" {
   import { Delegate, IFriggDelegate } from "@friggframework/core";
-  import { Model } from "mongoose";
-  import { EntityManager } from "@friggframework/module-plugin";
 
-  export class Integration extends Model {
+  export type IntegrationMessageAction =
+    | { type: "RETRY_WHEN_READY" }
+    | { type: "LINK"; label: string; url: string };
+
+  /** A stored integration message. Each type keeps its newest 50 items. */
+  export interface IntegrationMessage {
+    title: string | null;
+    message: string;
+    timestamp: number;
+    [key: string]: unknown;
+  }
+
+  /** ADR-049 section 5. Stored in `warnings`; `retryAt` is ISO UTC. */
+  export interface RateLimitedIntegrationMessage extends IntegrationMessage {
+    code: "RATE_LIMITED";
+    module: string;
+    reason: string;
+    retryAt: string;
+    actions: IntegrationMessageAction[];
+  }
+
+  export interface Integration {
     entities: any[];
     userId: string;
     status: string; // IntegrationStatus
     config: any;
     version: string;
     messages: {
-      errors: [];
-      warnings: [];
-      info: [];
-      logs: [];
+      errors: IntegrationMessage[];
+      warnings: IntegrationMessage[];
+      info: IntegrationMessage[];
+      logs: IntegrationMessage[];
     };
   }
 
   export class IntegrationManager
     extends Delegate
-    implements IFriggIntegrationManager
-  {
+    implements IFriggIntegrationManager {
     integration: Integration;
     primaryInstance: any;
     targetInstance: any;
@@ -56,7 +74,6 @@ declare module "@friggframework/integrations" {
       entities: { id: string; user: any },
       userId: string,
       config: any,
-      EntityManager: EntityManager
     ): Promise<any>;
 
     static getFormattedIntegration(
@@ -116,8 +133,7 @@ declare module "@friggframework/integrations" {
   }
 
   export class IntegrationConfigManager
-    implements IFriggIntegrationConfigManager
-  {
+    implements IFriggIntegrationConfigManager {
     options: IntegrationOptions[];
     primary: any;
 

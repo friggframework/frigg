@@ -1,78 +1,73 @@
 declare module "@friggframework/module-plugin" {
-  import { Model } from "mongoose";
   import { Delegate, IFriggDelegate } from "@friggframework/core";
+  import type { RateLimitHint } from "@friggframework/errors";
 
-  export class Credential extends Model {
-    userId: string;
-    auth_is_valid: boolean;
-    subType: string;
-    externalId: string;
+  export interface Credential {
+    id?: string;
+    userId?: string;
+    authIsValid?: boolean;
+    externalId?: string;
+    data?: any;
   }
 
-  export class EntityManager implements IFriggEntityManager {
-    static primaryEntityClass: any;
-    static entityManagerClasses: any[];
-    static entityTypes: string[];
-    static getEntitiesForUser(userId: string): Promise<any[]>;
-    static checkIsValidType(entityType: string): boolean;
-    static getEntityManagerClass(entityType?: string): any;
-
-    static getEntityManagerInstanceFromEntityId(
-      entityId: string,
-      userId: string
-    ): Promise<any>;
-  }
-
-  interface IFriggEntityManager {}
-
-  export class Entity extends Model {
-    credentialId: string;
-    subType: string;
-    userId: string;
-    name: string;
-    externalId: string;
+  export interface Entity {
+    id?: string;
+    credentialId?: string;
+    userId?: string;
+    name?: string;
+    moduleName?: string;
+    externalId?: string;
+    data?: any;
   }
 
   export type MappedEntity = Entity & { id: string; type: any };
-  export class ModuleManager extends Delegate implements IFriggModuleManager {
-    static Entity: Entity;
-    static Credential: Credential;
 
-    constructor(params: { userId: string });
 
-    static getName(): any;
-    static getInstance(params: any): Promise<any>;
-    static getEntitiesForUserId(userId: string): Promise<MappedEntity[]>;
+  export type RateLimitScope =
+    | "credential"
+    | "entity"
+    | "app"
+    | ((requester: Requester) => string | number | null | undefined);
 
-    batchCreateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    batchUpdateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    findOrCreateEntity(params: any): Promise<any>;
-    getAllSyncObjects(SyncClass: any): Promise<any>;
-    getAuthorizationRequirements(params: any): Promise<any>;
-    getEntityId(): Promise<string>;
-    getEntityOptions(): Promise<any>;
-    markCredentialsInvalid(): Promise<Credential>;
-    processAuthorizationCallback(params: any): Promise<any>;
-    testAuth(params: any): Promise<any>;
-    validateAuthorizationRequirements(): Promise<boolean>;
-  }
+  export type RateLimitSignal = {
+    status?: number;
+    headers?: { get(name: string): string | null } | object;
+    body?: unknown;
+  };
 
-  interface IFriggModuleManager extends IFriggDelegate {
-    getEntityId(): Promise<string>;
-    validateAuthorizationRequirements(): Promise<boolean>;
-    getAuthorizationRequirements(params: any): Promise<any>;
-    testAuth(params: any): Promise<any>;
-    processAuthorizationCallback(params: any): Promise<any>;
-    getEntityOptions(): Promise<any>;
-    findOrCreateEntity(params: any): Promise<any>;
-    getAllSyncObjects(SyncClass: any): Promise<any>;
-    batchCreateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    batchUpdateSyncObjects(syncObjects: any, syncManager: any): Promise<any>;
-    markCredentialsInvalid(): Promise<Credential>;
-  }
+  export type RateLimitWindow = {
+    name: string;
+    limit?: number;
+    perMs?: number;
+    rollingMs?: number;
+    resets?: { at: string; tz: string };
+  };
+
+  export type RateLimitPolicy = {
+    scope?: RateLimitScope;
+    windows?: RateLimitWindow[];
+    maxConcurrency?: number;
+    minRetryAfterMs?: number;
+    parsers?: Array<"retryAfter" | "resetHeaders" | "ietf">;
+    resetDeltaUnit?: "s" | "ms";
+    classify?(
+      signal: RateLimitSignal
+    ): Partial<Omit<RateLimitHint, "source">> & {
+      source?: "header" | "body" | "static";
+    } | null | undefined;
+    /** Keyed by reason. Client-safe text and links for the RATE_LIMITED message. */
+    userHints?: Record<
+      string,
+      { message?: string; links?: Array<{ label: string; url: string }> }
+    >;
+  };
 
   export class Requester implements IFriggRequester {
+    static rateLimit?: RateLimitPolicy;
+    static requestTimeoutMs?: number;
+
     DLGT_INVALID_AUTH: string;
+    requestTimeoutMs: number;
     backOff: number[];
     fetch: any;
     isRefreshable: boolean;
@@ -90,6 +85,7 @@ declare module "@friggframework/module-plugin" {
     ): Promise<any>;
     parseBody(response: any): Promise<any>;
     refreshAuth(): Promise<any>;
+    _adoptNewerCredential(): Promise<boolean>;
 
     delegate: any;
     delegateTypes: any[];
@@ -121,6 +117,7 @@ declare module "@friggframework/module-plugin" {
     _put(options: RequestOptions): Promise<any>;
     _delete(options: RequestOptions): Promise<any>;
     refreshAuth(): Promise<any>;
+    _adoptNewerCredential(): Promise<boolean>;
   }
 
   type RequestOptions = {
@@ -134,12 +131,12 @@ declare module "@friggframework/module-plugin" {
   type RequesterConstructor = {
     backOff?: number[];
     fetch?: any;
+    random?: () => number;
   };
 
   export class ApiKeyRequester
     extends Requester
-    implements IFriggApiKeyRequester
-  {
+    implements IFriggApiKeyRequester {
     API_KEY_NAME: string;
     API_KEY_VALUE: any;
 
@@ -160,8 +157,7 @@ declare module "@friggframework/module-plugin" {
 
   export class BasicAuthRequester
     extends Requester
-    implements IFriggBasicAuthRequester
-  {
+    implements IFriggBasicAuthRequester {
     password: string;
     username: string;
 
@@ -189,8 +185,7 @@ declare module "@friggframework/module-plugin" {
 
   export class OAuth2Requester
     extends Requester
-    implements IFriggOAuth2Requester
-  {
+    implements IFriggOAuth2Requester {
     DLGT_TOKEN_DEAUTHORIZED: string;
     DLGT_TOKEN_UPDATE: string;
     accessTokenExpire: any;
@@ -253,6 +248,7 @@ declare module "@friggframework/module-plugin" {
     addAuthHeaders(headers: object): Promise<object>;
     isAuthenticated(): boolean;
     refreshAuth(): Promise<void>;
+    _adoptNewerCredential(): Promise<boolean>;
     getTokenFromUsernamePassword(): Promise<Token>;
     getTokenFromClientCredentials(): Promise<Token>;
   }
