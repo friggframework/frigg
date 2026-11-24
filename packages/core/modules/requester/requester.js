@@ -1,13 +1,24 @@
 const fetch = require('node-fetch');
 const { AsyncLocalStorage } = require('async_hooks');
 const { Delegate } = require('../../core');
-const { FetchError } = require('../../errors');
+const {
+    invocationMaxInProcessWaitMs,
+    remainingInvocationMs,
+} = require('../../core/invocation-deadline');
+const { FetchError, RateLimitError } = require('../../errors');
 const { get } = require('../../assertions');
 const { getTelemetry } = require('../../telemetry/telemetry-runtime');
 const { getLogger } = require('../../logs');
 const { redactUrl } = require('../../logs/redact');
 const { toSanitizedSurrogate } = require('../../logs/serialize');
 const { getLoggerScope } = require('../../logs/context');
+const {
+    computeScopeKey,
+    computeWaitMs,
+    inProcessBudgetMs,
+    readRateLimitPolicy,
+    resolveRateLimitHint,
+} = require('./rate-limit');
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
@@ -22,6 +33,10 @@ function sanitizedCause(err) {
 }
 const MAX_AUTH_RETRIES = 3;
 
+// Hinted waits are bounded by time, but a provider that always answers with a
+// short Retry-After would still keep the request in a long loop.
+const MAX_HINTED_RETRIES = 10;
+
 // This context marks the async call chain that holds the refresh slot, and
 // names the requester that holds it. Token requests re-enter _rawRequest
 // through this._post. A 401 from inside that chain must fail fast: if it
@@ -34,6 +49,8 @@ class Requester extends Delegate {
     constructor(params) {
         super(params);
         this.backOff = get(params, 'backOff', [1, 3, 10, 30, 60, 180]);
+        this._rateLimitPolicy = readRateLimitPolicy(this.constructor);
+        this._random = params?.random ?? Math.random;
         this.isRefreshable = false;
         this.refreshCount = 0;
         this.authGraceRetryCount = 0;
@@ -211,9 +228,16 @@ class Requester extends Delegate {
      * @param {Object} options - Fetch options, as built by `_request`.
      * @param {number} attempt - 0-based count of retries already made for
      *   this call. Indexes `this.backOff` for the next delay and is passed
-     *   back in on each recursive retry.
+     *   back in on each recursive retry. A hinted retry leaves it unchanged.
+     * @param {{ waitedMs: number, retries: number }} hinted - The time slept
+     *   and the retries made for rate-limit hints, for the whole call.
      */
-    async _rawRequest(url, options, attempt = 0) {
+    async _rawRequest(
+        url,
+        options,
+        attempt = 0,
+        hinted = { waitedMs: 0, retries: 0 }
+    ) {
         let encodedUrl = encodeURI(url);
         if (options.query) {
             let queryBuild = '?';
@@ -279,7 +303,7 @@ class Requester extends Delegate {
                     clearRequestTimer();
                     const delay = this.backOff[attempt] * 1000;
                     await new Promise((resolve) => setTimeout(resolve, delay));
-                    return this._rawRequest(url, options, attempt + 1);
+                    return this._rawRequest(url, options, attempt + 1, hinted);
                 }
                 const fetchError = await FetchError.create({
                     resource: encodedUrl,
@@ -298,15 +322,41 @@ class Requester extends Delegate {
 
             const { status } = response;
 
+            const throttle = await this._detectThrottle(
+                response,
+                status,
+                attempt
+            );
+            const hintedDelayMs = await this._hintedRetryDelayMs({
+                throttle,
+                status,
+                attempt,
+                hinted,
+                encodedUrl,
+                options,
+                response,
+                timeoutMs,
+            });
+            if (hintedDelayMs !== null) {
+                clearRequestTimer();
+                await new Promise((resolve) =>
+                    setTimeout(resolve, hintedDelayMs)
+                );
+                return this._rawRequest(url, options, attempt, {
+                    waitedMs: hinted.waitedMs + hintedDelayMs,
+                    retries: hinted.retries + 1,
+                });
+            }
+
             // If the status is retriable and there are back off requests left, retry the request
             if (
-                (status === 429 || status >= 500) &&
+                (throttle?.throttled || status >= 500) &&
                 attempt < this.backOff.length
             ) {
                 clearRequestTimer();
                 const delay = this.backOff[attempt] * 1000;
                 await new Promise((resolve) => setTimeout(resolve, delay));
-                return this._rawRequest(url, options, attempt + 1);
+                return this._rawRequest(url, options, attempt + 1, hinted);
             }
 
             if (status === 401) {
@@ -327,7 +377,7 @@ class Requester extends Delegate {
                     // This request did not try the current token. Retry with
                     // it. Do not spend one more provider-side rotation.
                     clearRequestTimer();
-                    return this._rawRequest(url, options, attempt + 1);
+                    return this._rawRequest(url, options, attempt + 1, hinted);
                 }
 
                 if (!this.isRefreshable) {
@@ -344,7 +394,12 @@ class Requester extends Delegate {
                         await new Promise((resolve) =>
                             setTimeout(resolve, delay)
                         );
-                        return this._rawRequest(url, options, attempt + 1);
+                        return this._rawRequest(
+                            url,
+                            options,
+                            attempt + 1,
+                            hinted
+                        );
                     }
 
                     throw await this._invalidateAuth(
@@ -377,7 +432,7 @@ class Requester extends Delegate {
                 const refreshSucceeded = await this._refreshAuthOnce();
                 if (refreshSucceeded) {
                     clearRequestTimer();
-                    return this._rawRequest(url, options, attempt + 1);
+                    return this._rawRequest(url, options, attempt + 1, hinted);
                 }
 
                 throw await this._invalidateAuth(encodedUrl, options, response);
@@ -392,6 +447,7 @@ class Requester extends Delegate {
                     resource: encodedUrl,
                     init: options,
                     response,
+                    responseBody: throttle?.responseBody,
                 });
                 throw this._maybeFlagTimeoutDuringBodyRead(
                     fetchError,
@@ -419,6 +475,128 @@ class Requester extends Delegate {
         } finally {
             clearRequestTimer();
         }
+    }
+
+    async _hintedRetryDelayMs({
+        throttle,
+        status,
+        attempt,
+        hinted,
+        encodedUrl,
+        options,
+        response,
+        timeoutMs,
+    }) {
+        if (!throttle?.throttled || throttle.hint.source === 'backoff') {
+            return null;
+        }
+        const { hint } = throttle;
+        const untimed = hint.waitMs === undefined;
+        const mayWait =
+            this.backOff.length > 0 && hinted.retries < MAX_HINTED_RETRIES;
+        const budgetMs = mayWait
+            ? inProcessBudgetMs({
+                  maxInProcessWaitMs: invocationMaxInProcessWaitMs(),
+                  requestTimeoutMs: this.requestTimeoutMs,
+                  remainingMs: remainingInvocationMs(),
+                  waitedMs: hinted.waitedMs,
+              })
+            : 0;
+        const { waitMs, fits } = untimed
+            ? { waitMs: undefined, fits: false }
+            : computeWaitMs({
+                  hint,
+                  policy: this._rateLimitPolicy,
+                  budgetMs,
+                  random: this._random,
+              });
+        if (fits) {
+            this._logRateLimited({
+                status,
+                hint,
+                waitMs,
+                attempt,
+                waitedMs: hinted.waitedMs,
+            });
+            return waitMs;
+        }
+
+        this._logRequestFailed(encodedUrl, options, status);
+        const rateLimitError = await RateLimitError.create({
+            resource: encodedUrl,
+            init: options,
+            response,
+            responseBody: throttle.responseBody,
+            hint,
+            waitMs,
+            module: this._telemetryModuleLabel(),
+            scopeKey: computeScopeKey(this._rateLimitPolicy, this),
+        });
+        throw this._maybeFlagTimeoutDuringBodyRead(rateLimitError, timeoutMs);
+    }
+
+    async _detectThrottle(response, status, attempt) {
+        const policy = this._rateLimitPolicy;
+        const canClassify =
+            typeof policy?.classify === 'function' &&
+            status >= 400 &&
+            status !== 401;
+        if (status !== 429 && !canClassify) return null;
+
+        let responseBody;
+        let body;
+        if (canClassify) {
+            ({ text: responseBody, json: body } =
+                await this._readBodyForClassify(response));
+        }
+
+        const hint = resolveRateLimitHint(
+            policy,
+            { status, headers: response.headers, body },
+            {
+                attempt,
+                backOff: this.backOff,
+                now: Date.now(),
+                onClassifyError: (error) =>
+                    this._logClassifyFailed(status, error),
+            }
+        );
+        return { throttled: Boolean(hint), hint, responseBody };
+    }
+
+    async _readBodyForClassify(response) {
+        if (response.bodyUsed || typeof response.text !== 'function') {
+            return {};
+        }
+        const text = await response.text();
+        try {
+            return { text, json: JSON.parse(text) };
+        } catch {
+            return { text };
+        }
+    }
+
+    _logRateLimited({ status, hint, waitMs, attempt, waitedMs }) {
+        const logger = this.logger;
+        logger.trace('Rate limited', {
+            eventName: `${logger.name}.rate_limited`,
+            statusCode: status,
+            waitMs,
+            retryAt: new Date(Date.now() + waitMs).toISOString(),
+            reason: hint.reason,
+            hintSource: hint.source,
+            attempt,
+            waitedMs,
+        });
+    }
+
+    _logClassifyFailed(status, error) {
+        const logger = this.logger;
+        logger.warn('Rate limit classifier failed', {
+            eventName: `${logger.name}.rate_limit_classify_failed`,
+            statusCode: status,
+            error,
+        });
     }
 
     _logRequestFailed(encodedUrl, options, status) {

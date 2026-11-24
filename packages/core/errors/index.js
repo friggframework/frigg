@@ -1,6 +1,7 @@
 const { BaseError } = require('./base-error');
 const { FetchError } = require('./fetch-error');
 const { HaltError } = require('./halt-error');
+const { RateLimitError } = require('./rate-limit-error');
 const {
     RequiredPropertyError,
     ParameterTypeError,
@@ -14,6 +15,7 @@ module.exports = {
     BaseError,
     FetchError,
     HaltError,
+    RateLimitError,
     RequiredPropertyError,
     ParameterTypeError,
     ClientSafeError,

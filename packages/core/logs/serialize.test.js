@@ -51,6 +51,44 @@ describe('serializeError', () => {
         expect(serializeError(bare).type).toBe('Error');
     });
 
+    it('adds retryAt as ISO and reason for a rate-limited error with a valid retryAt', () => {
+        const err = Object.assign(new Error('GET https://h.example 429'), {
+            statusCode: 429,
+            isRateLimited: true,
+            retryAt: new Date('2026-09-28T12:00:05.000Z'),
+            reason: 'daily',
+        });
+        expect(serializeError(err)).toMatchObject({
+            status: 429,
+            retryAt: '2026-09-28T12:00:05.000Z',
+            reason: 'daily',
+        });
+    });
+
+    it.each([
+        [
+            'is not rate limited',
+            { retryAt: new Date('2026-09-28T12:00:05.000Z'), reason: 'daily' },
+        ],
+        ['has no retryAt', { isRateLimited: true, reason: 'daily' }],
+        [
+            'has an invalid retryAt',
+            { isRateLimited: true, retryAt: new Date(NaN), reason: 'daily' },
+        ],
+        [
+            'has a retryAt that is not a Date',
+            {
+                isRateLimited: true,
+                retryAt: '2026-09-28T12:00:05.000Z',
+                reason: 'daily',
+            },
+        ],
+    ])('adds neither retryAt nor reason when the error %s', (_label, fields) => {
+        const out = serializeError(Object.assign(new Error('x'), fields));
+        expect(out).not.toHaveProperty('retryAt');
+        expect(out).not.toHaveProperty('reason');
+    });
+
     it('reads status from statusCode, then status, then response.status', () => {
         const a = Object.assign(new Error('a'), { statusCode: 401, status: 500 });
         const b = Object.assign(new Error('b'), { status: 404 });

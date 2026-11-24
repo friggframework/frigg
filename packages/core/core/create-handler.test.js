@@ -7,6 +7,7 @@ jest.mock('./secrets-to-env', () => ({
 
 const { connectPrisma } = require('../database/prisma');
 const { createHandler } = require('./create-handler');
+const { invocationMaxInProcessWaitMs } = require('./invocation-deadline');
 const { getLogger, createMemorySink } = require('../logs');
 const { HaltError } = require('../errors/halt-error');
 const { httpApiV2Event, sqsEvent } = require('../logs/__fixtures__/events');
@@ -474,5 +475,28 @@ describe('createHandler — logger scope and records (ADR-048)', () => {
         const inside = sink.records.find((r) => r.message === 'inside');
         expect(inside.requestId).toBe('req-123');
         expect(inside.droppedKeys).toEqual(['requestId']);
+    });
+});
+
+describe('createHandler: in-process wait budget', () => {
+    const ctx = { awsRequestId: 'r1' };
+
+    it('runs the method with a 10 s budget by default', async () => {
+        const handler = createHandler({
+            eventName: 'X',
+            shouldUseDatabase: false,
+            method: async () => invocationMaxInProcessWaitMs(),
+        });
+        await expect(handler({}, { ...ctx })).resolves.toBe(10_000);
+    });
+
+    it('runs the method with the budget the caller gives', async () => {
+        const handler = createHandler({
+            eventName: 'X',
+            shouldUseDatabase: false,
+            maxInProcessWaitMs: 60_000,
+            method: async () => invocationMaxInProcessWaitMs(),
+        });
+        await expect(handler({}, { ...ctx })).resolves.toBe(60_000);
     });
 });

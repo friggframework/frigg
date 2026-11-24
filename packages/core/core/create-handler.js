@@ -12,6 +12,7 @@ const {
     runInvocationScope,
     DEFAULT_FLUSH_TIMEOUT_MS,
 } = require('./invocation-scope');
+const { MAX_IN_PROCESS_WAIT_MS } = require('./invocation-deadline');
 const { secretsToEnv } = require('./secrets-to-env');
 const { parametersToEnv } = require('./parameters-to-env');
 const {
@@ -31,6 +32,7 @@ const createHandler = (optionByName = {}) => {
         telemetry,
         flushTimeoutMs = DEFAULT_FLUSH_TIMEOUT_MS,
         usageRollup,
+        maxInProcessWaitMs = MAX_IN_PROCESS_WAIT_MS.http,
     } = optionByName;
 
     if (!method) {
@@ -144,6 +146,7 @@ const createHandler = (optionByName = {}) => {
                 shouldUseDatabase,
                 flushTimeoutMs,
                 context,
+                maxInProcessWaitMs,
             }
         );
     };

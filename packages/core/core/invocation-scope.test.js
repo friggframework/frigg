@@ -10,6 +10,10 @@ const {
 const { getLogger, createMemorySink } = require('../logs');
 const { setSinks } = require('../logs/logger-runtime');
 const { getLoggerScope } = require('../logs/context');
+const {
+    invocationMaxInProcessWaitMs,
+    remainingInvocationMs,
+} = require('./invocation-deadline');
 const { mergeTelemetryContext } = require('../telemetry/telemetry-context');
 const { NoOpTelemetry } = require('../telemetry/no-op-telemetry');
 const { createUsageRollupSubscriber } = require('../telemetry/usage-rollup-subscriber');
@@ -56,6 +60,44 @@ describe('core/invocation-scope', () => {
     it('keeps the bus payload unchanged inside the scope', async () => {
         await runInvocationScope({ requestId: 'r-1' }, async () => {
             expect(mergeTelemetryContext()).toBeUndefined();
+        });
+    });
+
+    it('makes the time left in the invocation visible deep inside fn', async () => {
+        const context = { getRemainingTimeInMillis: () => 60_000 };
+        await runInvocationScope(
+            {},
+            async () => {
+                await tick();
+                await Promise.resolve().then(() => {
+                    expect(remainingInvocationMs()).toBeLessThanOrEqual(60_000);
+                    expect(remainingInvocationMs()).toBeGreaterThan(55_000);
+                });
+            },
+            { context }
+        );
+    });
+
+    it('passes maxInProcessWaitMs on to the invocation scope', async () => {
+        await runInvocationScope(
+            {},
+            async () => {
+                expect(invocationMaxInProcessWaitMs()).toBe(12_000);
+                expect(remainingInvocationMs()).toBe(Infinity);
+            },
+            { maxInProcessWaitMs: 12_000 }
+        );
+    });
+
+    it('sets the default wait budget when the caller gives none', async () => {
+        await runInvocationScope({}, async () => {
+            expect(invocationMaxInProcessWaitMs()).toBe(300_000);
+        });
+    });
+
+    it('sets no deadline when there is no context', async () => {
+        await runInvocationScope({}, async () => {
+            expect(remainingInvocationMs()).toBe(Infinity);
         });
     });
 
