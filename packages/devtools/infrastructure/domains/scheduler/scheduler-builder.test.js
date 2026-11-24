@@ -210,7 +210,10 @@ describe('SchedulerBuilder', () => {
 
             expect(sendableQueues(result)).toEqual([
                 { 'Fn::GetAtt': ['HubspotQueue', 'Arn'] },
-                'arn:aws:sqs:us-east-1:123456789012:acme-salesforce',
+                {
+                    'Fn::Sub':
+                        'arn:${AWS::Partition}:sqs:us-east-1:123456789012:acme-salesforce',
+                },
             ]);
         });
     });

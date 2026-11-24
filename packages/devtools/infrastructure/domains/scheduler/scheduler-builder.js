@@ -19,12 +19,7 @@ const {
     getIntegrationFunctionNames,
     getAdminFunctionNames,
 } = require('../shared/function-environments');
-
-const queueArnFromUrl = (queueUrl) => {
-    const { hostname, pathname } = new URL(queueUrl);
-    const [accountId, queueName] = pathname.split('/').filter(Boolean);
-    return `arn:aws:sqs:${hostname.split('.')[1]}:${accountId}:${queueName}`;
-};
+const { queueArnFromUrl } = require('../shared/utilities/sqs-queue-arn');
 
 const declaresRateLimit = (integration) =>
     Object.values(integration?.Definition?.modules ?? {}).some((module) =>
