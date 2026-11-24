@@ -6,6 +6,8 @@ declare module "@friggframework/core" {
     RateLimitSignal,
   } from "@friggframework/module-plugin";
 
+  export { RateLimitError } from "@friggframework/errors";
+
   export class Delegate implements IFriggDelegate {
     delegate: any;
     delegateTypes: any[];
