@@ -234,6 +234,7 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 | `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a synchronous function `(requester) => key` that returns a string or a number. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope or the function returns another type. |
 | `minRetryAfterMs` | A wait never shorter than this. Use it when the docs say "wait 60 seconds" and the response says nothing. |
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
+| `resetDeltaUnit` | The unit of a delta in the reset headers: `'s'` (default) or `'ms'`. Set `'ms'` when the provider sends `X-RateLimit-Reset: 60000` for one minute. The size of a delta cannot show its unit (60000 s is also a real daily reset), so the parser cannot find it. Epoch values are not changed. Another value throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
 | `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
 | `userHints` | Links per `reason` that a UI can show, for example `{ daily: { links: [{ label, url }] } }`. |
@@ -243,14 +244,15 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 | Parser | Reads |
 |---|---|
 | `retryAfter` | `Retry-After`: delta seconds, an HTTP-date or an ISO timestamp |
-| `resetHeaders` | `X-RateLimit-Reset-After` (delta seconds), else `X-RateLimit-Reset`, `RateLimit-Reset` or `X-Rate-Limit-Reset`: epoch milliseconds, epoch seconds or delta seconds (told apart by size), or a date. `remaining` comes from `X-RateLimit-Remaining`, `RateLimit-Remaining` or `X-Rate-Limit-Remaining` |
+| `resetHeaders` | `X-RateLimit-Reset-After` (a delta), else `X-RateLimit-Reset`, `RateLimit-Reset` or `X-Rate-Limit-Reset`: epoch milliseconds, epoch seconds or a delta (told apart by size), or a date. A delta is in seconds, or in milliseconds when `resetDeltaUnit` is `'ms'`. `remaining` comes from `X-RateLimit-Remaining`, `RateLimit-Remaining` or `X-Rate-Limit-Remaining` |
 | `ietf` | The IETF `RateLimit` field, as `limit=, remaining=, reset=` or as structured items (`"name";r=0;t=12`). In a list, the item with the fewest remaining calls wins, then the longest wait. `RateLimit-Policy` names the policy |
 
 A parser reads the headers from a `Headers` object, a `Map`, an entries array or
 a plain object, and matches the names in any case. A time in the past waits
 0 ms. A wait that is negative, not a number or longer than 366 days is ignored.
 The package exports the parsers as `parseRetryAfter(value, { now })`,
-`parseResetHeaders(headers, { now })` and `parseIetfRateLimit(headers, { now })`.
+`parseResetHeaders(headers, { now, resetDeltaUnit })` and
+`parseIetfRateLimit(headers, { now })`.
 Each returns a hint or `null`.
 
 ### What `classify` returns

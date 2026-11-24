@@ -80,7 +80,7 @@ declare module "@friggframework/core" {
 
   export function parseResetHeaders(
     headers: object | undefined,
-    options?: { now?: number }
+    options?: { now?: number; resetDeltaUnit?: "s" | "ms" }
   ): RateLimitHint | null;
 
   export function parseIetfRateLimit(

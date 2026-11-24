@@ -130,6 +130,24 @@ describe('rate-limit/policy', () => {
             );
         });
 
+        it.each(['s', 'ms'])('keeps the reset delta unit %s', (unit) => {
+            class Api {
+                static rateLimit = { resetDeltaUnit: unit };
+            }
+            expect(readRateLimitPolicy(Api).resetDeltaUnit).toBe(unit);
+        });
+
+        it('throws a TypeError for an unknown reset delta unit', () => {
+            class HubApi {
+                static rateLimit = { resetDeltaUnit: 'milliseconds' };
+            }
+            expect(() => readRateLimitPolicy(HubApi)).toThrow(
+                new TypeError(
+                    'HubApi.rateLimit.resetDeltaUnit: unknown unit "milliseconds"; known: s, ms'
+                )
+            );
+        });
+
         it('calls classify as a method of the declared object', () => {
             class Api {
                 static rateLimit = {
@@ -416,6 +434,20 @@ describe('rate-limit/policy', () => {
             ).toBe(30_000);
             expect(classifyRateLimit(undefined, signal, options).waitMs).toBe(
                 5_000
+            );
+        });
+
+        it('gives the reset delta unit of the policy to the parsers', () => {
+            const signal = {
+                status: 429,
+                headers: { 'x-ratelimit-reset': '60000' },
+            };
+            expect(
+                classifyRateLimit({ resetDeltaUnit: 'ms' }, signal, options)
+                    .waitMs
+            ).toBe(60_000);
+            expect(classifyRateLimit(undefined, signal, options).waitMs).toBe(
+                60_000_000
             );
         });
 

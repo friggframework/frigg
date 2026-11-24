@@ -18,7 +18,7 @@ function strictDiagnostics(fileName) {
 }
 
 describe('@friggframework/core type declarations', () => {
-    it('type-check a strict consumer of the rate-limit exports', () => {
+    it('type-check a strict consumer of the rate-limit API', () => {
         expect(
             strictDiagnostics(path.join(__dirname, 'consumer.fixture.ts'))
         ).toEqual([]);

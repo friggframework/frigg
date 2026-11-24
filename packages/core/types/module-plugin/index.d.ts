@@ -49,6 +49,7 @@ declare module "@friggframework/module-plugin" {
     maxConcurrency?: number;
     minRetryAfterMs?: number;
     parsers?: Array<"retryAfter" | "resetHeaders" | "ietf">;
+    resetDeltaUnit?: "s" | "ms";
     classify?(
       signal: RateLimitSignal
     ): Partial<Omit<RateLimitHint, "source">> & {

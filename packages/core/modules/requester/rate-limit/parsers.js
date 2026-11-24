@@ -115,7 +115,7 @@ function firstHeader(headers, names) {
     return undefined;
 }
 
-function parseResetValue(text, now, extra) {
+function parseResetValue(text, now, deltaToMs, extra) {
     if (SECONDS_PATTERN.test(text)) {
         const number = Number(text);
         if (number >= EPOCH_MILLISECONDS_MIN) {
@@ -124,27 +124,31 @@ function parseResetValue(text, now, extra) {
         if (number >= EPOCH_SECONDS_MIN) {
             return hintFromRetryAt(new Date(number * 1000), now, extra);
         }
-        return hintFromWait(number * 1000, now, extra);
+        return hintFromWait(number * deltaToMs, now, extra);
     }
     const date = parseDate(text);
     return date ? hintFromRetryAt(date, now, extra) : null;
 }
 
-function parseResetHeaders(headers, { now = Date.now() } = {}) {
+function parseResetHeaders(
+    headers,
+    { now = Date.now(), resetDeltaUnit = 's' } = {}
+) {
     const remaining = numberOrUndefined(
         firstHeader(headers, REMAINING_HEADERS)
     );
     const extra = { remaining };
+    const deltaToMs = resetDeltaUnit === 'ms' ? 1 : 1000;
 
     const after = headerValue(headers, 'x-ratelimit-reset-after');
     if (after !== undefined && SECONDS_PATTERN.test(after)) {
-        return hintFromWait(Number(after) * 1000, now, extra);
+        return hintFromWait(Number(after) * deltaToMs, now, extra);
     }
 
     for (const name of RESET_HEADERS) {
         const value = headerValue(headers, name);
         if (value === undefined) continue;
-        const hint = parseResetValue(value, now, extra);
+        const hint = parseResetValue(value, now, deltaToMs, extra);
         if (hint) return hint;
     }
     return null;
