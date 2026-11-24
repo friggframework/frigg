@@ -155,6 +155,7 @@ static rateLimit = {
     maxConcurrency: 5,
     minRetryAfterMs: 60_000,
     parsers: ['retryAfter', 'resetHeaders', 'ietf'],  // built-ins, in order
+    resetDeltaUnit: 's',                              // 's' | 'ms': unit of a reset delta
     classify({ status, headers, body }) { return null; }, // provider-specific
     userHints: { daily: { links: [{ label: 'Limits', url: 'https://…' }] } },
 };
@@ -170,8 +171,10 @@ A **hint** has one shape everywhere:
 
 - **Built-in parsers** are pure functions in
   `modules/requester/rate-limit/`. They read `Retry-After` (delta seconds,
-  HTTP-date, ISO timestamp), reset headers (epoch seconds, epoch milliseconds,
-  delta or ISO, told apart by magnitude), and the IETF fields.
+  HTTP-date, ISO timestamp), reset headers (epoch seconds, epoch milliseconds
+  or a delta, told apart by magnitude, or an ISO date), and the IETF fields.
+  A reset delta is in seconds unless the module sets `resetDeltaUnit: 'ms'`,
+  because the size of a delta cannot show its unit.
 - **`classify`** recognises provider signals that are not 429, or that
   need the body (a 403 limit code, a `policyName`). It returns a hint or
   `null`. A hint may name only a `reason`. Its time then comes from the
@@ -252,9 +255,13 @@ A **hint** has one shape everywhere:
   queue worker can still defer the message.
 - **The OAuth token endpoint keeps the fields.** When a token request is rate
   limited, `OAuth2Requester._transportFailureError` copies `isRateLimited`,
-  `retryAt`, `waitMs`, `reason` and `module` to the error that it throws. So
-  the queue worker defers a rate-limited token refresh as it defers any other
-  call.
+  `retryAt`, `waitMs`, `reason`, `module` and `scopeKey` to the error that it
+  throws. So the queue worker defers a rate-limited token refresh as it
+  defers any other call.
+- **HTTP answers 429.** An HTTP route answers an error with `isRateLimited`
+  with 429, `{ error: 'Too Many Requests', retryAt }` and `Retry-After` (the
+  seconds until `retryAt`). With an unknown `retryAt` it sends neither. The
+  response does not show the provider URL or body (frigg#740).
 - **Logs.** A hinted wait writes one TRACE record (`<logger>.rate_limited`),
   because a backoff is step detail. The Requester does not log a throw. The
   boundary logs the error once, and the error serializer adds `retryAt` and
@@ -328,7 +335,13 @@ with the 300 s budget. Adding the deadline to them is open work:
 - **External queues.** For an integration with `ownership.queue: 'external'`,
   `SchedulerExecutionRole` grants `sqs:SendMessage` on the ARN of the queue at
   `queue.url`. It must not use `Fn::GetAtt` on a `<Name>Queue` resource,
-  because the stack does not create that resource for an external queue.
+  because the stack does not create that resource for an external queue. The
+  base role grants its queue actions only on the queues the stack names, so
+  the functions also get `sqs:SendMessage`, `sqs:GetQueueUrl`,
+  `sqs:GetQueueAttributes` and `sqs:ChangeMessageVisibility` on that ARN. The
+  ARN keeps the stack's partition. A `queue.url` that resolves after the
+  build (a Serverless variable or a CloudFormation function) is split by
+  CloudFormation, in the stack's region.
 - **Cap:** `maxDeferrals` and `maxDeferredMs`, from
   `FRIGG_QUEUE_MAX_DEFERRALS` (default 30) and `FRIGG_QUEUE_MAX_DEFERRED_MS`
   (default 26 h, from the first deferral to the retry time). The HubSpot and
@@ -487,7 +500,8 @@ default handler defers it instead.
 - **Devtools:** when no module declares `rateLimit`, the rendered template
   gains one action string (`sqs:ChangeMessageVisibility`) and nothing else: no
   new resource, function or environment variable. An external queue gets its
-  own ARN in `SchedulerExecutionRole`.
+  own ARN in `SchedulerExecutionRole`, and one statement for its queue actions
+  on the functions' role, whether or not a module declares `rateLimit`.
 - **API modules:** recorded fixtures of real throttled responses.
 
 ## Consequences
