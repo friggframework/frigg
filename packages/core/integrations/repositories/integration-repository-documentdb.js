@@ -14,6 +14,10 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
+const {
+    messagesOfType,
+    sameRateLimitMessage,
+} = require('./message-item-shared');
 
 class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     constructor() {
@@ -94,9 +98,8 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
     async updateIntegrationMessages(
         integrationId,
         messageType,
-        messageTitle,
-        messageBody,
-        messageTimestamp
+        item,
+        { keepLast }
     ) {
         const objectId = toObjectId(integrationId);
         if (!objectId) {
@@ -107,13 +110,12 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             throw new Error(`Integration ${integrationId} not found`);
         }
         const messages = this._extractMessages(existing);
-        const list = Array.isArray(messages[messageType]) ? [...messages[messageType]] : [];
-        list.push({
-            title: messageTitle ?? null,
-            message: messageBody,
-            timestamp: messageTimestamp,
-        });
-        const updatedMessages = { ...messages, [messageType]: list };
+        const list = [...messagesOfType(messages, messageType)];
+        list.push({ ...item, title: item.title ?? null });
+        const updatedMessages = {
+            ...messages,
+            [messageType]: list.slice(-keepLast),
+        };
         await updateOne(
             this.prisma,
             'Integration',
@@ -130,6 +132,53 @@ class IntegrationRepositoryDocumentDB extends IntegrationRepositoryInterface {
             }
         );
         return true;
+    }
+
+    async findIntegrationMessages(integrationId, messageType) {
+        const objectId = toObjectId(integrationId);
+        if (!objectId) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+        const existing = await findOne(this.prisma, 'Integration', {
+            _id: objectId,
+        });
+        if (!existing) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+        return messagesOfType(this._extractMessages(existing), messageType);
+    }
+
+    // Writes both stored copies (`messages.<type>` and `<type>`), which
+    // _extractMessages reads.
+    async appendRateLimitMessage(
+        integrationId,
+        messageType,
+        item,
+        { retryAtFrom, retryAtTo, keepLast }
+    ) {
+        const objectId = toObjectId(integrationId);
+        if (!objectId) return false;
+        const sameLimit = sameRateLimitMessage(item, { retryAtFrom, retryAtTo });
+        const push = { $each: [item], $slice: -keepLast };
+        const nested = `messages.${messageType}`;
+        const result = await updateOne(
+            this.prisma,
+            'Integration',
+            {
+                _id: objectId,
+                $nor: [{ [messageType]: sameLimit }, { [nested]: sameLimit }],
+            },
+            {
+                $push: { [messageType]: push, [nested]: push },
+                $set: { updatedAt: new Date() },
+            }
+        );
+        if (result?.writeErrors?.length) {
+            throw new Error(
+                `Failed to append rate-limit message: ${result.writeErrors[0].errmsg}`
+            );
+        }
+        return result?.n === 1;
     }
 
     async createIntegration(entities, userId, config) {

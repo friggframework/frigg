@@ -2,7 +2,10 @@ const { Headers } = require('node-fetch');
 const { Requester } = require('./requester');
 const { FetchError, RateLimitError } = require('../../errors');
 const { createMemorySink } = require('../../logs');
-const { runWithInvocationDeadline } = require('../../core/invocation-deadline');
+const {
+    MAX_IN_PROCESS_WAIT_MS,
+    runWithInvocationDeadline,
+} = require('../../core/invocation-deadline');
 
 /**
  * Requester is abstract: subclasses provide `addAuthHeaders`. For the
@@ -431,6 +434,26 @@ describe('Requester', () => {
                 );
 
                 expect(error).toBeInstanceOf(RateLimitError);
+                expect(fetch).toHaveBeenCalledTimes(1);
+                expect(delays).toEqual([]);
+            });
+
+            it('throws at once, with no sleep, inside the queue worker budget', async () => {
+                const fetch = throttledFetch([
+                    limited({ 'Retry-After': '2' }),
+                    ok,
+                ]);
+
+                const error = await runWithInvocationDeadline(
+                    { maxInProcessWaitMs: MAX_IN_PROCESS_WAIT_MS.queueWorker },
+                    () =>
+                        makeRequester(fetch)
+                            ._get({ url })
+                            .catch((e) => e)
+                );
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(error.waitMs).toBeGreaterThanOrEqual(2_000);
                 expect(fetch).toHaveBeenCalledTimes(1);
                 expect(delays).toEqual([]);
             });

@@ -49,7 +49,56 @@ declare module "@friggframework/core" {
     send(params: object & { QueueUrl: any }, delay?: number): Promise<string>;
 
     sendAsyncSQSMessage(params: SendSQSMessageParams): Promise<string>;
+
+    recordRateLimitWait(
+      body: object,
+      error: Error,
+      state: RateLimitWaitState
+    ): Promise<void>;
+
+    clearRateLimitWait(
+      body: object,
+      options?: { deferralId?: string }
+    ): Promise<void>;
+
+    decideRateLimited(
+      event: RateLimitedEvent
+    ): Promise<RateLimitedDecision | void>;
+
+    /** Runs past the delay tier, for an unknown retryAt, or at a cap. */
+    recordRateLimitMessage(
+      body: object,
+      error: Error,
+      limit: { retryAt: Date; capped: boolean }
+    ): Promise<void>;
   }
+
+  /** ADR-049 section 3. The input of the RATE_LIMITED event handler. */
+  export type RateLimitedEvent = {
+    retryAt?: Date;
+    waitMs?: number;
+    reason?: string;
+    module?: string;
+    scopeKey?: string;
+    message: object;
+    delivery: {
+      messageId: string;
+      receiveCount?: number;
+      deferrals: number;
+      deferredMs: number;
+    };
+  };
+
+  /** `defer` or no value runs the default handler. A throw counts as `retry`. */
+  export type RateLimitedDecision = "defer" | "drop" | "retry";
+
+  export type RateLimitWaitState = {
+    status: "WAITING" | "EXHAUSTED";
+    mechanism: "delay" | "schedule" | "visibility" | "none";
+    deferrals: number;
+    deferralId?: string;
+    retryAt: Date;
+  };
 
   interface IWorker {
     getQueueURL(params: GetQueueURLParams): Promise<string | undefined>;

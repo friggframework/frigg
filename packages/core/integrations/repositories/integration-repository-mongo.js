@@ -3,6 +3,10 @@ const {
     IntegrationRepositoryInterface,
 } = require('./integration-repository-interface');
 const { validateConfigPatch } = require('./config-patch-shared');
+const {
+    messagesOfType,
+    sameRateLimitMessage,
+} = require('./message-item-shared');
 
 /**
  * MongoDB Integration Repository Adapter
@@ -229,17 +233,16 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
      *
      * @param {string} integrationId - Integration ID
      * @param {string} messageType - Type of message (errors, warnings, info, logs)
-     * @param {string} messageTitle - Message title
-     * @param {string} messageBody - Message body
-     * @param {Date} messageTimestamp - Message timestamp
+     * @param {Object} item - Message item, stored as it is
+     * @param {Object} options
+     * @param {number} options.keepLast - How many of the newest items of the type to keep
      * @returns {Promise<boolean>} Success indicator
      */
     async updateIntegrationMessages(
         integrationId,
         messageType,
-        messageTitle,
-        messageBody,
-        messageTimestamp
+        item,
+        { keepLast }
     ) {
         // Get current integration
         const integration = await this.prisma.integration.findUnique({
@@ -251,27 +254,96 @@ class IntegrationRepositoryMongo extends IntegrationRepositoryInterface {
         }
 
         // Parse existing messages (JSON field)
-        const messages = integration.messages || {};
-        const messageArray = Array.isArray(messages[messageType])
-            ? messages[messageType]
-            : [];
+        const messageArray = messagesOfType(integration, messageType);
 
         // Add new message
-        messageArray.push({
-            title: messageTitle,
-            message: messageBody,
-            timestamp: messageTimestamp,
-        });
+        messageArray.push(item);
 
         // Update messages
         await this.prisma.integration.update({
             where: { id: integrationId },
             data: {
-                [messageType]: messageArray,
+                [messageType]: messageArray.slice(-keepLast),
             },
         });
 
         return true; // Mongoose compatibility
+    }
+
+    /**
+     * Find the stored messages of one type
+     *
+     * @param {string} integrationId - Integration ID
+     * @param {string} messageType - Type of message (errors, warnings, info, logs)
+     * @returns {Promise<Array>} The stored message items of that type, oldest first
+     */
+    async findIntegrationMessages(integrationId, messageType) {
+        const integration = await this.prisma.integration.findUnique({
+            where: { id: integrationId },
+            select: { [messageType]: true },
+        });
+
+        if (!integration) {
+            throw new Error(`Integration ${integrationId} not found`);
+        }
+
+        return messagesOfType(integration, messageType);
+    }
+
+    /**
+     * Append a rate-limit message item unless the same limit is stored.
+     * One update command, so concurrent workers store one item.
+     *
+     * @param {string} integrationId - Integration ID
+     * @param {string} messageType - Type of message (errors, warnings, info, logs)
+     * @param {Object} item - Message item with `code`, `module` and an ISO UTC `retryAt`
+     * @param {Object} options
+     * @param {string} options.retryAtFrom - ISO UTC start of the window, inclusive
+     * @param {string} options.retryAtTo - ISO UTC end of the window, inclusive
+     * @param {number} options.keepLast - How many of the newest items of the type to keep
+     * @returns {Promise<boolean>} True when it appended the item
+     */
+    async appendRateLimitMessage(
+        integrationId,
+        messageType,
+        item,
+        { retryAtFrom, retryAtTo, keepLast }
+    ) {
+        const result = await this.prisma.$runCommandRaw({
+            update: 'Integration',
+            updates: [
+                {
+                    q: {
+                        _id: { $oid: integrationId },
+                        $nor: [
+                            {
+                                [messageType]: sameRateLimitMessage(item, {
+                                    retryAtFrom,
+                                    retryAtTo,
+                                }),
+                            },
+                        ],
+                    },
+                    u: {
+                        $push: {
+                            [messageType]: {
+                                $each: [item],
+                                $slice: -keepLast,
+                            },
+                        },
+                        $set: {
+                            updatedAt: { $date: new Date().toISOString() },
+                        },
+                    },
+                },
+            ],
+        });
+        if (result?.writeErrors?.length) {
+            throw new Error(
+                `Failed to append rate-limit message: ${result.writeErrors[0].errmsg}`
+            );
+        }
+        return result?.n === 1;
     }
 
     /**

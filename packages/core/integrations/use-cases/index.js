@@ -6,6 +6,9 @@ const { CreateProcess } = require('./create-process');
 const { UpdateProcessState } = require('./update-process-state');
 const { UpdateProcessMetrics } = require('./update-process-metrics');
 const { GetProcess } = require('./get-process');
+const { RecordRateLimitWait } = require('./record-rate-limit-wait');
+const { ClearRateLimitWait } = require('./clear-rate-limit-wait');
+const { RecordRateLimitMessage } = require('./record-rate-limit-message');
 
 module.exports = {
     GetIntegrationsForUser,
@@ -16,4 +19,7 @@ module.exports = {
     UpdateProcessState,
     UpdateProcessMetrics,
     GetProcess,
-}; 
+    RecordRateLimitWait,
+    ClearRateLimitWait,
+    RecordRateLimitMessage,
+};

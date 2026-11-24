@@ -4,9 +4,20 @@ jest.mock('../../database/config', () => ({
     PRISMA_LOG_LEVEL: 'error,warn',
 }));
 
+const { mockClient } = require('aws-sdk-client-mock');
+const {
+    GetQueueUrlCommand,
+    SQSClient,
+    SendMessageCommand,
+} = require('@aws-sdk/client-sqs');
+const {
+    CreateScheduleCommand,
+    SchedulerClient,
+} = require('@aws-sdk/client-scheduler');
 const { createQueueWorker } = require('../backend-utils');
 const { IntegrationBase } = require('../../integrations/integration-base');
 const { IntegrationEventDispatcher } = require('../integration-event-dispatcher');
+const { RateLimitError } = require('../../errors');
 
 class TestWebhookIntegration extends IntegrationBase {
     static Definition = {
@@ -261,6 +272,113 @@ describe('Webhook Queue Worker', () => {
             expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
         });
 
+        it('should NOT mark a 403 with isRateLimited as isHaltError (a provider limit outside 429)', async () => {
+            const error = new RateLimitError({
+                resource: 'https://api.example.com/v1/items',
+                response: { status: 403, bodyUsed: true },
+                hint: { waitMs: 60_000, reason: 'daily', source: 'body' },
+            });
+
+            const FailingIntegration = class extends TestWebhookIntegration {
+                async onWebhook() {
+                    throw error;
+                }
+            };
+
+            const QueueWorker = createQueueWorker(FailingIntegration);
+            const worker = new QueueWorker();
+
+            const sqsEvent = {
+                Records: [
+                    {
+                        messageId: 'msg-1',
+                        body: JSON.stringify({
+                            event: 'ON_WEBHOOK',
+                            data: { body: {} },
+                        }),
+                    },
+                ],
+            };
+
+            const result = await worker.run(sqsEvent, {});
+            expect(result.batchItemFailures).toEqual([
+                { itemIdentifier: 'msg-1' },
+            ]);
+            expect(error.statusCode).toBe(403);
+            expect(error.isHaltError).toBeUndefined();
+        });
+
+        describe('a classified 403 with no retry time', () => {
+            const NOW = Date.parse('2026-09-28T12:00:00.000Z');
+            const QUEUE_ARN =
+                'arn:aws:sqs:us-east-1:123456789012:app--dev-TestQueue';
+            let sqsMock;
+            let schedulerMock;
+            let savedRoleArn;
+
+            beforeEach(() => {
+                jest.spyOn(Date, 'now').mockReturnValue(NOW);
+                savedRoleArn = process.env.SCHEDULER_ROLE_ARN;
+                process.env.SCHEDULER_ROLE_ARN =
+                    'arn:aws:iam::123456789012:role/app-dev-scheduler-role';
+                sqsMock = mockClient(SQSClient);
+                schedulerMock = mockClient(SchedulerClient);
+                schedulerMock.on(CreateScheduleCommand).resolves({});
+            });
+
+            afterEach(() => {
+                jest.restoreAllMocks();
+                sqsMock.restore();
+                schedulerMock.restore();
+                if (savedRoleArn === undefined)
+                    delete process.env.SCHEDULER_ROLE_ARN;
+                else process.env.SCHEDULER_ROLE_ARN = savedRoleArn;
+            });
+
+            it('is not halted, and is deferred to the probe time instead of going back to SQS', async () => {
+                const error = new RateLimitError({
+                    resource: 'https://api.example.com/v1/items',
+                    response: { status: 403, bodyUsed: true },
+                    hint: { reason: 'daily' },
+                    module: 'hubspot',
+                    now: NOW,
+                });
+                const FailingIntegration = class extends TestWebhookIntegration {
+                    async onWebhook() {
+                        throw error;
+                    }
+                };
+                const QueueWorker = createQueueWorker(FailingIntegration);
+
+                const result = await new QueueWorker().run({
+                    Records: [
+                        {
+                            messageId: 'msg-1',
+                            eventSourceARN: QUEUE_ARN,
+                            attributes: { ApproximateReceiveCount: '1' },
+                            body: JSON.stringify({
+                                event: 'ON_WEBHOOK',
+                                data: { body: {} },
+                            }),
+                        },
+                    ],
+                });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(error.isHaltError).toBeUndefined();
+                expect(
+                    schedulerMock
+                        .commandCalls(CreateScheduleCommand)
+                        .map((call) => call.args[0].input)
+                ).toEqual([
+                    expect.objectContaining({
+                        Name: 'frigg-defer-msg-1',
+                        ScheduleExpression: 'at(2026-09-28T13:00:00)',
+                    }),
+                ]);
+            });
+        });
+
         it('should NOT mark 500 as isHaltError (server may recover)', async () => {
             const error = new Error('Internal Server Error');
             error.statusCode = 500;
@@ -296,6 +414,606 @@ describe('Webhook Queue Worker', () => {
 
             const result = await worker.run(sqsEvent, {});
             expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+        });
+    });
+
+    describe('the RATE_LIMITED handler of the integration', () => {
+        const NOW = Date.parse('2026-09-28T12:00:00.000Z');
+        const QUEUE_ARN =
+            'arn:aws:sqs:us-east-1:123456789012:app--dev-TestQueue';
+        const limitError = () =>
+            new RateLimitError({
+                resource: 'https://api.example.com/v1/items',
+                response: { status: 429, bodyUsed: true },
+                hint: { waitMs: 60_000, reason: 'daily', source: 'header' },
+                waitMs: 60_000,
+                module: 'hubspot',
+                now: NOW,
+            });
+        const record = (data = { body: {} }) => ({
+            messageId: 'msg-1',
+            attributes: { ApproximateReceiveCount: '1' },
+            body: JSON.stringify({ event: 'ON_WEBHOOK', data }),
+        });
+
+        function limitedIntegration(onRateLimited) {
+            return class extends TestWebhookIntegration {
+                constructor(params) {
+                    super(params);
+                    if (onRateLimited) {
+                        this.events.RATE_LIMITED = {
+                            handler: onRateLimited,
+                        };
+                    }
+                }
+
+                async onWebhook() {
+                    this.ranJob = true;
+                    throw limitError();
+                }
+            };
+        }
+
+        let sqsMock;
+
+        beforeEach(() => {
+            jest.spyOn(Date, 'now').mockReturnValue(NOW);
+            sqsMock = mockClient(SQSClient);
+            sqsMock.on(GetQueueUrlCommand).resolves({ QueueUrl: 'queue-url' });
+            sqsMock.on(SendMessageCommand).resolves({ MessageId: 'new' });
+        });
+
+        afterEach(() => {
+            jest.restoreAllMocks();
+            sqsMock.restore();
+        });
+
+        const sent = () => sqsMock.commandCalls(SendMessageCommand);
+
+        it('gets the RATE_LIMITED event on the instance that ran the job, and its drop acknowledges the record', async () => {
+            const calls = [];
+            const Integration = limitedIntegration(async function (args) {
+                calls.push({ ranJob: this.ranJob, ...args });
+                return 'drop';
+            });
+            const QueueWorker = createQueueWorker(Integration);
+
+            const result = await new QueueWorker().run({
+                Records: [record()],
+            });
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(calls).toEqual([
+                expect.objectContaining({
+                    ranJob: true,
+                    data: {
+                        retryAt: new Date(NOW + 60_000),
+                        waitMs: 60_000,
+                        reason: 'daily',
+                        module: 'hubspot',
+                        scopeKey: undefined,
+                        message: { event: 'ON_WEBHOOK', data: { body: {} } },
+                        delivery: {
+                            messageId: 'msg-1',
+                            receiveCount: 1,
+                            deferrals: 0,
+                            deferredMs: 0,
+                        },
+                    },
+                    delivery: expect.objectContaining({ receiveCount: 1 }),
+                }),
+            ]);
+        });
+
+        it.each([
+            ['retry', async () => 'retry'],
+            [
+                'a throw',
+                async () => {
+                    throw new Error('handler broke');
+                },
+            ],
+        ])(
+            'fails the record, and defers nothing, for %s',
+            async (_label, onRateLimited) => {
+                const QueueWorker = createQueueWorker(
+                    limitedIntegration(onRateLimited)
+                );
+
+                const result = await new QueueWorker().run({
+                    Records: [{ ...record(), eventSourceARN: QUEUE_ARN }],
+                });
+
+                expect(result.batchItemFailures).toEqual([
+                    { itemIdentifier: 'msg-1' },
+                ]);
+                expect(sent()).toEqual([]);
+            }
+        );
+
+        it('runs the default handler when the RATE_LIMITED handler returns nothing', async () => {
+            const QueueWorker = createQueueWorker(
+                limitedIntegration(async () => undefined)
+            );
+
+            const result = await new QueueWorker().run({
+                Records: [{ ...record(), eventSourceARN: QUEUE_ARN }],
+            });
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(sent()).toHaveLength(1);
+        });
+
+        it('hydrates the integration once for the job and its RATE_LIMITED handler', async () => {
+            const execute = jest.fn();
+            const Integration = limitedIntegration(async () => 'drop');
+            let QueueWorker;
+            jest.isolateModules(() => {
+                jest.doMock(
+                    '../../integrations/repositories/process-repository-factory',
+                    () => ({
+                        createProcessRepository: () => ({
+                            findById: async () => ({
+                                id: 7,
+                                integrationId: 3,
+                                userId: 1,
+                            }),
+                        }),
+                    })
+                );
+                jest.doMock(
+                    '../../integrations/repositories/integration-repository-factory',
+                    () => ({ createIntegrationRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../modules/repositories/module-repository-factory',
+                    () => ({ createModuleRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../integrations/use-cases/get-integration-instance',
+                    () => ({
+                        GetIntegrationInstance: class {
+                            async execute() {
+                                execute();
+                                return new Integration();
+                            }
+                        },
+                    })
+                );
+                QueueWorker = require('../backend-utils').createQueueWorker(
+                    Integration
+                );
+            });
+
+            const result = await new QueueWorker().run({
+                Records: [record({ processId: 7 })],
+            });
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(execute).toHaveBeenCalledTimes(1);
+        });
+
+        it('leaves the record to the default handler when the integration has no RATE_LIMITED handler', async () => {
+            const sink = require('../../logs').createMemorySink();
+            const QueueWorker = createQueueWorker(limitedIntegration());
+
+            const result = await new QueueWorker().run({
+                Records: [record()],
+            });
+
+            expect(result.batchItemFailures).toEqual([
+                { itemIdentifier: 'msg-1' },
+            ]);
+            expect(
+                sink.records.filter(
+                    (r) => r.eventName === 'frigg.worker.record_failed'
+                )
+            ).toEqual([
+                expect.objectContaining({
+                    deferral: { skipped: 'no_event_source' },
+                }),
+            ]);
+        });
+    });
+
+    describe('the RATE_LIMITED message', () => {
+        const NOW = Date.parse('2026-09-28T12:00:00.000Z');
+        const MINUTE = 60_000;
+        const QUEUE_ARN =
+            'arn:aws:sqs:us-east-1:123456789012:app--dev-TestQueue';
+        let schedulerMock;
+        let savedRoleArn;
+
+        class HubSpotApi {
+            static rateLimit = {
+                userHints: {
+                    daily: {
+                        links: [
+                            { label: 'Limits', url: 'https://example.com/limits' },
+                        ],
+                    },
+                },
+            };
+        }
+
+        class LimitedIntegration extends TestWebhookIntegration {
+            static Definition = {
+                ...TestWebhookIntegration.Definition,
+                modules: {
+                    hubspot: {
+                        definition: { moduleName: 'hubspot', API: HubSpotApi },
+                    },
+                },
+            };
+
+            async onWebhook() {
+                throw new RateLimitError({
+                    resource: 'https://api.example.com/v1/items',
+                    response: { status: 429, bodyUsed: true },
+                    hint: { reason: 'daily', source: 'header' },
+                    waitMs: this.waitMs,
+                    module: 'hubspot',
+                    now: NOW,
+                });
+            }
+        }
+
+        beforeEach(() => {
+            jest.spyOn(Date, 'now').mockReturnValue(NOW);
+            savedRoleArn = process.env.SCHEDULER_ROLE_ARN;
+            process.env.SCHEDULER_ROLE_ARN =
+                'arn:aws:iam::123456789012:role/app-dev-scheduler-role';
+            schedulerMock = mockClient(SchedulerClient);
+            schedulerMock.on(CreateScheduleCommand).resolves({});
+        });
+
+        afterEach(() => {
+            jest.restoreAllMocks();
+            schedulerMock.restore();
+            if (savedRoleArn === undefined)
+                delete process.env.SCHEDULER_ROLE_ARN;
+            else process.env.SCHEDULER_ROLE_ARN = savedRoleArn;
+        });
+
+        let isolatedSqsMocks = [];
+
+        afterEach(() => {
+            isolatedSqsMocks.forEach((mock) => mock.restore());
+            isolatedSqsMocks = [];
+        });
+
+        function buildWorker(waitMs) {
+            const appendRateLimitMessage = jest.fn().mockResolvedValue(true);
+            let QueueWorker;
+            jest.isolateModules(() => {
+                const isolatedSqs = require('@aws-sdk/client-sqs');
+                const isolatedSqsMock = mockClient(isolatedSqs.SQSClient);
+                isolatedSqsMock
+                    .on(isolatedSqs.GetQueueUrlCommand)
+                    .resolves({ QueueUrl: 'queue-url' });
+                isolatedSqsMock
+                    .on(isolatedSqs.SendMessageCommand)
+                    .resolves({ MessageId: 'new' });
+                isolatedSqsMocks.push(isolatedSqsMock);
+                jest.doMock(
+                    '../../integrations/repositories/process-repository-factory',
+                    () => ({
+                        createProcessRepository: () => ({
+                            findById: async () => ({
+                                id: 7,
+                                integrationId: 'int-3',
+                                userId: 1,
+                                context: {},
+                            }),
+                            applyProcessUpdate: async () => ({}),
+                        }),
+                    })
+                );
+                jest.doMock(
+                    '../../integrations/repositories/integration-repository-factory',
+                    () => ({
+                        createIntegrationRepository: () => ({
+                            appendRateLimitMessage,
+                        }),
+                    })
+                );
+                jest.doMock(
+                    '../../modules/repositories/module-repository-factory',
+                    () => ({ createModuleRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../integrations/use-cases/get-integration-instance',
+                    () => ({
+                        GetIntegrationInstance: class {
+                            async execute(integrationId) {
+                                const instance = new LimitedIntegration();
+                                instance.id = integrationId;
+                                instance.waitMs = waitMs;
+                                return instance;
+                            }
+                        },
+                    })
+                );
+                QueueWorker = require('../backend-utils').createQueueWorker(
+                    LimitedIntegration
+                );
+            });
+            const run = () =>
+                new QueueWorker().run({
+                    Records: [
+                        {
+                            messageId: 'msg-1',
+                            eventSourceARN: QUEUE_ARN,
+                            attributes: { ApproximateReceiveCount: '1' },
+                            body: JSON.stringify({
+                                event: 'ON_WEBHOOK',
+                                data: { processId: 7 },
+                            }),
+                        },
+                    ],
+                });
+            return { run, appendRateLimitMessage };
+        }
+
+        it('writes the warning with the links of the module on the integration that ran the job', async () => {
+            const { run, appendRateLimitMessage } = buildWorker(20 * MINUTE);
+
+            const result = await run();
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(appendRateLimitMessage).toHaveBeenCalledTimes(1);
+            expect(appendRateLimitMessage).toHaveBeenCalledWith(
+                'int-3',
+                'warnings',
+                {
+                    title: 'Rate limit reached',
+                    message:
+                        'The hubspot API rate limit was reached. The integration tries again at 2026-09-28 12:20 UTC.',
+                    timestamp: NOW,
+                    code: 'RATE_LIMITED',
+                    module: 'hubspot',
+                    reason: 'daily',
+                    retryAt: '2026-09-28T12:20:00.000Z',
+                    actions: [
+                        { type: 'RETRY_WHEN_READY' },
+                        {
+                            type: 'LINK',
+                            label: 'Limits',
+                            url: 'https://example.com/limits',
+                        },
+                    ],
+                },
+                {
+                    retryAtFrom: '2026-09-28T12:19:00.000Z',
+                    retryAtTo: '2026-09-28T12:21:00.000Z',
+                    keepLast: 50,
+                }
+            );
+        });
+
+        it('writes no warning for a wait of up to 15 minutes', async () => {
+            const { run, appendRateLimitMessage } = buildWorker(MINUTE);
+
+            const result = await run();
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(appendRateLimitMessage).not.toHaveBeenCalled();
+        });
+
+        it('keeps the deferral when the warning cannot be written', async () => {
+            const { run, appendRateLimitMessage } = buildWorker(20 * MINUTE);
+            appendRateLimitMessage.mockRejectedValue(new Error('db down'));
+
+            const result = await run();
+
+            expect(result.batchItemFailures).toEqual([]);
+            expect(
+                schedulerMock.commandCalls(CreateScheduleCommand)
+            ).toHaveLength(1);
+        });
+    });
+
+    describe('Rate-limit run state', () => {
+        const NOW = Date.parse('2026-09-28T12:00:00.000Z');
+        const MINUTE = 60_000;
+        const at = (ms) => new Date(NOW + ms);
+        const stored = (retryAt) => ({
+            status: 'WAITING',
+            mechanism: 'delay',
+            deferrals: 1,
+            retryAt: retryAt.toISOString(),
+            reason: 'burst',
+            module: 'hubspot',
+        });
+        const next = (retryAt) => ({
+            status: 'WAITING',
+            mechanism: 'delay',
+            deferrals: 1,
+            retryAt,
+        });
+        const rateLimitError = Object.assign(new Error('limited'), {
+            isRateLimited: true,
+            reason: 'burst',
+            module: 'hubspot',
+        });
+        const message = { data: { processId: 7 } };
+        let nowSpy;
+
+        beforeEach(() => {
+            nowSpy = jest.spyOn(Date, 'now').mockReturnValue(NOW);
+        });
+
+        afterEach(() => nowSpy.mockRestore());
+
+        function buildWorker(rateLimit) {
+            const applyProcessUpdate = jest.fn().mockResolvedValue({ id: 7 });
+            const findById = jest.fn().mockResolvedValue({
+                id: 7,
+                context: rateLimit === undefined ? {} : { rateLimit },
+            });
+            let QueueWorker;
+            jest.isolateModules(() => {
+                jest.doMock(
+                    '../../integrations/repositories/process-repository-factory',
+                    () => ({
+                        createProcessRepository: () => ({
+                            applyProcessUpdate,
+                            findById,
+                        }),
+                    })
+                );
+                jest.doMock(
+                    '../../integrations/repositories/integration-repository-factory',
+                    () => ({ createIntegrationRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../modules/repositories/module-repository-factory',
+                    () => ({ createModuleRepository: () => ({}) })
+                );
+                jest.doMock(
+                    '../../integrations/use-cases/get-integration-instance',
+                    () => ({
+                        GetIntegrationInstance: class {
+                            async execute() {
+                                return new TestWebhookIntegration();
+                            }
+                        },
+                    })
+                );
+                QueueWorker = require('../backend-utils').createQueueWorker(
+                    TestWebhookIntegration
+                );
+            });
+            return { worker: new QueueWorker(), applyProcessUpdate, findById };
+        }
+
+        describe('recording a wait', () => {
+            it('writes context.rateLimit on the process of a deferred message', async () => {
+                const { worker, applyProcessUpdate } = buildWorker();
+
+                await worker.recordRateLimitWait(message, rateLimitError, {
+                    ...next(at(20 * MINUTE)),
+                    deferralId: 'msg-1',
+                });
+
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: {
+                        'context.rateLimit': {
+                            status: 'WAITING',
+                            mechanism: 'delay',
+                            retryAt: '2026-09-28T12:20:00.000Z',
+                            reason: 'burst',
+                            module: 'hubspot',
+                            deferrals: 1,
+                            deferralId: 'msg-1',
+                            updatedAt: expect.any(String),
+                        },
+                    },
+                });
+            });
+
+            it('writes nothing for a message with no processId', async () => {
+                const { worker, applyProcessUpdate, findById } = buildWorker();
+
+                await worker.recordRateLimitWait(
+                    { data: { integrationId: 3 } },
+                    rateLimitError,
+                    next(at(MINUTE))
+                );
+
+                expect(findById).not.toHaveBeenCalled();
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+        });
+
+        describe('clearing a wait', () => {
+            const sqsRecord = (frigg) => ({
+                messageId: 'msg-1',
+                body: JSON.stringify({
+                    event: 'ON_WEBHOOK',
+                    data: { processId: 7 },
+                    ...(frigg && { _frigg: frigg }),
+                }),
+                attributes: { ApproximateReceiveCount: '1' },
+            });
+
+            it('clears the wait after a deferred message runs', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE))
+                );
+
+                const result = await worker.run({
+                    Records: [
+                        sqsRecord({
+                            deferrals: 1,
+                            firstDeferredAt: at(-20 * MINUTE).toISOString(),
+                        }),
+                    ],
+                });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: { 'context.rateLimit': null },
+                });
+            });
+
+            it('clears at once the wait that the finished message set, before its retry time', async () => {
+                const { worker, applyProcessUpdate } = buildWorker({
+                    ...stored(at(60 * MINUTE)),
+                    deferralId: 'msg-1',
+                });
+
+                const result = await worker.run({
+                    Records: [
+                        {
+                            ...sqsRecord({
+                                deferrals: 1,
+                                firstDeferredAt: at(-MINUTE).toISOString(),
+                                deferralId: 'msg-1',
+                            }),
+                            messageId: 'msg-2',
+                        },
+                    ],
+                });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: { 'context.rateLimit': null },
+                });
+            });
+
+            it('does not clear the wait after a first delivery runs', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE))
+                );
+
+                const result = await worker.run({ Records: [sqsRecord()] });
+
+                expect(result.batchItemFailures).toEqual([]);
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
+
+            it('clears a wait that is over', async () => {
+                const { worker, applyProcessUpdate } = buildWorker(
+                    stored(at(-MINUTE))
+                );
+
+                await worker.clearRateLimitWait(message);
+
+                expect(applyProcessUpdate).toHaveBeenCalledWith(7, {
+                    set: { 'context.rateLimit': null },
+                });
+            });
+
+            it('writes nothing for a message with no processId', async () => {
+                const { worker, applyProcessUpdate, findById } = buildWorker();
+
+                await worker.clearRateLimitWait({ data: {} });
+                await worker.clearRateLimitWait({});
+
+                expect(findById).not.toHaveBeenCalled();
+                expect(applyProcessUpdate).not.toHaveBeenCalled();
+            });
         });
     });
 

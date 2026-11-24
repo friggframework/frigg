@@ -21,6 +21,15 @@ const {
     getModulesDefinitionFromIntegrationClasses,
 } = require('../integrations/utils/map-integration-dto');
 const { processNotFound } = require('../integrations/use-cases/process-errors');
+const {
+    RecordRateLimitWait,
+} = require('../integrations/use-cases/record-rate-limit-wait');
+const {
+    ClearRateLimitWait,
+} = require('../integrations/use-cases/clear-rate-limit-wait');
+const {
+    RecordRateLimitMessage,
+} = require('../integrations/use-cases/record-rate-limit-message');
 
 const loadRouterFromObject = (IntegrationClass, routerObject) => {
     const router = Router();
@@ -161,10 +170,73 @@ const loadIntegrationForProcess = async (processId, integrationClass) => {
     return instance;
 };
 
+const RATE_LIMITED_EVENT = 'RATE_LIMITED';
+
 const createQueueWorker = (integrationClass) => {
     const integrationName = integrationClass.Definition.name;
+    // The hydrated instance of each message, so the RATE_LIMITED handler runs
+    // on the instance that ran the job, with no second hydration.
+    const runsByMessage = new WeakMap();
 
     class QueueWorker extends Worker {
+        async decideRateLimited(event) {
+            const run = runsByMessage.get(event.message);
+            if (
+                !run?.dispatcher.findEventHandler(
+                    run.dispatcher.integrationInstance,
+                    RATE_LIMITED_EVENT
+                )
+            ) {
+                return undefined;
+            }
+            return run.dispatcher.dispatchJob({
+                event: RATE_LIMITED_EVENT,
+                data: event,
+                context: run.context,
+                delivery: run.delivery,
+            });
+        }
+
+        async recordRateLimitWait(body, error, state) {
+            const processId = body.data?.processId;
+            if (!processId) return;
+            const recordRateLimitWait = new RecordRateLimitWait({
+                processRepository: createProcessRepository(),
+            });
+            await recordRateLimitWait.execute(processId, {
+                ...state,
+                reason: error.reason,
+                module: error.module,
+            });
+        }
+
+        async recordRateLimitMessage(body, error, { retryAt, capped }) {
+            const integrationId =
+                runsByMessage.get(body)?.dispatcher.integrationInstance.id;
+            if (!integrationId) return;
+            const recordRateLimitMessage = new RecordRateLimitMessage({
+                integrationRepository: createIntegrationRepository(),
+                moduleDefinitions: getModulesDefinitionFromIntegrationClasses([
+                    integrationClass,
+                ]),
+            });
+            await recordRateLimitMessage.execute(integrationId, {
+                module: error.module,
+                reason: error.reason,
+                retryAt,
+                capped,
+            });
+        }
+
+        async clearRateLimitWait(body, { deferralId } = {}) {
+            const processId = body?.data?.processId;
+            if (!processId) return;
+            const clearRateLimitWait = new ClearRateLimitWait({
+                processRepository: createProcessRepository(),
+            });
+            await clearRateLimitWait.execute(processId, { deferralId });
+        }
+
         async _run(params, context, delivery) {
             const logCtx = {
                 integration: integrationName,
@@ -246,6 +318,7 @@ const createQueueWorker = (integrationClass) => {
                 const dispatcher = new IntegrationEventDispatcher(
                     integrationInstance
                 );
+                runsByMessage.set(params, { dispatcher, context, delivery });
 
                 console.log(
                     `[QueueWorker] dispatching ${params.event}`,
@@ -285,7 +358,8 @@ const createQueueWorker = (integrationClass) => {
                     status >= 400 &&
                     status < 500 &&
                     status !== 408 &&
-                    status !== 429
+                    status !== 429 &&
+                    !error.isRateLimited
                 ) {
                     error.isHaltError = true;
                     console.warn(

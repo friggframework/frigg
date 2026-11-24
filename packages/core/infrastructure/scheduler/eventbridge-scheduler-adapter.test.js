@@ -3,9 +3,10 @@
  *
  * Merely requiring the scheduler infrastructure (and therefore core itself)
  * must NOT load the AWS SDK. Only instantiating the EventBridge adapter should
- * reach for it. These tests simulate the SDK being absent with a virtual mock
- * that throws MODULE_NOT_FOUND, so they prove laziness regardless of whether
- * the package happens to be installed in the test environment.
+ * reach for it. These tests simulate the SDK being absent with a mock that
+ * throws MODULE_NOT_FOUND. The mock is not virtual: the package is a hard
+ * dependency, and a virtual mock is missed when an earlier test file in the
+ * same jest worker already resolved the real package.
  */
 
 const SDK = '@aws-sdk/client-scheduler';
@@ -22,13 +23,9 @@ function moduleNotFound(message) {
  */
 function withSdkThrowing(error, fn) {
     jest.isolateModules(() => {
-        jest.doMock(
-            SDK,
-            () => {
-                throw error;
-            },
-            { virtual: true }
-        );
+        jest.doMock(SDK, () => {
+            throw error;
+        });
         fn();
     });
 }
@@ -109,7 +106,7 @@ describe('EventBridge scheduler lazy AWS SDK loading', () => {
     it('instantiates the adapter when the SDK is available', () => {
         jest.isolateModules(() => {
             const SchedulerClient = jest.fn();
-            jest.doMock(SDK, () => ({ SchedulerClient }), { virtual: true });
+            jest.doMock(SDK, () => ({ SchedulerClient }));
             const {
                 EventBridgeSchedulerAdapter,
             } = require('./eventbridge-scheduler-adapter');
@@ -153,7 +150,7 @@ describe('EventBridge scheduler lazy AWS SDK loading', () => {
 
         let adapter;
         jest.isolateModules(() => {
-            jest.doMock(SDK, factory, { virtual: true });
+            jest.doMock(SDK, factory);
             const {
                 EventBridgeSchedulerAdapter,
             } = require('./eventbridge-scheduler-adapter');
@@ -190,5 +187,52 @@ describe('EventBridge scheduler lazy AWS SDK loading', () => {
         for (const [name, count] of Object.entries(reads)) {
             expect([name, count]).toEqual([name, 1]);
         }
+    });
+});
+
+const {
+    EventBridgeSchedulerAdapter,
+} = require('./eventbridge-scheduler-adapter');
+
+const ENV_KEYS = ['IS_OFFLINE', 'AWS_ENDPOINT', 'AWS_REGION'];
+
+describe('EventBridgeSchedulerAdapter', () => {
+    let savedEnv;
+
+    beforeEach(() => {
+        savedEnv = {};
+        for (const key of ENV_KEYS) {
+            savedEnv[key] = process.env[key];
+            delete process.env[key];
+        }
+    });
+
+    afterEach(() => {
+        for (const key of ENV_KEYS) {
+            if (savedEnv[key] === undefined) delete process.env[key];
+            else process.env[key] = savedEnv[key];
+        }
+    });
+
+    it('uses the offline credentials and the local endpoint, as the queue clients do', async () => {
+        process.env.IS_OFFLINE = 'true';
+        process.env.AWS_ENDPOINT = 'http://localhost:4566';
+
+        const { client } = new EventBridgeSchedulerAdapter();
+
+        const endpoint = await client.config.endpoint();
+        expect(endpoint).toMatchObject({ hostname: 'localhost', port: 4566 });
+        await expect(client.config.credentials()).resolves.toMatchObject({
+            accessKeyId: 'test-aws-key',
+        });
+    });
+
+    it('keeps the AWS endpoint and the region when no local endpoint is set', async () => {
+        process.env.AWS_REGION = 'eu-west-1';
+
+        const { client } = new EventBridgeSchedulerAdapter();
+
+        expect(client.config.isCustomEndpoint).toBe(false);
+        await expect(client.config.region()).resolves.toBe('eu-west-1');
     });
 });

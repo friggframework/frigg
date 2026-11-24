@@ -12,6 +12,7 @@
  */
 
 const { SchedulerServiceInterface } = require('./scheduler-service-interface');
+const { awsConfigOptions } = require('../../queues/queuer-util');
 
 const SCHEDULER_SDK = '@aws-sdk/client-scheduler';
 
@@ -72,6 +73,7 @@ class EventBridgeSchedulerAdapter extends SchedulerServiceInterface {
         };
         this.client = new SchedulerClient({
             region: region || process.env.AWS_REGION || 'us-east-1',
+            ...awsConfigOptions(),
         });
         this.scheduleGroupName =
             process.env.SCHEDULE_GROUP_NAME || 'frigg-integration-schedules';

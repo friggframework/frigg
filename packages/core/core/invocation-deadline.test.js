@@ -75,7 +75,7 @@ describe('core/invocation-deadline', () => {
             expect(MAX_IN_PROCESS_WAIT_MS).toEqual({
                 outsideInvocation: 300_000,
                 http: 10_000,
-                queueWorker: 60_000,
+                queueWorker: 0,
             });
             expect(Object.isFrozen(MAX_IN_PROCESS_WAIT_MS)).toBe(true);
         });

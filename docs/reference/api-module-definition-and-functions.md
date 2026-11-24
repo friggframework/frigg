@@ -237,7 +237,7 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 | `resetDeltaUnit` | The unit of a delta in the reset headers: `'s'` (default) or `'ms'`. Set `'ms'` when the provider sends `X-RateLimit-Reset: 60000` for one minute. The size of a delta cannot show its unit (60000 s is also a real daily reset), so the parser cannot find it. Epoch values are not changed. Another value throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
 | `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
-| `userHints` | Links per `reason` that a UI can show, for example `{ daily: { links: [{ label, url }] } }`. |
+| `userHints` | Text and links per `reason` for the `RATE_LIMITED` warning that the queue worker writes on the integration, for example `{ daily: { message, links: [{ label, url }] } }`. `message` replaces the default text. Keep both client-safe. |
 
 ### Built-in parsers
 
@@ -327,8 +327,10 @@ class Api extends ApiKeyRequester {
    timeout can still sleep 14.5 s. A Requester with no request timeout
    (`requestTimeoutMs: 0`) keeps half the time left, because its next request
    has no time limit. The caller owns the total, not the module:
-   10 s in an HTTP handler, 60 s in an integration queue worker, and 300 s
-   outside an invocation (tests, scripts, `frigg start`). See
+   10 s in an HTTP handler, 0 in an integration queue worker, and 300 s
+   outside an invocation (tests, scripts, `frigg start`). With 0, a queue
+   worker never sleeps for a hint. It defers the message, and the worker slot
+   is free again. See
    [The invocation deadline](#the-invocation-deadline). A request makes at most
    10 hinted retries. They do not use the retries of the ladder, so a 5xx after
    a hinted wait still gets the whole 5xx ladder.
@@ -348,8 +350,13 @@ A Requester built with `backOff: []` never sleeps: a hinted wait throws
 The parsers, `Retry-After` among them, read the headers of a 429 and of a
 response that `classify` recognises, and of no other response: a 503 with
 `Retry-After` keeps the 5xx ladder unless `classify` recognises it. The queue
-worker halts a `RateLimitError` with a 4xx status other than 408 and 429, like
-any other 4xx: it discards the message.
+worker does not halt a `RateLimitError`, even when its status is 403. It puts
+the message back to run at `retryAt` (see the Rate-Limit Deferral section of
+the [Integration Patterns Guide](/docs/guides/INTEGRATION-PATTERNS.md)). With
+no `retryAt`, it puts the message back to run after the probe interval,
+`FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default 1 hour). For a wait over 15
+minutes, an unknown `retryAt` or a cap, it also writes one `RATE_LIMITED`
+warning on the integration, with the text and links of `userHints`.
 
 ### A client that is not the Requester
 
@@ -439,7 +446,7 @@ as the option `maxInProcessWaitMs`.
 | Entry point | `maxInProcessWaitMs` |
 |---|---|
 | HTTP handlers (`createHandler` default) | `10000` |
-| Integration queue worker | `60000` |
+| Integration queue worker | `0` |
 | Outside an invocation (tests, scripts, `frigg start`) | `300000` |
 
 `remainingInvocationMs()` returns the milliseconds left, or `Infinity` outside
