@@ -108,28 +108,11 @@ jobs:
 
       # Prisma needs a replica set for MongoDB writes, and service containers
       # can't take the --replSet argument, so start it directly.
-      # Pinned: the mongo:8.0.34 image (2026-10-27) exits right after start here.
+      # scripts/start-mongo-replica-set.sh sets GLIBC_TUNABLES to bypass the
+      # MongoDB 8 false-positive kernel check on ubuntu-24.04 runners
+      # (SERVER-121912 / 7.0.0-*-azure).
       - name: Start MongoDB replica set 🍃
-        run: |
-          docker run -d --name mongo -p 27017:27017 mongo:8.0.32 --replSet rs0 --bind_ip_all
-          for i in $(seq 1 30); do
-            docker exec mongo mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' && break
-            sleep 1
-          done
-          docker exec mongo mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
-          primary=false
-          for i in $(seq 1 30); do
-            if [ "$(docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary')" = "true" ]; then
-              primary=true
-              break
-            fi
-            sleep 1
-          done
-          if [ "$primary" != true ]; then
-            echo "::error::MongoDB replica set did not elect a primary within 30s"
-            docker logs mongo | tail -50
-            exit 1
-          fi
+        run: bash scripts/start-mongo-replica-set.sh mongo 27017
 
       - name: Use Node.js 22.x 🛠
         uses: actions/setup-node@v4
