@@ -79,6 +79,55 @@ await worker.send({
 }, delaySeconds);
 ```
 
+**Rate-limit deferral** (ADR-049): for an error with `isRateLimited`, `run()`
+builds the `RATE_LIMITED` event (`{ retryAt, waitMs, reason, module, scopeKey,
+message, delivery: { messageId, receiveCount, deferrals, deferredMs } }`) and
+gives it to the hook `decideRateLimited(event)`. The hook returns `'defer'`,
+`'drop'` or `'retry'`. The `Worker` default returns no value. A throw counts as
+`'retry'`. `'drop'` acknowledges the record, writes WARN `record_dropped`, and
+clears the wait that the message set, as after a success.
+`'retry'` fails the record with `deferral.skipped` `handler_retry` (or
+`handler_failed` for a throw). The queue worker of an integration
+(`createQueueWorker`) calls the integration's `RATE_LIMITED` event handler
+there, on the instance that ran the job.
+
+For `'defer'` or no value, the default handler
+`defer(record, body, error, delivery)` runs. It returns `{ outcome }`. An
+unknown `retryAt` becomes now plus `FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default
+1 h):
+- `acked`: the message was sent again with `DelaySeconds` (wait up to 900 s) or
+  scheduled with the one-time scheduler (longer wait). The record is handled.
+- `failed`: the visibility timeout was extended to `retryAt`, or a cap
+  (`FRIGG_QUEUE_MAX_DEFERRALS`, `FRIGG_QUEUE_MAX_DEFERRED_MS`) ended the
+  deferrals. The record is reported failed.
+- `skipped`: no `eventSourceARN` or a FIFO queue (`no_event_source`), a failed send (`send_failed`), or a failed visibility
+  change (`visibility_failed`). The record fails as any error does.
+
+Each outcome writes one log record. `acked` writes WARN `record_deferred`.
+`failed` and `skipped` write one WARN (`record_visibility_extended`,
+`record_deferral_capped`, or `record_failed` with `deferral: { skipped }`). On
+the last attempt they write one ERROR, `record_lost_rate_limited`, with the
+details, and no WARN.
+
+Subclasses override two no-op hooks to keep run state.
+`recordRateLimitWait(body, error, state)` runs before a delayed message is sent,
+because with a short delay the new message can run first; a failed send clears
+the wait again. For a schedule or a visibility change it runs after the change.
+`clearRateLimitWait(body, { deferralId })` runs after a deferred or redelivered
+message succeeded.
+`state.deferralId` and `deferralId` name the message that was first put back
+(`_frigg.deferralId`, or the message's own id). A failing hook logs
+`frigg.worker.rate_limit_state_failed` and never changes the outcome. The queue
+worker of an integration (`createQueueWorker`) writes `Process.context.rateLimit`
+in them.
+
+A third no-op hook, `recordRateLimitMessage(body, error, { retryAt, capped })`,
+runs after a deferral or a cap when the wait is over 900 s, `retryAt` is
+unknown, or a cap ended the deferrals. It does not run for a `skipped`
+outcome. A failing hook logs `frigg.worker.rate_limit_message_failed` and never
+changes the outcome. The queue worker of an integration writes the
+`RATE_LIMITED` warning in it. See `packages/core/CLAUDE.md` section 7.
+
 ### Delegate Pattern System (`Delegate.js:3-27`)
 
 **Purpose**: Observer/delegation pattern for decoupled component communication
@@ -130,7 +179,7 @@ class MyIntegration extends Delegate {
 ### Lambda Handler Lifecycle
 1. **Pre-Execution Setup**:
    ```javascript
-   runInvocationScope({ requestId, handlerName, method, route, invocation }, …); // Logger scope + invocation deadline (remainingInvocationMs()) + in-process wait budget (createHandler `maxInProcessWaitMs`: 10 s HTTP, 60 s queue worker)
+   runInvocationScope({ requestId, handlerName, method, route, invocation }, …); // Logger scope + invocation deadline (remainingInvocationMs()) + in-process wait budget (createHandler `maxInProcessWaitMs`: 10 s HTTP, 0 queue worker)
    log.info('Handler invoked', { eventName: 'frigg.handler.invoked' });
    await secretsToEnv();                     // Secrets Manager injection
    await parametersToEnv();                  // SSM Parameter Store fetch (only when SSM_PARAMETER_PREFIX + FRIGG_SSM_OFFLOADED_KEYS are set)

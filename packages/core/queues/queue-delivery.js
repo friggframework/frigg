@@ -38,4 +38,5 @@ module.exports = {
     INTEGRATION_QUEUE_MAX_RECEIVE_COUNT,
     QUEUE_MAX_RECEIVE_COUNT_ENV,
     readQueueDelivery,
+    toPositiveInteger,
 };

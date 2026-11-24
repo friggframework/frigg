@@ -54,9 +54,10 @@ declare module "@friggframework/module-plugin" {
     ): Partial<Omit<RateLimitHint, "source">> & {
       source?: "header" | "body" | "static";
     } | null | undefined;
+    /** Keyed by reason. Client-safe text and links for the RATE_LIMITED message. */
     userHints?: Record<
       string,
-      { links?: Array<{ label: string; url: string }> }
+      { message?: string; links?: Array<{ label: string; url: string }> }
     >;
   };
 

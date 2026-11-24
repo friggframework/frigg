@@ -397,6 +397,68 @@ only when SQS will move the message to the DLQ if this attempt fails, and
 `false` whenever that is unknown. Use it to end a run or count lost work on
 the final try instead of leaving the run in progress.
 
+### Rate-Limit Deferral
+
+When a provider throttles a queue handler for longer than the Requester sleeps
+in process, the Requester throws `RateLimitError` with `retryAt`. Let it reach
+the queue worker. Core puts the message back so it runs at `retryAt`: it sends
+the body again with a delay (up to 15 minutes), or schedules it, or extends its
+visibility timeout (12 hours less 20 minutes at most). The delay and the
+schedule send a new message, so they do not use one of the message's three
+receives. The visibility timeout and a cap (see below) do use one.
+With a `processId` in the message, `Process.context.rateLimit` says the run is
+waiting and until when. It holds the latest known wait of the process, and is
+cleared when a message runs after that wait is over.
+
+Check `delivery.isLastAttempt` first, then rethrow:
+
+```javascript
+async processBatch({ data, delivery }) {
+    try {
+        await this.syncPage(data);
+    } catch (error) {
+        if (delivery?.isLastAttempt) return this.failRun(data.processId, error);
+        throw error; // a RateLimitError too: core puts the message back at retryAt
+    }
+}
+```
+
+A deferral past `FRIGG_QUEUE_MAX_DEFERRALS` (default 30) or
+`FRIGG_QUEUE_MAX_DEFERRED_MS` (default 26 hours) fails the record like any other
+retryable error, and `delivery` applies. The defaults cover one full day of
+hourly waits, for a module that probes a daily limit every hour. A
+`RateLimitError` with no `retryAt` (a non-429 limit that `classify` names
+without a time) runs again after the probe interval,
+`FRIGG_QUEUE_RATE_LIMIT_PROBE_MS` (default 1 hour). Do not catch a
+`RateLimitError` to write a retry of your own.
+
+For a wait over 15 minutes, an unknown `retryAt` or a cap, core also writes
+one `RATE_LIMITED` warning on the integration: `{ title, message, timestamp,
+code: 'RATE_LIMITED', module, reason, retryAt, actions }`. `retryAt` is ISO
+UTC. `actions` holds `{ type: 'RETRY_WHEN_READY' }` and a
+`{ type: 'LINK', label, url }` for each link in the `userHints` of the module.
+Concurrent workers that meet one limit write one warning. A shorter wait
+writes nothing, because the run continues within 15 minutes.
+
+To decide yourself, define a `RATE_LIMITED` event handler. The queue worker
+calls it with the `RATE_LIMITED` event as `data`, on the instance that ran the
+job. Return `'defer'` (or nothing) to let core put the message back, `'drop'`
+to delete the message, or `'retry'` to give it back to SQS. A handler that
+throws counts as `'retry'`.
+
+```javascript
+this.events = {
+    RATE_LIMITED: {
+        handler: async ({ data: event }) => {
+            // event: { retryAt, waitMs, reason, module, scopeKey, message,
+            //          delivery: { messageId, receiveCount, deferrals, deferredMs } }
+            if (event.message.event === 'REFRESH_PREVIEW') return 'drop';
+            return 'defer';
+        },
+    },
+};
+```
+
 ---
 
 ## Sync Orchestration
@@ -802,9 +864,9 @@ Put what you know about a provider's limits in its API module: declare
 The Requester then waits as the provider says. When the wait is too long to
 sleep, it throws `RateLimitError` with `retryAt`. A queue handler checks
 `delivery.isLastAttempt` first (see [Queue Handler Delivery](#queue-handler-delivery))
-and ends the run on the last attempt, then rethrows: the queue worker does not
-halt a `RateLimitError`, and SQS redelivers the message. Do not catch it to
-write a retry of your own.
+and ends the run on the last attempt. Otherwise it rethrows: the queue worker
+puts the message back to run at `retryAt` (see [Rate-Limit Deferral](#rate-limit-deferral)).
+Do not catch it to write a retry of your own.
 
 For pacing in your own loop, respect API rate limits:
 

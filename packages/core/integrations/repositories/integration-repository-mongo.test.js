@@ -11,6 +11,7 @@
 const {
     IntegrationRepositoryMongo,
 } = require('./integration-repository-mongo');
+const { withMessageRow } = require('../tests/doubles/prisma-message-row');
 
 function makeRepo({ value = null } = {}) {
     const repo = new IntegrationRepositoryMongo();
@@ -128,5 +129,265 @@ describe('IntegrationRepositoryMongo.patchIntegrationConfig', () => {
             status: 'ENABLED',
             messages: undefined,
         });
+    });
+});
+
+const ID = '507f1f77bcf86cd799439011';
+const makeMessagesRepo = (stored) =>
+    withMessageRow(new IntegrationRepositoryMongo(), ID, stored);
+
+describe('IntegrationRepositoryMongo.updateIntegrationMessages', () => {
+    const first = { title: 'First', message: 'one', timestamp: 1000 };
+    const second = { title: 'Second', message: 'two', timestamp: 2000 };
+    const keepNewest50 = { keepLast: 50 };
+
+    it('appends, so two calls leave two items', async () => {
+        const { repo, row } = makeMessagesRepo();
+
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            first,
+            keepNewest50
+        );
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            second,
+            keepNewest50
+        );
+
+        expect(row.warnings).toEqual([first, second]);
+    });
+
+    it('keeps the items that were stored before', async () => {
+        const stored = { title: 'Old', message: 'stored', timestamp: 1 };
+        const { repo, row } = makeMessagesRepo({ warnings: [stored] });
+
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            first,
+            keepNewest50
+        );
+
+        expect(row.warnings).toEqual([stored, first]);
+    });
+
+    it('writes only the column of its type', async () => {
+        const error = { title: 'Kept', message: 'error', timestamp: 1 };
+        const { repo, row } = makeMessagesRepo({ errors: [error] });
+
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            first,
+            keepNewest50
+        );
+
+        expect(repo.prisma.integration.update).toHaveBeenCalledWith({
+            where: { id: ID },
+            data: { warnings: [first] },
+        });
+        expect(row.errors).toEqual([error]);
+    });
+
+    it('throws when the integration does not exist', async () => {
+        const { repo } = makeMessagesRepo();
+        repo.prisma.integration.findUnique.mockResolvedValue(null);
+
+        await expect(
+            repo.updateIntegrationMessages(ID, 'warnings', first, keepNewest50)
+        ).rejects.toThrow(`Integration ${ID} not found`);
+        expect(repo.prisma.integration.update).not.toHaveBeenCalled();
+    });
+
+    it('stores the item with its extra keys as it is', async () => {
+        const { repo, row } = makeMessagesRepo();
+        const item = {
+            title: 'Rate limit reached',
+            message: 'It resets at noon.',
+            timestamp: 1000,
+            code: 'RATE_LIMITED',
+            actions: [{ type: 'RETRY_WHEN_READY' }],
+        };
+
+        await repo.updateIntegrationMessages(
+            ID,
+            'warnings',
+            item,
+            keepNewest50
+        );
+
+        expect(row.warnings).toEqual([item]);
+    });
+
+    it('keeps the newest 50 items of the type, oldest first', async () => {
+        const { repo, row } = makeMessagesRepo();
+
+        for (let n = 1; n <= 51; n++) {
+            await repo.updateIntegrationMessages(
+                ID,
+                'warnings',
+                { title: `W${n}`, message: 'b', timestamp: n },
+                keepNewest50
+            );
+        }
+
+        expect(row.warnings.map((item) => item.timestamp)).toEqual(
+            Array.from({ length: 50 }, (_, i) => i + 2)
+        );
+    });
+});
+
+describe('IntegrationRepositoryMongo.findIntegrationMessages', () => {
+    const stored = { title: 'Stored', message: 'warning', timestamp: 1 };
+
+    it('returns the stored items of the type', async () => {
+        const { repo } = makeMessagesRepo({ warnings: [stored] });
+
+        await expect(
+            repo.findIntegrationMessages(ID, 'warnings')
+        ).resolves.toEqual([stored]);
+    });
+
+    it('reads only the column of the type', async () => {
+        const { repo } = makeMessagesRepo();
+
+        await repo.findIntegrationMessages(ID, 'warnings');
+
+        expect(repo.prisma.integration.findUnique).toHaveBeenCalledWith({
+            where: { id: ID },
+            select: { warnings: true },
+        });
+    });
+
+    it('returns an empty list when the column holds no items', async () => {
+        const { repo } = makeMessagesRepo({ warnings: null });
+
+        await expect(
+            repo.findIntegrationMessages(ID, 'warnings')
+        ).resolves.toEqual([]);
+    });
+
+    it('throws when the integration does not exist', async () => {
+        const { repo } = makeMessagesRepo();
+        repo.prisma.integration.findUnique.mockResolvedValue(null);
+
+        await expect(
+            repo.findIntegrationMessages(ID, 'warnings')
+        ).rejects.toThrow(`Integration ${ID} not found`);
+    });
+});
+
+const RATE_LIMITED_ITEM = {
+    title: 'Rate limit reached',
+    message: 'The hubspot API rate limit was reached.',
+    timestamp: 1000,
+    code: 'RATE_LIMITED',
+    module: 'hubspot',
+    reason: 'daily',
+    retryAt: '2026-09-28T13:00:00.000Z',
+    actions: [{ type: 'RETRY_WHEN_READY' }],
+};
+const SAME_LIMIT = {
+    retryAtFrom: '2026-09-28T12:59:00.000Z',
+    retryAtTo: '2026-09-28T13:01:00.000Z',
+    keepLast: 50,
+};
+const SAME_LIMIT_MATCH = {
+    $elemMatch: {
+        code: 'RATE_LIMITED',
+        module: 'hubspot',
+        retryAt: {
+            $gte: '2026-09-28T12:59:00.000Z',
+            $lte: '2026-09-28T13:01:00.000Z',
+        },
+    },
+};
+
+describe('IntegrationRepositoryMongo.appendRateLimitMessage', () => {
+    function makeRawRepo(matched) {
+        const repo = new IntegrationRepositoryMongo();
+        repo.prisma = {
+            $runCommandRaw: jest.fn(async () => ({
+                ok: 1,
+                n: matched,
+                nModified: matched,
+            })),
+        };
+        return repo;
+    }
+
+    it('appends in one update that matches only when no stored message has the same code, module and a retryAt in the window', async () => {
+        const repo = makeRawRepo(1);
+
+        await repo.appendRateLimitMessage(
+            ID,
+            'warnings',
+            RATE_LIMITED_ITEM,
+            SAME_LIMIT
+        );
+
+        expect(repo.prisma.$runCommandRaw).toHaveBeenCalledTimes(1);
+        expect(repo.prisma.$runCommandRaw).toHaveBeenCalledWith({
+            update: 'Integration',
+            updates: [
+                {
+                    q: {
+                        _id: { $oid: ID },
+                        $nor: [{ warnings: SAME_LIMIT_MATCH }],
+                    },
+                    u: {
+                        $push: {
+                            warnings: {
+                                $each: [RATE_LIMITED_ITEM],
+                                $slice: -50,
+                            },
+                        },
+                        $set: { updatedAt: { $date: expect.any(String) } },
+                    },
+                },
+            ],
+        });
+    });
+
+    it.each([
+        [1, true],
+        [0, false],
+    ])(
+        'returns whether it appended (%p matched)',
+        async (matched, appended) => {
+            const repo = makeRawRepo(matched);
+
+            await expect(
+                repo.appendRateLimitMessage(
+                    ID,
+                    'warnings',
+                    RATE_LIMITED_ITEM,
+                    SAME_LIMIT
+                )
+            ).resolves.toBe(appended);
+        }
+    );
+
+    it('throws when the update reports a write error', async () => {
+        const repo = new IntegrationRepositoryMongo();
+        repo.prisma = {
+            $runCommandRaw: jest.fn(async () => ({
+                ok: 1,
+                n: 0,
+                writeErrors: [{ index: 0, code: 121, errmsg: 'validation' }],
+            })),
+        };
+
+        await expect(
+            repo.appendRateLimitMessage(
+                ID,
+                'warnings',
+                RATE_LIMITED_ITEM,
+                SAME_LIMIT
+            )
+        ).rejects.toThrow('validation');
     });
 });

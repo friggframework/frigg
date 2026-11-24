@@ -11,6 +11,7 @@
 const {
     IntegrationRepositoryPostgres,
 } = require('./integration-repository-postgres');
+const { withMessageRow } = require('../tests/doubles/prisma-message-row');
 
 function makeRepo({ affectedCount = 1 } = {}) {
     const repo = new IntegrationRepositoryPostgres();
@@ -119,5 +120,230 @@ describe('IntegrationRepositoryPostgres.patchIntegrationConfig', () => {
             status: 'ENABLED',
             messages: {},
         });
+    });
+});
+
+const makeMessagesRepo = (stored) =>
+    withMessageRow(new IntegrationRepositoryPostgres(), 7, stored);
+
+describe('IntegrationRepositoryPostgres.updateIntegrationMessages', () => {
+    const first = { title: 'First', message: 'one', timestamp: 1000 };
+    const second = { title: 'Second', message: 'two', timestamp: 2000 };
+    const keepNewest50 = { keepLast: 50 };
+
+    it('appends, so two calls leave two items', async () => {
+        const { repo, row } = makeMessagesRepo();
+
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            first,
+            keepNewest50
+        );
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            second,
+            keepNewest50
+        );
+
+        expect(row.warnings).toEqual([first, second]);
+    });
+
+    it('keeps the items that were stored before', async () => {
+        const stored = { title: 'Old', message: 'stored', timestamp: 1 };
+        const { repo, row } = makeMessagesRepo({ warnings: [stored] });
+
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            first,
+            keepNewest50
+        );
+
+        expect(row.warnings).toEqual([stored, first]);
+    });
+
+    it('writes only the column of its type', async () => {
+        const error = { title: 'Kept', message: 'error', timestamp: 1 };
+        const { repo, row } = makeMessagesRepo({ errors: [error] });
+
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            first,
+            keepNewest50
+        );
+
+        expect(repo.prisma.integration.update).toHaveBeenCalledWith({
+            where: { id: 7 },
+            data: { warnings: [first] },
+        });
+        expect(row.errors).toEqual([error]);
+    });
+
+    it('throws when the integration does not exist', async () => {
+        const { repo } = makeMessagesRepo();
+        repo.prisma.integration.findUnique.mockResolvedValue(null);
+
+        await expect(
+            repo.updateIntegrationMessages('7', 'warnings', first, keepNewest50)
+        ).rejects.toThrow('Integration 7 not found');
+        expect(repo.prisma.integration.update).not.toHaveBeenCalled();
+    });
+
+    it('stores the item with its extra keys as it is', async () => {
+        const { repo, row } = makeMessagesRepo();
+        const item = {
+            title: 'Rate limit reached',
+            message: 'It resets at noon.',
+            timestamp: 1000,
+            code: 'RATE_LIMITED',
+            actions: [{ type: 'RETRY_WHEN_READY' }],
+        };
+
+        await repo.updateIntegrationMessages(
+            '7',
+            'warnings',
+            item,
+            keepNewest50
+        );
+
+        expect(row.warnings).toEqual([item]);
+    });
+
+    it('keeps the newest 50 items of the type, oldest first', async () => {
+        const { repo, row } = makeMessagesRepo();
+
+        for (let n = 1; n <= 51; n++) {
+            await repo.updateIntegrationMessages(
+                '7',
+                'warnings',
+                { title: `W${n}`, message: 'b', timestamp: n },
+                keepNewest50
+            );
+        }
+
+        expect(row.warnings.map((item) => item.timestamp)).toEqual(
+            Array.from({ length: 50 }, (_, i) => i + 2)
+        );
+    });
+});
+
+describe('IntegrationRepositoryPostgres.findIntegrationMessages', () => {
+    const stored = { title: 'Stored', message: 'warning', timestamp: 1 };
+
+    it('returns the stored items of the type', async () => {
+        const { repo } = makeMessagesRepo({ warnings: [stored] });
+
+        await expect(
+            repo.findIntegrationMessages('7', 'warnings')
+        ).resolves.toEqual([stored]);
+    });
+
+    it('reads only the column of the type', async () => {
+        const { repo } = makeMessagesRepo();
+
+        await repo.findIntegrationMessages('7', 'warnings');
+
+        expect(repo.prisma.integration.findUnique).toHaveBeenCalledWith({
+            where: { id: 7 },
+            select: { warnings: true },
+        });
+    });
+
+    it('returns an empty list when the column holds no items', async () => {
+        const { repo } = makeMessagesRepo({ warnings: null });
+
+        await expect(
+            repo.findIntegrationMessages('7', 'warnings')
+        ).resolves.toEqual([]);
+    });
+
+    it('throws when the integration does not exist', async () => {
+        const { repo } = makeMessagesRepo();
+        repo.prisma.integration.findUnique.mockResolvedValue(null);
+
+        await expect(
+            repo.findIntegrationMessages('7', 'warnings')
+        ).rejects.toThrow('Integration 7 not found');
+    });
+});
+
+const RATE_LIMITED_ITEM = {
+    title: 'Rate limit reached',
+    message: 'The hubspot API rate limit was reached.',
+    timestamp: 1000,
+    code: 'RATE_LIMITED',
+    module: 'hubspot',
+    reason: 'daily',
+    retryAt: '2026-09-28T13:00:00.000Z',
+    actions: [{ type: 'RETRY_WHEN_READY' }],
+};
+const SAME_LIMIT = {
+    retryAtFrom: '2026-09-28T12:59:00.000Z',
+    retryAtTo: '2026-09-28T13:01:00.000Z',
+    keepLast: 50,
+};
+
+describe('IntegrationRepositoryPostgres.appendRateLimitMessage', () => {
+    function makeRawRepo(rows) {
+        const repo = new IntegrationRepositoryPostgres();
+        repo.prisma = { $queryRawUnsafe: jest.fn(async () => rows) };
+        return repo;
+    }
+
+    it('appends in one UPDATE that has a NOT EXISTS guard on the same limit', async () => {
+        const repo = makeRawRepo([{ id: 7 }]);
+
+        const appended = await repo.appendRateLimitMessage(
+            '7',
+            'warnings',
+            RATE_LIMITED_ITEM,
+            SAME_LIMIT
+        );
+
+        expect(appended).toBe(true);
+        expect(repo.prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+        const [sql, ...params] = repo.prisma.$queryRawUnsafe.mock.calls[0];
+        expect(sql).toMatch(/^\s*UPDATE "Integration"/);
+        expect(sql).toMatch(/SET "warnings" =/);
+        expect(sql).toMatch(/NOT EXISTS/);
+        expect(params).toEqual([
+            JSON.stringify(RATE_LIMITED_ITEM),
+            50,
+            7,
+            'RATE_LIMITED',
+            'hubspot',
+            '2026-09-28T12:59:00.000Z',
+            '2026-09-28T13:01:00.000Z',
+        ]);
+    });
+
+    it('returns false when no row was updated', async () => {
+        const repo = makeRawRepo([]);
+
+        await expect(
+            repo.appendRateLimitMessage(
+                '7',
+                'warnings',
+                RATE_LIMITED_ITEM,
+                SAME_LIMIT
+            )
+        ).resolves.toBe(false);
+    });
+
+    it('refuses a column that is not a message type', async () => {
+        const repo = makeRawRepo([]);
+
+        await expect(
+            repo.appendRateLimitMessage(
+                '7',
+                'config',
+                RATE_LIMITED_ITEM,
+                SAME_LIMIT
+            )
+        ).rejects.toThrow('Unknown message type: config');
+        expect(repo.prisma.$queryRawUnsafe).not.toHaveBeenCalled();
     });
 });

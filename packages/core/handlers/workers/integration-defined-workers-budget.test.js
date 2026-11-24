@@ -15,12 +15,12 @@ jest.mock('../backend-utils', () => ({
 const { MAX_IN_PROCESS_WAIT_MS } = require('../../core/invocation-deadline');
 
 describe('integration queue worker handler', () => {
-    it('runs with the queue worker wait budget', () => {
+    it('runs with a wait budget of 0, so a hinted wait never holds a worker slot', () => {
         const { handlers } = require('./integration-defined-workers');
 
         expect(handlers.hubspot.queueWorker.maxInProcessWaitMs).toBe(
             MAX_IN_PROCESS_WAIT_MS.queueWorker
         );
-        expect(MAX_IN_PROCESS_WAIT_MS.queueWorker).toBe(60_000);
+        expect(MAX_IN_PROCESS_WAIT_MS.queueWorker).toBe(0);
     });
 });

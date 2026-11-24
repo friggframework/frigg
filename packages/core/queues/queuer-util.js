@@ -127,4 +127,4 @@ const QueuerUtil = {
     },
 };
 
-module.exports = { QueuerUtil };
+module.exports = { QueuerUtil, awsConfigOptions };

@@ -72,15 +72,45 @@ class TestIntegrationRepository {
         return results;
     }
 
-    async updateIntegrationMessages(id, type, title, body, timestamp) {
+    async updateIntegrationMessages(id, type, item, { keepLast }) {
         const rec = this.store.get(id);
         if (!rec) {
             this.operationHistory.push({ operation: 'updateMessages', id, success: false });
             return false;
         }
         if (!rec.messages[type]) rec.messages[type] = [];
-        rec.messages[type].push({ title, message: body, timestamp });
+        rec.messages[type].push(item);
+        rec.messages[type] = rec.messages[type].slice(-keepLast);
         this.operationHistory.push({ operation: 'updateMessages', id, type, success: true });
+        return true;
+    }
+
+    async findIntegrationMessages(id, type) {
+        const rec = this.store.get(id);
+        this.operationHistory.push({
+            operation: 'findMessages',
+            id,
+            type,
+            found: !!rec,
+        });
+        if (!rec) throw new Error(`Integration ${id} not found`);
+        return [...(rec.messages[type] ?? [])];
+    }
+
+    async appendRateLimitMessage(id, type, item, { retryAtFrom, retryAtTo, keepLast }) {
+        const rec = this.store.get(id);
+        if (!rec) return false;
+        const stored = rec.messages[type] ?? [];
+        const sameLimit = stored.some(
+            (kept) =>
+                kept?.code === item.code &&
+                kept.module === item.module &&
+                kept.retryAt >= retryAtFrom &&
+                kept.retryAt <= retryAtTo
+        );
+        if (sameLimit) return false;
+        rec.messages[type] = [...stored, item].slice(-keepLast);
+        this.operationHistory.push({ operation: 'appendRateLimitMessage', id, type });
         return true;
     }
 
