@@ -20,6 +20,7 @@
 * [Cooking with Frigg](guides/cooking-with-frigg.md)
 * [Logging](guides/LOGGING.md)
   * [Logging in an Integration](guides/LOGGING-IN-INTEGRATIONS.md)
+* [Enable OpenTelemetry](guides/enable-opentelemetry.md)
 
 ## 💭 Explanation (Understanding) <a href="#explanation" id="explanation"></a>
 
@@ -34,6 +35,7 @@
 * [Encryption and Security](reference/encryption-and-security.md)
 * [VPC Configuration](reference/vpc-configuration.md)
 * [SSM Configuration](reference/ssm-configuration.md)
+* [Telemetry](reference/telemetry.md)
 * [API Reference](reference/api-reference.md)
 
 ## 🔌 API Modules
