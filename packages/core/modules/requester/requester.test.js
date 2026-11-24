@@ -648,6 +648,22 @@ describe('Requester', () => {
                 expect(error.body).toContain('LIMIT');
             });
 
+            it('retries a 404 that an over-matching classify names as a limit, 10 times', async () => {
+                const Api = withPolicy({
+                    classify: () => ({ reason: 'burst', waitMs: 1_000 }),
+                });
+                const fetch = throttledFetch(Array(11).fill({ status: 404 }));
+
+                const error = await makeRequester(fetch, {}, Api)
+                    ._get({ url })
+                    .catch((e) => e);
+
+                expect(error).toBeInstanceOf(RateLimitError);
+                expect(error.statusCode).toBe(404);
+                expect(delays).toEqual(Array(10).fill(1_000));
+                expect(fetch).toHaveBeenCalledTimes(11);
+            });
+
             it('leaves a 403 that classify does not recognise as a plain FetchError', async () => {
                 const Api = withPolicy({ classify: () => null });
                 const fetch = throttledFetch([

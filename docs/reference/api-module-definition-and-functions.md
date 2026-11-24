@@ -276,6 +276,14 @@ A result counts only when it has a known `reason`, a finite `waitMs` or a valid
 be synchronous. A `classify` that throws or returns a Promise is logged
 (`rate_limit_classify_failed`) and counts as `null`.
 
+**Warning:** make `classify` match only the provider's limit signal (a status
+and a limit code in the body or headers). Do not match a status alone. A
+`classify` that names a response that is not a limit (a 404, for example) as a
+limit with a time makes the Requester call again after each wait. One request
+can make up to 10 hinted retries, and then it throws `RateLimitError`, not the
+usual `FetchError`. With no time, it throws `RateLimitError` after one call.
+Return `null` for each response that you do not know to be a limit.
+
 ```javascript
 class Api extends OAuth2Requester {
     static rateLimit = {
