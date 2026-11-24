@@ -314,7 +314,9 @@ class Api extends ApiKeyRequester {
    this request may still sleep, in total, and the time left in the Lambda
    invocation less one request timeout. That reserve is never more than half
    the time left, so a 29 s HTTP invocation with the default 60 s request
-   timeout can still sleep 14.5 s. The caller owns the total, not the module:
+   timeout can still sleep 14.5 s. A Requester with no request timeout
+   (`requestTimeoutMs: 0`) keeps half the time left, because its next request
+   has no time limit. The caller owns the total, not the module:
    10 s in an HTTP handler, 60 s in an integration queue worker, and 300 s
    outside an invocation (tests, scripts, `frigg start`). See
    [The invocation deadline](#the-invocation-deadline). A request makes at most

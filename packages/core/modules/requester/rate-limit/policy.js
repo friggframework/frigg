@@ -280,15 +280,16 @@ function computeWaitMs({ hint, policy, budgetMs, random = Math.random }) {
 
 function inProcessBudgetMs({
     maxInProcessWaitMs,
-    requestTimeoutMs = 0,
+    requestTimeoutMs,
     remainingMs = Infinity,
     waitedMs = 0,
 } = {}) {
-    const reserveMs = Math.min(requestTimeoutMs || 0, remainingMs / 2);
-    return Math.max(
-        0,
-        Math.min(maxInProcessWaitMs - waitedMs, remainingMs - reserveMs)
-    );
+    const halfLeftMs = remainingMs / 2;
+    const sleepableMs =
+        requestTimeoutMs > 0
+            ? Math.max(remainingMs - requestTimeoutMs, halfLeftMs)
+            : halfLeftMs;
+    return Math.max(0, Math.min(maxInProcessWaitMs - waitedMs, sleepableMs));
 }
 
 module.exports = {

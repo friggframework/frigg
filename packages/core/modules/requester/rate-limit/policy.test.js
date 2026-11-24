@@ -902,20 +902,31 @@ describe('rate-limit/policy', () => {
             ).toBe(0);
         });
 
-        it('treats a missing request timeout as 0', () => {
+        it.each([
+            ['0', 0],
+            ['null', null],
+            ['missing', undefined],
+        ])(
+            'keeps half of the time left when the request timeout is %s (no timeout)',
+            (_label, requestTimeoutMs) => {
+                expect(
+                    inProcessBudgetMs({
+                        maxInProcessWaitMs: 300_000,
+                        requestTimeoutMs,
+                        remainingMs: 50_000,
+                    })
+                ).toBe(25_000);
+            }
+        );
+
+        it('keeps no reserve with no request timeout and no deadline', () => {
             expect(
                 inProcessBudgetMs({
                     maxInProcessWaitMs: 300_000,
-                    remainingMs: 50_000,
+                    requestTimeoutMs: 0,
+                    remainingMs: Infinity,
                 })
-            ).toBe(50_000);
-            expect(
-                inProcessBudgetMs({
-                    maxInProcessWaitMs: 300_000,
-                    requestTimeoutMs: null,
-                    remainingMs: 50_000,
-                })
-            ).toBe(50_000);
+            ).toBe(300_000);
         });
     });
 });
