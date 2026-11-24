@@ -182,6 +182,48 @@ describe('rate-limit/parsers', () => {
             });
         });
 
+        it('reads a delta as seconds by default', () => {
+            const hint = parseResetHeaders(
+                { 'x-ratelimit-reset': '60000' },
+                { now: NOW }
+            );
+            expect(hint.waitMs).toBe(60_000_000);
+        });
+
+        it.each([
+            ['x-ratelimit-reset', '60000', 60_000],
+            ['ratelimit-reset', '1500', 1_500],
+            ['x-ratelimit-reset-after', '2500', 2_500],
+        ])(
+            'reads %s = %s as %d ms when the delta unit is ms',
+            (name, value, waitMs) => {
+                expect(
+                    parseResetHeaders(
+                        { [name]: value },
+                        { now: NOW, resetDeltaUnit: 'ms' }
+                    )
+                ).toEqual({
+                    waitMs,
+                    retryAt: new Date(NOW + waitMs),
+                    source: 'header',
+                });
+            }
+        );
+
+        it.each([
+            ['epoch seconds', epochSeconds(90_000)],
+            ['epoch milliseconds', String(NOW + 90_000)],
+        ])(
+            'still reads %s as a time when the delta unit is ms',
+            (_label, value) => {
+                const hint = parseResetHeaders(
+                    { 'x-ratelimit-reset': value },
+                    { now: NOW, resetDeltaUnit: 'ms' }
+                );
+                expect(hint.waitMs).toBe(90_000);
+            }
+        );
+
         it('waits 0 ms when the reset time is already past', () => {
             const hint = parseResetHeaders(
                 { 'x-ratelimit-reset': epochSeconds(-30_000) },

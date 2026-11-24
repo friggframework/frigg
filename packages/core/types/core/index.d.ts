@@ -6,6 +6,8 @@ declare module "@friggframework/core" {
     RateLimitSignal,
   } from "@friggframework/module-plugin";
 
+  export { RateLimitError } from "@friggframework/errors";
+
   export class Delegate implements IFriggDelegate {
     delegate: any;
     delegateTypes: any[];
@@ -127,7 +129,7 @@ declare module "@friggframework/core" {
 
   export function parseResetHeaders(
     headers: object | undefined,
-    options?: { now?: number }
+    options?: { now?: number; resetDeltaUnit?: "s" | "ms" }
   ): RateLimitHint | null;
 
   export function parseIetfRateLimit(

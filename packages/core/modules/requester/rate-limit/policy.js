@@ -6,6 +6,7 @@ const {
 } = require('./parsers');
 
 const DEFAULT_PARSERS = ['retryAfter', 'resetHeaders', 'ietf'];
+const RESET_DELTA_UNITS = ['s', 'ms'];
 const MIN_HINTED_WAIT_MS = 1_000;
 const JITTER_MAX_MS = 1_000;
 const JITTER_RATIO = 0.1;
@@ -46,6 +47,16 @@ function readParsers(raw, owner) {
     return [...raw.parsers];
 }
 
+function readResetDeltaUnit(raw, owner) {
+    const unit = raw.resetDeltaUnit;
+    if (unit === undefined || RESET_DELTA_UNITS.includes(unit)) return unit;
+    throw new TypeError(
+        `${owner}.rateLimit.resetDeltaUnit: unknown unit "${String(
+            unit
+        )}"; known: ${RESET_DELTA_UNITS.join(', ')}`
+    );
+}
+
 function normalizePolicy(raw, owner) {
     if (!isPlainObject(raw)) return undefined;
 
@@ -59,6 +70,8 @@ function normalizePolicy(raw, owner) {
     if (typeof raw.classify === 'function') {
         policy.classify = (signal) => raw.classify(signal);
     }
+    const resetDeltaUnit = readResetDeltaUnit(raw, owner);
+    if (resetDeltaUnit) policy.resetDeltaUnit = resetDeltaUnit;
     if (Number.isFinite(raw.minRetryAfterMs) && raw.minRetryAfterMs >= 0) {
         policy.minRetryAfterMs = raw.minRetryAfterMs;
     }
@@ -177,7 +190,10 @@ function runClassify(policy, signal, now, onClassifyError) {
 
 function parsedHint(policy, headers, now) {
     for (const name of policy?.parsers ?? DEFAULT_PARSERS) {
-        const hint = BUILT_IN_PARSERS[name](headers, { now });
+        const hint = BUILT_IN_PARSERS[name](headers, {
+            now,
+            resetDeltaUnit: policy?.resetDeltaUnit,
+        });
         if (hint) return hint;
     }
     return null;
@@ -280,15 +296,16 @@ function computeWaitMs({ hint, policy, budgetMs, random = Math.random }) {
 
 function inProcessBudgetMs({
     maxInProcessWaitMs,
-    requestTimeoutMs = 0,
+    requestTimeoutMs,
     remainingMs = Infinity,
     waitedMs = 0,
 } = {}) {
-    const reserveMs = Math.min(requestTimeoutMs || 0, remainingMs / 2);
-    return Math.max(
-        0,
-        Math.min(maxInProcessWaitMs - waitedMs, remainingMs - reserveMs)
-    );
+    const halfLeftMs = remainingMs / 2;
+    const sleepableMs =
+        requestTimeoutMs > 0
+            ? Math.max(remainingMs - requestTimeoutMs, halfLeftMs)
+            : halfLeftMs;
+    return Math.max(0, Math.min(maxInProcessWaitMs - waitedMs, sleepableMs));
 }
 
 module.exports = {

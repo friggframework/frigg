@@ -3,9 +3,9 @@ const Boom = require('@hapi/boom');
 const { createApp } = require('./app-handler-helpers');
 const { createMemorySink } = require('../logs');
 const { SECRETS } = require('../logs/__fixtures__/secrets');
-const { ClientSafeError, FetchError } = require('../errors');
+const { ClientSafeError, FetchError, RateLimitError } = require('../errors');
 
-async function request(router, { path = '/fail', headers = {} } = {}) {
+async function send(router, { path = '/fail', headers = {} } = {}) {
     const app = createApp((a) => a.use(router));
     const server = await new Promise((resolve) => {
         const s = app.listen(0, () => resolve(s));
@@ -13,10 +13,15 @@ async function request(router, { path = '/fail', headers = {} } = {}) {
     try {
         const { port } = server.address();
         const res = await fetch(`http://127.0.0.1:${port}${path}`, { headers });
-        return { status: res.status, body: await res.json() };
+        return { status: res.status, headers: res.headers, body: await res.json() };
     } finally {
         await new Promise((resolve) => server.close(resolve));
     }
+}
+
+async function request(router, options) {
+    const { status, body } = await send(router, options);
+    return { status, body };
 }
 
 describe('createApp error middleware (ADR-048 Phase 2)', () => {
@@ -142,6 +147,75 @@ describe('createApp error middleware (ADR-048 Phase 2)', () => {
             expect(res).toEqual({ status: 500, body: { error: 'Internal Server Error' } });
         }
     );
+
+    describe('a rate limit', () => {
+        const PROVIDER_URL = 'https://api.example.com/contacts?page=2';
+
+        it('answers 429 with Retry-After from retryAt and hides the provider details', async () => {
+            const error = new RateLimitError({
+                resource: PROVIDER_URL,
+                response: { status: 429 },
+                hint: { reason: 'daily' },
+                waitMs: 30_000,
+            });
+            const res = await send(failingWith(error));
+
+            expect(res.status).toBe(429);
+            expect(res.headers.get('retry-after')).toBe('30');
+            expect(res.body).toEqual({
+                error: 'Too Many Requests',
+                retryAt: error.retryAt.toISOString(),
+            });
+        });
+
+        it('logs one WARN frigg.http.request_rate_limited with the retry time', async () => {
+            const error = new RateLimitError({
+                resource: PROVIDER_URL,
+                hint: { reason: 'daily' },
+                waitMs: 30_000,
+            });
+            await send(failingWith(error));
+
+            const limited = byEvent('frigg.http.request_rate_limited');
+            expect(limited).toHaveLength(1);
+            expect(limited[0]).toMatchObject({
+                level: 'WARN',
+                statusCode: 429,
+                error: { retryAt: error.retryAt.toISOString(), reason: 'daily' },
+            });
+            expect(byEvent('frigg.http.request_failed')).toHaveLength(0);
+            expect(sink.records.filter((r) => r.level === 'ERROR')).toHaveLength(0);
+        });
+
+        it('sends no Retry-After when the retry time is unknown', async () => {
+            const res = await send(failingWith(new RateLimitError({ resource: PROVIDER_URL })));
+
+            expect(res.status).toBe(429);
+            expect(res.headers.get('retry-after')).toBeNull();
+            expect(res.body).toEqual({ error: 'Too Many Requests' });
+        });
+
+        it('answers 429 for any error flagged isRateLimited', async () => {
+            const error = Object.assign(new Error('token endpoint limited'), {
+                isRateLimited: true,
+                retryAt: new Date(Date.now() + 5_000),
+            });
+            const res = await send(failingWith(error));
+
+            expect(res.status).toBe(429);
+            expect(res.headers.get('retry-after')).toBe('5');
+        });
+
+        it('sends Retry-After 0 when the retry time is past', async () => {
+            const error = Object.assign(new Error('limited'), {
+                isRateLimited: true,
+                retryAt: new Date(Date.now() - 5_000),
+            });
+            const res = await send(failingWith(error));
+
+            expect(res.headers.get('retry-after')).toBe('0');
+        });
+    });
 
     it('does not pass an upstream status through for an error that is not client-safe', async () => {
         const res = await request(

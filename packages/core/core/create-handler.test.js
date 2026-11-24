@@ -10,6 +10,7 @@ const { createHandler } = require('./create-handler');
 const { invocationMaxInProcessWaitMs } = require('./invocation-deadline');
 const { getLogger, createMemorySink } = require('../logs');
 const { HaltError } = require('../errors/halt-error');
+const { RateLimitError } = require('../errors/rate-limit-error');
 const { httpApiV2Event, sqsEvent } = require('../logs/__fixtures__/events');
 const { SECRETS } = require('../logs/__fixtures__/secrets');
 
@@ -436,6 +437,34 @@ describe('createHandler — logger scope and records (ADR-048)', () => {
         expect(rejected[0]).toMatchObject({ level: 'WARN', statusCode: 422, error: { status: 422 } });
         expect(sink.records).toContainNoSecretWindow([SECRETS.bearer]);
         expect(sink.records.filter((r) => r.level === 'ERROR')).toHaveLength(0);
+    });
+
+    it('answers a rate limit with 429 and Retry-After, and logs one WARN frigg.handler.rate_limited', async () => {
+        const error = new RateLimitError({
+            resource: 'https://api.example.com/contacts',
+            hint: { reason: 'burst' },
+            waitMs: 30_000,
+        });
+        const res = await build(async () => { throw error; })({}, ctx());
+
+        expect(res).toEqual({
+            statusCode: 429,
+            headers: { 'Retry-After': '30' },
+            body: JSON.stringify({ error: 'Too Many Requests', retryAt: error.retryAt.toISOString() }),
+        });
+        const limited = byEvent('frigg.handler.rate_limited');
+        expect(limited).toHaveLength(1);
+        expect(limited[0]).toMatchObject({ level: 'WARN', statusCode: 429, error: { reason: 'burst' } });
+        expect(byEvent('frigg.handler.failed')).toHaveLength(0);
+    });
+
+    it('still rethrows a rate limit for a server-to-server handler', async () => {
+        const handler = build(
+            async () => { throw new RateLimitError({ waitMs: 30_000 }); },
+            { isUserFacingResponse: false }
+        );
+        await expect(handler({}, ctx())).rejects.toBeDefined();
+        expect(byEvent('frigg.handler.rate_limited')).toHaveLength(0);
     });
 
     it('defaults the rejected status to 400', async () => {

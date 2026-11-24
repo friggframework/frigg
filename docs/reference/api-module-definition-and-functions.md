@@ -234,6 +234,7 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 | `scope` | The key a limit counts against: `'entity'` (default), `'credential'`, `'app'`, or a synchronous function `(requester) => key` that returns a string or a number. The Requester puts it on `RateLimitError.scopeKey`, which is `undefined` when the requester has no id for the scope or the function returns another type. |
 | `minRetryAfterMs` | A wait never shorter than this. Use it when the docs say "wait 60 seconds" and the response says nothing. |
 | `parsers` | The header parsers to read, in order: `retryAfter`, `resetHeaders`, `ietf`. Default: all three. A name that is not built in throws a `TypeError` when the API class is constructed. |
+| `resetDeltaUnit` | The unit of a delta in the reset headers: `'s'` (default) or `'ms'`. Set `'ms'` when the provider sends `X-RateLimit-Reset: 60000` for one minute. The size of a delta cannot show its unit (60000 s is also a real daily reset), so the parser cannot find it. Epoch values are not changed. Another value throws a `TypeError` when the API class is constructed. |
 | `classify` | Recognises a limit that is not a plain 429, or names its reason. See below. |
 | `windows`, `maxConcurrency` | The provider's limits, as documentation. A window named like the `reason` (`{ name: 'burst', perMs: 10000 }`) sets the wait when no header does, unless `minRetryAfterMs` is longer. Pacing uses them later. |
 | `userHints` | Text and links per `reason` for the `RATE_LIMITED` warning that the queue worker writes on the integration, for example `{ daily: { message, links: [{ label, url }] } }`. `message` replaces the default text. Keep both client-safe. |
@@ -243,14 +244,15 @@ that the runtime does not read: only `static rateLimit` on the API class counts.
 | Parser | Reads |
 |---|---|
 | `retryAfter` | `Retry-After`: delta seconds, an HTTP-date or an ISO timestamp |
-| `resetHeaders` | `X-RateLimit-Reset-After` (delta seconds), else `X-RateLimit-Reset`, `RateLimit-Reset` or `X-Rate-Limit-Reset`: epoch milliseconds, epoch seconds or delta seconds (told apart by size), or a date. `remaining` comes from `X-RateLimit-Remaining`, `RateLimit-Remaining` or `X-Rate-Limit-Remaining` |
+| `resetHeaders` | `X-RateLimit-Reset-After` (a delta), else `X-RateLimit-Reset`, `RateLimit-Reset` or `X-Rate-Limit-Reset`: epoch milliseconds, epoch seconds or a delta (told apart by size), or a date. A delta is in seconds, or in milliseconds when `resetDeltaUnit` is `'ms'`. `remaining` comes from `X-RateLimit-Remaining`, `RateLimit-Remaining` or `X-Rate-Limit-Remaining` |
 | `ietf` | The IETF `RateLimit` field, as `limit=, remaining=, reset=` or as structured items (`"name";r=0;t=12`). In a list, the item with the fewest remaining calls wins, then the longest wait. `RateLimit-Policy` names the policy |
 
 A parser reads the headers from a `Headers` object, a `Map`, an entries array or
 a plain object, and matches the names in any case. A time in the past waits
 0 ms. A wait that is negative, not a number or longer than 366 days is ignored.
 The package exports the parsers as `parseRetryAfter(value, { now })`,
-`parseResetHeaders(headers, { now })` and `parseIetfRateLimit(headers, { now })`.
+`parseResetHeaders(headers, { now, resetDeltaUnit })` and
+`parseIetfRateLimit(headers, { now })`.
 Each returns a hint or `null`.
 
 ### What `classify` returns
@@ -273,6 +275,14 @@ A result counts only when it has a known `reason`, a finite `waitMs` or a valid
 `retryAt`; anything else, `{}` for example, counts as `null`. `classify` must
 be synchronous. A `classify` that throws or returns a Promise is logged
 (`rate_limit_classify_failed`) and counts as `null`.
+
+**Warning:** make `classify` match only the provider's limit signal (a status
+and a limit code in the body or headers). Do not match a status alone. A
+`classify` that names a response that is not a limit (a 404, for example) as a
+limit with a time makes the Requester call again after each wait. One request
+can make up to 10 hinted retries, and then it throws `RateLimitError`, not the
+usual `FetchError`. With no time, it throws `RateLimitError` after one call.
+Return `null` for each response that you do not know to be a limit.
 
 ```javascript
 class Api extends OAuth2Requester {
@@ -314,7 +324,9 @@ class Api extends ApiKeyRequester {
    this request may still sleep, in total, and the time left in the Lambda
    invocation less one request timeout. That reserve is never more than half
    the time left, so a 29 s HTTP invocation with the default 60 s request
-   timeout can still sleep 14.5 s. The caller owns the total, not the module:
+   timeout can still sleep 14.5 s. A Requester with no request timeout
+   (`requestTimeoutMs: 0`) keeps half the time left, because its next request
+   has no time limit. The caller owns the total, not the module:
    10 s in an HTTP handler, 0 in an integration queue worker, and 300 s
    outside an invocation (tests, scripts, `frigg start`). With 0, a queue
    worker never sleeps for a hint. It defers the message, and the worker slot
@@ -325,6 +337,12 @@ class Api extends ApiKeyRequester {
 4. A wait that does not fit throws `RateLimitError`. It extends `FetchError`, so
    `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
    `policy`, `source`, `module` and `scopeKey`.
+
+An HTTP route answers an error with `isRateLimited` (a `RateLimitError`, or a
+token-endpoint error that copies the field) with 429 and
+`{ error: 'Too Many Requests', retryAt }`. It sets `Retry-After` to the seconds
+until `retryAt`. When `retryAt` is unknown, it sends no `Retry-After` and no
+`retryAt`. The response does not show the provider URL or body.
 
 A Requester built with `backOff: []` never sleeps: a hinted wait throws
 `RateLimitError` at once, and a 429 with no hint throws a plain `FetchError`.
