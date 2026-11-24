@@ -32,6 +32,7 @@ const {
 const {
     nestedNodeModulesExcludes,
 } = require('../shared/utilities/nested-node-modules');
+const { queueArnFromUrl } = require('../shared/utilities/sqs-queue-arn');
 const { bundledPrismaEngineExcludes } = require('../shared/lambda-architectures');
 const {
     INTEGRATION_QUEUE_MAX_RECEIVE_COUNT,
@@ -621,6 +622,20 @@ class IntegrationBuilder extends InfrastructureBuilder {
             result,
             appDefinition
         );
+
+        // The base role grants these only on the queues the stack names, and
+        // the queue worker sends, looks up and defers rate-limited messages
+        // on this queue too (ADR-049).
+        result.iamStatements.push({
+            Effect: 'Allow',
+            Action: [
+                'sqs:SendMessage',
+                'sqs:GetQueueUrl',
+                'sqs:GetQueueAttributes',
+                'sqs:ChangeMessageVisibility',
+            ],
+            Resource: [queueArnFromUrl(decision.physicalId)],
+        });
 
         console.log(`  ✓ Using external queue: ${decision.physicalId}`);
     }

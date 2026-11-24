@@ -262,6 +262,50 @@ describe('IntegrationBuilder', () => {
             ).toBeUndefined();
         });
 
+        it('lets the functions send to, look up and defer messages on an external queue', async () => {
+            const result = await integrationBuilder.build(
+                {
+                    integrations: [
+                        {
+                            Definition: { name: 'test' },
+                            ownership: { queue: 'external' },
+                            queue: {
+                                url: 'https://sqs.us-east-1.amazonaws.com/123456789012/test-queue',
+                            },
+                        },
+                    ],
+                },
+                {}
+            );
+
+            expect(result.iamStatements).toEqual([
+                {
+                    Effect: 'Allow',
+                    Action: [
+                        'sqs:SendMessage',
+                        'sqs:GetQueueUrl',
+                        'sqs:GetQueueAttributes',
+                        'sqs:ChangeMessageVisibility',
+                    ],
+                    Resource: [
+                        {
+                            'Fn::Sub':
+                                'arn:${AWS::Partition}:sqs:us-east-1:123456789012:test-queue',
+                        },
+                    ],
+                },
+            ]);
+        });
+
+        it('adds no queue statement for a queue the stack creates, because the base role covers it', async () => {
+            const result = await integrationBuilder.build(
+                { integrations: [{ Definition: { name: 'test' } }] },
+                {}
+            );
+
+            expect(result.iamStatements).toEqual([]);
+        });
+
         it('adds no resource, function or env var when no module declares rateLimit', async () => {
             class Api {}
             const { merged } = await new BuilderOrchestrator([

@@ -689,9 +689,11 @@ that meet one limit write one warning. A rate limit does not change the status
 of the integration.
 
 A failing run state hook adds `rate_limit_state_failed`. A failing message hook
-adds `rate_limit_message_failed`. Neither changes the outcome. A queue in a stack
-that does not own it (`ownership.queue: 'external'`) needs its own
-`sqs:ChangeMessageVisibility` and scheduler access.
+adds `rate_limit_message_failed`. Neither changes the outcome. For a queue that
+the stack does not own (`ownership.queue: 'external'`), devtools grants the
+functions `sqs:SendMessage`, `sqs:GetQueueUrl`, `sqs:GetQueueAttributes` and
+`sqs:ChangeMessageVisibility` on the queue's ARN, and the scheduler role
+`sqs:SendMessage` on it.
 
 ### 8. Error Handling (`/errors`)
 
