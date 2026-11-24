@@ -13,6 +13,7 @@ const {
     DEFAULT_FLUSH_TIMEOUT_MS,
 } = require('./invocation-scope');
 const { MAX_IN_PROCESS_WAIT_MS } = require('./invocation-deadline');
+const { rateLimitedResponse } = require('./rate-limited-response');
 const { secretsToEnv } = require('./secrets-to-env');
 const { parametersToEnv } = require('./parameters-to-env');
 const {
@@ -104,6 +105,22 @@ const createHandler = (optionByName = {}) => {
                             body: JSON.stringify({
                                 error: error.message,
                             }),
+                        };
+                    }
+
+                    const rateLimited =
+                        isUserFacingResponse && rateLimitedResponse(error);
+                    if (rateLimited) {
+                        log.warn('Request rate limited', {
+                            eventName: 'frigg.handler.rate_limited',
+                            statusCode: rateLimited.statusCode,
+                            invocation: requestDetails,
+                            error,
+                        });
+                        return {
+                            statusCode: rateLimited.statusCode,
+                            headers: rateLimited.headers,
+                            body: JSON.stringify(rateLimited.body),
                         };
                     }
 

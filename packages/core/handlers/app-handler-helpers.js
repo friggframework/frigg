@@ -1,6 +1,7 @@
 const { createHandler } = require('@friggframework/core');
 const { getLogger } = require('../logs');
 const { summarizeExpressRequest } = require('../logs/summarize-event');
+const { rateLimitedResponse } = require('../core/rate-limited-response');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -38,6 +39,20 @@ const createApp = (applyMiddleware) => {
 
     // The express boundary: send the error response and log it one time.
     app.use((err, req, res, next) => {
+        const rateLimited = rateLimitedResponse(err);
+        if (rateLimited) {
+            log.warn('Request rate limited', {
+                eventName: 'frigg.http.request_rate_limited',
+                statusCode: rateLimited.statusCode,
+                invocation: summarizeExpressRequest(req),
+                error: err,
+            });
+            res.set(rateLimited.headers)
+                .status(rateLimited.statusCode)
+                .json(rateLimited.body);
+            return;
+        }
+
         const boomError = toBoom(err);
         const {
             output: { statusCode = 500 },

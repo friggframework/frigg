@@ -36,6 +36,10 @@ const handler = createHandler({
 
 **Error Handling Patterns**:
 - **User-Facing**: Returns 500 with generic "Internal Error Occurred" message
+- **Rate Limited (user-facing)**: An error with `isRateLimited` returns 429,
+  `Retry-After` in seconds from `retryAt` (none when `retryAt` is unknown) and
+  `{ error: 'Too Many Requests', retryAt }`. The express boundary in
+  `handlers/app-handler-helpers.js` does the same (`rate-limited-response.js`)
 - **Server-to-Server**: Re-throws errors for AWS to handle
 - **Halt Errors**: `error.isHaltError = true` logs but returns success (no retry)
 
@@ -152,6 +156,7 @@ class MyIntegration extends Delegate {
 4. **Error Handling & Cleanup**:
    ```javascript
    // One record at the boundary: WARN frigg.handler.rejected (client-safe),
+   // WARN frigg.handler.rate_limited (user-facing, isRateLimited: 429),
    // ERROR frigg.handler.failed, or ERROR frigg.handler.halted (halt, no retry).
    // Sanitized error response for user-facing endpoints; server-to-server
    // errors are rethrown as a sanitized surrogate (toSanitizedSurrogate).

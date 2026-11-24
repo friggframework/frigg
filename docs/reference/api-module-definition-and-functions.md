@@ -328,6 +328,12 @@ class Api extends ApiKeyRequester {
    `statusCode` stays, and adds `isRateLimited`, `retryAt`, `waitMs`, `reason`,
    `policy`, `source`, `module` and `scopeKey`.
 
+An HTTP route answers an error with `isRateLimited` (a `RateLimitError`, or a
+token-endpoint error that copies the field) with 429 and
+`{ error: 'Too Many Requests', retryAt }`. It sets `Retry-After` to the seconds
+until `retryAt`. When `retryAt` is unknown, it sends no `Retry-After` and no
+`retryAt`. The response does not show the provider URL or body.
+
 A Requester built with `backOff: []` never sleeps: a hinted wait throws
 `RateLimitError` at once, and a 429 with no hint throws a plain `FetchError`.
 
