@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Module directory · Frigg</title>
+  <meta name="description" content="Discover Frigg API modules with release-specific documentation, declared compatibility, and source links.">
+  <link rel="icon" href="/assets/img/frigg-favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="directory.css">
+  <script src="directory.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="/">frigg<span> / directory</span></a><a href="https://docs.friggframework.org">Documentation ↗</a></header>
+  <main>
+    <p class="eyebrow">THE MODULE DIRECTORY</p>
+    <h1>Find your next<br>connection.</h1>
+    <p class="intro">API modules for the integrations you own. Explore what each package exposes, check compatibility, and read the docs for the version you install.</p>
+    <form role="search" onsubmit="return false">
+      <div><label for="search">Search modules</label><input id="search" type="search" placeholder="Provider, capability, package…" autocomplete="off"></div>
+      <div><label for="category">Category</label><select id="category"><option value="">All categories</option></select></div>
+    </form>
+    <p id="status" role="status" aria-live="polite">Loading published modules…</p>
+    <div id="modules" class="modules"></div>
+    <noscript><p>Enable JavaScript to search the directory, or <a href="https://docs.friggframework.org">browse the documentation</a>.</p></noscript>
+    <aside><h2>A release is the source of truth.</h2><p>Entries appear when a published module's documentation bundle is imported. Compatibility ranges come from the package; tested versions are listed separately. A listing does not imply a verified or partner endorsement.</p></aside>
+  </main>
+  <footer><span>Integrations woven by agents. Owned by you.</span><a href="https://github.com/friggframework/api-module-library">Contribute a module ↗</a></footer>
+</body>
+</html>
