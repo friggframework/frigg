@@ -24,6 +24,7 @@
 ## 💭 Explanation (Understanding) <a href="#explanation" id="explanation"></a>
 
 * [The "Why" of Frigg Technical Decisions](explanation/the-why-of-frigg-technical-decisions.md)
+* [Hosts](explanation/hosts.md)
 
 ## 📖 Reference (Information) <a href="#reference" id="reference"></a>
 
@@ -170,7 +171,7 @@
 
 ## 📞 Support
 
-* [Contact](support/support.md)
+* [Get support](support/support.md)
 * [Frequently Asked Questions (FAQs)](support/frequently-asked-questions.md)
 
 ## 🗺️ Roadmap
