@@ -1,19 +1,51 @@
 # Start Your Frigg App
 
-Ready to see Frigg in action? Let's start it up!
+Time to make it go. Three commands, all run from your app folder.
 
-Make sure you're in the root directory of your application, then use:
+## 1. Start PostgreSQL
+
+This is the Docker one-liner `frigg init` printed:
+
+```bash
+docker run --name frigg-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
+```
+
+It matches the `DATABASE_URL` in `.env` (`postgresql://postgres:postgres@localhost:5432/frigg`). Already have PostgreSQL running somewhere? Point `DATABASE_URL` in `.env` at it and skip this step.
+
+## 2. Set up the database
+
+```bash
+npm run db:setup
+```
+
+This runs `frigg db:setup`. It generates the Prisma client, checks it can connect, and applies Frigg's migrations. With the default stage (`development`) it uses `prisma migrate dev`, which creates the `frigg` database if it doesn't exist yet. You should finish with:
 
 ```
-npm run start
+✅ Database setup completed successfully!
 ```
 
-Your browser should open to `http://localhost:3000` and you should see your Login screen.
+## 3. Start the backend
 
-<figure><img src="../../.gitbook/assets/Screenshot 2024-08-12 at 5.28.30 PM.png" alt="" width="328"><figcaption><p>Login screen of your Frigg app</p></figcaption></figure>
+```bash
+npm start
+```
 
-Before you continue, make sure that both your frontend and backend are running. An easy way to know is to check if your terminal looks something like this:
+This runs `frigg start`, which runs your app under serverless-offline (stage `dev` by default) and reads `.env`. After a few seconds you'll see a table of routes and:
 
-<figure><img src="../../.gitbook/assets/image (4).png" alt="Console log displaying the backend server being &#x22;ready&#x22; on localhost:3001"><figcaption><p>The terminal output shows the backend server running locally, with a list of active routes and endpoints available for testing and development</p></figcaption></figure>
+```
+Server ready: http://localhost:3001 🚀
+```
 
-If your terminal shows that the backend is also running, you can now experience with your app as an end-user and connect it to see live data coming through!
+Check it's alive from another terminal:
+
+```bash
+curl http://localhost:3001/health
+```
+
+A `200` response means you're in business. To stop the backend, press `Ctrl+C`.
+
+{% hint style="info" %}
+`frigg start` serves on port **3001**. Keep that in mind if something else on your machine likes that port too.
+{% endhint %}
+
+Next: [add an integration](add-an-integration.md).
