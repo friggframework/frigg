@@ -159,7 +159,11 @@
         .hero-meta{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;margin-top:1.7rem;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--mist)}
         .hero-meta b{color:var(--ink);font-weight:500}
         .hero-visual{position:relative;min-height:420px}
-        #weave{width:100%;height:100%;position:absolute;inset:0;display:block}
+        .hero > .hero-grid{position:relative;z-index:1;pointer-events:none}
+        .hero .hero-copy,.hero .term{pointer-events:auto}
+        @media (max-width:1279px){ .hero{padding-bottom:calc(clamp(2.5rem,5vw,4rem) + 3.25rem)} }
+        @media (max-width:900px){ .hero{padding-top:4.75rem} .hero-visual{min-height:0} }
+        .soon{display:inline-block;margin-left:.5rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dawn);border:1px solid color-mix(in srgb,var(--dawn) 45%,transparent);border-radius:999px;padding:.05rem .5rem;vertical-align:middle}
         /* Terminal */
         .term{position:relative;width:100%;max-width:100%;min-width:0;background:var(--code-bg);border:1px solid var(--line-strong);border-radius:14px;box-shadow:var(--shadow);
             font-family:'JetBrains Mono',monospace;font-size:.83rem;line-height:1.75;color:var(--code-ink);overflow:hidden;z-index:2}
@@ -460,6 +464,7 @@
             .fa-msg{max-width:94%}
         }
     </style>
+    <link rel="stylesheet" href="assets/trail/trail.css">
 </head>
 
 <body>
@@ -504,11 +509,12 @@
 
     <!-- ============ HERO ============ -->
     <section class="hero">
+        <div class="hero-trail" id="heroTrail"></div>
         <div class="wrap hero-grid">
             <div class="hero-copy">
                 <span class="eyebrow">Open source · serverless · yours</span>
                 <h1>Integrations,<br><span class="thread">woven by agents.</span><br><span class="own">Owned by you.</span></h1>
-                <p class="lede">Frigg is the open-source, serverless framework where an agent scaffolds a real, tested integration in an afternoon. Every integration it builds is also an MCP tool your own agents can call.</p>
+                <p class="lede">Frigg is the open-source, serverless framework where an agent scaffolds a real, tested integration in an afternoon. It runs on your cloud and your database, and it's built to run in production.</p>
                 <div class="hero-cta">
                     <a class="btn primary" href="#build">See how it ships
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -521,13 +527,12 @@
                 <div class="hero-meta">
                     <span><b>MIT</b> + commercial</span>
                     <span>Runs on <b>your cloud</b></span>
-                    <span><b>200+</b> APIs charted</span>
+                    <span><b>35</b> modules · <b>200+</b> APIs catalogued</span>
                     <span class="mono">v2.0.0-next</span>
                 </div>
             </div>
 
             <div class="hero-visual">
-                <canvas id="weave" aria-hidden="true"></canvas>
                 <div class="term" role="img" aria-label="Terminal showing an agent scaffolding a Frigg integration">
                     <div class="term-head">
                         <span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -544,8 +549,8 @@
         <div class="wrap">
             <div class="marq-head reveal">
                 <div class="stat-row">
-                    <div class="stat"><b>200+</b><span>APIs charted</span></div>
-                    <div class="stat"><b>70</b><span>Platforms</span></div>
+                    <div class="stat"><b>35</b><span>Modules built</span></div>
+                    <div class="stat"><b>200+</b><span>APIs catalogued</span></div>
                     <div class="stat"><b>1</b><span>Framework</span></div>
                 </div>
                 <p class="mono" style="color:var(--mist);font-size:.82rem;max-width:34ch">The connectors the community has already charted. Drop one in with a single <span style="color:var(--falcon-ink)">frigg&nbsp;install</span>.</p>
@@ -612,7 +617,7 @@
 
             <div class="shift">
                 <article class="block reveal">
-                    <span class="tag">Agents build it</span>
+                    <span class="tag">Agents build it</span><span class="soon">Harness coming</span>
                     <h3>Point an agent at two systems. Get a tested integration.</h3>
                     <p>Not boilerplate you copy. Run <span class="code-inline">frigg init</span>, then the agent harness grounds the model in your app's own conventions, queries the capabilities that already exist, scaffolds from templates, and validates its plan before it writes a line. You finish the last mile (mapping and business logic) instead of starting from a blank file.</p>
                 </article>
@@ -625,7 +630,7 @@
 
                 <article class="block wide reveal">
                     <div>
-                        <span class="tag">Integrations as MCP tools</span>
+                        <span class="tag">Integrations as MCP tools</span><span class="soon">Roadmap</span>
                         <h3>Every integration is also a tool your agents can call.</h3>
                         <p>Frigg describes what each integration does as typed <b>capabilities</b> like <span class="code-inline">crm.contact.sync</span> and <span class="code-inline">notifications.slack.send</span>. Flip the <span class="code-inline">mcp-tool</span> surface on and your agents call those integrations directly, right alongside raw MCP tools that are plain API requests. One capability graph, exposed to humans over <span class="code-inline">GET /api/capabilities</span> and to agents as tools.</p>
                     </div>
@@ -1063,104 +1068,6 @@
         }
         if (reduce){ renderStatic(); } else { setTimeout(typeIt, 500); }
 
-        /* ---------- Weave canvas ---------- */
-        var cv = document.getElementById('weave');
-        if (cv && cv.getContext){
-            var ctx = cv.getContext('2d');
-            var W=0,H=0,dpr=Math.min(window.devicePixelRatio||1,2);
-            var col = {};
-            function readColors(){
-                var cs = getComputedStyle(root);
-                col.falcon = cs.getPropertyValue('--falcon').trim() || '#71a087';
-                col.dawn = cs.getPropertyValue('--dawn').trim() || '#e6b24d';
-                col.line = cs.getPropertyValue('--line-strong').trim() || '#2b3d35';
-                col.mist = cs.getPropertyValue('--mist').trim() || '#7d8f84';
-            }
-            window.__weaveRecolor = readColors;
-            var nodesL=[], nodesR=[], threads=[];
-            function resize(){
-                var r = cv.getBoundingClientRect(); W=r.width; H=r.height;
-                cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
-                build();
-            }
-            function build(){
-                nodesL=[]; nodesR=[];
-                var n = 5;
-                for (var i=0;i<n;i++){
-                    nodesL.push({x:W*0.12, y:H*(0.16+0.68*i/(n-1))});
-                    nodesR.push({x:W*0.88, y:H*(0.16+0.68*i/(n-1))});
-                }
-                threads=[];
-                for (var t=0;t<7;t++) threads.push(newThread(t*0.5));
-            }
-            function newThread(delay){
-                var a = nodesL[Math.floor(rnd()*nodesL.length)];
-                var b = nodesR[Math.floor(rnd()*nodesR.length)];
-                var amber = rnd() < 0.28;
-                return {a:a,b:b, p:-delay, speed:0.10+rnd()*0.12, amber:amber, life:0};
-            }
-            function pt(a,b,mx,my,t){
-                var u=1-t;
-                return {
-                    x: u*u*a.x + 2*u*t*mx + t*t*b.x,
-                    y: u*u*a.y + 2*u*t*my + t*t*b.y
-                };
-            }
-            var raf;
-            function frame(){
-                ctx.clearRect(0,0,W,H);
-                // faint node dots
-                ctx.fillStyle = col.mist;
-                [nodesL,nodesR].forEach(function(arr){ arr.forEach(function(nd){
-                    ctx.globalAlpha=.5; ctx.beginPath(); ctx.arc(nd.x,nd.y,2.5,0,7); ctx.fill();
-                }); });
-                ctx.globalAlpha=1;
-                threads.forEach(function(th,idx){
-                    th.p += th.speed*0.016*3;
-                    if (th.p < 0) return;
-                    var mx=(th.a.x+th.b.x)/2 + (idx%2?40:-40);
-                    var my=(th.a.y+th.b.y)/2 + Math.sin(idx)*30;
-                    var prog = Math.min(th.p,1);
-                    var color = th.amber ? col.dawn : col.falcon;
-                    // drawn portion of the woven thread
-                    ctx.strokeStyle = color; ctx.lineWidth = th.amber?1.6:1.2; ctx.globalAlpha = th.amber?.85:.6;
-                    ctx.beginPath();
-                    for (var s=0;s<=prog;s+=0.03){
-                        var q=pt(th.a,th.b,mx,my,s);
-                        if (s===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y);
-                    }
-                    ctx.stroke();
-                    // the shuttle (falcon) head
-                    if (prog < 1){
-                        var head=pt(th.a,th.b,mx,my,prog);
-                        ctx.globalAlpha=1; ctx.fillStyle=color;
-                        ctx.beginPath(); ctx.arc(head.x,head.y, th.amber?3.4:2.6, 0,7); ctx.fill();
-                        ctx.globalAlpha=.25; ctx.beginPath(); ctx.arc(head.x,head.y, 7, 0,7); ctx.fill();
-                    }
-                    ctx.globalAlpha=1;
-                    if (th.p > 1.9){ threads[idx]=newThread(0); }
-                });
-                raf=requestAnimationFrame(frame);
-            }
-            function stop(){ if (raf) cancelAnimationFrame(raf); }
-            readColors(); resize();
-            window.addEventListener('resize', resize);
-            if (reduce){
-                // static woven state
-                threads.forEach(function(t){ t.p = 1.4; });
-                ctx.clearRect(0,0,W,H); frameStatic();
-            } else { frame(); }
-            function frameStatic(){
-                threads.forEach(function(th,idx){
-                    var mx=(th.a.x+th.b.x)/2+(idx%2?40:-40), my=(th.a.y+th.b.y)/2+Math.sin(idx)*30;
-                    ctx.strokeStyle = th.amber?col.dawn:col.falcon; ctx.globalAlpha=.5; ctx.lineWidth=1.2;
-                    ctx.beginPath();
-                    for (var s=0;s<=1;s+=0.03){ var q=pt(th.a,th.b,mx,my,s); s===0?ctx.moveTo(q.x,q.y):ctx.lineTo(q.x,q.y); }
-                    ctx.stroke();
-                });
-                ctx.globalAlpha=1;
-            }
-        }
     })();
     </script>
 
@@ -1417,6 +1324,18 @@
             if (e.key === 'Escape' && panel.classList.contains('open')) close();
         });
     })();
+    </script>
+    <!-- Hero trail backdrop (ported from lefthook.com) -->
+    <script src="assets/trail/icons.js" defer></script>
+    <script src="assets/trail/trail.js" defer></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var el = document.getElementById('heroTrail');
+        if (el && window.FriggTrail) window.FriggTrail.mount(el, {
+            avoid: ['.hero-copy', { selector: '.term', well: false }],
+            trackEvent: 'hero_logo_tap'
+        });
+    });
     </script>
 </body>
 
