@@ -9,6 +9,7 @@ const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 const fs = require('fs');
 const path = require('path');
+const { addSchemaWithAliases } = require('../schema-ids');
 
 // Initialize AJV with formats
 const ajv = new Ajv({
@@ -33,7 +34,7 @@ schemaFiles.forEach(file => {
     if (fs.existsSync(schemaPath)) {
         const schemaContent = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
         const schemaName = file.replace('.schema.json', '');
-        ajv.addSchema(schemaContent, schemaName);
+        addSchemaWithAliases(ajv, schemaContent, schemaName);
     }
 });
 

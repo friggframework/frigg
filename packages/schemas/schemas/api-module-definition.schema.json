@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.friggframework.org/api-module-definition.schema.json",
+  "$id": "https://friggframework.org/schemas/api-module-definition/v1.0.json",
   "title": "Frigg API Module Definition",
   "description": "Schema for defining a Frigg API module including authentication, API configuration, and required methods.",
   "type": "object",

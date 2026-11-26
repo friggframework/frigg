@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.friggframework.org/serverless-config.schema.json",
+  "$id": "https://friggframework.org/schemas/serverless-config/v1.0.json",
   "title": "Frigg Serverless Configuration",
   "description": "Schema for Serverless Framework configuration used in Frigg applications for AWS deployment.",
   "type": "object",
