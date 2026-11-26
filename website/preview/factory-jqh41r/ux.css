@@ -1,0 +1,36 @@
+*{box-sizing:border-box}body{margin:0;background:#F4F6F1;color:#14201B;font:12px/1.5 'JetBrains Mono',monospace}
+.sheet{width:1920px;padding:56px 64px;background:#F4F6F1}
+h1,.ft{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;color:#14201B}h1{font-size:44px;margin:4px 0 0}
+.kick,.lt,.chip{font-size:11px;text-transform:uppercase;letter-spacing:.06em}.kick{color:#2C704F}
+.rule{height:3px;width:240px;margin:14px 0 10px;border-radius:2px;background:linear-gradient(120deg,#E0530A,#71A087)}
+.sub{color:#3C4B44;font-size:13px}code{background:#ECEFE7;padding:1px 6px;border-radius:5px;color:#2C704F}
+.chip{display:inline-block;border-radius:999px;padding:3px 10px;border:1px solid #C6CFC0;background:#fff;color:#3C4B44;margin:0 6px 6px 0}
+.chip.ex{border-color:#71A087;color:#2C704F}.chip.inf{border:1.5px solid #E0530A;color:#E0530A}.chip.im{border:1.5px dashed #C6CFC0;color:#69796F}.chip.eg{background:#ECEFE7;border-color:#ECEFE7;color:#69796F}
+.frames{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;margin-top:40px}
+.frame{background:#fff;border:1px solid #DBE1D6;border-radius:11px;padding:24px;box-shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.25);display:flex;flex-direction:column}
+.fh{display:flex;align-items:center;gap:10px;margin-bottom:16px}.ft{font-size:20px;font-weight:600}
+.num{flex:0 0 28px;height:28px;border-radius:999px;background:#10201A;color:#DFEEE7;display:grid;place-items:center;font-weight:700}
+.term{background:#10201A;color:#DFEEE7;border-radius:11px;overflow:hidden;flex:1}
+.tb{display:flex;gap:6px;align-items:center;padding:10px 14px;border-bottom:1px solid #22362D}.tb i{width:9px;height:9px;border-radius:50%;background:#2B3D35}.tb span{margin-left:8px;color:#7d8f84;font-size:11px}
+.tx{padding:16px 18px;font-size:12.5px;line-height:1.7;min-height:220px}
+.u{color:#fff;font-weight:500;margin:4px 0}.pr{color:#E0530A}.a{color:#DFEEE7}.ok{color:#84B39B}.x{color:#F0A37A}.d{color:#8FA398;white-space:pre}.hd2{color:#84B39B;text-transform:uppercase;font-size:11px;letter-spacing:.06em}
+.btn{display:inline-block;border:1px solid #71A087;color:#B9D7C6;border-radius:8px;padding:2px 10px;margin:6px 0;white-space:pre}
+.cap{margin-top:16px;color:#3C4B44;font-size:12px}.cap b{color:#14201B}.chips{margin-bottom:6px}
+.flowwrap{margin-top:48px;background:#ECEFE7;border-radius:18px;padding:32px}.lt{color:#2C704F;margin-bottom:20px}
+.flow{display:flex;flex-direction:column;align-items:center}
+.root{background:#10201A;color:#DFEEE7;border-radius:11px;padding:14px 24px;font-size:14px}
+.stem{width:1.5px;height:24px;background:#C6CFC0}
+.brs{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;width:100%;position:relative;padding-top:24px;border-top:1.5px solid #C6CFC0}
+.br{display:flex;flex-direction:column;align-items:stretch;position:relative}
+.br:before{content:"";position:absolute;top:-24px;left:50%;height:24px;width:1.5px;background:#C6CFC0}
+.bl{font-family:'Bricolage Grotesque';font-weight:700;font-size:18px;text-align:center;margin-bottom:12px;color:#2C704F}
+.fn{background:#fff;border:1px solid #DBE1D6;border-left:3px solid #71A087;border-radius:11px;padding:12px 16px;font-size:12.5px;box-shadow:0 1px 2px rgba(20,32,27,.06)}
+.fn .chip{font-size:9.5px;padding:1px 7px;display:block;width:max-content;margin-bottom:4px}
+.fn.inf{border:1.5px solid #E0530A}.fn.im{opacity:.7;border:1.5px dashed #C6CFC0;box-shadow:none}
+.dn{height:20px;width:1.5px;background:#C6CFC0;margin:0 auto;position:relative}.dn:after{content:"";position:absolute;bottom:-1px;left:-3.5px;border:4px solid transparent;border-top:5px solid #C6CFC0}
+.notes{margin-top:24px;color:#69796F;font-size:11.5px}.notes b{color:#3C4B44}
+.legend{margin-top:24px}
+.ovgrid{display:grid;grid-template-columns:720px 1fr;gap:48px;margin-top:40px;align-items:start}
+.ovgrid .tx{font-size:16px;min-height:300px}.ovgrid .btn{display:block;width:max-content}
+.ints{display:flex;flex-direction:column;gap:24px}.int{display:flex;gap:16px;background:#fff;border:1px solid #DBE1D6;border-radius:11px;padding:24px;box-shadow:0 1px 2px rgba(20,32,27,.06),0 12px 34px -18px rgba(20,32,27,.25)}
+.int .ft{font-size:24px}.d2{color:#3C4B44;margin:6px 0 10px;font-size:13px}

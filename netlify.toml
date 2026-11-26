@@ -32,3 +32,9 @@
   to = 'http://roadmap.friggframework.org/:splat'
   status = 301
   force = true
+
+# Unlisted preview pages: keep them out of search indexes.
+[[headers]]
+  for = "/preview/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
