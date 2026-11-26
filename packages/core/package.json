@@ -1,5 +1,6 @@
 {
     "name": "@friggframework/core",
+    "description": "Core framework for Frigg integrations (handlers, modules, encryption, database).",
     "prettier": "@friggframework/prettier-config",
     "version": "2.0.0-next.0",
     "dependencies": {

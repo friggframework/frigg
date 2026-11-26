@@ -27,6 +27,13 @@
       "minLength": 1,
       "maxLength": 100
     },
+    "modelName": {
+      "type": "string",
+      "description": "Entity/credential model name used by the Module runtime (e.g. 'Fathom'). Distinct from moduleName, which is the package identifier.",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
+      "minLength": 1,
+      "maxLength": 100
+    },
     "requiredAuthMethods": {
       "type": "object",
       "description": "Required authentication methods and configuration",
@@ -86,6 +93,22 @@
         "testAuthRequest": {
           "type": "object",
           "description": "Method to test authentication",
+          "properties": {
+            "type": {"type": "string", "enum": ["function"]},
+            "async": {"type": "boolean", "default": true}
+          }
+        },
+        "getAuthorizationRequirements": {
+          "type": "object",
+          "description": "Method that returns the authorization requirements (type, jsonSchema/uiSchema) for non-OAuth flows such as API key",
+          "properties": {
+            "type": {"type": "string", "enum": ["function"]},
+            "async": {"type": "boolean", "default": true}
+          }
+        },
+        "setAuthParams": {
+          "type": "object",
+          "description": "Method that applies authorization parameters (e.g. API key) to the API instance",
           "properties": {
             "type": {"type": "string", "enum": ["function"]},
             "async": {"type": "boolean", "default": true}

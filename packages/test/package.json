@@ -36,7 +36,7 @@
     "url": "https://github.com/friggframework/frigg/issues"
   },
   "homepage": "https://github.com/friggframework/frigg#readme",
-  "description": "",
+  "description": "Shared Jest helpers and Mongo memory-server setup for Frigg packages.",
   "publishConfig": {
     "access": "public"
   }

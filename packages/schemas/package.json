@@ -40,6 +40,7 @@
     "mocks/",
     "middleware/",
     "app-definition.js",
+    "api-module-definition.js",
     "index.js"
   ]
 }
