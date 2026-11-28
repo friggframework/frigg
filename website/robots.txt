@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Serverless functions and internal tooling are not pages.
+Disallow: /.netlify/
+Disallow: /friggframework-api/
+Disallow: /tools/
+
+Sitemap: https://friggframework.org/sitemap.xml
